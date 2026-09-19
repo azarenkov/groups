@@ -1,7 +1,7 @@
 import React from "react";
 
 import type { ChannelMessage } from "../../../shared/types/channel";
-import { MAX_ATTACHMENTS_PER_MESSAGE } from "../api/attachment";
+import { maxAttachmentsPerMessage } from "../api/attachment";
 import { formatDayDivider, sameDay } from "../lib/messageFormat";
 import Message from "./Message";
 import type { PendingFile } from "../types";
@@ -113,7 +113,7 @@ const MessageList: React.FC<MessageListProps> = ({
                   onAddEditFiles={(files) =>
                     onAddEditFiles(
                       files,
-                      MAX_ATTACHMENTS_PER_MESSAGE -
+                      maxAttachmentsPerMessage() -
                         ((m.attachments?.length ?? 0) -
                           editRemovedIds.length +
                           editFiles.length),

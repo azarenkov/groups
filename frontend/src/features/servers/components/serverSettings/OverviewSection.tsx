@@ -1,4 +1,6 @@
 import React from "react";
+import i18n from "../../../../i18n";
+import { useImageCrop } from "../../../../shared/hooks/useImageCrop";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
 import { serverAPI } from "../../api/server";
@@ -28,6 +30,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   const patchServer = useServerStore((s) => s.patchServer);
 
   const logoInputRef = React.useRef<HTMLInputElement>(null);
+  const { requestCrop, cropModal } = useImageCrop();
   const [logoBusy, setLogoBusy] = React.useState(false);
   const logoUrl = useAvatarUrl("server", server.id);
 
@@ -102,6 +105,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
 
   return (
             <>
+              {cropModal}
               <h1>{t("nav.overview")}</h1>
               <p className="lead">{t("overviewLead")}</p>
               <div className="ssv-hero">
@@ -111,9 +115,16 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                   accept="image/png,image/jpeg,image/webp"
                   hidden
                   onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void handleLogoFile(f);
+                    const picked = e.target.files?.[0];
                     e.target.value = "";
+                    if (!picked) return;
+                    void requestCrop(picked, {
+                      aspect: 1,
+                      shape: "circle",
+                      title: i18n.t("cropLogo", { ns: "common" }),
+                    }).then((cropped) => {
+                      if (cropped) void handleLogoFile(cropped);
+                    });
                   }}
                 />
                 <ServerLogo

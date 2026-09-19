@@ -2,6 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
 import { UserAvatar } from "../../../../shared/ui/Avatar";
+import UserBadge from "../../../subscription/components/UserBadge";
 
 interface SidebarFooterProps {
   currentUserId?: string;
@@ -70,7 +71,10 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({
             }
           }}
         >
-          <div className="n">{currentUserName}</div>
+          <div className="n">
+            <span className="n-text">{currentUserName}</span>
+            <UserBadge userId={currentUserId} size="sm" />
+          </div>
           <div className="s">
             <span>
               {currentUserStatus === "offline"

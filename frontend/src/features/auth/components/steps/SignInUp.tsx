@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import i18n from "../../../../i18n";
+import { cropOf, renderCropPreview } from "../../../../shared/lib/imageCrop";
+import { useImageCrop } from "../../../../shared/hooks/useImageCrop";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/authStore";
@@ -122,6 +125,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
     null,
   );
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const { requestCrop, cropModal } = useImageCrop();
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const avatarInputRef = React.useRef<HTMLInputElement>(null);
   const [googleUsername, setGoogleUsername] = useState("");
@@ -351,6 +355,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
 
   return (
     <>
+      {cropModal}
       <h1>{isSignup ? t("createTitle") : t("welcomeBack")}</h1>
       <p className="sub">{isSignup ? t("createSubtitle") : t("signInSubtitle")}</p>
 
@@ -364,14 +369,22 @@ export const SignInUp: React.FC<SignInUpProps> = ({
               hidden
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) {
-                  setAvatarFile(f);
-                  setAvatarPreview((prev) => {
-                    if (prev) URL.revokeObjectURL(prev);
-                    return URL.createObjectURL(f);
-                  });
-                }
                 e.target.value = "";
+                if (!f) return;
+                void requestCrop(f, {
+                  aspect: 1,
+                  shape: "circle",
+                  title: i18n.t("cropAvatar", { ns: "common" }),
+                }).then(async (cropped) => {
+                  if (!cropped) return;
+                  const rect = cropOf(cropped);
+                  const preview = rect ? await renderCropPreview(cropped, rect, 192) : null;
+                  setAvatarFile(cropped);
+                  setAvatarPreview((prev) => {
+                    if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+                    return preview ?? URL.createObjectURL(cropped);
+                  });
+                });
               }}
             />
             <button
@@ -395,7 +408,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
                   onClick={() => {
                     setAvatarFile(null);
                     setAvatarPreview((prev) => {
-                      if (prev) URL.revokeObjectURL(prev);
+                      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
                       return null;
                     });
                   }}

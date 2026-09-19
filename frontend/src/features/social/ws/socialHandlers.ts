@@ -1,4 +1,9 @@
 import type { WsHandlers } from "../../../shared/ws/types";
+import { bustAvatar } from "../../../shared/lib/avatarCache";
+import { parseBadgeStyle, parseMemberNumber, parseTier } from "../../subscription/lib/plans";
+import { useBadgeStore } from "../../subscription/store/badgeStore";
+import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
+import { useVoiceSettingsStore } from "../../voice/store/voiceSettingsStore";
 import { loadActivitiesFor, loadFriendActivities, useActivityStore } from "../store/activityStore";
 import { useAuthStore } from "../../auth/store/authStore";
 import { isBlockedEitherWay, useBlockStore } from "../store/blockStore";
@@ -11,6 +16,7 @@ import { useUnreadStore } from "../../chat/store/unreadStore";
 import { useUserNamesStore } from "../store/userNamesStore";
 import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
 import { useVoicePresenceStore } from "../../voice/store/voicePresenceStore";
+import { renameMentionTarget } from "../../chat/lib/mentionTargets";
 import { asString } from "../../../shared/ws/context";
 
 export const socialHandlers: WsHandlers = {
@@ -134,9 +140,37 @@ export const socialHandlers: WsHandlers = {
       refetchDmPreviews();
       return;
   },
+  "user.entitlementsChanged": (d) => {
+      const userId = asString(d.userId);
+      if (!userId) return;
+      const tier = parseTier(d.tier);
+      const memberNumber = parseMemberNumber(d.memberNumber);
+      if (useAuthStore.getState().user?.id === userId) {
+        useEntitlementsStore.getState().applyTier(tier, memberNumber);
+        if (tier === "free") {
+          bustAvatar("banner", userId);
+          if (useVoiceSettingsStore.getState().noiseMode === "high") {
+            useVoiceSettingsStore.getState().update({ noiseMode: "standard" });
+          }
+        }
+        return;
+      }
+      useBadgeStore.getState().applyTier(userId, tier, memberNumber);
+      useBadgeStore.getState().revalidateLater(userId);
+      bustAvatar("banner", userId);
+  },
   "user.profileChanged": (d) => {
       const userId = asString(d.userId);
       if (!userId) return;
+      if (typeof d.badgeStyle === "string") {
+        const badgeStyle = parseBadgeStyle(d.badgeStyle);
+        if (useAuthStore.getState().user?.id === userId) {
+          useEntitlementsStore.getState().applyBadgeStyle(badgeStyle);
+        } else {
+          useBadgeStore.getState().applyStyle(userId, badgeStyle);
+          useBadgeStore.getState().revalidateLater(userId);
+        }
+      }
       const bio = asString(d.bio) ?? "";
       const showActivity = d.showActivity === true;
       const showGameActivity = d.showGameActivity !== false;
@@ -165,6 +199,7 @@ export const socialHandlers: WsHandlers = {
       const userId = asString(d.userId);
       const newName = asString(d.name);
       if (!userId) return;
+      renameMentionTarget(userId, newName);
       if (newName) {
         const occurredAt = asString(d.occurredAt);
         const applied = useUserNamesStore

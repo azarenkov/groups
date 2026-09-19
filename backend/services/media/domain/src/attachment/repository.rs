@@ -14,6 +14,8 @@ pub trait AttachmentRepository {
         max_bytes: i64,
     ) -> Result<bool, RepositoryError>;
 
+    async fn set_size(&self, id: Uuid, size_bytes: i64) -> Result<(), RepositoryError>;
+
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Attachment>, RepositoryError>;
 
     async fn find_unclaimed_owned(

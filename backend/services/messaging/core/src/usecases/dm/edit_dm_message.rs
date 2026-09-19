@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use messaging_domain::badge::attachments_per_message;
+
 use chrono::Utc;
 use messaging_domain::{events::MessagingEvent, privacy::ContactPolicy, privacy::PrivacyRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, dm_message::DmMessageError, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, message::MessageError, message::content::MessageContent};
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
@@ -52,6 +54,7 @@ where
     friendship_repository: Arc<F>,
     privacy_repository: Arc<P>,
     user_profile_repository: Arc<U>,
+    plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
 }
 
 impl<M, W, A, F, P, U> EditDmMessage<M, W, A, F, P, U>
@@ -70,6 +73,7 @@ where
         friendship_repository: Arc<F>,
         privacy_repository: Arc<P>,
         user_profile_repository: Arc<U>,
+        plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
     ) -> Self {
         Self {
             dm_repository,
@@ -78,6 +82,7 @@ where
             friendship_repository,
             privacy_repository,
             user_profile_repository,
+            plans,
         }
     }
 
@@ -150,7 +155,8 @@ where
             return Err(EditDmMessageError::InvalidAttachments);
         }
         let remaining = current_ids.len() - remove_ids.len() + add_ids.len();
-        if remaining > 10 {
+        let tier = self.plans.tier_of(&editor_id, Utc::now()).await?;
+        if !add_ids.is_empty() && remaining > attachments_per_message(&tier) {
             return Err(EditDmMessageError::InvalidAttachments);
         }
 

@@ -1,8 +1,8 @@
 import React from "react";
 
 import {
-  MAX_ATTACHMENTS_PER_MESSAGE,
-  MAX_ATTACHMENT_BYTES,
+  maxAttachmentsPerMessage,
+  maxAttachmentBytes,
   attachmentAPI,
 } from "../api/attachment";
 import type { PendingFile } from "../types";
@@ -20,13 +20,13 @@ export function useAttachments() {
     const files = Array.from(incoming);
     if (files.length === 0) return;
     const room =
-      MAX_ATTACHMENTS_PER_MESSAGE - pendingFilesRef.current.length;
+      maxAttachmentsPerMessage() - pendingFilesRef.current.length;
     const accepted = files.slice(0, Math.max(0, room));
     const additions: PendingFile[] = accepted.map((file) => ({
       localId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       file,
       progress: 0,
-      error: file.size > MAX_ATTACHMENT_BYTES || file.size === 0,
+      error: file.size > maxAttachmentBytes() || file.size === 0,
     }));
     if (additions.length === 0) return;
     setPendingFiles((prev) => [...prev, ...additions]);
@@ -102,7 +102,7 @@ export function useAttachments() {
         localId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         file,
         progress: 0,
-        error: file.size > MAX_ATTACHMENT_BYTES || file.size === 0,
+        error: file.size > maxAttachmentBytes() || file.size === 0,
       }));
       if (additions.length === 0) return;
       setEditFiles((prev) => [...prev, ...additions]);

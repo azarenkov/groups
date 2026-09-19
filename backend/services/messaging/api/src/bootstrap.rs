@@ -80,7 +80,8 @@ use messaging_infrastructure::{
             friendship_unit_of_work::PostgresFriendshipUnitOfWork,
             message_unit_of_work::PostgresMessageUnitOfWork,
             server_unit_of_work::PostgresServerUnitOfWork,
-            privacy::PostgresPrivacyRepository, report::PostgresReportRepository,
+        badge::PostgresBadgeRepository, privacy::PostgresPrivacyRepository,
+        report::PostgresReportRepository,
         user_profile::PostgresUserProfileRepository,
         },
     },
@@ -141,6 +142,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|_| "http://media-service:8080".to_string());
     let attachment_claims = Arc::new(MediaClaimsClient::new(&media_internal_url));
     let privacy_repository = Arc::new(PostgresPrivacyRepository::new(postgres_pool.clone()));
+    let badge_repository = Arc::new(PostgresBadgeRepository::new(postgres_pool.clone()));
     let report_repository = Arc::new(PostgresReportRepository::new(postgres_pool.clone()));
     let identity_internal_url = std::env::var("IDENTITY_INTERNAL_URL")
         .unwrap_or_else(|_| "http://identity-service:8080".to_string());
@@ -189,9 +191,15 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     api_common::user_projection::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
-        user_stream,
+        user_stream.clone(),
         "messaging-user-profiles",
         user_repository.clone(),
+    );
+    messaging_infrastructure::consumers::pro_badges::spawn(
+        nats_jetstream.clone(),
+        nats_config.subject_prefix.clone(),
+        user_stream,
+        badge_repository.clone(),
     );
 
     let nats_core = nats_jetstream.client().clone();
@@ -262,6 +270,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             message_unit_of_work.clone(),
             attachment_claims.clone(),
             mention_resolver.clone(),
+            badge_repository.clone(),
         ),
         edit_channel_message_usecase: EditChannelMessage::new(
             message_repository.clone(),
@@ -270,6 +279,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             message_unit_of_work.clone(),
             attachment_claims.clone(),
             mention_resolver.clone(),
+            badge_repository.clone(),
         ),
         delete_channel_message_usecase: DeleteChannelMessage::new(
             message_repository.clone(),
@@ -366,6 +376,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         dm_repository: dm_repository.clone(),
         friendship_repository: friendship_repository.clone(),
         privacy_repository: privacy_repository.clone(),
+        badge_repository: badge_repository.clone(),
         nats_core,
         presence_preference_subject,
         send_dm_message_usecase: SendDmMessage::new(
@@ -375,6 +386,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             attachment_claims.clone(),
             privacy_repository.clone(),
             user_repository.clone(),
+            badge_repository.clone(),
         ),
         edit_dm_message_usecase: EditDmMessage::new(
             dm_repository.clone(),
@@ -383,6 +395,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             friendship_repository.clone(),
             privacy_repository.clone(),
             user_repository.clone(),
+            badge_repository.clone(),
         ),
         delete_dm_message_usecase: DeleteDmMessage::new(
             dm_repository.clone(),

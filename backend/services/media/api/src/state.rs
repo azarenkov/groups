@@ -11,7 +11,8 @@ use infrastructure_common::{
 };
 use media_infrastructure::{
     database::postgres::repositories::{
-        attachment::PostgresAttachmentRepository, media::PostgresMediaRepository,
+        attachment::PostgresAttachmentRepository, banner::PostgresBannerRepository,
+        media::PostgresMediaRepository,
     },
     media_client::owner_lookup::MessagingOwnerClient,
     moderation::nsfw_detector::NsfwDetector,
@@ -35,6 +36,14 @@ pub struct AppState {
         MinioStorage,
     >,
     pub get_user_avatar_usecase: GetUserAvatar<PostgresMediaRepository, MinioStorage>,
+    pub update_user_banner_usecase: media::usecases::user::banner::UpdateUserBanner<
+        PostgresBannerRepository,
+        PostgresAttachmentRepository,
+        MinioStorage,
+        NsfwDetector,
+    >,
+    pub get_user_banner_usecase:
+        media::usecases::user::banner::GetUserBanner<PostgresBannerRepository, MinioStorage>,
     pub update_server_logo_usecase: UpdateServerLogo<
         PostgresMediaRepository,
         PostgresAttachmentRepository,

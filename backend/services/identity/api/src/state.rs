@@ -1,4 +1,9 @@
+use identity::usecases::entitlements::{
+    get_entitlements::GetEntitlements, grant_entitlements::GrantEntitlements,
+    set_badge_style::SetBadgeStyle,
+};
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
+use identity_infrastructure::database::postgres::repositories::entitlements::PostgresEntitlementsRepository;
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
 use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
 use identity_infrastructure::media_client::block_lookup::MessagingBlockClient;
@@ -105,12 +110,15 @@ pub struct AppState {
         GoogleIdTokenVerifier,
         RedisActivityStore,
     >,
+    pub get_entitlements_usecase: GetEntitlements<PostgresEntitlementsRepository>,
+    pub grant_entitlements_usecase: GrantEntitlements<PostgresIdentityUnitOfWork>,
+    pub set_badge_style_usecase: SetBadgeStyle<PostgresIdentityUnitOfWork>,
     pub get_appearance_usecase: GetAppearance<PostgresUserRepository>,
     pub update_appearance_usecase: UpdateAppearance<PostgresIdentityUnitOfWork>,
     pub set_activity_usecase: SetActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
     pub clear_activity_usecase: ClearActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
     pub get_activities_usecase: GetActivities<RedisActivityStore, MessagingAudienceClient>,
-    pub get_voice_settings_usecase: GetVoiceSettings<PostgresUserRepository>,
+    pub get_voice_settings_usecase: GetVoiceSettings<PostgresUserRepository, PostgresEntitlementsRepository>,
     pub update_voice_settings_usecase: UpdateVoiceSettings<PostgresIdentityUnitOfWork>,
     pub get_notification_settings_usecase: GetNotificationSettings<PostgresUserRepository>,
     pub update_notification_settings_usecase: UpdateNotificationSettings<PostgresIdentityUnitOfWork>,

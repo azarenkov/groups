@@ -35,6 +35,19 @@ pub struct UserProfileChangedV1 {
     pub active: bool,
     #[serde(default)]
     pub timezone: String,
+    #[serde(default)]
+    pub badge_style: String,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserEntitlementsChangedV1 {
+    pub user_id: Uuid,
+    pub tier: String,
+    pub valid_until: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub member_number: Option<i64>,
     pub occurred_at: DateTime<Utc>,
 }
 

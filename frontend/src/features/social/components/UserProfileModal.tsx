@@ -6,6 +6,9 @@ import { homeAPI, type PublicProfile } from "../../home/api/home";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { blockGeneration, useBlockStore } from "../store/blockStore";
+import ProBadge from "../../subscription/components/ProBadge";
+import { useBadge } from "../../subscription/hooks/useBadge";
+import { useAvatarUrl } from "../../../shared/lib/avatarCache";
 import { openReport } from "../../moderation/store/reportModalStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { loadActivitiesFor, useActivityStore } from "../store/activityStore";
@@ -79,6 +82,8 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const [connections, setConnections] = React.useState<Connection[]>([]);
   const [failed, setFailed] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const badge = useBadge(userId);
+  const bannerUrl = useAvatarUrl("banner", badge && !blockedMe ? userId : null);
   const [copied, setCopied] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
   useMinuteTick();
@@ -199,7 +204,14 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   return (
     <div className="modal-overlay profile-overlay" onMouseDown={close}>
       <div className="profile-window" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div className="profile-band" style={{ background: `color-mix(in srgb, ${colorForId(userId)} 28%, var(--surface-raised))` }}>
+        <div
+          className={"profile-band" + (bannerUrl ? " profile-banner-image" : "")}
+          style={
+            bannerUrl
+              ? { backgroundImage: `url(${bannerUrl})` }
+              : { background: `color-mix(in srgb, ${colorForId(userId)} 28%, var(--surface-raised))` }
+          }
+        >
           <button type="button" className="profile-close" onClick={close} aria-label={t("close")}>
             <Icon name="x" size={15} />
           </button>
@@ -222,7 +234,12 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
             <div className="profile-name">{t("unavailable")}</div>
           ) : (
             <>
-              <div className="profile-name">{name || (inactive ? t("deletedUser") : "…")}</div>
+              <div className="profile-name-row">
+                <div className="profile-name">{name || (inactive ? t("deletedUser") : "…")}</div>
+                {badge && !inactive && !blockedMe && (
+                  <ProBadge tier={badge.tier} badgeStyle={badge.badgeStyle} memberNumber={badge.memberNumber} size="md" />
+                )}
+              </div>
               <div className="profile-handle">
                 {name && !inactive ? `@${name} · ` : ""}
                 {inactive

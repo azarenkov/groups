@@ -2,6 +2,7 @@ mod attachment;
 mod http_errors;
 mod internal;
 mod avatar;
+mod banner;
 mod projection;
 mod storage_release;
 mod user_projection;

@@ -1,6 +1,7 @@
 use actix_web::web;
 
 use crate::attachments::attachment_routes;
+use crate::badges::badge_routes;
 use crate::blocks::block_routes;
 use crate::calls::call_log_routes;
 use crate::channel::{
@@ -76,6 +77,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                 )
                 .service(
                     web::scope("/v1/users")
+                        .configure(badge_routes)
                         .service(search_dm_messages)
                         .service(list_dm_previews)
                         .service(list_dm_messages)

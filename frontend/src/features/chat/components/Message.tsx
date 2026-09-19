@@ -7,6 +7,7 @@ import { extractLinks } from "../../../shared/lib/links";
 import { formatCallDuration, formatFileSize } from "../lib/messageFormat";
 import { copyTextToClipboard } from "../../../shared/lib/clipboard";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
+import { rememberMentionTarget } from "../lib/mentionTargets";
 import { UserAvatar, ServerLogo } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
 import { openReport } from "../../moderation/store/reportModalStore";
@@ -75,6 +76,9 @@ export const Message: React.FC<MessageProps> = ({
   onOpenInviteServer,
 }) => {
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    rememberMentionTarget(displayName, msg.authorId);
+  }, [displayName, msg.authorId]);
   const [copied, setCopied] = React.useState(false);
   const [revealed, setRevealed] = React.useState(false);
   const copiedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(

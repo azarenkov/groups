@@ -310,6 +310,63 @@ impl HttpMapping for LogoutError {
     }
 }
 
+impl HttpMapping for identity::usecases::entitlements::set_badge_style::SetBadgeStyleError {
+    fn to_http_status(&self) -> StatusCode {
+        use identity::usecases::entitlements::set_badge_style::SetBadgeStyleError as E;
+        match self {
+            E::UnknownStyle => StatusCode::BAD_REQUEST,
+            E::ProRequired => StatusCode::FORBIDDEN,
+            E::UserNotFound => StatusCode::NOT_FOUND,
+            E::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        use identity::usecases::entitlements::set_badge_style::SetBadgeStyleError as E;
+        match self {
+            E::UnknownStyle => "Unknown badge style.".to_string(),
+            E::ProRequired => "This needs a Rift Pro subscription.".to_string(),
+            E::UserNotFound => "User not found".to_string(),
+            E::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        use identity::usecases::entitlements::set_badge_style::SetBadgeStyleError as E;
+        match self {
+            E::UnknownStyle => "BADGE_STYLE_UNKNOWN",
+            E::ProRequired => "PRO_REQUIRED",
+            E::UserNotFound => "USER_NOT_FOUND",
+            E::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl HttpMapping for identity::usecases::entitlements::grant_entitlements::GrantEntitlementsError {
+    fn to_http_status(&self) -> StatusCode {
+        use identity::usecases::entitlements::grant_entitlements::GrantEntitlementsError as E;
+        match self {
+            E::UnknownTier => StatusCode::BAD_REQUEST,
+            E::UserNotFound => StatusCode::NOT_FOUND,
+            E::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        use identity::usecases::entitlements::grant_entitlements::GrantEntitlementsError as E;
+        match self {
+            E::UnknownTier => "Unknown tier.".to_string(),
+            E::UserNotFound => "User not found".to_string(),
+            E::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        use identity::usecases::entitlements::grant_entitlements::GrantEntitlementsError as E;
+        match self {
+            E::UnknownTier => "TIER_UNKNOWN",
+            E::UserNotFound => "USER_NOT_FOUND",
+            E::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl HttpMapping for ConfirmRegistrationError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1002,6 +1059,7 @@ impl HttpMapping for VoiceSettingsError {
         match self {
             VoiceSettingsError::Repository(e) => e.to_http_status(),
             VoiceSettingsError::Invalid(_) => StatusCode::BAD_REQUEST,
+            VoiceSettingsError::ProRequired => StatusCode::FORBIDDEN,
         }
     }
 
@@ -1009,6 +1067,7 @@ impl HttpMapping for VoiceSettingsError {
         match self {
             VoiceSettingsError::Repository(e) => e.to_user_message(),
             VoiceSettingsError::Invalid(e) => e.to_string(),
+            VoiceSettingsError::ProRequired => "This needs a Rift Pro subscription.".to_string(),
         }
     }
 
@@ -1016,6 +1075,7 @@ impl HttpMapping for VoiceSettingsError {
         match self {
             VoiceSettingsError::Repository(e) => e.to_error_code(),
             VoiceSettingsError::Invalid(_) => "INVALID_VOICE_SETTINGS",
+            VoiceSettingsError::ProRequired => "PRO_REQUIRED",
         }
     }
 }

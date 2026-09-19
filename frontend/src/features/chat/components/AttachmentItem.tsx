@@ -13,10 +13,14 @@ import {
 } from "../lib/imageUrlCache";
 import Icon from "../../../shared/ui/Icon";
 
+export const IMAGE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
+
 export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
   attachment,
 }) => {
-  const isImage = attachment.contentType.startsWith("image/");
+  const isImage =
+    attachment.contentType.startsWith("image/") &&
+    attachment.sizeBytes <= IMAGE_PREVIEW_MAX_BYTES;
   const [url, setUrl] = React.useState<string | null>(() =>
     acquireImageUrl(attachment.id),
   );
@@ -71,7 +75,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
     }
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    downloadImageUrl(attachment.id)
+    downloadImageUrl(attachment.id, attachment.sizeBytes)
       .then((objectUrl) => {
         if (!cancelled) {
           attemptsRef.current = 0;
@@ -93,11 +97,11 @@ export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [attachment.id, isImage, url, visible, retryTick]);
+  }, [attachment.id, attachment.sizeBytes, isImage, url, visible, retryTick]);
 
   const handleDownload = () => {
     void attachmentAPI
-      .download(attachment.id)
+      .download(attachment.id, attachment.sizeBytes)
       .then((blob) => {
         const objectUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");

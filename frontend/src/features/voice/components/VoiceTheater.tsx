@@ -3,6 +3,7 @@ import i18nTheater from "../../../i18n";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
+import StreamQualityPicker from "../../subscription/components/StreamQualityPicker";
 import { VideoTileCell } from "./VideoStage";
 import { getLiveKitService, VideoTile } from "../lib/livekit";
 import { UserAvatar } from "../../../shared/ui/Avatar";
@@ -422,6 +423,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
           >
             <Icon name="monitor" size={18} />
           </button>
+          {screenOn && <StreamQualityPicker />}
           {invite && (
             <div className="call-invite" ref={inviteRef}>
               <button

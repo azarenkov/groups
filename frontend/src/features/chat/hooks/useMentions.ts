@@ -5,6 +5,7 @@ import type { ChannelMeta } from "../types";
 import type { ChannelParticipant } from "../../../shared/types/channel";
 import { useReadReceiptStore } from "../store/readReceiptStore";
 import { activeMentionQuery } from "../lib/mentions";
+import { rememberMentionTarget } from "../lib/mentionTargets";
 
 interface MentionsOptions {
   channel?: ChannelMeta;
@@ -71,6 +72,7 @@ export function useMentions({
           participantsChannelRef.current === channelId
         );
         if (participantsChannelRef.current === channelId) {
+          for (const p of all) rememberMentionTarget(p.name, p.id);
           setParticipants(all);
         }
       } catch {

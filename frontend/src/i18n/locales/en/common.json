@@ -28,5 +28,11 @@
   "language": "Language",
   "appearance": "Appearance",
   "forward": "Forward",
-  "saved": "Saved"
+  "saved": "Saved",
+  "apply": "Apply",
+  "zoom": "Zoom",
+  "imageUnreadable": "This picture could not be opened.",
+  "cropAvatar": "Crop avatar",
+  "cropBanner": "Crop banner",
+  "cropLogo": "Crop logo"
 }

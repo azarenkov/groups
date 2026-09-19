@@ -3,6 +3,7 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
     m.clearActivityForLogout(outgoingAccessToken ?? null),
   );
   void import("../lib/avatarCache").then((m) => m.clearAvatarCache());
+  void import("../../features/chat/lib/mentionTargets").then((m) => m.clearMentionTargets());
 
   void import("../../features/social/store/activityStore").then((m) => m.useActivityStore.getState().clearAll());
   void import("../../features/social/store/blockStore").then((m) => m.useBlockStore.getState().clearAll());
@@ -19,6 +20,8 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
     m.useStreamViewersStore.getState().clearAll(),
   );
   void import("../../features/chat/store/unreadStore").then((m) => m.useUnreadStore.getState().clearAll());
+  void import("../../features/subscription/store/entitlementsStore").then((m) => m.useEntitlementsStore.getState().clear());
+  void import("../../features/subscription/store/badgeStore").then((m) => m.useBadgeStore.getState().clear());
   void import("../../features/social/store/userNamesStore").then((m) => m.useUserNamesStore.getState().clear());
   void import("../../features/social/store/userProfileStore").then((m) => m.useUserProfileStore.getState().clear());
   void import("../../features/voice/store/voicePresenceStore").then((m) =>

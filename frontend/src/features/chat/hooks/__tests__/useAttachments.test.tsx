@@ -4,8 +4,8 @@ import { attachmentAPI } from "../../api/attachment";
 import { useAttachments } from "../useAttachments";
 
 jest.mock("../../api/attachment", () => ({
-  MAX_ATTACHMENTS_PER_MESSAGE: 10,
-  MAX_ATTACHMENT_BYTES: 1024,
+  maxAttachmentsPerMessage: () => 10,
+  maxAttachmentBytes: () => 1024,
   attachmentAPI: { upload: jest.fn(), delete: jest.fn() },
 }));
 

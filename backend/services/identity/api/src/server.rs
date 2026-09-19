@@ -1,4 +1,9 @@
+use identity::usecases::entitlements::{
+    get_entitlements::GetEntitlements, grant_entitlements::GrantEntitlements,
+    set_badge_style::SetBadgeStyle,
+};
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
+use identity_infrastructure::database::postgres::repositories::entitlements::PostgresEntitlementsRepository;
 use api_common::shutdown::{self, ShutdownConfig};
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
 use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
@@ -78,6 +83,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
     let unit_of_work = Arc::new(PostgresIdentityUnitOfWork::new(postgres_pool.clone()));
+    let entitlements_repository =
+        Arc::new(PostgresEntitlementsRepository::new(postgres_pool.clone()));
 
     let hasher = Arc::new(BcryptHasher::default());
     let token_issuer = Arc::new(JwtTokenIssuer::new(server_config.jwt_secret.clone()));
@@ -217,12 +224,15 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             reauthenticator.clone(),
             activity_store.clone(),
         ),
+        get_entitlements_usecase: GetEntitlements::new(entitlements_repository.clone()),
+        grant_entitlements_usecase: GrantEntitlements::new(unit_of_work.clone()),
+        set_badge_style_usecase: SetBadgeStyle::new(unit_of_work.clone()),
         get_appearance_usecase: GetAppearance::new(user_repository.clone()),
         update_appearance_usecase: UpdateAppearance::new(unit_of_work.clone()),
         set_activity_usecase: SetActivity::new(activity_store.clone(), unit_of_work.clone()),
         clear_activity_usecase: ClearActivity::new(activity_store.clone(), unit_of_work.clone()),
         get_activities_usecase: GetActivities::new(activity_store.clone(), activity_audience.clone()),
-        get_voice_settings_usecase: GetVoiceSettings::new(user_repository.clone()),
+        get_voice_settings_usecase: GetVoiceSettings::new(user_repository.clone(), entitlements_repository.clone()),
         update_voice_settings_usecase: UpdateVoiceSettings::new(unit_of_work.clone()),
         get_notification_settings_usecase: GetNotificationSettings::new(user_repository.clone()),
         update_notification_settings_usecase: UpdateNotificationSettings::new(unit_of_work.clone()),

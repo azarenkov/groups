@@ -1,4 +1,4 @@
-use contracts::events::user::{UserActivityChangedV1, UserLifecycleV1, UserProfileChangedV1, UserRenamedV1, VerificationIssuedV1};
+use contracts::events::user::{UserActivityChangedV1, UserEntitlementsChangedV1, UserLifecycleV1, UserProfileChangedV1, UserRenamedV1, VerificationIssuedV1};
 use identity_domain::{events::IdentityEvent, user::events::UserEvent, verification::events::VerificationEvent};
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use serde::Serialize;
@@ -90,6 +90,7 @@ fn user_payload(event: &UserEvent) -> Result<serde_json::Value, RepositoryError>
             name: None,
         }),
         UserEvent::ProfileChanged(e) => encode(&UserProfileChangedV1 {
+            badge_style: e.badge_style.clone(),
             user_id: e.user_id.uuid(),
             bio: e.bio.clone(),
             show_activity: e.show_activity,
@@ -103,6 +104,13 @@ fn user_payload(event: &UserEvent) -> Result<serde_json::Value, RepositoryError>
             game_id: e.game_id.clone(),
             name: e.name.clone(),
             started_at: e.started_at,
+            occurred_at: e.occurred_at,
+        }),
+        UserEvent::EntitlementsChanged(e) => encode(&UserEntitlementsChangedV1 {
+            user_id: e.user_id.uuid(),
+            tier: e.tier.clone(),
+            valid_until: e.valid_until,
+            member_number: e.member_number,
             occurred_at: e.occurred_at,
         }),
     }

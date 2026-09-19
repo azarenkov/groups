@@ -37,15 +37,24 @@ where
         }
     }
 
-    pub async fn execute(&self, user_id: UserId) -> Result<ByteStream, GetUserAvatarError> {
+    pub async fn execute(
+        &self,
+        user_id: UserId,
+    ) -> Result<(ByteStream, &'static str), GetUserAvatarError> {
         let key = self
             .media_repository
             .get_user_avatar_key(&user_id)
             .await?
             .ok_or(GetUserAvatarError::NotFound)?;
-        self.storage.get_stream(&key).await.map_err(|e| match e {
+        let content_type = if key.ends_with(".gif") {
+            "image/gif"
+        } else {
+            "image/png"
+        };
+        let stream = self.storage.get_stream(&key).await.map_err(|e| match e {
             FileStorageError::NotFound => GetUserAvatarError::NotFound,
             other => GetUserAvatarError::Storage(other),
-        })
+        })?;
+        Ok((stream, content_type))
     }
 }

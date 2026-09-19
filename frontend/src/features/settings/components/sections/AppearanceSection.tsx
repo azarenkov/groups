@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAppearanceStore } from "../../store/appearanceStore";
 
 import { ACCENT_OPTIONS, SettingsRow, Switch } from "../controls";
+import ProfileStyleSettings from "../../../subscription/components/ProfileStyleSettings";
 
 export function AppearanceSection() {
   const { t } = useTranslation("settings");
@@ -48,6 +49,8 @@ export function AppearanceSection() {
           </div>
         </SettingsRow>
       </div>
+
+      <ProfileStyleSettings />
 
       <div className="s-section">
         <h2>{t("appearance.interface")}</h2>

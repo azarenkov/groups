@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, name, email, password_hash, created_at, updated_at,\n                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE id = $1\n            FOR UPDATE\n            ",
+  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE email = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -75,23 +75,28 @@
       },
       {
         "ordinal": 14,
+        "name": "badge_style",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 15,
         "name": "show_activity",
         "type_info": "Bool"
       },
       {
-        "ordinal": 15,
+        "ordinal": 16,
         "name": "show_game_activity",
         "type_info": "Bool"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "timezone",
         "type_info": "Varchar"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text"
       ]
     },
     "nullable": [
@@ -111,8 +116,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "4b05a9de144080f2675e82bcaa0192e3031ca47fe03e7ae66c44e99f4ec1d4fe"
+  "hash": "f2c8b1435bf5dd814bbb4e0b33bee0ccc5d0fa0735d3f1f95fa569fe48fccf03"
 }

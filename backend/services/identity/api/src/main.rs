@@ -8,6 +8,7 @@ mod state;
 mod activity;
 mod appearance;
 mod connections;
+mod entitlements;
 mod user;
 mod notification_settings;
 mod hotkey_settings;

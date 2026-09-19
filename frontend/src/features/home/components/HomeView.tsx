@@ -7,6 +7,7 @@ import { colorForId } from "../../../shared/lib/avatar";
 import { useActivityStore } from "../../social/store/activityStore";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { UserAvatar } from "../../../shared/ui/Avatar";
+import UserBadge from "../../subscription/components/UserBadge";
 import Icon from "../../../shared/ui/Icon";
 import "../../../styles/home.css";
 
@@ -148,7 +149,10 @@ const HomeView: React.FC<HomeViewProps> = ({
                         <span className="home-avatar-dot live" />
                       </span>
                       <span className="who">
-                        <span className="name">{f.friendName}</span>
+                        <span className="name">
+                          <span className="name-text">{f.friendName}</span>
+                          <UserBadge userId={f.friendId} size="sm" />
+                        </span>
                         <span className="status">
                           {activities[f.friendId]
                             ? t("playingFor", { game: activities[f.friendId].name, duration: duration(activities[f.friendId].startedAt) })

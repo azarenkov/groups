@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use chrono::{DateTime, Utc};
-use identity_domain::{events::IdentityEvent, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::Tier, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 use sqlx::{Pool, Postgres, Transaction};
 use std::collections::BTreeMap;
 use identity_domain::user::settings::{
@@ -134,7 +134,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             UserDto,
             r#"
             SELECT id, name, email, password_hash, created_at, updated_at,
-                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone
+                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone
             FROM users
             WHERE id = $1
             FOR UPDATE
@@ -156,7 +156,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             UserDto,
             r#"
             SELECT id, name, email, password_hash, created_at, updated_at,
-                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, show_game_activity, timezone
+                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone
             FROM users
             WHERE email_verified_at IS NULL
               AND phone_verified_at IS NULL
@@ -346,7 +346,8 @@ impl IdentityTransaction for PostgresIdentityTransaction {
                     bio = $13,
                     show_activity = $14,
                     show_game_activity = $15,
-                    timezone = $16
+                    timezone = $16,
+                    badge_style = $17
                 WHERE id = $1
             "#,
             user.id().uuid(),
@@ -365,6 +366,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             user.show_activity(),
             user.show_game_activity(),
             user.timezone(),
+            user.badge_style().as_str(),
         )
         .execute(&mut *self.tx)
         .await
@@ -413,6 +415,77 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             return Err(RepositoryError::NotFound);
         }
         Ok(())
+    }
+
+    async fn lock_user(&mut self, user_id: &UserId) -> Result<bool, RepositoryError> {
+        let row = sqlx::query_scalar!(
+            r#"SELECT 1 AS "one!" FROM users WHERE id = $1 FOR UPDATE"#,
+            user_id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.is_some())
+    }
+
+    async fn load_entitlements(&mut self, user_id: &UserId) -> Result<Entitlements, RepositoryError> {
+        let row = sqlx::query!(
+            r#"SELECT tier, valid_until, member_number FROM user_entitlements WHERE user_id = $1"#,
+            user_id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row
+            .map(|r| Entitlements {
+                tier: Tier::parse(&r.tier).unwrap_or_default(),
+                valid_until: r.valid_until,
+                member_number: r.member_number,
+            })
+            .unwrap_or_default())
+    }
+
+    async fn save_entitlements(
+        &mut self,
+        user_id: &UserId,
+        tier: &str,
+        valid_until: Option<DateTime<Utc>>,
+        source: &str,
+    ) -> Result<Option<i64>, RepositoryError> {
+        let current = sqlx::query_scalar!(
+            r#"
+            INSERT INTO user_entitlements (user_id, tier, valid_until, source, updated_at)
+            VALUES ($1, $2, $3, $4, now())
+            ON CONFLICT (user_id) DO UPDATE
+                SET tier = EXCLUDED.tier,
+                    valid_until = EXCLUDED.valid_until,
+                    source = EXCLUDED.source,
+                    updated_at = now()
+            RETURNING member_number
+            "#,
+            user_id.uuid(),
+            tier,
+            valid_until,
+            source,
+        )
+        .fetch_one(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if current.is_some() || tier == "free" {
+            return Ok(current);
+        }
+        sqlx::query_scalar!(
+            r#"
+            UPDATE user_entitlements
+            SET member_number = nextval('pro_member_number_seq')
+            WHERE user_id = $1
+            RETURNING member_number
+            "#,
+            user_id.uuid(),
+        )
+        .fetch_one(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)
     }
 
     async fn save_events(&mut self, events: &[IdentityEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {
@@ -471,14 +544,14 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         user_id: &UserId,
     ) -> Result<Option<VoiceSettings>, RepositoryError> {
         self.lock_settings(user_id).await?;
-        let row: Option<(i16, i16, String, bool, i16, bool, String)> = sqlx::query_as(
-            "SELECT mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key FROM voice_settings WHERE user_id = $1",
+        let row: Option<(i16, i16, String, bool, i16, bool, String, String)> = sqlx::query_as(
+            "SELECT mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key, stream_quality FROM voice_settings WHERE user_id = $1",
         )
         .bind(user_id.uuid())
         .fetch_optional(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.map(|r| VoiceSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6)))
+        Ok(row.map(|r| VoiceSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6, &r.7)))
     }
 
     async fn save_voice_settings(
@@ -488,8 +561,8 @@ impl IdentityTransaction for PostgresIdentityTransaction {
     ) -> Result<(), RepositoryError> {
         sqlx::query(
             r#"
-                INSERT INTO voice_settings (user_id, mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+                INSERT INTO voice_settings (user_id, mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key, stream_quality, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
                 ON CONFLICT (user_id) DO UPDATE
                     SET mic_volume = EXCLUDED.mic_volume,
                         output_volume = EXCLUDED.output_volume,
@@ -498,6 +571,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
                         sensitivity = EXCLUDED.sensitivity,
                         push_to_talk = EXCLUDED.push_to_talk,
                         ptt_key = EXCLUDED.ptt_key,
+                        stream_quality = EXCLUDED.stream_quality,
                         updated_at = now()
             "#,
         )
@@ -509,6 +583,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         .bind(settings.sensitivity())
         .bind(settings.push_to_talk())
         .bind(settings.ptt_key().as_str())
+        .bind(settings.stream_quality().as_str())
         .execute(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;

@@ -1,4 +1,6 @@
 import React from "react";
+import ProBadge from "../../../subscription/components/ProBadge";
+import { useEntitlementsStore } from "../../../subscription/store/entitlementsStore";
 import { useTranslation } from "react-i18next";
 import { useVoiceSettingsStore } from "../../../voice/store/voiceSettingsStore";
 import { activeBindings, effectiveBinding } from "../../lib/hotkeys";
@@ -109,6 +111,8 @@ export function VoiceSection() {
   const micVolume = useVoiceSettingsStore((s) => s.micVolume);
   const outputVolume = useVoiceSettingsStore((s) => s.outputVolume);
   const noiseMode = useVoiceSettingsStore((s) => s.noiseMode);
+  const paid = useEntitlementsStore((s) => s.tier !== "free");
+  const { t: tSubscription } = useTranslation("subscription");
   const pttKey = useVoiceSettingsStore((s) => s.pttKey);
   const autoSensitivity = useVoiceSettingsStore((s) => s.autoSensitivity);
   const sensitivity = useVoiceSettingsStore((s) => s.sensitivity);
@@ -280,7 +284,15 @@ export function VoiceSection() {
           <div className="s-seg">
             <button className={noiseMode === "off" ? "on" : ""} onClick={() => update({ noiseMode: "off" })}>{t("voice.noiseOff")}</button>
             <button className={noiseMode === "standard" ? "on" : ""} onClick={() => update({ noiseMode: "standard" })}>{t("voice.noiseStandard")}</button>
-            <button className={noiseMode === "high" ? "on" : ""} onClick={() => update({ noiseMode: "high" })}>{t("voice.noiseHigh")}</button>
+            <button
+              className={noiseMode === "high" && paid ? "on" : ""}
+              disabled={!paid}
+              title={paid ? undefined : tSubscription("needs.pro")}
+              onClick={() => update({ noiseMode: "high" })}
+            >
+              {t("voice.noiseHigh")}
+              {!paid && <ProBadge tier="pro" badgeStyle="tint" size="sm" className="noise-pro-tag" />}
+            </button>
           </div>
         </SettingsRow>
         <SettingsRow label={t("voice.autoSensitivity")} hint={t("voice.autoSensitivityHint")}>

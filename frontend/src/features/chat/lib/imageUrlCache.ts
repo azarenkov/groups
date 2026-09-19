@@ -35,11 +35,11 @@ export const cacheImageUrl = (id: string, url: string): string => {
 
 export const pendingImageDownloads = new Map<string, Promise<string>>();
 
-export const downloadImageUrl = (id: string): Promise<string> => {
+export const downloadImageUrl = (id: string, sizeBytes = 0): Promise<string> => {
   const existing = pendingImageDownloads.get(id);
   if (existing) return existing;
   const promise = attachmentAPI
-    .download(id)
+    .download(id, sizeBytes)
     .then((blob) => cacheImageUrl(id, URL.createObjectURL(blob)))
     .finally(() => {
       pendingImageDownloads.delete(id);

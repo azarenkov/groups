@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import { useLocalTrack } from "../hooks/useLocalTrack";
@@ -51,6 +52,8 @@ const VoicePill: React.FC<VoicePillProps> = ({
   badge,
 }) => {
   const { t } = useTranslation("voice");
+  const { t: tSubscription } = useTranslation("subscription");
+  const paid = useEntitlementsStore((state) => state.tier !== "free");
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -361,7 +364,9 @@ const VoicePill: React.FC<VoicePillProps> = ({
                 {t("noiseStandard")}
               </button>
               <button
-                className={noise === "high" ? "on" : ""}
+                className={noise === "high" && paid ? "on" : ""}
+                disabled={!paid}
+                title={paid ? undefined : tSubscription("needs.pro")}
                 onClick={() => handleNoiseChange("high")}
               >
                 <Icon name="sparkles" size={11} />

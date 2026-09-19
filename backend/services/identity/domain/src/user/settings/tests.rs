@@ -213,9 +213,9 @@ fn voice_settings_validate_ranges_modes_and_ptt_key() {
 
 #[test]
 fn voice_settings_restore_keeps_legacy_modifier_ptt_key() {
-    let restored = VoiceSettings::restore(100, 100, "standard", true, 50, true, "ShiftLeft".to_string());
+    let restored = VoiceSettings::restore(100, 100, "standard", true, 50, true, "ShiftLeft".to_string(), "720p60");
     assert_eq!(restored.ptt_key().as_str(), "ShiftLeft");
-    assert_eq!(VoiceSettings::restore(1, 2, "weird", false, 3, false, "KeyA".to_string()).noise_mode(), NoiseMode::Standard);
+    assert_eq!(VoiceSettings::restore(1, 2, "weird", false, 3, false, "KeyA".to_string(), "weird").noise_mode(), NoiseMode::Standard);
 }
 
 #[test]
@@ -274,4 +274,33 @@ fn appearance_settings_validate_theme_accent_and_font_size() {
         Err(AppearanceError::InvalidFontSize)
     );
     assert!(base.apply(&AppearancePatch { accent: Some(String::new()), ..AppearancePatch::default() }).is_ok());
+}
+
+#[test]
+fn a_plan_decides_which_stream_quality_and_noise_mode_are_open() {
+    use crate::user::settings::voice::{StreamQuality, VoiceSettingsPatch};
+    use crate::user::tier::Tier;
+
+    let wants_4k = VoiceSettings::default()
+        .apply(&VoiceSettingsPatch {
+            stream_quality: Some("2160p60".to_string()),
+            noise_mode: Some("high".to_string()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    assert!(!wants_4k.allowed_for(Tier::Free));
+    assert!(!wants_4k.allowed_for(Tier::Pro));
+    assert!(wants_4k.allowed_for(Tier::Premium));
+
+    let as_free = wants_4k.clone().limited_to(Tier::Free);
+    assert_eq!(as_free.stream_quality(), StreamQuality::P720);
+    assert_eq!(as_free.noise_mode(), NoiseMode::Standard);
+
+    let as_pro = wants_4k.clone().limited_to(Tier::Pro);
+    assert_eq!(as_pro.stream_quality(), StreamQuality::P1440);
+    assert_eq!(as_pro.noise_mode(), NoiseMode::High);
+
+    assert_eq!(wants_4k.limited_to(Tier::Premium).stream_quality(), StreamQuality::P2160);
+    assert_eq!(StreamQuality::parse("8k"), None);
 }

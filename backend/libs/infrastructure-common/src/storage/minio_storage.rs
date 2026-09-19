@@ -90,6 +90,27 @@ impl FileStorage for MinioStorage {
         check_status(response.status_code(), "put_object")
     }
 
+    async fn put_stream(
+        &self,
+        key: &str,
+        content_type: &str,
+        stream: ByteStream,
+    ) -> Result<u64, FileStorageError> {
+        let chunks = stream.map(|chunk| {
+            chunk
+                .map(bytes::Bytes::from)
+                .map_err(|e| std::io::Error::other(e.to_string()))
+        });
+        let mut reader = tokio_util::io::StreamReader::new(chunks);
+        let response = self
+            .bucket
+            .put_object_stream_with_content_type(&mut reader, key, content_type)
+            .await
+            .map_err(|e| FileStorageError::Internal(e.to_string()))?;
+        check_status(response.status_code(), "put_object_stream")?;
+        Ok(response.uploaded_bytes() as u64)
+    }
+
     async fn get_stream(&self, key: &str) -> Result<ByteStream, FileStorageError> {
         let response = self
             .bucket

@@ -1,4 +1,5 @@
 import type { AxiosRequestConfig } from "axios";
+import { appendCrop } from "../../../shared/lib/imageCrop";
 import { http } from "../../../shared/api/http";
 
 import { ApiError } from "../../../shared/lib/apiError";
@@ -40,6 +41,7 @@ export interface VoiceSettings {
   sensitivity: number;
   pushToTalk: boolean;
   pttKey: string;
+  streamQuality?: string;
 }
 
 export interface NotificationSettings {
@@ -231,6 +233,7 @@ class UserAPI {
   async uploadAvatar(file: File): Promise<void> {
     const form = new FormData();
     form.append("file", file, file.name);
+    appendCrop(form, file);
     await this.client.post("/v1/users/me/avatar", form, {
       timeout: 60000,
     });
@@ -277,6 +280,25 @@ class UserAPI {
   async rename(name: string): Promise<string> {
     const response = await this.client.patch("/v1/users/me/name", { name });
     return response.data.data.name;
+  }
+
+  async uploadBanner(file: File): Promise<void> {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    appendCrop(form, file);
+    await this.client.post("/v1/users/me/banner", form, { timeout: 60000 });
+  }
+
+  async deleteBanner(): Promise<void> {
+    await this.client.delete("/v1/users/me/banner");
+  }
+
+  async downloadBanner(userId: string): Promise<Blob> {
+    const response = await this.client.get(`/v1/users/${userId}/banner`, {
+      responseType: "blob",
+      timeout: 30000,
+    });
+    return response.data;
   }
 
   async downloadAvatar(userId: string): Promise<Blob> {

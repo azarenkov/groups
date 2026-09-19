@@ -102,7 +102,7 @@ impl HttpMapping for UploadAttachmentError {
     }
     fn to_user_message(&self) -> String {
         match self {
-            UploadAttachmentError::TooLarge => "File is too large (max 15 MB).".to_string(),
+            UploadAttachmentError::TooLarge => "File is too large for your plan.".to_string(),
             UploadAttachmentError::Empty => "File is empty.".to_string(),
             UploadAttachmentError::TypeNotAllowed => {
                 "This file type is not allowed.".to_string()
@@ -147,6 +147,39 @@ impl HttpMapping for ImageModerationError {
         match self {
             ImageModerationError::Rejected => "IMAGE_CONTENT_REJECTED",
             ImageModerationError::Unavailable(_) => "MODERATION_UNAVAILABLE",
+        }
+    }
+}
+
+impl HttpMapping for media::usecases::user::banner::BannerError {
+    fn to_http_status(&self) -> StatusCode {
+        use media::usecases::user::banner::BannerError as E;
+        match self {
+            E::ProRequired => StatusCode::FORBIDDEN,
+            E::NotFound => StatusCode::NOT_FOUND,
+            E::Repository(e) => e.to_http_status(),
+            E::Storage(e) => e.to_http_status(),
+            E::Moderation(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        use media::usecases::user::banner::BannerError as E;
+        match self {
+            E::ProRequired => "This needs a Rift Pro subscription.".to_string(),
+            E::NotFound => "Banner not found".to_string(),
+            E::Repository(e) => e.to_user_message(),
+            E::Storage(e) => e.to_user_message(),
+            E::Moderation(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        use media::usecases::user::banner::BannerError as E;
+        match self {
+            E::ProRequired => "PRO_REQUIRED",
+            E::NotFound => "BANNER_NOT_FOUND",
+            E::Repository(e) => e.to_error_code(),
+            E::Storage(e) => e.to_error_code(),
+            E::Moderation(e) => e.to_error_code(),
         }
     }
 }

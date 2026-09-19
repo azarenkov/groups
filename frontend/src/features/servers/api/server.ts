@@ -1,4 +1,5 @@
 import { http } from "../../../shared/api/http";
+import { appendCrop } from "../../../shared/lib/imageCrop";
 import {
   ListServersResponse,
   ListServerMembersResponse,
@@ -40,6 +41,7 @@ class ServerAPI {
   async uploadLogo(serverId: string, file: File): Promise<void> {
     const form = new FormData();
     form.append("file", file, file.name);
+    appendCrop(form, file);
     await this.client.post(`/v1/servers/${serverId}/logo`, form, {
       timeout: 60000,
     });

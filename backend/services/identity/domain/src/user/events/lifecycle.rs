@@ -244,11 +244,13 @@ pub struct UserProfileChanged {
     pub show_game_activity: bool,
     pub active: bool,
     pub timezone: String,
+    pub badge_style: String,
     pub occurred_at: DateTime<Utc>,
 }
 
 impl UserProfileChanged {
-    pub fn record(user_id: UserId, bio: String, show_activity: bool, show_game_activity: bool, active: bool, timezone: String, now: DateTime<Utc>) -> Self {
+    #[allow(clippy::too_many_arguments)]
+    pub fn record(user_id: UserId, bio: String, show_activity: bool, show_game_activity: bool, active: bool, timezone: String, badge_style: String, now: DateTime<Utc>) -> Self {
         Self {
             id: EventId::generate(),
             user_id,
@@ -257,6 +259,7 @@ impl UserProfileChanged {
             show_game_activity,
             active,
             timezone,
+            badge_style,
             occurred_at: now,
         }
     }
@@ -270,4 +273,33 @@ pub struct UserActivityChanged {
     pub name: Option<String>,
     pub started_at: Option<DateTime<Utc>>,
     pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UserEntitlementsChanged {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub tier: String,
+    pub valid_until: Option<DateTime<Utc>>,
+    pub member_number: Option<i64>,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserEntitlementsChanged {
+    pub fn record(
+        user_id: UserId,
+        tier: String,
+        valid_until: Option<DateTime<Utc>>,
+        member_number: Option<i64>,
+        now: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id: EventId::generate(),
+            user_id,
+            tier,
+            valid_until,
+            member_number,
+            occurred_at: now,
+        }
+    }
 }

@@ -407,10 +407,15 @@
 .msg-mention {
   color: var(--accent);
   background: var(--accent-tint);
+  border: 0;
   border-radius: 4px;
   padding: 0 3px;
+  font: inherit;
   font-weight: 500;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
 }
+.msg-mention:hover { background: var(--accent); color: #fff; }
 .msg-mention.self {
   color: #ff9f0a;
   background: rgba(255, 159, 10, 0.18);
@@ -419,6 +424,7 @@
   color: #fff;
   background: rgba(255, 255, 255, 0.2);
 }
+.msg.bubble.mine .msg-mention:hover { background: rgba(255, 255, 255, 0.34); }
 
 .mention-pop {
   position: absolute;

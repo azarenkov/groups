@@ -26,6 +26,8 @@ import enHome from "./locales/en/home.json";
 import ruHome from "./locales/ru/home.json";
 import enProfile from "./locales/en/profile.json";
 import ruProfile from "./locales/ru/profile.json";
+import enSubscription from "./locales/en/subscription.json";
+import ruSubscription from "./locales/ru/subscription.json";
 import enReport from "./locales/en/report.json";
 import ruReport from "./locales/ru/report.json";
 
@@ -45,6 +47,7 @@ export const NAMESPACES = [
   "serverSettings",
   "home",
   "profile",
+  "subscription",
   "report",
 ] as const;
 
@@ -62,6 +65,7 @@ const resources = {
     serverSettings: enServerSettings,
     home: enHome,
     profile: enProfile,
+    subscription: enSubscription,
     report: enReport,
   },
   ru: {
@@ -77,6 +81,7 @@ const resources = {
     serverSettings: ruServerSettings,
     home: ruHome,
     profile: ruProfile,
+    subscription: ruSubscription,
     report: ruReport,
   },
 } as const;

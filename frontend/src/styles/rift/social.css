@@ -130,7 +130,8 @@
   box-shadow: 0 0 0 2px var(--surface-canvas);
 }
 .user-pill .info { flex: 1; min-width: 0; }
-.user-pill .n { font-size: 13px; font-weight: 500; color: var(--fg-1); }
+.user-pill .n { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 13px; font-weight: 500; color: var(--fg-1); }
+.user-pill .n-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-pill .s { font-size: 11px; color: var(--fg-3); }
 
 .profile-card {
@@ -164,10 +165,12 @@
 }
 .profile-card .pc-info { flex: 1; min-width: 0; }
 .profile-card .pc-name {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
   font-size: 17px; font-weight: 600;
   color: var(--fg-1);
   letter-spacing: -0.01em;
 }
+.profile-card .pc-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-card .pc-handle {
   font-size: 13px; color: var(--fg-3);
   font-family: var(--font-mono);

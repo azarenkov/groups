@@ -23,6 +23,13 @@ pub trait FileStorage {
         bytes: Vec<u8>,
     ) -> Result<(), FileStorageError>;
 
+    async fn put_stream(
+        &self,
+        key: &str,
+        content_type: &str,
+        stream: ByteStream,
+    ) -> Result<u64, FileStorageError>;
+
     async fn get_stream(&self, key: &str) -> Result<ByteStream, FileStorageError>;
 
     async fn delete(&self, key: &str) -> Result<(), FileStorageError>;
