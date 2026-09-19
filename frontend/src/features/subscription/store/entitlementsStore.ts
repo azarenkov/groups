@@ -18,6 +18,7 @@ interface EntitlementsState {
 
 let generation = 0;
 let revision = 0;
+let remoteBadgeRevision = 0;
 let badgeInFlight: Promise<void> | null = null;
 let desiredBadgeStyle: BadgeStyle | null = null;
 let confirmedBadgeStyle: BadgeStyle | null = null;
@@ -53,6 +54,7 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   },
   applyBadgeStyle: (badgeStyle) => {
     revision += 1;
+    remoteBadgeRevision += 1;
     confirmedBadgeStyle = badgeStyle;
     set({ badgeStyle });
   },
@@ -68,9 +70,14 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
       try {
         while (gen === generation && desiredBadgeStyle !== null && desiredBadgeStyle !== confirmedBadgeStyle) {
           const target: BadgeStyle = desiredBadgeStyle;
+          const remoteRev = remoteBadgeRevision;
           try {
             const saved: BadgeStyle = await entitlementsAPI.setBadgeStyle(target);
             if (gen !== generation) return;
+            if (remoteRev !== remoteBadgeRevision) {
+              if (desiredBadgeStyle === target) desiredBadgeStyle = null;
+              continue;
+            }
             confirmedBadgeStyle = saved;
             if (desiredBadgeStyle === target) {
               desiredBadgeStyle = null;
@@ -78,6 +85,10 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
             }
           } catch (err) {
             if (gen !== generation) return;
+            if (remoteRev !== remoteBadgeRevision) {
+              if (desiredBadgeStyle === target) desiredBadgeStyle = null;
+              continue;
+            }
             if (desiredBadgeStyle !== target) continue;
             desiredBadgeStyle = null;
             set({ badgeStyle: confirmedBadgeStyle });

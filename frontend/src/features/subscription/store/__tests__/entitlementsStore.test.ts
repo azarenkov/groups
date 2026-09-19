@@ -128,3 +128,22 @@ describe("entitlementsStore session reset", () => {
     expect(useEntitlementsStore.getState().badgeStyle).toBe("ink");
   });
 });
+
+describe("entitlementsStore remote badge events", () => {
+  beforeEach(() => {
+    useEntitlementsStore.getState().clear();
+    useEntitlementsStore.getState().applyTier("pro");
+    useEntitlementsStore.getState().applyBadgeStyle("tint");
+  });
+
+  it("keeps a newer event from another session over an older response", async () => {
+    const response = deferred<"ink">();
+    mockedApi.setBadgeStyle.mockImplementationOnce(() => response.promise);
+    const done = useEntitlementsStore.getState().setBadgeStyle("ink");
+    useEntitlementsStore.getState().applyBadgeStyle("solid");
+    response.resolve("ink");
+    await done;
+    expect(useEntitlementsStore.getState().badgeStyle).toBe("solid");
+    expect(mockedApi.setBadgeStyle).toHaveBeenCalledTimes(1);
+  });
+});
