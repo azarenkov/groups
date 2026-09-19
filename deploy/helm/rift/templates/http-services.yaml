@@ -9,7 +9,7 @@ metadata:
     {{- include "rift.labels" $ | nindent 4 }}
     app.kubernetes.io/component: {{ $name }}
 spec:
-  replicas: {{ $svc.replicas }}
+  {{- include "rift.replicas" (dict "root" $ "workload" $svc) | nindent 2 }}
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -22,6 +22,7 @@ spec:
     metadata:
       labels:
         {{- include "rift.selectorLabels" (dict "root" $ "component" $name) | nindent 8 }}
+        rift.dev/calls-services: "true"
       annotations:
         {{- include "rift.checksums" $ | nindent 8 }}
         {{- with $.Values.podAnnotations }}

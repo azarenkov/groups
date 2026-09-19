@@ -1,0 +1,29 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- $root := . -}}
+{{- $targets := dict -}}
+{{- range $name, $svc := .Values.httpServices }}
+{{- if $svc.enabled }}{{ $_ := set $targets $name $svc }}{{ end }}
+{{- end }}
+{{- if .Values.realtime.enabled }}{{ $_ := set $targets "realtime" .Values.realtime }}{{ end }}
+{{- if .Values.gateway.enabled }}{{ $_ := set $targets (printf "%s-gateway" .Release.Name) .Values.gateway }}{{ end }}
+{{- if .Values.web.enabled }}{{ $_ := set $targets (printf "%s-web" .Release.Name) .Values.web }}{{ end }}
+{{- range $name, $workload := $targets }}
+{{- $hpa := include "rift.autoscaling" (dict "root" $root "workload" $workload) | fromYaml }}
+{{- $replicas := ternary $hpa.minReplicas $workload.replicas $hpa.enabled }}
+{{- if gt (int $replicas) 1 }}
+{{- $component := $name | trimPrefix (printf "%s-" $root.Release.Name) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "rift.labels" $root | nindent 4 }}
+spec:
+  minAvailable: {{ $root.Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "rift.selectorLabels" (dict "root" $root "component" $component) | nindent 6 }}
+{{- end }}
+{{- end }}
+{{- end }}

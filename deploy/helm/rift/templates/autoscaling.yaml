@@ -1,0 +1,45 @@
+{{- $root := . -}}
+{{- $targets := dict -}}
+{{- range $name, $svc := .Values.httpServices }}
+{{- if $svc.enabled }}{{ $_ := set $targets $name $svc }}{{ end }}
+{{- end }}
+{{- if .Values.realtime.enabled }}{{ $_ := set $targets "realtime" .Values.realtime }}{{ end }}
+{{- if .Values.gateway.enabled }}{{ $_ := set $targets (printf "%s-gateway" .Release.Name) .Values.gateway }}{{ end }}
+{{- if .Values.web.enabled }}{{ $_ := set $targets (printf "%s-web" .Release.Name) .Values.web }}{{ end }}
+{{- range $name, $workload := $targets }}
+{{- $hpa := include "rift.autoscaling" (dict "root" $root "workload" $workload) | fromYaml }}
+{{- if $hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "rift.labels" $root | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $name }}
+  minReplicas: {{ $hpa.minReplicas }}
+  maxReplicas: {{ $hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $hpa.targetCPUUtilizationPercentage }}
+    {{- with $hpa.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ . }}
+    {{- end }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: {{ $hpa.scaleDownStabilizationSeconds }}
+{{- end }}
+{{- end }}

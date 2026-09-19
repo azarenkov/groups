@@ -12,6 +12,20 @@ app.kubernetes.io/instance: {{ .root.Release.Name }}
 app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
+{{- define "rift.replicas" -}}
+{{- $hpa := include "rift.autoscaling" . | fromYaml -}}
+{{- if not $hpa.enabled }}
+replicas: {{ .workload.replicas }}
+{{- end }}
+{{- end }}
+
+{{- define "rift.autoscaling" -}}
+{{- $defaults := .root.Values.autoscaling -}}
+{{- $own := .workload.autoscaling | default dict -}}
+{{- $merged := mergeOverwrite (deepCopy $defaults) $own -}}
+{{- toYaml $merged -}}
+{{- end }}
+
 {{- define "rift.image" -}}
 {{- printf "%s/%s:%s" .root.Values.image.registry .service (.root.Values.image.tag | default .root.Chart.AppVersion) -}}
 {{- end }}
