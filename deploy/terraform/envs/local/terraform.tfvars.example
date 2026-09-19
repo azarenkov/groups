@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars and adjust. Everything has defaults; these are the knobs people change most.
+# livekit_tcp_port = 17881
+# livekit_udp_port = 17882
+# monitoring       = true
+# delivery         = "argocd"
+# git_token        = "ghp_..."

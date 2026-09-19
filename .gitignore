@@ -7,3 +7,11 @@ target
 
 # local docker compose overrides (dev-only)
 docker-compose.override.yml
+
+# terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.lock.info
+*.tfvars
+!*.tfvars.example

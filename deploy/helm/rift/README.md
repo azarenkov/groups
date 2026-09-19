@@ -2,7 +2,17 @@
 
 Deploys the Rift backend to Kubernetes: four HTTP APIs (`identity-service`, `media-service`, `messaging-service`, `voice-service`), `realtime` (websocket + event dispatcher), the `outbox-worker`, `notification-service` and `livekit-pooler` workers, the `nsfw-detector` moderation service and an nginx gateway that carries the same routing as `docker/nginx/nginx.conf`.
 
-Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: point `config.*` at them.
+Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: point `config.*` at them. `deploy/terraform` installs them together with this chart; see `deploy/README.md`.
+
+## Web
+
+`web` deploys the React app from `ghcr.io/rift-space/rift/web` (built by `docker/web/Dockerfile`). The image serves the bundle with nginx and writes `config.js` at start from `web.apiUrl`, `web.wsUrl` and `config.GOOGLE_CLIENT_ID`, so one image works for every environment. With `web.enabled` the Ingress sends `gateway.ingress.apiPaths` (`/api`, `/ws`, `/presence`, `/healthz`) to the gateway and everything else to the web service; `PUBLIC_APP_URL` and `PUBLIC_API_URL` are then the same origin.
+
+## Scaling and policies
+
+- `autoscaling` adds a `HorizontalPodAutoscaler` for the HTTP APIs, `realtime`, the gateway and `web`; each workload can override the defaults with its own `autoscaling` block, and `replicas` is ignored while autoscaling is on.
+- `podDisruptionBudget` keeps `minAvailable` pods of every workload that runs more than one replica.
+- `networkPolicy` denies all ingress to Rift pods and then allows only what the topology needs: the ingress controller (`networkPolicy.ingressController`) to the gateway and `web`, the gateway to the APIs and `realtime`, the services to each other (pods labelled `rift.dev/calls-services`) and to `nsfw-detector`. It needs a CNI that enforces `NetworkPolicy` and lets kubelet probes through (Calico, Cilium); kind's default CNI enforces nothing.
 
 ## Databases
 

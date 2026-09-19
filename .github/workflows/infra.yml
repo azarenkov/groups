@@ -1,0 +1,101 @@
+name: Infra
+
+on:
+  pull_request:
+    paths:
+      - "deploy/**"
+      - "docker/web/**"
+      - ".github/workflows/infra.yml"
+  workflow_dispatch:
+    inputs:
+      cluster:
+        description: "Bring up a kind cluster and run the smoke test"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.11.4"
+
+      - name: Helm lint and render
+        run: |
+          helm lint deploy/helm/rift -f deploy/helm/rift/ci/lint-values.yaml
+          helm template rift deploy/helm/rift -f deploy/helm/rift/ci/lint-values.yaml > /tmp/rendered.yaml
+          helm template rift deploy/helm/rift -f deploy/helm/rift/ci/lint-values.yaml --set web.enabled=false --set networkPolicy.enabled=false --set autoscaling.enabled=false > /dev/null
+          grep -c '^kind:' /tmp/rendered.yaml
+
+      - name: Terraform fmt and validate
+        run: |
+          cd deploy/terraform && terraform fmt -recursive -check
+          cd envs/local && terraform init -backend=false -input=false && terraform validate
+
+      - name: Web image builds
+        run: docker build -f docker/web/Dockerfile -t rift/web:ci .
+
+  cluster:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.cluster)
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.11.4"
+          terraform_wrapper: false
+
+      - uses: helm/kind-action@v1
+        with:
+          install_only: true
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bring the local environment up
+        working-directory: deploy/terraform/envs/local
+        env:
+          TF_VAR_image_registry: ghcr.io/rift-space/rift
+          TF_VAR_image_tag: latest
+          TF_VAR_ghcr_user: ${{ github.actor }}
+          TF_VAR_ghcr_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_workers: 1
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve -target=kind_cluster.this -target=helm_release.calico -target=null_resource.calico_ready
+          terraform apply -input=false -auto-approve
+
+      - name: Smoke test
+        env:
+          KUBECONFIG: ~/.kube/rift-local.yaml
+        run: deploy/scripts/smoke.sh
+
+      - name: Describe failures
+        if: failure()
+        env:
+          KUBECONFIG: ~/.kube/rift-local.yaml
+        run: |
+          kubectl get pods -A
+          kubectl -n rift describe pods | tail -200
+          kubectl -n rift logs -l app.kubernetes.io/name=rift --all-containers --tail=100 || true
