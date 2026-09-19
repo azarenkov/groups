@@ -233,7 +233,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         clear_activity_usecase: ClearActivity::new(activity_store.clone(), unit_of_work.clone()),
         get_activities_usecase: GetActivities::new(activity_store.clone(), activity_audience.clone()),
         get_voice_settings_usecase: GetVoiceSettings::new(user_repository.clone(), entitlements_repository.clone()),
-        update_voice_settings_usecase: UpdateVoiceSettings::new(unit_of_work.clone(), entitlements_repository.clone()),
+        update_voice_settings_usecase: UpdateVoiceSettings::new(unit_of_work.clone()),
         get_notification_settings_usecase: GetNotificationSettings::new(user_repository.clone()),
         update_notification_settings_usecase: UpdateNotificationSettings::new(unit_of_work.clone()),
         get_hotkey_settings_usecase: GetHotkeySettings::new(user_repository.clone()),

@@ -45,17 +45,13 @@ impl<U: UserRepository, E: EntitlementsRepository> GetVoiceSettings<U, E> {
     }
 }
 
-pub struct UpdateVoiceSettings<W: IdentityUnitOfWork, E: EntitlementsRepository> {
+pub struct UpdateVoiceSettings<W: IdentityUnitOfWork> {
     unit_of_work: Arc<W>,
-    entitlements: Arc<E>,
 }
 
-impl<W: IdentityUnitOfWork, E: EntitlementsRepository> UpdateVoiceSettings<W, E> {
-    pub fn new(unit_of_work: Arc<W>, entitlements: Arc<E>) -> Self {
-        Self {
-            unit_of_work,
-            entitlements,
-        }
+impl<W: IdentityUnitOfWork> UpdateVoiceSettings<W> {
+    pub fn new(unit_of_work: Arc<W>) -> Self {
+        Self { unit_of_work }
     }
 
     pub async fn execute(
@@ -63,8 +59,11 @@ impl<W: IdentityUnitOfWork, E: EntitlementsRepository> UpdateVoiceSettings<W, E>
         user_id: UserId,
         patch: VoiceSettingsPatch,
     ) -> Result<VoiceSettings, VoiceSettingsError> {
-        let tier = self.entitlements.get(&user_id).await?.active_at(Utc::now());
         let mut tx = self.unit_of_work.begin().await?;
+        if !tx.lock_user(&user_id).await? {
+            return Err(VoiceSettingsError::Repository(RepositoryError::NotFound));
+        }
+        let tier = tx.load_entitlements(&user_id).await?.active_at(Utc::now());
         let current = tx
             .load_voice_settings_for_update(&user_id)
             .await?

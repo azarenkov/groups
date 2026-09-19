@@ -119,7 +119,7 @@ pub struct AppState {
     pub clear_activity_usecase: ClearActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
     pub get_activities_usecase: GetActivities<RedisActivityStore, MessagingAudienceClient>,
     pub get_voice_settings_usecase: GetVoiceSettings<PostgresUserRepository, PostgresEntitlementsRepository>,
-    pub update_voice_settings_usecase: UpdateVoiceSettings<PostgresIdentityUnitOfWork, PostgresEntitlementsRepository>,
+    pub update_voice_settings_usecase: UpdateVoiceSettings<PostgresIdentityUnitOfWork>,
     pub get_notification_settings_usecase: GetNotificationSettings<PostgresUserRepository>,
     pub update_notification_settings_usecase: UpdateNotificationSettings<PostgresIdentityUnitOfWork>,
     pub get_hotkey_settings_usecase: GetHotkeySettings<PostgresUserRepository>,

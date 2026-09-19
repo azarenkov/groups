@@ -417,6 +417,17 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         Ok(())
     }
 
+    async fn lock_user(&mut self, user_id: &UserId) -> Result<bool, RepositoryError> {
+        let row = sqlx::query_scalar!(
+            r#"SELECT 1 AS "one!" FROM users WHERE id = $1 FOR UPDATE"#,
+            user_id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.is_some())
+    }
+
     async fn load_entitlements(&mut self, user_id: &UserId) -> Result<Entitlements, RepositoryError> {
         let row = sqlx::query!(
             r#"SELECT tier, valid_until, member_number FROM user_entitlements WHERE user_id = $1"#,
