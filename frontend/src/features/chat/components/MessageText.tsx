@@ -3,6 +3,7 @@ import React from "react";
 import { useAuthStore } from "../../auth/store/authStore";
 import { URL_REGEX } from "../../../shared/lib/links";
 import { MENTION_REGEX } from "../lib/mentions";
+import { openMentionedProfile } from "../lib/mentionTargets";
 
 export const renderMentions = (
   text: string,
@@ -18,12 +19,17 @@ export const renderMentions = (
     if (start > last) parts.push(text.slice(last, start));
     const isSelf = !!selfName && name.toLowerCase() === selfName;
     parts.push(
-      <span
+      <button
         key={`${keyPrefix}m${i++}`}
+        type="button"
         className={"msg-mention" + (isSelf ? " self" : "")}
+        onClick={(e) => {
+          e.stopPropagation();
+          void openMentionedProfile(name);
+        }}
       >
         @{name}
-      </span>,
+      </button>,
     );
     last = start + name.length + 1;
   }

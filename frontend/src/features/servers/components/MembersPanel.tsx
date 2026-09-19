@@ -145,9 +145,11 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
             </UserAvatar>
             <div className="info">
               <div className="name">
-                {displayName}
+                <span className="name-text">{displayName}</span>
                 <UserBadge userId={m.id} size="sm" />
                 {isSelf && <span className="member-you">{t("you")}</span>}
+              </div>
+              <div className="role">
                 {m.id === serverOwnerId ? (
                   <span className="member-role-badge owner">{t("owner")}</span>
                 ) : (
@@ -163,8 +165,8 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ serverId, channelId }) => {
                     </span>
                   )
                 )}
+                <span className="member-status">{statusLabel}</span>
               </div>
-              <div className="role">{statusLabel}</div>
             </div>
           </div>
         );
