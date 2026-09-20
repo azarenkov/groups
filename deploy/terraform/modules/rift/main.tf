@@ -25,7 +25,28 @@ locals {
   scheme            = var.cluster_issuer == "" ? "http" : "https"
   app_url           = "${local.scheme}://${var.hosts.app}"
 
+  managed_secrets = {
+    JWT_SECRET           = random_password.jwt.result
+    LIVEKIT_API_SECRET   = var.livekit.api_secret
+    MINIO_ROOT_USER      = var.minio.user
+    MINIO_ROOT_PASSWORD  = var.minio.password
+    MAILER_USERNAME      = var.mailer.username
+    MAILER_PASSWORD      = var.mailer.password
+    GITHUB_CLIENT_ID     = var.oauth.github_client_id
+    GITHUB_CLIENT_SECRET = var.oauth.github_client_secret
+    STEAM_API_KEY        = var.oauth.steam_api_key
+  }
+
+  database_passwords = { for svc in local.database_services : "${svc}-password" => random_password.database[svc].result }
+
   derived_values = {
+    podAnnotations = {
+      "checksum/managed-secrets" = sha256(jsonencode({
+        secrets   = local.managed_secrets
+        databases = local.database_passwords
+        registry  = var.image.pull_secret
+      }))
+    }
     image = {
       registry   = var.image.registry
       tag        = var.image.tag
@@ -107,17 +128,7 @@ resource "kubernetes_secret_v1" "secrets" {
     namespace = local.namespace
   }
 
-  data = {
-    JWT_SECRET           = random_password.jwt.result
-    LIVEKIT_API_SECRET   = var.livekit.api_secret
-    MINIO_ROOT_USER      = var.minio.user
-    MINIO_ROOT_PASSWORD  = var.minio.password
-    MAILER_USERNAME      = var.mailer.username
-    MAILER_PASSWORD      = var.mailer.password
-    GITHUB_CLIENT_ID     = var.oauth.github_client_id
-    GITHUB_CLIENT_SECRET = var.oauth.github_client_secret
-    STEAM_API_KEY        = var.oauth.steam_api_key
-  }
+  data = local.managed_secrets
 }
 
 resource "kubernetes_secret_v1" "databases" {
@@ -126,7 +137,7 @@ resource "kubernetes_secret_v1" "databases" {
     namespace = local.namespace
   }
 
-  data = { for svc in local.database_services : "${svc}-password" => random_password.database[svc].result }
+  data = local.database_passwords
 }
 
 resource "kubernetes_secret_v1" "postgres_admin" {
