@@ -25,6 +25,7 @@ resource "helm_release" "livekit" {
         loadBalancer = {
           type = "disable"
         }
+        podHostNetwork = var.livekit.host_network
         deploymentStrategy = {
           type = "Recreate"
         }
@@ -41,13 +42,16 @@ locals {
   livekit_generated = merge({
     port      = 7880
     log_level = "info"
-    rtc = {
-      use_external_ip  = false
+    rtc = merge({
+      use_external_ip = false
+      tcp_port        = var.livekit.rtc_port
+      node_ip         = var.livekit.node_ip
+      }, var.livekit.host_network ? {
       port_range_start = var.livekit.udp_port
       port_range_end   = var.livekit.udp_port + 20
-      tcp_port         = var.livekit.rtc_port
-      node_ip          = var.livekit.node_ip
-    }
+      } : {
+      udp_port = var.livekit.udp_port
+    })
     keys = {
       (var.livekit.api_key) = var.livekit.api_secret
     }

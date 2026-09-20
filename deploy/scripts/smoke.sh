@@ -7,6 +7,20 @@ LIVEKIT_HOST="${LIVEKIT_HOST:-livekit.localtest.me}"
 SCHEME="${SCHEME:-https}"
 RESOLVE="${RESOLVE:-127.0.0.1}"
 
+EXPECTED_DEPLOYMENTS="${EXPECTED_DEPLOYMENTS:-11}"
+
+echo "==> waiting for $EXPECTED_DEPLOYMENTS deployments to appear in $NAMESPACE"
+for _ in $(seq 1 90); do
+    present="$(kubectl -n "$NAMESPACE" get deployment --no-headers 2>/dev/null | wc -l | tr -d ' ')"
+    [ "$present" -ge "$EXPECTED_DEPLOYMENTS" ] && break
+    sleep 10
+done
+present="$(kubectl -n "$NAMESPACE" get deployment --no-headers 2>/dev/null | wc -l | tr -d ' ')"
+if [ "$present" -lt "$EXPECTED_DEPLOYMENTS" ]; then
+    echo "only $present of $EXPECTED_DEPLOYMENTS deployments exist"
+    exit 1
+fi
+
 echo "==> waiting for deployments in $NAMESPACE"
 kubectl -n "$NAMESPACE" wait --for=condition=Available deployment --all --timeout=600s
 

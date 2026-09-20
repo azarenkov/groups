@@ -37,7 +37,7 @@ variable "nats" {
 }
 
 variable "livekit" {
-  description = "LiveKit SFU"
+  description = "LiveKit SFU; with host_network the pod binds rtc_port and 21 UDP ports from udp_port on the node, without it the chart publishes rtc_port and a single UDP mux port udp_port through hostPort"
   type = object({
     enabled       = optional(bool, true)
     chart_version = optional(string, "1.8.0")
@@ -45,7 +45,7 @@ variable "livekit" {
     api_key       = string
     api_secret    = string
     redis_url     = optional(string, "")
-    use_host_port = optional(bool, true)
+    host_network  = optional(bool, true)
     rtc_port      = optional(number, 7881)
     udp_port      = optional(number, 7882)
     node_ip       = optional(string, "")
