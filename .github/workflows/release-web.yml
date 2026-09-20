@@ -40,7 +40,16 @@ jobs:
       - name: Package
         id: package
         run: |
-          VERSION="$(node -p "require('./package.json').version")"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
+              echo "tag $GITHUB_REF_NAME does not match frontend/package.json version $PACKAGE_VERSION; bump package.json so desktop and web land in the same release" >&2
+              exit 1
+            fi
+          else
+            VERSION="$PACKAGE_VERSION"
+          fi
           ARCHIVE="rift-web-$VERSION.tar.gz"
           tar -czf "$ARCHIVE" -C build .
           sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"

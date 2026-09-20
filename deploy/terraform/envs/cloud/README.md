@@ -6,5 +6,6 @@ This directory is the slot for a managed cluster. It reuses `modules/platform`, 
 2. `datastores` — either keep `modules/datastores` on cluster storage, or write a `modules/datastores-<provider>` with the same outputs (`postgres`, `redis_url`, `minio`, `namespace`) backed by managed PostgreSQL, Redis and object storage. `modules/rift` does not care which one it gets.
 3. `dns.tf` — records for `app_host`, `livekit_host` and `argocd_host` pointing at the ingress address; cert-manager is switched to `issuer = "letsencrypt"` with `acme_email`.
 4. `backend.tf` — remote state (object storage bucket plus a lock).
+5. `trusted_proxies` for `modules/rift` — the ingress-controller pod CIDR (or node CIDR with host networking); with a cloud load balancer that sets `X-Forwarded-For`, also `ingress_nginx.forwarded_headers = true` and the balancer's addresses in the controller's `proxy-real-ip-cidr`.
 
 `main.tf` stays a copy of `envs/local/main.tf` with `delivery = "argocd"`, `git_token` set and the replicas from the chart defaults.

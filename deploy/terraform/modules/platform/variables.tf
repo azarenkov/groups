@@ -1,12 +1,13 @@
 variable "ingress_nginx" {
   description = "ingress-nginx controller settings"
   type = object({
-    enabled       = optional(bool, true)
-    chart_version = optional(string, "4.12.1")
-    host_ports    = optional(bool, false)
-    service_type  = optional(string, "LoadBalancer")
-    replicas      = optional(number, 1)
-    values        = optional(any, {})
+    enabled           = optional(bool, true)
+    chart_version     = optional(string, "4.12.1")
+    host_ports        = optional(bool, false)
+    service_type      = optional(string, "LoadBalancer")
+    forwarded_headers = optional(bool, false)
+    replicas          = optional(number, 1)
+    values            = optional(any, {})
   })
   default = {}
 }

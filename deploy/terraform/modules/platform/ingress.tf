@@ -44,7 +44,7 @@ locals {
       type = var.ingress_nginx.service_type
     }
     config = {
-      use-forwarded-headers     = "true"
+      use-forwarded-headers     = var.ingress_nginx.forwarded_headers ? "true" : "false"
       proxy-body-size           = "512m"
       proxy-read-timeout        = "3600"
       proxy-send-timeout        = "3600"

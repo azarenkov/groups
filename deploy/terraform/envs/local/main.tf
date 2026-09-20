@@ -102,6 +102,7 @@ module "rift" {
   }
 
   ingress_class     = module.platform.ingress_class
+  trusted_proxies   = [var.pod_subnet]
   ingress_namespace = module.platform.ingress_namespace
   cluster_issuer    = module.platform.cluster_issuer
   postgres          = module.datastores.postgres

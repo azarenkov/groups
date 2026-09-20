@@ -86,7 +86,7 @@ locals {
     }
     gateway = {
       livekitUpstream = var.livekit.url
-      trustedProxies  = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+      trustedProxies  = var.trusted_proxies
       ingress = {
         enabled     = true
         className   = var.ingress_class
@@ -141,7 +141,7 @@ locals {
 
   chart_values = merge(local.derived_values, local.overrides, local.merged_level1)
 
-  argocd_values = { for k, v in local.chart_values : k => v if k != "image" }
+  argocd_values = merge(local.chart_values, { image = { for k, v in local.chart_values.image : k => v if k != "tag" } })
 }
 
 resource "kubernetes_secret_v1" "secrets" {

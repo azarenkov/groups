@@ -14,7 +14,7 @@ resource "kind_cluster" "this" {
 
     networking {
       disable_default_cni = true
-      pod_subnet          = "10.244.0.0/16"
+      pod_subnet          = var.pod_subnet
     }
 
     node {
@@ -105,7 +105,7 @@ resource "helm_release" "calico" {
       installation = {
         calicoNetwork = {
           ipPools = [{
-            cidr          = "10.244.0.0/16"
+            cidr          = var.pod_subnet
             encapsulation = "VXLAN"
           }]
         }

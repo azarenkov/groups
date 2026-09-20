@@ -84,6 +84,12 @@ variable "cluster_issuer" {
   default = ""
 }
 
+variable "trusted_proxies" {
+  description = "CIDRs whose X-Forwarded-For the gateway trusts: the ingress-controller pods (or nodes when it uses host networking), never whole private ranges"
+  type        = list(string)
+  default     = []
+}
+
 variable "ingress_namespace" {
   type    = string
   default = "ingress-nginx"
