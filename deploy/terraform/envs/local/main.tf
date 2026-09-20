@@ -145,6 +145,8 @@ module "rift" {
     node_cidrs = [var.node_cidr, var.pod_subnet]
   }
 
+  mailer = var.mailer
+
   oauth = {
     google_client_id     = var.google_client_id
     github_client_id     = var.github_client_id

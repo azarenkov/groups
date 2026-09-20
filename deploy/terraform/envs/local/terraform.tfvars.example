@@ -6,5 +6,12 @@
 # github_client_id     = "..."
 # github_client_secret = "..."
 # steam_api_key        = "..."
+# mailer = {
+#   host     = "smtp.example.com"
+#   port     = "465"
+#   from     = "noreply@example.com"
+#   username = "..."
+#   password = "..."
+# }
 # delivery         = "argocd"
 # git_token        = "ghp_..."

@@ -103,6 +103,19 @@ variable "steam_api_key" {
   sensitive = true
 }
 
+variable "mailer" {
+  description = "SMTP account for verification and password reset mail; leave empty to keep mail disabled"
+  type = object({
+    host     = optional(string, "smtp.example.com")
+    port     = optional(string, "465")
+    from     = optional(string, "noreply@example.com")
+    username = optional(string, "")
+    password = optional(string, "")
+  })
+  default   = {}
+  sensitive = true
+}
+
 variable "monitoring" {
   type    = bool
   default = false
