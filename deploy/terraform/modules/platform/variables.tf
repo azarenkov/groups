@@ -63,10 +63,11 @@ variable "argocd" {
 }
 
 variable "monitoring" {
-  description = "kube-prometheus-stack"
+  description = "kube-prometheus-stack; its CRDs are installed first so the other releases can ship ServiceMonitors"
   type = object({
     enabled       = optional(bool, false)
     chart_version = optional(string, "70.4.1")
+    crds_version  = optional(string, "19.1.0")
     host          = optional(string, "")
     values        = optional(any, {})
   })

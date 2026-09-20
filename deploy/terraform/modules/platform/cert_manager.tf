@@ -30,6 +30,8 @@ resource "helm_release" "cert_manager" {
       }
     })
   ]
+
+  depends_on = [helm_release.prometheus_operator_crds]
 }
 
 resource "kubectl_manifest" "cluster_issuer" {

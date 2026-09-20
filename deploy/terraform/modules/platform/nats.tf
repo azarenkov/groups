@@ -42,4 +42,6 @@ resource "helm_release" "nats" {
       }
     })
   ]
+
+  depends_on = [helm_release.prometheus_operator_crds]
 }

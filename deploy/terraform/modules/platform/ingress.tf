@@ -23,6 +23,8 @@ resource "helm_release" "ingress_nginx" {
       { for k, v in var.ingress_nginx.values : k => v if k != "controller" }
     ))
   ]
+
+  depends_on = [helm_release.prometheus_operator_crds]
 }
 
 locals {
@@ -35,6 +37,9 @@ locals {
     hostPort = {
       enabled = var.ingress_nginx.host_ports
     }
+    updateStrategy = var.ingress_nginx.host_ports ? {
+      type = "Recreate"
+    } : {}
     service = {
       type = var.ingress_nginx.service_type
     }

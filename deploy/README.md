@@ -22,7 +22,7 @@ Requirements: Docker, `kind`, `kubectl`, `helm`, `terraform`. Ports 80 and 443 o
 make -C deploy local-up
 ```
 
-That builds every image as `rift/<service>:local`, creates the kind cluster, installs Calico, ingress-nginx, cert-manager, NATS, LiveKit, Postgres, Redis and MinIO, deploys the chart and runs the smoke test. The app is at `https://rift.localtest.me` (self-signed certificate). `make -C deploy local-down` destroys the cluster.
+Set `monitoring = true` in `terraform.tfvars` to add kube-prometheus-stack (Grafana at `https://grafana.localtest.me`, admin / `prom-operator`); the Prometheus Operator CRDs are installed before the other releases so their ServiceMonitors can be created. That builds every image as `rift/<service>:local`, creates the kind cluster, installs Calico, ingress-nginx, cert-manager, NATS, LiveKit, Postgres, Redis and MinIO, deploys the chart and runs the smoke test. The app is at `https://rift.localtest.me` (self-signed certificate). `make -C deploy local-down` destroys the cluster.
 
 Reusing images already built by docker compose: `docker tag rift-identity-service:latest rift/identity-service:local` for each service, then `make -C deploy kind-load` and `terraform apply` in `envs/local`.
 
