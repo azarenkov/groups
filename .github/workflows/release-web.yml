@@ -64,10 +64,23 @@ jobs:
           ARCHIVE: ${{ steps.package.outputs.archive }}
         run: |
           set -euo pipefail
-          release_id="$(gh api "repos/$REPO/releases?per_page=100" --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -n1)"
+          find_release() {
+            gh api "repos/$REPO/releases?per_page=100" --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -n1
+          }
+          release_id="$(find_release)"
+          for attempt in 1 2 3 4 5; do
+            [ -n "$release_id" ] && break
+            if gh release create "$TAG" --repo "$REPO" --draft --title "$TAG" --notes "Rift $TAG" 2>/tmp/create.err; then
+              :
+            else
+              echo "release create attempt $attempt: $(cat /tmp/create.err)"
+              sleep $((attempt * 5))
+            fi
+            release_id="$(find_release)"
+          done
           if [ -z "$release_id" ]; then
-            gh release create "$TAG" --repo "$REPO" --draft --title "$TAG" --notes "Rift $TAG"
-            release_id="$(gh api "repos/$REPO/releases?per_page=100" --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -n1)"
+            echo "could not find or create release $TAG in $REPO" >&2
+            exit 1
           fi
           for asset in "$ARCHIVE" "$ARCHIVE.sha256"; do
             existing="$(gh api "repos/$REPO/releases/$release_id/assets" --jq ".[] | select(.name == \"$asset\") | .id" | head -n1)"

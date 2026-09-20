@@ -2,16 +2,17 @@
 {{- $root := . -}}
 {{- $targets := dict -}}
 {{- range $name, $svc := .Values.httpServices }}
-{{- if $svc.enabled }}{{ $_ := set $targets $name $svc }}{{ end }}
+{{- if $svc.enabled }}{{ $_ := set $targets $name (dict "component" $name "workload" $svc) }}{{ end }}
 {{- end }}
-{{- if .Values.realtime.enabled }}{{ $_ := set $targets "realtime" .Values.realtime }}{{ end }}
-{{- if .Values.gateway.enabled }}{{ $_ := set $targets (printf "%s-gateway" .Release.Name) .Values.gateway }}{{ end }}
-{{- if .Values.web.enabled }}{{ $_ := set $targets (printf "%s-web" .Release.Name) .Values.web }}{{ end }}
-{{- range $name, $workload := $targets }}
+{{- if .Values.realtime.enabled }}{{ $_ := set $targets "realtime" (dict "component" "realtime" "workload" .Values.realtime) }}{{ end }}
+{{- if .Values.gateway.enabled }}{{ $_ := set $targets (printf "%s-gateway" .Release.Name) (dict "component" "gateway" "workload" .Values.gateway) }}{{ end }}
+{{- if .Values.web.enabled }}{{ $_ := set $targets (printf "%s-web" .Release.Name) (dict "component" "web" "workload" .Values.web) }}{{ end }}
+{{- range $name, $target := $targets }}
+{{- $workload := $target.workload }}
 {{- $hpa := include "rift.autoscaling" (dict "root" $root "workload" $workload) | fromYaml }}
 {{- $replicas := ternary $hpa.minReplicas $workload.replicas $hpa.enabled }}
 {{- if gt (int $replicas) 1 }}
-{{- $component := $name | trimPrefix (printf "%s-" $root.Release.Name) }}
+{{- $component := $target.component }}
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
