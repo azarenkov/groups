@@ -15,3 +15,6 @@ docker-compose.override.yml
 *.tfstate.lock.info
 *.tfvars
 !*.tfvars.example
+
+# local CA of the kind environment
+deploy/terraform/envs/local/rift-local-ca.crt

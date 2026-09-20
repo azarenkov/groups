@@ -1,3 +1,26 @@
+resource "tls_private_key" "ca" {
+  algorithm   = "ECDSA"
+  ecdsa_curve = "P256"
+}
+
+resource "tls_self_signed_cert" "ca" {
+  private_key_pem       = tls_private_key.ca.private_key_pem
+  is_ca_certificate     = true
+  validity_period_hours = 24 * 365 * 5
+
+  subject {
+    common_name  = "Rift local CA"
+    organization = "Rift"
+  }
+
+  allowed_uses = ["cert_signing", "crl_signing"]
+}
+
+resource "local_file" "ca_cert" {
+  content  = tls_self_signed_cert.ca.cert_pem
+  filename = "${path.module}/rift-local-ca.crt"
+}
+
 resource "random_password" "livekit_secret" {
   length  = 48
   special = false
@@ -22,7 +45,9 @@ module "platform" {
   }
 
   cert_manager = {
-    issuer = "selfsigned"
+    issuer      = "ca"
+    ca_cert_pem = tls_self_signed_cert.ca.cert_pem
+    ca_key_pem  = tls_private_key.ca.private_key_pem
   }
 
   nats = {

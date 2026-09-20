@@ -14,14 +14,21 @@ variable "ingress_nginx" {
 }
 
 variable "cert_manager" {
-  description = "cert-manager and the ClusterIssuer the Rift ingress uses"
+  description = "cert-manager and the ClusterIssuer the Rift ingress uses: selfsigned, letsencrypt, or ca with a root certificate you trust on your machines"
   type = object({
     enabled       = optional(bool, true)
     chart_version = optional(string, "v1.17.1")
     issuer        = optional(string, "selfsigned")
     acme_email    = optional(string, "")
+    ca_cert_pem   = optional(string, "")
+    ca_key_pem    = optional(string, "")
   })
   default = {}
+
+  validation {
+    condition     = contains(["selfsigned", "letsencrypt", "ca"], var.cert_manager.issuer)
+    error_message = "cert_manager.issuer must be selfsigned, letsencrypt or ca (ca needs ca_cert_pem and ca_key_pem)"
+  }
 }
 
 variable "nats" {

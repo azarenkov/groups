@@ -6,7 +6,7 @@ ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)
 LOCAL_ENV := $(ROOT)/deploy/terraform/envs/local
 KUBECONFIG_LOCAL := $(HOME)/.kube/rift-local.yaml
 
-.PHONY: images kind-load local-init local-cluster local-up local-down smoke lint
+.PHONY: images kind-load local-init local-cluster local-up local-down smoke lint trust-ca
 
 images:
 	@for svc in $(SERVICES); do \
@@ -29,6 +29,9 @@ local-up: local-cluster kind-load
 
 local-down:
 	@cd $(LOCAL_ENV) && terraform destroy -input=false -auto-approve
+
+trust-ca:
+	@sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain $(LOCAL_ENV)/rift-local-ca.crt && echo "Rift local CA trusted; restart the browser"
 
 smoke:
 	@KUBECONFIG=$(KUBECONFIG_LOCAL) $(ROOT)/deploy/scripts/smoke.sh
