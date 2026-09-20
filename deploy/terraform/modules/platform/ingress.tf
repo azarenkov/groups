@@ -45,12 +45,13 @@ locals {
     }
     config = {
       use-forwarded-headers     = var.ingress_nginx.forwarded_headers ? "true" : "false"
+      enable-real-ip            = var.ingress_nginx.forwarded_headers ? "true" : "false"
+      proxy-real-ip-cidr        = join(",", var.ingress_nginx.real_ip_cidrs)
       proxy-body-size           = "512m"
       proxy-read-timeout        = "3600"
       proxy-send-timeout        = "3600"
       proxy-request-buffering   = "off"
       use-proxy-protocol        = "false"
-      enable-real-ip            = "true"
       allow-snippet-annotations = "false"
     }
     metrics = {

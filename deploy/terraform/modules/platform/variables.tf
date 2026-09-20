@@ -1,11 +1,12 @@
 variable "ingress_nginx" {
-  description = "ingress-nginx controller settings"
+  description = "ingress-nginx controller settings; forwarded_headers and real_ip_cidrs are only for a load balancer in front of the controller that sets X-Forwarded-For"
   type = object({
     enabled           = optional(bool, true)
     chart_version     = optional(string, "4.12.1")
     host_ports        = optional(bool, false)
     service_type      = optional(string, "LoadBalancer")
     forwarded_headers = optional(bool, false)
+    real_ip_cidrs     = optional(list(string), [])
     replicas          = optional(number, 1)
     values            = optional(any, {})
   })
