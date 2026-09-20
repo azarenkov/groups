@@ -140,6 +140,14 @@ resource "kubernetes_stateful_set_v1" "store" {
             limits   = try(each.value.resources.limits, {})
           }
 
+          startup_probe {
+            exec {
+              command = each.value.probe
+            }
+            period_seconds    = 10
+            failure_threshold = var.startup_failure_threshold
+          }
+
           readiness_probe {
             exec {
               command = each.value.probe

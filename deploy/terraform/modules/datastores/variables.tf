@@ -9,6 +9,12 @@ variable "cluster_domain" {
   default = "cluster.local"
 }
 
+variable "startup_failure_threshold" {
+  description = "Startup probe attempts (10s apart) a datastore gets before liveness kicks in; covers first initialization and WAL recovery"
+  type        = number
+  default     = 180
+}
+
 variable "storage_class" {
   description = "StorageClass for every volume; empty uses the cluster default"
   type        = string
