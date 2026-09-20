@@ -79,6 +79,12 @@ variable "git_revision" {
   default = "main"
 }
 
+variable "google_client_id" {
+  description = "Google OAuth web client id; https://rift.localtest.me must be among its authorized JavaScript origins"
+  type        = string
+  default     = ""
+}
+
 variable "monitoring" {
   type    = bool
   default = false

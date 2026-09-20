@@ -120,6 +120,10 @@ module "rift" {
     node_cidrs = [var.node_cidr, var.pod_subnet]
   }
 
+  oauth = {
+    google_client_id = var.google_client_id
+  }
+
   values = {
     config = {
       NATS_STREAM_HOT_MAX_BYTES  = "134217728"
