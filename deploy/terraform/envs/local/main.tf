@@ -128,8 +128,13 @@ module "rift" {
       voice-service     = { replicas = 1 }
     }
     realtime = { replicas = 1 }
-    gateway  = { replicas = 1 }
-    web      = { replicas = 1 }
+    gateway = {
+      replicas = 1
+      ingress = {
+        annotations = { "nginx.ingress.kubernetes.io/proxy-body-size" = "512m" }
+      }
+    }
+    web = { replicas = 1 }
     nsfwDetector = {
       resources = {
         requests = { cpu = "250m", memory = "1Gi" }

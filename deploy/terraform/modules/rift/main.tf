@@ -113,11 +113,33 @@ locals {
     }
   }
 
-  chart_values = merge(
-    local.derived_values,
-    var.values,
-    { for k, v in local.derived_values : k => merge(v, try(var.values[k], {})) if can(keys(v)) && can(keys(try(var.values[k], {}))) }
-  )
+  overrides = var.values
+
+  merged_level3 = {
+    for k, v in local.derived_values : k => {
+      for k2, v2 in v : k2 => {
+        for k3, v3 in v2 : k3 => merge(v3, try(local.overrides[k][k2][k3], {}))
+        if can(keys(v3)) && can(keys(try(local.overrides[k][k2][k3], {})))
+      }
+      if can(keys(v2)) && can(keys(try(local.overrides[k][k2], {})))
+    }
+    if can(keys(v)) && can(keys(try(local.overrides[k], {})))
+  }
+
+  merged_level2 = {
+    for k, v in local.derived_values : k => {
+      for k2, v2 in v : k2 => merge(v2, try(local.overrides[k][k2], {}), try(local.merged_level3[k][k2], {}))
+      if can(keys(v2)) && can(keys(try(local.overrides[k][k2], {})))
+    }
+    if can(keys(v)) && can(keys(try(local.overrides[k], {})))
+  }
+
+  merged_level1 = {
+    for k, v in local.derived_values : k => merge(v, try(local.overrides[k], {}), try(local.merged_level2[k], {}))
+    if can(keys(v)) && can(keys(try(local.overrides[k], {})))
+  }
+
+  chart_values = merge(local.derived_values, local.overrides, local.merged_level1)
 
   argocd_values = { for k, v in local.chart_values : k => v if k != "image" }
 }

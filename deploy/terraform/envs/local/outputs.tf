@@ -9,3 +9,4 @@ output "app_url" {
 output "argocd_url" {
   value = var.delivery == "argocd" ? "https://${var.argocd_host}" : ""
 }
+

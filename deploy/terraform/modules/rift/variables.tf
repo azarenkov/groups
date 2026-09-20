@@ -153,7 +153,7 @@ variable "oauth" {
 }
 
 variable "values" {
-  description = "Extra chart values merged on top of what this module derives"
+  description = "Extra chart values merged on top of what this module derives; nested maps are merged three levels deep (for example gateway.ingress.annotations adds to the generated annotations), lists are replaced"
   type        = any
   default     = {}
 }

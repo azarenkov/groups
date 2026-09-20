@@ -12,6 +12,7 @@ COPY frontend/src ./src
 
 ENV CI=true \
     GENERATE_SOURCEMAP=false \
+    PUBLIC_URL=/ \
     REACT_APP_API_URL=/api \
     REACT_APP_WS_URL=/ws
 RUN npx react-scripts build
