@@ -70,6 +70,8 @@ spec:
               value: {{ .Values.gateway.clusterDomain | quote }}
             - name: NGINX_RESOLVER_IPV6
               value: {{ .Values.gateway.resolverIpv6 | quote }}
+            - name: NGINX_LIVEKIT_UPSTREAM
+              value: {{ .Values.gateway.livekitUpstream | default (printf "http://livekit.%s.svc.%s:7880" .Release.Namespace .Values.gateway.clusterDomain) | quote }}
           securityContext:
             {{- include "rift.containerSecurityContext" . | nindent 12 }}
           ports:

@@ -4,6 +4,11 @@ variable "namespace" {
   default     = "rift-data"
 }
 
+variable "cluster_domain" {
+  type    = string
+  default = "cluster.local"
+}
+
 variable "storage_class" {
   description = "StorageClass for every volume; empty uses the cluster default"
   type        = string

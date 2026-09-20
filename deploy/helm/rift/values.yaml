@@ -260,6 +260,7 @@ gateway:
   image: nginxinc/nginx-unprivileged:1.27-alpine
   clusterDomain: cluster.local
   resolverIpv6: "off"
+  livekitUpstream: ""
   trustedProxies: []
   resources:
     requests: { cpu: 50m, memory: 64Mi }

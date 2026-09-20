@@ -51,6 +51,10 @@ Images come from `image.registry/<service>:image.tag` (defaults to `ghcr.io/rift
 
 `files/nginx.conf.template` is generated from `docker/nginx/nginx.conf` by `deploy/helm/sync-nginx.sh`; rerun it after changing the nginx config. The script adapts the config for the unprivileged nginx image (listen on 8080, pid and temp paths under `/tmp`, logs to stdout/stderr) and leaves the DNS resolver as a placeholder that the container fills from `/etc/resolv.conf` at start. The gateway runs as uid 101 with a read-only root filesystem like every other workload. Upstreams are rewritten to `<service>.<namespace>.svc.<gateway.clusterDomain>` (nginx's own resolver ignores the pod search domains; set `gateway.resolverIpv6: "on"` on IPv6-only or dual-stack clusters so AAAA records are queried), and `gateway.trustedProxies` lists the CIDRs whose `X-Forwarded-For` is trusted to recover the client address before the rate and connection limits apply. It is empty by default, so limits and audit addresses use the direct peer; set it to exactly your ingress-controller pod or node CIDRs when the gateway sits behind an Ingress, never to whole private ranges, because any trusted source can pick its own client address. The gateway forwards only the sanitized `$remote_addr` upstream.
 
+## LiveKit
+
+The gateway proxies `gateway.ingress.livekitHost` to `gateway.livekitUpstream`; leave it empty to use a `livekit` Service in the release namespace (`livekit.externalName` creates one), or point it at a LiveKit installed elsewhere, e.g. `http://livekit-livekit-server.livekit.svc.cluster.local:80`. nginx resolves upstreams with its own resolver, so the name must be fully qualified.
+
 ## Usage
 
 ```sh

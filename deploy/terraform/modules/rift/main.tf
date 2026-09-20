@@ -64,7 +64,8 @@ locals {
       }
     }
     gateway = {
-      trustedProxies = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+      livekitUpstream = var.livekit.url
+      trustedProxies  = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
       ingress = {
         enabled     = true
         className   = var.ingress_class
@@ -96,6 +97,8 @@ locals {
     var.values,
     { for k, v in local.derived_values : k => merge(v, try(var.values[k], {})) if can(keys(v)) && can(keys(try(var.values[k], {}))) }
   )
+
+  argocd_values = { for k, v in local.chart_values : k => v if k != "image" }
 }
 
 resource "kubernetes_secret_v1" "secrets" {
@@ -220,7 +223,7 @@ resource "kubectl_manifest" "argocd_application" {
         helm = {
           releaseName  = var.release_name
           valueFiles   = ["../../argocd/envs/${var.environment}/values.yaml"]
-          valuesObject = local.chart_values
+          valuesObject = local.argocd_values
         }
       }
       destination = {

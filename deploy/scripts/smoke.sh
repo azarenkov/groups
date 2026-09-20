@@ -3,6 +3,7 @@ set -euo pipefail
 
 NAMESPACE="${NAMESPACE:-rift}"
 APP_HOST="${APP_HOST:-rift.localtest.me}"
+LIVEKIT_HOST="${LIVEKIT_HOST:-livekit.localtest.me}"
 SCHEME="${SCHEME:-https}"
 RESOLVE="${RESOLVE:-127.0.0.1}"
 
@@ -33,6 +34,9 @@ case "$code" in
     400|401|426) ;;
     *) echo "unexpected status $code from /ws"; exit 1 ;;
 esac
+
+echo "==> livekit answers through the gateway"
+test "$(curl -sk --resolve "$LIVEKIT_HOST:443:$RESOLVE" --resolve "$LIVEKIT_HOST:80:$RESOLVE" -o /dev/null -w '%{http_code}' "$SCHEME://$LIVEKIT_HOST/")" = "200"
 
 echo "==> every service is ready"
 for deploy in $(kubectl -n "$NAMESPACE" get deployment -o jsonpath='{.items[*].metadata.name}'); do

@@ -1,6 +1,6 @@
 output "postgres" {
   value = {
-    host           = "postgres.${local.namespace}.svc"
+    host           = "postgres.${local.namespace}.svc.${var.cluster_domain}"
     port           = 5432
     admin_user     = "postgres"
     admin_password = random_password.postgres_admin.result
@@ -10,16 +10,16 @@ output "postgres" {
 }
 
 output "redis_host" {
-  value = "redis.${local.namespace}.svc:6379"
+  value = "redis.${local.namespace}.svc.${var.cluster_domain}:6379"
 }
 
 output "redis_url" {
-  value = "redis://redis.${local.namespace}.svc:6379"
+  value = "redis://redis.${local.namespace}.svc.${var.cluster_domain}:6379"
 }
 
 output "minio" {
   value = {
-    endpoint = "http://minio.${local.namespace}.svc:9000"
+    endpoint = "http://minio.${local.namespace}.svc.${var.cluster_domain}:9000"
     bucket   = var.minio.bucket
     user     = "rift"
     password = random_password.minio_root.result

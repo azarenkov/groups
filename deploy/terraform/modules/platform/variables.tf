@@ -73,6 +73,12 @@ variable "monitoring" {
   default = {}
 }
 
+variable "cluster_domain" {
+  description = "Cluster DNS domain used to build fully qualified service names"
+  type        = string
+  default     = "cluster.local"
+}
+
 variable "ingress_class" {
   description = "Ingress class name that ingress resources should use"
   type        = string

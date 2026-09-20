@@ -20,6 +20,7 @@ spec:
     metadata:
       labels:
         {{- include "rift.selectorLabels" (dict "root" . "component" "realtime") | nindent 8 }}
+        rift.dev/calls-services: "true"
       annotations:
         {{- include "rift.checksums" . | nindent 8 }}
         {{- with .Values.podAnnotations }}

@@ -44,6 +44,10 @@ resource "helm_release" "livekit" {
       loadBalancer = {
         type = "disable"
       }
+      deploymentStrategy = {
+        type = "Recreate"
+      }
+      terminationGracePeriodSeconds = 30
     }, var.livekit.values))
   ]
 }
