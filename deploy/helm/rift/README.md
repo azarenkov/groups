@@ -12,7 +12,7 @@ Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: po
 
 - `autoscaling` adds a `HorizontalPodAutoscaler` for the HTTP APIs, `realtime`, the gateway and `web`; each workload can override the defaults with its own `autoscaling` block, and `replicas` is ignored while autoscaling is on.
 - `podDisruptionBudget` keeps `minAvailable` pods of every workload that runs more than one replica.
-- `networkPolicy` denies all ingress to Rift pods and then allows only what the topology needs: the ingress controller (`networkPolicy.ingressController`) to the gateway and `web`, the gateway to the APIs and `realtime`, the services to each other (pods labelled `rift.dev/calls-services`) and to `nsfw-detector`. It needs a CNI that enforces `NetworkPolicy` and lets kubelet probes through (Calico, Cilium); kind's default CNI enforces nothing.
+- `networkPolicy` denies all ingress to Rift pods and then allows only what the topology needs: the ingress controller (`networkPolicy.ingressController`) to the gateway and `web`, the gateway to the APIs and `realtime`, the services to each other (pods labelled `rift.dev/calls-services`) and to `nsfw-detector`. `networkPolicy.extraFrom.<service>` adds peers to one service, e.g. the LiveKit namespace that posts webhooks to `voice-service`. It needs a CNI that enforces `NetworkPolicy` and lets kubelet probes through (Calico, Cilium); kind's default CNI enforces nothing.
 
 ## Databases
 

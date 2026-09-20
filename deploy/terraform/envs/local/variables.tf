@@ -9,6 +9,12 @@ variable "pod_subnet" {
   default     = "10.244.0.0/16"
 }
 
+variable "node_cidr" {
+  description = "Subnet of the docker network kind nodes live in; LiveKit runs with host networking, so its webhooks arrive from these addresses"
+  type        = string
+  default     = "192.168.147.0/24"
+}
+
 variable "workers" {
   type    = number
   default = 2

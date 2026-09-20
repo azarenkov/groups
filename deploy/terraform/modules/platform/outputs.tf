@@ -6,6 +6,10 @@ output "livekit_url" {
   value = var.livekit.enabled ? "http://livekit-livekit-server.${kubernetes_namespace_v1.livekit[0].metadata[0].name}.svc.${var.cluster_domain}:80" : ""
 }
 
+output "livekit_namespace" {
+  value = var.livekit.enabled ? kubernetes_namespace_v1.livekit[0].metadata[0].name : ""
+}
+
 output "ingress_class" {
   value = var.ingress_class
 }

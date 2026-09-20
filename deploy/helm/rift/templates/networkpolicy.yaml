@@ -81,7 +81,7 @@ spec:
   policyTypes: [Ingress]
   ingress:
     - from:
-        {{- toYaml (concat $fromGateway $fromServices) | nindent 8 }}
+        {{- toYaml (concat $fromGateway $fromServices (index $np.extraFrom $name | default list)) | nindent 8 }}
       ports:
         - port: 8080
 {{- end }}

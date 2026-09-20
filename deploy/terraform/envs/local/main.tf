@@ -31,12 +31,13 @@ module "platform" {
   }
 
   livekit = {
-    api_key    = "rift-server"
-    api_secret = random_password.livekit_secret.result
-    redis_url  = module.datastores.redis_host
-    rtc_port   = var.livekit_tcp_port
-    udp_port   = var.livekit_udp_port
-    node_ip    = "127.0.0.1"
+    api_key      = "rift-server"
+    api_secret   = random_password.livekit_secret.result
+    redis_url    = module.datastores.redis_host
+    rtc_port     = var.livekit_tcp_port
+    udp_port     = var.livekit_udp_port
+    node_ip      = "127.0.0.1"
+    webhook_urls = ["http://voice-service.rift.svc.cluster.local:8080/api/webhook/livekit"]
     values = {
       nodeSelector = { "rift.dev/edge" = "true" }
       tolerations = [{
@@ -115,6 +116,8 @@ module "rift" {
     client_url = "wss://${var.livekit_host}"
     api_key    = "rift-server"
     api_secret = random_password.livekit_secret.result
+    namespace  = module.platform.livekit_namespace
+    node_cidrs = [var.node_cidr, var.pod_subnet]
   }
 
   values = {

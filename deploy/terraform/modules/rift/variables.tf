@@ -126,11 +126,14 @@ variable "minio" {
 }
 
 variable "livekit" {
+  description = "namespace is the one LiveKit runs in and node_cidrs the addresses its host-networked pods send from; both are let through to voice-service for webhooks"
   type = object({
     url        = string
     client_url = string
     api_key    = string
     api_secret = string
+    namespace  = optional(string, "")
+    node_cidrs = optional(list(string), [])
   })
   sensitive = true
 }

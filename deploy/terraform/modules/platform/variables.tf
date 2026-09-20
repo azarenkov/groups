@@ -49,6 +49,7 @@ variable "livekit" {
     rtc_port      = optional(number, 7881)
     udp_port      = optional(number, 7882)
     node_ip       = optional(string, "")
+    webhook_urls  = optional(list(string), [])
     values        = optional(any, {})
   })
 }

@@ -132,6 +132,7 @@ networkPolicy:
   ingressController:
     namespaceSelector: {}
     podSelector: {}
+  extraFrom: {}
 
 podAnnotations: {}
 nodeSelector: {}

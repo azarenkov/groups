@@ -25,6 +25,17 @@ locals {
   scheme            = var.cluster_issuer == "" ? "http" : "https"
   app_url           = "${local.scheme}://${var.hosts.app}"
 
+  livekit_peers = concat(
+    var.livekit.namespace == "" ? [] : [{
+      namespaceSelector = {
+        matchLabels = {
+          "kubernetes.io/metadata.name" = var.livekit.namespace
+        }
+      }
+    }],
+    [for cidr in var.livekit.node_cidrs : { ipBlock = { cidr = cidr } }]
+  )
+
   managed_secrets = {
     JWT_SECRET           = random_password.jwt.result
     LIVEKIT_API_SECRET   = var.livekit.api_secret
@@ -110,6 +121,7 @@ locals {
           }
         }
       }
+      extraFrom = length(local.livekit_peers) == 0 ? {} : { voice-service = local.livekit_peers }
     }
   }
 
@@ -141,7 +153,7 @@ locals {
 
   chart_values = merge(local.derived_values, local.overrides, local.merged_level1)
 
-  argocd_values = merge(local.chart_values, { image = { for k, v in local.chart_values.image : k => v if k != "tag" } })
+  argocd_values = merge(local.chart_values, { image = { pullPolicy = var.image.pull_policy } })
 }
 
 resource "kubernetes_secret_v1" "secrets" {

@@ -33,6 +33,15 @@ resource "helm_release" "livekit" {
         keys = {
           (var.livekit.api_key) = var.livekit.api_secret
         }
+        webhook = {
+          api_key = var.livekit.api_key
+          urls    = var.livekit.webhook_urls
+        }
+        room = {
+          auto_create      = false
+          empty_timeout    = 300
+          max_participants = 100
+        }
         turn = {
           enabled = false
         }
