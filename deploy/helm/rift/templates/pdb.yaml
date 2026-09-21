@@ -7,10 +7,14 @@
 {{- if .Values.realtime.enabled }}{{ $_ := set $targets "realtime" (dict "component" "realtime" "workload" .Values.realtime) }}{{ end }}
 {{- if .Values.gateway.enabled }}{{ $_ := set $targets (printf "%s-gateway" .Release.Name) (dict "component" "gateway" "workload" .Values.gateway) }}{{ end }}
 {{- if .Values.web.enabled }}{{ $_ := set $targets (printf "%s-web" .Release.Name) (dict "component" "web" "workload" .Values.web) }}{{ end }}
+{{- range $name, $worker := .Values.workers }}
+{{- if $worker.enabled }}{{ $_ := set $targets $name (dict "component" $name "workload" $worker "fixed" true) }}{{ end }}
+{{- end }}
+{{- if .Values.nsfwDetector.enabled }}{{ $_ := set $targets "nsfw-detector" (dict "component" "nsfw-detector" "workload" .Values.nsfwDetector "fixed" true) }}{{ end }}
 {{- range $name, $target := $targets }}
 {{- $workload := $target.workload }}
 {{- $hpa := include "rift.autoscaling" (dict "root" $root "workload" $workload) | fromYaml }}
-{{- $replicas := ternary $hpa.minReplicas $workload.replicas $hpa.enabled }}
+{{- $replicas := ternary $hpa.minReplicas $workload.replicas (and $hpa.enabled (not $target.fixed)) }}
 {{- if gt (int $replicas) 1 }}
 {{- $component := $target.component }}
 ---
