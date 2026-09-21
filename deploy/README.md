@@ -24,7 +24,7 @@ make -C deploy local-up
 
 Set `monitoring = true` in `terraform.tfvars` to add kube-prometheus-stack (Grafana at `https://grafana.localtest.me`; the admin password is generated, read it with `kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d`); the Prometheus Operator CRDs are installed before the other releases so their ServiceMonitors can be created. That builds every image as `rift/<service>:local`, creates the kind cluster, installs Calico, ingress-nginx, cert-manager, NATS, LiveKit, Postgres, Redis and MinIO, deploys the chart and runs the smoke test. The app is at `https://rift.localtest.me`. Certificates come from a local CA that Terraform generates into `envs/local/rift-local-ca.crt`; trust it once with `make -C deploy trust-ca` (macOS Keychain) — accepting a self-signed certificate in the browser is not enough, Safari does not extend that exception to WebSockets, so LiveKit and the realtime socket would silently fail. `make -C deploy local-down` destroys the cluster.
 
-Reusing images already built by docker compose: `docker tag rift-identity-service:latest rift/identity-service:local` for each service, then `make -C deploy kind-load` and `terraform apply` in `envs/local`.
+`local-up` builds the images first (`make -C deploy images`), which takes a while on the first run because the Rust services compile from scratch. Reusing images already built by docker compose: `docker tag rift-identity-service:latest rift/identity-service:local` for each service, then `make -C deploy kind-load` and `terraform apply` in `envs/local`.
 
 To pull released images from GHCR instead: `image_registry = "ghcr.io/rift-space/rift"`, `image_tag = "1.2.3"`, `ghcr_user`/`ghcr_token` with `read:packages`.
 

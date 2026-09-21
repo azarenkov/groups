@@ -14,7 +14,7 @@ images:
 		docker build -q -f $(ROOT)/docker/$$svc/Dockerfile -t $(REGISTRY)/$$svc:$(TAG) $(ROOT) || exit 1; \
 	done
 
-kind-load:
+kind-load: images
 	@kind load docker-image --name $(CLUSTER) $(foreach svc,$(SERVICES),$(REGISTRY)/$(svc):$(TAG))
 
 local-init:
