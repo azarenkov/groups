@@ -5,6 +5,7 @@ on:
     paths:
       - "deploy/**"
       - "docker/web/**"
+      - "frontend/**"
       - ".github/workflows/infra.yml"
   workflow_dispatch:
     inputs:
@@ -19,8 +20,32 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      deploy: ${{ steps.filter.outputs.deploy }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            deploy:
+              - 'deploy/**'
+              - '.github/workflows/infra.yml'
+            web:
+              - 'frontend/**'
+              - 'docker/web/**'
+              - '.github/workflows/infra.yml'
+
   lint:
     runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.deploy == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -50,8 +75,35 @@ jobs:
           cd deploy/terraform && terraform fmt -recursive -check
           cd envs/local && terraform init -backend=false -input=false && terraform validate
 
+  web-image:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.web == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
       - name: Web image builds
-        run: docker build -f docker/web/Dockerfile -t rift/web:ci .
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/web/Dockerfile
+          push: false
+          load: true
+          tags: rift/web:ci
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      - name: Web image serves the app with its headers
+        run: |
+          docker run -d --rm --name web --read-only --tmpfs /tmp -p 8080:8080 -e RIFT_API_URL=https://api.example.test/api rift/web:ci
+          for _ in $(seq 1 20); do curl -sf localhost:8080/healthz > /dev/null && break; sleep 1; done
+          curl -sf localhost:8080/join/token | grep -q 'src="/static/js/'
+          curl -sf localhost:8080/config.js | grep -q 'https://api.example.test/api'
+          headers="$(curl -s -o /dev/null -D - localhost:8080/)"
+          echo "$headers" | grep -qi '^x-frame-options: DENY'
+          docker rm -f web
 
   cluster:
     runs-on: ubuntu-latest
