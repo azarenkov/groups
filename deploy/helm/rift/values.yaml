@@ -132,6 +132,8 @@ networkPolicy:
   ingressController:
     namespaceSelector: {}
     podSelector: {}
+    ipBlocks: []
+    allowAnySource: false
   extraFrom: {}
 
 podAnnotations: {}

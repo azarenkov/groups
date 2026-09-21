@@ -3,10 +3,18 @@
 {{- $np := .Values.networkPolicy -}}
 {{- $fromGateway := list (dict "podSelector" (dict "matchLabels" (include "rift.selectorLabels" (dict "root" . "component" "gateway") | fromYaml))) -}}
 {{- $fromIngress := list -}}
-{{- if $np.ingressController.namespaceSelector }}
-{{- $peer := dict "namespaceSelector" $np.ingressController.namespaceSelector }}
-{{- with $np.ingressController.podSelector }}{{ $_ := set $peer "podSelector" . }}{{ end }}
+{{- $ic := $np.ingressController -}}
+{{- if or $ic.namespaceSelector $ic.podSelector }}
+{{- $peer := dict }}
+{{- with $ic.namespaceSelector }}{{ $_ := set $peer "namespaceSelector" . }}{{ end }}
+{{- with $ic.podSelector }}{{ $_ := set $peer "podSelector" . }}{{ end }}
 {{- $fromIngress = append $fromIngress $peer }}
+{{- end }}
+{{- with $ic.ipBlocks }}
+{{- range . }}{{ $fromIngress = append $fromIngress (dict "ipBlock" (dict "cidr" .)) }}{{ end }}
+{{- end }}
+{{- if and (not $fromIngress) (not $ic.allowAnySource) (or .Values.gateway.enabled .Values.web.enabled) }}
+{{- fail "networkPolicy.enabled needs networkPolicy.ingressController.namespaceSelector, podSelector or ipBlocks to name who may reach the gateway and web pods; set networkPolicy.ingressController.allowAnySource=true to expose them to every source on purpose" }}
 {{- end }}
 {{- $fromServices := list (dict "podSelector" (dict "matchLabels" (dict "app.kubernetes.io/name" "rift" "app.kubernetes.io/instance" .Release.Name "rift.dev/calls-services" "true"))) -}}
 ---
