@@ -125,35 +125,16 @@ locals {
     }
   }
 
-  overrides = var.values
-
-  merged_level3 = {
-    for k, v in local.derived_values : k => {
-      for k2, v2 in v : k2 => {
-        for k3, v3 in v2 : k3 => merge(v3, try(local.overrides[k][k2][k3], {}))
-        if can(keys(v3)) && can(keys(try(local.overrides[k][k2][k3], {})))
-      }
-      if can(keys(v2)) && can(keys(try(local.overrides[k][k2], {})))
-    }
-    if can(keys(v)) && can(keys(try(local.overrides[k], {})))
-  }
-
-  merged_level2 = {
-    for k, v in local.derived_values : k => {
-      for k2, v2 in v : k2 => merge(v2, try(local.overrides[k][k2], {}), try(local.merged_level3[k][k2], {}))
-      if can(keys(v2)) && can(keys(try(local.overrides[k][k2], {})))
-    }
-    if can(keys(v)) && can(keys(try(local.overrides[k], {})))
-  }
-
-  merged_level1 = {
-    for k, v in local.derived_values : k => merge(v, try(local.overrides[k], {}), try(local.merged_level2[k], {}))
-    if can(keys(v)) && can(keys(try(local.overrides[k], {})))
-  }
-
-  chart_values = merge(local.derived_values, local.overrides, local.merged_level1)
+  chart_values = module.chart_values.result
 
   argocd_values = merge(local.chart_values, { image = { pullPolicy = var.image.pull_policy } })
+}
+
+module "chart_values" {
+  source = "../deepmerge"
+
+  base     = local.derived_values
+  override = var.values
 }
 
 resource "kubernetes_secret_v1" "secrets" {

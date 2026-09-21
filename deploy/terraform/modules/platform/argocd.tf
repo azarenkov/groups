@@ -17,30 +17,35 @@ resource "helm_release" "argocd" {
   wait       = true
   timeout    = 900
 
-  values = [
-    yamlencode(merge({
-      configs = {
-        params = {
-          "server.insecure" = true
-        }
-      }
-      server = {
-        ingress = {
-          enabled          = var.argocd.host != ""
-          ingressClassName = var.ingress_class
-          hostname         = var.argocd.host
-          annotations      = local.ingress_tls_annotations
-          tls              = var.argocd.host != "" && var.cert_manager.enabled
-        }
-      }
-      dex = {
-        enabled = false
-      }
-      notifications = {
-        enabled = false
-      }
-    }, var.argocd.values))
-  ]
+  values = [yamlencode(module.argocd_values.result)]
 
   depends_on = [helm_release.ingress_nginx, helm_release.cert_manager]
+}
+
+module "argocd_values" {
+  source = "../deepmerge"
+
+  base = {
+    configs = {
+      params = {
+        "server.insecure" = true
+      }
+    }
+    server = {
+      ingress = {
+        enabled          = var.argocd.host != ""
+        ingressClassName = var.ingress_class
+        hostname         = var.argocd.host
+        annotations      = local.ingress_tls_annotations
+        tls              = var.argocd.host != "" && var.cert_manager.enabled
+      }
+    }
+    dex = {
+      enabled = false
+    }
+    notifications = {
+      enabled = false
+    }
+  }
+  override = var.argocd.values
 }

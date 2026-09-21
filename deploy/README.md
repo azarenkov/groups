@@ -39,6 +39,14 @@ In Argo CD mode the image registry and tag come from `argocd/envs/<env>/values.y
 - `Release Web`: on the same tag builds the static web bundle and attaches `rift-web-X.Y.Z.tar.gz` to the release in `rift-space/rift-releases`, next to the desktop binaries electron-builder publishes there.
 - `Release Desktop`: unchanged, publishes macOS/Windows/Linux builds to `rift-space/rift-releases`.
 
+## Overriding chart values
+
+Every Helm release the modules install takes a `values` input that is laid over the generated values by `modules/deepmerge`: maps are merged key by key down to four levels, lists and scalars replace what the module generated. Adding `controller.config["log-format-upstream"]` to ingress-nginx or `grafana.adminPassword` to monitoring therefore keeps the generated timeouts, ingress hosts and TLS settings.
+
+## Secrets hygiene
+
+`*.tfvars`, `*.tfstate*`, `.terraform/` and the generated CA certificate are ignored by git. The `Secrets` workflow scans every pull request with gitleaks and fails when such files are tracked.
+
 ## When a cloud provider appears
 
 Only `envs/cloud` changes: a `cluster.tf` for the managed Kubernetes, a datastores module with the same outputs backed by managed PostgreSQL/Redis/object storage, DNS records and a remote state backend. `modules/platform` and `modules/rift` are reused as they are; switch `cert_manager.issuer` to `letsencrypt` and `delivery` to `argocd`.

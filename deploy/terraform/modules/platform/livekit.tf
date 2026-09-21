@@ -17,28 +17,28 @@ resource "helm_release" "livekit" {
   wait       = true
   timeout    = 600
 
-  values = [
-    yamlencode(merge(
-      {
-        replicaCount = var.livekit.replicas
-        livekit      = local.livekit_config
-        loadBalancer = {
-          type = "disable"
-        }
-        podHostNetwork = var.livekit.host_network
-        deploymentStrategy = {
-          type = "Recreate"
-        }
-        terminationGracePeriodSeconds = 30
-      },
-      { for k, v in var.livekit.values : k => v if k != "livekit" }
-    ))
-  ]
+  values = [yamlencode(module.livekit_values.result)]
+}
+
+module "livekit_values" {
+  source = "../deepmerge"
+
+  base = {
+    replicaCount = var.livekit.replicas
+    livekit      = local.livekit_generated
+    loadBalancer = {
+      type = "disable"
+    }
+    podHostNetwork = var.livekit.host_network
+    deploymentStrategy = {
+      type = "Recreate"
+    }
+    terminationGracePeriodSeconds = 30
+  }
+  override = var.livekit.values
 }
 
 locals {
-  livekit_overrides = try(var.livekit.values.livekit, {})
-
   livekit_generated = merge({
     port      = 7880
     log_level = "info"
@@ -73,9 +73,4 @@ locals {
     }
   })
 
-  livekit_config = merge(
-    local.livekit_generated,
-    local.livekit_overrides,
-    { for k, v in local.livekit_generated : k => merge(v, try(local.livekit_overrides[k], {})) if can(keys(v)) && can(keys(try(local.livekit_overrides[k], {}))) }
-  )
 }

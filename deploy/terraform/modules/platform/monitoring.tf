@@ -29,32 +29,37 @@ resource "helm_release" "kube_prometheus_stack" {
   wait       = true
   timeout    = 900
 
-  values = [
-    yamlencode(merge({
-      grafana = {
-        ingress = {
-          enabled          = var.monitoring.host != ""
-          ingressClassName = var.ingress_class
-          hosts            = var.monitoring.host == "" ? [] : [var.monitoring.host]
-          annotations      = local.ingress_tls_annotations
-          tls = var.monitoring.host == "" || !var.cert_manager.enabled ? [] : [{
-            hosts      = [var.monitoring.host]
-            secretName = "grafana-tls"
-          }]
-        }
-      }
-      crds = {
-        enabled = false
-      }
-      prometheus = {
-        prometheusSpec = {
-          serviceMonitorSelectorNilUsesHelmValues = false
-          podMonitorSelectorNilUsesHelmValues     = false
-          retention                               = "7d"
-        }
-      }
-    }, var.monitoring.values))
-  ]
+  values = [yamlencode(module.monitoring_values.result)]
 
   depends_on = [helm_release.prometheus_operator_crds, helm_release.ingress_nginx, helm_release.cert_manager]
+}
+
+module "monitoring_values" {
+  source = "../deepmerge"
+
+  base = {
+    grafana = {
+      ingress = {
+        enabled          = var.monitoring.host != ""
+        ingressClassName = var.ingress_class
+        hosts            = var.monitoring.host == "" ? [] : [var.monitoring.host]
+        annotations      = local.ingress_tls_annotations
+        tls = var.monitoring.host == "" || !var.cert_manager.enabled ? [] : [{
+          hosts      = [var.monitoring.host]
+          secretName = "grafana-tls"
+        }]
+      }
+    }
+    crds = {
+      enabled = false
+    }
+    prometheus = {
+      prometheusSpec = {
+        serviceMonitorSelectorNilUsesHelmValues = false
+        podMonitorSelectorNilUsesHelmValues     = false
+        retention                               = "7d"
+      }
+    }
+  }
+  override = var.monitoring.values
 }

@@ -17,14 +17,16 @@ resource "helm_release" "ingress_nginx" {
   wait       = true
   timeout    = 600
 
-  values = [
-    yamlencode(merge(
-      { controller = merge(local.ingress_controller, try(var.ingress_nginx.values.controller, {})) },
-      { for k, v in var.ingress_nginx.values : k => v if k != "controller" }
-    ))
-  ]
+  values = [yamlencode(module.ingress_values.result)]
 
   depends_on = [helm_release.prometheus_operator_crds]
+}
+
+module "ingress_values" {
+  source = "../deepmerge"
+
+  base     = { controller = local.ingress_controller }
+  override = var.ingress_nginx.values
 }
 
 locals {
