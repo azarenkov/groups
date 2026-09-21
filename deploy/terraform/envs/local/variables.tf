@@ -10,9 +10,9 @@ variable "pod_subnet" {
 }
 
 variable "node_cidr" {
-  description = "Subnet of the docker network kind nodes live in; LiveKit runs with host networking, so its webhooks arrive from these addresses"
+  description = "Subnet the kind nodes live in; LiveKit runs with host networking, so its webhooks arrive from these addresses. Empty reads it from the docker network kind created"
   type        = string
-  default     = "192.168.147.0/24"
+  default     = ""
 }
 
 variable "workers" {

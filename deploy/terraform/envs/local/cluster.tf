@@ -66,6 +66,16 @@ resource "kind_cluster" "this" {
   }
 }
 
+data "external" "kind_network" {
+  program = ["sh", "${path.module}/kind-network.sh"]
+
+  depends_on = [kind_cluster.this]
+}
+
+locals {
+  node_cidr = var.node_cidr != "" ? var.node_cidr : data.external.kind_network.result.cidr
+}
+
 provider "kubernetes" {
   host                   = kind_cluster.this.endpoint
   client_certificate     = kind_cluster.this.client_certificate

@@ -16,7 +16,7 @@ deploy/
 
 ## Local cluster
 
-Requirements: Docker, `kind`, `kubectl`, `helm`, `terraform`. kind's docker network is expected at `192.168.147.0/24` (`docker network inspect kind`); set `node_cidr` when yours differs, because LiveKit posts webhooks from the node address (Calico rewrites it to the node's VXLAN tunnel address inside the pod subnet, which is why the pod subnet is allowed as well). Ports 80 and 443 on the host must be free; LiveKit needs one TCP and 21 UDP ports (defaults 7881 and 7882–7902; set `livekit_tcp_port`/`livekit_udp_port` in `envs/local/terraform.tfvars` when docker compose already uses them).
+Requirements: Docker, `kind`, `kubectl`, `helm`, `terraform`. The subnet of kind's docker network is read from `docker network inspect kind` after the cluster is created (override it with `node_cidr`), because LiveKit posts webhooks from the node address (Calico rewrites it to the node's VXLAN tunnel address inside the pod subnet, which is why the pod subnet is allowed as well). Ports 80 and 443 on the host must be free; LiveKit needs one TCP and 21 UDP ports (defaults 7881 and 7882–7902; set `livekit_tcp_port`/`livekit_udp_port` in `envs/local/terraform.tfvars` when docker compose already uses them).
 
 ```sh
 make -C deploy local-up

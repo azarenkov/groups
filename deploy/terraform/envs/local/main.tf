@@ -142,7 +142,7 @@ module "rift" {
     api_key    = "rift-server"
     api_secret = random_password.livekit_secret.result
     namespace  = module.platform.livekit_namespace
-    node_cidrs = [var.node_cidr, var.pod_subnet]
+    node_cidrs = [local.node_cidr, var.pod_subnet]
   }
 
   mailer = var.mailer
