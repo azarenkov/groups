@@ -19,6 +19,7 @@ RUN npx react-scripts build
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine
 
+COPY docker/web/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY docker/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/web/entrypoint.sh /docker-entrypoint.d/40-rift-config.sh
 COPY --from=build --chown=101:101 /app/build /usr/share/nginx/html
