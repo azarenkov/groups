@@ -27,7 +27,17 @@ variable "cert_manager" {
 
   validation {
     condition     = contains(["selfsigned", "letsencrypt", "ca"], var.cert_manager.issuer)
-    error_message = "cert_manager.issuer must be selfsigned, letsencrypt or ca (ca needs ca_cert_pem and ca_key_pem)"
+    error_message = "cert_manager.issuer must be selfsigned, letsencrypt or ca"
+  }
+
+  validation {
+    condition     = !(var.cert_manager.enabled && var.cert_manager.issuer == "ca") || (var.cert_manager.ca_cert_pem != "" && var.cert_manager.ca_key_pem != "")
+    error_message = "cert_manager.issuer = \"ca\" needs both ca_cert_pem and ca_key_pem"
+  }
+
+  validation {
+    condition     = !(var.cert_manager.enabled && var.cert_manager.issuer == "letsencrypt") || var.cert_manager.acme_email != ""
+    error_message = "cert_manager.issuer = \"letsencrypt\" needs acme_email"
   }
 }
 
