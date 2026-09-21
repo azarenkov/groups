@@ -8,4 +8,6 @@ This directory is the slot for a managed cluster. It reuses `modules/platform`, 
 4. `backend.tf` — remote state (object storage bucket plus a lock).
 5. `trusted_proxies` for `modules/rift` — the ingress-controller pod CIDR (or node CIDR with host networking); with a cloud load balancer that sets `X-Forwarded-For`, also `ingress_nginx.forwarded_headers = true` and the balancer's addresses in `ingress_nginx.real_ip_cidrs`.
 
+All three modules take `cluster_domain` (default `cluster.local`); set it on each when the cluster uses another DNS domain, because the gateway and LiveKit reach services through fully qualified names.
+
 `main.tf` stays a copy of `envs/local/main.tf` with `delivery = "argocd"`, `git_token` set and the replicas from the chart defaults.

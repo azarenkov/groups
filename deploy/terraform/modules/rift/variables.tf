@@ -84,6 +84,12 @@ variable "cluster_issuer" {
   default = ""
 }
 
+variable "cluster_domain" {
+  description = "Cluster DNS domain; the gateway resolves its backends and LiveKit posts webhooks through fully qualified names"
+  type        = string
+  default     = "cluster.local"
+}
+
 variable "trusted_proxies" {
   description = "CIDRs whose X-Forwarded-For the gateway trusts: the ingress-controller pods (or nodes when it uses host networking), never whole private ranges"
   type        = list(string)

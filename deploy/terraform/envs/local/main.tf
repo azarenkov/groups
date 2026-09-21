@@ -21,6 +21,10 @@ resource "local_file" "ca_cert" {
   filename = "${path.module}/rift-local-ca.crt"
 }
 
+locals {
+  rift_namespace = "rift"
+}
+
 resource "random_password" "livekit_secret" {
   length  = 48
   special = false
@@ -28,6 +32,8 @@ resource "random_password" "livekit_secret" {
 
 module "platform" {
   source = "../../modules/platform"
+
+  cluster_domain = var.cluster_domain
 
   ingress_nginx = {
     host_ports   = true
@@ -62,7 +68,7 @@ module "platform" {
     rtc_port     = var.livekit_tcp_port
     udp_port     = var.livekit_udp_port
     node_ip      = "127.0.0.1"
-    webhook_urls = ["http://voice-service.rift.svc.cluster.local:8080/api/webhook/livekit"]
+    webhook_urls = ["http://voice-service.${local.rift_namespace}.svc.${var.cluster_domain}:8080/api/webhook/livekit"]
     values = {
       nodeSelector = { "rift.dev/edge" = "true" }
       tolerations = [{
@@ -89,6 +95,8 @@ module "platform" {
 module "datastores" {
   source = "../../modules/datastores"
 
+  cluster_domain = var.cluster_domain
+
   postgres = {
     storage = "5Gi"
     resources = {
@@ -104,6 +112,9 @@ module "datastores" {
 
 module "rift" {
   source = "../../modules/rift"
+
+  namespace      = local.rift_namespace
+  cluster_domain = var.cluster_domain
 
   delivery     = var.delivery
   environment  = "local"

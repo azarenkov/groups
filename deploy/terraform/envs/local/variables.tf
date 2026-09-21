@@ -3,6 +3,11 @@ variable "cluster_name" {
   default = "rift"
 }
 
+variable "cluster_domain" {
+  type    = string
+  default = "cluster.local"
+}
+
 variable "pod_subnet" {
   description = "Pod CIDR of the kind cluster; only ingress-nginx pods can reach the gateway, so this is what it trusts for X-Forwarded-For"
   type        = string

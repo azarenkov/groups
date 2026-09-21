@@ -96,6 +96,7 @@ locals {
       }
     }
     gateway = {
+      clusterDomain   = var.cluster_domain
       livekitUpstream = var.livekit.url
       trustedProxies  = var.trusted_proxies
       ingress = {
