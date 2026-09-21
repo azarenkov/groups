@@ -128,6 +128,10 @@ locals {
 
   chart_values = module.chart_values.result
 
+  chart_checksum = var.delivery == "helm" ? sha256(join("", [
+    for f in sort(fileset(var.chart_path, "**")) : filesha256("${var.chart_path}/${f}")
+  ])) : ""
+
   argocd_values = merge(local.chart_values, { image = { pullPolicy = var.image.pull_policy } })
 }
 
@@ -201,7 +205,10 @@ resource "helm_release" "rift" {
   wait      = true
   timeout   = 900
 
-  values = [yamlencode(local.chart_values)]
+  values = [
+    yamlencode(local.chart_values),
+    yamlencode({ chartChecksum = local.chart_checksum }),
+  ]
 
   depends_on = [
     kubernetes_secret_v1.secrets,
