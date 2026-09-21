@@ -10,6 +10,11 @@ output "livekit_namespace" {
   value = var.livekit.enabled ? kubernetes_namespace_v1.livekit[0].metadata[0].name : ""
 }
 
+output "grafana_admin_secret" {
+  description = "namespace/name of the Secret with the generated Grafana admin credentials"
+  value       = var.monitoring.enabled ? "${kubernetes_namespace_v1.monitoring[0].metadata[0].name}/grafana-admin" : ""
+}
+
 output "ingress_class" {
   value = var.ingress_class
 }
