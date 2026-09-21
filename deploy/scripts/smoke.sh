@@ -32,9 +32,12 @@ echo "==> gateway health"
 test "$(curl_app -o /dev/null -w '%{http_code}' "$SCHEME://$APP_HOST/healthz")" = "200"
 
 echo "==> web shell"
-curl_app "$SCHEME://$APP_HOST/" | grep -q 'id="root"'
-curl_app "$SCHEME://$APP_HOST/config.js" | grep -q '__RIFT_CONFIG__'
-curl_app -o /dev/null -D - "$SCHEME://$APP_HOST/" | grep -qi '^x-frame-options: DENY'
+shell="$(curl_app "$SCHEME://$APP_HOST/")"
+echo "$shell" | grep -q 'id="root"'
+config="$(curl_app "$SCHEME://$APP_HOST/config.js")"
+echo "$config" | grep -q '__RIFT_CONFIG__'
+headers="$(curl_app -o /dev/null -D - "$SCHEME://$APP_HOST/")"
+echo "$headers" | grep -qi '^x-frame-options: DENY'
 
 echo "==> api answers through the gateway"
 code="$(curl_app -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "$SCHEME://$APP_HOST/api/v1/auth/login")"
