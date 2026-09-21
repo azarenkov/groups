@@ -29,10 +29,8 @@ resource "helm_release" "argocd" {
           enabled          = var.argocd.host != ""
           ingressClassName = var.ingress_class
           hostname         = var.argocd.host
-          annotations = {
-            "cert-manager.io/cluster-issuer" = var.cert_manager.issuer
-          }
-          tls = var.argocd.host != ""
+          annotations      = local.ingress_tls_annotations
+          tls              = var.argocd.host != "" && var.cert_manager.enabled
         }
       }
       dex = {

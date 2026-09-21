@@ -51,6 +51,10 @@ resource "kubernetes_secret_v1" "ca" {
 }
 
 locals {
+  ingress_tls_annotations = var.cert_manager.enabled ? {
+    "cert-manager.io/cluster-issuer" = var.cert_manager.issuer
+  } : {}
+
   cluster_issuers = {
     letsencrypt = {
       apiVersion = "cert-manager.io/v1"

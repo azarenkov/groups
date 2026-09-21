@@ -36,10 +36,8 @@ resource "helm_release" "kube_prometheus_stack" {
           enabled          = var.monitoring.host != ""
           ingressClassName = var.ingress_class
           hosts            = var.monitoring.host == "" ? [] : [var.monitoring.host]
-          annotations = {
-            "cert-manager.io/cluster-issuer" = var.cert_manager.issuer
-          }
-          tls = var.monitoring.host == "" ? [] : [{
+          annotations      = local.ingress_tls_annotations
+          tls = var.monitoring.host == "" || !var.cert_manager.enabled ? [] : [{
             hosts      = [var.monitoring.host]
             secretName = "grafana-tls"
           }]
