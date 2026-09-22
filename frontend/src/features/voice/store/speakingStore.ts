@@ -30,14 +30,21 @@ export function startSpeakingTracking(selfId: string | null): () => void {
   if (started) return () => {};
   started = true;
   const service = getLiveKitService();
-  let remote = new Set<string>();
-  let localSpeaking = false;
+  let remote = new Set(
+    service
+      .getParticipants()
+      .filter((p) => p.isSpeaking)
+      .map((p) => p.identity),
+  );
+  let localSpeaking = service.getLocalSpeaking();
 
   const publish = () => {
     const ids = new Set(remote);
     if (localSpeaking && selfId) ids.add(selfId);
     useSpeakingStore.getState().apply(ids);
   };
+
+  publish();
 
   const offParticipants = service.subscribeParticipants((participants) => {
     remote = new Set(

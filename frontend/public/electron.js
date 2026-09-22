@@ -938,3 +938,96 @@ ipcMain.handle('secure:clear', () => {
     return false;
   }
 });
+
+let uiohookModule;
+let uiohookRunning = false;
+let uiohookListening = false;
+let pttKeycode = null;
+let pttDown = false;
+
+function loadUiohook() {
+  if (uiohookModule !== undefined) return uiohookModule;
+  try {
+    uiohookModule = require('uiohook-napi');
+  } catch (e) {
+    console.warn('[ptt] the global key hook is unavailable:', e.message);
+    uiohookModule = null;
+  }
+  return uiohookModule;
+}
+
+function uiohookKeycode(code) {
+  const mod = loadUiohook();
+  if (!mod) return null;
+  const aliases = {
+    ControlLeft: 'Ctrl',
+    ControlRight: 'CtrlRight',
+    AltLeft: 'Alt',
+    ShiftLeft: 'Shift',
+    MetaLeft: 'Meta',
+  };
+  let name = aliases[code] || code;
+  if (/^Key[A-Z]$/.test(code)) name = code.slice(3);
+  else if (/^Digit[0-9]$/.test(code)) name = code.slice(5);
+  const keycode = mod.UiohookKey[name];
+  return typeof keycode === 'number' ? keycode : null;
+}
+
+function sendPttState(down) {
+  if (pttDown === down) return;
+  pttDown = down;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('ptt:state', down);
+  }
+}
+
+function stopGlobalPtt() {
+  pttKeycode = null;
+  sendPttState(false);
+  if (!uiohookRunning) return;
+  try {
+    loadUiohook().uIOhook.stop();
+  } catch (e) {
+    console.warn('[ptt] stopping the global key hook failed:', e.message);
+  }
+  uiohookRunning = false;
+}
+
+function startGlobalPtt(code) {
+  const mod = loadUiohook();
+  if (!mod) return false;
+  const keycode = uiohookKeycode(code);
+  if (keycode === null) return false;
+  pttKeycode = keycode;
+  if (uiohookRunning) return true;
+  if (!uiohookListening) {
+    mod.uIOhook.on('keydown', (event) => {
+      if (event.keycode === pttKeycode) sendPttState(true);
+    });
+    mod.uIOhook.on('keyup', (event) => {
+      if (event.keycode === pttKeycode) sendPttState(false);
+    });
+    uiohookListening = true;
+  }
+  try {
+    mod.uIOhook.start();
+  } catch (e) {
+    console.warn('[ptt] starting the global key hook failed:', e.message);
+    pttKeycode = null;
+    return false;
+  }
+  uiohookRunning = true;
+  return true;
+}
+
+ipcMain.handle('ptt:global', (_event, code) => {
+  if (typeof code !== 'string' || code.length === 0) {
+    stopGlobalPtt();
+    return false;
+  }
+  return startGlobalPtt(code);
+});
+
+app.on('will-quit', () => {
+  stopGlobalPtt();
+});

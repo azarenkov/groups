@@ -88,6 +88,8 @@
 .voice-pill .vp-btn.muted { background: var(--danger); color: #fff; }
 .voice-pill .vp-btn.leave { background: var(--danger); color: #fff; }
 .voice-pill .vp-btn.on { background: var(--surface-active); color: var(--fg-1); }
+.voice-pill .vp-btn.ptt,
+.voice-pill .vp-btn.muted.ptt { background: var(--voice-live, #30a46c); color: #fff; }
 
 .vp-popover {
   position: absolute;

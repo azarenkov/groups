@@ -24,8 +24,10 @@ export interface VoiceSyncedSettings {
 interface VoiceSettingsState extends VoiceSyncedSettings {
   micDeviceId: string;
   speakerDeviceId: string;
+  pttGlobal: boolean;
   ownerId: string | null;
   update: (patch: Partial<VoiceSyncedSettings>) => void;
+  setPttGlobal: (value: boolean) => void;
   updateDevices: (patch: {
     micDeviceId?: string;
     speakerDeviceId?: string;
@@ -228,6 +230,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
       ...DEFAULT_SETTINGS,
       micDeviceId: "",
       speakerDeviceId: "",
+      pttGlobal: true,
       ownerId: null,
 
       update: (patch) => {
@@ -239,6 +242,10 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
         const state = get();
         applyToEngine(state);
         scheduleSave(patch, state.ownerId);
+      },
+
+      setPttGlobal: (value) => {
+        set({ pttGlobal: value });
       },
 
       updateDevices: (patch) => {

@@ -31,6 +31,8 @@ declare global {
       onDeepLink?: (callback: (url: string) => void) => () => void;
       getPendingDeepLink?: () => Promise<string | null>;
       reportRendered?: () => void;
+      setGlobalPushToTalk?: (code: string | null) => Promise<boolean>;
+      onPushToTalk?: (callback: (down: boolean) => void) => () => void;
       isFullscreen?: () => Promise<boolean>;
       onFullscreenChange?: (callback: (value: boolean) => void) => () => void;
       pickScreenShareSource?: (
