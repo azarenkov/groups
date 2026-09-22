@@ -1,4 +1,8 @@
 {
+  "sharingNow": "Показывает экран",
+  "watchStream": "Смотреть",
+  "stopWatching": "Закрыть просмотр",
+  "yourScreen": "Ваш экран",
   "incoming": "Входящий звонок",
   "incomingVideo": "Входящий видеозвонок",
   "acceptWithVideo": "Принять с видео",

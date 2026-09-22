@@ -27,12 +27,20 @@ export interface RoomEventHandlers {
     identity: string,
     patch: Partial<ParticipantInfo>,
   ) => void;
+  onScreenSharesChanged: () => void;
   onDisconnected: (reason?: DisconnectReason) => void;
   onLocalQuality: (quality: ConnectionQuality) => void;
   onReconnectingStarted: () => void;
   onReconnectingSettled: () => void;
   onLocalAudioPublished: (publication: LocalTrackPublication) => void;
   onMediaDevicesError: (error: Error) => void;
+}
+
+export function isScreenSource(source: Track.Source): boolean {
+  return (
+    source === Track.Source.ScreenShare ||
+    source === Track.Source.ScreenShareAudio
+  );
 }
 
 export function attachRoomListeners(
@@ -65,6 +73,7 @@ export function attachRoomListeners(
     (participant: RemoteParticipant) => {
       console.log("Participant connected:", participant.identity);
       handlers.onParticipantConnected(participant);
+      handlers.onScreenSharesChanged();
     },
   );
 
@@ -73,8 +82,17 @@ export function attachRoomListeners(
     (participant: RemoteParticipant) => {
       console.log("Participant disconnected:", participant.identity);
       handlers.onParticipantDisconnected(participant.identity);
+      handlers.onScreenSharesChanged();
     },
   );
+
+  room.on(RoomEvent.TrackPublished, (publication) => {
+    if (isScreenSource(publication.source)) handlers.onScreenSharesChanged();
+  });
+
+  room.on(RoomEvent.TrackUnpublished, (publication) => {
+    if (isScreenSource(publication.source)) handlers.onScreenSharesChanged();
+  });
 
   room.on(
     RoomEvent.TrackSubscribed,
@@ -101,7 +119,11 @@ export function attachRoomListeners(
     ) => {
       console.log("Track unsubscribed:", track.kind, participant.identity);
       if (track.kind === Track.Kind.Audio) {
-        handlers.onParticipantPatch(participant.identity, { audioTrack: null });
+        if (track.source !== Track.Source.ScreenShareAudio) {
+          handlers.onParticipantPatch(participant.identity, {
+            audioTrack: null,
+          });
+        }
       } else if (track.kind === Track.Kind.Video) {
         if ((track as VideoTrack).source === Track.Source.ScreenShare) {
           handlers.onParticipantPatch(participant.identity, {

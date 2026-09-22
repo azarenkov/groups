@@ -16,6 +16,17 @@ export interface ParticipantInfo {
   quality: ConnectionQuality;
 }
 
+export interface ScreenShareInfo {
+  identity: string;
+  name: string;
+  isLocal: boolean;
+}
+
+export interface ScreenShareState {
+  shares: ScreenShareInfo[];
+  watching: string | null;
+}
+
 export interface VideoTile {
   id: string;
   identity: string;
