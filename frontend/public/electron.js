@@ -409,6 +409,7 @@ function createMainWindow() {
     ? 'http://localhost:3000'
     : pathToFileURL(path.join(__dirname, '../build/index.html')).href;
 
+  watchFirstPaint(mainWindow);
   mainWindow.loadURL(startURL);
   startGameActivityWatcher();
 
@@ -431,6 +432,16 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     closeSplash();
     mainWindow.show();
+  });
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason !== 'clean-exit' && details.reason !== 'killed') {
+      relaunchWithoutGpu('renderer gone (' + details.reason + ')');
+    }
+  });
+
+  mainWindow.webContents.once('did-fail-load', (_event, code, description) => {
+    console.error('[window] failed to load: ' + code + ' ' + description);
   });
 
   if (isDev || process.env.RIFT_DEVTOOLS === '1') {
@@ -535,6 +546,98 @@ function runBootUpdateThenLaunch() {
     proceed();
   });
 }
+
+const GPU_FALLBACK_FLAG = '--rift-no-gpu';
+const gpuDisabled = process.argv.includes(GPU_FALLBACK_FLAG) || process.argv.includes('--disable-gpu');
+if (gpuDisabled) {
+  app.disableHardwareAcceleration();
+}
+
+let relaunchedWithoutGpu = false;
+function relaunchWithoutGpu(reason) {
+  if (gpuDisabled || relaunchedWithoutGpu) return;
+  relaunchedWithoutGpu = true;
+  console.warn('[gpu] ' + reason + '; relaunching without hardware acceleration');
+  app.relaunch({ args: process.argv.slice(1).concat(GPU_FALLBACK_FLAG) });
+  app.exit(0);
+}
+
+const FIRST_PAINT_TIMEOUT_MS = 45000;
+const BLANK_CHECK_DELAY_MS = 1500;
+const CAPTURE_ATTEMPTS = 3;
+
+function looksBlank(image) {
+  const size = image.getSize();
+  if (!size.width || !size.height) return false;
+  const bitmap = image.toBitmap();
+  const stride = 4;
+  const total = size.width * size.height;
+  const samples = 64;
+  let first = null;
+  for (let i = 0; i < samples; i++) {
+    const px = Math.floor((i / samples) * total) * stride;
+    const key = bitmap[px] + ',' + bitmap[px + 1] + ',' + bitmap[px + 2];
+    if (first === null) first = key;
+    else if (key !== first) return false;
+  }
+  return true;
+}
+
+function watchFirstPaint(win) {
+  if (gpuDisabled) return;
+  let settled = false;
+  const settle = () => {
+    if (settled) return false;
+    settled = true;
+    clearTimeout(timeout);
+    ipcMain.removeListener('renderer:rendered', onRendered);
+    return true;
+  };
+  const timeout = setTimeout(() => {
+    if (settle()) relaunchWithoutGpu('renderer never reported its first paint');
+  }, FIRST_PAINT_TIMEOUT_MS);
+  let readyToShow = false;
+  win.once('ready-to-show', () => {
+    readyToShow = true;
+  });
+  const onRendered = () => {
+    if (!settle()) return;
+    setTimeout(() => {
+      if (win.isDestroyed()) return;
+      if (!readyToShow) {
+        relaunchWithoutGpu('the app mounted but the window never became ready to show');
+        return;
+      }
+      if (!win.isVisible() || win.isMinimized()) return;
+      let attempts = 0;
+      const capture = () => {
+        if (win.isDestroyed()) return;
+        attempts += 1;
+        win.webContents
+          .capturePage()
+          .then((image) => {
+            if (!win.isDestroyed() && looksBlank(image)) relaunchWithoutGpu('window painted a single colour after the app mounted');
+          })
+          .catch((err) => {
+            console.warn('[gpu] capturePage failed (attempt ' + attempts + '):', err);
+            if (attempts < CAPTURE_ATTEMPTS) setTimeout(capture, BLANK_CHECK_DELAY_MS);
+            else relaunchWithoutGpu('the window could not be captured after the app mounted');
+          });
+      };
+      capture();
+    }, BLANK_CHECK_DELAY_MS);
+  };
+  ipcMain.once('renderer:rendered', onRendered);
+  win.once('closed', () => {
+    settle();
+  });
+}
+
+app.on('child-process-gone', (_event, details) => {
+  if (details.type === 'GPU' && details.reason !== 'clean-exit') {
+    relaunchWithoutGpu('GPU process gone (' + details.reason + ')');
+  }
+});
 
 app.on('ready', () => {
   Menu.setApplicationMenu(null);
