@@ -109,7 +109,29 @@ describe("RemoteAudioGraph", () => {
     expect(frank.gain.value).toBe(0);
   });
 
-  it("reports that boosting above the original level is possible", () => {
-    expect(new RemoteAudioGraph(() => null).supportsBoost()).toBe(true);
+  it("reports boost support per participant", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    expect(graph.supportsBoost("grace")).toBe(true);
+
+    attach(graph, "grace");
+    expect(graph.supportsBoost("grace")).toBe(true);
+  });
+
+  it("denies boost for a participant that fell back to element volume", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    (window as unknown as { AudioContext: unknown }).AudioContext = class {
+      state = "running";
+      destination = {};
+      createMediaElementSource() {
+        throw new Error("already connected");
+      }
+      resume() {
+        return Promise.resolve();
+      }
+    };
+
+    attach(graph, "heidi");
+
+    expect(graph.supportsBoost("heidi")).toBe(false);
   });
 });

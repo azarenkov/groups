@@ -32,7 +32,9 @@ declare global {
       getPendingDeepLink?: () => Promise<string | null>;
       reportRendered?: () => void;
       setGlobalPushToTalk?: (code: string | null) => Promise<boolean>;
-      onPushToTalk?: (callback: (down: boolean) => void) => () => void;
+      onPushToTalk?: (
+        callback: (state: PushToTalkKeyState) => void,
+      ) => () => void;
       isFullscreen?: () => Promise<boolean>;
       onFullscreenChange?: (callback: (value: boolean) => void) => () => void;
       pickScreenShareSource?: (
@@ -45,6 +47,14 @@ declare global {
       ) => () => void;
     };
   }
+}
+
+export interface PushToTalkKeyState {
+  down: boolean;
+  altKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
 }
 
 export interface GameActivityInfo {

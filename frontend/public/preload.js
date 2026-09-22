@@ -47,7 +47,14 @@ contextBridge.exposeInMainWorld('electron', {
 
   setGlobalPushToTalk: (code) => ipcRenderer.invoke('ptt:global', code),
   onPushToTalk: (callback) => {
-    const handler = (_event, down) => callback(!!down);
+    const handler = (_event, state) =>
+      callback({
+        down: !!state?.down,
+        altKey: !!state?.altKey,
+        ctrlKey: !!state?.ctrlKey,
+        metaKey: !!state?.metaKey,
+        shiftKey: !!state?.shiftKey,
+      });
     ipcRenderer.on('ptt:state', handler);
     return () => ipcRenderer.removeListener('ptt:state', handler);
   },

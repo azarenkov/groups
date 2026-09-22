@@ -1250,8 +1250,8 @@ export class LiveKitService {
     return this.remoteAudio.getVolume(identity);
   }
 
-  supportsRemoteBoost(): boolean {
-    return this.remoteAudio.supportsBoost();
+  supportsRemoteBoost(identity: string): boolean {
+    return this.remoteAudio.supportsBoost(identity);
   }
 
   private reconcileNoiseModeWithStore(requested: NoiseSuppressionMode): void {

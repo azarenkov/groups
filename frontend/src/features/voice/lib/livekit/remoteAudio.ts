@@ -44,8 +44,11 @@ export class RemoteAudioGraph {
     return this.volumes.get(identity) ?? 1.0;
   }
 
-  supportsBoost(): boolean {
+  supportsBoost(identity: string): boolean {
     if (this.disabled) return false;
+    const gains = this.gainNodes.get(identity);
+    if (gains && gains.length > 0) return true;
+    if (this.elements.has(identity)) return false;
     if (this.ctx) return true;
     if (typeof window === "undefined") return false;
     return !!(

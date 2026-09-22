@@ -144,15 +144,18 @@ export const initPushToTalk = (): void => {
       void syncGlobalBinding();
     }
   });
-  window.electron?.onPushToTalk?.((down) => {
+  window.electron?.onPushToTalk?.((state) => {
     if (!globalBound) return;
-    if (!useVoiceSettingsStore.getState().pushToTalk) return;
-    if (!down) {
+    const { pushToTalk, pttKey } = useVoiceSettingsStore.getState();
+    if (!pushToTalk) return;
+    if (!state.down) {
       stopTransmitting();
       return;
     }
+    const own = MODIFIER_FLAGS[pttKey];
+    if (MODIFIER_KEYS.some((flag) => flag !== own && state[flag])) return;
     if (document.hasFocus() && isTextEntryTarget(document.activeElement)) return;
-    startTransmitting(useVoiceSettingsStore.getState().pttKey);
+    startTransmitting(pttKey);
   });
   window.addEventListener("keydown", (e) => {
     const { pushToTalk, pttKey } = useVoiceSettingsStore.getState();

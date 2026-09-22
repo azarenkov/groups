@@ -43,7 +43,9 @@ export const VideoTileCell: React.FC<{
     const service = getLiveKitService();
     setVolume(Math.round(service.getRemoteVolume(tile.identity) * 100));
     setVolumeMax(
-      service.supportsRemoteBoost() ? REMOTE_VOLUME_MAX : REMOTE_VOLUME_PLAIN_MAX,
+      service.supportsRemoteBoost(tile.identity)
+        ? REMOTE_VOLUME_MAX
+        : REMOTE_VOLUME_PLAIN_MAX,
     );
     const onDoc = (e: MouseEvent) => {
       if (volRef.current && !volRef.current.contains(e.target as Node)) {

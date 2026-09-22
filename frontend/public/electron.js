@@ -973,11 +973,17 @@ function uiohookKeycode(code) {
   return typeof keycode === 'number' ? keycode : null;
 }
 
-function sendPttState(down) {
+function sendPttState(down, event) {
   if (pttDown === down) return;
   pttDown = down;
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('ptt:state', down);
+    mainWindow.webContents.send('ptt:state', {
+      down,
+      altKey: !!event?.altKey,
+      ctrlKey: !!event?.ctrlKey,
+      metaKey: !!event?.metaKey,
+      shiftKey: !!event?.shiftKey,
+    });
   }
 }
 
@@ -1002,10 +1008,10 @@ function startGlobalPtt(code) {
   if (uiohookRunning) return true;
   if (!uiohookListening) {
     mod.uIOhook.on('keydown', (event) => {
-      if (event.keycode === pttKeycode) sendPttState(true);
+      if (event.keycode === pttKeycode) sendPttState(true, event);
     });
     mod.uIOhook.on('keyup', (event) => {
-      if (event.keycode === pttKeycode) sendPttState(false);
+      if (event.keycode === pttKeycode) sendPttState(false, event);
     });
     uiohookListening = true;
   }

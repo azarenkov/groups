@@ -64,7 +64,7 @@ const TileVolumeMenu: React.FC<{
     const service = getLiveKitService();
     setVol(Math.round(service.getRemoteVolume(id) * 100));
     setVolMax(
-      service.supportsRemoteBoost() ? REMOTE_VOLUME_MAX : REMOTE_VOLUME_PLAIN_MAX,
+      service.supportsRemoteBoost(id) ? REMOTE_VOLUME_MAX : REMOTE_VOLUME_PLAIN_MAX,
     );
     const r = btnRef.current?.getBoundingClientRect();
     if (r) {
