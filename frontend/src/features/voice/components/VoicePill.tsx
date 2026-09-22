@@ -138,7 +138,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
     const service = getLiveKitService();
     if (isMuted || !localTrack) {
       setMeter(new Array(BARS).fill(0));
-      service.setLocalSpeaking(false);
+      if (!service.micGateActive()) service.setLocalSpeaking(false);
       return;
     }
 
@@ -232,7 +232,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
         if (wantSpeaking !== lastSpeaking) {
           lastSpeaking = wantSpeaking;
           lastSpeakingChangeAt = now;
-          service.setLocalSpeaking(wantSpeaking);
+          if (!service.micGateActive()) service.setLocalSpeaking(wantSpeaking);
         }
         raf = requestAnimationFrame(tick);
       };
@@ -244,7 +244,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
     return () => {
       cancelled = true;
       teardown();
-      service.setLocalSpeaking(false);
+      if (!service.micGateActive()) service.setLocalSpeaking(false);
     };
   }, [isMuted, trackId, localTrack]);
 

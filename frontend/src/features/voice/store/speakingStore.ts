@@ -30,12 +30,14 @@ export function startSpeakingTracking(selfId: string | null): () => void {
   if (started) return () => {};
   started = true;
   const service = getLiveKitService();
-  let remote = new Set(
+  let reported = new Set(
     service
       .getParticipants()
       .filter((p) => p.isSpeaking)
       .map((p) => p.identity),
   );
+  let measured = new Set<string>();
+  let remote = reported;
   let localSpeaking = service.getLocalSpeaking();
 
   const publish = () => {
@@ -47,9 +49,15 @@ export function startSpeakingTracking(selfId: string | null): () => void {
   publish();
 
   const offParticipants = service.subscribeParticipants((participants) => {
-    remote = new Set(
+    reported = new Set(
       participants.filter((p) => p.isSpeaking).map((p) => p.identity),
     );
+    if (!service.remoteSpeakingDetected()) remote = reported;
+    publish();
+  });
+  const offMeasured = service.subscribeRemoteSpeaking((ids) => {
+    measured = ids;
+    remote = service.remoteSpeakingDetected() ? measured : reported;
     publish();
   });
   const offLocal = service.subscribeLocalSpeaking((speaking) => {
@@ -60,6 +68,7 @@ export function startSpeakingTracking(selfId: string | null): () => void {
   return () => {
     started = false;
     offParticipants();
+    offMeasured();
     offLocal();
     useSpeakingStore.getState().apply(new Set());
   };
