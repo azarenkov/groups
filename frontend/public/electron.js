@@ -409,6 +409,7 @@ function createMainWindow() {
     ? 'http://localhost:3000'
     : pathToFileURL(path.join(__dirname, '../build/index.html')).href;
 
+  watchFirstPaint(mainWindow);
   mainWindow.loadURL(startURL);
   startGameActivityWatcher();
 
@@ -431,7 +432,6 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     closeSplash();
     mainWindow.show();
-    watchFirstPaint(mainWindow);
   });
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
@@ -599,6 +599,10 @@ function watchFirstPaint(win) {
     if (!settle()) return;
     setTimeout(() => {
       if (win.isDestroyed()) return;
+      if (!win.isVisible()) {
+        relaunchWithoutGpu('the app mounted but the window never became ready to show');
+        return;
+      }
       win.webContents
         .capturePage()
         .then((image) => {
