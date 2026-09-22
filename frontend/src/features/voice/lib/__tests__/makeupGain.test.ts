@@ -1,12 +1,21 @@
 import { makeupGainFor } from "../makeupGain";
 
 describe("makeupGainFor", () => {
-  it("leaves the gain alone while nobody speaks", () => {
+  it("stays at unity while nobody speaks", () => {
     expect(makeupGainFor(0.001, 0.0002, 1)).toBe(1);
   });
 
-  it("leaves the gain alone when the denoiser is silent", () => {
-    expect(makeupGainFor(0.2, 0, 1.5)).toBe(1.5);
+  it("releases a raised gain back to unity during silence", () => {
+    let gain = 4;
+    const firstStep = makeupGainFor(0.001, 0.0002, gain);
+    expect(firstStep).toBeLessThan(gain);
+    expect(firstStep).toBeGreaterThan(1);
+    for (let i = 0; i < 400; i++) gain = makeupGainFor(0.001, 0.0002, gain);
+    expect(gain).toBeCloseTo(1, 2);
+  });
+
+  it("releases rather than freezing when the denoiser goes silent", () => {
+    expect(makeupGainFor(0.2, 0, 1.5)).toBeLessThan(1.5);
   });
 
   it("moves towards the attenuation the denoiser introduced", () => {
