@@ -595,14 +595,19 @@ function watchFirstPaint(win) {
   const timeout = setTimeout(() => {
     if (settle()) relaunchWithoutGpu('renderer never reported its first paint');
   }, FIRST_PAINT_TIMEOUT_MS);
+  let readyToShow = false;
+  win.once('ready-to-show', () => {
+    readyToShow = true;
+  });
   const onRendered = () => {
     if (!settle()) return;
     setTimeout(() => {
       if (win.isDestroyed()) return;
-      if (!win.isVisible()) {
+      if (!readyToShow) {
         relaunchWithoutGpu('the app mounted but the window never became ready to show');
         return;
       }
+      if (!win.isVisible() || win.isMinimized()) return;
       win.webContents
         .capturePage()
         .then((image) => {
