@@ -28,6 +28,12 @@ variable "service_subnet" {
   default = "10.43.0.0/16"
 }
 
+variable "kubeconfig_path" {
+  description = "Where to write the cluster's kubeconfig; the directory is created if it does not exist"
+  type        = string
+  default     = "~/.kube/rift-cloud.yaml"
+}
+
 variable "cluster_domain" {
   type    = string
   default = "cluster.local"

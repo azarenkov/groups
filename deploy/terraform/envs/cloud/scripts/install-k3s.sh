@@ -35,7 +35,8 @@ else
     echo br_netfilter > /etc/modules-load.d/k8s.conf
     printf 'net.bridge.bridge-nf-call-iptables=1\nnet.ipv4.ip_forward=1\n' > /etc/sysctl.d/99-k8s.conf
     sysctl --system >/dev/null
-    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="$K3S_VERSION" sh -s - server \
+    curl -sfL https://get.k3s.io -o /tmp/get-k3s.sh
+    INSTALL_K3S_VERSION="$K3S_VERSION" sh /tmp/get-k3s.sh server \
         --disable traefik --disable servicelb \
         --flannel-backend=none --disable-network-policy \
         --cluster-cidr "$POD_SUBNET" --service-cidr "$SERVICE_SUBNET" \
@@ -49,8 +50,14 @@ fi
 
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 kubectl create namespace tigera-operator --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-curl -sfL https://raw.githubusercontent.com/projectcalico/calico/v3.29.3/manifests/tigera-operator.yaml | kubectl apply --server-side -f - >/dev/null
-until kubectl -n tigera-operator get deploy tigera-operator -o jsonpath='{.status.availableReplicas}' 2>/dev/null | grep -q 1; do sleep 3; done
+curl -sfL https://raw.githubusercontent.com/projectcalico/calico/v3.29.3/manifests/tigera-operator.yaml -o /tmp/tigera-operator.yaml
+kubectl apply --server-side -f /tmp/tigera-operator.yaml >/dev/null
+waited=0
+until kubectl -n tigera-operator get deploy tigera-operator -o jsonpath='{.status.availableReplicas}' 2>/dev/null | grep -q 1; do
+    waited=$((waited + 3))
+    [ "$waited" -ge "$READY_TIMEOUT" ] && { echo "the Tigera operator did not become available within ${READY_TIMEOUT}s" >&2; exit 1; }
+    sleep 3
+done
 cat <<CAL | kubectl apply -f - >/dev/null
 apiVersion: operator.tigera.io/v1
 kind: Installation

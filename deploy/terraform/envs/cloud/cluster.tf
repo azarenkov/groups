@@ -38,17 +38,26 @@ data "external" "kubeconfig" {
 }
 
 locals {
-  kubeconfig = yamldecode(base64decode(data.external.kubeconfig.result.kubeconfig))
-  kube_host  = "https://${var.server_ip}:6443"
-  kube_ca    = base64decode(local.kubeconfig.clusters[0].cluster["certificate-authority-data"])
-  kube_cert  = base64decode(local.kubeconfig.users[0].user["client-certificate-data"])
-  kube_key   = base64decode(local.kubeconfig.users[0].user["client-key-data"])
+  kubeconfig      = yamldecode(base64decode(data.external.kubeconfig.result.kubeconfig))
+  kube_host       = "https://${var.server_ip}:6443"
+  kubeconfig_path = pathexpand(var.kubeconfig_path)
+  kube_ca         = base64decode(local.kubeconfig.clusters[0].cluster["certificate-authority-data"])
+  kube_cert       = base64decode(local.kubeconfig.users[0].user["client-certificate-data"])
+  kube_key        = base64decode(local.kubeconfig.users[0].user["client-key-data"])
+}
+
+resource "terraform_data" "kube_dir" {
+  provisioner "local-exec" {
+    command = "mkdir -p '${dirname(local.kubeconfig_path)}'"
+  }
 }
 
 resource "local_sensitive_file" "kubeconfig" {
   content         = replace(base64decode(data.external.kubeconfig.result.kubeconfig), "https://127.0.0.1:6443", local.kube_host)
-  filename        = pathexpand("~/.kube/rift-cloud.yaml")
+  filename        = local.kubeconfig_path
   file_permission = "0600"
+
+  depends_on = [terraform_data.kube_dir]
 }
 
 provider "kubernetes" {
