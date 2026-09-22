@@ -10,7 +10,7 @@ variable "cluster_domain" {
 }
 
 variable "clients" {
-  description = "Who may reach the datastores: pods in these namespaces reach every store; redis_cidrs additionally reach Redis (for host-networked LiveKit)"
+  description = "Who may reach the datastores: pods in these namespaces reach every store; redis_cidrs additionally reach Redis (for host-networked LiveKit). Empty lists admit nobody"
   type = object({
     namespaces  = optional(list(string), ["rift"])
     redis_cidrs = optional(list(string), [])

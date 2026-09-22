@@ -101,20 +101,23 @@ resource "kubernetes_network_policy_v1" "nats" {
 
     policy_types = ["Ingress"]
 
-    ingress {
-      dynamic "from" {
-        for_each = var.nats.client_namespaces
-        content {
-          namespace_selector {
-            match_labels = {
-              "kubernetes.io/metadata.name" = from.value
+    dynamic "ingress" {
+      for_each = length(var.nats.client_namespaces) > 0 ? [1] : []
+      content {
+        dynamic "from" {
+          for_each = var.nats.client_namespaces
+          content {
+            namespace_selector {
+              match_labels = {
+                "kubernetes.io/metadata.name" = from.value
+              }
             }
           }
         }
-      }
-      ports {
-        port     = "4222"
-        protocol = "TCP"
+        ports {
+          port     = "4222"
+          protocol = "TCP"
+        }
       }
     }
 

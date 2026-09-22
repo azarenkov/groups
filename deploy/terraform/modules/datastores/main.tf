@@ -240,28 +240,31 @@ resource "kubernetes_network_policy_v1" "clients" {
 
     policy_types = ["Ingress"]
 
-    ingress {
-      dynamic "from" {
-        for_each = var.clients.namespaces
-        content {
-          namespace_selector {
-            match_labels = {
-              "kubernetes.io/metadata.name" = from.value
+    dynamic "ingress" {
+      for_each = length(concat(var.clients.namespaces, each.key == "redis" ? var.clients.redis_cidrs : [])) > 0 ? [1] : []
+      content {
+        dynamic "from" {
+          for_each = var.clients.namespaces
+          content {
+            namespace_selector {
+              match_labels = {
+                "kubernetes.io/metadata.name" = from.value
+              }
             }
           }
         }
-      }
-      dynamic "from" {
-        for_each = each.key == "redis" ? var.clients.redis_cidrs : []
-        content {
-          ip_block {
-            cidr = from.value
+        dynamic "from" {
+          for_each = each.key == "redis" ? var.clients.redis_cidrs : []
+          content {
+            ip_block {
+              cidr = from.value
+            }
           }
         }
-      }
-      ports {
-        port     = tostring(each.value.port)
-        protocol = "TCP"
+        ports {
+          port     = tostring(each.value.port)
+          protocol = "TCP"
+        }
       }
     }
   }
