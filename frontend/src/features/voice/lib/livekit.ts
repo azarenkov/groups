@@ -722,6 +722,7 @@ export class LiveKitService {
       let step = "init";
       let ctx: AudioContext | null = null;
       let pipeline: DfnPipeline | null = null;
+      let stopMakeup: (() => void) | null = null;
       try {
         step = "applyConstraints";
         try {
@@ -786,7 +787,7 @@ export class LiveKitService {
         makeup.connect(postGain);
         postGain.connect(postGate);
         postGate.connect(postDest);
-        const stopMakeup = trackDenoiserMakeup(
+        stopMakeup = trackDenoiserMakeup(
           ctx,
           postAnalyser,
           denoisedAnalyser,
@@ -796,7 +797,8 @@ export class LiveKitService {
         const builtPipeline = pipeline;
         const builtCtx = ctx;
         const discard = async () => {
-          stopMakeup();
+          stopMakeup?.();
+          stopMakeup = null;
           try {
             await builtPipeline.dispose();
           } catch {}
@@ -823,6 +825,7 @@ export class LiveKitService {
 
         this.dfnStopMakeup?.();
         this.dfnStopMakeup = stopMakeup;
+        stopMakeup = null;
         this.dfnPipeline = pipeline;
         this.dfnContext = ctx;
         this.dfnRawTrack = rawTrack;
@@ -847,6 +850,8 @@ export class LiveKitService {
           `[LiveKitService] enableDfnPipeline attempt ${attempt} failed at step "${step}":`,
           e,
         );
+        stopMakeup?.();
+        stopMakeup = null;
         if (pipeline) {
           try {
             await pipeline.dispose();

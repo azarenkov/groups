@@ -116,6 +116,15 @@ export function attachRoomListeners(
     },
   );
 
+  room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+    const speaking = new Set(speakers.map((p) => p.identity));
+    for (const participant of room.remoteParticipants.values()) {
+      handlers.onParticipantPatch(participant.identity, {
+        isSpeaking: speaking.has(participant.identity),
+      });
+    }
+  });
+
   room.on(RoomEvent.Disconnected, (reason) => {
     console.log("Disconnected from room", { reason });
     handlers.onDisconnected(reason);
