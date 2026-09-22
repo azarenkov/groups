@@ -5,6 +5,7 @@ const http = require('http');
 const crypto = require('crypto');
 const path = require('path');
 const isDev = require('electron-is-dev');
+const { pathToFileURL } = require('url');
 
 const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
@@ -406,7 +407,7 @@ function createMainWindow() {
 
   const startURL = isDev
     ? 'http://localhost:3000'
-    : `file://${path.join(__dirname, '../build/index.html')}`;
+    : pathToFileURL(path.join(__dirname, '../build/index.html')).href;
 
   mainWindow.loadURL(startURL);
   startGameActivityWatcher();
