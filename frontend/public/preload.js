@@ -5,6 +5,7 @@ const appBase = initialHref.replace(/[^/]*$/, '');
 
 contextBridge.exposeInMainWorld('electron', {
   minimize: () => ipcRenderer.send('window-minimize'),
+  reportRendered: () => ipcRenderer.send('renderer:rendered'),
   maximize: () => ipcRenderer.send('window-maximize'),
   close: () => ipcRenderer.send('window-close'),
 
