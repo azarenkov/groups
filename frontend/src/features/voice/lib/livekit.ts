@@ -1611,7 +1611,9 @@ export class LiveKitService {
         }
         if (passed) holdUntil = now + 250;
         const active = now < holdUntil;
-        this.setLocalSpeaking(active && !this.desiredMicMuted);
+        this.setLocalSpeaking(
+          active && !this.desiredMicMuted && this.micVolume > 0,
+        );
         if (this.pushToTalkEnforced && this.pttHolding) {
           gate.gain.value = 1;
           return;
