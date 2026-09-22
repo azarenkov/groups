@@ -114,11 +114,15 @@ variable "postgres" {
 }
 
 variable "redis_url" {
-  type = string
+  description = "Stored in the release Secret, so it may carry a password"
+  type        = string
+  sensitive   = true
 }
 
 variable "nats_url" {
-  type = string
+  description = "Stored in the release Secret, so it may carry credentials"
+  type        = string
+  sensitive   = true
 }
 
 variable "minio" {

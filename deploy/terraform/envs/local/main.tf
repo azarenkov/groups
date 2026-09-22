@@ -57,18 +57,20 @@ module "platform" {
   }
 
   nats = {
-    replicas = 1
-    storage  = "2Gi"
+    replicas          = 1
+    storage           = "2Gi"
+    client_namespaces = [local.rift_namespace]
   }
 
   livekit = {
-    api_key      = "rift-server"
-    api_secret   = random_password.livekit_secret.result
-    redis_url    = module.datastores.redis_host
-    rtc_port     = var.livekit_tcp_port
-    udp_port     = var.livekit_udp_port
-    node_ip      = "127.0.0.1"
-    webhook_urls = ["http://voice-service.${local.rift_namespace}.svc.${var.cluster_domain}:8080/api/webhook/livekit"]
+    api_key        = "rift-server"
+    api_secret     = random_password.livekit_secret.result
+    redis_url      = module.datastores.redis_host
+    redis_password = module.datastores.redis_password
+    rtc_port       = var.livekit_tcp_port
+    udp_port       = var.livekit_udp_port
+    node_ip        = "127.0.0.1"
+    webhook_urls   = ["http://voice-service.${local.rift_namespace}.svc.${var.cluster_domain}:8080/api/webhook/livekit"]
     values = {
       nodeSelector = { "rift.dev/edge" = "true" }
       tolerations = [{
@@ -106,6 +108,11 @@ module "datastores" {
   }
   redis = { storage = "1Gi" }
   minio = { storage = "5Gi" }
+
+  clients = {
+    namespaces  = [local.rift_namespace, module.platform.livekit_namespace]
+    redis_cidrs = [local.node_cidr, var.pod_subnet]
+  }
 
   depends_on = [null_resource.calico_ready]
 }

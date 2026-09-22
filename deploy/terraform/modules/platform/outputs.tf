@@ -1,5 +1,7 @@
 output "nats_url" {
-  value = var.nats.enabled ? "nats://nats.${kubernetes_namespace_v1.nats[0].metadata[0].name}.svc.${var.cluster_domain}:4222" : ""
+  description = "Client URL with the generated credentials; keep it in a Secret"
+  value       = var.nats.enabled ? "nats://${var.nats.user}:${random_password.nats[0].result}@nats.${kubernetes_namespace_v1.nats[0].metadata[0].name}.svc.${var.cluster_domain}:4222" : ""
+  sensitive   = true
 }
 
 output "livekit_url" {

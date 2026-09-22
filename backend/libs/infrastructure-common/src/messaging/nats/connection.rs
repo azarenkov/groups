@@ -1,6 +1,7 @@
 use std::{error::Error, time::Duration};
 
 use async_nats::{
+    ConnectOptions, ServerAddr,
     connection::State,
     jetstream::{self, Context, ErrorCode, context::GetStreamErrorKind},
 };
@@ -83,8 +84,24 @@ const STREAMS: &[StreamDef] = &[
     },
 ];
 
+fn credentials(addr: &ServerAddr) -> Option<(String, String)> {
+    match (addr.username(), addr.password()) {
+        (Some(user), Some(pass)) => Some((user.to_string(), pass.to_string())),
+        _ => None,
+    }
+}
+
+pub async fn connect(url: &str) -> Result<async_nats::Client, Box<dyn Error>> {
+    let addr: ServerAddr = url.parse()?;
+    let options = match credentials(&addr) {
+        Some((user, pass)) => ConnectOptions::with_user_and_password(user, pass),
+        None => ConnectOptions::new(),
+    };
+    Ok(options.connect(addr).await?)
+}
+
 pub async fn create_jetstream(config: &NatsConfig) -> Result<Context, Box<dyn Error>> {
-    let client = async_nats::connect(config.url()).await?;
+    let client = connect(config.url()).await?;
     let jetstream = jetstream::new(client);
 
     initialize_streams(&jetstream, config).await?;
@@ -160,4 +177,21 @@ fn is_stream_not_found(err: &async_nats::jetstream::context::GetStreamError) -> 
 
 pub fn is_nats_connected(jetstream: &Context) -> bool {
     matches!(jetstream.client().connection_state(), State::Connected)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn credentials_come_from_the_url() {
+        let addr: ServerAddr = "nats://rift:s3cr3t@nats.nats.svc:4222".parse().unwrap();
+        assert_eq!(credentials(&addr), Some(("rift".to_string(), "s3cr3t".to_string())));
+    }
+
+    #[test]
+    fn plain_urls_have_no_credentials() {
+        let addr: ServerAddr = "nats://nats:4222".parse().unwrap();
+        assert_eq!(credentials(&addr), None);
+    }
 }

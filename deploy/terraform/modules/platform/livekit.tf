@@ -68,9 +68,10 @@ locals {
       enabled = false
     }
     }, var.livekit.redis_url == "" ? {} : {
-    redis = {
-      address = var.livekit.redis_url
-    }
+    redis = merge(
+      { address = var.livekit.redis_url },
+      var.livekit.redis_password == "" ? {} : { password = var.livekit.redis_password }
+    )
   })
 
 }

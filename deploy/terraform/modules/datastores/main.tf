@@ -14,6 +14,11 @@ resource "random_password" "minio_root" {
   special = false
 }
 
+resource "random_password" "redis" {
+  length  = 32
+  special = false
+}
+
 locals {
   namespace = kubernetes_namespace_v1.data.metadata[0].name
   stores = {
@@ -39,9 +44,11 @@ locals {
       resources = var.redis.resources
       mount     = "/data"
       uid       = 999
-      args      = ["redis-server", "--appendonly", "yes"]
-      env       = {}
-      probe     = ["redis-cli", "ping"]
+      args      = ["redis-server", "--appendonly", "yes", "--requirepass", "$(REDIS_PASSWORD)"]
+      env = {
+        REDIS_PASSWORD = random_password.redis.result
+      }
+      probe = ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
     }
     minio = {
       image     = var.minio.image
@@ -212,6 +219,50 @@ resource "kubernetes_service_v1" "store" {
       name        = "main"
       port        = each.value.port
       target_port = "main"
+    }
+  }
+}
+
+resource "kubernetes_network_policy_v1" "clients" {
+  for_each = local.stores
+
+  metadata {
+    name      = "${each.key}-clients"
+    namespace = local.namespace
+  }
+
+  spec {
+    pod_selector {
+      match_labels = {
+        "app.kubernetes.io/name" = each.key
+      }
+    }
+
+    policy_types = ["Ingress"]
+
+    ingress {
+      dynamic "from" {
+        for_each = var.clients.namespaces
+        content {
+          namespace_selector {
+            match_labels = {
+              "kubernetes.io/metadata.name" = from.value
+            }
+          }
+        }
+      }
+      dynamic "from" {
+        for_each = each.key == "redis" ? var.clients.redis_cidrs : []
+        content {
+          ip_block {
+            cidr = from.value
+          }
+        }
+      }
+      ports {
+        port     = tostring(each.value.port)
+        protocol = "TCP"
+      }
     }
   }
 }

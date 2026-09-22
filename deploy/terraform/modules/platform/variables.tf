@@ -44,11 +44,13 @@ variable "cert_manager" {
 variable "nats" {
   description = "NATS JetStream cluster"
   type = object({
-    enabled       = optional(bool, true)
-    chart_version = optional(string, "1.3.3")
-    replicas      = optional(number, 1)
-    storage       = optional(string, "20Gi")
-    storage_class = optional(string, "")
+    enabled           = optional(bool, true)
+    chart_version     = optional(string, "1.3.3")
+    replicas          = optional(number, 1)
+    storage           = optional(string, "20Gi")
+    storage_class     = optional(string, "")
+    user              = optional(string, "rift")
+    client_namespaces = optional(list(string), ["rift"])
   })
   default = {}
 }
@@ -56,18 +58,19 @@ variable "nats" {
 variable "livekit" {
   description = "LiveKit SFU; with host_network the pod binds rtc_port and 21 UDP ports from udp_port on the node, without it the chart publishes rtc_port and a single UDP mux port udp_port through hostPort"
   type = object({
-    enabled       = optional(bool, true)
-    chart_version = optional(string, "1.8.0")
-    replicas      = optional(number, 1)
-    api_key       = string
-    api_secret    = string
-    redis_url     = optional(string, "")
-    host_network  = optional(bool, true)
-    rtc_port      = optional(number, 7881)
-    udp_port      = optional(number, 7882)
-    node_ip       = optional(string, "")
-    webhook_urls  = optional(list(string), [])
-    values        = optional(any, {})
+    enabled        = optional(bool, true)
+    chart_version  = optional(string, "1.8.0")
+    replicas       = optional(number, 1)
+    api_key        = string
+    api_secret     = string
+    redis_url      = optional(string, "")
+    redis_password = optional(string, "")
+    host_network   = optional(bool, true)
+    rtc_port       = optional(number, 7881)
+    udp_port       = optional(number, 7882)
+    node_ip        = optional(string, "")
+    webhook_urls   = optional(list(string), [])
+    values         = optional(any, {})
   })
 }
 

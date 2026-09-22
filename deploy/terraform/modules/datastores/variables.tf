@@ -9,6 +9,15 @@ variable "cluster_domain" {
   default = "cluster.local"
 }
 
+variable "clients" {
+  description = "Who may reach the datastores: pods in these namespaces reach every store; redis_cidrs additionally reach Redis (for host-networked LiveKit)"
+  type = object({
+    namespaces  = optional(list(string), ["rift"])
+    redis_cidrs = optional(list(string), [])
+  })
+  default = {}
+}
+
 variable "startup_failure_threshold" {
   description = "Startup probe attempts (10s apart) a datastore gets before liveness kicks in; covers first initialization and WAL recovery"
   type        = number

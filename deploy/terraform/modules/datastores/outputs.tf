@@ -14,7 +14,14 @@ output "redis_host" {
 }
 
 output "redis_url" {
-  value = "redis://redis.${local.namespace}.svc.${var.cluster_domain}:6379"
+  description = "Client URL with the generated password; keep it in a Secret"
+  value       = "redis://:${random_password.redis.result}@redis.${local.namespace}.svc.${var.cluster_domain}:6379"
+  sensitive   = true
+}
+
+output "redis_password" {
+  value     = random_password.redis.result
+  sensitive = true
 }
 
 output "minio" {

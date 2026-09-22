@@ -37,6 +37,8 @@ locals {
   )
 
   managed_secrets = {
+    NATS_URL             = var.nats_url
+    REDIS_URL            = var.redis_url
     JWT_SECRET           = random_password.jwt.result
     LIVEKIT_API_SECRET   = var.livekit.api_secret
     MINIO_ROOT_USER      = var.minio.user
@@ -65,11 +67,9 @@ locals {
     }
     imagePullSecrets = var.image.pull_secret == null ? [] : [{ name = "${var.release_name}-registry" }]
     config = {
-      NATS_URL                       = var.nats_url
       POSTGRES_HOST                  = var.postgres.host
       POSTGRES_PORT                  = tostring(var.postgres.port)
       POSTGRES_OPTIONS               = var.postgres.options
-      REDIS_URL                      = var.redis_url
       LIVEKIT_URL                    = var.livekit.url
       LIVEKIT_CLIENT_URL             = var.livekit.client_url
       LIVEKIT_API_KEY                = var.livekit.api_key
