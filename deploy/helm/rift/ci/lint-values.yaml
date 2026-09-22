@@ -1,0 +1,18 @@
+secrets: { JWT_SECRET: x }
+databases:
+  bootstrap: { adminPassword: x }
+  services:
+    identity: { password: x }
+    media: { password: x }
+    messaging: { password: x }
+    voice: { password: x }
+    realtime: { password: x }
+config: { PUBLIC_APP_URL: https://rift.localtest.me }
+gateway:
+  ingress:
+    enabled: true
+networkPolicy:
+  enabled: true
+  ingressController:
+    namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
+autoscaling: { enabled: true }

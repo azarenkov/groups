@@ -1,0 +1,104 @@
+name: Release Web
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle
+        run: npx react-scripts build
+        env:
+          CI: true
+          GENERATE_SOURCEMAP: "false"
+          PUBLIC_URL: /
+          REACT_APP_API_URL: /api
+          REACT_APP_WS_URL: /ws
+
+      - name: Package
+        id: package
+        run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
+              echo "tag $GITHUB_REF_NAME does not match frontend/package.json version $PACKAGE_VERSION; bump package.json so desktop and web land in the same release" >&2
+              exit 1
+            fi
+          else
+            VERSION="$PACKAGE_VERSION-$(git rev-parse --short HEAD)"
+          fi
+          ARCHIVE="rift-web-$VERSION.tar.gz"
+          tar -czf "$ARCHIVE" -C build .
+          sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the bundle as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.archive }}
+          path: |
+            frontend/${{ steps.package.outputs.archive }}
+            frontend/${{ steps.package.outputs.archive }}.sha256
+          retention-days: 14
+
+      - name: Upload to rift-releases
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          REPO: rift-space/rift-releases
+          TAG: v${{ steps.package.outputs.version }}
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+        run: |
+          set -euo pipefail
+          find_release() {
+            gh api "repos/$REPO/releases?per_page=100" --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -n1
+          }
+          release_id="$(find_release)"
+          for attempt in 1 2 3 4 5; do
+            [ -n "$release_id" ] && break
+            if gh release create "$TAG" --repo "$REPO" --draft --title "$TAG" --notes "Rift $TAG" 2>/tmp/create.err; then
+              :
+            else
+              echo "release create attempt $attempt: $(cat /tmp/create.err)"
+              sleep $((attempt * 5))
+            fi
+            release_id="$(find_release)"
+          done
+          if [ -z "$release_id" ]; then
+            echo "could not find or create release $TAG in $REPO" >&2
+            exit 1
+          fi
+          for asset in "$ARCHIVE" "$ARCHIVE.sha256"; do
+            existing="$(gh api "repos/$REPO/releases/$release_id/assets" --jq ".[] | select(.name == \"$asset\") | .id" | head -n1)"
+            if [ -n "$existing" ]; then
+              gh api -X DELETE "repos/$REPO/releases/assets/$existing"
+            fi
+            gh api -X POST -H "Content-Type: application/gzip" \
+              "https://uploads.github.com/repos/$REPO/releases/$release_id/assets?name=$asset" \
+              --input "$asset" > /dev/null
+            echo "uploaded $asset"
+          done

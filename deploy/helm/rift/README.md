@@ -2,7 +2,17 @@
 
 Deploys the Rift backend to Kubernetes: four HTTP APIs (`identity-service`, `media-service`, `messaging-service`, `voice-service`), `realtime` (websocket + event dispatcher), the `outbox-worker`, `notification-service` and `livekit-pooler` workers, the `nsfw-detector` moderation service and an nginx gateway that carries the same routing as `docker/nginx/nginx.conf`.
 
-Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: point `config.*` at them.
+Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: point `config.*` at them. `deploy/terraform` installs them together with this chart; see `deploy/README.md`.
+
+## Web
+
+`web` deploys the React app from `ghcr.io/rift-space/rift/web` (built by `docker/web/Dockerfile`). The image serves the bundle with nginx and writes `config.js` at start from `web.apiUrl`, `web.wsUrl` and `config.GOOGLE_CLIENT_ID`, so one image works for every environment. With `web.enabled` the Ingress sends `gateway.ingress.apiPaths` (`/api`, `/ws`, `/presence`, `/healthz`) to the gateway and everything else to the web service; `PUBLIC_APP_URL` and `PUBLIC_API_URL` are then the same origin.
+
+## Scaling and policies
+
+- `autoscaling` adds a `HorizontalPodAutoscaler` for the HTTP APIs, `realtime`, the gateway and `web`; each workload can override the defaults with its own `autoscaling` block, and `replicas` is ignored while autoscaling is on.
+- `podDisruptionBudget` keeps `minAvailable` pods of every workload that runs more than one replica, workers and `nsfw-detector` included; single-replica workloads get none, so node drains are never blocked.
+- `networkPolicy` denies all ingress to Rift pods and then allows only what the topology needs: the ingress controller (`networkPolicy.ingressController`) to the gateway and `web`, the gateway to the APIs and `realtime`, the services to each other (pods labelled `rift.dev/calls-services`) and to `nsfw-detector`. The chart refuses to render with `networkPolicy.enabled` until `networkPolicy.ingressController` names the controller (`namespaceSelector`, `podSelector` or `ipBlocks` for a load balancer that reaches the pods directly), because an allow rule without `from` admits every source; `allowAnySource: true` opts into that on purpose. `networkPolicy.extraFrom.<service>` adds peers to one service, e.g. the LiveKit namespace that posts webhooks to `voice-service`. It needs a CNI that enforces `NetworkPolicy` and lets kubelet probes through (Calico, Cilium); kind's default CNI enforces nothing.
 
 ## Databases
 
@@ -37,9 +47,15 @@ Images come from `image.registry/<service>:image.tag` (defaults to `ghcr.io/rift
 
 `secrets.*` are rendered into `<release>-secrets` unless `secrets.existingSecret` names a Secret you manage yourself; keys must match the environment variable names (`JWT_SECRET`, `LIVEKIT_API_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MAILER_USERNAME`, `MAILER_PASSWORD`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `STEAM_API_KEY`).
 
+Keys present in both the ConfigMap and the Secret resolve to the Secret, because `envFrom` lists it last; `NATS_URL` and `REDIS_URL` belong in the Secret whenever they carry credentials, which is what `deploy/terraform` does.
+
 ## Gateway config
 
 `files/nginx.conf.template` is generated from `docker/nginx/nginx.conf` by `deploy/helm/sync-nginx.sh`; rerun it after changing the nginx config. The script adapts the config for the unprivileged nginx image (listen on 8080, pid and temp paths under `/tmp`, logs to stdout/stderr) and leaves the DNS resolver as a placeholder that the container fills from `/etc/resolv.conf` at start. The gateway runs as uid 101 with a read-only root filesystem like every other workload. Upstreams are rewritten to `<service>.<namespace>.svc.<gateway.clusterDomain>` (nginx's own resolver ignores the pod search domains; set `gateway.resolverIpv6: "on"` on IPv6-only or dual-stack clusters so AAAA records are queried), and `gateway.trustedProxies` lists the CIDRs whose `X-Forwarded-For` is trusted to recover the client address before the rate and connection limits apply. It is empty by default, so limits and audit addresses use the direct peer; set it to exactly your ingress-controller pod or node CIDRs when the gateway sits behind an Ingress, never to whole private ranges, because any trusted source can pick its own client address. The gateway forwards only the sanitized `$remote_addr` upstream.
+
+## LiveKit
+
+The gateway proxies `gateway.ingress.livekitHost` to `gateway.livekitUpstream`; leave it empty to use a `livekit` Service in the release namespace (`livekit.externalName` creates one), or point it at a LiveKit installed elsewhere, e.g. `http://livekit-livekit-server.livekit.svc.cluster.local:80`. nginx resolves upstreams with its own resolver, so the name must be fully qualified.
 
 ## Usage
 

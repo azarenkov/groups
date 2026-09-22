@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoogleGlyph } from "./authHelpers";
+import { googleClientId } from "../../../shared/config/runtime";
 
 const GIS_SRC = "https://accounts.google.com/gsi/client";
 
@@ -38,7 +39,7 @@ function loadGis(): Promise<void> {
   return scriptPromise;
 }
 
-const CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID ?? "";
+const CLIENT_ID = googleClientId();
 
 function originSupportsGis(): boolean {
   if (typeof window === "undefined") return false;

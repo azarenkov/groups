@@ -1,0 +1,70 @@
+resource "kubernetes_namespace_v1" "ingress_nginx" {
+  count = var.ingress_nginx.enabled ? 1 : 0
+
+  metadata {
+    name = "ingress-nginx"
+  }
+}
+
+resource "helm_release" "ingress_nginx" {
+  count = var.ingress_nginx.enabled ? 1 : 0
+
+  name       = "ingress-nginx"
+  namespace  = kubernetes_namespace_v1.ingress_nginx[0].metadata[0].name
+  repository = "https://kubernetes.github.io/ingress-nginx"
+  chart      = "ingress-nginx"
+  version    = var.ingress_nginx.chart_version
+  wait       = true
+  timeout    = 600
+
+  values = [yamlencode(module.ingress_values.result)]
+
+  depends_on = [helm_release.prometheus_operator_crds]
+}
+
+module "ingress_values" {
+  source = "../deepmerge"
+
+  base     = { controller = local.ingress_controller }
+  override = var.ingress_nginx.values
+}
+
+locals {
+  ingress_controller = {
+    replicaCount = var.ingress_nginx.replicas
+    ingressClassResource = {
+      name    = var.ingress_class
+      default = true
+    }
+    hostPort = {
+      enabled = var.ingress_nginx.host_ports
+    }
+    updateStrategy = var.ingress_nginx.host_ports ? {
+      type = "Recreate"
+    } : {}
+    service = {
+      type = var.ingress_nginx.service_type
+    }
+    config = {
+      use-forwarded-headers     = var.ingress_nginx.forwarded_headers ? "true" : "false"
+      enable-real-ip            = var.ingress_nginx.forwarded_headers ? "true" : "false"
+      proxy-real-ip-cidr        = join(",", var.ingress_nginx.real_ip_cidrs)
+      proxy-body-size           = "512m"
+      proxy-read-timeout        = "3600"
+      proxy-send-timeout        = "3600"
+      proxy-request-buffering   = "off"
+      use-proxy-protocol        = "false"
+      allow-snippet-annotations = "false"
+    }
+    metrics = {
+      enabled = var.monitoring.enabled
+      serviceMonitor = {
+        enabled = var.monitoring.enabled
+      }
+    }
+    admissionWebhooks = {
+      enabled = true
+    }
+    allowSnippetAnnotations = false
+  }
+}

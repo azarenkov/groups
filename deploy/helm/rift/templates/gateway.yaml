@@ -18,7 +18,7 @@ metadata:
     {{- include "rift.labels" . | nindent 4 }}
     app.kubernetes.io/component: gateway
 spec:
-  replicas: {{ .Values.gateway.replicas }}
+  {{- include "rift.replicas" (dict "root" . "workload" .Values.gateway) | nindent 2 }}
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -70,6 +70,8 @@ spec:
               value: {{ .Values.gateway.clusterDomain | quote }}
             - name: NGINX_RESOLVER_IPV6
               value: {{ .Values.gateway.resolverIpv6 | quote }}
+            - name: NGINX_LIVEKIT_UPSTREAM
+              value: {{ .Values.gateway.livekitUpstream | default (printf "http://livekit.%s.svc.%s:7880" .Release.Namespace .Values.gateway.clusterDomain) | quote }}
           securityContext:
             {{- include "rift.containerSecurityContext" . | nindent 12 }}
           ports:
@@ -157,6 +159,24 @@ spec:
     - host: {{ .Values.gateway.ingress.host | quote }}
       http:
         paths:
+          {{- if .Values.web.enabled }}
+          {{- range .Values.gateway.ingress.apiPaths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $.Release.Name }}-gateway
+                port:
+                  name: http
+          {{- end }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-web
+                port:
+                  name: http
+          {{- else }}
           - path: /
             pathType: Prefix
             backend:
@@ -164,6 +184,7 @@ spec:
                 name: {{ .Release.Name }}-gateway
                 port:
                   name: http
+          {{- end }}
     {{- with .Values.gateway.ingress.livekitHost }}
     - host: {{ . | quote }}
       http:

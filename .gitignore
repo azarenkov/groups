@@ -7,3 +7,14 @@ target
 
 # local docker compose overrides (dev-only)
 docker-compose.override.yml
+
+# terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.lock.info
+*.tfvars
+!*.tfvars.example
+
+# local CA of the kind environment
+deploy/terraform/envs/local/rift-local-ca.crt

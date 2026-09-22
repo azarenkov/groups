@@ -7,7 +7,7 @@ metadata:
     {{- include "rift.labels" . | nindent 4 }}
     app.kubernetes.io/component: realtime
 spec:
-  replicas: {{ .Values.realtime.replicas }}
+  {{- include "rift.replicas" (dict "root" . "workload" .Values.realtime) | nindent 2 }}
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -20,6 +20,7 @@ spec:
     metadata:
       labels:
         {{- include "rift.selectorLabels" (dict "root" . "component" "realtime") | nindent 8 }}
+        rift.dev/calls-services: "true"
       annotations:
         {{- include "rift.checksums" . | nindent 8 }}
         {{- with .Values.podAnnotations }}

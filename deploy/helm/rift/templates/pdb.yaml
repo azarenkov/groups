@@ -1,0 +1,34 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- $root := . -}}
+{{- $targets := dict -}}
+{{- range $name, $svc := .Values.httpServices }}
+{{- if $svc.enabled }}{{ $_ := set $targets $name (dict "component" $name "workload" $svc) }}{{ end }}
+{{- end }}
+{{- if .Values.realtime.enabled }}{{ $_ := set $targets "realtime" (dict "component" "realtime" "workload" .Values.realtime) }}{{ end }}
+{{- if .Values.gateway.enabled }}{{ $_ := set $targets (printf "%s-gateway" .Release.Name) (dict "component" "gateway" "workload" .Values.gateway) }}{{ end }}
+{{- if .Values.web.enabled }}{{ $_ := set $targets (printf "%s-web" .Release.Name) (dict "component" "web" "workload" .Values.web) }}{{ end }}
+{{- range $name, $worker := .Values.workers }}
+{{- if $worker.enabled }}{{ $_ := set $targets $name (dict "component" $name "workload" $worker "fixed" true) }}{{ end }}
+{{- end }}
+{{- if .Values.nsfwDetector.enabled }}{{ $_ := set $targets "nsfw-detector" (dict "component" "nsfw-detector" "workload" .Values.nsfwDetector "fixed" true) }}{{ end }}
+{{- range $name, $target := $targets }}
+{{- $workload := $target.workload }}
+{{- $hpa := include "rift.autoscaling" (dict "root" $root "workload" $workload) | fromYaml }}
+{{- $replicas := ternary $hpa.minReplicas $workload.replicas (and $hpa.enabled (not $target.fixed)) }}
+{{- if gt (int $replicas) 1 }}
+{{- $component := $target.component }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "rift.labels" $root | nindent 4 }}
+spec:
+  minAvailable: {{ $root.Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "rift.selectorLabels" (dict "root" $root "component" $component) | nindent 6 }}
+{{- end }}
+{{- end }}
+{{- end }}

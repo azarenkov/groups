@@ -9,6 +9,7 @@ sed -E \
   -e 's|access_log /var/log/nginx/access.log main;|access_log /dev/stdout main;|' \
   -e 's|error_log  /var/log/nginx/error.log warn;|error_log /dev/stderr warn;|' \
   -e 's|listen 80 default_server;|listen 8080 default_server;|' \
-  -e 's|http://(identity-service\|media-service\|messaging-service\|voice-service\|realtime\|livekit):|http://\1.${NGINX_NAMESPACE}.svc.${NGINX_CLUSTER_DOMAIN}:|g' \
+  -e 's|http://livekit:7880;|${NGINX_LIVEKIT_UPSTREAM};|' \
+  -e 's|http://(identity-service\|media-service\|messaging-service\|voice-service\|realtime):|http://\1.${NGINX_NAMESPACE}.svc.${NGINX_CLUSTER_DOMAIN}:|g' \
   "$root/docker/nginx/nginx.conf" > "$root/deploy/helm/rift/files/nginx.conf.template"
 echo "deploy/helm/rift/files/nginx.conf.template regenerated from docker/nginx/nginx.conf"

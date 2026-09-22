@@ -115,6 +115,27 @@ shutdown:
   preStopSeconds: 5
   terminationGracePeriodSeconds: 40
 
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 0
+  scaleDownStabilizationSeconds: 300
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: false
+  ingressController:
+    namespaceSelector: {}
+    podSelector: {}
+    ipBlocks: []
+    allowAnySource: false
+  extraFrom: {}
+
 podAnnotations: {}
 nodeSelector: {}
 tolerations: []
@@ -242,6 +263,7 @@ gateway:
   image: nginxinc/nginx-unprivileged:1.27-alpine
   clusterDomain: cluster.local
   resolverIpv6: "off"
+  livekitUpstream: ""
   trustedProxies: []
   resources:
     requests: { cpu: 50m, memory: 64Mi }
@@ -257,6 +279,20 @@ gateway:
     livekitHost: livekit.rift.example.com
     annotations: {}
     tls: []
+    apiPaths:
+      - { path: /api, pathType: Prefix }
+      - { path: /ws, pathType: Exact }
+      - { path: /presence, pathType: Exact }
+      - { path: /healthz, pathType: Exact }
+
+web:
+  enabled: true
+  replicas: 2
+  apiUrl: /api
+  wsUrl: /ws
+  resources:
+    requests: { cpu: 25m, memory: 32Mi }
+    limits: { memory: 128Mi }
 
 livekit:
   externalName: ""

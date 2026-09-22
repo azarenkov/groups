@@ -1,0 +1,77 @@
+resource "kubernetes_namespace_v1" "livekit" {
+  count = var.livekit.enabled ? 1 : 0
+
+  metadata {
+    name = var.livekit.namespace
+  }
+}
+
+resource "helm_release" "livekit" {
+  count = var.livekit.enabled ? 1 : 0
+
+  name       = "livekit"
+  namespace  = kubernetes_namespace_v1.livekit[0].metadata[0].name
+  repository = "https://helm.livekit.io"
+  chart      = "livekit-server"
+  version    = var.livekit.chart_version
+  wait       = true
+  timeout    = 600
+
+  values = [yamlencode(module.livekit_values.result)]
+}
+
+module "livekit_values" {
+  source = "../deepmerge"
+
+  base = {
+    replicaCount = var.livekit.replicas
+    livekit      = local.livekit_generated
+    loadBalancer = {
+      type = "disable"
+    }
+    podHostNetwork = var.livekit.host_network
+    deploymentStrategy = {
+      type = "Recreate"
+    }
+    terminationGracePeriodSeconds = 30
+  }
+  override = var.livekit.values
+}
+
+locals {
+  livekit_generated = merge({
+    port      = 7880
+    log_level = "info"
+    rtc = merge({
+      use_external_ip = false
+      tcp_port        = var.livekit.rtc_port
+      node_ip         = var.livekit.node_ip
+      }, var.livekit.host_network ? {
+      port_range_start = var.livekit.udp_port
+      port_range_end   = var.livekit.udp_port + 20
+      } : {
+      udp_port = var.livekit.udp_port
+    })
+    keys = {
+      (var.livekit.api_key) = var.livekit.api_secret
+    }
+    webhook = {
+      api_key = var.livekit.api_key
+      urls    = var.livekit.webhook_urls
+    }
+    room = {
+      auto_create      = false
+      empty_timeout    = 300
+      max_participants = 100
+    }
+    turn = {
+      enabled = false
+    }
+    }, var.livekit.redis_url == "" ? {} : {
+    redis = merge(
+      { address = var.livekit.redis_url },
+      var.livekit.redis_password == "" ? {} : { password = var.livekit.redis_password }
+    )
+  })
+
+}
