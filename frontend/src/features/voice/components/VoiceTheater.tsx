@@ -21,7 +21,10 @@ const TileVolumeMenu: React.FC<{
 }> = ({ id, className, moderate, deafen }) => {
   const [open, setOpen] = useState(false);
   const [vol, setVol] = useState(() =>
-    Math.round(getLiveKitService().getRemoteVolume(id) * 100),
+    Math.min(
+      REMOTE_VOLUME_PLAIN_MAX,
+      Math.round(getLiveKitService().getRemoteVolume(id) * 100),
+    ),
   );
   const [volMax, setVolMax] = useState(REMOTE_VOLUME_PLAIN_MAX);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -62,10 +65,14 @@ const TileVolumeMenu: React.FC<{
       return;
     }
     const service = getLiveKitService();
-    setVol(Math.round(service.getRemoteVolume(id) * 100));
-    setVolMax(
-      service.supportsRemoteBoost(id) ? REMOTE_VOLUME_MAX : REMOTE_VOLUME_PLAIN_MAX,
-    );
+    const max = service.supportsRemoteBoost(id)
+      ? REMOTE_VOLUME_MAX
+      : REMOTE_VOLUME_PLAIN_MAX;
+    const stored = Math.round(service.getRemoteVolume(id) * 100);
+    const allowed = Math.min(stored, max);
+    if (allowed !== stored) service.setRemoteVolume(id, allowed / 100);
+    setVolMax(max);
+    setVol(allowed);
     const r = btnRef.current?.getBoundingClientRect();
     if (r) {
       const menuW = 216;

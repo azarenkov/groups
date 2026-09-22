@@ -18,7 +18,10 @@ export const VideoTileCell: React.FC<{
   const { t } = useTranslation("voice");
   const [volOpen, setVolOpen] = useState(false);
   const [volume, setVolume] = useState(() =>
-    Math.round((getLiveKitService().getRemoteVolume(tile.identity) ?? 1) * 100),
+    Math.min(
+      REMOTE_VOLUME_PLAIN_MAX,
+      Math.round((getLiveKitService().getRemoteVolume(tile.identity) ?? 1) * 100),
+    ),
   );
   const [volumeMax, setVolumeMax] = useState(REMOTE_VOLUME_PLAIN_MAX);
   const volRef = useRef<HTMLDivElement>(null);
@@ -41,12 +44,14 @@ export const VideoTileCell: React.FC<{
   useEffect(() => {
     if (!volOpen) return;
     const service = getLiveKitService();
-    setVolume(Math.round(service.getRemoteVolume(tile.identity) * 100));
-    setVolumeMax(
-      service.supportsRemoteBoost(tile.identity)
-        ? REMOTE_VOLUME_MAX
-        : REMOTE_VOLUME_PLAIN_MAX,
-    );
+    const max = service.supportsRemoteBoost(tile.identity)
+      ? REMOTE_VOLUME_MAX
+      : REMOTE_VOLUME_PLAIN_MAX;
+    const stored = Math.round(service.getRemoteVolume(tile.identity) * 100);
+    const allowed = Math.min(stored, max);
+    if (allowed !== stored) service.setRemoteVolume(tile.identity, allowed / 100);
+    setVolumeMax(max);
+    setVolume(allowed);
     const onDoc = (e: MouseEvent) => {
       if (volRef.current && !volRef.current.contains(e.target as Node)) {
         setVolOpen(false);
