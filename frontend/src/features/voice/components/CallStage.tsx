@@ -9,7 +9,7 @@ import { useParticipants } from "../hooks/useParticipants";
 import { useVideoTiles } from "../hooks/useVideoTiles";
 import { getLiveKitService } from "../lib/livekit";
 import { colorForId, initialFor } from "../../../shared/lib/avatar";
-import { useIsSpeaking } from "../store/speakingStore";
+import { useSpeakingStore } from "../store/speakingStore";
 import { useScreenShares } from "../hooks/useScreenShares";
 
 const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
@@ -54,13 +54,7 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
     (v) => v.isLocal && v.source === "screen",
   );
 
-  const speakingIds = useMemo(
-    () =>
-      new Set(
-        voiceParticipants.filter((p) => p.isSpeaking).map((p) => p.identity),
-      ),
-    [voiceParticipants],
-  );
+  const speakingIds = useSpeakingStore((state) => state.ids);
   const mutedIds = useMemo(
     () =>
       new Set(voiceParticipants.filter((p) => p.isMuted).map((p) => p.identity)),
@@ -73,7 +67,6 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       ),
     [voiceParticipants],
   );
-  const selfSpeaking = useIsSpeaking(selfId);
   const cameraByIdentity = useMemo(() => {
     const m = new Map<string, (typeof videoTiles)[number]>();
     for (const v of videoTiles) if (v.source === "camera") m.set(v.identity, v);
@@ -100,7 +93,7 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       isSelf: id === selfId,
       color: colorForId(id),
       initials: initialFor(name),
-      speaking: id === selfId ? selfSpeaking : speakingIds.has(id),
+      speaking: speakingIds.has(id),
       muted: id === selfId ? muted : mutedIds.has(id),
       deafened: id === selfId ? deafened : deafenedIds.has(id),
       moderatorDeafened: false,
@@ -111,7 +104,6 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
     voiceParticipants,
     selfId,
     selfName,
-    selfSpeaking,
     speakingIds,
     mutedIds,
     muted,
