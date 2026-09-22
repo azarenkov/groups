@@ -564,6 +564,7 @@ function relaunchWithoutGpu(reason) {
 
 const FIRST_PAINT_TIMEOUT_MS = 45000;
 const BLANK_CHECK_DELAY_MS = 1500;
+const CAPTURE_ATTEMPTS = 3;
 
 function looksBlank(image) {
   const size = image.getSize();
@@ -608,12 +609,22 @@ function watchFirstPaint(win) {
         return;
       }
       if (!win.isVisible() || win.isMinimized()) return;
-      win.webContents
-        .capturePage()
-        .then((image) => {
-          if (!win.isDestroyed() && looksBlank(image)) relaunchWithoutGpu('window painted a single colour after the app mounted');
-        })
-        .catch((err) => console.warn('[gpu] capturePage failed:', err));
+      let attempts = 0;
+      const capture = () => {
+        if (win.isDestroyed()) return;
+        attempts += 1;
+        win.webContents
+          .capturePage()
+          .then((image) => {
+            if (!win.isDestroyed() && looksBlank(image)) relaunchWithoutGpu('window painted a single colour after the app mounted');
+          })
+          .catch((err) => {
+            console.warn('[gpu] capturePage failed (attempt ' + attempts + '):', err);
+            if (attempts < CAPTURE_ATTEMPTS) setTimeout(capture, BLANK_CHECK_DELAY_MS);
+            else relaunchWithoutGpu('the window could not be captured after the app mounted');
+          });
+      };
+      capture();
     }, BLANK_CHECK_DELAY_MS);
   };
   ipcMain.once('renderer:rendered', onRendered);
