@@ -12,6 +12,7 @@ import {
 } from "livekit-client";
 
 import type { DfnPipeline } from "../../../shared/lib/dfn";
+import { MAKEUP_INTERVAL_MS, isSpeech, makeupGainFor } from "./makeupGain";
 import { RemoteAudioGraph } from "./livekit/remoteAudio";
 import { attachRoomListeners } from "./livekit/roomEvents";
 import type {
@@ -31,6 +32,9 @@ export interface ScreenShareQuality {
 
 export { ConnectionQuality, DisconnectReason };
 
+export const REMOTE_VOLUME_MAX = 200;
+export const REMOTE_VOLUME_PLAIN_MAX = 100;
+
 export class LiveKitService {
   private room: Room | null = null;
   private participants: Map<string, ParticipantInfo> = new Map();
@@ -44,6 +48,7 @@ export class LiveKitService {
   private dfnContext: AudioContext | null = null;
   private dfnRawTrack: MediaStreamTrack | null = null;
   private dfnPrevPublishedTrack: MediaStreamTrack | null = null;
+  private dfnStopMakeup: (() => void) | null = null;
   private dfnPrevChain: {
     gain: GainNode | null;
     gate: GainNode | null;
@@ -311,6 +316,8 @@ export class LiveKitService {
     try {
       this.dfnRawTrack?.stop();
     } catch {}
+    this.dfnStopMakeup?.();
+    this.dfnStopMakeup = null;
     this.dfnPipeline = null;
     this.dfnContext = null;
     this.dfnRawTrack = null;
@@ -482,7 +489,9 @@ export class LiveKitService {
       try {
         this.dfnRawTrack?.stop();
       } catch {}
-      this.dfnPipeline = null;
+      this.dfnStopMakeup?.();
+    this.dfnStopMakeup = null;
+    this.dfnPipeline = null;
       this.dfnContext = null;
       this.dfnRawTrack = null;
     this.dfnPrevPublishedTrack = null;
@@ -716,6 +725,7 @@ export class LiveKitService {
       let step = "init";
       let ctx: AudioContext | null = null;
       let pipeline: DfnPipeline | null = null;
+      let stopMakeup: (() => void) | null = null;
       try {
         step = "applyConstraints";
         try {
@@ -760,6 +770,8 @@ export class LiveKitService {
         const postSource = ctx.createMediaStreamSource(
           new MediaStream([pipeline.outputTrack]),
         );
+        const makeup = ctx.createGain();
+        makeup.gain.value = 1;
         const postGain = ctx.createGain();
         postGain.gain.value = this.micVolume;
         const postGate = ctx.createGain();
@@ -770,14 +782,27 @@ export class LiveKitService {
           new MediaStream([rawTrack]),
         );
         preSource.connect(postAnalyser);
+        const denoisedAnalyser = ctx.createAnalyser();
+        denoisedAnalyser.fftSize = 256;
+        postSource.connect(denoisedAnalyser);
         const postDest = ctx.createMediaStreamDestination();
-        postSource.connect(postGain);
+        postSource.connect(makeup);
+        makeup.connect(postGain);
         postGain.connect(postGate);
         postGate.connect(postDest);
+        stopMakeup = trackDenoiserMakeup(
+          ctx,
+          postAnalyser,
+          denoisedAnalyser,
+          makeup,
+          postGate,
+        );
         const postTrack = postDest.stream.getAudioTracks()[0];
         const builtPipeline = pipeline;
         const builtCtx = ctx;
         const discard = async () => {
+          stopMakeup?.();
+          stopMakeup = null;
           try {
             await builtPipeline.dispose();
           } catch {}
@@ -802,6 +827,9 @@ export class LiveKitService {
           return;
         }
 
+        this.dfnStopMakeup?.();
+        this.dfnStopMakeup = stopMakeup;
+        stopMakeup = null;
         this.dfnPipeline = pipeline;
         this.dfnContext = ctx;
         this.dfnRawTrack = rawTrack;
@@ -826,6 +854,8 @@ export class LiveKitService {
           `[LiveKitService] enableDfnPipeline attempt ${attempt} failed at step "${step}":`,
           e,
         );
+        stopMakeup?.();
+        stopMakeup = null;
         if (pipeline) {
           try {
             await pipeline.dispose();
@@ -890,6 +920,8 @@ export class LiveKitService {
       await ctx?.close();
     } catch {}
 
+    this.dfnStopMakeup?.();
+    this.dfnStopMakeup = null;
     this.dfnPipeline = null;
     this.dfnContext = null;
     this.dfnRawTrack = null;
@@ -1119,7 +1151,7 @@ export class LiveKitService {
     const info: ParticipantInfo = {
       identity: participant.identity,
       name: participant.name || participant.identity,
-      isSpeaking: false,
+      isSpeaking: participant.isSpeaking,
       isMuted: false,
       isDeafened: participant.attributes?.deafened === "1",
       isSharingScreen: false,
@@ -1167,13 +1199,13 @@ export class LiveKitService {
 
   private ensureParticipant(identity: string, name?: string): void {
     if (this.participants.has(identity)) return;
+    const remote = this.room?.remoteParticipants.get(identity);
     this.participants.set(identity, {
       identity,
-      name: name || identity,
-      isSpeaking: false,
+      name: name || remote?.name || identity,
+      isSpeaking: remote?.isSpeaking ?? false,
       isMuted: false,
-      isDeafened:
-        this.room?.remoteParticipants.get(identity)?.attributes?.deafened === "1",
+      isDeafened: remote?.attributes?.deafened === "1",
       isSharingScreen: false,
       audioTrack: null,
       cameraTrack: null,
@@ -1216,6 +1248,10 @@ export class LiveKitService {
 
   getRemoteVolume(identity: string): number {
     return this.remoteAudio.getVolume(identity);
+  }
+
+  supportsRemoteBoost(identity: string): boolean {
+    return this.remoteAudio.supportsBoost(identity);
   }
 
   private reconcileNoiseModeWithStore(requested: NoiseSuppressionMode): void {
@@ -1610,6 +1646,37 @@ export class LiveKitService {
       this.participantsListeners.delete(fn);
     };
   }
+}
+
+function analyserRms(analyser: AnalyserNode, buffer: Float32Array): number {
+  analyser.getFloatTimeDomainData(buffer);
+  let sum = 0;
+  for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
+  return Math.sqrt(sum / buffer.length);
+}
+
+function trackDenoiserMakeup(
+  ctx: AudioContext,
+  input: AnalyserNode,
+  denoised: AnalyserNode,
+  makeup: GainNode,
+  gate: GainNode,
+): () => void {
+  const inputBuffer = new Float32Array(input.fftSize);
+  const denoisedBuffer = new Float32Array(denoised.fftSize);
+  let gain = makeup.gain.value;
+
+  const timer = setInterval(() => {
+    const inputRms = analyserRms(input, inputBuffer);
+    const denoisedRms = analyserRms(denoised, denoisedBuffer);
+    const speech = isSpeech(inputRms, denoisedRms, gate.gain.value > 0);
+    const next = makeupGainFor(inputRms, denoisedRms, gain, speech);
+    if (next === gain) return;
+    gain = next;
+    makeup.gain.setTargetAtTime(gain, ctx.currentTime, 0.1);
+  }, MAKEUP_INTERVAL_MS);
+
+  return () => clearInterval(timer);
 }
 
 let livekitService: LiveKitService | null = null;

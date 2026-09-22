@@ -3,6 +3,7 @@ import ProBadge from "../../../subscription/components/ProBadge";
 import { useEntitlementsStore } from "../../../subscription/store/entitlementsStore";
 import { useTranslation } from "react-i18next";
 import { useVoiceSettingsStore } from "../../../voice/store/voiceSettingsStore";
+import { usePushToTalkGlobalStatus } from "../../../voice/hooks/usePushToTalkGlobal";
 import { activeBindings, effectiveBinding } from "../../lib/hotkeys";
 import { HOTKEY_ACTIONS, bindingIsBareKey, codeLabel, keyTokenFromCode } from "../../lib/hotkeyMatching";
 
@@ -117,6 +118,11 @@ export function VoiceSection() {
   const autoSensitivity = useVoiceSettingsStore((s) => s.autoSensitivity);
   const sensitivity = useVoiceSettingsStore((s) => s.sensitivity);
   const pushToTalk = useVoiceSettingsStore((s) => s.pushToTalk);
+  const pttGlobal = useVoiceSettingsStore((s) => s.pttGlobal);
+  const setPttGlobal = useVoiceSettingsStore((s) => s.setPttGlobal);
+  const globalStatus = usePushToTalkGlobalStatus();
+  const globalSupported = globalStatus !== "unsupported";
+  const globalFailed = globalStatus === "failed";
   const micDeviceId = useVoiceSettingsStore((s) => s.micDeviceId);
   const speakerDeviceId = useVoiceSettingsStore((s) => s.speakerDeviceId);
   const update = useVoiceSettingsStore((s) => s.update);
@@ -279,6 +285,22 @@ export function VoiceSection() {
             {capturingKey ? t("voice.pttPressKey") : pttKeyLabel(pttKey)}
           </button>
           <Switch on={pushToTalk} onClick={() => update({ pushToTalk: !pushToTalk })}/>
+        </SettingsRow>
+        <SettingsRow
+          label={t("voice.pttGlobal")}
+          hint={
+            !globalSupported
+              ? t("voice.pttGlobalWeb")
+              : globalFailed
+                ? t("voice.pttGlobalUnavailable")
+                : t("voice.pttGlobalHint")
+          }
+        >
+          <Switch
+            on={globalSupported && !globalFailed && pttGlobal}
+            disabled={!globalSupported || globalFailed || !pushToTalk}
+            onClick={() => setPttGlobal(!pttGlobal)}
+          />
         </SettingsRow>
         <SettingsRow label={t("voice.noiseDefault")} hint={t("voice.noiseDefaultHint")}>
           <div className="s-seg">

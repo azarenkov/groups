@@ -45,6 +45,20 @@ contextBridge.exposeInMainWorld('electron', {
   },
   getPendingDeepLink: () => ipcRenderer.invoke('deep-link:pending'),
 
+  setGlobalPushToTalk: (code) => ipcRenderer.invoke('ptt:global', code),
+  onPushToTalk: (callback) => {
+    const handler = (_event, state) =>
+      callback({
+        down: !!state?.down,
+        altKey: !!state?.altKey,
+        ctrlKey: !!state?.ctrlKey,
+        metaKey: !!state?.metaKey,
+        shiftKey: !!state?.shiftKey,
+      });
+    ipcRenderer.on('ptt:state', handler);
+    return () => ipcRenderer.removeListener('ptt:state', handler);
+  },
+
   isFullscreen: () => ipcRenderer.invoke('window:is-fullscreen'),
   onFullscreenChange: (callback) => {
     const handler = (_event, value) => callback(!!value);

@@ -41,6 +41,7 @@ import { useSelection } from "../hooks/useSelection";
 import { useSidebarPrefetch } from "../hooks/useSidebarPrefetch";
 import { useVoiceMembers } from "../hooks/useVoiceMembers";
 import { useVoicePresenceSync } from "../hooks/useVoicePresenceSync";
+import { useSpeakingTracking } from "../../voice/hooks/useSpeakingTracking";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 import { useStreamQualitySync } from "../../subscription/hooks/useStreamQualitySync";
 import ErrorToast from "../../../shared/ui/ErrorToast";
@@ -198,6 +199,7 @@ const ServersPage: React.FC = () => {
   }, [hasSession, fetchServers, fetchFriends]);
 
   useVoicePresenceSync({ servers, hasSession });
+  useSpeakingTracking();
   useStreamQualitySync();
   const { hasMoreDirects, loadMoreDirects } = useSidebarPrefetch({
     query: sidebarQuery,

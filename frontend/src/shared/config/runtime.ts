@@ -29,7 +29,10 @@ export const apiBaseUrl = (): string =>
   );
 
 export const wsEndpoint = (): string => {
-  const explicit = nonEmpty(runtime().wsUrl) ?? nonEmpty(process.env.REACT_APP_WS_URL);
+  const injected = runtime();
+  const explicit =
+    nonEmpty(injected.wsUrl) ??
+    (nonEmpty(injected.apiUrl) ? undefined : nonEmpty(process.env.REACT_APP_WS_URL));
   if (explicit) return absolute(explicit).replace(/^http/, "ws");
   try {
     const u = new URL(apiBaseUrl());

@@ -3,6 +3,7 @@ import { useEntitlementsStore } from "../../subscription/store/entitlementsStore
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import { useLocalTrack } from "../hooks/useLocalTrack";
+import { usePushToTalkHeld } from "../hooks/usePushToTalkHeld";
 import { getLiveKitService, NoiseSuppressionMode } from "../lib/livekit";
 import { useVoiceSettingsStore } from "../store/voiceSettingsStore";
 import { UserAvatar } from "../../../shared/ui/Avatar";
@@ -70,6 +71,9 @@ const VoicePill: React.FC<VoicePillProps> = ({
   );
   const [meter, setMeter] = useState<number[]>(() => new Array(BARS).fill(0));
   const localTrack = useLocalTrack();
+  const pushToTalk = useVoiceSettingsStore((state) => state.pushToTalk);
+  const pttHeld = usePushToTalkHeld();
+  const pttLive = pushToTalk && pttHeld;
   const trackId = localTrack?.id ?? "";
   const openRef = useRef(open);
   openRef.current = open;
@@ -304,18 +308,22 @@ const VoicePill: React.FC<VoicePillProps> = ({
         </button>
         <button
           type="button"
-          className={"vp-btn" + (isMuted ? " muted" : "")}
+          className={
+            "vp-btn" + (isMuted ? " muted" : "") + (pttLive ? " ptt" : "")
+          }
           onClick={onToggleMute}
           disabled={muteLocked}
           title={
-            muteLocked
-              ? t("mutedByModerator")
-              : isMuted
-                ? t("unmuteSelf")
-                : t("muteSelf")
+            pttLive
+              ? t("pttHeld")
+              : muteLocked
+                ? t("mutedByModerator")
+                : isMuted
+                  ? t("unmuteSelf")
+                  : t("muteSelf")
           }
         >
-          <Icon name={isMuted ? "mic-off" : "mic"} size={15} />
+          <Icon name={isMuted && !pttLive ? "mic-off" : "mic"} size={15} />
         </button>
         {onToggleDeafen && (
           <button

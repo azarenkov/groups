@@ -517,14 +517,24 @@
 }
 .sb-voice-member-ava {
   width: 18px; height: 18px; border-radius: 50%;
+  box-shadow: 0 0 0 0 transparent;
+  transition: box-shadow var(--dur-fast, 120ms) ease;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 9px; font-weight: 700; color: #fff;
   flex-shrink: 0;
 }
+.sb-voice-member-ava.speaking {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--voice-live, #30a46c) 80%, transparent);
+}
+.sb-voice-member-title {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 4px;
+}
 .sb-voice-member-name {
-  flex: 1;
+  flex: 0 1 auto;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.sb-voice-member-pro { flex: 0 0 auto; }
 .sb-voice-member-badge {
   display: inline-flex; align-items: center; justify-content: center;
   width: 18px; height: 18px;
