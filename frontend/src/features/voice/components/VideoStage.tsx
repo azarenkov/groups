@@ -85,14 +85,21 @@ export const VideoTileCell: React.FC<{
       <button
         type="button"
         className="voice-tile-fs"
-        onClick={goFullscreen}
+        onClick={(e) => {
+          e.stopPropagation();
+          goFullscreen();
+        }}
         title={t("fullscreen")}
       >
         <Icon name="expand" size={14} />
         <span>{t("fullscreen")}</span>
       </button>
       {!tile.isLocal && (
-        <div className="voice-tile-vol" ref={volRef}>
+        <div
+          className="voice-tile-vol"
+          ref={volRef}
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
             className={"voice-tile-vol-btn" + (volOpen ? " on" : "")}

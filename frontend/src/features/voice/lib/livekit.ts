@@ -1203,7 +1203,7 @@ export class LiveKitService {
     if (!this.room) return;
     attachRoomListeners(this.room, {
       onConnected: () => this.onConnectionStateChange?.(true),
-      onLocalTracksChanged: () => this.notifyParticipantsChange(),
+      onLocalTracksChanged: () => this.refreshScreenShares(),
       onParticipantConnected: (participant) => this.addParticipant(participant),
       onParticipantDisconnected: (identity) => this.removeParticipant(identity),
       onAudioTrack: (track, participant) =>
