@@ -1154,7 +1154,7 @@ export class LiveKitService {
     const info: ParticipantInfo = {
       identity: participant.identity,
       name: participant.name || participant.identity,
-      isSpeaking: false,
+      isSpeaking: participant.isSpeaking,
       isMuted: false,
       isDeafened: participant.attributes?.deafened === "1",
       isSharingScreen: false,
@@ -1202,13 +1202,13 @@ export class LiveKitService {
 
   private ensureParticipant(identity: string, name?: string): void {
     if (this.participants.has(identity)) return;
+    const remote = this.room?.remoteParticipants.get(identity);
     this.participants.set(identity, {
       identity,
-      name: name || identity,
-      isSpeaking: false,
+      name: name || remote?.name || identity,
+      isSpeaking: remote?.isSpeaking ?? false,
       isMuted: false,
-      isDeafened:
-        this.room?.remoteParticipants.get(identity)?.attributes?.deafened === "1",
+      isDeafened: remote?.attributes?.deafened === "1",
       isSharingScreen: false,
       audioTrack: null,
       cameraTrack: null,
