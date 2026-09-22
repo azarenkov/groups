@@ -585,24 +585,31 @@ function looksBlank(image) {
 function watchFirstPaint(win) {
   if (gpuDisabled) return;
   let settled = false;
-  const timeout = setTimeout(() => {
-    if (settled) return;
-    settled = true;
-    relaunchWithoutGpu('renderer never reported its first paint');
-  }, FIRST_PAINT_TIMEOUT_MS);
-  ipcMain.once('renderer:rendered', () => {
-    if (settled) return;
+  const settle = () => {
+    if (settled) return false;
     settled = true;
     clearTimeout(timeout);
+    ipcMain.removeListener('renderer:rendered', onRendered);
+    return true;
+  };
+  const timeout = setTimeout(() => {
+    if (settle()) relaunchWithoutGpu('renderer never reported its first paint');
+  }, FIRST_PAINT_TIMEOUT_MS);
+  const onRendered = () => {
+    if (!settle()) return;
     setTimeout(() => {
       if (win.isDestroyed()) return;
       win.webContents
         .capturePage()
         .then((image) => {
-          if (looksBlank(image)) relaunchWithoutGpu('window painted a single colour after the app mounted');
+          if (!win.isDestroyed() && looksBlank(image)) relaunchWithoutGpu('window painted a single colour after the app mounted');
         })
         .catch((err) => console.warn('[gpu] capturePage failed:', err));
     }, BLANK_CHECK_DELAY_MS);
+  };
+  ipcMain.once('renderer:rendered', onRendered);
+  win.once('closed', () => {
+    settle();
   });
 }
 
