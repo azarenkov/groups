@@ -1,9 +1,24 @@
 #!/bin/sh
 set -eu
 
-if command -v k3s >/dev/null 2>&1 && [ -f /etc/rancher/k3s/k3s.yaml ]; then
-    echo "k3s already installed"
+WANTED="$K3S_VERSION $POD_SUBNET $SERVICE_SUBNET $CLUSTER_DOMAIN"
+STAMP=/var/lib/rancher/k3s-rift-config
+
+if command -v k3s >/dev/null 2>&1 && [ -f /etc/rancher/k3s/k3s.yaml ] && [ "$(cat "$STAMP" 2>/dev/null)" = "$WANTED" ]; then
+    echo "k3s already installed with the requested configuration"
 else
+    if command -v k3s >/dev/null 2>&1; then
+        installed="$(cat "$STAMP" 2>/dev/null || echo 'unknown')"
+        echo "k3s is installed with [$installed] but [$WANTED] was requested" >&2
+        echo "changing the cluster CIDRs or the DNS domain needs a rebuilt cluster: run /usr/local/bin/k3s-uninstall.sh on the server (this destroys its data) and apply again" >&2
+        case "$installed" in
+            "$K3S_VERSION "*)
+                echo "version unchanged; refusing to reconfigure in place" >&2
+                exit 1 ;;
+            *)
+                echo "upgrading k3s in place to $K3S_VERSION" >&2 ;;
+        esac
+    fi
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq >/dev/null
     apt-get install -y -qq curl ca-certificates open-iscsi nfs-common >/dev/null 2>&1
@@ -17,9 +32,12 @@ else
         --disable traefik --disable servicelb \
         --flannel-backend=none --disable-network-policy \
         --cluster-cidr "$POD_SUBNET" --service-cidr "$SERVICE_SUBNET" \
+        --cluster-domain "$CLUSTER_DOMAIN" \
         --node-external-ip "$SERVER_IP" \
         --tls-san "$SERVER_IP" --tls-san "$APP_HOST" \
         --write-kubeconfig-mode 600 >/dev/null 2>&1
+    mkdir -p "$(dirname "$STAMP")"
+    printf '%s' "$WANTED" > "$STAMP"
 fi
 
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml

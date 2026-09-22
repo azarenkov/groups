@@ -4,9 +4,11 @@ locals {
 
 resource "null_resource" "k3s" {
   triggers = {
-    server_ip   = var.server_ip
-    k3s_version = var.k3s_version
-    pod_subnet  = var.pod_subnet
+    server_ip      = var.server_ip
+    k3s_version    = var.k3s_version
+    pod_subnet     = var.pod_subnet
+    service_subnet = var.service_subnet
+    cluster_domain = var.cluster_domain
   }
 
   connection {
@@ -24,7 +26,7 @@ resource "null_resource" "k3s" {
   provisioner "remote-exec" {
     inline = [
       "chmod +x /tmp/install-k3s.sh",
-      "K3S_VERSION='${var.k3s_version}' POD_SUBNET='${var.pod_subnet}' SERVICE_SUBNET='${var.service_subnet}' SERVER_IP='${var.server_ip}' APP_HOST='${var.app_host}' /tmp/install-k3s.sh",
+      "K3S_VERSION='${var.k3s_version}' POD_SUBNET='${var.pod_subnet}' SERVICE_SUBNET='${var.service_subnet}' CLUSTER_DOMAIN='${var.cluster_domain}' SERVER_IP='${var.server_ip}' APP_HOST='${var.app_host}' /tmp/install-k3s.sh",
     ]
   }
 }
