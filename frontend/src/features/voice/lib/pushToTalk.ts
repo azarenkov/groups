@@ -1,6 +1,12 @@
 import { getLiveKitService } from "./livekit";
 import { useVoiceSettingsStore } from "../store/voiceSettingsStore";
 
+export type PushToTalkGlobalStatus =
+  | "unsupported"
+  | "inactive"
+  | "active"
+  | "failed";
+
 const MODIFIER_KEYS = ["metaKey", "ctrlKey", "altKey", "shiftKey"] as const;
 const MODIFIER_FLAGS: Record<string, (typeof MODIFIER_KEYS)[number]> = {
   ShiftLeft: "shiftKey",
@@ -18,8 +24,10 @@ let holding = false;
 let holdingCode: string | null = null;
 let globalBound = false;
 let globalSeq = 0;
+let globalStatus: PushToTalkGlobalStatus = "unsupported";
 
 const listeners = new Set<(holding: boolean) => void>();
+const statusListeners = new Set<(status: PushToTalkGlobalStatus) => void>();
 
 const isTextEntryTarget = (target: EventTarget | null): boolean => {
   const el = target as HTMLElement | null;
@@ -76,8 +84,35 @@ export const pushToTalkGlobalSupported = (): boolean =>
   typeof window !== "undefined" &&
   typeof window.electron?.setGlobalPushToTalk === "function";
 
+export const getPushToTalkGlobalStatus = (): PushToTalkGlobalStatus =>
+  globalStatus;
+
+export const subscribePushToTalkGlobal = (
+  fn: (status: PushToTalkGlobalStatus) => void,
+): (() => void) => {
+  statusListeners.add(fn);
+  return () => {
+    statusListeners.delete(fn);
+  };
+};
+
+const setGlobalStatus = (status: PushToTalkGlobalStatus) => {
+  if (globalStatus === status) return;
+  globalStatus = status;
+  statusListeners.forEach((fn) => {
+    try {
+      fn(status);
+    } catch (err) {
+      console.warn("[ptt] status listener failed:", err);
+    }
+  });
+};
+
 const syncGlobalBinding = async () => {
-  if (!pushToTalkGlobalSupported()) return;
+  if (!pushToTalkGlobalSupported()) {
+    setGlobalStatus("unsupported");
+    return;
+  }
   const { pushToTalk, pttKey, pttGlobal } = useVoiceSettingsStore.getState();
   const code = pushToTalk && pttGlobal ? pttKey : null;
   const seq = ++globalSeq;
@@ -90,6 +125,7 @@ const syncGlobalBinding = async () => {
   if (seq !== globalSeq) return;
   globalBound = bound;
   if (!bound) stopTransmitting();
+  setGlobalStatus(code === null ? "inactive" : bound ? "active" : "failed");
 };
 
 export const initPushToTalk = (): void => {

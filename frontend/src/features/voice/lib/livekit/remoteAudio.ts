@@ -44,6 +44,17 @@ export class RemoteAudioGraph {
     return this.volumes.get(identity) ?? 1.0;
   }
 
+  supportsBoost(): boolean {
+    if (this.disabled) return false;
+    if (this.ctx) return true;
+    if (typeof window === "undefined") return false;
+    return !!(
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext
+    );
+  }
+
   setVolume(identity: string, volume: number): void {
     const v = Math.max(0, Math.min(RemoteAudioGraph.GAIN_MAX, volume));
     this.volumes.set(identity, v);

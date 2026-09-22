@@ -5,7 +5,12 @@ import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import StreamQualityPicker from "../../subscription/components/StreamQualityPicker";
 import { VideoTileCell } from "./VideoStage";
-import { getLiveKitService, VideoTile } from "../lib/livekit";
+import {
+  getLiveKitService,
+  REMOTE_VOLUME_MAX,
+  REMOTE_VOLUME_PLAIN_MAX,
+  VideoTile,
+} from "../lib/livekit";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 
 const TileVolumeMenu: React.FC<{
@@ -15,7 +20,10 @@ const TileVolumeMenu: React.FC<{
   deafen?: { deafened: boolean; onToggle: () => void };
 }> = ({ id, className, moderate, deafen }) => {
   const [open, setOpen] = useState(false);
-  const [vol, setVol] = useState(100);
+  const [vol, setVol] = useState(() =>
+    Math.round(getLiveKitService().getRemoteVolume(id) * 100),
+  );
+  const [volMax, setVolMax] = useState(REMOTE_VOLUME_PLAIN_MAX);
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -53,6 +61,11 @@ const TileVolumeMenu: React.FC<{
       setOpen(false);
       return;
     }
+    const service = getLiveKitService();
+    setVol(Math.round(service.getRemoteVolume(id) * 100));
+    setVolMax(
+      service.supportsRemoteBoost() ? REMOTE_VOLUME_MAX : REMOTE_VOLUME_PLAIN_MAX,
+    );
     const r = btnRef.current?.getBoundingClientRect();
     if (r) {
       const menuW = 216;
@@ -102,11 +115,15 @@ const TileVolumeMenu: React.FC<{
               <input
                 type="range"
                 min={0}
-                max={100}
+                max={volMax}
                 step={1}
                 value={vol}
                 onChange={(e) => change(Number(e.target.value))}
-                style={{ ["--pct" as unknown as string]: `${vol}%` } as React.CSSProperties}
+                style={
+                  {
+                    ["--pct" as unknown as string]: `${(vol / volMax) * 100}%`,
+                  } as React.CSSProperties
+                }
               />
               <span className="cs-menu-pct">{vol}%</span>
             </div>

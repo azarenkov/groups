@@ -32,6 +32,9 @@ export interface ScreenShareQuality {
 
 export { ConnectionQuality, DisconnectReason };
 
+export const REMOTE_VOLUME_MAX = 200;
+export const REMOTE_VOLUME_PLAIN_MAX = 100;
+
 export class LiveKitService {
   private room: Room | null = null;
   private participants: Map<string, ParticipantInfo> = new Map();
@@ -1245,6 +1248,10 @@ export class LiveKitService {
 
   getRemoteVolume(identity: string): number {
     return this.remoteAudio.getVolume(identity);
+  }
+
+  supportsRemoteBoost(): boolean {
+    return this.remoteAudio.supportsBoost();
   }
 
   private reconcileNoiseModeWithStore(requested: NoiseSuppressionMode): void {

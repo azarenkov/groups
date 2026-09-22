@@ -187,7 +187,8 @@
     "live": "Live",
     "pttGlobal": "Push to talk works globally",
     "pttGlobalHint": "The key fires even when the window is minimised or a game is on top",
-    "pttGlobalWeb": "Desktop app only: in a browser the key works while the window is focused"
+    "pttGlobalWeb": "Desktop app only: in a browser the key works while the window is focused",
+    "pttGlobalUnavailable": "The system keyboard hook did not start, so push to talk only works while the window is focused. On macOS allow Rift under Accessibility"
   },
   "notifications": {
     "title": "Notifications",

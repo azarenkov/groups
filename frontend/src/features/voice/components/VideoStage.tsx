@@ -1,7 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
-import { VideoTile, getLiveKitService } from "../lib/livekit";
+import {
+  REMOTE_VOLUME_MAX,
+  REMOTE_VOLUME_PLAIN_MAX,
+  VideoTile,
+  getLiveKitService,
+} from "../lib/livekit";
 
 export const VideoTileCell: React.FC<{
   tile: VideoTile;
@@ -15,6 +20,7 @@ export const VideoTileCell: React.FC<{
   const [volume, setVolume] = useState(() =>
     Math.round((getLiveKitService().getRemoteVolume(tile.identity) ?? 1) * 100),
   );
+  const [volumeMax, setVolumeMax] = useState(REMOTE_VOLUME_PLAIN_MAX);
   const volRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,6 +40,11 @@ export const VideoTileCell: React.FC<{
 
   useEffect(() => {
     if (!volOpen) return;
+    const service = getLiveKitService();
+    setVolume(Math.round(service.getRemoteVolume(tile.identity) * 100));
+    setVolumeMax(
+      service.supportsRemoteBoost() ? REMOTE_VOLUME_MAX : REMOTE_VOLUME_PLAIN_MAX,
+    );
     const onDoc = (e: MouseEvent) => {
       if (volRef.current && !volRef.current.contains(e.target as Node)) {
         setVolOpen(false);
@@ -41,7 +52,7 @@ export const VideoTileCell: React.FC<{
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [volOpen]);
+  }, [volOpen, tile.identity]);
 
   const goFullscreen = () => {
     const el = ref.current;
@@ -100,7 +111,7 @@ export const VideoTileCell: React.FC<{
               <input
                 type="range"
                 min={0}
-                max={100}
+                max={volumeMax}
                 step={1}
                 value={volume}
                 onChange={(e) => changeVolume(Number(e.target.value))}
