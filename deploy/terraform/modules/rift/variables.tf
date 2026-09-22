@@ -36,7 +36,20 @@ variable "git_revision" {
 }
 
 variable "git_token" {
-  description = "Token Argo CD uses to read a private git_repo; empty for public repositories"
+  description = "Token Argo CD uses to read a private git_repo over https; empty for public repositories or when git_ssh_key is set"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "git_repo_ssh" {
+  description = "SSH form of git_repo, used when Argo CD authenticates with a deploy key"
+  type        = string
+  default     = "git@github.com:rift-space/rift.git"
+}
+
+variable "git_ssh_key" {
+  description = "Private half of a read-only deploy key Argo CD uses to read a private git_repo; takes precedence over git_token"
   type        = string
   default     = ""
   sensitive   = true
