@@ -16,6 +16,7 @@ interface FakeGain {
 const created: FakeGain[] = [];
 const levels = new Map<string, number>();
 let attaching = "";
+let failGain = false;
 
 class FakeAudioContext {
   createAnalyser() {
@@ -37,6 +38,7 @@ class FakeAudioContext {
     return { connect: jest.fn(), disconnect: jest.fn() };
   }
   createGain(): FakeGain {
+    if (failGain) throw new Error("gain unavailable");
     const gain: FakeGain = {
       gain: { value: 1 },
       connect: jest.fn(),
@@ -92,6 +94,7 @@ describe("RemoteAudioGraph", () => {
     created.length = 0;
     attached.length = 0;
     levels.clear();
+    failGain = false;
     jest.useFakeTimers();
     (window as unknown as { AudioContext: unknown }).AudioContext =
       FakeAudioContext;
@@ -226,6 +229,23 @@ describe("RemoteAudioGraph", () => {
     levels.set("mia", 0.2);
     jest.advanceTimersByTime(SPEAKING_INTERVAL_MS);
     expect(last(seen).speaking.has("mia")).toBe(true);
+  });
+
+  it("keeps measuring the working track when another one fails to wire", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    const seen: SpeakingState[] = [];
+    graph.subscribeSpeaking((state) => seen.push(state));
+    attach(graph, "nina");
+
+    failGain = true;
+    attach(graph, "nina");
+    failGain = false;
+
+    expect(Array.from(last(seen).tracked)).toEqual(["nina"]);
+
+    levels.set("nina", 0.2);
+    jest.advanceTimersByTime(SPEAKING_INTERVAL_MS);
+    expect(last(seen).speaking.has("nina")).toBe(true);
   });
 
   it("stops measuring for a participant whose audio fell back", () => {

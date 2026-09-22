@@ -230,6 +230,7 @@ export class RemoteAudioGraph {
 
     const desiredUiVolume = this.volumes.get(identity) ?? 1.0;
     const ctx = this.ensureCtx();
+    let wired: SpeechAnalyser | null = null;
     if (ctx) {
       if (ctx.state === "suspended") {
         ctx.resume().catch(() => {});
@@ -244,6 +245,7 @@ export class RemoteAudioGraph {
           buffer: new Float32Array(speechAnalyser.fftSize),
         };
         this.addAnalyser(identity, analyser);
+        wired = analyser;
         const gain = ctx.createGain();
         gain.gain.value = this.effectiveGain(desiredUiVolume);
         const compressor = ctx.createDynamicsCompressor();
@@ -264,7 +266,7 @@ export class RemoteAudioGraph {
           "[LiveKitService] failed to wire remote gain node, falling back to element volume:",
           e,
         );
-        this.dropAnalysers(identity);
+        if (wired) this.removeAnalyser(identity, wired);
         audioElement.volume = this.elementVolume(desiredUiVolume);
       }
     } else {
