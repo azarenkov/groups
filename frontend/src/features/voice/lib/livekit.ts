@@ -12,8 +12,15 @@ import {
 } from "livekit-client";
 
 import type { DfnPipeline } from "../../../shared/lib/dfn";
-import { MAKEUP_INTERVAL_MS, isSpeech, makeupGainFor } from "./makeupGain";
+import {
+  MAKEUP_BASE,
+  MAKEUP_INTERVAL_MS,
+  isSpeech,
+  makeupGainFor,
+  speechBandRatio,
+} from "./makeupGain";
 import { RemoteAudioGraph } from "./livekit/remoteAudio";
+import type { SpeakingState } from "./livekit/remoteAudio";
 import { attachRoomListeners } from "./livekit/roomEvents";
 import type {
   NoiseSuppressionMode,
@@ -771,7 +778,13 @@ export class LiveKitService {
           new MediaStream([pipeline.outputTrack]),
         );
         const makeup = ctx.createGain();
-        makeup.gain.value = 1;
+        makeup.gain.value = MAKEUP_BASE;
+        const limiter = ctx.createDynamicsCompressor();
+        limiter.threshold.value = -6;
+        limiter.knee.value = 6;
+        limiter.ratio.value = 12;
+        limiter.attack.value = 0.003;
+        limiter.release.value = 0.2;
         const postGain = ctx.createGain();
         postGain.gain.value = this.micVolume;
         const postGate = ctx.createGain();
@@ -787,7 +800,8 @@ export class LiveKitService {
         postSource.connect(denoisedAnalyser);
         const postDest = ctx.createMediaStreamDestination();
         postSource.connect(makeup);
-        makeup.connect(postGain);
+        makeup.connect(limiter);
+        limiter.connect(postGain);
         postGain.connect(postGate);
         postGate.connect(postDest);
         stopMakeup = trackDenoiserMakeup(
@@ -1242,6 +1256,14 @@ export class LiveKitService {
     );
   }
 
+  subscribeRemoteSpeaking(fn: (state: SpeakingState) => void): () => void {
+    return this.remoteAudio.subscribeSpeaking(fn);
+  }
+
+  micGateActive(): boolean {
+    return this.micGateTimer !== null;
+  }
+
   setRemoteVolume(identity: string, volume: number): void {
     this.remoteAudio.setVolume(identity, volume);
   }
@@ -1560,10 +1582,6 @@ export class LiveKitService {
         const gate = gateAtStart;
         const { autoSensitivity, sensitivity } =
           useVoiceSettingsStore.getState();
-        if (this.pushToTalkEnforced && this.pttHolding) {
-          gate.gain.value = 1;
-          return;
-        }
         analyser.getByteFrequencyData(data);
         let max = 0;
         for (let i = 0; i < data.length; i++) {
@@ -1592,7 +1610,15 @@ export class LiveKitService {
           passed = db > -72 + 0.72 * sensitivity;
         }
         if (passed) holdUntil = now + 250;
-        gate.gain.value = now < holdUntil ? 1 : 0;
+        const active = now < holdUntil;
+        this.setLocalSpeaking(
+          active && !this.desiredMicMuted && this.micVolume > 0,
+        );
+        if (this.pushToTalkEnforced && this.pttHolding) {
+          gate.gain.value = 1;
+          return;
+        }
+        gate.gain.value = active ? 1 : 0;
       }, 50);
     });
   }
@@ -1602,6 +1628,7 @@ export class LiveKitService {
       clearInterval(this.micGateTimer);
       this.micGateTimer = null;
     }
+    this.setLocalSpeaking(false);
   }
 
   setDeafened(deafened: boolean): void {
@@ -1664,12 +1691,18 @@ function trackDenoiserMakeup(
 ): () => void {
   const inputBuffer = new Float32Array(input.fftSize);
   const denoisedBuffer = new Float32Array(denoised.fftSize);
+  const spectrum = new Uint8Array(input.frequencyBinCount);
   let gain = makeup.gain.value;
 
   const timer = setInterval(() => {
     const inputRms = analyserRms(input, inputBuffer);
     const denoisedRms = analyserRms(denoised, denoisedBuffer);
-    const speech = isSpeech(inputRms, denoisedRms, gate.gain.value > 0);
+    input.getByteFrequencyData(spectrum);
+    const speech = isSpeech(
+      inputRms,
+      speechBandRatio(spectrum, ctx.sampleRate),
+      gate.gain.value > 0,
+    );
     const next = makeupGainFor(inputRms, denoisedRms, gain, speech);
     if (next === gain) return;
     gain = next;

@@ -17,7 +17,7 @@ import {
 import { useLiveKit } from "../hooks/useLiveKit";
 import { qualityClass, qualityLabel } from "../lib/quality";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
-import { useIsSpeaking } from "../store/speakingStore";
+import { useSpeakingStore } from "../store/speakingStore";
 import { colorForId, initialFor } from "../../../shared/lib/avatar";
 
 interface VoiceViewProps {
@@ -132,7 +132,8 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   const presenceForChannel = useVoicePresenceStore(
     (s) => s.byChannel[channelId],
   );
-  const speakingPerson = participants.find((p) => p.isSpeaking);
+  const speakingIds = useSpeakingStore((state) => state.ids);
+  const speakingPerson = participants.find((p) => speakingIds.has(p.identity));
   const livekitCount = participants.length + 1;
   const presenceCount = presenceForChannel?.length ?? 0;
   const totalConnected = isConnected
@@ -220,11 +221,6 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     () => videoTiles.find((v) => v.source === "screen") ?? null,
     [videoTiles],
   );
-  const speakingIds = useMemo(
-    () => new Set(participants.filter((p) => p.isSpeaking).map((p) => p.identity)),
-    [participants],
-  );
-  const selfSpeaking = useIsSpeaking(selfId);
   const mutedIds = useMemo(() => {
     const m = new Map<string, boolean>();
     for (const p of participants) m.set(p.identity, p.isMuted);
@@ -259,7 +255,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       isSelf: id === selfId,
       color: colorForId(id),
       initials: initialFor(name),
-      speaking: id === selfId ? selfSpeaking : speakingIds.has(id),
+      speaking: speakingIds.has(id),
       muted: id === selfId ? isMuted : (mutedIds.get(id) ?? false),
       deafened:
         id === selfId
@@ -276,7 +272,6 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     presenceForChannel,
     selfId,
     selfName,
-    selfSpeaking,
     speakingIds,
     mutedIds,
     isMuted,
