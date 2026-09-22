@@ -93,12 +93,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const bridge = window.electron;
-    if (!bridge?.reportRendered) return;
+    if (isHydrating || !bridge?.reportRendered) return;
     let frame = window.requestAnimationFrame(() => {
       frame = window.requestAnimationFrame(() => bridge.reportRendered?.());
     });
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [isHydrating]);
 
   useEffect(() => {
     if (!window.electron) return;

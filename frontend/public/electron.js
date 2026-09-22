@@ -562,7 +562,7 @@ function relaunchWithoutGpu(reason) {
   app.exit(0);
 }
 
-const FIRST_PAINT_TIMEOUT_MS = 20000;
+const FIRST_PAINT_TIMEOUT_MS = 45000;
 const BLANK_CHECK_DELAY_MS = 1500;
 
 function looksBlank(image) {
