@@ -298,8 +298,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
 
   const available = shares ?? [];
   const sharingIds = new Set(available.map((share) => share.identity));
-  const remoteShares = available.filter((share) => !share.isLocal);
-  const offered = watching === null || watching === undefined ? remoteShares : [];
+  const offered = watching === null || watching === undefined ? available : [];
   const mainVideo =
     screenTile ??
     roster.find((r) => !r.isSelf && r.camera)?.camera ??
@@ -337,7 +336,9 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                   onClick={() => onWatch(share.identity)}
                 >
                   <span className="call-live-dot" />
-                  <span className="call-offer-name">{share.name}</span>
+                  <span className="call-offer-name">
+                    {share.isLocal ? t("yourScreen") : share.name}
+                  </span>
                   <span className="call-offer-cta">{t("watchStream")}</span>
                 </button>
               ))}
