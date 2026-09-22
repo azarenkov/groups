@@ -27,7 +27,7 @@ resource "null_resource" "k3s" {
   provisioner "remote-exec" {
     inline = [
       "chmod +x /tmp/install-k3s.sh",
-      "K3S_VERSION='${var.k3s_version}' POD_SUBNET='${var.pod_subnet}' SERVICE_SUBNET='${var.service_subnet}' CLUSTER_DOMAIN='${var.cluster_domain}' SERVER_IP='${var.server_ip}' APP_HOST='${var.app_host}' /tmp/install-k3s.sh",
+      "K3S_VERSION='${var.k3s_version}' POD_SUBNET='${var.pod_subnet}' SERVICE_SUBNET='${var.service_subnet}' CLUSTER_DOMAIN='${var.cluster_domain}' SERVER_IP='${var.server_ip}' APP_HOST='${var.app_host}' INSTALLER_SHA='${self.triggers.installer}' /tmp/install-k3s.sh",
     ]
   }
 }

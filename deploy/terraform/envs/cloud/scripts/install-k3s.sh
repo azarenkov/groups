@@ -2,10 +2,31 @@
 set -eu
 
 READY_TIMEOUT=${READY_TIMEOUT:-600}
+INSTALLER_SHA=${INSTALLER_SHA:-unknown}
 
-WANTED="$K3S_VERSION $POD_SUBNET $SERVICE_SUBNET $CLUSTER_DOMAIN $SERVER_IP"
+WANTED="$K3S_VERSION $POD_SUBNET $SERVICE_SUBNET $CLUSTER_DOMAIN $SERVER_IP $INSTALLER_SHA"
 WANTED_NETWORK="$POD_SUBNET $SERVICE_SUBNET $CLUSTER_DOMAIN"
 STAMP=/var/lib/rancher/k3s-rift-config
+
+install_packages() {
+    if command -v apt-get >/dev/null 2>&1; then
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update -qq >/dev/null
+        apt-get install -y -qq curl ca-certificates open-iscsi nfs-common >/dev/null 2>&1
+    elif command -v dnf >/dev/null 2>&1; then
+        dnf install -y -q curl ca-certificates iscsi-initiator-utils nfs-utils >/dev/null 2>&1
+    elif command -v yum >/dev/null 2>&1; then
+        yum install -y -q curl ca-certificates iscsi-initiator-utils nfs-utils >/dev/null 2>&1
+    elif command -v zypper >/dev/null 2>&1; then
+        zypper --non-interactive install -y curl ca-certificates open-iscsi nfs-client >/dev/null 2>&1
+    elif command -v pacman >/dev/null 2>&1; then
+        pacman -Sy --noconfirm --needed curl ca-certificates open-iscsi nfs-utils >/dev/null 2>&1
+    else
+        echo "no supported package manager found (apt-get, dnf, yum, zypper, pacman)" >&2
+        echo "install curl, the CA bundle, the iSCSI initiator and the NFS client by hand, then apply again" >&2
+        exit 1
+    fi
+}
 
 if command -v k3s >/dev/null 2>&1 && [ -f /etc/rancher/k3s/k3s.yaml ] && [ "$(cat "$STAMP" 2>/dev/null)" = "$WANTED" ]; then
     echo "k3s already installed with the requested configuration"
@@ -15,6 +36,7 @@ else
         installed_version="$(echo "$installed" | awk '{print $1}')"
         installed_network="$(echo "$installed" | awk '{print $2, $3, $4}')"
         installed_ip="$(echo "$installed" | awk '{print $5}')"
+        installed_sha="$(echo "$installed" | awk '{print $6}')"
         if [ "$installed" = "unknown" ] || [ "$installed_network" != "$WANTED_NETWORK" ]; then
             echo "k3s is installed with [$installed] but [$WANTED] was requested" >&2
             echo "the cluster CIDRs and the DNS domain cannot be changed in place: existing Services, pods and Calico keep the old ranges" >&2
@@ -30,14 +52,16 @@ else
                 /var/lib/rancher/k3s/server/tls/serving-kube-apiserver.key
         fi
         if [ "$installed_version" = "$K3S_VERSION" ]; then
-            echo "k3s $K3S_VERSION is installed; reapplying the requested configuration" >&2
+            if [ "$installed_sha" != "$INSTALLER_SHA" ]; then
+                echo "the installer changed since this cluster was provisioned; reapplying it" >&2
+            else
+                echo "k3s $K3S_VERSION is installed; reapplying the requested configuration" >&2
+            fi
         else
             echo "upgrading k3s from $installed_version to $K3S_VERSION" >&2
         fi
     fi
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -qq >/dev/null
-    apt-get install -y -qq curl ca-certificates open-iscsi nfs-common >/dev/null 2>&1
+    install_packages
     swapoff -a
     sed -i '/ swap / s/^/#/' /etc/fstab
     modprobe br_netfilter
