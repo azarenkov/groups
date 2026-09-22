@@ -20,8 +20,8 @@ resource "random_password" "database" {
 }
 
 locals {
-  git_ssh           = var.git_ssh_key != ""
-  git_credentials   = local.git_ssh || var.git_token != ""
+  git_ssh           = nonsensitive(var.git_ssh_key != "")
+  git_credentials   = local.git_ssh || nonsensitive(var.git_token != "")
   git_repo_url      = local.git_ssh ? var.git_repo_ssh : var.git_repo
   database_services = ["identity", "media", "messaging", "voice", "realtime"]
   namespace         = kubernetes_namespace_v1.rift.metadata[0].name
