@@ -20,7 +20,8 @@ resource "random_password" "redis" {
 }
 
 locals {
-  namespace = kubernetes_namespace_v1.data.metadata[0].name
+  namespace   = kubernetes_namespace_v1.data.metadata[0].name
+  store_names = toset(["postgres", "redis", "minio"])
   stores = {
     postgres = {
       image     = var.postgres.image
@@ -68,18 +69,18 @@ locals {
 }
 
 resource "kubernetes_secret_v1" "store" {
-  for_each = local.stores
+  for_each = local.store_names
 
   metadata {
     name      = each.key
     namespace = local.namespace
   }
 
-  data = each.value.env
+  data = local.stores[each.key].env
 }
 
 resource "kubernetes_stateful_set_v1" "store" {
-  for_each = local.stores
+  for_each = local.store_names
 
   metadata {
     name      = each.key
@@ -111,9 +112,9 @@ resource "kubernetes_stateful_set_v1" "store" {
       spec {
         security_context {
           run_as_non_root = true
-          run_as_user     = each.value.uid
-          run_as_group    = each.value.uid
-          fs_group        = each.value.uid
+          run_as_user     = local.stores[each.key].uid
+          run_as_group    = local.stores[each.key].uid
+          fs_group        = local.stores[each.key].uid
           seccomp_profile {
             type = "RuntimeDefault"
           }
@@ -121,12 +122,12 @@ resource "kubernetes_stateful_set_v1" "store" {
 
         container {
           name  = each.key
-          image = each.value.image
-          args  = each.value.args
+          image = local.stores[each.key].image
+          args  = local.stores[each.key].args
 
           port {
             name           = "main"
-            container_port = each.value.port
+            container_port = local.stores[each.key].port
           }
 
           env_from {
@@ -143,13 +144,13 @@ resource "kubernetes_stateful_set_v1" "store" {
           }
 
           resources {
-            requests = try(each.value.resources.requests, {})
-            limits   = try(each.value.resources.limits, {})
+            requests = try(local.stores[each.key].resources.requests, {})
+            limits   = try(local.stores[each.key].resources.limits, {})
           }
 
           startup_probe {
             exec {
-              command = each.value.probe
+              command = local.stores[each.key].probe
             }
             period_seconds    = 10
             failure_threshold = var.startup_failure_threshold
@@ -157,14 +158,14 @@ resource "kubernetes_stateful_set_v1" "store" {
 
           readiness_probe {
             exec {
-              command = each.value.probe
+              command = local.stores[each.key].probe
             }
             period_seconds = 5
           }
 
           liveness_probe {
             exec {
-              command = each.value.probe
+              command = local.stores[each.key].probe
             }
             period_seconds    = 15
             failure_threshold = 5
@@ -172,7 +173,7 @@ resource "kubernetes_stateful_set_v1" "store" {
 
           volume_mount {
             name       = "data"
-            mount_path = each.value.mount
+            mount_path = local.stores[each.key].mount
           }
         }
       }
@@ -189,7 +190,7 @@ resource "kubernetes_stateful_set_v1" "store" {
 
         resources {
           requests = {
-            storage = each.value.storage
+            storage = local.stores[each.key].storage
           }
         }
       }
@@ -200,7 +201,7 @@ resource "kubernetes_stateful_set_v1" "store" {
 }
 
 resource "kubernetes_service_v1" "store" {
-  for_each = local.stores
+  for_each = local.store_names
 
   metadata {
     name      = each.key
@@ -217,14 +218,14 @@ resource "kubernetes_service_v1" "store" {
 
     port {
       name        = "main"
-      port        = each.value.port
+      port        = local.stores[each.key].port
       target_port = "main"
     }
   }
 }
 
 resource "kubernetes_network_policy_v1" "clients" {
-  for_each = local.stores
+  for_each = local.store_names
 
   metadata {
     name      = "${each.key}-clients"
@@ -262,7 +263,7 @@ resource "kubernetes_network_policy_v1" "clients" {
           }
         }
         ports {
-          port     = tostring(each.value.port)
+          port     = tostring(local.stores[each.key].port)
           protocol = "TCP"
         }
       }
