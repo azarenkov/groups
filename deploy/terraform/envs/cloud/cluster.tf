@@ -9,6 +9,7 @@ resource "null_resource" "k3s" {
     pod_subnet     = var.pod_subnet
     service_subnet = var.service_subnet
     cluster_domain = var.cluster_domain
+    installer      = filesha256("${path.module}/scripts/install-k3s.sh")
   }
 
   connection {
@@ -47,8 +48,11 @@ locals {
 }
 
 resource "terraform_data" "kube_dir" {
+  input            = dirname(local.kubeconfig_path)
+  triggers_replace = dirname(local.kubeconfig_path)
+
   provisioner "local-exec" {
-    command = "mkdir -p '${dirname(local.kubeconfig_path)}'"
+    command = "mkdir -p '${self.input}'"
   }
 }
 

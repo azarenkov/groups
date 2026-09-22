@@ -11,7 +11,7 @@ terraform apply -target=null_resource.k3s      # the providers need the cluster 
 terraform apply
 ```
 
-The targeted apply is needed whenever `null_resource.k3s` itself changes, not only on the first run: while it is pending, the kubeconfig data source is unknown and the Kubernetes providers start with no credentials.
+Editing `scripts/install-k3s.sh` re-runs it on the server, so fixes there reach existing clusters. The targeted apply is needed whenever `null_resource.k3s` itself changes, not only on the first run: while it is pending, the kubeconfig data source is unknown and the Kubernetes providers start with no credentials.
 
 The kubeconfig lands in `~/.kube/rift-cloud.yaml` (`kubeconfig_path`; the directory is created if missing). `k3s_version` upgrades in place on the next apply; changing `pod_subnet`, `service_subnet` or `cluster_domain` needs a rebuilt cluster, and the installer refuses rather than leaving k3s and Calico inconsistent. With `delivery = "argocd"` (plus `argocd_host` and a read-only `git_token`) Terraform installs Argo CD and hands the Rift release to it: the chart and `deploy/argocd/envs/staging/values.yaml` are synced from git, and every `vX.Y.Z` tag moves the stand to that version through the `promote` job. Images come from GHCR at `image_tag`; releases are cut by tagging `vX.Y.Z` in the repository.
 
