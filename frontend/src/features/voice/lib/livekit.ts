@@ -103,6 +103,7 @@ export class LiveKitService {
     new Set();
   private localSpeaking: boolean = false;
   private watchedScreen: string | null = null;
+  private screenSubscriptions: Map<string, boolean> = new Map();
   private screenShareListeners: Set<(state: ScreenShareState) => void> =
     new Set();
   private localSpeakingListeners: Set<(speaking: boolean) => void> = new Set();
@@ -354,6 +355,7 @@ export class LiveKitService {
       this.desiredMicMuted = false;
       this.micRebuildPending = false;
       this.watchedScreen = null;
+      this.screenSubscriptions.clear();
       this.notifyScreenShares();
       this.remoteAudio.clear();
       if (this.deafened) {
@@ -1015,18 +1017,26 @@ export class LiveKitService {
   }
 
   private applyScreenSubscriptions(): void {
+    const live = new Set<string>();
     this.room?.remoteParticipants.forEach((participant) => {
       const wanted = participant.identity === this.watchedScreen;
       participant.trackPublications.forEach((publication) => {
         if (!isScreenSource(publication.source)) return;
-        if (publication.isSubscribed === wanted) return;
+        live.add(publication.trackSid);
+        if (this.screenSubscriptions.get(publication.trackSid) === wanted) {
+          return;
+        }
         try {
           publication.setSubscribed(wanted);
+          this.screenSubscriptions.set(publication.trackSid, wanted);
         } catch (e) {
           console.warn("[LiveKitService] screen subscription failed:", e);
         }
       });
     });
+    for (const sid of Array.from(this.screenSubscriptions.keys())) {
+      if (!live.has(sid)) this.screenSubscriptions.delete(sid);
+    }
   }
 
   private notifyScreenShares(): void {

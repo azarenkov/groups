@@ -102,6 +102,7 @@ export function attachRoomListeners(
       participant: RemoteParticipant,
     ) => {
       console.log("Track subscribed:", track.kind, participant.identity);
+      if (isScreenSource(track.source)) handlers.onScreenSharesChanged();
       if (track.kind === Track.Kind.Audio) {
         handlers.onAudioTrack(track as AudioTrack, participant);
       } else if (track.kind === Track.Kind.Video) {
