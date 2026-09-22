@@ -101,6 +101,8 @@ jobs:
           for _ in $(seq 1 20); do curl -sf localhost:8080/healthz > /dev/null && break; sleep 1; done
           curl -sf localhost:8080/join/token | grep -q 'src="/static/js/'
           curl -sf localhost:8080/config.js | grep -q 'https://api.example.test/api'
+          test "$(curl -s -o /dev/null -w '%{content_type}' localhost:8080/ort/ort-wasm-simd-threaded.mjs)" = "application/javascript"
+          test "$(curl -s -o /dev/null -w '%{content_type}' localhost:8080/ort/ort-wasm-simd-threaded.wasm)" = "application/wasm"
           headers="$(curl -s -o /dev/null -D - localhost:8080/)"
           echo "$headers" | grep -qi '^x-frame-options: DENY'
           docker rm -f web
