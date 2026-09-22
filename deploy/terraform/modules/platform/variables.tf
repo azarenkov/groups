@@ -60,6 +60,7 @@ variable "livekit" {
   type = object({
     enabled        = optional(bool, true)
     chart_version  = optional(string, "1.8.0")
+    namespace      = optional(string, "livekit")
     replicas       = optional(number, 1)
     api_key        = string
     api_secret     = string

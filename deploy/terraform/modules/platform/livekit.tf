@@ -2,7 +2,7 @@ resource "kubernetes_namespace_v1" "livekit" {
   count = var.livekit.enabled ? 1 : 0
 
   metadata {
-    name = "livekit"
+    name = var.livekit.namespace
   }
 }
 

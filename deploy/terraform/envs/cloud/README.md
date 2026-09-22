@@ -10,4 +10,6 @@ This directory is the slot for a managed cluster. It reuses `modules/platform`, 
 
 All three modules take `cluster_domain` (default `cluster.local`); set it on each when the cluster uses another DNS domain, because the gateway and LiveKit reach services through fully qualified names.
 
+With `delivery = "argocd"` pass `argocd_ready = module.platform.argocd_release` to `modules/rift`, so the Application is created only after Argo CD's CRDs exist.
+
 `main.tf` stays a copy of `envs/local/main.tf` with `delivery = "argocd"`, `git_token` set and the replicas from the chart defaults.

@@ -42,6 +42,12 @@ variable "git_token" {
   sensitive   = true
 }
 
+variable "argocd_ready" {
+  description = "Any value that becomes known only once Argo CD is installed, e.g. the platform module's argocd_release output"
+  type        = string
+  default     = ""
+}
+
 variable "argocd_namespace" {
   type    = string
   default = "argocd"

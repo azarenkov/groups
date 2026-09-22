@@ -29,6 +29,11 @@ output "ingress_namespace" {
   value = var.ingress_nginx.enabled ? kubernetes_namespace_v1.ingress_nginx[0].metadata[0].name : ""
 }
 
+output "argocd_release" {
+  description = "Identifier of the Argo CD release; pass it as argocd_ready so Applications are created after the CRDs exist"
+  value       = var.argocd.enabled ? helm_release.argocd[0].id : ""
+}
+
 output "argocd_namespace" {
   value = var.argocd.enabled ? kubernetes_namespace_v1.argocd[0].metadata[0].name : ""
 }

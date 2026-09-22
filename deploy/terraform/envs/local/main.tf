@@ -22,7 +22,8 @@ resource "local_file" "ca_cert" {
 }
 
 locals {
-  rift_namespace = "rift"
+  rift_namespace    = "rift"
+  livekit_namespace = "livekit"
 }
 
 resource "random_password" "livekit_secret" {
@@ -63,6 +64,7 @@ module "platform" {
   }
 
   livekit = {
+    namespace      = local.livekit_namespace
     api_key        = "rift-server"
     api_secret     = random_password.livekit_secret.result
     redis_url      = module.datastores.redis_host
@@ -110,7 +112,7 @@ module "datastores" {
   minio = { storage = "5Gi" }
 
   clients = {
-    namespaces  = [local.rift_namespace, module.platform.livekit_namespace]
+    namespaces  = [local.rift_namespace, local.livekit_namespace]
     redis_cidrs = [local.node_cidr, var.pod_subnet]
   }
 
@@ -124,6 +126,7 @@ module "rift" {
   cluster_domain = var.cluster_domain
 
   delivery     = var.delivery
+  argocd_ready = module.platform.argocd_release
   environment  = "local"
   chart_path   = var.delivery == "helm" ? "${path.module}/../../../helm/rift" : "deploy/helm/rift"
   git_revision = var.git_revision
@@ -159,7 +162,7 @@ module "rift" {
     client_url = "wss://${var.livekit_host}"
     api_key    = "rift-server"
     api_secret = random_password.livekit_secret.result
-    namespace  = module.platform.livekit_namespace
+    namespace  = local.livekit_namespace
     node_cidrs = [local.node_cidr, var.pod_subnet]
   }
 

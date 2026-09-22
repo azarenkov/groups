@@ -218,6 +218,19 @@ resource "helm_release" "rift" {
   ]
 }
 
+resource "terraform_data" "argocd_ready" {
+  count = var.delivery == "argocd" ? 1 : 0
+
+  input = var.argocd_ready
+
+  lifecycle {
+    precondition {
+      condition     = var.argocd_ready != ""
+      error_message = "delivery = \"argocd\" needs argocd_ready, so the Application is created after Argo CD and its CRDs exist"
+    }
+  }
+}
+
 resource "kubernetes_secret_v1" "argocd_repo" {
   count = var.delivery == "argocd" && var.git_token != "" ? 1 : 0
 
@@ -235,6 +248,8 @@ resource "kubernetes_secret_v1" "argocd_repo" {
     username = "git"
     password = var.git_token
   }
+
+  depends_on = [terraform_data.argocd_ready]
 }
 
 resource "kubectl_manifest" "argocd_application" {
@@ -280,5 +295,6 @@ resource "kubectl_manifest" "argocd_application" {
     kubernetes_secret_v1.postgres_admin,
     kubernetes_secret_v1.registry,
     kubernetes_secret_v1.argocd_repo,
+    terraform_data.argocd_ready,
   ]
 }
