@@ -1,7 +1,10 @@
 #!/bin/sh
 set -eu
 
+READY_TIMEOUT=${READY_TIMEOUT:-600}
+
 WANTED="$K3S_VERSION $POD_SUBNET $SERVICE_SUBNET $CLUSTER_DOMAIN"
+WANTED_NETWORK="$POD_SUBNET $SERVICE_SUBNET $CLUSTER_DOMAIN"
 STAMP=/var/lib/rancher/k3s-rift-config
 
 if command -v k3s >/dev/null 2>&1 && [ -f /etc/rancher/k3s/k3s.yaml ] && [ "$(cat "$STAMP" 2>/dev/null)" = "$WANTED" ]; then
@@ -9,15 +12,19 @@ if command -v k3s >/dev/null 2>&1 && [ -f /etc/rancher/k3s/k3s.yaml ] && [ "$(ca
 else
     if command -v k3s >/dev/null 2>&1; then
         installed="$(cat "$STAMP" 2>/dev/null || echo 'unknown')"
-        echo "k3s is installed with [$installed] but [$WANTED] was requested" >&2
-        echo "changing the cluster CIDRs or the DNS domain needs a rebuilt cluster: run /usr/local/bin/k3s-uninstall.sh on the server (this destroys its data) and apply again" >&2
-        case "$installed" in
-            "$K3S_VERSION "*)
-                echo "version unchanged; refusing to reconfigure in place" >&2
-                exit 1 ;;
-            *)
-                echo "upgrading k3s in place to $K3S_VERSION" >&2 ;;
-        esac
+        installed_version="${installed%% *}"
+        installed_network="${installed#* }"
+        if [ "$installed" = "unknown" ] || [ "$installed_network" != "$WANTED_NETWORK" ]; then
+            echo "k3s is installed with [$installed] but [$WANTED] was requested" >&2
+            echo "the cluster CIDRs and the DNS domain cannot be changed in place: existing Services, pods and Calico keep the old ranges" >&2
+            echo "run /usr/local/bin/k3s-uninstall.sh on the server (this destroys its data) and apply again" >&2
+            exit 1
+        fi
+        if [ "$installed_version" = "$K3S_VERSION" ]; then
+            echo "k3s $K3S_VERSION is installed but the stamp is stale; rewriting it" >&2
+        else
+            echo "upgrading k3s from $installed_version to $K3S_VERSION" >&2
+        fi
     fi
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq >/dev/null
@@ -56,6 +63,17 @@ spec:
         encapsulation: VXLAN
         natOutgoing: Enabled
 CAL
-until kubectl get nodes 2>/dev/null | grep -q ' Ready'; do sleep 5; done
-until [ "$(kubectl get pods -A --no-headers | grep -vcE 'Running|Completed')" = "0" ]; do sleep 5; done
+waited=0
+until kubectl get nodes 2>/dev/null | grep -q ' Ready'; do
+    waited=$((waited + 5))
+    [ "$waited" -ge "$READY_TIMEOUT" ] && { echo "the node did not become Ready within ${READY_TIMEOUT}s" >&2; exit 1; }
+    sleep 5
+done
+
+for ns in kube-system calico-system tigera-operator; do
+    kubectl get namespace "$ns" >/dev/null 2>&1 || continue
+    kubectl -n "$ns" wait --for=condition=Ready pods --all --timeout="${READY_TIMEOUT}s" >/dev/null 2>&1 ||
+        kubectl -n "$ns" wait --for=condition=Ready pods --all --timeout="${READY_TIMEOUT}s" >/dev/null ||
+        { echo "cluster components in $ns did not become ready within ${READY_TIMEOUT}s" >&2; exit 1; }
+done
 echo "cluster ready"
