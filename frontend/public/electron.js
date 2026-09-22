@@ -433,6 +433,16 @@ function createMainWindow() {
     mainWindow.show();
   });
 
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason !== 'clean-exit' && details.reason !== 'killed') {
+      relaunchWithoutGpu('renderer gone (' + details.reason + ')');
+    }
+  });
+
+  mainWindow.webContents.once('did-fail-load', (_event, code, description) => {
+    console.error('[window] failed to load: ' + code + ' ' + description);
+  });
+
   if (isDev || process.env.RIFT_DEVTOOLS === '1') {
     mainWindow.webContents.once('did-finish-load', () => {
       mainWindow.webContents.openDevTools({ mode: 'detach' });
@@ -535,6 +545,27 @@ function runBootUpdateThenLaunch() {
     proceed();
   });
 }
+
+const GPU_FALLBACK_FLAG = '--rift-no-gpu';
+const gpuDisabled = process.argv.includes(GPU_FALLBACK_FLAG) || process.argv.includes('--disable-gpu');
+if (gpuDisabled) {
+  app.disableHardwareAcceleration();
+}
+
+let relaunchedWithoutGpu = false;
+function relaunchWithoutGpu(reason) {
+  if (gpuDisabled || relaunchedWithoutGpu) return;
+  relaunchedWithoutGpu = true;
+  console.warn('[gpu] ' + reason + '; relaunching without hardware acceleration');
+  app.relaunch({ args: process.argv.slice(1).concat(GPU_FALLBACK_FLAG) });
+  app.exit(0);
+}
+
+app.on('child-process-gone', (_event, details) => {
+  if (details.type === 'GPU' && details.reason !== 'clean-exit') {
+    relaunchWithoutGpu('GPU process gone (' + details.reason + ')');
+  }
+});
 
 app.on('ready', () => {
   Menu.setApplicationMenu(null);
