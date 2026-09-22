@@ -3,6 +3,12 @@ variable "server_ip" {
   type        = string
 }
 
+variable "node_ip" {
+  description = "Address the server holds on its own interface, when NAT makes it differ from server_ip; host-networked LiveKit reaches the cluster from it, so the network policies allow it. Empty means it is the same as server_ip"
+  type        = string
+  default     = ""
+}
+
 variable "ssh_user" {
   type    = string
   default = "root"

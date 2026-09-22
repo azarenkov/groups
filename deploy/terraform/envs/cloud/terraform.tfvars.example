@@ -1,4 +1,5 @@
 server_ip       = "203.0.113.10"
+# node_ip       = "10.0.0.5"   # only when NAT hides the public address from the server itself
 ssh_private_key = "~/.ssh/rift-test"
 app_host        = "rift.203.0.113.10.sslip.io"
 livekit_host    = "livekit.203.0.113.10.sslip.io"

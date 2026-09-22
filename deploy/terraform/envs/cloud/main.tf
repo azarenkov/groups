@@ -2,6 +2,7 @@ locals {
   rift_namespace    = "rift"
   livekit_namespace = "livekit"
   scheme            = "https"
+  node_cidr         = "${coalesce(var.node_ip, var.server_ip)}/32"
 }
 
 resource "random_password" "livekit_secret" {
@@ -72,7 +73,7 @@ module "datastores" {
 
   clients = {
     namespaces  = [local.rift_namespace, local.livekit_namespace]
-    redis_cidrs = ["${var.server_ip}/32", var.pod_subnet]
+    redis_cidrs = [local.node_cidr, var.pod_subnet]
   }
 
   depends_on = [null_resource.k3s]
@@ -121,7 +122,7 @@ module "rift" {
     api_key    = "rift-server"
     api_secret = random_password.livekit_secret.result
     namespace  = local.livekit_namespace
-    node_cidrs = ["${var.server_ip}/32", var.pod_subnet]
+    node_cidrs = [local.node_cidr, var.pod_subnet]
   }
 
   mailer = var.mailer

@@ -28,6 +28,8 @@ install_packages() {
     fi
 }
 
+reissue_cert=0
+
 if command -v k3s >/dev/null 2>&1 && [ -f /etc/rancher/k3s/k3s.yaml ] && [ "$(cat "$STAMP" 2>/dev/null)" = "$WANTED" ]; then
     echo "k3s already installed with the requested configuration"
 else
@@ -44,12 +46,8 @@ else
             exit 1
         fi
         if [ "$installed_ip" != "$SERVER_IP" ]; then
-            echo "the server address changed from [${installed_ip:-unknown}] to [$SERVER_IP]; reissuing the API server certificate" >&2
-            k3s kubectl -n kube-system delete secret k3s-serving --ignore-not-found >/dev/null 2>&1 || true
-            systemctl stop k3s >/dev/null 2>&1 || true
-            rm -f /var/lib/rancher/k3s/server/tls/dynamic-cert.json \
-                /var/lib/rancher/k3s/server/tls/serving-kube-apiserver.crt \
-                /var/lib/rancher/k3s/server/tls/serving-kube-apiserver.key
+            echo "the server address changed from [${installed_ip:-unknown}] to [$SERVER_IP]; the API server certificate will be reissued" >&2
+            reissue_cert=1
         fi
         if [ "$installed_version" = "$K3S_VERSION" ]; then
             if [ "$installed_sha" != "$INSTALLER_SHA" ]; then
@@ -69,6 +67,13 @@ else
     printf 'net.bridge.bridge-nf-call-iptables=1\nnet.ipv4.ip_forward=1\n' > /etc/sysctl.d/99-k8s.conf
     sysctl --system >/dev/null
     curl -sfL https://get.k3s.io -o /tmp/get-k3s.sh
+    if [ "$reissue_cert" = "1" ]; then
+        k3s kubectl -n kube-system delete secret k3s-serving --ignore-not-found >/dev/null 2>&1 || true
+        systemctl stop k3s >/dev/null 2>&1 || true
+        rm -f /var/lib/rancher/k3s/server/tls/dynamic-cert.json \
+            /var/lib/rancher/k3s/server/tls/serving-kube-apiserver.crt \
+            /var/lib/rancher/k3s/server/tls/serving-kube-apiserver.key
+    fi
     INSTALL_K3S_VERSION="$K3S_VERSION" sh /tmp/get-k3s.sh server \
         --disable traefik --disable servicelb \
         --flannel-backend=none --disable-network-policy \
