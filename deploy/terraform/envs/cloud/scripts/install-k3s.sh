@@ -3,7 +3,7 @@ set -eu
 
 READY_TIMEOUT=${READY_TIMEOUT:-600}
 
-WANTED="$K3S_VERSION $POD_SUBNET $SERVICE_SUBNET $CLUSTER_DOMAIN"
+WANTED="$K3S_VERSION $POD_SUBNET $SERVICE_SUBNET $CLUSTER_DOMAIN $SERVER_IP"
 WANTED_NETWORK="$POD_SUBNET $SERVICE_SUBNET $CLUSTER_DOMAIN"
 STAMP=/var/lib/rancher/k3s-rift-config
 
@@ -12,16 +12,25 @@ if command -v k3s >/dev/null 2>&1 && [ -f /etc/rancher/k3s/k3s.yaml ] && [ "$(ca
 else
     if command -v k3s >/dev/null 2>&1; then
         installed="$(cat "$STAMP" 2>/dev/null || echo 'unknown')"
-        installed_version="${installed%% *}"
-        installed_network="${installed#* }"
+        installed_version="$(echo "$installed" | awk '{print $1}')"
+        installed_network="$(echo "$installed" | awk '{print $2, $3, $4}')"
+        installed_ip="$(echo "$installed" | awk '{print $5}')"
         if [ "$installed" = "unknown" ] || [ "$installed_network" != "$WANTED_NETWORK" ]; then
             echo "k3s is installed with [$installed] but [$WANTED] was requested" >&2
             echo "the cluster CIDRs and the DNS domain cannot be changed in place: existing Services, pods and Calico keep the old ranges" >&2
             echo "run /usr/local/bin/k3s-uninstall.sh on the server (this destroys its data) and apply again" >&2
             exit 1
         fi
+        if [ "$installed_ip" != "$SERVER_IP" ]; then
+            echo "the server address changed from [${installed_ip:-unknown}] to [$SERVER_IP]; reissuing the API server certificate" >&2
+            k3s kubectl -n kube-system delete secret k3s-serving --ignore-not-found >/dev/null 2>&1 || true
+            systemctl stop k3s >/dev/null 2>&1 || true
+            rm -f /var/lib/rancher/k3s/server/tls/dynamic-cert.json \
+                /var/lib/rancher/k3s/server/tls/serving-kube-apiserver.crt \
+                /var/lib/rancher/k3s/server/tls/serving-kube-apiserver.key
+        fi
         if [ "$installed_version" = "$K3S_VERSION" ]; then
-            echo "k3s $K3S_VERSION is installed but the stamp is stale; rewriting it" >&2
+            echo "k3s $K3S_VERSION is installed; reapplying the requested configuration" >&2
         else
             echo "upgrading k3s from $installed_version to $K3S_VERSION" >&2
         fi
