@@ -2,7 +2,10 @@ import {
   RemoteAudioGraph,
   SPEAKING_HOLD_MS,
   SPEAKING_INTERVAL_MS,
+  type SpeakingState,
 } from "../remoteAudio";
+
+const last = <T,>(items: T[]): T => items[items.length - 1];
 
 interface FakeGain {
   gain: { value: number };
@@ -57,21 +60,37 @@ class FakeAudioContext {
   }
 }
 
+interface Attached {
+  gain: FakeGain;
+  end: () => void;
+}
+
+const attached: Attached[] = [];
+
 const attach = (graph: RemoteAudioGraph, identity: string): FakeGain => {
   attaching = identity;
   const element = document.createElement("audio");
+  const handlers: (() => void)[] = [];
   const track = {
     attach: () => element,
-    on: jest.fn(),
+    on: (_event: string, fn: () => void) => handlers.push(fn),
     attachedElements: [element],
   };
   graph.attach(track as never, identity, () => {});
-  return created[created.length - 1];
+  const gain = created[created.length - 1];
+  attached.push({ gain, end: () => handlers.forEach((fn) => fn()) });
+  return gain;
+};
+
+const endTrack = (gain: FakeGain): void => {
+  const entry = attached.find((item) => item.gain === gain);
+  entry?.end();
 };
 
 describe("RemoteAudioGraph", () => {
   beforeEach(() => {
     created.length = 0;
+    attached.length = 0;
     levels.clear();
     jest.useFakeTimers();
     (window as unknown as { AudioContext: unknown }).AudioContext =
@@ -164,21 +183,49 @@ describe("RemoteAudioGraph", () => {
 
   it("reports who is talking from the measured level", () => {
     const graph = new RemoteAudioGraph(() => null);
-    const seen: Set<string>[] = [];
-    graph.subscribeSpeaking((ids) => seen.push(ids));
+    const seen: SpeakingState[] = [];
+    graph.subscribeSpeaking((state) => seen.push(state));
     attach(graph, "ivy");
     attach(graph, "jack");
 
     levels.set("ivy", 0.2);
     jest.advanceTimersByTime(SPEAKING_INTERVAL_MS);
-    expect(Array.from(seen[seen.length - 1])).toEqual(["ivy"]);
+    expect(Array.from(last(seen).speaking)).toEqual(["ivy"]);
 
     levels.set("ivy", 0);
     jest.advanceTimersByTime(SPEAKING_INTERVAL_MS);
-    expect(seen[seen.length - 1].has("ivy")).toBe(true);
+    expect(last(seen).speaking.has("ivy")).toBe(true);
 
     jest.advanceTimersByTime(SPEAKING_HOLD_MS);
-    expect(seen[seen.length - 1].size).toBe(0);
+    expect(last(seen).speaking.size).toBe(0);
+  });
+
+  it("tells subscribers which participants it measures", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    const seen: SpeakingState[] = [];
+    graph.subscribeSpeaking((state) => seen.push(state));
+    expect(last(seen).tracked.size).toBe(0);
+
+    attach(graph, "liam");
+    expect(Array.from(last(seen).tracked)).toEqual(["liam"]);
+
+    graph.disableGraph();
+    expect(last(seen).tracked.size).toBe(0);
+  });
+
+  it("keeps measuring a participant whose second track ended", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    const seen: SpeakingState[] = [];
+    graph.subscribeSpeaking((state) => seen.push(state));
+    attach(graph, "mia");
+    const second = attach(graph, "mia");
+
+    endTrack(second);
+    expect(Array.from(last(seen).tracked)).toEqual(["mia"]);
+
+    levels.set("mia", 0.2);
+    jest.advanceTimersByTime(SPEAKING_INTERVAL_MS);
+    expect(last(seen).speaking.has("mia")).toBe(true);
   });
 
   it("stops measuring for a participant whose audio fell back", () => {

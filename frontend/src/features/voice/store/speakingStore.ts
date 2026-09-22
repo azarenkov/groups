@@ -7,6 +7,19 @@ interface SpeakingState {
   apply: (ids: Set<string>) => void;
 }
 
+export function mergeSpeaking(
+  measured: Set<string>,
+  tracked: Set<string>,
+  reported: Set<string>,
+  selfId: string | null,
+  localSpeaking: boolean,
+): Set<string> {
+  const ids = new Set(measured);
+  for (const id of reported) if (!tracked.has(id)) ids.add(id);
+  if (localSpeaking && selfId) ids.add(selfId);
+  return ids;
+}
+
 const sameSet = (a: Set<string>, b: Set<string>) => {
   if (a.size !== b.size) return false;
   for (const id of a) if (!b.has(id)) return false;
@@ -37,13 +50,14 @@ export function startSpeakingTracking(selfId: string | null): () => void {
       .map((p) => p.identity),
   );
   let measured = new Set<string>();
-  let remote = reported;
+  let tracked = new Set<string>();
+
   let localSpeaking = service.getLocalSpeaking();
 
   const publish = () => {
-    const ids = new Set(remote);
-    if (localSpeaking && selfId) ids.add(selfId);
-    useSpeakingStore.getState().apply(ids);
+    useSpeakingStore
+      .getState()
+      .apply(mergeSpeaking(measured, tracked, reported, selfId, localSpeaking));
   };
 
   publish();
@@ -52,12 +66,11 @@ export function startSpeakingTracking(selfId: string | null): () => void {
     reported = new Set(
       participants.filter((p) => p.isSpeaking).map((p) => p.identity),
     );
-    if (!service.remoteSpeakingDetected()) remote = reported;
     publish();
   });
-  const offMeasured = service.subscribeRemoteSpeaking((ids) => {
-    measured = ids;
-    remote = service.remoteSpeakingDetected() ? measured : reported;
+  const offMeasured = service.subscribeRemoteSpeaking((state) => {
+    measured = state.speaking;
+    tracked = state.tracked;
     publish();
   });
   const offLocal = service.subscribeLocalSpeaking((speaking) => {

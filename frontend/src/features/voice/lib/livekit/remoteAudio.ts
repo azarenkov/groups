@@ -14,6 +14,16 @@ export function speakingFor(
   return { speaking: now < next, holdUntil: next };
 }
 
+export interface SpeakingState {
+  speaking: Set<string>;
+  tracked: Set<string>;
+}
+
+interface SpeechAnalyser {
+  node: AnalyserNode;
+  buffer: Float32Array;
+}
+
 export class RemoteAudioGraph {
   static readonly GAIN_MAX = 6.0;
 
@@ -22,13 +32,17 @@ export class RemoteAudioGraph {
   private gainNodes: Map<string, GainNode[]> = new Map();
   private sourceNodes: WeakMap<
     HTMLMediaElement,
-    { source: MediaElementAudioSourceNode; gain: GainNode; identity: string }
+    {
+      source: MediaElementAudioSourceNode;
+      gain: GainNode;
+      identity: string;
+      analyser?: SpeechAnalyser;
+    }
   > = new WeakMap();
-  private analysers: Map<string, { node: AnalyserNode; buffer: Float32Array }> =
-    new Map();
+  private analysers: Map<string, SpeechAnalyser[]> = new Map();
   private holdUntil: Map<string, number> = new Map();
   private speaking: Set<string> = new Set();
-  private speakingListeners: Set<(ids: Set<string>) => void> = new Set();
+  private speakingListeners: Set<(state: SpeakingState) => void> = new Set();
   private speakingTimer: ReturnType<typeof setInterval> | null = null;
   private ctx: AudioContext | null = null;
   private disabled: boolean = false;
@@ -57,15 +71,17 @@ export class RemoteAudioGraph {
     this.elements.clear();
     this.gainNodes.clear();
     this.sourceNodes = new WeakMap();
-    this.analysers.clear();
+    for (const identity of Array.from(this.analysers.keys())) {
+      this.dropAnalysers(identity);
+    }
     this.holdUntil.clear();
     this.stopSpeakingLoop();
     this.publishSpeaking(new Set());
   }
 
-  subscribeSpeaking(fn: (ids: Set<string>) => void): () => void {
+  subscribeSpeaking(fn: (state: SpeakingState) => void): () => void {
     this.speakingListeners.add(fn);
-    fn(new Set(this.speaking));
+    fn(this.speakingState());
     return () => {
       this.speakingListeners.delete(fn);
     };
@@ -75,11 +91,22 @@ export class RemoteAudioGraph {
     return this.analysers.size > 0;
   }
 
+  private speakingState(): SpeakingState {
+    return {
+      speaking: new Set(this.speaking),
+      tracked: new Set(this.analysers.keys()),
+    };
+  }
+
   private publishSpeaking(ids: Set<string>): void {
     this.speaking = ids;
+    const state = this.speakingState();
     this.speakingListeners.forEach((fn) => {
       try {
-        fn(new Set(ids));
+        fn({
+          speaking: new Set(state.speaking),
+          tracked: new Set(state.tracked),
+        });
       } catch (e) {
         console.warn("[LiveKitService] speaking listener failed:", e);
       }
@@ -92,6 +119,41 @@ export class RemoteAudioGraph {
     return true;
   }
 
+  private addAnalyser(identity: string, analyser: SpeechAnalyser): void {
+    const list = this.analysers.get(identity) ?? [];
+    list.push(analyser);
+    this.analysers.set(identity, list);
+    this.startSpeakingLoop();
+    if (list.length === 1) this.publishSpeaking(new Set(this.speaking));
+  }
+
+  private removeAnalyser(identity: string, analyser: SpeechAnalyser): void {
+    const list = this.analysers.get(identity);
+    if (!list) return;
+    try {
+      analyser.node.disconnect();
+    } catch {}
+    const remaining = list.filter((entry) => entry !== analyser);
+    if (remaining.length > 0) {
+      this.analysers.set(identity, remaining);
+      return;
+    }
+    this.analysers.delete(identity);
+    this.holdUntil.delete(identity);
+    if (this.analysers.size === 0) this.stopSpeakingLoop();
+    const ids = new Set(this.speaking);
+    ids.delete(identity);
+    this.publishSpeaking(ids);
+  }
+
+  private dropAnalysers(identity: string): void {
+    const list = this.analysers.get(identity);
+    if (!list) return;
+    for (const analyser of Array.from(list)) {
+      this.removeAnalyser(identity, analyser);
+    }
+  }
+
   private startSpeakingLoop(): void {
     if (this.speakingTimer !== null) return;
     this.speakingTimer = setInterval(() => {
@@ -102,18 +164,18 @@ export class RemoteAudioGraph {
       }
       const now = Date.now();
       const ids = new Set<string>();
-      for (const [identity, analyser] of Array.from(this.analysers.entries())) {
-        analyser.node.getFloatTimeDomainData(analyser.buffer);
-        let sum = 0;
-        for (let i = 0; i < analyser.buffer.length; i++) {
-          sum += analyser.buffer[i] * analyser.buffer[i];
+      for (const [identity, list] of Array.from(this.analysers.entries())) {
+        let loudest = 0;
+        for (const analyser of list) {
+          analyser.node.getFloatTimeDomainData(analyser.buffer);
+          let sum = 0;
+          for (let i = 0; i < analyser.buffer.length; i++) {
+            sum += analyser.buffer[i] * analyser.buffer[i];
+          }
+          const rms = Math.sqrt(sum / analyser.buffer.length);
+          if (rms > loudest) loudest = rms;
         }
-        const rms = Math.sqrt(sum / analyser.buffer.length);
-        const state = speakingFor(
-          rms,
-          now,
-          this.holdUntil.get(identity) ?? 0,
-        );
+        const state = speakingFor(loudest, now, this.holdUntil.get(identity) ?? 0);
         this.holdUntil.set(identity, state.holdUntil);
         if (state.speaking) ids.add(identity);
       }
@@ -125,22 +187,6 @@ export class RemoteAudioGraph {
     if (this.speakingTimer === null) return;
     clearInterval(this.speakingTimer);
     this.speakingTimer = null;
-  }
-
-  private dropAnalyser(identity: string): void {
-    const analyser = this.analysers.get(identity);
-    if (!analyser) return;
-    try {
-      analyser.node.disconnect();
-    } catch {}
-    this.analysers.delete(identity);
-    this.holdUntil.delete(identity);
-    if (this.speaking.has(identity)) {
-      const ids = new Set(this.speaking);
-      ids.delete(identity);
-      this.publishSpeaking(ids);
-    }
-    if (this.analysers.size === 0) this.stopSpeakingLoop();
   }
 
   getVolume(identity: string): number {
@@ -193,11 +239,11 @@ export class RemoteAudioGraph {
         const speechAnalyser = ctx.createAnalyser();
         speechAnalyser.fftSize = 512;
         source.connect(speechAnalyser);
-        this.analysers.set(identity, {
+        const analyser: SpeechAnalyser = {
           node: speechAnalyser,
           buffer: new Float32Array(speechAnalyser.fftSize),
-        });
-        this.startSpeakingLoop();
+        };
+        this.addAnalyser(identity, analyser);
         const gain = ctx.createGain();
         gain.gain.value = this.effectiveGain(desiredUiVolume);
         const compressor = ctx.createDynamicsCompressor();
@@ -209,7 +255,7 @@ export class RemoteAudioGraph {
         source.connect(gain);
         gain.connect(compressor);
         compressor.connect(ctx.destination);
-        this.sourceNodes.set(audioElement, { source, gain, identity });
+        this.sourceNodes.set(audioElement, { source, gain, identity, analyser });
         const gains = this.gainNodes.get(identity) ?? [];
         gains.push(gain);
         this.gainNodes.set(identity, gains);
@@ -218,7 +264,7 @@ export class RemoteAudioGraph {
           "[LiveKitService] failed to wire remote gain node, falling back to element volume:",
           e,
         );
-        this.dropAnalyser(identity);
+        this.dropAnalysers(identity);
         audioElement.volume = this.elementVolume(desiredUiVolume);
       }
     } else {
@@ -232,6 +278,7 @@ export class RemoteAudioGraph {
           nodes.gain.disconnect();
           nodes.source.disconnect();
         } catch {}
+        if (nodes.analyser) this.removeAnalyser(identity, nodes.analyser);
         const gains = this.gainNodes.get(identity) ?? [];
         const remainingGains = gains.filter((g) => g !== nodes.gain);
         if (remainingGains.length === 0) {
@@ -247,7 +294,7 @@ export class RemoteAudioGraph {
       );
       if (remaining.length === 0) {
         this.elements.delete(identity);
-        this.dropAnalyser(identity);
+        this.dropAnalysers(identity);
       } else {
         this.elements.set(identity, remaining);
       }
@@ -279,7 +326,7 @@ export class RemoteAudioGraph {
   disableGraph(): void {
     this.disabled = true;
     for (const identity of Array.from(this.analysers.keys())) {
-      this.dropAnalyser(identity);
+      this.dropAnalysers(identity);
     }
     const room = this.roomProvider();
     if (!room) return;

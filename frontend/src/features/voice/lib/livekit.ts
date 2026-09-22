@@ -20,6 +20,7 @@ import {
   speechBandRatio,
 } from "./makeupGain";
 import { RemoteAudioGraph } from "./livekit/remoteAudio";
+import type { SpeakingState } from "./livekit/remoteAudio";
 import { attachRoomListeners } from "./livekit/roomEvents";
 import type {
   NoiseSuppressionMode,
@@ -1255,12 +1256,8 @@ export class LiveKitService {
     );
   }
 
-  subscribeRemoteSpeaking(fn: (ids: Set<string>) => void): () => void {
+  subscribeRemoteSpeaking(fn: (state: SpeakingState) => void): () => void {
     return this.remoteAudio.subscribeSpeaking(fn);
-  }
-
-  remoteSpeakingDetected(): boolean {
-    return this.remoteAudio.tracksSpeaking();
   }
 
   micGateActive(): boolean {
