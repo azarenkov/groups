@@ -91,11 +91,19 @@ export class RemoteAudioGraph {
     return this.analysers.size > 0;
   }
 
+  private fullyMeasured(identity: string): boolean {
+    const analysers = this.analysers.get(identity);
+    if (!analysers || analysers.length === 0) return false;
+    const elements = this.elements.get(identity);
+    return !!elements && elements.length === analysers.length;
+  }
+
   private speakingState(): SpeakingState {
-    return {
-      speaking: new Set(this.speaking),
-      tracked: new Set(this.analysers.keys()),
-    };
+    const tracked = new Set<string>();
+    for (const identity of this.analysers.keys()) {
+      if (this.fullyMeasured(identity)) tracked.add(identity);
+    }
+    return { speaking: new Set(this.speaking), tracked };
   }
 
   private publishSpeaking(ids: Set<string>): void {
@@ -273,6 +281,8 @@ export class RemoteAudioGraph {
       audioElement.volume = this.elementVolume(desiredUiVolume);
     }
 
+    this.publishSpeaking(new Set(this.speaking));
+
     track.on(TrackEvent.Ended, () => {
       const nodes = this.sourceNodes.get(audioElement);
       if (nodes) {
@@ -300,6 +310,7 @@ export class RemoteAudioGraph {
       } else {
         this.elements.set(identity, remaining);
       }
+      this.publishSpeaking(new Set(this.speaking));
       onEnded();
     });
   }

@@ -84,10 +84,7 @@ const attach = (graph: RemoteAudioGraph, identity: string): FakeGain => {
   return gain;
 };
 
-const endTrack = (gain: FakeGain): void => {
-  const entry = attached.find((item) => item.gain === gain);
-  entry?.end();
-};
+const lastAttachment = (): Attached => attached[attached.length - 1];
 
 describe("RemoteAudioGraph", () => {
   beforeEach(() => {
@@ -221,9 +218,10 @@ describe("RemoteAudioGraph", () => {
     const seen: SpeakingState[] = [];
     graph.subscribeSpeaking((state) => seen.push(state));
     attach(graph, "mia");
-    const second = attach(graph, "mia");
+    attach(graph, "mia");
+    const second = lastAttachment();
 
-    endTrack(second);
+    second.end();
     expect(Array.from(last(seen).tracked)).toEqual(["mia"]);
 
     levels.set("mia", 0.2);
@@ -241,11 +239,26 @@ describe("RemoteAudioGraph", () => {
     attach(graph, "nina");
     failGain = false;
 
-    expect(Array.from(last(seen).tracked)).toEqual(["nina"]);
-
     levels.set("nina", 0.2);
     jest.advanceTimersByTime(SPEAKING_INTERVAL_MS);
     expect(last(seen).speaking.has("nina")).toBe(true);
+  });
+
+  it("does not claim a participant whose other track fell back", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    const seen: SpeakingState[] = [];
+    graph.subscribeSpeaking((state) => seen.push(state));
+    attach(graph, "omar");
+    expect(Array.from(last(seen).tracked)).toEqual(["omar"]);
+
+    failGain = true;
+    attach(graph, "omar");
+    failGain = false;
+    const fallback = lastAttachment();
+    expect(last(seen).tracked.size).toBe(0);
+
+    fallback.end();
+    expect(Array.from(last(seen).tracked)).toEqual(["omar"]);
   });
 
   it("stops measuring for a participant whose audio fell back", () => {
