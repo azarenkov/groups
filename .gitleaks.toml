@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Chart value keys that name where a secret lives, not the secret itself"
+regexTarget = "line"
+regexes = [
+  '''(passwordKey|userKey)\s*=\s*"[A-Za-z0-9._-]+"''',
+]
