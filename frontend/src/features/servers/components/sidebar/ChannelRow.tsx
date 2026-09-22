@@ -7,6 +7,7 @@ import type { Channel } from "../../../../shared/types/channel";
 import type { SidebarVoiceMember } from "./types";
 import { moderatorDeafened, type SidebarPermissions } from "./permissions";
 import { moderateDeafen, moderateMute } from "./moderation";
+import { useSpeakingStore } from "../../../voice/store/speakingStore";
 
 interface ChannelRowProps {
   server: Server;
@@ -35,6 +36,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
   onPick,
   onDeleteChannel,
 }) => {
+  const speakingIds = useSpeakingStore((state) => state.ids);
   const { t } = useTranslation(["sidebar", "common"]);
   return (
     <>
@@ -107,7 +109,9 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                   <UserAvatar
                     userId={m.id}
                     name={m.name}
-                    className="sb-voice-member-ava"
+                    className={
+                      "sb-voice-member-ava" + (speakingIds.has(m.id) ? " speaking" : "")
+                    }
                     style={{ background: m.color, display: "inline-flex" }}
                   />
                   <span className="sb-voice-member-name">{m.name}</span>

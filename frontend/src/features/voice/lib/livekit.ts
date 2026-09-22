@@ -12,6 +12,7 @@ import {
 } from "livekit-client";
 
 import type { DfnPipeline } from "../../../shared/lib/dfn";
+import { MAKEUP_INTERVAL_MS, makeupGainFor } from "./makeupGain";
 import { RemoteAudioGraph } from "./livekit/remoteAudio";
 import { attachRoomListeners } from "./livekit/roomEvents";
 import type {
@@ -44,6 +45,7 @@ export class LiveKitService {
   private dfnContext: AudioContext | null = null;
   private dfnRawTrack: MediaStreamTrack | null = null;
   private dfnPrevPublishedTrack: MediaStreamTrack | null = null;
+  private dfnStopMakeup: (() => void) | null = null;
   private dfnPrevChain: {
     gain: GainNode | null;
     gate: GainNode | null;
@@ -311,6 +313,8 @@ export class LiveKitService {
     try {
       this.dfnRawTrack?.stop();
     } catch {}
+    this.dfnStopMakeup?.();
+    this.dfnStopMakeup = null;
     this.dfnPipeline = null;
     this.dfnContext = null;
     this.dfnRawTrack = null;
@@ -482,7 +486,9 @@ export class LiveKitService {
       try {
         this.dfnRawTrack?.stop();
       } catch {}
-      this.dfnPipeline = null;
+      this.dfnStopMakeup?.();
+    this.dfnStopMakeup = null;
+    this.dfnPipeline = null;
       this.dfnContext = null;
       this.dfnRawTrack = null;
     this.dfnPrevPublishedTrack = null;
@@ -760,6 +766,8 @@ export class LiveKitService {
         const postSource = ctx.createMediaStreamSource(
           new MediaStream([pipeline.outputTrack]),
         );
+        const makeup = ctx.createGain();
+        makeup.gain.value = 1;
         const postGain = ctx.createGain();
         postGain.gain.value = this.micVolume;
         const postGate = ctx.createGain();
@@ -770,14 +778,25 @@ export class LiveKitService {
           new MediaStream([rawTrack]),
         );
         preSource.connect(postAnalyser);
+        const denoisedAnalyser = ctx.createAnalyser();
+        denoisedAnalyser.fftSize = 256;
+        postSource.connect(denoisedAnalyser);
         const postDest = ctx.createMediaStreamDestination();
-        postSource.connect(postGain);
+        postSource.connect(makeup);
+        makeup.connect(postGain);
         postGain.connect(postGate);
         postGate.connect(postDest);
+        const stopMakeup = trackDenoiserMakeup(
+          ctx,
+          postAnalyser,
+          denoisedAnalyser,
+          makeup,
+        );
         const postTrack = postDest.stream.getAudioTracks()[0];
         const builtPipeline = pipeline;
         const builtCtx = ctx;
         const discard = async () => {
+          stopMakeup();
           try {
             await builtPipeline.dispose();
           } catch {}
@@ -802,6 +821,8 @@ export class LiveKitService {
           return;
         }
 
+        this.dfnStopMakeup?.();
+        this.dfnStopMakeup = stopMakeup;
         this.dfnPipeline = pipeline;
         this.dfnContext = ctx;
         this.dfnRawTrack = rawTrack;
@@ -890,6 +911,8 @@ export class LiveKitService {
       await ctx?.close();
     } catch {}
 
+    this.dfnStopMakeup?.();
+    this.dfnStopMakeup = null;
     this.dfnPipeline = null;
     this.dfnContext = null;
     this.dfnRawTrack = null;
@@ -1610,6 +1633,35 @@ export class LiveKitService {
       this.participantsListeners.delete(fn);
     };
   }
+}
+
+function analyserRms(analyser: AnalyserNode, buffer: Float32Array): number {
+  analyser.getFloatTimeDomainData(buffer);
+  let sum = 0;
+  for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
+  return Math.sqrt(sum / buffer.length);
+}
+
+function trackDenoiserMakeup(
+  ctx: AudioContext,
+  input: AnalyserNode,
+  denoised: AnalyserNode,
+  makeup: GainNode,
+): () => void {
+  const inputBuffer = new Float32Array(input.fftSize);
+  const denoisedBuffer = new Float32Array(denoised.fftSize);
+  let gain = makeup.gain.value;
+
+  const timer = setInterval(() => {
+    const inputRms = analyserRms(input, inputBuffer);
+    const denoisedRms = analyserRms(denoised, denoisedBuffer);
+    const next = makeupGainFor(inputRms, denoisedRms, gain);
+    if (next === gain) return;
+    gain = next;
+    makeup.gain.setTargetAtTime(gain, ctx.currentTime, 0.1);
+  }, MAKEUP_INTERVAL_MS);
+
+  return () => clearInterval(timer);
 }
 
 let livekitService: LiveKitService | null = null;
