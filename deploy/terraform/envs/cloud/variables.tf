@@ -111,6 +111,13 @@ variable "git_revision" {
   default = "main"
 }
 
+variable "git_ssh_key" {
+  description = "Private half of a read-only deploy key for the repository; Argo CD uses it instead of git_token. Pass it as TF_VAR_git_ssh_key so it stays out of the tfvars file"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "git_token" {
   description = "Token Argo CD uses to read the private repository (fine-grained, Contents: read on rift-space/rift)"
   type        = string

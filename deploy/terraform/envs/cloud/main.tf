@@ -90,6 +90,7 @@ module "rift" {
   argocd_ready   = module.platform.argocd_release
   git_revision   = var.git_revision
   git_token      = var.git_token
+  git_ssh_key    = var.git_ssh_key
 
   image = {
     registry    = var.image_registry

@@ -20,6 +20,9 @@ resource "random_password" "database" {
 }
 
 locals {
+  git_ssh           = var.git_ssh_key != ""
+  git_credentials   = local.git_ssh || var.git_token != ""
+  git_repo_url      = local.git_ssh ? var.git_repo_ssh : var.git_repo
   database_services = ["identity", "media", "messaging", "voice", "realtime"]
   namespace         = kubernetes_namespace_v1.rift.metadata[0].name
   scheme            = var.cluster_issuer == "" ? "http" : "https"
@@ -232,7 +235,7 @@ resource "terraform_data" "argocd_ready" {
 }
 
 resource "kubernetes_secret_v1" "argocd_repo" {
-  count = var.delivery == "argocd" && var.git_token != "" ? 1 : 0
+  count = var.delivery == "argocd" && local.git_credentials ? 1 : 0
 
   metadata {
     name      = "${var.release_name}-repo"
@@ -242,12 +245,15 @@ resource "kubernetes_secret_v1" "argocd_repo" {
     }
   }
 
-  data = {
-    type     = "git"
-    url      = var.git_repo
-    username = "git"
-    password = var.git_token
-  }
+  data = merge(
+    {
+      type = "git"
+      url  = local.git_repo_url
+    },
+    var.git_ssh_key != ""
+    ? { sshPrivateKey = var.git_ssh_key }
+    : { username = "git", password = var.git_token },
+  )
 
   depends_on = [terraform_data.argocd_ready]
 }
@@ -266,7 +272,7 @@ resource "kubectl_manifest" "argocd_application" {
     spec = {
       project = "default"
       source = {
-        repoURL        = var.git_repo
+        repoURL        = local.git_repo_url
         targetRevision = var.git_revision
         path           = var.chart_path
         helm = {
