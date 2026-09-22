@@ -1628,6 +1628,7 @@ export class LiveKitService {
       clearInterval(this.micGateTimer);
       this.micGateTimer = null;
     }
+    this.setLocalSpeaking(false);
   }
 
   setDeafened(deafened: boolean): void {
