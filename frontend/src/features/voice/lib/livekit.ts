@@ -12,13 +12,7 @@ import {
 } from "livekit-client";
 
 import type { DfnPipeline } from "../../../shared/lib/dfn";
-import {
-  MAKEUP_INTERVAL_MS,
-  MAKEUP_SPEECH_FLOOR,
-  isSpeech,
-  makeupGainFor,
-  updateNoiseFloor,
-} from "./makeupGain";
+import { MAKEUP_INTERVAL_MS, isSpeech, makeupGainFor } from "./makeupGain";
 import { RemoteAudioGraph } from "./livekit/remoteAudio";
 import { attachRoomListeners } from "./livekit/roomEvents";
 import type {
@@ -1664,13 +1658,11 @@ function trackDenoiserMakeup(
   const inputBuffer = new Float32Array(input.fftSize);
   const denoisedBuffer = new Float32Array(denoised.fftSize);
   let gain = makeup.gain.value;
-  let noiseFloor = MAKEUP_SPEECH_FLOOR;
 
   const timer = setInterval(() => {
     const inputRms = analyserRms(input, inputBuffer);
     const denoisedRms = analyserRms(denoised, denoisedBuffer);
-    const speech = isSpeech(inputRms, noiseFloor, gate.gain.value > 0);
-    if (!speech) noiseFloor = updateNoiseFloor(noiseFloor, inputRms);
+    const speech = isSpeech(inputRms, denoisedRms, gate.gain.value > 0);
     const next = makeupGainFor(inputRms, denoisedRms, gain, speech);
     if (next === gain) return;
     gain = next;
