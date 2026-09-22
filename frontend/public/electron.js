@@ -431,6 +431,7 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     closeSplash();
     mainWindow.show();
+    watchFirstPaint(mainWindow);
   });
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
@@ -559,6 +560,50 @@ function relaunchWithoutGpu(reason) {
   console.warn('[gpu] ' + reason + '; relaunching without hardware acceleration');
   app.relaunch({ args: process.argv.slice(1).concat(GPU_FALLBACK_FLAG) });
   app.exit(0);
+}
+
+const FIRST_PAINT_TIMEOUT_MS = 20000;
+const BLANK_CHECK_DELAY_MS = 1500;
+
+function looksBlank(image) {
+  const size = image.getSize();
+  if (!size.width || !size.height) return false;
+  const bitmap = image.toBitmap();
+  const stride = 4;
+  const total = size.width * size.height;
+  const samples = 64;
+  let first = null;
+  for (let i = 0; i < samples; i++) {
+    const px = Math.floor((i / samples) * total) * stride;
+    const key = bitmap[px] + ',' + bitmap[px + 1] + ',' + bitmap[px + 2];
+    if (first === null) first = key;
+    else if (key !== first) return false;
+  }
+  return true;
+}
+
+function watchFirstPaint(win) {
+  if (gpuDisabled) return;
+  let settled = false;
+  const timeout = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    relaunchWithoutGpu('renderer never reported its first paint');
+  }, FIRST_PAINT_TIMEOUT_MS);
+  ipcMain.once('renderer:rendered', () => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timeout);
+    setTimeout(() => {
+      if (win.isDestroyed()) return;
+      win.webContents
+        .capturePage()
+        .then((image) => {
+          if (looksBlank(image)) relaunchWithoutGpu('window painted a single colour after the app mounted');
+        })
+        .catch((err) => console.warn('[gpu] capturePage failed:', err));
+    }, BLANK_CHECK_DELAY_MS);
+  });
 }
 
 app.on('child-process-gone', (_event, details) => {

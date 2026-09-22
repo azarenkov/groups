@@ -92,6 +92,15 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const bridge = window.electron;
+    if (!bridge?.reportRendered) return;
+    let frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(() => bridge.reportRendered?.());
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
     if (!window.electron) return;
     document.body.classList.add("electron");
     const apply = (v: boolean) =>
