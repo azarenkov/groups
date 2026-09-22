@@ -83,6 +83,29 @@ variable "livekit_udp_port" {
   default     = 50000
 }
 
+variable "delivery" {
+  description = "helm: Terraform installs the chart; argocd: Argo CD syncs deploy/helm/rift from git with deploy/argocd/envs/staging/values.yaml, so tagged releases roll out on their own"
+  type        = string
+  default     = "helm"
+}
+
+variable "argocd_host" {
+  type    = string
+  default = ""
+}
+
+variable "git_revision" {
+  type    = string
+  default = "main"
+}
+
+variable "git_token" {
+  description = "Token Argo CD uses to read the private repository (fine-grained, Contents: read on rift-space/rift)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "monitoring" {
   type    = bool
   default = false

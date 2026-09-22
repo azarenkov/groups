@@ -43,7 +43,8 @@ module "platform" {
   }
 
   argocd = {
-    enabled = false
+    enabled = var.delivery == "argocd"
+    host    = var.argocd_host
   }
 
   monitoring = {
@@ -82,9 +83,12 @@ module "rift" {
 
   namespace      = local.rift_namespace
   cluster_domain = var.cluster_domain
-  delivery       = "helm"
-  environment    = "cloud"
-  chart_path     = "${path.module}/../../../helm/rift"
+  delivery       = var.delivery
+  environment    = "staging"
+  chart_path     = var.delivery == "helm" ? "${path.module}/../../../helm/rift" : "deploy/helm/rift"
+  argocd_ready   = module.platform.argocd_release
+  git_revision   = var.git_revision
+  git_token      = var.git_token
 
   image = {
     registry    = var.image_registry

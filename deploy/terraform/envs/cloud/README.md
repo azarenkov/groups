@@ -11,6 +11,6 @@ terraform apply -target=null_resource.k3s      # the providers need the cluster 
 terraform apply
 ```
 
-The kubeconfig lands in `~/.kube/rift-cloud.yaml`. Images come from GHCR at `image_tag`; releases are cut by tagging `vX.Y.Z` in the repository.
+The kubeconfig lands in `~/.kube/rift-cloud.yaml`. With `delivery = "argocd"` (plus `argocd_host` and a read-only `git_token`) Terraform installs Argo CD and hands the Rift release to it: the chart and `deploy/argocd/envs/staging/values.yaml` are synced from git, and every `vX.Y.Z` tag moves the stand to that version through the `promote` job. Images come from GHCR at `image_tag`; releases are cut by tagging `vX.Y.Z` in the repository.
 
 What differs from a managed cluster: storage is k3s `local-path` on the server's disk (no backups, no HA), and the datastores run in the cluster. Swapping `modules/datastores` for managed PostgreSQL/Redis/object storage keeps everything else unchanged.
