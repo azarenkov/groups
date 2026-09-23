@@ -1,14 +1,14 @@
 use chrono::{DateTime, Utc};
-use domain::{server::id::ServerId, user::id::UserId};
-use messaging_domain::server::invite_link::{InviteLink, InviteToken};
+use domain::{community::id::CommunityId, user::id::UserId};
+use messaging_domain::community::invite_link::{InviteLink, InviteToken};
 use uuid::Uuid;
 
-pub const INVITE_LINK_COLUMNS: &str = "l.token, l.server_id, l.created_by, u.name AS creator_name, l.name, l.is_primary, l.max_uses, l.uses, l.expires_at, l.created_at, l.revoked_at";
+pub const INVITE_LINK_COLUMNS: &str = "l.token, l.community_id, l.created_by, u.name AS creator_name, l.name, l.is_primary, l.max_uses, l.uses, l.expires_at, l.created_at, l.revoked_at";
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct InviteLinkRow {
     pub token: String,
-    pub server_id: Uuid,
+    pub community_id: Uuid,
     pub created_by: Uuid,
     pub creator_name: Option<String>,
     pub name: Option<String>,
@@ -24,7 +24,7 @@ impl From<InviteLinkRow> for InviteLink {
     fn from(row: InviteLinkRow) -> Self {
         InviteLink {
             token: InviteToken::restore(row.token),
-            server_id: ServerId::new(row.server_id),
+            community_id: CommunityId::new(row.community_id),
             created_by: UserId::new(row.created_by),
             creator_name: row.creator_name,
             name: row.name,

@@ -12,8 +12,8 @@ pub struct DispatcherConfig {
     pub dispatcher_message_stream: String,
     #[serde(default = "default_dm_message_stream")]
     pub dispatcher_dm_message_stream: String,
-    #[serde(default = "default_server_stream")]
-    pub dispatcher_server_stream: String,
+    #[serde(default = "default_community_stream")]
+    pub dispatcher_community_stream: String,
     #[serde(default = "default_consumer_prefix")]
     pub dispatcher_consumer_prefix: String,
     #[serde(default = "default_max_deliver")]
@@ -49,8 +49,8 @@ fn default_dm_message_stream() -> String {
     "RIFT_DM_MESSAGE_EVENTS".to_string()
 }
 
-fn default_server_stream() -> String {
-    "RIFT_SERVER_EVENTS".to_string()
+fn default_community_stream() -> String {
+    "RIFT_COMMUNITY_EVENTS".to_string()
 }
 
 fn default_consumer_prefix() -> String {

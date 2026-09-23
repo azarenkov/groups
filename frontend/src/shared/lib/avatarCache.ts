@@ -1,10 +1,10 @@
 import React from "react";
 
 import { userAPI } from "../../features/social/api/user";
-import { serverAPI } from "../../features/servers/api/server";
+import { communityAPI } from "../../features/communities/api/community";
 import { ApiError } from "./apiError";
 
-export type AvatarKind = "user" | "server" | "banner";
+export type AvatarKind = "user" | "community" | "banner";
 
 const CACHE_LIMIT = 256;
 const REVALIDATE_MS = 5 * 60_000;
@@ -47,7 +47,7 @@ const load = (kind: AvatarKind, id: string) => {
     ? userAPI.downloadAvatar(id)
     : kind === "banner"
       ? userAPI.downloadBanner(id)
-      : serverAPI.downloadLogo(id)
+      : communityAPI.downloadLogo(id)
   )
     .then((blob) => {
       const url = URL.createObjectURL(blob);

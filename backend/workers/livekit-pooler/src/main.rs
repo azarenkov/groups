@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
-            tracing::error!(error = %e, "Health server stopped");
+            tracing::error!(error = %e, "Health community stopped");
         }
     });
 

@@ -20,7 +20,7 @@ interface MessageListProps {
   savingEdit: boolean;
   highlightedMessageId: string | null;
   canModerateMessages: boolean;
-  myServerIds: Set<string>;
+  myCommunityIds: Set<string>;
   receiptFor: (message: ChannelMessage, mine: boolean) => "sent" | "read" | null;
   onEditTextChange: (value: string) => void;
   onStartEdit: (message: ChannelMessage) => void;
@@ -32,7 +32,7 @@ interface MessageListProps {
   onDelete: (message: ChannelMessage) => void;
   onAcceptInvite: (message: ChannelMessage) => void;
   onDeclineInvite: (message: ChannelMessage) => void;
-  onOpenInviteServer?: (serverId: string) => void;
+  onOpenInviteCommunity?: (communityId: string) => void;
 }
 
 const MessageList: React.FC<MessageListProps> = ({
@@ -49,7 +49,7 @@ const MessageList: React.FC<MessageListProps> = ({
   savingEdit,
   highlightedMessageId,
   canModerateMessages,
-  myServerIds,
+  myCommunityIds,
   receiptFor,
   onEditTextChange,
   onStartEdit,
@@ -61,7 +61,7 @@ const MessageList: React.FC<MessageListProps> = ({
   onDelete,
   onAcceptInvite,
   onDeclineInvite,
-  onOpenInviteServer,
+  onOpenInviteCommunity,
 }) => (
   <div className="inner">
             {loadingOlder && (
@@ -99,7 +99,7 @@ const MessageList: React.FC<MessageListProps> = ({
                   highlighted={highlightedMessageId === m.id}
                   editText={editText}
                   inviteIsMember={
-                    !!m.inviteServerId && myServerIds.has(m.inviteServerId)
+                    !!m.inviteCommunityId && myCommunityIds.has(m.inviteCommunityId)
                   }
                   canModerate={canModerateMessages}
                   editRemovedIds={editRemovedIds}
@@ -123,8 +123,8 @@ const MessageList: React.FC<MessageListProps> = ({
                   onDelete={() => onDelete(m)}
                   onAcceptInvite={() => onAcceptInvite(m)}
                   onDeclineInvite={() => onDeclineInvite(m)}
-                  onOpenInviteServer={() =>
-                    m.inviteServerId && onOpenInviteServer?.(m.inviteServerId)
+                  onOpenInviteCommunity={() =>
+                    m.inviteCommunityId && onOpenInviteCommunity?.(m.inviteCommunityId)
                   }
                 />
                 </React.Fragment>

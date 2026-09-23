@@ -19,7 +19,7 @@ export interface HomeViewProps {
   friends: Friendship[];
   onlineUsers: Record<string, true>;
   joinedChannelId: string | null;
-  onJoinRoom: (serverId: string, channelId: string) => void;
+  onJoinRoom: (communityId: string, channelId: string) => void;
   onOpenDm: (friendId: string) => void;
   onCall: (friendId: string) => void;
   onAddFriend: () => void;
@@ -87,11 +87,11 @@ const HomeView: React.FC<HomeViewProps> = ({
   );
   const onlineCount = onlineFriends.length;
   const activeRooms = useMemo(() => {
-    const rooms = new Map<string, { channelId: string; channelName: string; serverId: string; serverName: string; members: ActiveFriend[] }>();
+    const rooms = new Map<string, { channelId: string; channelName: string; communityId: string; communityName: string; members: ActiveFriend[] }>();
     for (const f of activeFriends) {
       const room = rooms.get(f.channelId);
       if (room) room.members.push(f);
-      else rooms.set(f.channelId, { channelId: f.channelId, channelName: f.channelName, serverId: f.serverId, serverName: f.serverName, members: [f] });
+      else rooms.set(f.channelId, { channelId: f.channelId, channelName: f.channelName, communityId: f.communityId, communityName: f.communityName, members: [f] });
     }
     return Array.from(rooms.values());
   }, [activeFriends]);
@@ -223,13 +223,13 @@ const HomeView: React.FC<HomeViewProps> = ({
                           <span className="room">
                             <Icon name="volume" size={13} />
                             <span>
-                              {room.channelName} · {room.serverName}
+                              {room.channelName} · {room.communityName}
                             </span>
                           </span>
                           <button
                             type="button"
                             className={connected ? "home-btn-joined" : "home-btn-secondary"}
-                            onClick={() => !connected && onJoinRoom(room.serverId, room.channelId)}
+                            onClick={() => !connected && onJoinRoom(room.communityId, room.channelId)}
                           >
                             {connected ? t("connected") : t("join")}
                           </button>
@@ -254,14 +254,14 @@ const HomeView: React.FC<HomeViewProps> = ({
                     key={room.channelId}
                     type="button"
                     className="home-room-row"
-                    onClick={() => onJoinRoom(room.serverId, room.channelId)}
+                    onClick={() => onJoinRoom(room.communityId, room.channelId)}
                   >
                     <span className="ico">
                       <Icon name="volume" size={14} />
                     </span>
                     <span className="who">
                       <span className="name">{room.channelName}</span>
-                      <span className="server">{room.serverName}</span>
+                      <span className="community">{room.communityName}</span>
                     </span>
                     {room.liveCount > 0 && (
                       <span className="home-live-pill">

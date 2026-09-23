@@ -1,4 +1,4 @@
 pub mod channel;
 pub mod dm;
 pub mod friendship;
-pub mod server;
+pub mod community;

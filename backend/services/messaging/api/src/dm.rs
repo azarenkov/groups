@@ -4,7 +4,7 @@ use messaging::dto::requests::dm::{
     list_dm_messages::ListDmMessagesRequest, search_dm_messages::SearchDmMessagesRequest,
     send_dm_message::SendDmMessageRequest,
 };
-use messaging_domain::{dm_message::id::DmMessageId, server::id::ServerId};
+use messaging_domain::{dm_message::id::DmMessageId, community::id::CommunityId};
 use domain::user::id::UserId;
 use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
@@ -13,7 +13,7 @@ use validator::Validate;
 use crate::state::AppState;
 use api_common::{context::request_context};
 use api_common::dto::{pagination::PaginationMeta, responses::ApiResponse};
-use crate::dto::{requests::dm::{ EditDmMessageBody, ListDmMessagesQuery, SearchDmMessagesQuery, SendDmMessageBody, SendServerInviteBody, }, responses::dm::{ AcceptServerInviteResponse, DmMessageResponse, ListDmMessagesResponse, SearchDmMessagesResponse, }};
+use crate::dto::{requests::dm::{ EditDmMessageBody, ListDmMessagesQuery, SearchDmMessagesQuery, SendDmMessageBody, SendCommunityInviteBody, }, responses::dm::{ AcceptCommunityInviteResponse, DmMessageResponse, ListDmMessagesResponse, SearchDmMessagesResponse, }};
 use crate::http_errors::HttpError;
 
 #[post("/me/dms/{friend_id}/messages")]
@@ -44,28 +44,28 @@ async fn send_dm_message(
     Ok(HttpResponse::Created().json(ApiResponse::success(DmMessageResponse::from(response))))
 }
 
-#[post("/me/dms/{friend_id}/server-invite")]
-async fn send_server_invite(
+#[post("/me/dms/{friend_id}/community-invite")]
+async fn send_community_invite(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-    body: web::Json<SendServerInviteBody>,
+    body: web::Json<SendCommunityInviteBody>,
 ) -> Result<impl Responder, HttpError> {
     let friend_id = UserId::new(path.into_inner());
-    let server_id = ServerId::new(body.into_inner().server_id);
+    let community_id = CommunityId::new(body.into_inner().community_id);
     let sender_id = UserId::new(auth_token.id);
 
     let response = app_state
-        .send_server_invite_usecase
-        .execute(server_id, friend_id, sender_id, request_context(&req))
+        .send_community_invite_usecase
+        .execute(community_id, friend_id, sender_id, request_context(&req))
         .await?;
 
     Ok(HttpResponse::Created().json(ApiResponse::success(DmMessageResponse::from(response))))
 }
 
 #[post("/me/dms/messages/{message_id}/accept-invite")]
-async fn accept_server_invite(
+async fn accept_community_invite(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
@@ -74,16 +74,16 @@ async fn accept_server_invite(
     let message_id = DmMessageId::new(path.into_inner());
     let requester_id = UserId::new(auth_token.id);
 
-    let server_id = app_state
-        .accept_server_invite_usecase
+    let community_id = app_state
+        .accept_community_invite_usecase
         .execute(message_id, requester_id, request_context(&req))
         .await?;
 
-    Ok(HttpResponse::Ok().json(ApiResponse::success(AcceptServerInviteResponse::new(server_id))))
+    Ok(HttpResponse::Ok().json(ApiResponse::success(AcceptCommunityInviteResponse::new(community_id))))
 }
 
 #[post("/me/dms/messages/{message_id}/decline-invite")]
-async fn decline_server_invite(
+async fn decline_community_invite(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
@@ -93,7 +93,7 @@ async fn decline_server_invite(
     let requester_id = UserId::new(auth_token.id);
 
     app_state
-        .decline_server_invite_usecase
+        .decline_community_invite_usecase
         .execute(message_id, requester_id, request_context(&req))
         .await?;
 
@@ -109,7 +109,7 @@ struct DmPreviewItem {
     sender_id: Uuid,
     content: String,
     call_status: Option<String>,
-    invite_server_id: Option<Uuid>,
+    invite_community_id: Option<Uuid>,
     has_attachments: bool,
     created_at: chrono::DateTime<chrono::Utc>,
 }
@@ -158,7 +158,7 @@ async fn list_dm_previews(
                 sender_id: p.sender_id,
                 content: p.content,
                 call_status: p.call_status,
-                invite_server_id: p.invite_server_id,
+                invite_community_id: p.invite_community_id,
                 has_attachments: p.has_attachments,
                 created_at: p.created_at,
             })

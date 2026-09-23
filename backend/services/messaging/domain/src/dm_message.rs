@@ -5,7 +5,7 @@ pub mod view;
 
 use chrono::{DateTime, Utc};
 
-use crate::{dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent, server::id::ServerId};
+use crate::{dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent, community::id::CommunityId};
 use domain::user::id::UserId;
 use uuid::Uuid;
 
@@ -15,7 +15,7 @@ pub enum DmMessageError {
     NotSender,
     #[error("Message content unchanged")]
     ContentUnchanged,
-    #[error("Server invite messages cannot be edited")]
+    #[error("Community invite messages cannot be edited")]
     NotEditable,
 }
 
@@ -25,7 +25,7 @@ pub struct DmMessage {
     sender_id: UserId,
     recipient_id: UserId,
     content: MessageContent,
-    invite_server_id: Option<ServerId>,
+    invite_community_id: Option<CommunityId>,
     call_status: Option<String>,
     call_duration_seconds: Option<i32>,
     call_id: Option<Uuid>,
@@ -47,7 +47,7 @@ impl DmMessage {
             sender_id,
             recipient_id,
             content: content.clone(),
-            invite_server_id: None,
+            invite_community_id: None,
             call_status: None,
             call_duration_seconds: None,
             call_id: None,
@@ -76,7 +76,7 @@ impl DmMessage {
             sender_id,
             recipient_id,
             content: content.clone(),
-            invite_server_id: None,
+            invite_community_id: None,
             call_status: Some(call_status),
             call_duration_seconds,
             call_id: Some(call_id),
@@ -91,10 +91,10 @@ impl DmMessage {
         message
     }
 
-    pub fn create_server_invite(
+    pub fn create_community_invite(
         sender_id: UserId,
         recipient_id: UserId,
-        server_id: ServerId,
+        community_id: CommunityId,
         content: MessageContent,
         now: DateTime<Utc>,
     ) -> Self {
@@ -104,7 +104,7 @@ impl DmMessage {
             sender_id,
             recipient_id,
             content: content.clone(),
-            invite_server_id: Some(server_id),
+            invite_community_id: Some(community_id),
             call_status: None,
             call_duration_seconds: None,
             call_id: None,
@@ -112,10 +112,10 @@ impl DmMessage {
             edited_at: None,
             events: Vec::new(),
         };
-        let server_name = content.as_str().to_string();
+        let community_name = content.as_str().to_string();
         message.events.push(DmMessageDomainEvent::Sent(
             DmMessageSent::record(id, sender_id, recipient_id, content, now)
-                .for_invite(server_id, &server_name),
+                .for_invite(community_id, &community_name),
         ));
         message
     }
@@ -126,7 +126,7 @@ impl DmMessage {
         sender_id: UserId,
         recipient_id: UserId,
         content: MessageContent,
-        invite_server_id: Option<ServerId>,
+        invite_community_id: Option<CommunityId>,
         call_status: Option<String>,
         call_duration_seconds: Option<i32>,
         created_at: DateTime<Utc>,
@@ -137,7 +137,7 @@ impl DmMessage {
             sender_id,
             recipient_id,
             content,
-            invite_server_id,
+            invite_community_id,
             call_status,
             call_duration_seconds,
             call_id: None,
@@ -166,7 +166,7 @@ impl DmMessage {
         if self.sender_id != editor_id {
             return Err(DmMessageError::NotSender);
         }
-        if self.invite_server_id.is_some() {
+        if self.invite_community_id.is_some() {
             return Err(DmMessageError::NotEditable);
         }
         if !allow_unchanged && self.content == new_content {
@@ -224,8 +224,8 @@ impl DmMessage {
     pub fn content(&self) -> &MessageContent {
         &self.content
     }
-    pub fn invite_server_id(&self) -> Option<&ServerId> {
-        self.invite_server_id.as_ref()
+    pub fn invite_community_id(&self) -> Option<&CommunityId> {
+        self.invite_community_id.as_ref()
     }
     pub fn call_status(&self) -> Option<&str> {
         self.call_status.as_deref()

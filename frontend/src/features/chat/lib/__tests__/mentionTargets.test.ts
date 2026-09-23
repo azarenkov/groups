@@ -20,7 +20,7 @@ describe("mention targets", () => {
     mockedApi.searchUsers.mockReset();
   });
 
-  it("opens a remembered author without asking the server", async () => {
+  it("opens a remembered author without asking the community", async () => {
     rememberMentionTarget("Alexey", "u1");
     await openMentionedProfile("alexey");
     expect(mockedApi.searchUsers).not.toHaveBeenCalled();

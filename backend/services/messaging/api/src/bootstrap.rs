@@ -45,17 +45,17 @@ use messaging::usecases::{
         get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
         mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
-    server::{
-        accept_server_invite::AcceptServerInvite, can_manage_server::CanManageServer,
-        create_server::CreateServer,
-        decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
+    community::{
+        accept_community_invite::AcceptCommunityInvite, can_manage_community::CanManageCommunity,
+        create_community::CreateCommunity,
+        decline_community_invite::DeclineCommunityInvite, delete_community::DeleteCommunity,
         get_home_overview::GetHomeOverview, get_user_profile::GetUserProfile, get_voice_presence::GetVoicePresence,
         invite_links::{CreateInviteLink, JoinByInviteLink, ListInviteLinks, PreviewInviteLink, RevokeInviteLink},
-        kick_member::KickMember, leave_server::LeaveServer,
-        list_sent_server_invites::ListSentServerInvites,
-        list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
-        list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
-        update_server::UpdateServer,
+        kick_member::KickMember, leave_community::LeaveCommunity,
+        list_sent_community_invites::ListSentCommunityInvites,
+        list_community_channels::ListCommunityChannels, list_community_members::ListCommunityMembers,
+        list_communities_by_user::ListCommunitiesByUser, send_community_invite::SendCommunityInvite,
+        update_community::UpdateCommunity,
     },
 };
 use infrastructure_common::{
@@ -73,13 +73,13 @@ use messaging_infrastructure::{
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
             notification_preference::PostgresNotificationPreferenceRepository,
-            read_state::PostgresReadStateRepository, server::PostgresServerRepository,
-            server_role::PostgresServerRoleRepository,
+            read_state::PostgresReadStateRepository, community::PostgresCommunityRepository,
+            community_role::PostgresCommunityRoleRepository,
             channel_unit_of_work::PostgresChannelUnitOfWork,
             dm_unit_of_work::PostgresDmUnitOfWork,
             friendship_unit_of_work::PostgresFriendshipUnitOfWork,
             message_unit_of_work::PostgresMessageUnitOfWork,
-            server_unit_of_work::PostgresServerUnitOfWork,
+            community_unit_of_work::PostgresCommunityUnitOfWork,
         badge::PostgresBadgeRepository, privacy::PostgresPrivacyRepository,
         report::PostgresReportRepository,
         user_profile::PostgresUserProfileRepository,
@@ -121,14 +121,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
     let message_repository = Arc::new(PostgresMessageRepository::new(postgres_pool.clone()));
     let user_repository = Arc::new(PostgresUserProfileRepository::messaging(postgres_pool.clone()));
-    let server_repository = Arc::new(PostgresServerRepository::new(postgres_pool.clone()));
+    let community_repository = Arc::new(PostgresCommunityRepository::new(postgres_pool.clone()));
     let friendship_repository =
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
     let read_state_repository =
         Arc::new(PostgresReadStateRepository::new(postgres_pool.clone()));
-    let server_role_repository =
-        Arc::new(PostgresServerRoleRepository::new(postgres_pool.clone()));
-    let server_unit_of_work = Arc::new(PostgresServerUnitOfWork::new(postgres_pool.clone()));
+    let community_role_repository =
+        Arc::new(PostgresCommunityRoleRepository::new(postgres_pool.clone()));
+    let community_unit_of_work = Arc::new(PostgresCommunityUnitOfWork::new(postgres_pool.clone()));
     let message_unit_of_work = Arc::new(PostgresMessageUnitOfWork::new(postgres_pool.clone()));
     let dm_unit_of_work = Arc::new(PostgresDmUnitOfWork::new(postgres_pool.clone()));
     let friendship_unit_of_work =
@@ -166,22 +166,22 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         channel_stream.clone(),
         channel_repository.clone(),
         channel_unit_of_work.clone(),
-        server_repository.clone(),
+        community_repository.clone(),
         livekit_service.clone(),
     );
-    let server_stream = std::env::var("MESSAGING_SERVER_STREAM")
-        .unwrap_or_else(|_| "RIFT_SERVER_EVENTS".to_string());
+    let community_stream = std::env::var("MESSAGING_COMMUNITY_STREAM")
+        .unwrap_or_else(|_| "RIFT_COMMUNITY_EVENTS".to_string());
     messaging_infrastructure::consumers::voice_effects::spawn(
         nats_jetstream.clone(),
         messaging_infrastructure::consumers::voice_effects::VoiceEffectsSpec {
             subject_prefix: nats_config.subject_prefix.clone(),
             channel_stream,
-            server_stream,
+            community_stream,
             user_stream: std::env::var("MESSAGING_USER_STREAM")
                 .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string()),
         },
         channel_repository.clone(),
-        server_unit_of_work.clone(),
+        community_unit_of_work.clone(),
         livekit_service.clone(),
         user_repository.clone(),
     );
@@ -217,56 +217,56 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let app_state = web::Data::new(AppState {
         create_channel_usecase: CreateChannel::new(
             hasher.clone(),
-            server_repository.clone(),
-            server_unit_of_work.clone(),
+            community_repository.clone(),
+            community_unit_of_work.clone(),
         ),
         join_voice_channel_usecase: JoinVoiceChannel::new(
             livekit_service.clone(),
             channel_repository.clone(),
             user_repository.clone(),
             hasher.clone(),
-            server_repository.clone(),
+            community_repository.clone(),
         ),
         mute_channel_usecase: MuteChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
-            server_unit_of_work.clone(),
+            community_unit_of_work.clone(),
         ),
         unmute_channel_usecase: UnmuteChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
-            server_unit_of_work.clone(),
+            community_unit_of_work.clone(),
         ),
         deafen_channel_usecase: DeafenChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
-            server_unit_of_work.clone(),
+            community_unit_of_work.clone(),
         ),
         undeafen_channel_usecase: UndeafenChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
-            server_unit_of_work.clone(),
+            community_unit_of_work.clone(),
         ),
         delete_channel_usecase: DeleteChannel::new(
             channel_repository.clone(),
             livekit_service.clone(),
-            server_unit_of_work.clone(),
+            community_unit_of_work.clone(),
         ),
         list_channel_participants_usecase: ListChannelParticipants::new(
             channel_repository.clone(),
-            server_repository.clone(),
+            community_repository.clone(),
             friendship_repository.clone(),
         ),
         join_text_channel_usecase: JoinTextChannel::new(
             channel_repository.clone(),
-            server_repository.clone(),
+            community_repository.clone(),
             channel_unit_of_work.clone(),
             hasher.clone(),
         ),
         send_channel_message_usecase: SendChannelMessage::new(
             message_repository.clone(),
             channel_repository.clone(),
-            server_repository.clone(),
+            community_repository.clone(),
             message_unit_of_work.clone(),
             attachment_claims.clone(),
             mention_resolver.clone(),
@@ -275,7 +275,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         edit_channel_message_usecase: EditChannelMessage::new(
             message_repository.clone(),
             channel_repository.clone(),
-            server_repository.clone(),
+            community_repository.clone(),
             message_unit_of_work.clone(),
             attachment_claims.clone(),
             mention_resolver.clone(),
@@ -284,17 +284,17 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         delete_channel_message_usecase: DeleteChannelMessage::new(
             message_repository.clone(),
             channel_repository.clone(),
-            server_unit_of_work.clone(),
+            community_unit_of_work.clone(),
         ),
         list_channel_messages_usecase: ListChannelMessages::new(
             message_repository.clone(),
             channel_repository.clone(),
-            server_repository.clone(),
+            community_repository.clone(),
         ),
         search_channel_messages_usecase: SearchChannelMessages::new(
             message_repository.clone(),
             channel_repository.clone(),
-            server_repository.clone(),
+            community_repository.clone(),
         ),
         list_message_attachments_usecase: ListMessageAttachments::new(
             message_repository.clone(),
@@ -318,7 +318,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         create_report_usecase: CreateReport::new(
             report_repository.clone(),
             user_repository.clone(),
-            server_repository.clone(),
+            community_repository.clone(),
             message_repository.clone(),
             dm_repository.clone(),
             channel_repository.clone(),
@@ -346,19 +346,19 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
         ),
         list_roles_usecase: ListRoles::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
+            community_repository.clone(),
+            community_role_repository.clone(),
         ),
-        can_manage_server_usecase: CanManageServer::new(
-            server_repository.clone(),
-            server_role_repository.clone(),
+        can_manage_community_usecase: CanManageCommunity::new(
+            community_repository.clone(),
+            community_role_repository.clone(),
         ),
-        create_role_usecase: CreateRole::new(server_unit_of_work.clone()),
-        update_role_usecase: UpdateRole::new(server_unit_of_work.clone()),
-        delete_role_usecase: DeleteRole::new(server_unit_of_work.clone()),
-        assign_role_usecase: AssignRole::new(server_unit_of_work.clone()),
-        revoke_role_usecase: RevokeRole::new(server_unit_of_work.clone()),
-        swap_roles_usecase: SwapRoles::new(server_unit_of_work.clone()),
+        create_role_usecase: CreateRole::new(community_unit_of_work.clone()),
+        update_role_usecase: UpdateRole::new(community_unit_of_work.clone()),
+        delete_role_usecase: DeleteRole::new(community_unit_of_work.clone()),
+        assign_role_usecase: AssignRole::new(community_unit_of_work.clone()),
+        revoke_role_usecase: RevokeRole::new(community_unit_of_work.clone()),
+        swap_roles_usecase: SwapRoles::new(community_unit_of_work.clone()),
         list_notification_preferences_usecase: ListNotificationPreferences::new(
             notification_preference_repository.clone(),
         ),
@@ -371,7 +371,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             dm_unit_of_work.clone(),
             call_participation.clone(),
         ),
-        server_repository: server_repository.clone(),
+        community_repository: community_repository.clone(),
         message_repository: message_repository.clone(),
         dm_repository: dm_repository.clone(),
         friendship_repository: friendship_repository.clone(),
@@ -404,63 +404,63 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_dm_previews_usecase: ListDmPreviews::new(dm_repository.clone()),
         list_dm_messages_usecase: ListDmMessages::new(dm_repository.clone()),
         search_dm_messages_usecase: SearchDmMessages::new(dm_repository.clone()),
-        send_server_invite_usecase: SendServerInvite::new(
+        send_community_invite_usecase: SendCommunityInvite::new(
             dm_repository.clone(),
             friendship_repository.clone(),
-            server_repository.clone(),
-            server_unit_of_work.clone(),
+            community_repository.clone(),
+            community_unit_of_work.clone(),
             privacy_repository.clone(),
             user_repository.clone(),
         ),
-        accept_server_invite_usecase: AcceptServerInvite::new(
+        accept_community_invite_usecase: AcceptCommunityInvite::new(
             dm_repository.clone(),
-            server_unit_of_work.clone(),
+            community_unit_of_work.clone(),
         ),
-        decline_server_invite_usecase: DeclineServerInvite::new(
+        decline_community_invite_usecase: DeclineCommunityInvite::new(
             dm_repository.clone(),
             dm_unit_of_work.clone(),
         ),
-        list_sent_server_invites_usecase: ListSentServerInvites::new(
+        list_sent_community_invites_usecase: ListSentCommunityInvites::new(
             dm_repository.clone(),
-            server_repository.clone(),
+            community_repository.clone(),
         ),
-        create_server_usecase: CreateServer::new(server_unit_of_work.clone(), text_moderation.clone()),
-        delete_server_usecase: DeleteServer::new(
-            server_repository.clone(),
+        create_community_usecase: CreateCommunity::new(community_unit_of_work.clone(), text_moderation.clone()),
+        delete_community_usecase: DeleteCommunity::new(
+            community_repository.clone(),
             channel_repository.clone(),
-            server_unit_of_work.clone(),
+            community_unit_of_work.clone(),
             livekit_service.clone(),
         ),
-        update_server_usecase: UpdateServer::new(server_unit_of_work.clone(), text_moderation.clone()),
-        create_invite_link_usecase: CreateInviteLink::new(server_unit_of_work.clone()),
+        update_community_usecase: UpdateCommunity::new(community_unit_of_work.clone(), text_moderation.clone()),
+        create_invite_link_usecase: CreateInviteLink::new(community_unit_of_work.clone()),
         list_invite_links_usecase: ListInviteLinks::new(
-            server_repository.clone(),
-            server_unit_of_work.clone(),
+            community_repository.clone(),
+            community_unit_of_work.clone(),
         ),
-        revoke_invite_link_usecase: RevokeInviteLink::new(server_unit_of_work.clone()),
-        preview_invite_link_usecase: PreviewInviteLink::new(server_repository.clone()),
+        revoke_invite_link_usecase: RevokeInviteLink::new(community_unit_of_work.clone()),
+        preview_invite_link_usecase: PreviewInviteLink::new(community_repository.clone()),
         join_by_invite_link_usecase: JoinByInviteLink::new(
-            server_repository.clone(),
-            server_unit_of_work.clone(),
+            community_repository.clone(),
+            community_unit_of_work.clone(),
         ),
         public_app_url: public_app_url.clone(),
-        leave_server_usecase: LeaveServer::new(server_unit_of_work.clone()),
-        kick_member_usecase: KickMember::new(server_unit_of_work.clone()),
-        list_servers_by_user_usecase: ListServersByUser::new(server_repository.clone()),
-        list_server_members_usecase: ListServerMembers::new(server_repository.clone()),
-        list_server_channels_usecase: ListServerChannels::new(server_repository.clone()),
+        leave_community_usecase: LeaveCommunity::new(community_unit_of_work.clone()),
+        kick_member_usecase: KickMember::new(community_unit_of_work.clone()),
+        list_communities_by_user_usecase: ListCommunitiesByUser::new(community_repository.clone()),
+        list_community_members_usecase: ListCommunityMembers::new(community_repository.clone()),
+        list_community_channels_usecase: ListCommunityChannels::new(community_repository.clone()),
         get_home_overview_usecase: GetHomeOverview::new(channel_repository.clone()),
         get_user_profile_usecase: GetUserProfile::new(
             user_repository.clone(),
-            server_repository.clone(),
+            community_repository.clone(),
             channel_repository.clone(),
         ),
         get_voice_presence_usecase: GetVoicePresence::new(
-            server_repository.clone(),
+            community_repository.clone(),
             channel_repository.clone(),
         ),
         update_stream_viewer_usecase: UpdateStreamViewer::new(
-            server_repository.clone(),
+            community_repository.clone(),
             channel_repository.clone(),
         ),
     });

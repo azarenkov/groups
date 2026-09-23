@@ -11,9 +11,9 @@ pub struct DmMessageSentV1 {
     pub content: Value,
     pub occurred_at: DateTime<Utc>,
     #[serde(default)]
-    pub invite_server_id: Option<Uuid>,
+    pub invite_community_id: Option<Uuid>,
     #[serde(default)]
-    pub invite_server_name: Option<String>,
+    pub invite_community_name: Option<String>,
     #[serde(default)]
     pub call_status: Option<String>,
     #[serde(default)]

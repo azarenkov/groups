@@ -7,10 +7,10 @@ use contracts::events::{
     dm_message::{DmMessageDeletedV1, DmMessageEditedV1, DmMessageSentV1},
     friendship::{FriendRequestAcceptedV1, FriendRequestSentV1, FriendshipRemovedV1, UserBlockedV1, UserUnblockedV1},
     message::{ChannelMessageDeletedV1, ChannelMessageEditedV1, ChannelMessageSentV1},
-    server::{ServerCreatedV1, ServerDeletedV1, ServerOwnerChangedV1, ServerMemberV1, ServerRolesChangedV1, ServerUpdatedV1},
+    community::{CommunityCreatedV1, CommunityDeletedV1, CommunityOwnerChangedV1, CommunityMemberV1, CommunityRolesChangedV1, CommunityUpdatedV1},
 };
 use domain::user::id::UserId;
-use messaging_domain::{channel::events::ChannelEvent, dm_message::events::DmMessageDomainEvent, events::MessagingEvent, friendship::events::FriendshipDomainEvent, message::events::MessageDomainEvent, server::events::ServerEvent};
+use messaging_domain::{channel::events::ChannelEvent, dm_message::events::DmMessageDomainEvent, events::MessagingEvent, friendship::events::FriendshipDomainEvent, message::events::MessageDomainEvent, community::events::CommunityEvent};
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use serde::Serialize;
 use serde_json::Value;
@@ -23,7 +23,7 @@ pub fn to_records(events: &[MessagingEvent], request_id: Option<&str>) -> Result
 pub fn to_record(event: &MessagingEvent, request_id: Option<&str>) -> Result<OutboxRecord, RepositoryError> {
     let mut record = match event {
         MessagingEvent::Channel(e) => channel_record(e)?,
-        MessagingEvent::Server(e) => server_record(e)?,
+        MessagingEvent::Community(e) => community_record(e)?,
         MessagingEvent::Message(e) => message_record(e)?,
         MessagingEvent::DmMessage(e) => dm_record(e)?,
         MessagingEvent::Friendship(e) => friendship_record(e)?,
@@ -36,7 +36,7 @@ fn channel_record(event: &ChannelEvent) -> Result<OutboxRecord, RepositoryError>
     let payload = match event {
         ChannelEvent::Created(e) => encode(&ChannelCreatedV1 {
             channel_id: e.channel_id.uuid(),
-            server_id: e.server_id.uuid(),
+            community_id: e.community_id.uuid(),
             owner_id: e.owner_id.uuid(),
             name: value(&e.name)?,
             kind: value(&e.kind)?,
@@ -47,69 +47,69 @@ fn channel_record(event: &ChannelEvent) -> Result<OutboxRecord, RepositoryError>
         })?,
         ChannelEvent::Renamed(e) => encode(&ChannelRenamedV1 {
             channel_id: e.channel_id.uuid(),
-            server_id: e.server_id.uuid(),
+            community_id: e.community_id.uuid(),
             old_name: value(&e.old_name)?,
             new_name: value(&e.new_name)?,
             occurred_at: e.occurred_at,
         })?,
         ChannelEvent::Deleted(e) => encode(&ChannelDeletedV1 {
             channel_id: e.channel_id.uuid(),
-            server_id: e.server_id.uuid(),
+            community_id: e.community_id.uuid(),
             deleted_by: e.deleted_by.uuid(),
             occurred_at: e.occurred_at,
             recipient_ids: uuids(&e.recipient_ids),
         })?,
         ChannelEvent::ParticipantJoined(e) => encode(&ParticipantJoinedV1 {
             channel_id: e.channel_id.uuid(),
-            server_id: e.server_id.uuid(),
+            community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
             occurred_at: e.occurred_at,
         })?,
         ChannelEvent::ParticipantLeft(e) => encode(&ParticipantLeftV1 {
             channel_id: e.channel_id.uuid(),
-            server_id: e.server_id.uuid(),
+            community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
             reason: value(&e.reason)?,
             occurred_at: e.occurred_at,
         })?,
         ChannelEvent::ParticipantMuted(e) => encode(&ParticipantMutedV1 {
             channel_id: e.channel_id.uuid(),
-            server_id: e.server_id.uuid(),
+            community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
             muted_by: e.muted_by.uuid(),
             occurred_at: e.occurred_at,
         })?,
         ChannelEvent::ParticipantUnmuted(e) => encode(&ParticipantUnmutedV1 {
             channel_id: e.channel_id.uuid(),
-            server_id: e.server_id.uuid(),
+            community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
             unmuted_by: e.unmuted_by.uuid(),
             occurred_at: e.occurred_at,
         })?,
         ChannelEvent::ParticipantDeafened(e) => encode(&ParticipantDeafenedV1 {
             channel_id: e.channel_id.uuid(),
-            server_id: e.server_id.uuid(),
+            community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
             deafened_by: e.deafened_by.uuid(),
             occurred_at: e.occurred_at,
         })?,
         ChannelEvent::ParticipantUndeafened(e) => encode(&ParticipantUndeafenedV1 {
             channel_id: e.channel_id.uuid(),
-            server_id: e.server_id.uuid(),
+            community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
             undeafened_by: e.undeafened_by.uuid(),
             occurred_at: e.occurred_at,
         })?,
         ChannelEvent::ParticipantConnectionAborted(e) => encode(&ParticipantConnectionAbortedV1 {
             channel_id: e.channel_id.uuid(),
-            server_id: e.server_id.uuid(),
+            community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
             reason: value(&e.reason)?,
             occurred_at: e.occurred_at,
         })?,
         ChannelEvent::ParticipantMediaChanged(e) => encode(&ParticipantMediaV1 {
             channel_id: e.channel_id.uuid(),
-            server_id: e.server_id.uuid(),
+            community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
             source: snake_case(&e.source)?,
             enabled: e.enabled,
@@ -117,7 +117,7 @@ fn channel_record(event: &ChannelEvent) -> Result<OutboxRecord, RepositoryError>
         })?,
         ChannelEvent::TextJoined(e) => encode(&TextChannelJoinedV1 {
             channel_id: e.channel_id.uuid(),
-            server_id: e.server_id.uuid(),
+            community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
             joined_at: e.joined_at,
             recipient_ids: uuids(&e.recipient_ids),
@@ -126,51 +126,51 @@ fn channel_record(event: &ChannelEvent) -> Result<OutboxRecord, RepositoryError>
     Ok(record(
         event.channel_id().uuid(),
         AggregateType::Channel,
-        Some((event.server_id().uuid(), AggregateType::Server)),
+        Some((event.community_id().uuid(), AggregateType::Community)),
         event.event_type(),
         payload,
         event.occurred_at(),
     ))
 }
 
-fn server_record(event: &ServerEvent) -> Result<OutboxRecord, RepositoryError> {
+fn community_record(event: &CommunityEvent) -> Result<OutboxRecord, RepositoryError> {
     let payload = match event {
-        ServerEvent::Created(e) => encode(&ServerCreatedV1 {
-            server_id: e.server_id.uuid(),
+        CommunityEvent::Created(e) => encode(&CommunityCreatedV1 {
+            community_id: e.community_id.uuid(),
             owner_id: e.owner_id.uuid(),
             name: value(&e.name)?,
             description: e.description.as_ref().map(value).transpose()?,
             occurred_at: e.occurred_at,
         })?,
-        ServerEvent::Updated(e) => encode(&ServerUpdatedV1 {
-            server_id: e.server_id.uuid(),
+        CommunityEvent::Updated(e) => encode(&CommunityUpdatedV1 {
+            community_id: e.community_id.uuid(),
             name: value(&e.name)?,
             description: e.description.as_ref().map(value).transpose()?,
             member_ids: uuids(&e.member_ids),
             occurred_at: e.occurred_at,
         })?,
-        ServerEvent::Deleted(e) => encode(&ServerDeletedV1 {
-            server_id: e.server_id.uuid(),
+        CommunityEvent::Deleted(e) => encode(&CommunityDeletedV1 {
+            community_id: e.community_id.uuid(),
             owner_id: e.owner_id.uuid(),
             member_ids: Some(uuids(&e.member_ids)),
             occurred_at: e.occurred_at,
         })?,
-        ServerEvent::MemberJoined(e) => encode(&ServerMemberV1 {
-            server_id: e.server_id.uuid(),
+        CommunityEvent::MemberJoined(e) => encode(&CommunityMemberV1 {
+            community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
             occurred_at: e.occurred_at,
         })?,
-        ServerEvent::MemberLeft(e) => encode(&ServerMemberV1 {
-            server_id: e.server_id.uuid(),
+        CommunityEvent::MemberLeft(e) => encode(&CommunityMemberV1 {
+            community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
             occurred_at: e.occurred_at,
         })?,
-        ServerEvent::RolesChanged(e) => encode(&ServerRolesChangedV1 {
-            server_id: e.server_id.uuid(),
+        CommunityEvent::RolesChanged(e) => encode(&CommunityRolesChangedV1 {
+            community_id: e.community_id.uuid(),
             recipients: uuids(&e.recipients),
         })?,
-        ServerEvent::OwnerChanged(e) => encode(&ServerOwnerChangedV1 {
-            server_id: e.server_id.uuid(),
+        CommunityEvent::OwnerChanged(e) => encode(&CommunityOwnerChangedV1 {
+            community_id: e.community_id.uuid(),
             owner_id: e.owner_id.uuid(),
             previous_owner_id: e.previous_owner_id.uuid(),
             member_ids: uuids(&e.member_ids),
@@ -178,8 +178,8 @@ fn server_record(event: &ServerEvent) -> Result<OutboxRecord, RepositoryError> {
         })?,
     };
     Ok(record(
-        event.server_id().uuid(),
-        AggregateType::Server,
+        event.community_id().uuid(),
+        AggregateType::Community,
         None,
         event.event_type(),
         payload,
@@ -234,8 +234,8 @@ fn dm_record(event: &DmMessageDomainEvent) -> Result<OutboxRecord, RepositoryErr
             recipient_id: e.recipient_id.uuid(),
             content: value(&e.content)?,
             occurred_at: e.occurred_at,
-            invite_server_id: e.invite_server_id.map(|s| s.uuid()),
-            invite_server_name: e.invite_server_name.clone(),
+            invite_community_id: e.invite_community_id.map(|s| s.uuid()),
+            invite_community_name: e.invite_community_name.clone(),
             call_status: e.call_status.clone(),
             call_duration_seconds: e.call_duration_seconds,
             attachments: Some(value(&e.attachments)?),

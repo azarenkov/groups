@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
-use domain::server::id::ServerId;
+use domain::community::id::CommunityId;
 use domain::user::id::UserId;
 use messaging_domain::channel::visibility::ChannelVisibility;
 use messaging_domain::channel::repository::ChannelRepository;
@@ -13,7 +13,7 @@ use messaging_domain::report::{
     DAILY_REPORT_LIMIT, DUPLICATE_WINDOW_HOURS, Report, ReportContext, ReportError, ReportOutcome,
     ReportReason, ReportRepository, ReportTarget,
 };
-use messaging_domain::server::repository::ServerRepository;
+use messaging_domain::community::repository::CommunityRepository;
 use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
 use uuid::Uuid;
 
@@ -47,14 +47,14 @@ pub struct CreateReport<R, U, S, M, D, C>
 where
     R: ReportRepository,
     U: UserProfileRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
     M: MessageRepository,
     D: DmMessageRepository,
     C: ChannelRepository,
 {
     report_repository: Arc<R>,
     user_repository: Arc<U>,
-    server_repository: Arc<S>,
+    community_repository: Arc<S>,
     message_repository: Arc<M>,
     dm_repository: Arc<D>,
     channel_repository: Arc<C>,
@@ -64,7 +64,7 @@ impl<R, U, S, M, D, C> CreateReport<R, U, S, M, D, C>
 where
     R: ReportRepository,
     U: UserProfileRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
     M: MessageRepository,
     D: DmMessageRepository,
     C: ChannelRepository,
@@ -72,7 +72,7 @@ where
     pub fn new(
         report_repository: Arc<R>,
         user_repository: Arc<U>,
-        server_repository: Arc<S>,
+        community_repository: Arc<S>,
         message_repository: Arc<M>,
         dm_repository: Arc<D>,
         channel_repository: Arc<C>,
@@ -80,7 +80,7 @@ where
         Self {
             report_repository,
             user_repository,
-            server_repository,
+            community_repository,
             message_repository,
             dm_repository,
             channel_repository,
@@ -135,11 +135,11 @@ where
                 .get_name(&UserId::new(target_id))
                 .await?
                 .ok_or(CreateReportError::TargetNotFound),
-            ReportTarget::Server => self
-                .server_repository
-                .find_server_by_id(&ServerId::new(target_id))
+            ReportTarget::Community => self
+                .community_repository
+                .find_community_by_id(&CommunityId::new(target_id))
                 .await?
-                .map(|server| server.name().as_str().to_string())
+                .map(|community| community.name().as_str().to_string())
                 .ok_or(CreateReportError::TargetNotFound),
         }
     }
@@ -171,14 +171,14 @@ where
                 };
                 let belongs = match target {
                     ReportTarget::User => message.author_id().uuid() == target_id,
-                    ReportTarget::Server => channel.server_id().uuid() == target_id,
+                    ReportTarget::Community => channel.community_id().uuid() == target_id,
                 };
                 if !belongs {
                     return Err(CreateReportError::ContextMismatch);
                 }
                 if !self
-                    .server_repository
-                    .is_server_member(channel.server_id(), reporter_id)
+                    .community_repository
+                    .is_community_member(channel.community_id(), reporter_id)
                     .await?
                 {
                     return Err(CreateReportError::ContextMismatch);

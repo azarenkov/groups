@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::repository::ServerRepository};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, community::repository::CommunityRepository};
 
 use crate::usecases::channel::voice_access::participant_access;
 use domain::user::id::UserId;
@@ -25,24 +25,24 @@ pub enum Admission {
 pub struct AdmitVoiceParticipant<C, S, V>
 where
     C: ChannelRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
     V: VoiceService,
 {
     channel_repository: Arc<C>,
-    server_repository: Arc<S>,
+    community_repository: Arc<S>,
     voice_service: Arc<V>,
 }
 
 impl<C, S, V> AdmitVoiceParticipant<C, S, V>
 where
     C: ChannelRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
     V: VoiceService,
 {
-    pub fn new(channel_repository: Arc<C>, server_repository: Arc<S>, voice_service: Arc<V>) -> Self {
+    pub fn new(channel_repository: Arc<C>, community_repository: Arc<S>, voice_service: Arc<V>) -> Self {
         Self {
             channel_repository,
-            server_repository,
+            community_repository,
             voice_service,
         }
     }
@@ -67,8 +67,8 @@ where
         };
 
         let is_member = self
-            .server_repository
-            .is_server_member(channel.server_id(), &user_id)
+            .community_repository
+            .is_community_member(channel.community_id(), &user_id)
             .await?;
         if !is_member {
             self.voice_service

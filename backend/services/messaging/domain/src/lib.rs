@@ -8,4 +8,4 @@ pub mod notification;
 pub mod read_state;
 pub mod report;
 pub mod privacy;
-pub mod server;
+pub mod community;

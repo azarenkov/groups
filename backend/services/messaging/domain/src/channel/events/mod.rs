@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::{channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantDeafened, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUndeafened, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, server::id::ServerId};
+use crate::{channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantDeafened, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUndeafened, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, community::id::CommunityId};
 
 pub mod lifecycle;
 pub mod participant;
@@ -39,20 +39,20 @@ impl ChannelEvent {
         }
     }
 
-    pub fn server_id(&self) -> &ServerId {
+    pub fn community_id(&self) -> &CommunityId {
         match self {
-            Self::Created(e) => &e.server_id,
-            Self::Renamed(e) => &e.server_id,
-            Self::Deleted(e) => &e.server_id,
-            Self::ParticipantJoined(e) => &e.server_id,
-            Self::ParticipantLeft(e) => &e.server_id,
-            Self::ParticipantMuted(e) => &e.server_id,
-            Self::ParticipantUnmuted(e) => &e.server_id,
-            Self::ParticipantDeafened(e) => &e.server_id,
-            Self::ParticipantUndeafened(e) => &e.server_id,
-            Self::ParticipantConnectionAborted(e) => &e.server_id,
-            Self::ParticipantMediaChanged(e) => &e.server_id,
-            Self::TextJoined(e) => &e.server_id,
+            Self::Created(e) => &e.community_id,
+            Self::Renamed(e) => &e.community_id,
+            Self::Deleted(e) => &e.community_id,
+            Self::ParticipantJoined(e) => &e.community_id,
+            Self::ParticipantLeft(e) => &e.community_id,
+            Self::ParticipantMuted(e) => &e.community_id,
+            Self::ParticipantUnmuted(e) => &e.community_id,
+            Self::ParticipantDeafened(e) => &e.community_id,
+            Self::ParticipantUndeafened(e) => &e.community_id,
+            Self::ParticipantConnectionAborted(e) => &e.community_id,
+            Self::ParticipantMediaChanged(e) => &e.community_id,
+            Self::TextJoined(e) => &e.community_id,
         }
     }
 

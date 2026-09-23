@@ -14,12 +14,12 @@ describe("unread store", () => {
     expect(useUnreadStore.getState().byDm.f1).toBe(1);
   });
 
-  it("sums a server from the channels that belong to it", () => {
+  it("sums a community from the channels that belong to it", () => {
     const store = useUnreadStore.getState();
     store.setAll({ c1: 2, c2: 3, other: 5 }, {}, { c1: "s1", c2: "s1", other: "s2" });
-    expect(useUnreadStore.getState().serverUnread("s1")).toBe(5);
-    expect(useUnreadStore.getState().serverUnread("s2")).toBe(5);
-    expect(useUnreadStore.getState().serverUnread("missing")).toBe(0);
+    expect(useUnreadStore.getState().communityUnread("s1")).toBe(5);
+    expect(useUnreadStore.getState().communityUnread("s2")).toBe(5);
+    expect(useUnreadStore.getState().communityUnread("missing")).toBe(0);
   });
 
   it("clears a single scope and everything at once", () => {

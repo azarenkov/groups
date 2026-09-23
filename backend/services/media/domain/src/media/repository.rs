@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use domain::{server::id::ServerId, user::id::UserId};
+use domain::{community::id::CommunityId, user::id::UserId};
 use ports::repository::RepositoryError;
 
 #[async_trait]
@@ -20,28 +20,28 @@ pub trait MediaRepository {
         user_id: &UserId,
         deleted_at: DateTime<Utc>,
     ) -> Result<Option<String>, RepositoryError>;
-    async fn get_server_logo_key(
+    async fn get_community_logo_key(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
     ) -> Result<Option<String>, RepositoryError>;
-    async fn set_server_logo_key(
+    async fn set_community_logo_key(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
         key: Option<&str>,
     ) -> Result<Option<String>, RepositoryError>;
-    async fn get_server_owner(
+    async fn get_community_owner(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
     ) -> Result<Option<UserId>, RepositoryError>;
-    async fn upsert_server_owner(
+    async fn upsert_community_owner(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
         owner_id: &UserId,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
-    async fn remove_server_media(
+    async fn remove_community_media(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
         owner_id: &UserId,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;

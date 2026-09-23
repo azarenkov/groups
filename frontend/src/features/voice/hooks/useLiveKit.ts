@@ -8,7 +8,7 @@ import {
   ParticipantInfo,
   VideoTile,
 } from "../lib/livekit";
-import { channelAPI } from "../../servers/api/channel";
+import { channelAPI } from "../../communities/api/channel";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { decodeAccessToken } from "../../../shared/lib/jwt";
@@ -34,7 +34,7 @@ interface UseLiveKitResult {
   getNoiseSuppressionMode: () => NoiseSuppressionMode;
   joinChannel: (
     channelId: string,
-    serverId: string,
+    communityId: string,
     password?: string,
   ) => Promise<void>;
   leaveChannel: () => Promise<void>;
@@ -60,7 +60,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const localQuality = useLocalQuality();
-  const activeChannelRef = useRef<{ serverId: string; channelId: string } | null>(null);
+  const activeChannelRef = useRef<{ communityId: string; channelId: string } | null>(null);
   const fallbackMutedRef = useRef(false);
   const fallbackReleasePendingRef = useRef(false);
   const isMutedRef = useRef(false);
@@ -117,10 +117,10 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   );
 
   const joinChannel = useCallback(
-    async (channelId: string, serverId: string, password?: string) => {
+    async (channelId: string, communityId: string, password?: string) => {
       const service = serviceRef.current;
       if (!service) return;
-      let joinAttempt: { serverId: string; channelId: string } | null = null;
+      let joinAttempt: { communityId: string; channelId: string } | null = null;
       try {
         if (service.isConnectingNow()) {
           console.log("[useLiveKit] Already connecting, skipping join request");
@@ -135,7 +135,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
 
         setIsConnecting(true);
         setError(null);
-        activeChannelRef.current = { serverId, channelId };
+        activeChannelRef.current = { communityId, channelId };
         joinAttempt = activeChannelRef.current;
         const joinAuth = useAuthStore.getState();
         const joiningUserId =
@@ -148,10 +148,10 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         selfDeafenedBeforeLockRef.current = false;
 
         console.log(
-          `[useLiveKit] Joining channel ${channelId} on server ${serverId}`,
+          `[useLiveKit] Joining channel ${channelId} on community ${communityId}`,
         );
 
-        const response = await channelAPI.joinVoice(serverId, channelId, {
+        const response = await channelAPI.joinVoice(communityId, channelId, {
           password,
         });
         const postTokenAuth = useAuthStore.getState();
@@ -197,7 +197,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           setIsMuted(true);
           useVoicePresenceStore
             .getState()
-            .setChannelDeafen(channelId, joiningUserId, response.deafenedBy, serverId);
+            .setChannelDeafen(channelId, joiningUserId, response.deafenedBy, communityId);
         }
         const { awaitVoiceSettingsSyncedFor } = await import(
           "../store/voiceSettingsStore"
@@ -357,7 +357,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     const userId =
       auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
     if (!active || !userId) return;
-    channelAPI.mute(active.serverId, active.channelId, userId).catch((err) => {
+    channelAPI.mute(active.communityId, active.channelId, userId).catch((err) => {
       console.warn("[useLiveKit] failed to restore self-mute:", err);
     });
   };
@@ -532,7 +532,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
       if (!active || !userId) return;
       channelAPI
-        .unmute(active.serverId, active.channelId, userId)
+        .unmute(active.communityId, active.channelId, userId)
         .then(() => {
           setLock(false);
           selfMutedBeforeLockRef.current = false;
@@ -553,8 +553,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     console.log("[useLiveKit] toggleMute", { next, active, userId });
     if (active && userId) {
       const call = next
-        ? channelAPI.mute(active.serverId, active.channelId, userId)
-        : channelAPI.unmute(active.serverId, active.channelId, userId);
+        ? channelAPI.mute(active.communityId, active.channelId, userId)
+        : channelAPI.unmute(active.communityId, active.channelId, userId);
       call.catch((err) => {
         console.error("[useLiveKit] Failed to sync mute state with backend:", err);
       });
@@ -579,7 +579,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     const userId =
       auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
     if (!active || !userId) return;
-    channelAPI.unmute(active.serverId, active.channelId, userId).catch((err) => {
+    channelAPI.unmute(active.communityId, active.channelId, userId).catch((err) => {
       console.warn("[useLiveKit] failed to clear self-mute under moderator mute:", err);
     });
   };
@@ -616,7 +616,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         auth.user?.id || decodeAccessToken(auth.tokens?.accessToken ?? "")?.sub;
       if (!active || !userId) return;
       channelAPI
-        .undeafen(active.serverId, active.channelId, userId)
+        .undeafen(active.communityId, active.channelId, userId)
         .then(() => {
           setDeafenLock(false);
           selfDeafenedBeforeLockRef.current = false;

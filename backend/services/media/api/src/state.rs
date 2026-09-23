@@ -1,6 +1,6 @@
 use media::usecases::{
     attachment::{delete_attachment::DeleteAttachment, upload_attachment::UploadAttachment},
-    server::{get_logo::GetServerLogo, update_logo::UpdateServerLogo},
+    community::{get_logo::GetCommunityLogo, update_logo::UpdateCommunityLogo},
     user::{
         delete_avatar::DeleteUserAvatar, get_avatar::GetUserAvatar,
         update_avatar::UpdateUserAvatar,
@@ -44,12 +44,12 @@ pub struct AppState {
     >,
     pub get_user_banner_usecase:
         media::usecases::user::banner::GetUserBanner<PostgresBannerRepository, MinioStorage>,
-    pub update_server_logo_usecase: UpdateServerLogo<
+    pub update_community_logo_usecase: UpdateCommunityLogo<
         PostgresMediaRepository,
         PostgresAttachmentRepository,
         MinioStorage,
         NsfwDetector,
         MessagingOwnerClient,
     >,
-    pub get_server_logo_usecase: GetServerLogo<PostgresMediaRepository, MinioStorage>,
+    pub get_community_logo_usecase: GetCommunityLogo<PostgresMediaRepository, MinioStorage>,
 }

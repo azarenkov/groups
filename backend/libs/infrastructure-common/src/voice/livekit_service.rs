@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use domain::{channel::id::ChannelId, channel::token::ChannelToken, server::id::ServerId, user::id::UserId, user::name::UserName};
+use domain::{channel::id::ChannelId, channel::token::ChannelToken, community::id::CommunityId, user::id::UserId, user::name::UserName};
 use ports::{voice_service::ParticipantAccess, voice_service::VoiceService, voice_service::VoiceServiceError};
 use async_trait::async_trait;
 
@@ -86,7 +86,7 @@ impl VoiceService for LiveKitService {
     async fn create_voice_channel(
         &self,
         channel_id: &ChannelId,
-        server_id: &ServerId,
+        community_id: &CommunityId,
     ) -> Result<(), VoiceServiceError> {
         let livekit_room = RoomClient::new(self.config.url())
             .map_err(|e| VoiceServiceError::VoiceChannelCreation(e.to_string()))?;
@@ -95,7 +95,7 @@ impl VoiceService for LiveKitService {
             .create_room(
                 &channel_id.uuid().to_string(),
                 CreateRoomOptions {
-                    metadata: server_id.uuid().to_string(),
+                    metadata: community_id.uuid().to_string(),
                     ..Default::default()
                 },
             )

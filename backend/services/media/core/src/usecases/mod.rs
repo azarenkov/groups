@@ -1,3 +1,3 @@
 pub mod attachment;
-pub mod server;
+pub mod community;
 pub mod user;

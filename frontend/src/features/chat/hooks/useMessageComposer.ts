@@ -1,7 +1,7 @@
 import React from "react";
 import i18n from "../../../i18n";
 import { ApiError } from "../../../shared/lib/apiError";
-import { channelAPI } from "../../servers/api/channel";
+import { channelAPI } from "../../communities/api/channel";
 import { blockGeneration, useBlockStore } from "../../social/store/blockStore";
 import { friendshipAPI } from "../../social/api/friendship";
 import type { Attachment, ChannelMessage } from "../../../shared/types/channel";
@@ -14,7 +14,7 @@ import type { Messenger } from "./useMessenger";
 export function useMessageComposer(params: {
   messenger: Messenger | null;
   channel?: ChannelMeta;
-  serverId?: string;
+  communityId?: string;
   dm?: DmMeta;
   isText: boolean;
   convId?: string;
@@ -26,7 +26,7 @@ export function useMessageComposer(params: {
   const {
     messenger,
     channel,
-    serverId,
+    communityId,
     dm,
     isText,
     convId,
@@ -123,9 +123,9 @@ export function useMessageComposer(params: {
       } catch (err) {
         const apiErr = err instanceof ApiError ? err : null;
         const code = apiErr?.code;
-        if (isText && channel && serverId && code === "CHANNEL_NOT_MEMBER") {
+        if (isText && channel && communityId && code === "CHANNEL_NOT_MEMBER") {
           try {
-            await channelAPI.joinText(serverId, channel.id);
+            await channelAPI.joinText(communityId, channel.id);
             await refreshHistory();
             await sendChunk(remaining[0]);
             remaining.shift();
@@ -139,7 +139,7 @@ export function useMessageComposer(params: {
                 setSending(false);
                 return;
               }
-              await channelAPI.joinText(serverId, channel.id, pw);
+              await channelAPI.joinText(communityId, channel.id, pw);
               await refreshHistory();
               await sendChunk(remaining[0]);
               remaining.shift();

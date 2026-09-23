@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, community::id::CommunityId, community::policy::PolicyError, community::unit_of_work::CommunityUnitOfWork};
 use domain::user::id::UserId;
 use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
 
@@ -35,7 +35,7 @@ pub struct UndeafenChannel<C, U, W>
 where
     C: ChannelRepository,
     U: UserProfileRepository,
-    W: ServerUnitOfWork,
+    W: CommunityUnitOfWork,
 {
     channel_repository: Arc<C>,
     user_repository: Arc<U>,
@@ -46,7 +46,7 @@ impl<C, U, W> UndeafenChannel<C, U, W>
 where
     C: ChannelRepository,
     U: UserProfileRepository,
-    W: ServerUnitOfWork,
+    W: CommunityUnitOfWork,
 {
     pub fn new(channel_repository: Arc<C>, user_repository: Arc<U>, unit_of_work: Arc<W>) -> Self {
         Self {
@@ -69,7 +69,7 @@ where
             .find_channel_by_id(&channel_id)
             .await?;
 
-        if channel.server_id().uuid() != request.server_id {
+        if channel.community_id().uuid() != request.community_id {
             return Err(UndeafenChannelError::ChannelNotFound);
         }
 
@@ -83,12 +83,12 @@ where
             .ok_or(UndeafenChannelError::TargetUserNotFound)?;
 
         let now = Utc::now();
-        let server_id = ServerId::new(request.server_id);
-        let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let server = tx.load_server().await?;
+        let community_id = CommunityId::new(request.community_id);
+        let mut tx = self.unit_of_work.begin(&community_id).await?;
+        let community = tx.load_community().await?;
         let mut channel = tx.load_channel(&channel_id).await?;
         let deafened_by = channel.deafen_record(&target).map(|d| d.deafened_by);
-        let grant = server.ensure_can_undeafen(&initiator, &target, deafened_by.as_ref())?;
+        let grant = community.ensure_can_undeafen(&initiator, &target, deafened_by.as_ref())?;
 
         channel.undeafen(target, initiator, grant, now)?;
         let events: Vec<MessagingEvent> = channel.pull_events().into_iter().map(MessagingEvent::from).collect();

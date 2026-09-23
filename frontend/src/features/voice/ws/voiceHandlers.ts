@@ -104,7 +104,7 @@ export const voiceHandlers: WsHandlers = {
           userId,
           isMuted,
           isMuted ? (asString(d.mutedBy) ?? undefined) : undefined,
-          asString(d.serverId) ?? undefined,
+          asString(d.communityId) ?? undefined,
         );
       const selfId = useAuthStore.getState().user?.id;
       const mutedBy = asString(d.mutedBy) ?? asString(d.unmutedBy);
@@ -130,7 +130,7 @@ export const voiceHandlers: WsHandlers = {
           userId,
           isMuted,
           isMuted ? (asString(d.mutedBy) ?? undefined) : undefined,
-          asString(d.serverId) ?? undefined,
+          asString(d.communityId) ?? undefined,
         );
       const selfId = useAuthStore.getState().user?.id;
       const mutedBy = asString(d.mutedBy) ?? asString(d.unmutedBy);
@@ -152,7 +152,7 @@ export const voiceHandlers: WsHandlers = {
       const deafenedBy = isDeafened ? (asString(d.deafenedBy) ?? undefined) : undefined;
       useVoicePresenceStore
         .getState()
-        .setChannelDeafen(channelId, userId, deafenedBy, asString(d.serverId) ?? undefined);
+        .setChannelDeafen(channelId, userId, deafenedBy, asString(d.communityId) ?? undefined);
       const selfId = useAuthStore.getState().user?.id;
       const actor = asString(d.deafenedBy) ?? asString(d.undeafenedBy);
       if (userId === selfId && actor && actor !== selfId) {
@@ -173,7 +173,7 @@ export const voiceHandlers: WsHandlers = {
       const deafenedBy = isDeafened ? (asString(d.deafenedBy) ?? undefined) : undefined;
       useVoicePresenceStore
         .getState()
-        .setChannelDeafen(channelId, userId, deafenedBy, asString(d.serverId) ?? undefined);
+        .setChannelDeafen(channelId, userId, deafenedBy, asString(d.communityId) ?? undefined);
       const selfId = useAuthStore.getState().user?.id;
       const actor = asString(d.deafenedBy) ?? asString(d.undeafenedBy);
       if (userId === selfId && actor && actor !== selfId) {
@@ -231,14 +231,14 @@ export const voiceHandlers: WsHandlers = {
       return;
   },
   "channel.stream.viewers": (d) => {
-      const serverId = asString(d.serverId);
+      const communityId = asString(d.communityId);
       const channelId = asString(d.channelId);
       const streamerId = asString(d.streamerId);
-      if (!serverId || !channelId || !streamerId) return;
+      if (!communityId || !channelId || !streamerId) return;
       const count = typeof d.count === "number" ? d.count : 0;
       useStreamViewersStore
         .getState()
-        .setCount(serverId, channelId, streamerId, count);
+        .setCount(communityId, channelId, streamerId, count);
       return;
   },
 };

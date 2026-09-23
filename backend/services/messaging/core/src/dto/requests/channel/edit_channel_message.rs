@@ -4,7 +4,7 @@ use crate::dto::RequestContext;
 
 #[derive(Debug)]
 pub struct EditChannelMessageRequest {
-    pub server_id: Uuid,
+    pub community_id: Uuid,
     pub channel_id: Uuid,
     pub message_id: Uuid,
     pub new_content: String,
@@ -15,7 +15,7 @@ pub struct EditChannelMessageRequest {
 
 impl EditChannelMessageRequest {
     pub fn new(
-        server_id: Uuid,
+        community_id: Uuid,
         channel_id: Uuid,
         message_id: Uuid,
         new_content: String,
@@ -24,7 +24,7 @@ impl EditChannelMessageRequest {
         ctx: RequestContext,
     ) -> Self {
         Self {
-            server_id,
+            community_id,
             channel_id,
             message_id,
             new_content,

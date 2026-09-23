@@ -10,9 +10,9 @@ use crate::channel::{
     deafen_channel, mute_channel, search_channel_messages, send_channel_message, undeafen_channel, unmute_channel,
 };
 use crate::dm::{
-    accept_server_invite, decline_server_invite, delete_dm_message, edit_dm_message,
+    accept_community_invite, decline_community_invite, delete_dm_message, edit_dm_message,
     list_dm_messages, list_dm_previews, search_dm_messages, send_dm_message,
-    send_server_invite,
+    send_community_invite,
 };
 use crate::home::{get_home_overview, get_user_profile};
 use crate::internal::internal_routes;
@@ -22,13 +22,13 @@ use crate::friendship::{
 use crate::notifications::notification_routes;
 use crate::presence::presence_routes;
 use crate::read_state::read_state_routes;
-use crate::reports::{server_report_routes, user_report_routes};
+use crate::reports::{community_report_routes, user_report_routes};
 use crate::roles::role_routes;
 use crate::invites::invite_routes;
 use crate::server::{
-    create_invite_link, create_server, delete_server, kick_member, leave_server, list_invite_links,
-    list_sent_server_invites, list_server_channels, list_server_members, list_servers_by_user,
-    list_voice_presence, revoke_invite_link, update_server,
+    create_invite_link, create_community, delete_community, kick_member, leave_community, list_invite_links,
+    list_sent_community_invites, list_community_channels, list_community_members, list_communities_by_user,
+    list_voice_presence, revoke_invite_link, update_community,
     update_stream_viewer,
 };
 use api_common::health::{livez, readyz};
@@ -43,23 +43,23 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                 .configure(attachment_routes)
                 .configure(invite_routes)
                 .service(
-                    web::scope("/v1/servers")
+                    web::scope("/v1/communities")
                         .configure(role_routes)
-                        .configure(server_report_routes)
-                        .service(create_server)
+                        .configure(community_report_routes)
+                        .service(create_community)
                         .service(create_invite_link)
                         .service(list_invite_links)
                         .service(revoke_invite_link)
-                        .service(update_server)
-                        .service(delete_server)
-                        .service(leave_server)
+                        .service(update_community)
+                        .service(delete_community)
+                        .service(leave_community)
                         .service(kick_member)
-                        .service(list_servers_by_user)
-                        .service(list_server_members)
-                        .service(list_server_channels)
+                        .service(list_communities_by_user)
+                        .service(list_community_members)
+                        .service(list_community_channels)
                         .service(list_voice_presence)
                         .service(update_stream_viewer)
-                        .service(list_sent_server_invites)
+                        .service(list_sent_community_invites)
                         .service(create_channel)
                         .service(join_voice_channel)
                         .service(join_text_channel)
@@ -82,9 +82,9 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(list_dm_previews)
                         .service(list_dm_messages)
                         .service(send_dm_message)
-                        .service(send_server_invite)
-                        .service(accept_server_invite)
-                        .service(decline_server_invite)
+                        .service(send_community_invite)
+                        .service(accept_community_invite)
+                        .service(decline_community_invite)
                         .service(edit_dm_message)
                         .service(delete_dm_message)
                         .service(list_friend_ids)

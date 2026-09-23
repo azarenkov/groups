@@ -1,9 +1,9 @@
-use crate::{channel::events::ChannelEvent, dm_message::events::DmMessageDomainEvent, friendship::events::FriendshipDomainEvent, message::events::MessageDomainEvent, server::events::ServerEvent};
+use crate::{channel::events::ChannelEvent, dm_message::events::DmMessageDomainEvent, friendship::events::FriendshipDomainEvent, message::events::MessageDomainEvent, community::events::CommunityEvent};
 
 #[derive(Debug)]
 pub enum MessagingEvent {
     Channel(ChannelEvent),
-    Server(ServerEvent),
+    Community(CommunityEvent),
     Message(MessageDomainEvent),
     DmMessage(DmMessageDomainEvent),
     Friendship(FriendshipDomainEvent),
@@ -15,9 +15,9 @@ impl From<ChannelEvent> for MessagingEvent {
     }
 }
 
-impl From<ServerEvent> for MessagingEvent {
-    fn from(event: ServerEvent) -> Self {
-        Self::Server(event)
+impl From<CommunityEvent> for MessagingEvent {
+    fn from(event: CommunityEvent) -> Self {
+        Self::Community(event)
     }
 }
 

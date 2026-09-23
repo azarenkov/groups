@@ -1,6 +1,6 @@
 {
   "titleUser": "Report user",
-  "titleServer": "Report server",
+  "titleCommunity": "Report community",
   "lead": "Tell us what is wrong with \"{{name}}\". Only the Rift team sees this report.",
   "detailsOptional": "Details (optional)",
   "detailsRequired": "Details (required)",
@@ -25,7 +25,7 @@
     "impersonation": "Impersonating someone",
     "illegal": "Illegal content",
     "violence": "Extremism or calls for violence",
-    "raid": "Organising raids on other servers",
+    "raid": "Organising raids on other communities",
     "other": "Something else"
   },
   "errorContext": "That message is gone, so it cannot be attached. Send the report without it."

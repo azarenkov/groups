@@ -40,17 +40,17 @@ use messaging::usecases::{
         get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
         mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
-    server::{
-        accept_server_invite::AcceptServerInvite, can_manage_server::CanManageServer,
-        create_server::CreateServer,
-        decline_server_invite::DeclineServerInvite, delete_server::DeleteServer,
+    community::{
+        accept_community_invite::AcceptCommunityInvite, can_manage_community::CanManageCommunity,
+        create_community::CreateCommunity,
+        decline_community_invite::DeclineCommunityInvite, delete_community::DeleteCommunity,
         get_home_overview::GetHomeOverview, get_user_profile::GetUserProfile, get_voice_presence::GetVoicePresence,
         invite_links::{CreateInviteLink, JoinByInviteLink, ListInviteLinks, PreviewInviteLink, RevokeInviteLink},
-        kick_member::KickMember, leave_server::LeaveServer,
-        list_sent_server_invites::ListSentServerInvites,
-        list_server_channels::ListServerChannels, list_server_members::ListServerMembers,
-        list_servers_by_user::ListServersByUser, send_server_invite::SendServerInvite,
-        update_server::UpdateServer,
+        kick_member::KickMember, leave_community::LeaveCommunity,
+        list_sent_community_invites::ListSentCommunityInvites,
+        list_community_channels::ListCommunityChannels, list_community_members::ListCommunityMembers,
+        list_communities_by_user::ListCommunitiesByUser, send_community_invite::SendCommunityInvite,
+        update_community::UpdateCommunity,
     },
 };
 use infrastructure_common::moderation::text_detector::TextModerationClient;
@@ -66,13 +66,13 @@ use messaging_infrastructure::{
         message::PostgresMessageRepository,
         notification_preference::PostgresNotificationPreferenceRepository,
         read_state::PostgresReadStateRepository,
-        server::PostgresServerRepository,
-        server_role::PostgresServerRoleRepository,
+        community::PostgresCommunityRepository,
+        community_role::PostgresCommunityRoleRepository,
         channel_unit_of_work::PostgresChannelUnitOfWork,
         dm_unit_of_work::PostgresDmUnitOfWork,
         friendship_unit_of_work::PostgresFriendshipUnitOfWork,
         message_unit_of_work::PostgresMessageUnitOfWork,
-        server_unit_of_work::PostgresServerUnitOfWork,
+        community_unit_of_work::PostgresCommunityUnitOfWork,
         badge::PostgresBadgeRepository, privacy::PostgresPrivacyRepository,
         report::PostgresReportRepository,
         user_profile::PostgresUserProfileRepository,
@@ -84,52 +84,52 @@ use messaging_infrastructure::{
 
 pub struct AppState {
     pub create_channel_usecase:
-        CreateChannel<BcryptHasher, PostgresServerRepository, PostgresServerUnitOfWork>,
+        CreateChannel<BcryptHasher, PostgresCommunityRepository, PostgresCommunityUnitOfWork>,
     pub join_voice_channel_usecase: JoinVoiceChannel<
         LiveKitService,
         PostgresChannelRepository,
         PostgresUserProfileRepository,
         BcryptHasher,
-        PostgresServerRepository,
+        PostgresCommunityRepository,
     >,
     pub mute_channel_usecase: MuteChannel<
         PostgresChannelRepository,
         PostgresUserProfileRepository,
-        PostgresServerUnitOfWork,
+        PostgresCommunityUnitOfWork,
     >,
     pub unmute_channel_usecase: UnmuteChannel<
         PostgresChannelRepository,
         PostgresUserProfileRepository,
-        PostgresServerUnitOfWork,
+        PostgresCommunityUnitOfWork,
     >,
     pub deafen_channel_usecase: DeafenChannel<
         PostgresChannelRepository,
         PostgresUserProfileRepository,
-        PostgresServerUnitOfWork,
+        PostgresCommunityUnitOfWork,
     >,
     pub undeafen_channel_usecase: UndeafenChannel<
         PostgresChannelRepository,
         PostgresUserProfileRepository,
-        PostgresServerUnitOfWork,
+        PostgresCommunityUnitOfWork,
     >,
     pub delete_channel_usecase:
-        DeleteChannel<PostgresChannelRepository, LiveKitService, PostgresServerUnitOfWork>,
+        DeleteChannel<PostgresChannelRepository, LiveKitService, PostgresCommunityUnitOfWork>,
     pub list_channel_participants_usecase:
         ListChannelParticipants<
             PostgresChannelRepository,
-            PostgresServerRepository,
+            PostgresCommunityRepository,
             PostgresFriendshipRepository,
         >,
     pub join_text_channel_usecase: JoinTextChannel<
         PostgresChannelRepository,
-        PostgresServerRepository,
+        PostgresCommunityRepository,
         PostgresChannelUnitOfWork,
         BcryptHasher,
     >,
     pub send_channel_message_usecase: SendChannelMessage<
         PostgresMessageRepository,
         PostgresChannelRepository,
-        PostgresServerRepository,
+        PostgresCommunityRepository,
         PostgresMessageUnitOfWork,
         MediaClaimsClient,
         IdentityUsersClient,
@@ -137,7 +137,7 @@ pub struct AppState {
     pub edit_channel_message_usecase: EditChannelMessage<
         PostgresMessageRepository,
         PostgresChannelRepository,
-        PostgresServerRepository,
+        PostgresCommunityRepository,
         PostgresMessageUnitOfWork,
         MediaClaimsClient,
         IdentityUsersClient,
@@ -145,17 +145,17 @@ pub struct AppState {
     pub delete_channel_message_usecase: DeleteChannelMessage<
         PostgresMessageRepository,
         PostgresChannelRepository,
-        PostgresServerUnitOfWork,
+        PostgresCommunityUnitOfWork,
     >,
     pub list_channel_messages_usecase: ListChannelMessages<
         PostgresMessageRepository,
         PostgresChannelRepository,
-        PostgresServerRepository,
+        PostgresCommunityRepository,
     >,
     pub search_channel_messages_usecase: SearchChannelMessages<
         PostgresMessageRepository,
         PostgresChannelRepository,
-        PostgresServerRepository,
+        PostgresCommunityRepository,
     >,
     pub list_message_attachments_usecase:
         ListMessageAttachments<PostgresMessageRepository, PostgresDmMessageRepository>,
@@ -166,7 +166,7 @@ pub struct AppState {
     pub create_report_usecase: CreateReport<
         PostgresReportRepository,
         PostgresUserProfileRepository,
-        PostgresServerRepository,
+        PostgresCommunityRepository,
         PostgresMessageRepository,
         PostgresDmMessageRepository,
         PostgresChannelRepository,
@@ -188,15 +188,15 @@ pub struct AppState {
         GetDmReadReceipt<PostgresReadStateRepository, PostgresFriendshipRepository, PostgresDmMessageRepository>,
     pub get_channel_read_receipts_usecase:
         GetChannelReadReceipts<PostgresReadStateRepository, PostgresChannelRepository>,
-    pub list_roles_usecase: ListRoles<PostgresServerRepository, PostgresServerRoleRepository>,
-    pub can_manage_server_usecase:
-        CanManageServer<PostgresServerRepository, PostgresServerRoleRepository>,
-    pub create_role_usecase: CreateRole<PostgresServerUnitOfWork>,
-    pub update_role_usecase: UpdateRole<PostgresServerUnitOfWork>,
-    pub delete_role_usecase: DeleteRole<PostgresServerUnitOfWork>,
-    pub assign_role_usecase: AssignRole<PostgresServerUnitOfWork>,
-    pub revoke_role_usecase: RevokeRole<PostgresServerUnitOfWork>,
-    pub swap_roles_usecase: SwapRoles<PostgresServerUnitOfWork>,
+    pub list_roles_usecase: ListRoles<PostgresCommunityRepository, PostgresCommunityRoleRepository>,
+    pub can_manage_community_usecase:
+        CanManageCommunity<PostgresCommunityRepository, PostgresCommunityRoleRepository>,
+    pub create_role_usecase: CreateRole<PostgresCommunityUnitOfWork>,
+    pub update_role_usecase: UpdateRole<PostgresCommunityUnitOfWork>,
+    pub delete_role_usecase: DeleteRole<PostgresCommunityUnitOfWork>,
+    pub assign_role_usecase: AssignRole<PostgresCommunityUnitOfWork>,
+    pub revoke_role_usecase: RevokeRole<PostgresCommunityUnitOfWork>,
+    pub swap_roles_usecase: SwapRoles<PostgresCommunityUnitOfWork>,
     pub list_notification_preferences_usecase:
         ListNotificationPreferences<PostgresNotificationPreferenceRepository>,
     pub set_notification_preference_usecase: SetNotificationPreference<
@@ -205,7 +205,7 @@ pub struct AppState {
         PostgresFriendshipRepository,
     >,
     pub log_call_usecase: LogCall<PostgresDmUnitOfWork, VoiceCallsClient>,
-    pub server_repository: std::sync::Arc<PostgresServerRepository>,
+    pub community_repository: std::sync::Arc<PostgresCommunityRepository>,
     pub message_repository: std::sync::Arc<PostgresMessageRepository>,
     pub dm_repository: std::sync::Arc<PostgresDmMessageRepository>,
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,
@@ -233,48 +233,48 @@ pub struct AppState {
     pub list_dm_previews_usecase: ListDmPreviews<PostgresDmMessageRepository>,
     pub list_dm_messages_usecase: ListDmMessages<PostgresDmMessageRepository>,
     pub search_dm_messages_usecase: SearchDmMessages<PostgresDmMessageRepository>,
-    pub send_server_invite_usecase: SendServerInvite<
+    pub send_community_invite_usecase: SendCommunityInvite<
         PostgresDmMessageRepository,
         PostgresFriendshipRepository,
-        PostgresServerRepository,
-        PostgresServerUnitOfWork,
+        PostgresCommunityRepository,
+        PostgresCommunityUnitOfWork,
         PostgresPrivacyRepository,
         PostgresUserProfileRepository,
     >,
-    pub accept_server_invite_usecase:
-        AcceptServerInvite<PostgresDmMessageRepository, PostgresServerUnitOfWork>,
-    pub decline_server_invite_usecase:
-        DeclineServerInvite<PostgresDmMessageRepository, PostgresDmUnitOfWork>,
-    pub list_sent_server_invites_usecase:
-        ListSentServerInvites<PostgresDmMessageRepository, PostgresServerRepository>,
-    pub create_server_usecase: CreateServer<PostgresServerUnitOfWork, TextModerationClient>,
-    pub delete_server_usecase: DeleteServer<
-        PostgresServerRepository,
+    pub accept_community_invite_usecase:
+        AcceptCommunityInvite<PostgresDmMessageRepository, PostgresCommunityUnitOfWork>,
+    pub decline_community_invite_usecase:
+        DeclineCommunityInvite<PostgresDmMessageRepository, PostgresDmUnitOfWork>,
+    pub list_sent_community_invites_usecase:
+        ListSentCommunityInvites<PostgresDmMessageRepository, PostgresCommunityRepository>,
+    pub create_community_usecase: CreateCommunity<PostgresCommunityUnitOfWork, TextModerationClient>,
+    pub delete_community_usecase: DeleteCommunity<
+        PostgresCommunityRepository,
         PostgresChannelRepository,
-        PostgresServerUnitOfWork,
+        PostgresCommunityUnitOfWork,
         LiveKitService,
     >,
-    pub update_server_usecase: UpdateServer<PostgresServerUnitOfWork, TextModerationClient>,
-    pub create_invite_link_usecase: CreateInviteLink<PostgresServerUnitOfWork>,
+    pub update_community_usecase: UpdateCommunity<PostgresCommunityUnitOfWork, TextModerationClient>,
+    pub create_invite_link_usecase: CreateInviteLink<PostgresCommunityUnitOfWork>,
     pub list_invite_links_usecase:
-        ListInviteLinks<PostgresServerRepository, PostgresServerUnitOfWork>,
-    pub revoke_invite_link_usecase: RevokeInviteLink<PostgresServerUnitOfWork>,
-    pub preview_invite_link_usecase: PreviewInviteLink<PostgresServerRepository>,
+        ListInviteLinks<PostgresCommunityRepository, PostgresCommunityUnitOfWork>,
+    pub revoke_invite_link_usecase: RevokeInviteLink<PostgresCommunityUnitOfWork>,
+    pub preview_invite_link_usecase: PreviewInviteLink<PostgresCommunityRepository>,
     pub join_by_invite_link_usecase:
-        JoinByInviteLink<PostgresServerRepository, PostgresServerUnitOfWork>,
+        JoinByInviteLink<PostgresCommunityRepository, PostgresCommunityUnitOfWork>,
     pub public_app_url: String,
-    pub leave_server_usecase:
-        LeaveServer<PostgresServerUnitOfWork>,
+    pub leave_community_usecase:
+        LeaveCommunity<PostgresCommunityUnitOfWork>,
     pub kick_member_usecase:
-        KickMember<PostgresServerUnitOfWork>,
-    pub list_servers_by_user_usecase: ListServersByUser<PostgresServerRepository>,
-    pub list_server_members_usecase: ListServerMembers<PostgresServerRepository>,
-    pub list_server_channels_usecase: ListServerChannels<PostgresServerRepository>,
+        KickMember<PostgresCommunityUnitOfWork>,
+    pub list_communities_by_user_usecase: ListCommunitiesByUser<PostgresCommunityRepository>,
+    pub list_community_members_usecase: ListCommunityMembers<PostgresCommunityRepository>,
+    pub list_community_channels_usecase: ListCommunityChannels<PostgresCommunityRepository>,
     pub get_home_overview_usecase: GetHomeOverview<PostgresChannelRepository>,
     pub get_user_profile_usecase:
-        GetUserProfile<PostgresUserProfileRepository, PostgresServerRepository, PostgresChannelRepository>,
+        GetUserProfile<PostgresUserProfileRepository, PostgresCommunityRepository, PostgresChannelRepository>,
     pub get_voice_presence_usecase:
-        GetVoicePresence<PostgresServerRepository, PostgresChannelRepository>,
+        GetVoicePresence<PostgresCommunityRepository, PostgresChannelRepository>,
     pub update_stream_viewer_usecase:
-        UpdateStreamViewer<PostgresServerRepository, PostgresChannelRepository>,
+        UpdateStreamViewer<PostgresCommunityRepository, PostgresChannelRepository>,
 }

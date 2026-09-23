@@ -83,8 +83,8 @@ impl<E: HttpMapping + std::fmt::Debug> From<E> for HttpError {
 use media::ports::image_moderation::ImageModerationError;
 use media::usecases::attachment::delete_attachment::DeleteAttachmentError;
 use media::usecases::attachment::upload_attachment::UploadAttachmentError;
-use media::usecases::server::get_logo::GetServerLogoError;
-use media::usecases::server::update_logo::UpdateServerLogoError;
+use media::usecases::community::get_logo::GetCommunityLogoError;
+use media::usecases::community::update_logo::UpdateCommunityLogoError;
 use media::usecases::user::delete_avatar::DeleteUserAvatarError;
 use media::usecases::user::get_avatar::GetUserAvatarError;
 use media::usecases::user::update_avatar::UpdateUserAvatarError;
@@ -253,63 +253,63 @@ impl HttpMapping for GetUserAvatarError {
     }
 }
 
-impl HttpMapping for UpdateServerLogoError {
+impl HttpMapping for UpdateCommunityLogoError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            UpdateServerLogoError::ServerNotFound => StatusCode::NOT_FOUND,
-            UpdateServerLogoError::NotOwner => StatusCode::FORBIDDEN,
-            UpdateServerLogoError::OwnerLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
-            UpdateServerLogoError::Repository(e) => e.to_http_status(),
-            UpdateServerLogoError::Storage(e) => e.to_http_status(),
-            UpdateServerLogoError::Moderation(e) => e.to_http_status(),
+            UpdateCommunityLogoError::CommunityNotFound => StatusCode::NOT_FOUND,
+            UpdateCommunityLogoError::NotOwner => StatusCode::FORBIDDEN,
+            UpdateCommunityLogoError::OwnerLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
+            UpdateCommunityLogoError::Repository(e) => e.to_http_status(),
+            UpdateCommunityLogoError::Storage(e) => e.to_http_status(),
+            UpdateCommunityLogoError::Moderation(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
         match self {
-            UpdateServerLogoError::ServerNotFound => "Server not found.".to_string(),
-            UpdateServerLogoError::NotOwner => {
-                "Only the server owner can change the logo.".to_string()
+            UpdateCommunityLogoError::CommunityNotFound => "Community not found.".to_string(),
+            UpdateCommunityLogoError::NotOwner => {
+                "Only the community owner can change the logo.".to_string()
             }
-            UpdateServerLogoError::OwnerLookup(_) => {
-                "Server ownership is temporarily unavailable. Try again later.".to_string()
+            UpdateCommunityLogoError::OwnerLookup(_) => {
+                "Community ownership is temporarily unavailable. Try again later.".to_string()
             }
-            UpdateServerLogoError::Repository(e) => e.to_user_message(),
-            UpdateServerLogoError::Storage(e) => e.to_user_message(),
-            UpdateServerLogoError::Moderation(e) => e.to_user_message(),
+            UpdateCommunityLogoError::Repository(e) => e.to_user_message(),
+            UpdateCommunityLogoError::Storage(e) => e.to_user_message(),
+            UpdateCommunityLogoError::Moderation(e) => e.to_user_message(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
-            UpdateServerLogoError::ServerNotFound => "SERVER_NOT_FOUND",
-            UpdateServerLogoError::NotOwner => "SERVER_NOT_OWNER",
-            UpdateServerLogoError::OwnerLookup(_) => "OWNER_LOOKUP_UNAVAILABLE",
-            UpdateServerLogoError::Repository(e) => e.to_error_code(),
-            UpdateServerLogoError::Storage(e) => e.to_error_code(),
-            UpdateServerLogoError::Moderation(e) => e.to_error_code(),
+            UpdateCommunityLogoError::CommunityNotFound => "COMMUNITY_NOT_FOUND",
+            UpdateCommunityLogoError::NotOwner => "COMMUNITY_NOT_OWNER",
+            UpdateCommunityLogoError::OwnerLookup(_) => "OWNER_LOOKUP_UNAVAILABLE",
+            UpdateCommunityLogoError::Repository(e) => e.to_error_code(),
+            UpdateCommunityLogoError::Storage(e) => e.to_error_code(),
+            UpdateCommunityLogoError::Moderation(e) => e.to_error_code(),
         }
     }
 }
 
-impl HttpMapping for GetServerLogoError {
+impl HttpMapping for GetCommunityLogoError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            GetServerLogoError::NotFound => StatusCode::NOT_FOUND,
-            GetServerLogoError::Repository(e) => e.to_http_status(),
-            GetServerLogoError::Storage(e) => e.to_http_status(),
+            GetCommunityLogoError::NotFound => StatusCode::NOT_FOUND,
+            GetCommunityLogoError::Repository(e) => e.to_http_status(),
+            GetCommunityLogoError::Storage(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
         match self {
-            GetServerLogoError::NotFound => "Logo not found.".to_string(),
-            GetServerLogoError::Repository(e) => e.to_user_message(),
-            GetServerLogoError::Storage(e) => e.to_user_message(),
+            GetCommunityLogoError::NotFound => "Logo not found.".to_string(),
+            GetCommunityLogoError::Repository(e) => e.to_user_message(),
+            GetCommunityLogoError::Storage(e) => e.to_user_message(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
-            GetServerLogoError::NotFound => "LOGO_NOT_FOUND",
-            GetServerLogoError::Repository(e) => e.to_error_code(),
-            GetServerLogoError::Storage(e) => e.to_error_code(),
+            GetCommunityLogoError::NotFound => "LOGO_NOT_FOUND",
+            GetCommunityLogoError::Repository(e) => e.to_error_code(),
+            GetCommunityLogoError::Storage(e) => e.to_error_code(),
         }
     }
 }

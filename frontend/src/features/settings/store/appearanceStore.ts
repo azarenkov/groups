@@ -89,7 +89,7 @@ const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
   reduceMotion: 0,
 };
 
-const toServerPatch = (patch: Partial<AppearanceSettings>) => {
+const toCommunityPatch = (patch: Partial<AppearanceSettings>) => {
   const body: {
     theme?: string;
     accent?: string;
@@ -117,7 +117,7 @@ const flushSave = async (): Promise<void> => {
   const patch = pendingPatch;
   const owner = pendingOwner;
   pendingPatch = {};
-  const body = toServerPatch(patch);
+  const body = toCommunityPatch(patch);
   if (Object.keys(body).length === 0) return;
   inFlight = true;
   inFlightPatch = patch;

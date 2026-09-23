@@ -14,7 +14,7 @@ interface PendingOverlay {
   isMuted?: boolean;
   mutedBy?: string;
   deafenedBy?: string | null;
-  serverId?: string;
+  communityId?: string;
 }
 
 const applyOverlay = (
@@ -42,13 +42,13 @@ interface VoicePresenceState {
     userId: string,
     isMuted: boolean,
     mutedBy?: string,
-    serverId?: string,
+    communityId?: string,
   ) => void;
   setChannelDeafen: (
     channelId: string,
     userId: string,
     deafenedBy: string | undefined,
-    serverId?: string,
+    communityId?: string,
   ) => void;
   setChannelMedia: (
     channelId: string,
@@ -57,8 +57,8 @@ interface VoicePresenceState {
     enabled: boolean,
   ) => void;
   clearChannel: (channelId: string) => void;
-  purgePendingMutes: (channelIds: string[], userId: string, serverId?: string) => void;
-  purgePendingForServer: (serverId: string, channelIds: string[]) => void;
+  purgePendingMutes: (channelIds: string[], userId: string, communityId?: string) => void;
+  purgePendingForCommunity: (communityId: string, channelIds: string[]) => void;
   resetRosters: () => void;
   clearAll: () => void;
 }
@@ -161,7 +161,7 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
       return changed ? { byChannel } : state;
     }),
 
-  setChannelMute: (channelId, userId, isMuted, mutedBy, serverId) =>
+  setChannelMute: (channelId, userId, isMuted, mutedBy, communityId) =>
     set((state) => {
       const existing = state.byChannel[channelId];
       if (!existing || !existing.some((m) => m.id === userId)) {
@@ -174,7 +174,7 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
                 ...(state.pendingMutes[channelId]?.[userId] ?? {}),
                 isMuted,
                 mutedBy: isMuted ? mutedBy : undefined,
-                serverId,
+                communityId,
               },
             },
           },
@@ -188,7 +188,7 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
       return { byChannel: { ...state.byChannel, [channelId]: next } };
     }),
 
-  setChannelDeafen: (channelId, userId, deafenedBy, serverId) =>
+  setChannelDeafen: (channelId, userId, deafenedBy, communityId) =>
     set((state) => {
       const existing = state.byChannel[channelId];
       if (!existing || !existing.some((m) => m.id === userId)) {
@@ -200,7 +200,7 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
               [userId]: {
                 ...(state.pendingMutes[channelId]?.[userId] ?? {}),
                 deafenedBy: deafenedBy ?? null,
-                serverId,
+                communityId,
               },
             },
           },
@@ -226,14 +226,14 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
       return { byChannel: { ...state.byChannel, [channelId]: next } };
     }),
 
-  purgePendingMutes: (channelIds, userId, serverId) =>
+  purgePendingMutes: (channelIds, userId, communityId) =>
     set((state) => {
       let changed = false;
       const pendingMutes = { ...state.pendingMutes };
       const targets = new Set(channelIds);
-      if (serverId) {
+      if (communityId) {
         for (const [channelId, overlay] of Object.entries(pendingMutes)) {
-          if (overlay[userId]?.serverId === serverId) targets.add(channelId);
+          if (overlay[userId]?.communityId === communityId) targets.add(channelId);
         }
       }
       for (const channelId of targets) {
@@ -248,14 +248,14 @@ export const useVoicePresenceStore = create<VoicePresenceState>()((set) => ({
       return changed ? { pendingMutes } : state;
     }),
 
-  purgePendingForServer: (serverId, channelIds) =>
+  purgePendingForCommunity: (communityId, channelIds) =>
     set((state) => {
       let changed = false;
       const pendingMutes = { ...state.pendingMutes };
       for (const [channelId, overlay] of Object.entries(pendingMutes)) {
         const belongs =
           channelIds.includes(channelId) ||
-          Object.values(overlay).some((o) => o.serverId === serverId);
+          Object.values(overlay).some((o) => o.communityId === communityId);
         if (!belongs) continue;
         delete pendingMutes[channelId];
         changed = true;

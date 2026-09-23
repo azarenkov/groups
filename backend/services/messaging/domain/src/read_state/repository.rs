@@ -15,7 +15,7 @@ pub enum DmReadReceipt {
 #[derive(Debug, Clone)]
 pub struct ChannelUnread {
     pub channel_id: Uuid,
-    pub server_id: Uuid,
+    pub community_id: Uuid,
     pub count: i64,
 }
 

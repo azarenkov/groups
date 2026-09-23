@@ -53,7 +53,7 @@ describe("ProfileStyleSettings", () => {
     expect(useEntitlementsStore.getState().badgeStyle).toBe("ink");
   });
 
-  it("puts the old style back when the server refuses", async () => {
+  it("puts the old style back when the community refuses", async () => {
     mockedApi.setBadgeStyle.mockRejectedValueOnce(new Error("nope"));
     act(() => useEntitlementsStore.getState().applyTier("pro"));
     render(<ProfileStyleSettings />);

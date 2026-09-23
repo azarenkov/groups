@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 export interface ReportTarget {
-  type: "user" | "server";
+  type: "user" | "community";
   id: string;
   name: string;
   messageId?: string;

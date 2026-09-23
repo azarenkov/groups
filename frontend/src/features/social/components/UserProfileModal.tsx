@@ -1,7 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
-import { ServerLogo, UserAvatar } from "../../../shared/ui/Avatar";
+import { CommunityLogo, UserAvatar } from "../../../shared/ui/Avatar";
 import { homeAPI, type PublicProfile } from "../../home/api/home";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useFriendshipStore } from "../store/friendshipStore";
@@ -223,7 +223,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
               <span className={"profile-presence " + (online ? "online" : "offline")} />
             </span>
             {profile?.voiceRoom && !blockedMe && (
-              <span className="profile-voice-pill" title={profile.voiceRoom.serverName}>
+              <span className="profile-voice-pill" title={profile.voiceRoom.communityName}>
                 <Icon name="volume" size={13} />
                 {t("inVoice", { room: profile.voiceRoom.channelName })}
               </span>
@@ -388,13 +388,13 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
                   </div>
                 </div>
               )}
-              {profile && !blockedMe && profile.mutualServers.length > 0 && (
+              {profile && !blockedMe && profile.mutualCommunities.length > 0 && (
                 <div className="profile-mutual">
-                  <div className="profile-label">{t("mutualServers", { count: profile.mutualServers.length })}</div>
+                  <div className="profile-label">{t("mutualCommunities", { count: profile.mutualCommunities.length })}</div>
                   <div className="profile-chips">
-                    {profile.mutualServers.map((s) => (
+                    {profile.mutualCommunities.map((s) => (
                       <span key={s.id} className="profile-chip" title={s.name}>
-                        <ServerLogo serverId={s.id} name={s.name} accent={s.accentColor} className="profile-chip-logo" />
+                        <CommunityLogo communityId={s.id} name={s.name} accent={s.accentColor} className="profile-chip-logo" />
                         <span>{s.name}</span>
                       </span>
                     ))}

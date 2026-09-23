@@ -15,9 +15,9 @@ pub struct DmMessageResponse {
     pub recipient_id: Uuid,
     pub content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub invite_server_id: Option<Uuid>,
+    pub invite_community_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub invite_server_name: Option<String>,
+    pub invite_community_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub call_status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -36,8 +36,8 @@ impl From<SendDmMessageResponse> for DmMessageResponse {
             author_name: None,
             recipient_id: value.recipient_id,
             content: value.content,
-            invite_server_id: value.invite_server_id,
-            invite_server_name: value.invite_server_name,
+            invite_community_id: value.invite_community_id,
+            invite_community_name: value.invite_community_name,
             call_status: None,
             call_duration_seconds: None,
             created_at: value.created_at,
@@ -59,8 +59,8 @@ impl From<DmMessageDto> for DmMessageResponse {
             author_name: Some(value.sender_name),
             recipient_id: value.recipient_id,
             content: value.content,
-            invite_server_id: value.invite_server_id,
-            invite_server_name: value.invite_server_name,
+            invite_community_id: value.invite_community_id,
+            invite_community_name: value.invite_community_name,
             call_status: value.call_status,
             call_duration_seconds: value.call_duration_seconds,
             created_at: value.created_at,
@@ -72,13 +72,13 @@ impl From<DmMessageDto> for DmMessageResponse {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AcceptServerInviteResponse {
-    pub server_id: Uuid,
+pub struct AcceptCommunityInviteResponse {
+    pub community_id: Uuid,
 }
 
-impl AcceptServerInviteResponse {
-    pub fn new(server_id: Uuid) -> Self {
-        Self { server_id }
+impl AcceptCommunityInviteResponse {
+    pub fn new(community_id: Uuid) -> Self {
+        Self { community_id }
     }
 }
 

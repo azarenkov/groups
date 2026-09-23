@@ -69,8 +69,8 @@ mod tests {
             "rift.events.user.renamed",
         );
         assert_eq!(
-            normalize_subject("rift.events.dlq.media.server"),
-            "rift.events.dlq.media.server",
+            normalize_subject("rift.events.dlq.media.community"),
+            "rift.events.dlq.media.community",
         );
     }
 

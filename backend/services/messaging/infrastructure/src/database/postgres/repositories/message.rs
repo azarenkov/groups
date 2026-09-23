@@ -125,8 +125,8 @@ impl MessageRepository for PostgresMessageRepository {
             INNER JOIN channels c ON c.id = m.channel_id
             LEFT JOIN channel_text_participants p
                 ON p.channel_id = m.channel_id AND p.user_id = $2
-            LEFT JOIN server_members sm
-                ON sm.server_id = c.server_id AND sm.user_id = $2
+            LEFT JOIN community_members sm
+                ON sm.community_id = c.community_id AND sm.user_id = $2
             WHERE a.attachment_id = $1
               AND (
                 p.user_id IS NOT NULL

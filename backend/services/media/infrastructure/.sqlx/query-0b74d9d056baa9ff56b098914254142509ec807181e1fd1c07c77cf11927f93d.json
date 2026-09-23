@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                WITH old AS (\n                    DELETE FROM media_community_logos WHERE community_id = $1\n                    RETURNING storage_key\n                ), q AS (\n                    INSERT INTO storage_cleanup_queue (storage_key)\n                    SELECT storage_key FROM old\n                    ON CONFLICT (storage_key) DO NOTHING\n                )\n                SELECT storage_key FROM old\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0b74d9d056baa9ff56b098914254142509ec807181e1fd1c07c77cf11927f93d"
+}

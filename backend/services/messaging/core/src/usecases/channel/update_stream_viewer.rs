@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::session_id::SessionId, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::session_id::SessionId, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -11,40 +11,40 @@ use crate::dto::requests::channel::update_stream_viewer::UpdateStreamViewerReque
 pub enum UpdateStreamViewerError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Not a member of this server")]
+    #[error("Not a member of this community")]
     NotMember,
 }
 
 pub struct UpdateStreamViewer<S, C>
 where
-    S: ServerRepository,
+    S: CommunityRepository,
     C: ChannelRepository,
 {
-    server_repository: Arc<S>,
+    community_repository: Arc<S>,
     channel_repository: Arc<C>,
 }
 
 impl<S, C> UpdateStreamViewer<S, C>
 where
-    S: ServerRepository,
+    S: CommunityRepository,
     C: ChannelRepository,
 {
-    pub fn new(server_repository: Arc<S>, channel_repository: Arc<C>) -> Self {
+    pub fn new(community_repository: Arc<S>, channel_repository: Arc<C>) -> Self {
         Self {
-            server_repository,
+            community_repository,
             channel_repository,
         }
     }
 
     pub async fn execute(
         &self,
-        server_id: ServerId,
+        community_id: CommunityId,
         viewer_id: UserId,
         request: UpdateStreamViewerRequest,
     ) -> Result<i64, UpdateStreamViewerError> {
         if !self
-            .server_repository
-            .is_server_member(&server_id, &viewer_id)
+            .community_repository
+            .is_community_member(&community_id, &viewer_id)
             .await?
         {
             return Err(UpdateStreamViewerError::NotMember);
@@ -57,7 +57,7 @@ where
         let count = self
             .channel_repository
             .set_stream_viewer(
-                &server_id,
+                &community_id,
                 &channel_id,
                 &streamer_id,
                 &viewer_id,

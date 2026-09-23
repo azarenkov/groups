@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, channel::id::ChannelId, channel::repository::ChannelRepository, message::MessageError, message::id::MessageId, message::repository::MessageRepository, server::id::ServerId, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::id::ChannelId, channel::repository::ChannelRepository, message::MessageError, message::id::MessageId, message::repository::MessageRepository, community::id::CommunityId, community::policy::PolicyError, community::unit_of_work::CommunityUnitOfWork};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -13,8 +13,8 @@ pub enum DeleteChannelMessageError {
     Repository(#[from] RepositoryError),
     #[error("Message domain error: {0}")]
     Domain(#[from] MessageError),
-    #[error("Not a member of the server")]
-    NotServerMember,
+    #[error("Not a member of the community")]
+    NotCommunityMember,
     #[error("Message not found")]
     MessageNotFound,
 }
@@ -22,7 +22,7 @@ pub enum DeleteChannelMessageError {
 impl From<PolicyError> for DeleteChannelMessageError {
     fn from(err: PolicyError) -> Self {
         match err {
-            PolicyError::NotMember => DeleteChannelMessageError::NotServerMember,
+            PolicyError::NotMember => DeleteChannelMessageError::NotCommunityMember,
             _ => DeleteChannelMessageError::Domain(MessageError::NotAuthor),
         }
     }
@@ -32,7 +32,7 @@ pub struct DeleteChannelMessage<M, C, W>
 where
     M: MessageRepository,
     C: ChannelRepository,
-    W: ServerUnitOfWork,
+    W: CommunityUnitOfWork,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
@@ -43,7 +43,7 @@ impl<M, C, W> DeleteChannelMessage<M, C, W>
 where
     M: MessageRepository,
     C: ChannelRepository,
-    W: ServerUnitOfWork,
+    W: CommunityUnitOfWork,
 {
     pub fn new(message_repository: Arc<M>, channel_repository: Arc<C>, unit_of_work: Arc<W>) -> Self {
         Self {
@@ -58,7 +58,7 @@ where
         request: DeleteChannelMessageRequest,
         deleter_id: UserId,
     ) -> Result<(), DeleteChannelMessageError> {
-        let server_id = ServerId::new(request.server_id);
+        let community_id = CommunityId::new(request.community_id);
         let channel_id = ChannelId::new(request.channel_id);
         let message_id = MessageId::new(request.message_id);
 
@@ -84,7 +84,7 @@ where
                 other => DeleteChannelMessageError::Repository(other),
             })?;
 
-        if channel.server_id() != &server_id {
+        if channel.community_id() != &community_id {
             return Err(DeleteChannelMessageError::MessageNotFound);
         }
 
@@ -93,9 +93,9 @@ where
             .list_text_channel_member_ids(&channel_id)
             .await?;
 
-        let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let server = tx.load_server().await?;
-        server.ensure_can_delete_message(&deleter_id, message.author_id())?;
+        let mut tx = self.unit_of_work.begin(&community_id).await?;
+        let community = tx.load_community().await?;
+        community.ensure_can_delete_message(&deleter_id, message.author_id())?;
         let is_owner = message.author_id() != &deleter_id;
 
         let now = Utc::now();

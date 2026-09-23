@@ -1,5 +1,5 @@
 use actix_web::{HttpResponse, Responder, delete, get, post, put, web};
-use messaging_domain::server::id::ServerId;
+use messaging_domain::community::id::CommunityId;
 use domain::user::id::UserId;
 use serde::{Deserialize, Serialize};
 use api_common::middleware::auth::RateLimitedAuthToken;
@@ -32,17 +32,17 @@ struct RolesResponse {
     assignments: Vec<AssignmentItem>,
 }
 
-#[get("/{server_id}/roles")]
+#[get("/{community_id}/roles")]
 async fn list_roles(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let overview = app_state
         .list_roles_usecase
-        .execute(server_id, user_id)
+        .execute(community_id, user_id)
         .await?;
     let response = RolesResponse {
         roles: overview
@@ -73,7 +73,7 @@ struct RoleBody {
     permissions: i64,
 }
 
-#[post("/{server_id}/roles")]
+#[post("/{community_id}/roles")]
 async fn create_role(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
@@ -81,11 +81,11 @@ async fn create_role(
     body: web::Json<RoleBody>,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let body = body.into_inner();
     let role = app_state
         .create_role_usecase
-        .execute(server_id, user_id, body.name, body.color, body.permissions)
+        .execute(community_id, user_id, body.name, body.color, body.permissions)
         .await?;
     Ok(HttpResponse::Created().json(ApiResponse::success(RoleItem {
         id: role.id,
@@ -107,7 +107,7 @@ struct UpdateRoleBody {
     permissions_remove: i64,
 }
 
-#[put("/{server_id}/roles/{role_id}")]
+#[put("/{community_id}/roles/{role_id}")]
 async fn update_role(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
@@ -115,15 +115,15 @@ async fn update_role(
     body: web::Json<UpdateRoleBody>,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let (server_id, role_id) = path.into_inner();
+    let (community_id, role_id) = path.into_inner();
     let body = body.into_inner();
     app_state
         .update_role_usecase
         .execute(
-            ServerId::new(server_id),
+            CommunityId::new(community_id),
             user_id,
             role_id,
-            messaging_domain::server::role::RolePatch {
+            messaging_domain::community::role::RolePatch {
                 name: body.name,
                 color: body.color,
                 add_permissions: body.permissions_add,
@@ -134,33 +134,33 @@ async fn update_role(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[delete("/{server_id}/roles/{role_id}")]
+#[delete("/{community_id}/roles/{role_id}")]
 async fn delete_role(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let (server_id, role_id) = path.into_inner();
+    let (community_id, role_id) = path.into_inner();
     app_state
         .delete_role_usecase
-        .execute(ServerId::new(server_id), user_id, role_id)
+        .execute(CommunityId::new(community_id), user_id, role_id)
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[put("/{server_id}/members/{member_id}/roles/{role_id}")]
+#[put("/{community_id}/members/{member_id}/roles/{role_id}")]
 async fn assign_role(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid, Uuid)>,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let (server_id, member_id, role_id) = path.into_inner();
+    let (community_id, member_id, role_id) = path.into_inner();
     app_state
         .assign_role_usecase
         .execute(
-            ServerId::new(server_id),
+            CommunityId::new(community_id),
             user_id,
             UserId::new(member_id),
             role_id,
@@ -169,18 +169,18 @@ async fn assign_role(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[delete("/{server_id}/members/{member_id}/roles/{role_id}")]
+#[delete("/{community_id}/members/{member_id}/roles/{role_id}")]
 async fn revoke_role(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid, Uuid)>,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let (server_id, member_id, role_id) = path.into_inner();
+    let (community_id, member_id, role_id) = path.into_inner();
     app_state
         .revoke_role_usecase
         .execute(
-            ServerId::new(server_id),
+            CommunityId::new(community_id),
             user_id,
             UserId::new(member_id),
             role_id,
@@ -189,17 +189,17 @@ async fn revoke_role(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[post("/{server_id}/roles/{role_a}/swap/{role_b}")]
+#[post("/{community_id}/roles/{role_a}/swap/{role_b}")]
 async fn swap_roles(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid, Uuid)>,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let (server_id, role_a, role_b) = path.into_inner();
+    let (community_id, role_a, role_b) = path.into_inner();
     app_state
         .swap_roles_usecase
-        .execute(ServerId::new(server_id), user_id, role_a, role_b)
+        .execute(CommunityId::new(community_id), user_id, role_a, role_b)
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }

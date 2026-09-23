@@ -8,7 +8,7 @@ use media::usecases::{
         cleanup_orphans::CleanupOrphanAttachments, delete_attachment::DeleteAttachment,
         upload_attachment::UploadAttachment,
     },
-    server::{get_logo::GetServerLogo, update_logo::UpdateServerLogo},
+    community::{get_logo::GetCommunityLogo, update_logo::UpdateCommunityLogo},
     user::{
         delete_avatar::DeleteUserAvatar, get_avatar::GetUserAvatar,
         update_avatar::UpdateUserAvatar,
@@ -108,12 +108,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let nats_config = infrastructure_common::config::nats::NatsConfig::from_env()?;
     let nats_jetstream =
         infrastructure_common::messaging::nats::connection::create_jetstream(&nats_config).await?;
-    let server_stream = std::env::var("MEDIA_SERVER_STREAM")
-        .unwrap_or_else(|_| "RIFT_SERVER_EVENTS".to_string());
+    let community_stream = std::env::var("MEDIA_COMMUNITY_STREAM")
+        .unwrap_or_else(|_| "RIFT_COMMUNITY_EVENTS".to_string());
     crate::projection::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
-        server_stream,
+        community_stream,
         media_repository.clone(),
         minio_storage.clone(),
     );
@@ -187,14 +187,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             banner_repository.clone(),
             minio_storage.clone(),
         ),
-        update_server_logo_usecase: UpdateServerLogo::new(
+        update_community_logo_usecase: UpdateCommunityLogo::new(
             media_repository.clone(),
             attachment_repository.clone(),
             minio_storage.clone(),
             nsfw_detector.clone(),
             owner_lookup.clone(),
         ),
-        get_server_logo_usecase: GetServerLogo::new(
+        get_community_logo_usecase: GetCommunityLogo::new(
             media_repository.clone(),
             minio_storage.clone(),
         ),

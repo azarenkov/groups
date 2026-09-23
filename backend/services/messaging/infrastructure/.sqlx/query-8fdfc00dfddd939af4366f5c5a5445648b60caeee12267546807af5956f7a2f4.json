@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH removed AS (\n                DELETE FROM message_attachments a\n                USING messages m, channels c\n                WHERE m.id = a.message_id AND c.id = m.channel_id AND c.community_id = $1\n                RETURNING a.storage_key\n            )\n            SELECT storage_key AS \"storage_key!\" FROM removed\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8fdfc00dfddd939af4366f5c5a5445648b60caeee12267546807af5956f7a2f4"
+}

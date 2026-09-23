@@ -27,8 +27,8 @@ fn lookup_failed(e: RelationLookupError) -> RepositoryError {
 
 #[async_trait]
 impl<D: RecipientDirectory, B: RelationDirectory> RecipientDirectory for BlockAwareDirectory<D, B> {
-    async fn server_members(&self, server_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
-        self.inner.server_members(server_id).await
+    async fn community_members(&self, community_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
+        self.inner.community_members(community_id).await
     }
 
     async fn user_name(&self, user_id: Uuid) -> Result<Option<String>, RepositoryError> {

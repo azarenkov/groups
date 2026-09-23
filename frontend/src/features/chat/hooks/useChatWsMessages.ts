@@ -84,8 +84,8 @@ export function useChatWsMessages(params: {
         recipientId: string;
         content: string;
         occurredAt: string;
-        inviteServerId?: string;
-        inviteServerName?: string;
+        inviteCommunityId?: string;
+        inviteCommunityName?: string;
         callStatus?: string;
         callDurationSeconds?: number;
         attachments?: Attachment[];
@@ -101,8 +101,8 @@ export function useChatWsMessages(params: {
                   authorId: m.senderId,
                   authorName: m.senderName,
                   content: m.content,
-                  inviteServerId: m.inviteServerId,
-                  inviteServerName: m.inviteServerName,
+                  inviteCommunityId: m.inviteCommunityId,
+                  inviteCommunityName: m.inviteCommunityName,
                   callStatus: m.callStatus,
                   callDurationSeconds: m.callDurationSeconds,
                   attachments: m.attachments,

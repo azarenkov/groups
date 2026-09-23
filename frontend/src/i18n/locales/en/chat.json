@@ -42,7 +42,7 @@
   "resultsForPlural": "{{count}} results for \"{{query}}\"",
   "you": "You",
   "couldNotJoin": "Couldn't join channel.",
-  "couldNotJoinServer": "Couldn't join the server.",
+  "couldNotJoinCommunity": "Couldn't join the community.",
   "couldNotSend": "Couldn't send message.",
   "dmsClosed": "This user does not accept direct messages.",
   "userBlocked": "You cannot interact with this user.",
@@ -68,17 +68,17 @@
     "dmNothingHint": "Direct messages are muted"
   },
   "invite": {
-    "label": "Server invite",
-    "serverFallback": "Server",
-    "youSent": "You sent a server invite",
+    "label": "Community invite",
+    "communityFallback": "Community",
+    "youSent": "You sent a community invite",
     "invitedYou": "{{name}} invited you to join",
     "open": "Open",
     "join": "Join",
     "decline": "Decline"
   },
   "system": {
-    "memberJoined": "{{name}} joined the server",
-    "memberLeft": "{{name}} left the server"
+    "memberJoined": "{{name}} joined the community",
+    "memberLeft": "{{name}} left the community"
   },
   "attachFile": "Attach a file",
   "attachmentsUploading": "Files are still uploading…",

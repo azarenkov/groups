@@ -8,8 +8,8 @@ interface DmRow {
   authorName?: string;
   recipientId: string;
   content: string;
-  inviteServerId?: string;
-  inviteServerName?: string;
+  inviteCommunityId?: string;
+  inviteCommunityName?: string;
   callStatus?: string;
   callDurationSeconds?: number;
   attachments?: Attachment[];
@@ -23,8 +23,8 @@ const toChannelMessage = (r: DmRow): ChannelMessage => ({
   authorId: r.authorId,
   authorName: r.authorName,
   content: r.content,
-  inviteServerId: r.inviteServerId,
-  inviteServerName: r.inviteServerName,
+  inviteCommunityId: r.inviteCommunityId,
+  inviteCommunityName: r.inviteCommunityName,
   callStatus: r.callStatus,
   callDurationSeconds: r.callDurationSeconds,
   attachments: r.attachments,
@@ -60,7 +60,7 @@ class DmAPI {
       senderId: string;
       content: string;
       callStatus: string | null;
-      inviteServerId: string | null;
+      inviteCommunityId: string | null;
       hasAttachments: boolean;
       createdAt: string;
     }[];
@@ -84,25 +84,25 @@ class DmAPI {
     return toChannelMessage(response.data.data);
   }
 
-  async sendServerInvite(
+  async sendCommunityInvite(
     friendId: string,
-    serverId: string,
+    communityId: string,
   ): Promise<ChannelMessage> {
     const response = await this.client.post(
-      `/v1/users/me/dms/${friendId}/server-invite`,
-      { serverId },
+      `/v1/users/me/dms/${friendId}/community-invite`,
+      { communityId },
     );
     return toChannelMessage(response.data.data);
   }
 
-  async acceptServerInvite(messageId: string): Promise<{ serverId: string }> {
+  async acceptCommunityInvite(messageId: string): Promise<{ communityId: string }> {
     const response = await this.client.post(
       `/v1/users/me/dms/messages/${messageId}/accept-invite`,
     );
-    return { serverId: response.data.data.serverId };
+    return { communityId: response.data.data.communityId };
   }
 
-  async declineServerInvite(messageId: string): Promise<void> {
+  async declineCommunityInvite(messageId: string): Promise<void> {
     await this.client.post(
       `/v1/users/me/dms/messages/${messageId}/decline-invite`,
     );

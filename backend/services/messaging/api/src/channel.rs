@@ -12,7 +12,7 @@ use messaging::dto::requests::channel::{
     send_channel_message::SendChannelMessageRequest, unmute_channel::UnmuteChannelRequest,
 };
 use serde::Deserialize;
-use messaging_domain::{channel::id::ChannelId, server::id::ServerId};
+use messaging_domain::{channel::id::ChannelId, community::id::CommunityId};
 use domain::user::id::UserId;
 use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
@@ -24,7 +24,7 @@ use api_common::dto::{pagination::{PaginationMeta, PaginationQuery}, responses::
 use crate::dto::{requests::channel::{ create_channel::CreateChannelRequestBody, edit_message::EditMessageRequestBody, join_text_channel::JoinTextChannelRequestBody, join_voice_channel::JoinVoiceChannelRequestBody, mute_channel::MuteRequestBody, search_messages::SearchMessagesQuery, send_message::SendMessageRequestBody, unmute_channel::UnmuteRequestBody, }, responses::channel::{ create_channel::CreateChannelResponse, join_voice_channel::JoinVoiceChannelResponse, list_channel_participants::ListChannelParticipantsResponse, message::{ ListChannelMessagesResponse, MessageResponse, SearchChannelMessagesResponse, }, }};
 use crate::http_errors::HttpError;
 
-#[post("/{server_id}/channels")]
+#[post("/{community_id}/channels")]
 async fn create_channel(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
@@ -32,14 +32,14 @@ async fn create_channel(
     path: web::Path<Uuid>,
     body: web::Json<CreateChannelRequestBody>,
 ) -> Result<impl Responder, HttpError> {
-    let server_id = path.into_inner();
+    let community_id = path.into_inner();
     let body: CreateChannelRequestBody = body.into_inner();
     body.validate()?;
 
     let user_id = UserId::new(auth_token.id);
 
     let data = CreateChannelRequest::new(
-        server_id,
+        community_id,
         body.name,
         body.kind.into(),
         body.visibility.into(),
@@ -57,19 +57,19 @@ async fn create_channel(
     Ok(HttpResponse::Created().json(ApiResponse::success(response)))
 }
 
-#[post("/{server_id}/channels/{channel_id}/join_voice")]
+#[post("/{community_id}/channels/{channel_id}/join_voice")]
 async fn join_voice_channel(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<JoinVoiceChannelRequestBody>,
 ) -> Result<impl Responder, HttpError> {
-    let (server_id, channel_id) = path.into_inner();
+    let (community_id, channel_id) = path.into_inner();
     let body = body.into_inner();
 
     let user_id = UserId::new(auth_token.id);
 
-    let data = JoinVoiceChannelRequest::new(channel_id, server_id, body.password);
+    let data = JoinVoiceChannelRequest::new(channel_id, community_id, body.password);
 
     let response: JoinVoiceChannelResponse = app_state
         .join_voice_channel_usecase
@@ -80,7 +80,7 @@ async fn join_voice_channel(
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
-#[post("/{server_id}/channels/{channel_id}/mute")]
+#[post("/{community_id}/channels/{channel_id}/mute")]
 async fn mute_channel(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
@@ -88,13 +88,13 @@ async fn mute_channel(
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<MuteRequestBody>,
 ) -> Result<HttpResponse, HttpError> {
-    let (server_id, channel_id) = path.into_inner();
+    let (community_id, channel_id) = path.into_inner();
 
     let user_id = UserId::new(auth_token.id);
 
     let data = MuteChannelRequest {
         channel_id,
-        server_id,
+        community_id,
         target_user_id: body.target_user_id,
         ctx: request_context(&req),
     };
@@ -106,7 +106,7 @@ async fn mute_channel(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[post("/{server_id}/channels/{channel_id}/unmute")]
+#[post("/{community_id}/channels/{channel_id}/unmute")]
 async fn unmute_channel(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
@@ -114,13 +114,13 @@ async fn unmute_channel(
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<UnmuteRequestBody>,
 ) -> Result<HttpResponse, HttpError> {
-    let (server_id, channel_id) = path.into_inner();
+    let (community_id, channel_id) = path.into_inner();
 
     let user_id = UserId::new(auth_token.id);
 
     let data = UnmuteChannelRequest {
         channel_id,
-        server_id,
+        community_id,
         target_user_id: body.target_user_id,
         ctx: request_context(&req),
     };
@@ -132,7 +132,7 @@ async fn unmute_channel(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[post("/{server_id}/channels/{channel_id}/deafen")]
+#[post("/{community_id}/channels/{channel_id}/deafen")]
 async fn deafen_channel(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
@@ -140,11 +140,11 @@ async fn deafen_channel(
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<MuteRequestBody>,
 ) -> Result<HttpResponse, HttpError> {
-    let (server_id, channel_id) = path.into_inner();
+    let (community_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
     let data = DeafenChannelRequest {
         channel_id,
-        server_id,
+        community_id,
         target_user_id: body.target_user_id,
         ctx: request_context(&req),
     };
@@ -152,7 +152,7 @@ async fn deafen_channel(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[post("/{server_id}/channels/{channel_id}/undeafen")]
+#[post("/{community_id}/channels/{channel_id}/undeafen")]
 async fn undeafen_channel(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
@@ -160,11 +160,11 @@ async fn undeafen_channel(
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<MuteRequestBody>,
 ) -> Result<HttpResponse, HttpError> {
-    let (server_id, channel_id) = path.into_inner();
+    let (community_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
     let data = UndeafenChannelRequest {
         channel_id,
-        server_id,
+        community_id,
         target_user_id: body.target_user_id,
         ctx: request_context(&req),
     };
@@ -172,7 +172,7 @@ async fn undeafen_channel(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[get("/{server_id}/channels/{channel_id}/participants")]
+#[get("/{community_id}/channels/{channel_id}/participants")]
 async fn list_channel_participants(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
@@ -182,11 +182,11 @@ async fn list_channel_participants(
 ) -> Result<impl Responder, HttpError> {
     query.validate()?;
 
-    let (server_id, channel_id) = path.into_inner();
+    let (community_id, channel_id) = path.into_inner();
     let pagination = api_common::pagination::parse(query.page, query.per_page)?;
 
     let data = ListChannelParticipantsRequest::new(
-        server_id,
+        community_id,
         channel_id,
         auth_token.id,
         pagination,
@@ -204,7 +204,7 @@ async fn list_channel_participants(
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
-#[post("/{server_id}/channels/{channel_id}/join")]
+#[post("/{community_id}/channels/{channel_id}/join")]
 async fn join_text_channel(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
@@ -212,7 +212,7 @@ async fn join_text_channel(
     path: web::Path<(Uuid, Uuid)>,
     body: web::Bytes,
 ) -> Result<HttpResponse, HttpError> {
-    let (server_id, channel_id) = path.into_inner();
+    let (community_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
     let password = if body.is_empty() {
         None
@@ -229,7 +229,7 @@ async fn join_text_channel(
     };
 
     let data =
-        JoinTextChannelRequest::new(server_id, channel_id, password, request_context(&req));
+        JoinTextChannelRequest::new(community_id, channel_id, password, request_context(&req));
 
     app_state
         .join_text_channel_usecase
@@ -247,7 +247,7 @@ pub struct ListMessagesQuery {
 }
 
 
-#[get("/{server_id}/channels/{channel_id}/messages")]
+#[get("/{community_id}/channels/{channel_id}/messages")]
 async fn list_channel_messages(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
@@ -255,11 +255,11 @@ async fn list_channel_messages(
     path: web::Path<(Uuid, Uuid)>,
     query: web::Query<ListMessagesQuery>,
 ) -> Result<impl Responder, HttpError> {
-    let (server_id, channel_id) = path.into_inner();
+    let (community_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
     let data = ListChannelMessagesRequest::new(
-        server_id,
+        community_id,
         channel_id,
         query.before,
         query.after,
@@ -289,7 +289,7 @@ async fn list_channel_messages(
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
-#[get("/{server_id}/channels/{channel_id}/messages/search")]
+#[get("/{community_id}/channels/{channel_id}/messages/search")]
 async fn search_channel_messages(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
@@ -298,12 +298,12 @@ async fn search_channel_messages(
     query: web::Query<SearchMessagesQuery>,
 ) -> Result<impl Responder, HttpError> {
     query.validate()?;
-    let (server_id, channel_id) = path.into_inner();
+    let (community_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
     let pagination = api_common::pagination::parse(query.page, query.per_page)?;
 
     let data = SearchChannelMessagesRequest::new(
-        server_id,
+        community_id,
         channel_id,
         query.q.clone(),
         pagination,
@@ -333,7 +333,7 @@ async fn search_channel_messages(
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
-#[post("/{server_id}/channels/{channel_id}/messages")]
+#[post("/{community_id}/channels/{channel_id}/messages")]
 async fn send_channel_message(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
@@ -341,14 +341,14 @@ async fn send_channel_message(
     path: web::Path<(Uuid, Uuid)>,
     body: web::Json<SendMessageRequestBody>,
 ) -> Result<impl Responder, HttpError> {
-    let (server_id, channel_id) = path.into_inner();
+    let (community_id, channel_id) = path.into_inner();
     let body = body.into_inner();
     body.validate()?;
 
     let user_id = UserId::new(auth_token.id);
 
     let data = SendChannelMessageRequest::new(
-        server_id,
+        community_id,
         channel_id,
         body.content,
         body.attachment_ids,
@@ -363,7 +363,7 @@ async fn send_channel_message(
     Ok(HttpResponse::Created().json(ApiResponse::success(MessageResponse::from(response))))
 }
 
-#[patch("/{server_id}/channels/{channel_id}/messages/{message_id}")]
+#[patch("/{community_id}/channels/{channel_id}/messages/{message_id}")]
 async fn edit_channel_message(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
@@ -371,14 +371,14 @@ async fn edit_channel_message(
     path: web::Path<(Uuid, Uuid, Uuid)>,
     body: web::Json<EditMessageRequestBody>,
 ) -> Result<HttpResponse, HttpError> {
-    let (server_id, channel_id, message_id) = path.into_inner();
+    let (community_id, channel_id, message_id) = path.into_inner();
     let body = body.into_inner();
     body.validate()?;
 
     let user_id = UserId::new(auth_token.id);
 
     let data = EditChannelMessageRequest::new(
-        server_id,
+        community_id,
         channel_id,
         message_id,
         body.content,
@@ -395,18 +395,18 @@ async fn edit_channel_message(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[delete("/{server_id}/channels/{channel_id}/messages/{message_id}")]
+#[delete("/{community_id}/channels/{channel_id}/messages/{message_id}")]
 async fn delete_channel_message(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid, Uuid)>,
 ) -> Result<HttpResponse, HttpError> {
-    let (server_id, channel_id, message_id) = path.into_inner();
+    let (community_id, channel_id, message_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
     let data = DeleteChannelMessageRequest::new(
-        server_id,
+        community_id,
         channel_id,
         message_id,
         request_context(&req),
@@ -420,20 +420,20 @@ async fn delete_channel_message(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[delete("/{server_id}/channels/{channel_id}")]
+#[delete("/{community_id}/channels/{channel_id}")]
 async fn delete_channel(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, HttpError> {
-    let (server_id, channel_id) = path.into_inner();
+    let (community_id, channel_id) = path.into_inner();
     let channel_id = ChannelId::new(channel_id);
-    let server_id = ServerId::new(server_id);
+    let community_id = CommunityId::new(community_id);
     let owner_id = UserId::new(auth_token.id);
 
     let data = DeleteChannelRequest {
-        server_id,
+        community_id,
         channel_id,
         deleted_by: owner_id,
         ctx: request_context(&req),

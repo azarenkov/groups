@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, channel::Channel, channel::ChannelError, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, server::id::ServerId, server::policy::PolicyError, server::repository::ServerRepository, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::Channel, channel::ChannelError, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, community::id::CommunityId, community::policy::PolicyError, community::repository::CommunityRepository, community::unit_of_work::CommunityUnitOfWork};
 use domain::{password_hash::PasswordHash, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -35,24 +35,24 @@ impl From<PolicyError> for CreateChannelError {
 pub struct CreateChannel<H, S, W>
 where
     H: Hasher,
-    S: ServerRepository,
-    W: ServerUnitOfWork,
+    S: CommunityRepository,
+    W: CommunityUnitOfWork,
 {
     hasher: Arc<H>,
-    server_repository: Arc<S>,
+    community_repository: Arc<S>,
     unit_of_work: Arc<W>,
 }
 
 impl<H, S, W> CreateChannel<H, S, W>
 where
     H: Hasher,
-    S: ServerRepository,
-    W: ServerUnitOfWork,
+    S: CommunityRepository,
+    W: CommunityUnitOfWork,
 {
-    pub fn new(hasher: Arc<H>, server_repository: Arc<S>, unit_of_work: Arc<W>) -> Self {
+    pub fn new(hasher: Arc<H>, community_repository: Arc<S>, unit_of_work: Arc<W>) -> Self {
         Self {
             hasher,
-            server_repository,
+            community_repository,
             unit_of_work,
         }
     }
@@ -62,16 +62,16 @@ where
         request: CreateChannelRequest,
         owner_id: UserId,
     ) -> Result<Channel, CreateChannelError> {
-        let server_id = ServerId::new(request.server_id);
+        let community_id = CommunityId::new(request.community_id);
 
-        if !self.server_repository.server_exists(&server_id).await? {
+        if !self.community_repository.community_exists(&community_id).await? {
             return Err(CreateChannelError::InvalidData);
         }
 
         {
-            let mut tx = self.unit_of_work.begin(&server_id).await?;
-            let server = tx.load_server().await?;
-            server.ensure_can_manage_channels(&owner_id)?;
+            let mut tx = self.unit_of_work.begin(&community_id).await?;
+            let community = tx.load_community().await?;
+            community.ensure_can_manage_channels(&owner_id)?;
         }
 
         let channel_name = ChannelName::new(request.name);
@@ -91,7 +91,7 @@ where
         let now = Utc::now();
 
         let mut channel = Channel::create(
-            server_id,
+            community_id,
             owner_id,
             channel_name,
             kind,
@@ -100,10 +100,10 @@ where
             now,
         )?;
 
-        let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let server = tx.load_server().await?;
-        server.ensure_can_manage_channels(&owner_id)?;
-        let member_ids = server.member_ids();
+        let mut tx = self.unit_of_work.begin(&community_id).await?;
+        let community = tx.load_community().await?;
+        community.ensure_can_manage_channels(&owner_id)?;
+        let member_ids = community.member_ids();
 
         let request_id = request.ctx.request_id.clone();
         let events = channel.pull_events();

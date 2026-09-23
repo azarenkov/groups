@@ -3,7 +3,7 @@ use std::sync::Arc;
 use messaging_domain::badge::attachments_per_message;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, message::Message, message::MessageError, message::content::MessageContent, message::repository::MessageRepository, message::unit_of_work::MessageUnitOfWork, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, message::Message, message::MessageError, message::content::MessageContent, message::repository::MessageRepository, message::unit_of_work::MessageUnitOfWork, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -20,8 +20,8 @@ pub enum SendChannelMessageError {
     Domain(#[from] MessageError),
     #[error("Channel domain error: {0}")]
     Channel(#[from] ChannelError),
-    #[error("Not a member of the server")]
-    NotServerMember,
+    #[error("Not a member of the community")]
+    NotCommunityMember,
     #[error("Not a member of the channel")]
     NotChannelMember,
     #[error("Channel not found")]
@@ -38,14 +38,14 @@ pub struct SendChannelMessage<M, C, S, W, A, R>
 where
     M: MessageRepository,
     C: ChannelRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
     W: MessageUnitOfWork,
     A: crate::ports::attachment_claims::AttachmentClaims,
     R: crate::ports::mention_resolver::MentionResolver,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
-    server_repository: Arc<S>,
+    community_repository: Arc<S>,
     unit_of_work: Arc<W>,
     attachment_claims: Arc<A>,
     mention_resolver: Arc<R>,
@@ -56,7 +56,7 @@ impl<M, C, S, W, A, R> SendChannelMessage<M, C, S, W, A, R>
 where
     M: MessageRepository,
     C: ChannelRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
     W: MessageUnitOfWork,
     A: crate::ports::attachment_claims::AttachmentClaims,
     R: crate::ports::mention_resolver::MentionResolver,
@@ -64,7 +64,7 @@ where
     pub fn new(
         message_repository: Arc<M>,
         channel_repository: Arc<C>,
-        server_repository: Arc<S>,
+        community_repository: Arc<S>,
         unit_of_work: Arc<W>,
         attachment_claims: Arc<A>,
         mention_resolver: Arc<R>,
@@ -73,7 +73,7 @@ where
         Self {
             message_repository,
             channel_repository,
-            server_repository,
+            community_repository,
             unit_of_work,
             attachment_claims,
             mention_resolver,
@@ -86,15 +86,15 @@ where
         request: SendChannelMessageRequest,
         author_id: UserId,
     ) -> Result<SendChannelMessageResponse, SendChannelMessageError> {
-        let server_id = ServerId::new(request.server_id);
+        let community_id = CommunityId::new(request.community_id);
         let channel_id = ChannelId::new(request.channel_id);
 
         let is_member = self
-            .server_repository
-            .is_server_member(&server_id, &author_id)
+            .community_repository
+            .is_community_member(&community_id, &author_id)
             .await?;
         if !is_member {
-            return Err(SendChannelMessageError::NotServerMember);
+            return Err(SendChannelMessageError::NotCommunityMember);
         }
 
         let channel = self
@@ -106,7 +106,7 @@ where
                 other => SendChannelMessageError::Repository(other),
             })?;
 
-        if channel.server_id() != &server_id {
+        if channel.community_id() != &community_id {
             return Err(SendChannelMessageError::ChannelNotFound);
         }
 

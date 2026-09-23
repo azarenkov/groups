@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT mr.user_id, mr.role_id\n            FROM community_member_roles mr\n            INNER JOIN community_members m\n                ON m.community_id = mr.community_id AND m.user_id = mr.user_id\n            WHERE mr.community_id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "role_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "97ff07fabeff2e5dac1744e1671f179eecc2e4ee2639915a4f3c59fbd9edb4c0"
+}

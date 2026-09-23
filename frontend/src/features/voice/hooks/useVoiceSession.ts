@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { serverAPI } from "../../servers/api/server";
+import { communityAPI } from "../../communities/api/community";
 import { getLiveKitService } from "../lib/livekit";
 import { useCallStore } from "../store/callStore";
 import type { Channel } from "../../../shared/types/channel";
-import type { Server } from "../../../shared/types/server";
+import type { Community } from "../../../shared/types/community";
 
 export function useVoiceSession() {
   const [joinedChannel, setJoinedChannel] = useState<{
     channel: Channel;
-    serverId: string;
+    communityId: string;
     password?: string;
   } | null>(null);
   const [voiceJoinFailed, setVoiceJoinFailed] = useState(false);
   const [voiceJoinAttempt, setVoiceJoinAttempt] = useState(0);
   const [passwordPrompt, setPasswordPrompt] = useState<{
-    server: Server;
+    community: Community;
     channel: Channel;
   } | null>(null);
   const handleVoiceLeave = useCallback(() => {
@@ -40,24 +40,24 @@ export function useVoiceSession() {
 
 
   const startVoiceJoin = useCallback(
-    (server: Server, channel: Channel, password?: string) => {
+    (community: Community, channel: Channel, password?: string) => {
       void useCallStore.getState().leave(true);
-      setJoinedChannel({ channel, serverId: server.id, password });
+      setJoinedChannel({ channel, communityId: community.id, password });
       setVoiceJoinFailed(false);
       setVoiceJoinAttempt((n) => n + 1);
     },
     [],
   );
 
-  const watchServerId = joinedChannel?.serverId;
+  const watchCommunityId = joinedChannel?.communityId;
   const watchChannelId = joinedChannel?.channel.id;
   const watchStateRef = useRef(
     new Map<string, { desired: boolean; running: boolean }>(),
   );
   const reportStreamWatch = useCallback(
     (streamerId: string, watching: boolean) => {
-      if (!watchServerId || !watchChannelId) return;
-      const key = `${watchServerId}:${watchChannelId}:${streamerId}`;
+      if (!watchCommunityId || !watchChannelId) return;
+      const key = `${watchCommunityId}:${watchChannelId}:${streamerId}`;
       const states = watchStateRef.current;
       const entry = states.get(key) ?? { desired: watching, running: false };
       entry.desired = watching;
@@ -71,8 +71,8 @@ export function useVoiceSession() {
           const sessionId = getLiveKitService().getLocalSessionId();
           if (!sessionId) break;
           try {
-            await serverAPI.updateStreamViewer(
-              watchServerId,
+            await communityAPI.updateStreamViewer(
+              watchCommunityId,
               watchChannelId,
               streamerId,
               sessionId,
@@ -88,7 +88,7 @@ export function useVoiceSession() {
         if (e) e.running = false;
       })();
     },
-    [watchServerId, watchChannelId],
+    [watchCommunityId, watchChannelId],
   );
 
 

@@ -5,8 +5,8 @@ use contracts::events::{
         FriendshipRemovedV1 as FriendRemovedDto, UserBlockedV1 as UserBlockedDto,
         UserUnblockedV1 as UserUnblockedDto,
     },
-    server::{ServerCreatedV1 as ServerCreatedDto, ServerDeletedV1 as ServerIdDto,
-        ServerMemberV1 as ServerMemberDto},
+    community::{CommunityCreatedV1 as CommunityCreatedDto, CommunityDeletedV1 as CommunityIdDto,
+        CommunityMemberV1 as CommunityMemberDto},
     user::UserLifecycleV1 as UserNameDto,
 };
 use ports::repository::RepositoryError;
@@ -94,33 +94,33 @@ impl<R: RealtimeProjection, B: RelationDirectory> ApplyProjection<R, B> {
         }
         return Ok(());
     }
-    if subject.ends_with(".server.created") {
-        if let Ok(evt) = serde_json::from_slice::<ServerCreatedDto>(payload) {
+    if subject.ends_with(".community.created") {
+        if let Ok(evt) = serde_json::from_slice::<CommunityCreatedDto>(payload) {
             resolver
-                .add_server_member(evt.server_id, evt.owner_id, evt.occurred_at)
+                .add_community_member(evt.community_id, evt.owner_id, evt.occurred_at)
                 .await?;
         }
         return Ok(());
     }
-    if subject.ends_with(".server.member_joined") {
-        if let Ok(evt) = serde_json::from_slice::<ServerMemberDto>(payload) {
+    if subject.ends_with(".community.member_joined") {
+        if let Ok(evt) = serde_json::from_slice::<CommunityMemberDto>(payload) {
             resolver
-                .add_server_member(evt.server_id, evt.user_id, evt.occurred_at)
+                .add_community_member(evt.community_id, evt.user_id, evt.occurred_at)
                 .await?;
         }
         return Ok(());
     }
-    if subject.ends_with(".server.member_left") {
-        if let Ok(evt) = serde_json::from_slice::<ServerMemberDto>(payload) {
+    if subject.ends_with(".community.member_left") {
+        if let Ok(evt) = serde_json::from_slice::<CommunityMemberDto>(payload) {
             resolver
-                .remove_server_member(evt.server_id, evt.user_id, evt.occurred_at)
+                .remove_community_member(evt.community_id, evt.user_id, evt.occurred_at)
                 .await?;
         }
         return Ok(());
     }
-    if subject.ends_with(".server.deleted") {
-        if let Ok(evt) = serde_json::from_slice::<ServerIdDto>(payload) {
-            resolver.remove_server(evt.server_id, evt.occurred_at).await?;
+    if subject.ends_with(".community.deleted") {
+        if let Ok(evt) = serde_json::from_slice::<CommunityIdDto>(payload) {
+            resolver.remove_community(evt.community_id, evt.occurred_at).await?;
         }
         return Ok(());
     }

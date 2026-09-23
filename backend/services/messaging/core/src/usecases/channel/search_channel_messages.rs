@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::visibility::ChannelVisibility, message::repository::MessageRepository, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::visibility::ChannelVisibility, message::repository::MessageRepository, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::{pagination::PaginatedResult, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -13,8 +13,8 @@ use crate::dto::{
 pub enum SearchChannelMessagesError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Not a member of the server")]
-    NotServerMember,
+    #[error("Not a member of the community")]
+    NotCommunityMember,
     #[error("Not a member of the channel")]
     NotChannelMember,
     #[error("Channel not found")]
@@ -29,28 +29,28 @@ pub struct SearchChannelMessages<M, C, S>
 where
     M: MessageRepository,
     C: ChannelRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
-    server_repository: Arc<S>,
+    community_repository: Arc<S>,
 }
 
 impl<M, C, S> SearchChannelMessages<M, C, S>
 where
     M: MessageRepository,
     C: ChannelRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
 {
     pub fn new(
         message_repository: Arc<M>,
         channel_repository: Arc<C>,
-        server_repository: Arc<S>,
+        community_repository: Arc<S>,
     ) -> Self {
         Self {
             message_repository,
             channel_repository,
-            server_repository,
+            community_repository,
         }
     }
 
@@ -64,15 +64,15 @@ where
             return Err(SearchChannelMessagesError::EmptyQuery);
         }
 
-        let server_id = ServerId::new(request.server_id);
+        let community_id = CommunityId::new(request.community_id);
         let channel_id = ChannelId::new(request.channel_id);
 
         let is_member = self
-            .server_repository
-            .is_server_member(&server_id, &requester_id)
+            .community_repository
+            .is_community_member(&community_id, &requester_id)
             .await?;
         if !is_member {
-            return Err(SearchChannelMessagesError::NotServerMember);
+            return Err(SearchChannelMessagesError::NotCommunityMember);
         }
 
         let channel = self
@@ -83,7 +83,7 @@ where
                 RepositoryError::NotFound => SearchChannelMessagesError::ChannelNotFound,
                 other => SearchChannelMessagesError::Repository(other),
             })?;
-        if channel.server_id() != &server_id {
+        if channel.community_id() != &community_id {
             return Err(SearchChannelMessagesError::ChannelNotFound);
         }
 

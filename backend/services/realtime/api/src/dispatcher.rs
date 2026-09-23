@@ -50,7 +50,7 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
         channel_stream: cfg.dispatcher_channel_stream.clone(),
         message_stream: cfg.dispatcher_message_stream.clone(),
         dm_message_stream: cfg.dispatcher_dm_message_stream.clone(),
-        server_stream: cfg.dispatcher_server_stream.clone(),
+        community_stream: cfg.dispatcher_community_stream.clone(),
         consumer_prefix: cfg.dispatcher_consumer_prefix.clone(),
         max_deliver: cfg.dispatcher_max_deliver,
     };
@@ -76,7 +76,7 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
-            tracing::error!(error = %e, "Health server stopped");
+            tracing::error!(error = %e, "Health community stopped");
         }
     });
 
@@ -111,10 +111,10 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
             dlq_subject: format!("{prefix}.dlq.realtime.projection_user"),
         },
         CatchupSpec {
-            stream: cfg.dispatcher_server_stream.clone(),
-            consumer_name: format!("{}-projection-server", cfg.dispatcher_consumer_prefix),
-            filter_subject: format!("{prefix}.server.>"),
-            dlq_subject: format!("{prefix}.dlq.realtime.projection_server"),
+            stream: cfg.dispatcher_community_stream.clone(),
+            consumer_name: format!("{}-projection-community", cfg.dispatcher_consumer_prefix),
+            filter_subject: format!("{prefix}.community.>"),
+            dlq_subject: format!("{prefix}.dlq.realtime.projection_community"),
         },
         CatchupSpec {
             stream: cfg.dispatcher_dm_message_stream.clone(),
@@ -175,8 +175,8 @@ fn legacy_consumers(cfg: &DispatcherConfig) -> Vec<(String, String)> {
             format!("{consumer_prefix}-dm-message"),
         ),
         (
-            cfg.dispatcher_server_stream.clone(),
-            format!("{consumer_prefix}-server"),
+            cfg.dispatcher_community_stream.clone(),
+            format!("{consumer_prefix}-community"),
         ),
     ]
 }
