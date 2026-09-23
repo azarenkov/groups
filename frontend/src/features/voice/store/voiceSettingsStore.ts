@@ -254,6 +254,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
 
       setScreenContent: (value) => {
         set({ screenContent: value });
+        getLiveKitService().setScreenContent(value);
       },
 
       updateDevices: (patch) => {

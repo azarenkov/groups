@@ -1212,7 +1212,6 @@ export class LiveKitService {
           quality.frameRate,
           quality.maxBitrate,
         ));
-      this.activeScreenCodec = codec;
       await this.room.localParticipant.setScreenShareEnabled(
         true,
         {
@@ -1234,6 +1233,7 @@ export class LiveKitService {
           },
         },
       );
+      this.activeScreenCodec = codec;
       this.watchedScreen = this.room.localParticipant.identity;
       this.startEncoderWatchdog(quality.frameRate);
     } else {
@@ -1256,6 +1256,7 @@ export class LiveKitService {
     if (!local || !track) return;
     const quality = this.screenShareQuality;
     this.republishingScreen = true;
+    let failed = false;
     try {
       await local.unpublishTrack(track, false);
       await local.publishTrack(track, {
@@ -1270,9 +1271,29 @@ export class LiveKitService {
       this.activeScreenCodec = codec;
     } catch (e) {
       console.warn("[LiveKitService] failed to republish the screen:", e);
+      failed = true;
+      track.stop();
     } finally {
       this.republishingScreen = false;
     }
+    if (!failed) return;
+    try {
+      await this.setScreenShareEnabled(false);
+    } catch (e) {
+      console.warn("[LiveKitService] failed to end the screen share:", e);
+      this.refreshScreenShares();
+    }
+  }
+
+  setScreenContent(content: ScreenContent): void {
+    const track = this.room?.localParticipant.getTrackPublication(
+      Track.Source.ScreenShare,
+    )?.track?.mediaStreamTrack;
+    if (!track) return;
+    track.contentHint = contentHintFor(
+      content,
+      this.screenShareQuality.frameRate,
+    );
   }
 
   private async videoPreferences(): Promise<{ screenContent: ScreenContent }> {
