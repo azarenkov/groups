@@ -32,7 +32,8 @@ import type {
 } from "./videoCodec";
 import type { SpeakingState } from "./livekit/remoteAudio";
 import { attachRoomListeners, isScreenSource } from "./livekit/roomEvents";
-import { nextWatched } from "./livekit/screenShares";
+import { followWatched } from "./livekit/screenShares";
+import type { HeldScreen } from "./livekit/screenShares";
 import type {
   NoiseSuppressionMode,
   ParticipantInfo,
@@ -127,6 +128,7 @@ export class LiveKitService {
     new Set();
   private localSpeaking: boolean = false;
   private watchedScreen: string | null = null;
+  private heldScreen: HeldScreen | null = null;
   private activeScreenCodec: VideoCodec | null = null;
   private screenCodecFallback: VideoCodec | null = null;
   private encoderTimer: ReturnType<typeof setInterval> | null = null;
@@ -385,6 +387,7 @@ export class LiveKitService {
       this.desiredMicMuted = false;
       this.micRebuildPending = false;
       this.watchedScreen = null;
+      this.heldScreen = null;
       this.screenSubscriptions.clear();
       this.stopEncoderWatchdog();
       this.activeScreenCodec = null;
@@ -1054,6 +1057,7 @@ export class LiveKitService {
   }
 
   watchScreen(identity: string | null): void {
+    this.heldScreen = null;
     if (this.watchedScreen === identity) return;
     this.watchedScreen = identity;
     this.applyScreenSubscriptions();
@@ -1068,7 +1072,14 @@ export class LiveKitService {
       this.activeScreenCodec = null;
       this.screenCodecFallback = null;
     }
-    this.watchedScreen = nextWatched(state.shares, this.watchedScreen);
+    const next = followWatched(
+      state.shares,
+      this.watchedScreen,
+      this.heldScreen,
+      Date.now(),
+    );
+    this.watchedScreen = next.watched;
+    this.heldScreen = next.held;
     this.applyScreenSubscriptions();
     this.notifyScreenShares();
   }
