@@ -70,7 +70,12 @@
 .voice-pill > .vp-meta-wrap > .vp-title {
   display: inline-block;
   max-width: 100%;
-  border-bottom: 2px solid #fff;
+  padding-bottom: 3px;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(255, 255, 255, 0.75);
+  text-decoration-skip-ink: auto;
 }
 .voice-pill > .vp-avas { flex: 0 0 auto; margin-left: 0; }
 .voice-pill > .vp-actions { flex: 0 0 auto; display: inline-flex; gap: 4px; }
