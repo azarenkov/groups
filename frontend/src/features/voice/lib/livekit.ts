@@ -1600,6 +1600,12 @@ export class LiveKitService {
     this.remoteAudio.setVolume(identity, volume);
   }
 
+  subscribeRemoteVolume(
+    fn: (identity: string, volume: number) => void,
+  ): () => void {
+    return this.remoteAudio.subscribeVolume(fn);
+  }
+
   getRemoteVolume(identity: string): number {
     return this.remoteAudio.getVolume(identity);
   }

@@ -21,15 +21,24 @@ const TileVolumeMenu: React.FC<{
   deafen?: { deafened: boolean; onToggle: () => void };
 }> = ({ id, className, moderate, deafen }) => {
   const [open, setOpen] = useState(false);
-  const [vol, setVol] = useState(() =>
-    Math.min(
-      REMOTE_VOLUME_PLAIN_MAX,
-      Math.round(getLiveKitService().getRemoteVolume(id) * 100),
-    ),
+  const [volMax, setVolMax] = useState(() =>
+    getLiveKitService().supportsRemoteBoost(id)
+      ? REMOTE_VOLUME_MAX
+      : REMOTE_VOLUME_PLAIN_MAX,
   );
-  const [volMax, setVolMax] = useState(REMOTE_VOLUME_PLAIN_MAX);
+  const [vol, setVol] = useState(() =>
+    Math.min(volMax, Math.round(getLiveKitService().getRemoteVolume(id) * 100)),
+  );
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
+
+  useEffect(
+    () =>
+      getLiveKitService().subscribeRemoteVolume((who, volume) => {
+        if (who === id) setVol(Math.round(volume * 100));
+      }),
+    [id],
+  );
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
@@ -99,10 +108,23 @@ const TileVolumeMenu: React.FC<{
       <button
         ref={btnRef}
         type="button"
-        className={"cs-menu-btn" + (className ? ` ${className}` : "") + (open ? " on" : "")}
+        className={
+          "cs-menu-btn" +
+          (className ? ` ${className}` : "") +
+          (open ? " on" : "") +
+          (vol !== 100 ? " adjusted" : "")
+        }
         onClick={toggle}
+        title={`${i18nTheater.t("voice:volume")} ${vol}%`}
+        aria-label={`${i18nTheater.t("voice:volume")} ${vol}%`}
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
-        <Icon name="more" size={16} />
+        <Icon
+          name={vol === 0 ? "speaker-off" : vol < 40 ? "speaker-lo" : "speaker-hi"}
+          size={14}
+        />
+        {vol !== 100 && <span className="cs-menu-btn-pct">{vol}%</span>}
       </button>
       {open &&
         pos &&

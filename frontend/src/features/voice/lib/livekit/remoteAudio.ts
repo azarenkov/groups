@@ -33,7 +33,7 @@ export class RemoteAudioGraph {
   private sourceNodes: WeakMap<
     HTMLMediaElement,
     {
-      source: MediaElementAudioSourceNode;
+      source: AudioNode;
       gain: GainNode;
       identity: string;
       analyser?: SpeechAnalyser;
@@ -43,6 +43,8 @@ export class RemoteAudioGraph {
   private holdUntil: Map<string, number> = new Map();
   private speaking: Set<string> = new Set();
   private speakingListeners: Set<(state: SpeakingState) => void> = new Set();
+  private volumeListeners: Set<(identity: string, volume: number) => void> =
+    new Set();
   private speakingTimer: ReturnType<typeof setInterval> | null = null;
   private ctx: AudioContext | null = null;
   private disabled: boolean = false;
@@ -84,6 +86,13 @@ export class RemoteAudioGraph {
     fn(this.speakingState());
     return () => {
       this.speakingListeners.delete(fn);
+    };
+  }
+
+  subscribeVolume(fn: (identity: string, volume: number) => void): () => void {
+    this.volumeListeners.add(fn);
+    return () => {
+      this.volumeListeners.delete(fn);
     };
   }
 
@@ -231,6 +240,13 @@ export class RemoteAudioGraph {
       if (this.sourceNodes.has(el)) continue;
       el.volume = this.elementVolume(v);
     }
+    this.volumeListeners.forEach((fn) => {
+      try {
+        fn(identity, v);
+      } catch (e) {
+        console.warn("[LiveKitService] volume listener failed:", e);
+      }
+    });
   }
 
   attach(track: AudioTrack, identity: string, onEnded: () => void): void {
@@ -249,7 +265,9 @@ export class RemoteAudioGraph {
         ctx.resume().catch(() => {});
       }
       try {
-        const source = ctx.createMediaElementSource(audioElement);
+        const source = ctx.createMediaStreamSource(
+          new MediaStream([track.mediaStreamTrack]),
+        );
         const speechAnalyser = ctx.createAnalyser();
         speechAnalyser.fftSize = 512;
         source.connect(speechAnalyser);
@@ -271,6 +289,12 @@ export class RemoteAudioGraph {
         gain.connect(compressor);
         compressor.connect(ctx.destination);
         this.sourceNodes.set(audioElement, { source, gain, identity, analyser });
+        audioElement.muted = true;
+        audioElement.addEventListener("volumechange", () => {
+          if (this.sourceNodes.has(audioElement) && !audioElement.muted) {
+            audioElement.muted = true;
+          }
+        });
         const gains = this.gainNodes.get(identity) ?? [];
         gains.push(gain);
         this.gainNodes.set(identity, gains);

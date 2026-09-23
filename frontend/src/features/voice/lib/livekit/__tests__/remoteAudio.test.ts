@@ -17,6 +17,14 @@ const created: FakeGain[] = [];
 const levels = new Map<string, number>();
 let attaching = "";
 let failGain = false;
+const streamSources: MediaStreamTrack[][] = [];
+
+class FakeMediaStream {
+  constructor(readonly tracks: MediaStreamTrack[]) {}
+  getAudioTracks() {
+    return this.tracks;
+  }
+}
 
 class FakeAudioContext {
   createAnalyser() {
@@ -35,6 +43,10 @@ class FakeAudioContext {
   state = "running";
   destination = {};
   createMediaElementSource() {
+    return { connect: jest.fn(), disconnect: jest.fn() };
+  }
+  createMediaStreamSource(stream: FakeMediaStream) {
+    streamSources.push(stream.getAudioTracks());
     return { connect: jest.fn(), disconnect: jest.fn() };
   }
   createGain(): FakeGain {
@@ -78,6 +90,7 @@ const attach = (graph: RemoteAudioGraph, identity: string): FakeGain => {
     attach: () => element,
     on: (_event: string, fn: () => void) => handlers.push(fn),
     attachedElements: [element],
+    mediaStreamTrack: { id: `${identity}-mic`, kind: "audio" },
   };
   graph.attach(track as never, identity, () => {});
   const gain = created[created.length - 1];
@@ -97,6 +110,9 @@ describe("RemoteAudioGraph", () => {
     attached.length = 0;
     levels.clear();
     failGain = false;
+    streamSources.length = 0;
+    (window as unknown as { MediaStream: unknown }).MediaStream =
+      FakeMediaStream;
     jest.useFakeTimers();
     (window as unknown as { AudioContext: unknown }).AudioContext =
       FakeAudioContext;
@@ -118,6 +134,24 @@ describe("RemoteAudioGraph", () => {
     expect(bob.gain.value).toBeCloseTo(1);
     expect(graph.getVolume("alice")).toBeCloseTo(0.4);
     expect(graph.getVolume("bob")).toBeCloseTo(1);
+  });
+
+  it("tells every subscriber when a participant's volume changes", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    const heard: [string, number][] = [];
+    const stop = graph.subscribeVolume((identity, volume) =>
+      heard.push([identity, volume]),
+    );
+
+    graph.setVolume("alice", 0.6);
+    graph.setVolume("bob", 9);
+    stop();
+    graph.setVolume("alice", 0.2);
+
+    expect(heard).toEqual([
+      ["alice", 0.6],
+      ["bob", RemoteAudioGraph.GAIN_MAX],
+    ]);
   });
 
   it("keeps a volume set before the track arrives", () => {
@@ -273,6 +307,54 @@ describe("RemoteAudioGraph", () => {
 
     graph.disableGraph();
     expect(graph.tracksSpeaking()).toBe(false);
+  });
+});
+
+describe("routing", () => {
+  beforeEach(() => {
+    created.length = 0;
+    attached.length = 0;
+    failGain = false;
+    streamSources.length = 0;
+    (window as unknown as { AudioContext: unknown }).AudioContext =
+      FakeAudioContext;
+    (window as unknown as { MediaStream: unknown }).MediaStream =
+      FakeMediaStream;
+  });
+
+  it("feeds the gain from the track itself, which chrome delivers for remote webrtc audio", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    attach(graph, "alice");
+
+    expect(streamSources).toHaveLength(1);
+    expect(streamSources[0][0]).toMatchObject({ id: "alice-mic" });
+  });
+
+  it("silences the element so the voice is heard only through the gain", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    attach(graph, "alice");
+
+    expect(lastAttachment().element.muted).toBe(true);
+  });
+
+  it("silences the element again when something unmutes it", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    attach(graph, "alice");
+    const { element } = lastAttachment();
+
+    element.muted = false;
+    element.dispatchEvent(new Event("volumechange"));
+
+    expect(element.muted).toBe(true);
+  });
+
+  it("leaves a fallback element audible", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    failGain = true;
+    attach(graph, "alice");
+    failGain = false;
+
+    expect(lastAttachment().element.muted).toBe(false);
   });
 });
 

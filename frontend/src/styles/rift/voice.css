@@ -644,11 +644,11 @@
   overflow-y: auto;
 }
 .call-orb-menu {
-  position: absolute; right: -2px; bottom: -2px;
-  opacity: 0;
+  position: absolute; right: 0; bottom: 0;
+  min-width: 32px; height: 32px;
+  box-shadow: 0 0 0 3px #0a0c11, inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
-.call-empty-cell:hover .call-orb-menu,
-.call-orb-menu.on { opacity: 1; }
+.call-orb-menu.on { box-shadow: 0 0 0 3px #0a0c11; }
 .call-action {
   width: 38px; height: 38px; border-radius: 50%;
   border: 0; cursor: pointer;
