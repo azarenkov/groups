@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
 use messaging::usecases::{
     privacy::{get_privacy::GetPrivacy, update_privacy::UpdatePrivacy},
@@ -213,6 +214,7 @@ pub struct AppState {
     pub badge_repository: std::sync::Arc<PostgresBadgeRepository>,
     pub nats_core: async_nats::Client,
     pub presence_preference_subject: String,
+    pub identity_users: Arc<IdentityUsersClient>,
     pub send_dm_message_usecase: SendDmMessage<
         PostgresDmMessageRepository,
         PostgresDmUnitOfWork,

@@ -41,6 +41,14 @@ async fn set_presence(
             )
         })?;
 
+    if let Err(e) = app_state
+        .identity_users
+        .set_activity_visibility(user_id, body.appear_offline)
+        .await
+    {
+        tracing::warn!(error = %e, %user_id, "Failed to hide activity for presence change");
+    }
+
     Ok(HttpResponse::NoContent().finish())
 }
 

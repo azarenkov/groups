@@ -27,6 +27,8 @@ fn default_true() -> bool {
     true
 }
 
+const HIDDEN_TTL_SECS: u64 = 60 * 60 * 24 * 30;
+
 const SET_IF_CURRENT: &str = r#"
 if redis.call('GET', KEYS[1]) == ARGV[1] then
   redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])
@@ -88,6 +90,10 @@ impl RedisActivityStore {
             .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
         *guard = Some(connection.clone());
         Ok(connection)
+    }
+
+    fn hidden_key(user_id: &UserId) -> String {
+        format!("activity:hidden:{}", user_id.uuid())
     }
 
     fn key(user_id: &UserId) -> String {
@@ -198,6 +204,55 @@ impl ActivityStore for RedisActivityStore {
             .iter()
             .zip(values)
             .filter_map(|(id, raw)| Self::decode(raw).map(|a| (*id, a)))
+            .collect())
+    }
+
+    async fn set_hidden(
+        &self,
+        user_id: &UserId,
+        hidden: bool,
+    ) -> Result<(), ActivityStoreError> {
+        let mut connection = self.connection().await?;
+        let key = Self::hidden_key(user_id);
+        if hidden {
+            let _: () = connection
+                .set_ex(&key, "1", HIDDEN_TTL_SECS)
+                .await
+                .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        } else {
+            let _: () = connection
+                .del(&key)
+                .await
+                .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        }
+        Ok(())
+    }
+
+    async fn hidden_among(
+        &self,
+        user_ids: &[UserId],
+    ) -> Result<Vec<UserId>, ActivityStoreError> {
+        if user_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut connection = self.connection().await?;
+        let keys: Vec<String> = user_ids.iter().map(Self::hidden_key).collect();
+        let values: Vec<Option<String>> = if keys.len() == 1 {
+            let single: Option<String> = connection
+                .get(&keys[0])
+                .await
+                .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+            vec![single]
+        } else {
+            connection
+                .mget(&keys)
+                .await
+                .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?
+        };
+        Ok(user_ids
+            .iter()
+            .zip(values)
+            .filter_map(|(id, raw)| raw.map(|_| *id))
             .collect())
     }
 }

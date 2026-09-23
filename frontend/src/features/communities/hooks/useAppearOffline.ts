@@ -18,9 +18,20 @@ export function useAppearOffline(params: {
 
   useEffect(() => {
     if (!hasSession) return;
-    userAPI.setAppearOffline(appearOffline).catch((err) => {
-      console.warn("[presence] setAppearOffline failed:", err);
-    });
+    let cancelled = false;
+    if (appearOffline) setActivityHiddenByPresence(true);
+    userAPI
+      .setAppearOffline(appearOffline)
+      .then(() => {
+        if (!cancelled && !appearOffline) setActivityHiddenByPresence(false);
+      })
+      .catch((err) => {
+        console.warn("[presence] setAppearOffline failed:", err);
+        if (!cancelled && !appearOffline) setActivityHiddenByPresence(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [appearOffline, hasSession]);
 
   useEffect(() => {
@@ -28,9 +39,6 @@ export function useAppearOffline(params: {
     usePresenceStore.getState().setSelf(currentUserId, !appearOffline);
   }, [currentUserId, appearOffline]);
 
-  useEffect(() => {
-    setActivityHiddenByPresence(appearOffline);
-  }, [appearOffline]);
 
   const setStatus = useCallback((status: "online" | "offline") => {
     const next = status === "offline";
