@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { getLiveKitService } from "../lib/livekit";
+import type { CodecPreference, ScreenContent } from "../lib/videoCodec";
 import { ApiError } from "../../../shared/lib/apiError";
 
 export type NoiseMode = "off" | "standard" | "high";
@@ -25,9 +26,13 @@ interface VoiceSettingsState extends VoiceSyncedSettings {
   micDeviceId: string;
   speakerDeviceId: string;
   pttGlobal: boolean;
+  screenCodec: CodecPreference;
+  screenContent: ScreenContent;
   ownerId: string | null;
   update: (patch: Partial<VoiceSyncedSettings>) => void;
   setPttGlobal: (value: boolean) => void;
+  setScreenCodec: (value: CodecPreference) => void;
+  setScreenContent: (value: ScreenContent) => void;
   updateDevices: (patch: {
     micDeviceId?: string;
     speakerDeviceId?: string;
@@ -231,6 +236,8 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
       micDeviceId: "",
       speakerDeviceId: "",
       pttGlobal: true,
+      screenCodec: "auto",
+      screenContent: "auto",
       ownerId: null,
 
       update: (patch) => {
@@ -246,6 +253,14 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
 
       setPttGlobal: (value) => {
         set({ pttGlobal: value });
+      },
+
+      setScreenCodec: (value) => {
+        set({ screenCodec: value });
+      },
+
+      setScreenContent: (value) => {
+        set({ screenContent: value });
       },
 
       updateDevices: (patch) => {

@@ -20,6 +20,17 @@ import {
   speechBandRatio,
 } from "./makeupGain";
 import { RemoteAudioGraph } from "./livekit/remoteAudio";
+import {
+  contentHintFor,
+  pickScreenCodec,
+  shouldFallBack,
+} from "./videoCodec";
+import type {
+  CodecPreference,
+  EncoderSample,
+  ScreenContent,
+  VideoCodec,
+} from "./videoCodec";
 import type { SpeakingState } from "./livekit/remoteAudio";
 import { attachRoomListeners, isScreenSource } from "./livekit/roomEvents";
 import { nextWatched } from "./livekit/screenShares";
@@ -47,6 +58,13 @@ export interface ScreenShareQuality {
 }
 
 export { ConnectionQuality, DisconnectReason };
+
+export const CAMERA_WIDTH = 1280;
+export const CAMERA_HEIGHT = 720;
+export const CAMERA_FRAME_RATE = 30;
+export const CAMERA_MAX_BITRATE = 1_200_000;
+const ENCODER_SAMPLE_MS = 2000;
+const ENCODER_SAMPLE_WINDOW = 10;
 
 export const REMOTE_VOLUME_MAX = 200;
 export const REMOTE_VOLUME_PLAIN_MAX = 100;
@@ -110,6 +128,10 @@ export class LiveKitService {
     new Set();
   private localSpeaking: boolean = false;
   private watchedScreen: string | null = null;
+  private activeScreenCodec: VideoCodec | null = null;
+  private screenCodecFallback: VideoCodec | null = null;
+  private encoderTimer: ReturnType<typeof setInterval> | null = null;
+  private encoderSamples: EncoderSample[] = [];
   private screenSubscriptions: Map<string, boolean> = new Map();
   private screenViewers = 0;
   private screenShareListeners: Set<(state: ScreenShareState) => void> =
@@ -1129,7 +1151,23 @@ export class LiveKitService {
     if (!this.room) return;
     const local = this.room.localParticipant;
     if (enabled) {
-      await local.setCameraEnabled(true);
+      await local.setCameraEnabled(
+        true,
+        {
+          resolution: {
+            width: CAMERA_WIDTH,
+            height: CAMERA_HEIGHT,
+            frameRate: CAMERA_FRAME_RATE,
+          },
+        },
+        {
+          simulcast: true,
+          videoEncoding: {
+            maxBitrate: CAMERA_MAX_BITRATE,
+            maxFramerate: CAMERA_FRAME_RATE,
+          },
+        },
+      );
     } else {
       const publication = local.getTrackPublication(Track.Source.Camera);
       if (publication?.track) {
@@ -1145,6 +1183,17 @@ export class LiveKitService {
     if (!this.room) return;
     if (enabled) {
       const quality = this.screenShareQuality;
+      const { screenCodec, screenContent } = await this.videoPreferences();
+      const codec =
+        this.screenCodecFallback ??
+        (await pickScreenCodec(
+          screenCodec,
+          quality.width,
+          quality.height,
+          quality.frameRate,
+          quality.maxBitrate,
+        ));
+      this.activeScreenCodec = codec;
       await this.room.localParticipant.setScreenShareEnabled(
         true,
         {
@@ -1153,12 +1202,13 @@ export class LiveKitService {
             height: quality.height,
             frameRate: quality.frameRate,
           },
-          contentHint: quality.frameRate >= 60 ? "motion" : "detail",
+          contentHint: contentHintFor(screenContent, quality.frameRate),
           audio: true,
         },
         {
           simulcast: false,
-          videoCodec: "vp9",
+          videoCodec: codec,
+          backupCodec: codec === "vp9" ? undefined : { codec: "vp8" },
           screenShareEncoding: {
             maxBitrate: quality.maxBitrate,
             maxFramerate: quality.frameRate,
@@ -1166,7 +1216,11 @@ export class LiveKitService {
         },
       );
       this.watchedScreen = this.room.localParticipant.identity;
+      this.startEncoderWatchdog(quality.frameRate);
     } else {
+      this.stopEncoderWatchdog();
+      this.activeScreenCodec = null;
+      this.screenCodecFallback = null;
       await this.room.localParticipant.setScreenShareEnabled(false);
       if (this.watchedScreen === this.room.localParticipant.identity) {
         this.watchedScreen = null;
@@ -1174,6 +1228,72 @@ export class LiveKitService {
     }
     this.applyScreenSubscriptions();
     this.notifyScreenShares();
+  }
+
+  private async videoPreferences(): Promise<{
+    screenCodec: CodecPreference;
+    screenContent: ScreenContent;
+  }> {
+    const { useVoiceSettingsStore } = await import(
+      "../store/voiceSettingsStore"
+    );
+    const state = useVoiceSettingsStore.getState();
+    return { screenCodec: state.screenCodec, screenContent: state.screenContent };
+  }
+
+  private startEncoderWatchdog(frameRate: number): void {
+    this.stopEncoderWatchdog();
+    if (this.activeScreenCodec !== "av1") return;
+    this.encoderSamples = [];
+    this.encoderTimer = setInterval(() => {
+      void this.sampleEncoder(frameRate);
+    }, ENCODER_SAMPLE_MS);
+  }
+
+  private stopEncoderWatchdog(): void {
+    if (this.encoderTimer === null) return;
+    clearInterval(this.encoderTimer);
+    this.encoderTimer = null;
+    this.encoderSamples = [];
+  }
+
+  private async sampleEncoder(frameRate: number): Promise<void> {
+    const publication = this.room?.localParticipant.getTrackPublication(
+      Track.Source.ScreenShare,
+    );
+    const sender = publication?.track?.sender;
+    if (!sender?.getStats) return;
+    try {
+      const stats = await sender.getStats();
+      let sample: EncoderSample | null = null;
+      stats.forEach((report) => {
+        const outbound = report as unknown as {
+          type: string;
+          qualityLimitationReason?: string;
+          framesPerSecond?: number;
+        };
+        if (outbound.type !== "outbound-rtp") return;
+        sample = {
+          cpuLimited: outbound.qualityLimitationReason === "cpu",
+          framesPerSecond: outbound.framesPerSecond ?? frameRate,
+          at: Date.now(),
+        };
+      });
+      if (!sample) return;
+      this.encoderSamples.push(sample);
+      if (this.encoderSamples.length > ENCODER_SAMPLE_WINDOW) {
+        this.encoderSamples.shift();
+      }
+      if (!shouldFallBack(this.encoderSamples, frameRate, Date.now())) return;
+      console.warn("[LiveKitService] av1 encoder is cpu bound, falling back");
+      this.stopEncoderWatchdog();
+      this.screenCodecFallback = "vp9";
+      await this.setScreenShareEnabled(false);
+      await this.setScreenShareEnabled(true);
+    } catch (e) {
+      console.warn("[LiveKitService] encoder stats unavailable:", e);
+      this.stopEncoderWatchdog();
+    }
   }
 
   getScreenShareQuality(): ScreenShareQuality {
