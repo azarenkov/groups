@@ -11,6 +11,7 @@ import {
   REMOTE_VOLUME_PLAIN_MAX,
   VideoTile,
 } from "../lib/livekit";
+import type { ScreenShareInfo } from "../lib/livekit";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 
 const TileVolumeMenu: React.FC<{
@@ -212,6 +213,9 @@ interface VoiceTheaterProps {
   };
   viewersFor?: (id: string) => number | undefined;
   onWatchChange?: (id: string, watching: boolean) => void;
+  shares?: ScreenShareInfo[];
+  watching?: string | null;
+  onWatch?: (identity: string | null) => void;
   onModerateMute?: (id: string, currentlyMuted: boolean) => void;
   onModerateDeafen?: (id: string, currentlyDeafened: boolean) => void;
   moderationExcluded?: string[];
@@ -240,6 +244,9 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   invite,
   viewersFor,
   onWatchChange,
+  shares,
+  watching,
+  onWatch,
   onModerateMute,
   onModerateDeafen,
   moderationExcluded,
@@ -289,6 +296,9 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
     if (ids.length > 0) invite?.onAdd(ids);
   };
 
+  const available = shares ?? [];
+  const sharingIds = new Set(available.map((share) => share.identity));
+  const offered = watching === null || watching === undefined ? available : [];
   const mainVideo =
     screenTile ??
     roster.find((r) => !r.isSelf && r.camera)?.camera ??
@@ -314,6 +324,28 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
           </button>
         )}
 
+        {offered.length > 0 && onWatch && (
+          <div className="call-offer">
+            <div className="call-offer-title">{t("sharingNow")}</div>
+            <div className="call-offer-list">
+              {offered.map((share) => (
+                <button
+                  key={share.identity}
+                  type="button"
+                  className="call-offer-btn"
+                  onClick={() => onWatch(share.identity)}
+                >
+                  <span className="call-live-dot" />
+                  <span className="call-offer-name">
+                    {share.isLocal ? t("yourScreen") : share.name}
+                  </span>
+                  <span className="call-offer-cta">{t("watchStream")}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {mainVideo ? (
           <div className="call-screen">
             <VideoTileCell
@@ -326,16 +358,51 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
               }
               onWatchChange={onWatchChange}
             />
-            {liveName && (
-              <div className="call-live">
-                <span className="call-live-badge">
-                  <span className="call-live-dot" />
-                  LIVE
-                </span>
-                <span className="call-live-name">
-                  {t("sharingScreen", { name: liveName })}
-                </span>
+            {available.length > 1 && onWatch ? (
+              <div className="call-live switch">
+                {available.map((share) => (
+                  <button
+                    key={share.identity}
+                    type="button"
+                    className={
+                      "call-live-chip" +
+                      (share.identity === watching ? " on" : "")
+                    }
+                    onClick={() => onWatch(share.identity)}
+                  >
+                    <span className="call-live-dot" />
+                    {share.isLocal ? t("yourScreen") : share.name}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="call-live-chip stop"
+                  onClick={() => onWatch(null)}
+                >
+                  {t("stopWatching")}
+                </button>
               </div>
+            ) : (
+              liveName && (
+                <div className="call-live">
+                  <span className="call-live-badge">
+                    <span className="call-live-dot" />
+                    LIVE
+                  </span>
+                  <span className="call-live-name">
+                    {t("sharingScreen", { name: liveName })}
+                  </span>
+                  {onWatch && watching && (
+                    <button
+                      type="button"
+                      className="call-live-chip stop"
+                      onClick={() => onWatch(null)}
+                    >
+                      {t("stopWatching")}
+                    </button>
+                  )}
+                </div>
+              )
             )}
           </div>
         ) : (
@@ -523,8 +590,29 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
         {strip.map((r) => (
             <div
               key={r.id}
-              className={"cs-tile" + (r.speaking ? " speaking" : "")}
+              className={
+                "cs-tile" +
+                (r.speaking ? " speaking" : "") +
+                (sharingIds.has(r.id) ? " sharing" : "") +
+                (watching === r.id ? " watched" : "")
+              }
+              onClick={
+                onWatch && sharingIds.has(r.id)
+                  ? () => onWatch(r.id)
+                  : undefined
+              }
+              title={
+                onWatch && sharingIds.has(r.id)
+                  ? t("watchStream")
+                  : undefined
+              }
             >
+              {sharingIds.has(r.id) && (
+                <span className="cs-tile-live">
+                  <span className="call-live-dot" />
+                  LIVE
+                </span>
+              )}
               {r.camera ? (
                 <VideoTileCell tile={r.camera} label="" />
               ) : (

@@ -21,14 +21,23 @@ import {
 } from "./makeupGain";
 import { RemoteAudioGraph } from "./livekit/remoteAudio";
 import type { SpeakingState } from "./livekit/remoteAudio";
-import { attachRoomListeners } from "./livekit/roomEvents";
+import { attachRoomListeners, isScreenSource } from "./livekit/roomEvents";
+import { nextWatched } from "./livekit/screenShares";
 import type {
   NoiseSuppressionMode,
   ParticipantInfo,
   VideoTile,
+  ScreenShareInfo,
+  ScreenShareState,
 } from "./livekit/types";
 
-export type { NoiseSuppressionMode, ParticipantInfo, VideoTile };
+export type {
+  NoiseSuppressionMode,
+  ParticipantInfo,
+  ScreenShareInfo,
+  ScreenShareState,
+  VideoTile,
+};
 
 export interface ScreenShareQuality {
   width: number;
@@ -100,6 +109,11 @@ export class LiveKitService {
   private localTrackListeners: Set<(track: MediaStreamTrack | null) => void> =
     new Set();
   private localSpeaking: boolean = false;
+  private watchedScreen: string | null = null;
+  private screenSubscriptions: Map<string, boolean> = new Map();
+  private screenViewers = 0;
+  private screenShareListeners: Set<(state: ScreenShareState) => void> =
+    new Set();
   private localSpeakingListeners: Set<(speaking: boolean) => void> = new Set();
   private participantsListeners: Set<
     (participants: ParticipantInfo[]) => void
@@ -270,6 +284,8 @@ export class LiveKitService {
       this.room.remoteParticipants.forEach((participant) => {
         this.addParticipant(participant);
       });
+      this.applyScreenSubscriptions();
+      this.notifyScreenShares();
       if (this.deafened) this.publishDeafenAttribute();
 
       const muteChanged = this.muteRequestSeq !== muteSeqAtConnect;
@@ -346,6 +362,9 @@ export class LiveKitService {
       this.isConnecting = false;
       this.desiredMicMuted = false;
       this.micRebuildPending = false;
+      this.watchedScreen = null;
+      this.screenSubscriptions.clear();
+      this.notifyScreenShares();
       this.remoteAudio.clear();
       if (this.deafened) {
         this.deafened = false;
@@ -961,6 +980,103 @@ export class LiveKitService {
     return Array.from(this.participants.values());
   }
 
+  getScreenShares(): ScreenShareState {
+    const shares: ScreenShareInfo[] = [];
+    const local = this.room?.localParticipant;
+    if (local) {
+      const sharing = Array.from(local.videoTrackPublications.values()).some(
+        (pub) => pub.source === Track.Source.ScreenShare && !pub.isMuted,
+      );
+      if (sharing) {
+        shares.push({
+          identity: local.identity,
+          name: local.name || local.identity,
+          isLocal: true,
+        });
+      }
+    }
+    this.room?.remoteParticipants.forEach((participant) => {
+      const sharing = Array.from(
+        participant.videoTrackPublications.values(),
+      ).some((pub) => pub.source === Track.Source.ScreenShare);
+      if (!sharing) return;
+      shares.push({
+        identity: participant.identity,
+        name: participant.name || participant.identity,
+        isLocal: false,
+      });
+    });
+    return { shares, watching: this.watchedScreen };
+  }
+
+  subscribeScreenShares(fn: (state: ScreenShareState) => void): () => void {
+    this.screenShareListeners.add(fn);
+    fn(this.getScreenShares());
+    return () => {
+      this.screenShareListeners.delete(fn);
+    };
+  }
+
+  acquireScreenView(): () => void {
+    this.screenViewers += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.screenViewers = Math.max(0, this.screenViewers - 1);
+      if (this.screenViewers === 0) this.watchScreen(null);
+    };
+  }
+
+  watchScreen(identity: string | null): void {
+    if (this.watchedScreen === identity) return;
+    this.watchedScreen = identity;
+    this.applyScreenSubscriptions();
+    this.notifyScreenShares();
+  }
+
+  private refreshScreenShares(): void {
+    const state = this.getScreenShares();
+    this.watchedScreen = nextWatched(state.shares, this.watchedScreen);
+    this.applyScreenSubscriptions();
+    this.notifyScreenShares();
+  }
+
+  private applyScreenSubscriptions(): void {
+    const live = new Set<string>();
+    this.room?.remoteParticipants.forEach((participant) => {
+      const wanted = participant.identity === this.watchedScreen;
+      participant.trackPublications.forEach((publication) => {
+        if (!isScreenSource(publication.source)) return;
+        live.add(publication.trackSid);
+        if (this.screenSubscriptions.get(publication.trackSid) === wanted) {
+          return;
+        }
+        try {
+          publication.setSubscribed(wanted);
+          this.screenSubscriptions.set(publication.trackSid, wanted);
+        } catch (e) {
+          console.warn("[LiveKitService] screen subscription failed:", e);
+        }
+      });
+    });
+    for (const sid of Array.from(this.screenSubscriptions.keys())) {
+      if (!live.has(sid)) this.screenSubscriptions.delete(sid);
+    }
+  }
+
+  private notifyScreenShares(): void {
+    const state = this.getScreenShares();
+    this.screenShareListeners.forEach((fn) => {
+      try {
+        fn({ shares: [...state.shares], watching: state.watching });
+      } catch (e) {
+        console.warn("[LiveKitService] screen share listener failed:", e);
+      }
+    });
+    this.notifyParticipantsChange();
+  }
+
   getVideoTiles(): VideoTile[] {
     const tiles: VideoTile[] = [];
 
@@ -1049,10 +1165,15 @@ export class LiveKitService {
           },
         },
       );
+      this.watchedScreen = this.room.localParticipant.identity;
     } else {
       await this.room.localParticipant.setScreenShareEnabled(false);
+      if (this.watchedScreen === this.room.localParticipant.identity) {
+        this.watchedScreen = null;
+      }
     }
-    this.notifyParticipantsChange();
+    this.applyScreenSubscriptions();
+    this.notifyScreenShares();
   }
 
   getScreenShareQuality(): ScreenShareQuality {
@@ -1118,12 +1239,13 @@ export class LiveKitService {
     if (!this.room) return;
     attachRoomListeners(this.room, {
       onConnected: () => this.onConnectionStateChange?.(true),
-      onLocalTracksChanged: () => this.notifyParticipantsChange(),
+      onLocalTracksChanged: () => this.refreshScreenShares(),
       onParticipantConnected: (participant) => this.addParticipant(participant),
       onParticipantDisconnected: (identity) => this.removeParticipant(identity),
       onAudioTrack: (track, participant) =>
         this.handleAudioTrack(track, participant),
       onVideoTrack: (track, identity) => this.handleVideoTrack(track, identity),
+      onScreenSharesChanged: () => this.refreshScreenShares(),
       onParticipantPatch: (identity, patch) =>
         this.updateParticipant(identity, patch),
       onDisconnected: (reason) => this.handleRoomDisconnected(reason),

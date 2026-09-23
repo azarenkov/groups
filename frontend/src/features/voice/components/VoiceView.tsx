@@ -15,6 +15,7 @@ import {
   userPermissions,
 } from "../../servers/store/rolesStore";
 import { useLiveKit } from "../hooks/useLiveKit";
+import { useScreenShares } from "../hooks/useScreenShares";
 import { qualityClass, qualityLabel } from "../lib/quality";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useSpeakingStore } from "../store/speakingStore";
@@ -217,9 +218,12 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     for (const v of videoTiles) if (v.source === "camera") m.set(v.identity, v);
     return m;
   }, [videoTiles]);
+  const { shares, watching, watch } = useScreenShares(!!stageMount);
   const screenTile = useMemo(
-    () => videoTiles.find((v) => v.source === "screen") ?? null,
-    [videoTiles],
+    () =>
+      videoTiles.find((v) => v.source === "screen" && v.identity === watching) ??
+      null,
+    [videoTiles, watching],
   );
   const mutedIds = useMemo(() => {
     const m = new Map<string, boolean>();
@@ -365,6 +369,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
             onLeave={handleLeave}
             viewersFor={viewersFor}
             onWatchChange={onStreamWatch}
+            shares={shares}
+            watching={watching}
+            onWatch={watch}
             onModerateMute={canModerateMute ? moderateMute : undefined}
             onModerateDeafen={canModerateDeafen ? moderateDeafen : undefined}
             moderationExcluded={moderationExcluded}

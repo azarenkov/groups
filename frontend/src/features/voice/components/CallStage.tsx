@@ -10,6 +10,7 @@ import { useVideoTiles } from "../hooks/useVideoTiles";
 import { getLiveKitService } from "../lib/livekit";
 import { colorForId, initialFor } from "../../../shared/lib/avatar";
 import { useSpeakingStore } from "../store/speakingStore";
+import { useScreenShares } from "../hooks/useScreenShares";
 
 const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
   const participants = useCallStore((s) => s.participants);
@@ -71,9 +72,12 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
     for (const v of videoTiles) if (v.source === "camera") m.set(v.identity, v);
     return m;
   }, [videoTiles]);
+  const { shares, watching, watch } = useScreenShares();
   const screenTile = useMemo(
-    () => videoTiles.find((v) => v.source === "screen") ?? null,
-    [videoTiles],
+    () =>
+      videoTiles.find((v) => v.source === "screen" && v.identity === watching) ??
+      null,
+    [videoTiles, watching],
   );
 
   const roster = useMemo<TheaterEntry[]>(() => {
@@ -130,6 +134,9 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
     <VoiceTheater
       roster={roster}
       screenTile={screenTile}
+      shares={shares}
+      watching={watching}
+      onWatch={watch}
       liveName={sharerName}
       isMuted={muted}
       isDeafened={deafened}

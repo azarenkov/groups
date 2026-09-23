@@ -1,4 +1,8 @@
 {
+  "sharingNow": "Sharing a screen",
+  "watchStream": "Watch",
+  "stopWatching": "Stop watching",
+  "yourScreen": "Your screen",
   "incoming": "Incoming call",
   "incomingVideo": "Incoming video call",
   "acceptWithVideo": "Accept with video",
