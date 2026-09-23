@@ -21,13 +21,14 @@ const TileVolumeMenu: React.FC<{
   deafen?: { deafened: boolean; onToggle: () => void };
 }> = ({ id, className, moderate, deafen }) => {
   const [open, setOpen] = useState(false);
-  const [vol, setVol] = useState(() =>
-    Math.min(
-      REMOTE_VOLUME_PLAIN_MAX,
-      Math.round(getLiveKitService().getRemoteVolume(id) * 100),
-    ),
+  const [volMax, setVolMax] = useState(() =>
+    getLiveKitService().supportsRemoteBoost(id)
+      ? REMOTE_VOLUME_MAX
+      : REMOTE_VOLUME_PLAIN_MAX,
   );
-  const [volMax, setVolMax] = useState(REMOTE_VOLUME_PLAIN_MAX);
+  const [vol, setVol] = useState(() =>
+    Math.min(volMax, Math.round(getLiveKitService().getRemoteVolume(id) * 100)),
+  );
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
