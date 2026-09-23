@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::visibility::ChannelVisibility, friendship::repository::FriendshipRepository, community::id::CommunityId, community::repository::CommunityRepository};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, friendship::repository::FriendshipRepository, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::{pagination::PaginatedResult, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -78,7 +78,7 @@ where
             return Err(ListChannelParticipantsError::ChannelNotFound);
         }
 
-        if channel.supports_text() && channel.visibility() == ChannelVisibility::Private {
+        if channel.has_explicit_text_membership() {
             let is_text_member = self
                 .channel_repository
                 .is_text_channel_member(&channel_id, &requester_id)

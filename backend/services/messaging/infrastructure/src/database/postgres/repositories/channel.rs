@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 
 use chrono::{DateTime, Utc};
-use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::repository::ChannelRepository, channel::repository::FriendVoicePresenceRow, channel::repository::RecentVoiceRoomRow, channel::repository::VisibleVoiceRoom, channel::repository::VoiceParticipantRow, channel::session_id::SessionId, community::id::CommunityId};
+use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::repository::ChannelRepository, channel::repository::FriendVoicePresenceRow, channel::repository::RecentVoiceRoomRow, channel::repository::VisibleVoiceRoom, channel::repository::VoiceParticipantRow, channel::session_id::SessionId, channel::visibility::ChannelVisibility, community::id::CommunityId};
 use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -108,7 +108,8 @@ impl ChannelRepository for PostgresChannelRepository {
     ) -> Result<PaginatedResult<(UserId, UserName, String, Option<DateTime<Utc>>)>, RepositoryError> {
         let kind_row = sqlx::query!(
             r#"
-            SELECT kind AS "kind: ChannelKindDto"
+            SELECT kind AS "kind: ChannelKindDto",
+                   visibility AS "visibility: ChannelVisibilityDto"
             FROM channels
             WHERE id = $1 AND community_id = $2
             "#,
@@ -121,6 +122,7 @@ impl ChannelRepository for PostgresChannelRepository {
         .ok_or(RepositoryError::NotFound)?;
 
         let kind: ChannelKind = kind_row.kind.into();
+        let visibility: ChannelVisibility = kind_row.visibility.into();
 
         if kind.supports_voice() {
             let total = sqlx::query!(
@@ -151,6 +153,45 @@ impl ChannelRepository for PostgresChannelRepository {
                 LIMIT $2 OFFSET $3
                 "#,
                 channel_id.uuid(),
+                pagination.limit(),
+                pagination.offset(),
+            )
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+
+            let items = users
+                .into_iter()
+                .map(|r| (UserId::new(r.user_id), UserName::new(r.name), r.bio, r.profile_updated_at))
+                .collect();
+            return Ok(PaginatedResult::new(items, total, pagination));
+        }
+
+        if kind.supports_text() && visibility == ChannelVisibility::Public {
+            let total = sqlx::query!(
+                r#"
+                SELECT COUNT(*) AS "count!"
+                FROM community_members
+                WHERE community_id = $1
+                "#,
+                community_id.uuid(),
+            )
+            .fetch_one(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .count;
+
+            let users = sqlx::query!(
+                r#"
+                SELECT u.user_id, u.name, CASE WHEN u.active THEN u.bio ELSE '' END AS "bio!",
+                       CASE WHEN u.active THEN u.profile_updated_at ELSE GREATEST(u.profile_updated_at, u.active_updated_at) END AS "profile_updated_at?"
+                FROM messaging_user_profiles u
+                INNER JOIN community_members m ON m.user_id = u.user_id
+                WHERE m.community_id = $1
+                ORDER BY m.joined_at ASC, u.user_id ASC
+                LIMIT $2 OFFSET $3
+                "#,
+                community_id.uuid(),
                 pagination.limit(),
                 pagination.offset(),
             )

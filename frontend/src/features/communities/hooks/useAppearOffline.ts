@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { userAPI } from "../../social/api/user";
 import { usePresenceStore } from "../../social/store/presenceStore";
+import { setActivityHiddenByPresence } from "../../social/lib/gameActivity";
 
 export function useAppearOffline(params: {
   hasSession: boolean;
@@ -26,6 +27,10 @@ export function useAppearOffline(params: {
     if (!currentUserId) return;
     usePresenceStore.getState().setSelf(currentUserId, !appearOffline);
   }, [currentUserId, appearOffline]);
+
+  useEffect(() => {
+    setActivityHiddenByPresence(appearOffline);
+  }, [appearOffline]);
 
   const setStatus = useCallback((status: "online" | "offline") => {
     const next = status === "offline";

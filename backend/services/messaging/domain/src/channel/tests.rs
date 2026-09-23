@@ -173,3 +173,34 @@ fn voice_sessions_track_presence_and_media() {
         ChannelError::ParticipantNotJoined
     );
 }
+
+#[test]
+fn only_private_text_channels_keep_their_own_member_list() {
+    let owner = UserId::generate();
+    let open = Channel::create(
+        CommunityId::generate(),
+        owner,
+        ChannelName::new("general".to_string()),
+        ChannelKind::Text,
+        ChannelVisibility::Public,
+        None,
+        Utc::now(),
+    )
+    .unwrap();
+    assert!(!open.has_explicit_text_membership());
+
+    let closed = Channel::create(
+        CommunityId::generate(),
+        owner,
+        ChannelName::new("secret".to_string()),
+        ChannelKind::Text,
+        ChannelVisibility::Private,
+        Some(domain::password_hash::PasswordHash::new("hash".to_string())),
+        Utc::now(),
+    )
+    .unwrap();
+    assert!(closed.has_explicit_text_membership());
+
+    let voice = voice_channel(owner);
+    assert!(!voice.has_explicit_text_membership());
+}

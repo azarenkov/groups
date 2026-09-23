@@ -15,4 +15,6 @@ pub trait RealtimeProjection: Send + Sync {
     async fn add_community_member(&self, community_id: Uuid, user_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError>;
     async fn remove_community_member(&self, community_id: Uuid, user_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError>;
     async fn remove_community(&self, community_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError>;
+    async fn set_appear_offline(&self, user_id: Uuid, appear_offline: bool) -> Result<(), RepositoryError>;
+    async fn appear_offline(&self, user_id: Uuid) -> Result<bool, RepositoryError>;
 }

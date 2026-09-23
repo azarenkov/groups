@@ -296,6 +296,40 @@ impl PostgresRealtimeProjection {
         Ok(())
     }
 
+    async fn set_appear_offline(
+        &self,
+        user_id: Uuid,
+        appear_offline: bool,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO realtime_presence_preferences (user_id, appear_offline, updated_at)
+            VALUES ($1, $2, now())
+            ON CONFLICT (user_id) DO UPDATE
+            SET appear_offline = EXCLUDED.appear_offline, updated_at = EXCLUDED.updated_at
+            "#,
+        )
+        .bind(user_id)
+        .bind(appear_offline)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn appear_offline(&self, user_id: Uuid) -> Result<bool, sqlx::Error> {
+        let row: Option<(bool,)> = sqlx::query_as(
+            r#"
+            SELECT appear_offline
+            FROM realtime_presence_preferences
+            WHERE user_id = $1
+            "#,
+        )
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| r.0).unwrap_or(false))
+    }
+
     async fn remove_community(
         &self,
         community_id: Uuid,
@@ -390,6 +424,12 @@ impl RealtimeProjection for PostgresRealtimeProjection {
     }
     async fn remove_community(&self, community_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
         PostgresRealtimeProjection::remove_community(self, community_id, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
+    }
+    async fn set_appear_offline(&self, user_id: Uuid, appear_offline: bool) -> Result<(), RepositoryError> {
+        PostgresRealtimeProjection::set_appear_offline(self, user_id, appear_offline).await.map_err(map_sqlx_error_to_domain_error)
+    }
+    async fn appear_offline(&self, user_id: Uuid) -> Result<bool, RepositoryError> {
+        PostgresRealtimeProjection::appear_offline(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
     }
 }
 

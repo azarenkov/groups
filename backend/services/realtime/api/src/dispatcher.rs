@@ -8,6 +8,10 @@ use infrastructure_common::{
 use realtime_infrastructure::database::postgres::{MIGRATOR, SCHEMA};
 use api_common::health::{self, Liveness, Readiness};
 use api_common::shutdown::{ShutdownConfig, ShutdownSignal};
+use contracts::realtime::PresencePreferenceV1;
+use futures::StreamExt;
+use realtime_core::ports::{directory::RecipientDirectory, projection::RealtimeProjection, publisher::RealtimePublisher};
+use realtime_domain::envelope::Envelope;
 use tokio::sync::watch;
 
 use std::{sync::Arc, time::Duration};
@@ -43,6 +47,9 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
     let blocks = Arc::new(MessagingRelationsClient::new(&messaging_internal_url));
+    let presence_projection = projection.clone();
+    let presence_directory = projection.clone();
+    let presence_publisher = publisher.clone();
     let dispatch = Arc::new(DispatchEvent::new(projection.clone(), publisher, blocks.clone()));
     let apply = Arc::new(ApplyProjection::new(projection, blocks));
     let settings = DispatcherSettings {
@@ -76,7 +83,7 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
-            tracing::error!(error = %e, "Health community stopped");
+            tracing::error!(error = %e, "Health server stopped");
         }
     });
 
@@ -132,6 +139,62 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
         consumer_handles.push(actix_web::rt::spawn(async move {
             run_catchup(jetstream, spec, apply, rx, heartbeat.clone()).await;
             liveness.release(&heartbeat);
+        }));
+    }
+
+    {
+        let core = jetstream.client().clone();
+        let subject = format!("{prefix}.realtime.presence.preference");
+        let projection = presence_projection.clone();
+        let publisher = presence_publisher.clone();
+        let directory = presence_directory.clone();
+        consumer_handles.push(actix_web::rt::spawn(async move {
+            let mut sub = match core.subscribe(subject.clone()).await {
+                Ok(sub) => sub,
+                Err(e) => {
+                    tracing::error!(error = %e, %subject, "Failed to follow presence preferences");
+                    return;
+                }
+            };
+            while let Some(msg) = sub.next().await {
+                let body: PresencePreferenceV1 = match serde_json::from_slice(&msg.payload) {
+                    Ok(body) => body,
+                    Err(e) => {
+                        tracing::warn!(error = %e, "Bad presence preference payload");
+                        continue;
+                    }
+                };
+                if let Err(e) = projection
+                    .set_appear_offline(body.user_id, body.appear_offline)
+                    .await
+                {
+                    tracing::warn!(error = %e, user_id = %body.user_id, "Failed to store presence preference");
+                    continue;
+                }
+                if !body.appear_offline {
+                    continue;
+                }
+                let envelope = Envelope::new(
+                    "user.activityChanged",
+                    serde_json::json!({
+                        "userId": body.user_id,
+                        "gameId": serde_json::Value::Null,
+                        "name": serde_json::Value::Null,
+                        "startedAt": serde_json::Value::Null,
+                        "occurredAt": chrono::Utc::now(),
+                    }),
+                );
+                let recipients = match directory.interested_in(body.user_id).await {
+                    Ok(list) => list,
+                    Err(e) => {
+                        tracing::warn!(error = %e, user_id = %body.user_id, "Failed to list activity recipients");
+                        continue;
+                    }
+                };
+                if let Err(e) = publisher.publish_to_users(recipients, &envelope).await {
+                    tracing::warn!(error = %e, user_id = %body.user_id, "Failed to clear activity for hidden user");
+                }
+            }
         }));
     }
 
