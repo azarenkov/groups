@@ -7,21 +7,18 @@ export interface ScreenShares extends ScreenShareState {
   watch: (identity: string | null) => void;
 }
 
-export function useScreenShares(): ScreenShares {
+export function useScreenShares(visible: boolean = true): ScreenShares {
   const [state, setState] = useState<ScreenShareState>({
     shares: [],
     watching: null,
   });
 
+  useEffect(() => getLiveKitService().subscribeScreenShares(setState), []);
+
   useEffect(() => {
-    const service = getLiveKitService();
-    const release = service.acquireScreenView();
-    const unsubscribe = service.subscribeScreenShares(setState);
-    return () => {
-      unsubscribe();
-      release();
-    };
-  }, []);
+    if (!visible) return undefined;
+    return getLiveKitService().acquireScreenView();
+  }, [visible]);
 
   const watch = useCallback((identity: string | null) => {
     getLiveKitService().watchScreen(identity);

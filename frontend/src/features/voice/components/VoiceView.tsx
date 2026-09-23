@@ -218,7 +218,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     for (const v of videoTiles) if (v.source === "camera") m.set(v.identity, v);
     return m;
   }, [videoTiles]);
-  const { shares, watching, watch } = useScreenShares();
+  const { shares, watching, watch } = useScreenShares(!!stageMount);
   const screenTile = useMemo(
     () =>
       videoTiles.find((v) => v.source === "screen" && v.identity === watching) ??
