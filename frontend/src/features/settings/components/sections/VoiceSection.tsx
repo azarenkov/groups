@@ -120,8 +120,6 @@ export function VoiceSection() {
   const pushToTalk = useVoiceSettingsStore((s) => s.pushToTalk);
   const pttGlobal = useVoiceSettingsStore((s) => s.pttGlobal);
   const setPttGlobal = useVoiceSettingsStore((s) => s.setPttGlobal);
-  const screenCodec = useVoiceSettingsStore((s) => s.screenCodec);
-  const setScreenCodec = useVoiceSettingsStore((s) => s.setScreenCodec);
   const screenContent = useVoiceSettingsStore((s) => s.screenContent);
   const setScreenContent = useVoiceSettingsStore((s) => s.setScreenContent);
   const globalStatus = usePushToTalkGlobalStatus();
@@ -325,28 +323,6 @@ export function VoiceSection() {
               onClick={() => setScreenContent("motion")}
             >
               {t("voice.screenContentMotion")}
-            </button>
-          </div>
-        </SettingsRow>
-        <SettingsRow label={t("voice.screenCodec")} hint={t("voice.screenCodecHint")}>
-          <div className="s-seg">
-            <button
-              className={screenCodec === "auto" ? "on" : ""}
-              onClick={() => setScreenCodec("auto")}
-            >
-              {t("voice.screenCodecAuto")}
-            </button>
-            <button
-              className={screenCodec === "av1" ? "on" : ""}
-              onClick={() => setScreenCodec("av1")}
-            >
-              AV1
-            </button>
-            <button
-              className={screenCodec === "vp9" ? "on" : ""}
-              onClick={() => setScreenCodec("vp9")}
-            >
-              VP9
             </button>
           </div>
         </SettingsRow>
