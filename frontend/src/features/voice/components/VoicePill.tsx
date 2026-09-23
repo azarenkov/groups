@@ -68,9 +68,6 @@ const VoicePill: React.FC<VoicePillProps> = ({
   const [noise, setNoise] = useState<NoiseSuppressionMode>(() =>
     getLiveKitService().getNoiseSuppressionMode(),
   );
-  const [noiseStrengthPct, setNoiseStrengthPct] = useState(() =>
-    Math.round(getLiveKitService().getNoiseStrength() * 100),
-  );
   const [meter, setMeter] = useState<number[]>(() => new Array(BARS).fill(0));
   const localTrack = useLocalTrack();
   const pushToTalk = useVoiceSettingsStore((state) => state.pushToTalk);
@@ -83,10 +80,6 @@ const VoicePill: React.FC<VoicePillProps> = ({
   const handleNoiseChange = async (next: NoiseSuppressionMode) => {
     setNoise(next);
     useVoiceSettingsStore.getState().update({ noiseMode: next });
-    if (next === "high") {
-      setNoiseStrengthPct(50);
-      getLiveKitService().setNoiseStrength(0.5);
-    }
     try {
       await getLiveKitService().setNoiseSuppressionMode(next);
     } catch (e) {
@@ -100,16 +93,10 @@ const VoicePill: React.FC<VoicePillProps> = ({
     }
   };
 
-  const handleStrengthChange = (pct: number) => {
-    setNoiseStrengthPct(pct);
-    getLiveKitService().setNoiseStrength(pct / 100);
-  };
-
   useEffect(() => {
     if (!open) return;
     const service = getLiveKitService();
     setNoise(service.getNoiseSuppressionMode());
-    setNoiseStrengthPct(Math.round(service.getNoiseStrength() * 100));
   }, [open]);
 
   const anyOpen = open || inviteOpen;
@@ -395,31 +382,6 @@ const VoicePill: React.FC<VoicePillProps> = ({
               </button>
             </div>
           </div>
-
-          {noise === "high" && (
-            <div className="vp-pop-row">
-              <div className="vp-pop-label">
-                <span className="k">{t("noiseSuppression")}</span>
-                <span className="v">{noiseStrengthPct}%</span>
-              </div>
-              <div className="vp-slider accent">
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={noiseStrengthPct}
-                  onChange={(e) => handleStrengthChange(Number(e.target.value))}
-                  style={
-                    {
-                      ["--pct" as unknown as string]: `${noiseStrengthPct}%`,
-                    } as React.CSSProperties
-                  }
-                  title={`${noiseStrengthPct}%`}
-                />
-              </div>
-            </div>
-          )}
 
           <div className="vp-pop-row">
             <div className="vp-pop-label">

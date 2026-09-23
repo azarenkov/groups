@@ -821,9 +821,9 @@ export class LiveKitService {
         const makeup = ctx.createGain();
         makeup.gain.value = MAKEUP_BASE;
         const limiter = ctx.createDynamicsCompressor();
-        limiter.threshold.value = -6;
-        limiter.knee.value = 6;
-        limiter.ratio.value = 12;
+        limiter.threshold.value = -3;
+        limiter.knee.value = 4;
+        limiter.ratio.value = 6;
         limiter.attack.value = 0.003;
         limiter.release.value = 0.2;
         const postGain = ctx.createGain();
@@ -1950,12 +1950,13 @@ function trackDenoiserMakeup(
     const inputRms = analyserRms(input, inputBuffer);
     const denoisedRms = analyserRms(denoised, denoisedBuffer);
     input.getByteFrequencyData(spectrum);
+    const gateOpen = gate.gain.value > 0;
     const speech = isSpeech(
       inputRms,
       speechBandRatio(spectrum, ctx.sampleRate),
-      gate.gain.value > 0,
+      gateOpen,
     );
-    const next = makeupGainFor(inputRms, denoisedRms, gain, speech);
+    const next = makeupGainFor(inputRms, denoisedRms, gain, speech, gateOpen);
     if (next === gain) return;
     gain = next;
     makeup.gain.setTargetAtTime(gain, ctx.currentTime, 0.1);
