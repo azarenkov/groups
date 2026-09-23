@@ -516,9 +516,10 @@ export const useCallStore = create<CallState>()((set, get) => ({
   accept: async (withVideo = false) => {
     const inc = get().incoming;
     if (!inc) return;
+    if (get().connecting) return;
+    set({ connecting: true, incoming: null });
     if (get().activeCallId) await get().leave();
     await leaveVoiceChannel();
-    set({ connecting: true, incoming: null });
     try {
       const initiator = await getAuthedIdentity();
       const initiatorId = initiator.userId;

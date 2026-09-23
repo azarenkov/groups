@@ -64,6 +64,7 @@ class FakeAudioContext {
 
 interface Attached {
   gain: FakeGain;
+  element: HTMLMediaElement;
   end: () => void;
 }
 
@@ -80,7 +81,11 @@ const attach = (graph: RemoteAudioGraph, identity: string): FakeGain => {
   };
   graph.attach(track as never, identity, () => {});
   const gain = created[created.length - 1];
-  attached.push({ gain, end: () => handlers.forEach((fn) => fn()) });
+  attached.push({
+    gain,
+    element,
+    end: () => handlers.forEach((fn) => fn()),
+  });
   return gain;
 };
 
@@ -295,6 +300,26 @@ describe("deafening", () => {
     graph.setDeafened(false);
     expect(mic.gain.value).toBeCloseTo(1.5);
     expect(screen.gain.value).toBeCloseTo(1.5);
+  });
+
+  it("silences a fallback track next to a wired one", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    const wired = attach(graph, "sam");
+    failGain = true;
+    attach(graph, "sam");
+    failGain = false;
+    const fallback = lastAttachment();
+
+    graph.setVolume("sam", 0.5);
+    expect(wired.gain.value).toBeCloseTo(0.5);
+    expect(fallback.element.volume).toBeCloseTo(0.5);
+
+    graph.setDeafened(true);
+    expect(wired.gain.value).toBe(0);
+    expect(fallback.element.volume).toBe(0);
+
+    graph.setDeafened(false);
+    expect(fallback.element.volume).toBeCloseTo(0.5);
   });
 
   it("silences audio that arrives while deafened", () => {
