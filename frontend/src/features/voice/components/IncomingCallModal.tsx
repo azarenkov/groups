@@ -134,7 +134,9 @@ const IncomingCallModal: React.FC = () => {
           onClick={() => accept(false)}
           title={
             channelName
-              ? t("acceptAndLeave", { channel: channelName })
+              ? incoming.video
+                ? t("acceptAudioAndLeave", { channel: channelName })
+                : t("acceptAndLeave", { channel: channelName })
               : incoming.video
                 ? t("acceptAudioOnly")
                 : t("accept")
@@ -149,7 +151,7 @@ const IncomingCallModal: React.FC = () => {
             onClick={() => accept(true)}
             title={
               channelName
-                ? t("acceptAndLeave", { channel: channelName })
+                ? t("acceptVideoAndLeave", { channel: channelName })
                 : t("acceptWithVideo")
             }
           >

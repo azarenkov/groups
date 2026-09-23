@@ -1,4 +1,6 @@
 {
+  "acceptAudioAndLeave": "Принять без видео и покинуть {{channel}}",
+  "acceptVideoAndLeave": "Принять с видео и покинуть {{channel}}",
   "acceptAndLeave": "Принять и покинуть {{channel}}",
   "leavesChannel": "Вы выйдете из канала {{channel}}",
   "sharingNow": "Показывает экран",
