@@ -39,6 +39,8 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
   const [now, setNow] = useState(() => Date.now());
   const { t } = useTranslation(["call", "voice"]);
 
+  const stageVisible = focused && dockId === "voice-dock-slot";
+
   const open = () => {
     setFocused(true);
     onOpen?.();
@@ -85,9 +87,9 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
       isDeafened={deafened}
       onToggleDeafen={() => setDeafened(!deafened)}
       onLeave={() => leave()}
-      onOpen={focused ? undefined : open}
+      onOpen={stageVisible ? undefined : open}
       openTitle={t("openCall")}
-      active={focused}
+      active={stageVisible}
       badge={attention && !focused}
     />,
     mountPoint,
