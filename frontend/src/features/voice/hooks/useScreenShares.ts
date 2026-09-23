@@ -13,7 +13,15 @@ export function useScreenShares(): ScreenShares {
     watching: null,
   });
 
-  useEffect(() => getLiveKitService().subscribeScreenShares(setState), []);
+  useEffect(() => {
+    const service = getLiveKitService();
+    const release = service.acquireScreenView();
+    const unsubscribe = service.subscribeScreenShares(setState);
+    return () => {
+      unsubscribe();
+      release();
+    };
+  }, []);
 
   const watch = useCallback((identity: string | null) => {
     getLiveKitService().watchScreen(identity);

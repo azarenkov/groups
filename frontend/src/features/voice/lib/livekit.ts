@@ -111,6 +111,7 @@ export class LiveKitService {
   private localSpeaking: boolean = false;
   private watchedScreen: string | null = null;
   private screenSubscriptions: Map<string, boolean> = new Map();
+  private screenViewers = 0;
   private screenShareListeners: Set<(state: ScreenShareState) => void> =
     new Set();
   private localSpeakingListeners: Set<(speaking: boolean) => void> = new Set();
@@ -1013,6 +1014,17 @@ export class LiveKitService {
     fn(this.getScreenShares());
     return () => {
       this.screenShareListeners.delete(fn);
+    };
+  }
+
+  acquireScreenView(): () => void {
+    this.screenViewers += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.screenViewers = Math.max(0, this.screenViewers - 1);
+      if (this.screenViewers === 0) this.watchScreen(null);
     };
   }
 
