@@ -94,7 +94,7 @@ jobs:
       - run: npx react-scripts test --watchAll=false
         env:
           CI: true
-      - run: npx react-scripts build
+      - run: npm run build
         env:
           CI: true
           GENERATE_SOURCEMAP: 'false'
