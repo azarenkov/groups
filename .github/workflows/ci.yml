@@ -56,6 +56,7 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
               - '.cargo/**'
+              - '.github/workflows/ci.yml'
             identity:
               - 'backend/services/identity/**'
             media:
@@ -72,6 +73,7 @@ jobs:
               - 'backend/workers/**'
             frontend:
               - 'frontend/**'
+              - '.github/workflows/ci.yml'
 
   frontend:
     needs: changes
