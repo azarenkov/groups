@@ -1,7 +1,7 @@
 import {
   CPU_LIMIT_HOLD_MS,
   chooseCodec,
-  contentHintFor,
+  degradationFor,
   shouldFallBack,
 } from "../videoCodec";
 
@@ -26,18 +26,21 @@ describe("choosing the screen codec", () => {
   });
 });
 
-describe("the content hint", () => {
-  it("keeps text sharp even at sixty frames", () => {
-    expect(contentHintFor("text", 60)).toBe("detail");
+describe("what the encoder gives up first", () => {
+  it("keeps text sharp and drops frames instead", () => {
+    expect(degradationFor("text", true)).toBe("maintain-resolution");
   });
 
-  it("keeps motion smooth when asked", () => {
-    expect(contentHintFor("motion", 30)).toBe("motion");
+  it("keeps motion smooth and drops resolution instead", () => {
+    expect(degradationFor("motion", false)).toBe("maintain-framerate");
   });
 
-  it("guesses from the frame rate when left alone", () => {
-    expect(contentHintFor("auto", 60)).toBe("motion");
-    expect(contentHintFor("auto", 30)).toBe("detail");
+  it("balances both when quality is automatic", () => {
+    expect(degradationFor("auto", true)).toBe("balanced");
+  });
+
+  it("holds a hand-picked resolution", () => {
+    expect(degradationFor("auto", false)).toBe("maintain-resolution");
   });
 });
 

@@ -168,7 +168,7 @@
     "defaultDevice": "System default",
     "behavior": "Behavior",
     "screenContent": "What you are sharing",
-    "screenContentHint": "Text and code are sent sharply, games smoothly",
+    "screenContentHint": "What to keep on a weak network: text stays sharp at the cost of frames, games stay smooth at the cost of resolution",
     "screenContentAuto": "Auto",
     "screenContentText": "Text",
     "screenContentMotion": "Motion",

@@ -6,10 +6,20 @@ import type { ScreenContent } from "../lib/videoCodec";
 import { ApiError } from "../../../shared/lib/apiError";
 
 export type NoiseMode = "off" | "standard" | "high";
-export type StreamQualityId = "720p60" | "1080p60" | "1440p60" | "2160p60";
+export type StreamQualityId =
+  | "auto"
+  | "720p60"
+  | "1080p60"
+  | "1440p60"
+  | "2160p60";
 
 const parseStreamQuality = (value: unknown): StreamQualityId =>
-  value === "1080p60" || value === "1440p60" || value === "2160p60" ? value : "720p60";
+  value === "720p60" ||
+  value === "1080p60" ||
+  value === "1440p60" ||
+  value === "2160p60"
+    ? value
+    : "auto";
 
 export interface VoiceSyncedSettings {
   micVolume: number;
@@ -57,7 +67,7 @@ const DEFAULT_SETTINGS: VoiceSyncedSettings = {
   sensitivity: 50,
   pushToTalk: false,
   pttKey: "KeyM",
-  streamQuality: "720p60",
+  streamQuality: "auto",
 };
 
 const applyToEngine = (s: {

@@ -6,6 +6,7 @@ import {
   RemoteParticipant,
   AudioTrack,
   LocalAudioTrack,
+  LocalVideoTrack,
   createLocalAudioTrack,
   RoomConnectOptions,
   VideoTrack,
@@ -21,7 +22,7 @@ import {
 } from "./makeupGain";
 import { RemoteAudioGraph } from "./livekit/remoteAudio";
 import {
-  contentHintFor,
+  degradationFor,
   pickScreenCodec,
   shouldFallBack,
 } from "./videoCodec";
@@ -55,6 +56,7 @@ export interface ScreenShareQuality {
   height: number;
   frameRate: number;
   maxBitrate: number;
+  adaptive: boolean;
 }
 
 export { ConnectionQuality, DisconnectReason };
@@ -94,7 +96,9 @@ export class LiveKitService {
     height: 720,
     frameRate: 60,
     maxBitrate: 4_000_000,
+    adaptive: true,
   };
+  private screenContent: ScreenContent = "auto";
   private desiredMicMuted: boolean = false;
   private remoteAudio = new RemoteAudioGraph(() => this.room);
   private noiseStrength: number = 1.0;
@@ -1204,6 +1208,7 @@ export class LiveKitService {
     if (enabled) {
       const quality = this.screenShareQuality;
       const { screenContent } = await this.videoPreferences();
+      this.screenContent = screenContent;
       const codec =
         this.screenCodecFallback ??
         (await pickScreenCodec(
@@ -1220,13 +1225,13 @@ export class LiveKitService {
             height: quality.height,
             frameRate: quality.frameRate,
           },
-          contentHint: contentHintFor(screenContent, quality.frameRate),
           audio: true,
         },
         {
           simulcast: false,
           videoCodec: codec,
           backupCodec: codec === "vp9" ? undefined : { codec: "vp8" },
+          degradationPreference: degradationFor(screenContent, quality.adaptive),
           screenShareEncoding: {
             maxBitrate: quality.maxBitrate,
             maxFramerate: quality.frameRate,
@@ -1263,6 +1268,10 @@ export class LiveKitService {
         simulcast: false,
         videoCodec: codec,
         backupCodec: codec === "vp9" ? undefined : { codec: "vp8" },
+        degradationPreference: degradationFor(
+          this.screenContent,
+          quality.adaptive,
+        ),
         screenShareEncoding: {
           maxBitrate: quality.maxBitrate,
           maxFramerate: quality.frameRate,
@@ -1286,13 +1295,17 @@ export class LiveKitService {
   }
 
   setScreenContent(content: ScreenContent): void {
+    this.screenContent = content;
+    this.applyScreenDegradation();
+  }
+
+  private applyScreenDegradation(): void {
     const track = this.room?.localParticipant.getTrackPublication(
       Track.Source.ScreenShare,
-    )?.track?.mediaStreamTrack;
-    if (!track) return;
-    track.contentHint = contentHintFor(
-      content,
-      this.screenShareQuality.frameRate,
+    )?.track;
+    if (!(track instanceof LocalVideoTrack)) return;
+    void track.setDegradationPreference(
+      degradationFor(this.screenContent, this.screenShareQuality.adaptive),
     );
   }
 
@@ -1363,6 +1376,7 @@ export class LiveKitService {
 
   async setScreenShareQuality(quality: ScreenShareQuality): Promise<void> {
     this.screenShareQuality = quality;
+    this.applyScreenDegradation();
     const publication = this.room?.localParticipant.getTrackPublication(
       Track.Source.ScreenShare,
     );

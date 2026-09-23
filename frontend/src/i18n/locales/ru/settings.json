@@ -168,7 +168,7 @@
     "defaultDevice": "Системное устройство",
     "behavior": "Поведение",
     "screenContent": "Что показываете",
-    "screenContentHint": "Влияет на чёткость: текст и код передаются детально, игры плавно",
+    "screenContentHint": "Что держать при слабой сети: текст остаётся чётким за счёт кадров, игры плавными за счёт разрешения",
     "screenContentAuto": "Авто",
     "screenContentText": "Текст",
     "screenContentMotion": "Движение",

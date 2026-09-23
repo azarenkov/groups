@@ -19,13 +19,18 @@ export function chooseCodec(
   return probe.supported && probe.smooth && probe.powerEfficient ? "av1" : "vp9";
 }
 
-export function contentHintFor(
+export type Degradation =
+  | "balanced"
+  | "maintain-resolution"
+  | "maintain-framerate";
+
+export function degradationFor(
   content: ScreenContent,
-  frameRate: number,
-): "detail" | "motion" {
-  if (content === "text") return "detail";
-  if (content === "motion") return "motion";
-  return frameRate >= 60 ? "motion" : "detail";
+  adaptive: boolean,
+): Degradation {
+  if (content === "text") return "maintain-resolution";
+  if (content === "motion") return "maintain-framerate";
+  return adaptive ? "balanced" : "maintain-resolution";
 }
 
 export interface EncoderSample {
