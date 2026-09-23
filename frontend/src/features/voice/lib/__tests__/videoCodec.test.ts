@@ -45,30 +45,46 @@ describe("what the encoder gives up first", () => {
 });
 
 describe("falling back to vp9", () => {
-  const sample = (at: number, cpuLimited: boolean, fps: number) => ({
+  const sample = (
+    at: number,
+    cpuLimited: boolean,
+    fps: number,
+    sourceFps: number | null = 60,
+  ) => ({
     at,
     cpuLimited,
     framesPerSecond: fps,
+    sourceFramesPerSecond: sourceFps,
   });
 
   it("leaves a healthy encoder alone", () => {
     const samples = [sample(0, false, 60), sample(5000, false, 58)];
-    expect(shouldFallBack(samples, 60, 11000)).toBe(false);
+    expect(shouldFallBack(samples, 11000)).toBe(false);
   });
 
   it("waits out a short hiccup", () => {
     const samples = [sample(0, false, 60), sample(1000, true, 20)];
-    expect(shouldFallBack(samples, 60, 5000)).toBe(false);
+    expect(shouldFallBack(samples, 5000)).toBe(false);
   });
 
   it("gives up after the encoder struggles long enough", () => {
     const samples = [sample(0, true, 20), sample(2000, true, 18)];
-    expect(shouldFallBack(samples, 60, CPU_LIMIT_HOLD_MS)).toBe(true);
+    expect(shouldFallBack(samples, CPU_LIMIT_HOLD_MS)).toBe(true);
   });
 
-  it("counts a frame rate collapse as struggling", () => {
+  it("counts frames the encoder drops from the source as struggling", () => {
     const samples = [sample(0, false, 20), sample(3000, false, 22)];
-    expect(shouldFallBack(samples, 60, CPU_LIMIT_HOLD_MS + 1)).toBe(true);
+    expect(shouldFallBack(samples, CPU_LIMIT_HOLD_MS + 1)).toBe(true);
+  });
+
+  it("does not blame the encoder for a still screen", () => {
+    const samples = [sample(0, false, 3, 3), sample(6000, false, 1, 1)];
+    expect(shouldFallBack(samples, CPU_LIMIT_HOLD_MS + 1)).toBe(false);
+  });
+
+  it("trusts only the cpu flag when the source rate is unknown", () => {
+    const samples = [sample(0, false, 5, null), sample(6000, false, 5, null)];
+    expect(shouldFallBack(samples, CPU_LIMIT_HOLD_MS + 1)).toBe(false);
   });
 
   it("restarts the clock once the encoder recovers", () => {
@@ -77,6 +93,6 @@ describe("falling back to vp9", () => {
       sample(4000, false, 60),
       sample(6000, true, 20),
     ];
-    expect(shouldFallBack(samples, 60, 12000)).toBe(false);
+    expect(shouldFallBack(samples, 12000)).toBe(false);
   });
 });

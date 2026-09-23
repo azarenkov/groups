@@ -36,18 +36,22 @@ export function degradationFor(
 export interface EncoderSample {
   cpuLimited: boolean;
   framesPerSecond: number;
+  sourceFramesPerSecond: number | null;
   at: number;
 }
 
-export function cpuLimitedSince(
-  samples: EncoderSample[],
-  targetFrameRate: number,
-): number | null {
+export function isStruggling(sample: EncoderSample): boolean {
+  if (sample.cpuLimited) return true;
+  if (sample.sourceFramesPerSecond === null) return false;
+  return (
+    sample.framesPerSecond < sample.sourceFramesPerSecond * CPU_LIMIT_FPS_RATIO
+  );
+}
+
+export function cpuLimitedSince(samples: EncoderSample[]): number | null {
   let since: number | null = null;
   for (const sample of samples) {
-    const struggling =
-      sample.cpuLimited ||
-      sample.framesPerSecond < targetFrameRate * CPU_LIMIT_FPS_RATIO;
+    const struggling = isStruggling(sample);
     if (!struggling) {
       since = null;
       continue;
@@ -57,12 +61,8 @@ export function cpuLimitedSince(
   return since;
 }
 
-export function shouldFallBack(
-  samples: EncoderSample[],
-  targetFrameRate: number,
-  now: number,
-): boolean {
-  const since = cpuLimitedSince(samples, targetFrameRate);
+export function shouldFallBack(samples: EncoderSample[], now: number): boolean {
+  const since = cpuLimitedSince(samples);
   if (since === null) return false;
   return now - since >= CPU_LIMIT_HOLD_MS;
 }

@@ -1240,7 +1240,7 @@ export class LiveKitService {
       );
       this.activeScreenCodec = codec;
       this.watchedScreen = this.room.localParticipant.identity;
-      this.startEncoderWatchdog(quality.frameRate);
+      this.startEncoderWatchdog();
     } else {
       this.stopEncoderWatchdog();
       this.activeScreenCodec = null;
@@ -1316,12 +1316,12 @@ export class LiveKitService {
     return { screenContent: useVoiceSettingsStore.getState().screenContent };
   }
 
-  private startEncoderWatchdog(frameRate: number): void {
+  private startEncoderWatchdog(): void {
     this.stopEncoderWatchdog();
     if (this.activeScreenCodec !== "av1") return;
     this.encoderSamples = [];
     this.encoderTimer = setInterval(() => {
-      void this.sampleEncoder(frameRate);
+      void this.sampleEncoder();
     }, ENCODER_SAMPLE_MS);
   }
 
@@ -1332,7 +1332,7 @@ export class LiveKitService {
     this.encoderSamples = [];
   }
 
-  private async sampleEncoder(frameRate: number): Promise<void> {
+  private async sampleEncoder(): Promise<void> {
     const publication = this.room?.localParticipant.getTrackPublication(
       Track.Source.ScreenShare,
     );
@@ -1340,26 +1340,37 @@ export class LiveKitService {
     if (!sender?.getStats) return;
     try {
       const stats = await sender.getStats();
-      let sample: EncoderSample | null = null;
-      stats.forEach((report) => {
-        const outbound = report as unknown as {
-          type: string;
-          qualityLimitationReason?: string;
-          framesPerSecond?: number;
-        };
-        if (outbound.type !== "outbound-rtp") return;
-        sample = {
-          cpuLimited: outbound.qualityLimitationReason === "cpu",
-          framesPerSecond: outbound.framesPerSecond ?? frameRate,
-          at: Date.now(),
-        };
+      type Report = {
+        type: string;
+        id: string;
+        kind?: string;
+        mediaSourceId?: string;
+        qualityLimitationReason?: string;
+        framesPerSecond?: number;
+      };
+      let outbound: Report | null = null;
+      const sources = new Map<string, Report>();
+      stats.forEach((entry) => {
+        const report = entry as unknown as Report;
+        if (report.type === "outbound-rtp") outbound = report;
+        if (report.type === "media-source") sources.set(report.id, report);
       });
-      if (!sample) return;
+      const encoded = outbound as Report | null;
+      if (!encoded) return;
+      const source = encoded.mediaSourceId
+        ? sources.get(encoded.mediaSourceId)
+        : undefined;
+      const sample: EncoderSample = {
+        cpuLimited: encoded.qualityLimitationReason === "cpu",
+        framesPerSecond: encoded.framesPerSecond ?? 0,
+        sourceFramesPerSecond: source?.framesPerSecond ?? null,
+        at: Date.now(),
+      };
       this.encoderSamples.push(sample);
       if (this.encoderSamples.length > ENCODER_SAMPLE_WINDOW) {
         this.encoderSamples.shift();
       }
-      if (!shouldFallBack(this.encoderSamples, frameRate, Date.now())) return;
+      if (!shouldFallBack(this.encoderSamples, Date.now())) return;
       console.warn("[LiveKitService] av1 encoder is cpu bound, falling back");
       this.stopEncoderWatchdog();
       this.screenCodecFallback = "vp9";
