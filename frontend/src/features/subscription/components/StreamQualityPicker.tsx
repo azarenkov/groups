@@ -3,7 +3,12 @@ import { useTranslation } from "react-i18next";
 
 import Icon from "../../../shared/ui/Icon";
 import { useVoiceSettingsStore } from "../../voice/store/voiceSettingsStore";
-import { STREAM_QUALITIES, bestAllowedQuality, hasTier } from "../lib/plans";
+import {
+  STREAM_QUALITIES,
+  bestAllowedQuality,
+  ceilingFor,
+  hasTier,
+} from "../lib/plans";
 import { useEntitlementsStore } from "../store/entitlementsStore";
 
 const StreamQualityPicker: React.FC = () => {
@@ -13,6 +18,7 @@ const StreamQualityPicker: React.FC = () => {
   const update = useVoiceSettingsStore((s) => s.update);
   const [open, setOpen] = React.useState(false);
   const wrapRef = React.useRef<HTMLDivElement>(null);
+  const auto = wanted === "auto";
   const active = bestAllowedQuality(wanted, tier);
 
   React.useEffect(() => {
@@ -41,11 +47,31 @@ const StreamQualityPicker: React.FC = () => {
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        <span className="stream-quality-label">{active.label}</span>
+        <span className="stream-quality-label">
+          {auto ? t("streamQualityAuto") : active.label}
+        </span>
       </button>
       {open && (
         <div className="popover call-invite-pop stream-quality-pop" role="menu">
           <div className="pop-head">{t("streamQuality")}</div>
+          <button
+            type="button"
+            role="menuitemradio"
+            aria-checked={auto}
+            className="pop-item"
+            onClick={() => {
+              update({ streamQuality: "auto" });
+              setOpen(false);
+            }}
+          >
+            <span className="check">{auto && <Icon name="check" size={13} />}</span>
+            <span className="body">
+              <div className="ttl">{t("streamQualityAuto")}</div>
+              <div className="sub">
+                {t("streamQualityAutoHint", { label: ceilingFor(tier).label })}
+              </div>
+            </span>
+          </button>
           {STREAM_QUALITIES.map((quality) => {
             const allowed = hasTier(tier, quality.requires);
             return (
@@ -53,7 +79,7 @@ const StreamQualityPicker: React.FC = () => {
                 key={quality.id}
                 type="button"
                 role="menuitemradio"
-                aria-checked={quality.id === active.id}
+                aria-checked={!auto && quality.id === active.id}
                 className={"pop-item" + (allowed ? "" : " locked")}
                 disabled={!allowed}
                 title={allowed ? undefined : t(`needs.${quality.requires}`)}
@@ -63,7 +89,7 @@ const StreamQualityPicker: React.FC = () => {
                 }}
               >
                 <span className="check">
-                  {quality.id === active.id && <Icon name="check" size={13} />}
+                  {!auto && quality.id === active.id && <Icon name="check" size={13} />}
                 </span>
                 <span className="body">{quality.label}</span>
                 {!allowed && (

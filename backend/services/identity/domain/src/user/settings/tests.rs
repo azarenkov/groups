@@ -304,3 +304,19 @@ fn a_plan_decides_which_stream_quality_and_noise_mode_are_open() {
     assert_eq!(wants_4k.limited_to(Tier::Premium).stream_quality(), StreamQuality::P2160);
     assert_eq!(StreamQuality::parse("8k"), None);
 }
+
+#[test]
+fn auto_stream_quality_is_open_to_every_plan() {
+    use crate::user::settings::voice::{StreamQuality, VoiceSettingsPatch};
+    use crate::user::tier::Tier;
+
+    assert_eq!(VoiceSettings::default().stream_quality(), StreamQuality::Auto);
+    let auto = VoiceSettings::default()
+        .apply(&VoiceSettingsPatch {
+            stream_quality: Some("auto".to_string()),
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(auto.allowed_for(Tier::Free));
+    assert_eq!(auto.limited_to(Tier::Free).stream_quality(), StreamQuality::Auto);
+}

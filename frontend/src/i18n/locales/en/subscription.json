@@ -1,5 +1,7 @@
 {
   "streamQuality": "Stream quality",
+  "streamQualityAuto": "Auto",
+  "streamQualityAutoHint": "Follows the network and processor, up to {{label}}",
   "needs": {
     "free": "Available to everyone",
     "pro": "Needs a Rift Pro subscription",

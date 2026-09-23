@@ -70,10 +70,7 @@
 .voice-pill > .vp-meta-wrap > .vp-title {
   display: inline-block;
   max-width: 100%;
-  border-bottom: 2px solid transparent;
-}
-.voice-pill > .vp-meta-wrap.active > .vp-title {
-  border-bottom-color: var(--voice-live, #30a46c);
+  border-bottom: 2px solid #fff;
 }
 .voice-pill > .vp-avas { flex: 0 0 auto; margin-left: 0; }
 .voice-pill > .vp-actions { flex: 0 0 auto; display: inline-flex; gap: 4px; }

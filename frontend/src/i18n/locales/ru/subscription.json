@@ -1,5 +1,7 @@
 {
   "streamQuality": "Качество стрима",
+  "streamQualityAuto": "Авто",
+  "streamQualityAutoHint": "Под сеть и процессор, до {{label}}",
   "needs": {
     "free": "Доступно всем",
     "pro": "Нужна подписка Rift Pro",

@@ -99,6 +99,7 @@ pub struct VoiceSettingsPatch {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum StreamQuality {
     #[default]
+    Auto,
     P720,
     P1080,
     P1440,
@@ -108,6 +109,7 @@ pub enum StreamQuality {
 impl StreamQuality {
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Auto => "auto",
             Self::P720 => "720p60",
             Self::P1080 => "1080p60",
             Self::P1440 => "1440p60",
@@ -117,6 +119,7 @@ impl StreamQuality {
 
     pub fn parse(value: &str) -> Option<Self> {
         match value {
+            "auto" => Some(Self::Auto),
             "720p60" => Some(Self::P720),
             "1080p60" => Some(Self::P1080),
             "1440p60" => Some(Self::P1440),
@@ -127,7 +130,7 @@ impl StreamQuality {
 
     pub fn required_tier(self) -> Tier {
         match self {
-            Self::P720 => Tier::Free,
+            Self::Auto | Self::P720 => Tier::Free,
             Self::P1080 | Self::P1440 => Tier::Pro,
             Self::P2160 => Tier::Premium,
         }

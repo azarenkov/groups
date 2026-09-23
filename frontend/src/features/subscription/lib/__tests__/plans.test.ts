@@ -37,6 +37,12 @@ describe("plans", () => {
     expect(bestAllowedQuality("1440p60", "premium").id).toBe("1440p60");
   });
 
+  it("lets auto climb only as high as the plan allows", () => {
+    expect(bestAllowedQuality("auto", "free").id).toBe("720p60");
+    expect(bestAllowedQuality("auto", "pro").id).toBe("1440p60");
+    expect(bestAllowedQuality("auto", "premium").id).toBe("2160p60");
+  });
+
   it("streams every quality at sixty frames", () => {
     expect(STREAM_QUALITIES.every((q) => q.frameRate === 60)).toBe(true);
   });

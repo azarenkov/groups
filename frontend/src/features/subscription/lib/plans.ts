@@ -59,17 +59,23 @@ export const STREAM_QUALITIES: StreamQuality[] = [
   { id: "2160p60", label: "4K 60", width: 3840, height: 2160, frameRate: 60, maxBitrate: 20_000_000, requires: "premium" },
 ];
 
-export const DEFAULT_STREAM_QUALITY: StreamQuality["id"] = "720p60";
+export type StreamQualityChoice = "auto" | StreamQuality["id"];
+
+export const DEFAULT_STREAM_QUALITY: StreamQualityChoice = "auto";
 
 export const streamQualityById = (id: string | null | undefined): StreamQuality =>
   STREAM_QUALITIES.find((q) => q.id === id) ?? STREAM_QUALITIES[0];
 
-export const bestAllowedQuality = (
-  wanted: StreamQuality["id"],
-  tier: Tier,
-): StreamQuality => {
-  const target = streamQualityById(wanted);
-  if (hasTier(tier, target.requires)) return target;
+export const ceilingFor = (tier: Tier): StreamQuality => {
   const allowed = STREAM_QUALITIES.filter((q) => hasTier(tier, q.requires));
   return allowed[allowed.length - 1] ?? STREAM_QUALITIES[0];
+};
+
+export const bestAllowedQuality = (
+  wanted: StreamQualityChoice,
+  tier: Tier,
+): StreamQuality => {
+  if (wanted === "auto") return ceilingFor(tier);
+  const target = streamQualityById(wanted);
+  return hasTier(tier, target.requires) ? target : ceilingFor(tier);
 };

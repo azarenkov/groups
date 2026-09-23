@@ -94,4 +94,14 @@ describe("makeupGainFor", () => {
   it("releases rather than freezing when the denoiser goes silent", () => {
     expect(makeupGainFor(0.2, 0, MAKEUP_MAX, true)).toBeLessThan(MAKEUP_MAX);
   });
+
+  it("drops back to the constant the moment the gate closes", () => {
+    expect(makeupGainFor(0.2, 0.05, MAKEUP_MAX, true, false)).toBe(MAKEUP_BASE);
+  });
+
+  it("returns to the constant within about a second of silence", () => {
+    let gain = MAKEUP_MAX;
+    for (let i = 0; i < 4; i++) gain = makeupGainFor(0.001, 0.0002, gain, false);
+    expect(gain).toBeLessThan(MAKEUP_BASE + 0.4);
+  });
 });

@@ -120,6 +120,8 @@ export function VoiceSection() {
   const pushToTalk = useVoiceSettingsStore((s) => s.pushToTalk);
   const pttGlobal = useVoiceSettingsStore((s) => s.pttGlobal);
   const setPttGlobal = useVoiceSettingsStore((s) => s.setPttGlobal);
+  const screenContent = useVoiceSettingsStore((s) => s.screenContent);
+  const setScreenContent = useVoiceSettingsStore((s) => s.setScreenContent);
   const globalStatus = usePushToTalkGlobalStatus();
   const globalSupported = globalStatus !== "unsupported";
   const globalFailed = globalStatus === "failed";
@@ -301,6 +303,28 @@ export function VoiceSection() {
             disabled={!globalSupported || globalFailed || !pushToTalk}
             onClick={() => setPttGlobal(!pttGlobal)}
           />
+        </SettingsRow>
+        <SettingsRow label={t("voice.screenContent")} hint={t("voice.screenContentHint")}>
+          <div className="s-seg">
+            <button
+              className={screenContent === "auto" ? "on" : ""}
+              onClick={() => setScreenContent("auto")}
+            >
+              {t("voice.screenContentAuto")}
+            </button>
+            <button
+              className={screenContent === "text" ? "on" : ""}
+              onClick={() => setScreenContent("text")}
+            >
+              {t("voice.screenContentText")}
+            </button>
+            <button
+              className={screenContent === "motion" ? "on" : ""}
+              onClick={() => setScreenContent("motion")}
+            >
+              {t("voice.screenContentMotion")}
+            </button>
+          </div>
         </SettingsRow>
         <SettingsRow label={t("voice.noiseDefault")} hint={t("voice.noiseDefaultHint")}>
           <div className="s-seg">

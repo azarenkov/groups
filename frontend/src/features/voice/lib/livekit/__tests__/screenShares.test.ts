@@ -1,4 +1,4 @@
-import { nextWatched } from "../screenShares";
+import { SCREEN_HOLD_MS, followWatched, nextWatched } from "../screenShares";
 
 const share = (identity: string, isLocal = false) => ({
   identity,
@@ -29,5 +29,28 @@ describe("nextWatched", () => {
 
   it("goes back to the grid when every stream ended", () => {
     expect(nextWatched([], "ann")).toBeNull();
+  });
+});
+
+describe("followWatched", () => {
+  it("keeps waiting for a share that dropped out for a moment", () => {
+    const gone = followWatched([], "ann", null, 1000);
+    expect(gone.watched).toBeNull();
+    expect(gone.held).toEqual({ identity: "ann", until: 1000 + SCREEN_HOLD_MS });
+    const back = followWatched([share("ann")], gone.watched, gone.held, 2000);
+    expect(back).toEqual({ watched: "ann", held: null });
+  });
+
+  it("returns to the dropped share even after moving to another one", () => {
+    const gone = followWatched([share("bob")], "ann", null, 1000);
+    expect(gone.watched).toBe("bob");
+    const back = followWatched([share("ann"), share("bob")], "bob", gone.held, 2000);
+    expect(back.watched).toBe("ann");
+  });
+
+  it("lets go once the share stays away too long", () => {
+    const gone = followWatched([], "ann", null, 1000);
+    const late = followWatched([share("ann")], null, gone.held, 1000 + SCREEN_HOLD_MS + 1);
+    expect(late).toEqual({ watched: null, held: null });
   });
 });

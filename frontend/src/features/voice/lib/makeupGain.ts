@@ -4,7 +4,7 @@ export const MAKEUP_MAX = 4;
 export const MAKEUP_SPEECH_FLOOR = 0.01;
 export const MAKEUP_SPEECH_BAND = 0.45;
 export const MAKEUP_SMOOTHING = 0.2;
-export const MAKEUP_RELEASE = 0.05;
+export const MAKEUP_RELEASE = 0.35;
 export const SPEECH_BAND_LOW_HZ = 300;
 export const SPEECH_BAND_HIGH_HZ = 3400;
 
@@ -38,7 +38,9 @@ export function makeupGainFor(
   denoisedRms: number,
   current: number,
   speech: boolean,
+  gateOpen: boolean = true,
 ): number {
+  if (!gateOpen) return MAKEUP_BASE;
   if (!speech || denoisedRms <= 0) {
     return current + (MAKEUP_BASE - current) * MAKEUP_RELEASE;
   }

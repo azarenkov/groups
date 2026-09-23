@@ -2,13 +2,24 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { getLiveKitService } from "../lib/livekit";
+import type { ScreenContent } from "../lib/videoCodec";
 import { ApiError } from "../../../shared/lib/apiError";
 
 export type NoiseMode = "off" | "standard" | "high";
-export type StreamQualityId = "720p60" | "1080p60" | "1440p60" | "2160p60";
+export type StreamQualityId =
+  | "auto"
+  | "720p60"
+  | "1080p60"
+  | "1440p60"
+  | "2160p60";
 
 const parseStreamQuality = (value: unknown): StreamQualityId =>
-  value === "1080p60" || value === "1440p60" || value === "2160p60" ? value : "720p60";
+  value === "720p60" ||
+  value === "1080p60" ||
+  value === "1440p60" ||
+  value === "2160p60"
+    ? value
+    : "auto";
 
 export interface VoiceSyncedSettings {
   micVolume: number;
@@ -25,9 +36,11 @@ interface VoiceSettingsState extends VoiceSyncedSettings {
   micDeviceId: string;
   speakerDeviceId: string;
   pttGlobal: boolean;
+  screenContent: ScreenContent;
   ownerId: string | null;
   update: (patch: Partial<VoiceSyncedSettings>) => void;
   setPttGlobal: (value: boolean) => void;
+  setScreenContent: (value: ScreenContent) => void;
   updateDevices: (patch: {
     micDeviceId?: string;
     speakerDeviceId?: string;
@@ -54,7 +67,7 @@ const DEFAULT_SETTINGS: VoiceSyncedSettings = {
   sensitivity: 50,
   pushToTalk: false,
   pttKey: "KeyM",
-  streamQuality: "720p60",
+  streamQuality: "auto",
 };
 
 const applyToEngine = (s: {
@@ -231,6 +244,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
       micDeviceId: "",
       speakerDeviceId: "",
       pttGlobal: true,
+      screenContent: "auto",
       ownerId: null,
 
       update: (patch) => {
@@ -246,6 +260,11 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
 
       setPttGlobal: (value) => {
         set({ pttGlobal: value });
+      },
+
+      setScreenContent: (value) => {
+        set({ screenContent: value });
+        getLiveKitService().setScreenContent(value);
       },
 
       updateDevices: (patch) => {

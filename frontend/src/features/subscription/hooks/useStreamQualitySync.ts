@@ -15,6 +15,7 @@ export function useStreamQualitySync() {
       height: quality.height,
       frameRate: quality.frameRate,
       maxBitrate: quality.maxBitrate,
+      adaptive: wanted === "auto",
     });
   }, [tier, wanted]);
 }
