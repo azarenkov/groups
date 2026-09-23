@@ -36,7 +36,6 @@ export function useAppearOffline(params: {
       .catch((err) => {
         console.warn("[presence] setAppearOffline failed:", err);
         if (cancelled) return;
-        if (!appearOffline) setActivityHiddenByPresence(false);
         retry.current = window.setTimeout(() => setAttempt((n) => n + 1), RETRY_MS);
       });
     return () => {
