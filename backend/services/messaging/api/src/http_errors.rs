@@ -145,32 +145,32 @@ use messaging::usecases::read_state::get_dm_read_receipt::GetDmReadReceiptError;
 use messaging::usecases::read_state::get_unread_counts::GetUnreadCountsError;
 use messaging::usecases::read_state::mark_channel_read::MarkChannelReadError;
 use messaging::usecases::read_state::mark_dm_read::MarkDmReadError;
-use messaging::usecases::server::accept_server_invite::AcceptServerInviteError;
-use messaging::usecases::server::create_server::CreateServerError;
-use messaging::usecases::server::decline_server_invite::DeclineServerInviteError;
-use messaging::usecases::server::delete_server::DeleteServerError;
-use messaging::usecases::server::get_voice_presence::GetVoicePresenceError;
-use messaging::usecases::server::invite_links::JoinByInviteLinkError;
+use messaging::usecases::community::accept_community_invite::AcceptCommunityInviteError;
+use messaging::usecases::community::create_community::CreateCommunityError;
+use messaging::usecases::community::decline_community_invite::DeclineCommunityInviteError;
+use messaging::usecases::community::delete_community::DeleteCommunityError;
+use messaging::usecases::community::get_voice_presence::GetVoicePresenceError;
+use messaging::usecases::community::invite_links::JoinByInviteLinkError;
 use messaging::usecases::block::block_user::BlockUserError;
 use messaging::usecases::block::unblock_user::UnblockUserError;
-use messaging::usecases::server::invite_links::ManageInviteLinksError;
-use messaging::usecases::server::invite_links::PreviewInviteLinkError;
-use messaging::usecases::server::invite_links::RevokeInviteLinkError;
-use messaging_domain::server::invite_link::InviteLinkStatus;
-use messaging::usecases::server::get_home_overview::GetHomeOverviewError;
+use messaging::usecases::community::invite_links::ManageInviteLinksError;
+use messaging::usecases::community::invite_links::PreviewInviteLinkError;
+use messaging::usecases::community::invite_links::RevokeInviteLinkError;
+use messaging_domain::community::invite_link::InviteLinkStatus;
+use messaging::usecases::community::get_home_overview::GetHomeOverviewError;
 use messaging::usecases::privacy::get_privacy::GetPrivacyError;
 use messaging::usecases::report::create_report::CreateReportError;
 use messaging_domain::report::ReportError;
 use messaging::usecases::privacy::update_privacy::UpdatePrivacyError;
-use messaging::usecases::server::get_user_profile::GetUserProfileError;
-use messaging::usecases::server::kick_member::KickMemberError;
-use messaging::usecases::server::leave_server::LeaveServerError;
-use messaging::usecases::server::list_sent_server_invites::ListSentServerInvitesError;
-use messaging::usecases::server::list_server_channels::ListServerChannelsError;
-use messaging::usecases::server::list_server_members::ListServerMembersError;
-use messaging::usecases::server::list_servers_by_user::ListServersByUserError;
-use messaging::usecases::server::send_server_invite::SendServerInviteError;
-use messaging::usecases::server::update_server::UpdateServerError;
+use messaging::usecases::community::get_user_profile::GetUserProfileError;
+use messaging::usecases::community::kick_member::KickMemberError;
+use messaging::usecases::community::leave_community::LeaveCommunityError;
+use messaging::usecases::community::list_sent_community_invites::ListSentCommunityInvitesError;
+use messaging::usecases::community::list_community_channels::ListCommunityChannelsError;
+use messaging::usecases::community::list_community_members::ListCommunityMembersError;
+use messaging::usecases::community::list_communities_by_user::ListCommunitiesByUserError;
+use messaging::usecases::community::send_community_invite::SendCommunityInviteError;
+use messaging::usecases::community::update_community::UpdateCommunityError;
 
 impl HttpMapping for CreateChannelError {
     fn to_http_status(&self) -> StatusCode {
@@ -477,62 +477,62 @@ impl HttpMapping for TrackMediaConnectionError {
     }
 }
 
-impl HttpMapping for CreateServerError {
+impl HttpMapping for CreateCommunityError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            CreateServerError::Repository(e) => e.to_http_status(),
-            CreateServerError::AccountInactive => StatusCode::FORBIDDEN,
-            CreateServerError::NameNotAllowed | CreateServerError::DescriptionNotAllowed => {
+            CreateCommunityError::Repository(e) => e.to_http_status(),
+            CreateCommunityError::AccountInactive => StatusCode::FORBIDDEN,
+            CreateCommunityError::NameNotAllowed | CreateCommunityError::DescriptionNotAllowed => {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
-            CreateServerError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
-            CreateServerError::Channel(e) => e.to_http_status(),
+            CreateCommunityError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+            CreateCommunityError::Channel(e) => e.to_http_status(),
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
-            CreateServerError::Repository(e) => e.to_user_message(),
-            CreateServerError::AccountInactive => "Account is inactive".to_string(),
-            CreateServerError::NameNotAllowed => "Server name is not allowed".to_string(),
-            CreateServerError::DescriptionNotAllowed => {
-                "Server description is not allowed".to_string()
+            CreateCommunityError::Repository(e) => e.to_user_message(),
+            CreateCommunityError::AccountInactive => "Account is inactive".to_string(),
+            CreateCommunityError::NameNotAllowed => "Community name is not allowed".to_string(),
+            CreateCommunityError::DescriptionNotAllowed => {
+                "Community description is not allowed".to_string()
             }
-            CreateServerError::ModerationUnavailable(_) => {
+            CreateCommunityError::ModerationUnavailable(_) => {
                 "Content moderation is temporarily unavailable".to_string()
             }
-            CreateServerError::Channel(e) => e.to_user_message(),
+            CreateCommunityError::Channel(e) => e.to_user_message(),
         }
     }
 
     fn to_error_code(&self) -> &'static str {
         match self {
-            CreateServerError::Repository(e) => e.to_error_code(),
-            CreateServerError::AccountInactive => "ACCOUNT_INACTIVE",
-            CreateServerError::NameNotAllowed => "SERVER_NAME_NOT_ALLOWED",
-            CreateServerError::DescriptionNotAllowed => "SERVER_DESCRIPTION_NOT_ALLOWED",
-            CreateServerError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
-            CreateServerError::Channel(e) => e.to_error_code(),
+            CreateCommunityError::Repository(e) => e.to_error_code(),
+            CreateCommunityError::AccountInactive => "ACCOUNT_INACTIVE",
+            CreateCommunityError::NameNotAllowed => "SERVER_NAME_NOT_ALLOWED",
+            CreateCommunityError::DescriptionNotAllowed => "SERVER_DESCRIPTION_NOT_ALLOWED",
+            CreateCommunityError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
+            CreateCommunityError::Channel(e) => e.to_error_code(),
         }
     }
 }
 
-impl HttpMapping for DeleteServerError {
+impl HttpMapping for DeleteCommunityError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            DeleteServerError::ServerNotFound => StatusCode::NOT_FOUND,
-            DeleteServerError::NotOwner => StatusCode::FORBIDDEN,
-            DeleteServerError::Repository(e) => e.to_http_status(),
-            DeleteServerError::VoiceService(_) => StatusCode::BAD_GATEWAY,
+            DeleteCommunityError::CommunityNotFound => StatusCode::NOT_FOUND,
+            DeleteCommunityError::NotOwner => StatusCode::FORBIDDEN,
+            DeleteCommunityError::Repository(e) => e.to_http_status(),
+            DeleteCommunityError::VoiceService(_) => StatusCode::BAD_GATEWAY,
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
-            DeleteServerError::ServerNotFound => "Server not found".to_string(),
-            DeleteServerError::NotOwner => "Only the server owner can delete it.".to_string(),
-            DeleteServerError::Repository(e) => e.to_user_message(),
-            DeleteServerError::VoiceService(_) => {
+            DeleteCommunityError::CommunityNotFound => "Community not found".to_string(),
+            DeleteCommunityError::NotOwner => "Only the community owner can delete it.".to_string(),
+            DeleteCommunityError::Repository(e) => e.to_user_message(),
+            DeleteCommunityError::VoiceService(_) => {
                 "Voice service is temporarily unavailable.".to_string()
             }
         }
@@ -540,53 +540,53 @@ impl HttpMapping for DeleteServerError {
 
     fn to_error_code(&self) -> &'static str {
         match self {
-            DeleteServerError::ServerNotFound => "SERVER_NOT_FOUND",
-            DeleteServerError::NotOwner => "SERVER_NOT_OWNER",
-            DeleteServerError::Repository(e) => e.to_error_code(),
-            DeleteServerError::VoiceService(e) => e.to_error_code(),
+            DeleteCommunityError::CommunityNotFound => "SERVER_NOT_FOUND",
+            DeleteCommunityError::NotOwner => "SERVER_NOT_OWNER",
+            DeleteCommunityError::Repository(e) => e.to_error_code(),
+            DeleteCommunityError::VoiceService(e) => e.to_error_code(),
         }
     }
 }
 
-impl HttpMapping for UpdateServerError {
+impl HttpMapping for UpdateCommunityError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            UpdateServerError::ServerNotFound => StatusCode::NOT_FOUND,
-            UpdateServerError::NotOwner => StatusCode::FORBIDDEN,
-            UpdateServerError::NameTaken => StatusCode::CONFLICT,
-            UpdateServerError::NameNotAllowed | UpdateServerError::DescriptionNotAllowed => {
+            UpdateCommunityError::CommunityNotFound => StatusCode::NOT_FOUND,
+            UpdateCommunityError::NotOwner => StatusCode::FORBIDDEN,
+            UpdateCommunityError::NameTaken => StatusCode::CONFLICT,
+            UpdateCommunityError::NameNotAllowed | UpdateCommunityError::DescriptionNotAllowed => {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
-            UpdateServerError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
-            UpdateServerError::Repository(e) => e.to_http_status(),
+            UpdateCommunityError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+            UpdateCommunityError::Repository(e) => e.to_http_status(),
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
-            UpdateServerError::ServerNotFound => "Server not found".to_string(),
-            UpdateServerError::NotOwner => "Only the server owner can edit it.".to_string(),
-            UpdateServerError::NameTaken => "A server with this name already exists.".to_string(),
-            UpdateServerError::NameNotAllowed => "Server name is not allowed".to_string(),
-            UpdateServerError::DescriptionNotAllowed => {
-                "Server description is not allowed".to_string()
+            UpdateCommunityError::CommunityNotFound => "Community not found".to_string(),
+            UpdateCommunityError::NotOwner => "Only the community owner can edit it.".to_string(),
+            UpdateCommunityError::NameTaken => "A community with this name already exists.".to_string(),
+            UpdateCommunityError::NameNotAllowed => "Community name is not allowed".to_string(),
+            UpdateCommunityError::DescriptionNotAllowed => {
+                "Community description is not allowed".to_string()
             }
-            UpdateServerError::ModerationUnavailable(_) => {
+            UpdateCommunityError::ModerationUnavailable(_) => {
                 "Content moderation is temporarily unavailable".to_string()
             }
-            UpdateServerError::Repository(e) => e.to_user_message(),
+            UpdateCommunityError::Repository(e) => e.to_user_message(),
         }
     }
 
     fn to_error_code(&self) -> &'static str {
         match self {
-            UpdateServerError::ServerNotFound => "SERVER_NOT_FOUND",
-            UpdateServerError::NotOwner => "SERVER_NOT_OWNER",
-            UpdateServerError::NameTaken => "SERVER_NAME_TAKEN",
-            UpdateServerError::NameNotAllowed => "SERVER_NAME_NOT_ALLOWED",
-            UpdateServerError::DescriptionNotAllowed => "SERVER_DESCRIPTION_NOT_ALLOWED",
-            UpdateServerError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
-            UpdateServerError::Repository(e) => e.to_error_code(),
+            UpdateCommunityError::CommunityNotFound => "SERVER_NOT_FOUND",
+            UpdateCommunityError::NotOwner => "SERVER_NOT_OWNER",
+            UpdateCommunityError::NameTaken => "SERVER_NAME_TAKEN",
+            UpdateCommunityError::NameNotAllowed => "SERVER_NAME_NOT_ALLOWED",
+            UpdateCommunityError::DescriptionNotAllowed => "SERVER_DESCRIPTION_NOT_ALLOWED",
+            UpdateCommunityError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
+            UpdateCommunityError::Repository(e) => e.to_error_code(),
         }
     }
 }
@@ -605,7 +605,7 @@ impl HttpMapping for ManageInviteLinksError {
                 "You don't have permission to manage invites".to_string()
             }
             ManageInviteLinksError::NotMember => {
-                "You are not a member of this server.".to_string()
+                "You are not a member of this community.".to_string()
             }
             ManageInviteLinksError::Repository(e) => e.to_user_message(),
         }
@@ -664,7 +664,7 @@ impl HttpMapping for PreviewInviteLinkError {
 impl HttpMapping for JoinByInviteLinkError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            JoinByInviteLinkError::NotFound | JoinByInviteLinkError::ServerNotFound => {
+            JoinByInviteLinkError::NotFound | JoinByInviteLinkError::CommunityNotFound => {
                 StatusCode::NOT_FOUND
             }
             JoinByInviteLinkError::Unavailable(_) => StatusCode::GONE,
@@ -683,7 +683,7 @@ impl HttpMapping for JoinByInviteLinkError {
             JoinByInviteLinkError::Unavailable(_) => {
                 "This invite link has been revoked.".to_string()
             }
-            JoinByInviteLinkError::ServerNotFound => "Server not found".to_string(),
+            JoinByInviteLinkError::CommunityNotFound => "Community not found".to_string(),
             JoinByInviteLinkError::Repository(e) => e.to_user_message(),
         }
     }
@@ -693,7 +693,7 @@ impl HttpMapping for JoinByInviteLinkError {
             JoinByInviteLinkError::Unavailable(InviteLinkStatus::Expired) => "INVITE_EXPIRED",
             JoinByInviteLinkError::Unavailable(InviteLinkStatus::Exhausted) => "INVITE_EXHAUSTED",
             JoinByInviteLinkError::Unavailable(_) => "INVITE_REVOKED",
-            JoinByInviteLinkError::ServerNotFound => "SERVER_NOT_FOUND",
+            JoinByInviteLinkError::CommunityNotFound => "SERVER_NOT_FOUND",
             JoinByInviteLinkError::Repository(e) => e.to_error_code(),
         }
     }
@@ -729,7 +729,7 @@ impl HttpMapping for JoinVoiceChannelError {
             JoinVoiceChannelError::VoiceNotSupported => {
                 "Voice is not supported for this channel".to_string()
             }
-            JoinVoiceChannelError::NotMember => "You are not a member of this server".to_string(),
+            JoinVoiceChannelError::NotMember => "You are not a member of this community".to_string(),
             JoinVoiceChannelError::Repository(e) => e.to_user_message(),
             JoinVoiceChannelError::VoiceService(e) => e.to_user_message(),
             JoinVoiceChannelError::Hash(e) => e.to_user_message(),
@@ -787,31 +787,31 @@ impl HttpMapping for LogCallError {
     }
 }
 
-impl_http_mapping_delegate!(ListServersByUserError, Repository);
+impl_http_mapping_delegate!(ListCommunitiesByUserError, Repository);
 impl_http_mapping_delegate!(GetHomeOverviewError, Repository);
 impl_http_mapping_delegate!(GetPrivacyError, Repository);
 
-impl HttpMapping for ListServerMembersError {
+impl HttpMapping for ListCommunityMembersError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            ListServerMembersError::Repository(e) => e.to_http_status(),
-            ListServerMembersError::NotMember => StatusCode::FORBIDDEN,
+            ListCommunityMembersError::Repository(e) => e.to_http_status(),
+            ListCommunityMembersError::NotMember => StatusCode::FORBIDDEN,
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
-            ListServerMembersError::Repository(e) => e.to_user_message(),
-            ListServerMembersError::NotMember => {
-                "You are not a member of this server".to_string()
+            ListCommunityMembersError::Repository(e) => e.to_user_message(),
+            ListCommunityMembersError::NotMember => {
+                "You are not a member of this community".to_string()
             }
         }
     }
 
     fn to_error_code(&self) -> &'static str {
         match self {
-            ListServerMembersError::Repository(e) => e.to_error_code(),
-            ListServerMembersError::NotMember => "SERVER_NOT_MEMBER",
+            ListCommunityMembersError::Repository(e) => e.to_error_code(),
+            ListCommunityMembersError::NotMember => "SERVER_NOT_MEMBER",
         }
     }
 }
@@ -828,7 +828,7 @@ impl HttpMapping for GetVoicePresenceError {
         match self {
             GetVoicePresenceError::Repository(e) => e.to_user_message(),
             GetVoicePresenceError::NotMember => {
-                "You are not a member of this server".to_string()
+                "You are not a member of this community".to_string()
             }
         }
     }
@@ -853,7 +853,7 @@ impl HttpMapping for UpdateStreamViewerError {
         match self {
             UpdateStreamViewerError::Repository(e) => e.to_user_message(),
             UpdateStreamViewerError::NotMember => {
-                "You are not a member of this server".to_string()
+                "You are not a member of this community".to_string()
             }
         }
     }
@@ -866,27 +866,27 @@ impl HttpMapping for UpdateStreamViewerError {
     }
 }
 
-impl HttpMapping for ListServerChannelsError {
+impl HttpMapping for ListCommunityChannelsError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            ListServerChannelsError::Repository(e) => e.to_http_status(),
-            ListServerChannelsError::NotMember => StatusCode::FORBIDDEN,
+            ListCommunityChannelsError::Repository(e) => e.to_http_status(),
+            ListCommunityChannelsError::NotMember => StatusCode::FORBIDDEN,
         }
     }
 
     fn to_user_message(&self) -> String {
         match self {
-            ListServerChannelsError::Repository(e) => e.to_user_message(),
-            ListServerChannelsError::NotMember => {
-                "You are not a member of this server".to_string()
+            ListCommunityChannelsError::Repository(e) => e.to_user_message(),
+            ListCommunityChannelsError::NotMember => {
+                "You are not a member of this community".to_string()
             }
         }
     }
 
     fn to_error_code(&self) -> &'static str {
         match self {
-            ListServerChannelsError::Repository(e) => e.to_error_code(),
-            ListServerChannelsError::NotMember => "SERVER_NOT_MEMBER",
+            ListCommunityChannelsError::Repository(e) => e.to_error_code(),
+            ListCommunityChannelsError::NotMember => "SERVER_NOT_MEMBER",
         }
     }
 }
@@ -897,7 +897,7 @@ impl HttpMapping for JoinTextChannelError {
             JoinTextChannelError::Repository(e) => e.to_http_status(),
             JoinTextChannelError::Domain(e) => e.to_http_status(),
             JoinTextChannelError::Hash(e) => e.to_http_status(),
-            JoinTextChannelError::NotServerMember => StatusCode::FORBIDDEN,
+            JoinTextChannelError::NotCommunityMember => StatusCode::FORBIDDEN,
             JoinTextChannelError::ChannelNotFound => StatusCode::NOT_FOUND,
             JoinTextChannelError::NotTextChannel => StatusCode::BAD_REQUEST,
             JoinTextChannelError::PasswordRequired => StatusCode::BAD_REQUEST,
@@ -910,8 +910,8 @@ impl HttpMapping for JoinTextChannelError {
             JoinTextChannelError::Repository(e) => e.to_user_message(),
             JoinTextChannelError::Domain(e) => e.to_user_message(),
             JoinTextChannelError::Hash(e) => e.to_user_message(),
-            JoinTextChannelError::NotServerMember => {
-                "You are not a member of this server".to_string()
+            JoinTextChannelError::NotCommunityMember => {
+                "You are not a member of this community".to_string()
             }
             JoinTextChannelError::ChannelNotFound => "Channel not found".to_string(),
             JoinTextChannelError::NotTextChannel => "Channel does not support text".to_string(),
@@ -927,7 +927,7 @@ impl HttpMapping for JoinTextChannelError {
             JoinTextChannelError::Repository(e) => e.to_error_code(),
             JoinTextChannelError::Domain(e) => e.to_error_code(),
             JoinTextChannelError::Hash(e) => e.to_error_code(),
-            JoinTextChannelError::NotServerMember => "SERVER_NOT_MEMBER",
+            JoinTextChannelError::NotCommunityMember => "SERVER_NOT_MEMBER",
             JoinTextChannelError::ChannelNotFound => "CHANNEL_NOT_FOUND",
             JoinTextChannelError::NotTextChannel => "CHANNEL_NOT_TEXT",
             JoinTextChannelError::PasswordRequired => "CHANNEL_PASSWORD_REQUIRED",
@@ -942,7 +942,7 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::Repository(e) => e.to_http_status(),
             SendChannelMessageError::Domain(e) => e.to_http_status(),
             SendChannelMessageError::Channel(e) => e.to_http_status(),
-            SendChannelMessageError::NotServerMember
+            SendChannelMessageError::NotCommunityMember
             | SendChannelMessageError::NotChannelMember => StatusCode::FORBIDDEN,
             SendChannelMessageError::ChannelNotFound => StatusCode::NOT_FOUND,
             SendChannelMessageError::NotTextChannel => StatusCode::BAD_REQUEST,
@@ -956,8 +956,8 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::Repository(e) => e.to_user_message(),
             SendChannelMessageError::Domain(e) => e.to_user_message(),
             SendChannelMessageError::Channel(e) => e.to_user_message(),
-            SendChannelMessageError::NotServerMember => {
-                "You are not a member of this server".to_string()
+            SendChannelMessageError::NotCommunityMember => {
+                "You are not a member of this community".to_string()
             }
             SendChannelMessageError::NotChannelMember => {
                 "You are not a member of this channel".to_string()
@@ -980,7 +980,7 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::Repository(e) => e.to_error_code(),
             SendChannelMessageError::Domain(e) => e.to_error_code(),
             SendChannelMessageError::Channel(e) => e.to_error_code(),
-            SendChannelMessageError::NotServerMember => "SERVER_NOT_MEMBER",
+            SendChannelMessageError::NotCommunityMember => "SERVER_NOT_MEMBER",
             SendChannelMessageError::NotChannelMember => "CHANNEL_NOT_MEMBER",
             SendChannelMessageError::ChannelNotFound => "CHANNEL_NOT_FOUND",
             SendChannelMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
@@ -995,7 +995,7 @@ impl HttpMapping for EditChannelMessageError {
         match self {
             EditChannelMessageError::Repository(e) => e.to_http_status(),
             EditChannelMessageError::Domain(e) => e.to_http_status(),
-            EditChannelMessageError::NotServerMember => StatusCode::FORBIDDEN,
+            EditChannelMessageError::NotCommunityMember => StatusCode::FORBIDDEN,
             EditChannelMessageError::MessageNotFound => StatusCode::NOT_FOUND,
             EditChannelMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             EditChannelMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
@@ -1006,8 +1006,8 @@ impl HttpMapping for EditChannelMessageError {
         match self {
             EditChannelMessageError::Repository(e) => e.to_user_message(),
             EditChannelMessageError::Domain(e) => e.to_user_message(),
-            EditChannelMessageError::NotServerMember => {
-                "You are not a member of this server".to_string()
+            EditChannelMessageError::NotCommunityMember => {
+                "You are not a member of this community".to_string()
             }
             EditChannelMessageError::MessageNotFound => "Message not found".to_string(),
             EditChannelMessageError::InvalidAttachments => {
@@ -1023,7 +1023,7 @@ impl HttpMapping for EditChannelMessageError {
         match self {
             EditChannelMessageError::Repository(e) => e.to_error_code(),
             EditChannelMessageError::Domain(e) => e.to_error_code(),
-            EditChannelMessageError::NotServerMember => "SERVER_NOT_MEMBER",
+            EditChannelMessageError::NotCommunityMember => "SERVER_NOT_MEMBER",
             EditChannelMessageError::MessageNotFound => "MESSAGE_NOT_FOUND",
             EditChannelMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
             EditChannelMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
@@ -1036,7 +1036,7 @@ impl HttpMapping for DeleteChannelMessageError {
         match self {
             DeleteChannelMessageError::Repository(e) => e.to_http_status(),
             DeleteChannelMessageError::Domain(e) => e.to_http_status(),
-            DeleteChannelMessageError::NotServerMember => StatusCode::FORBIDDEN,
+            DeleteChannelMessageError::NotCommunityMember => StatusCode::FORBIDDEN,
             DeleteChannelMessageError::MessageNotFound => StatusCode::NOT_FOUND,
         }
     }
@@ -1045,8 +1045,8 @@ impl HttpMapping for DeleteChannelMessageError {
         match self {
             DeleteChannelMessageError::Repository(e) => e.to_user_message(),
             DeleteChannelMessageError::Domain(e) => e.to_user_message(),
-            DeleteChannelMessageError::NotServerMember => {
-                "You are not a member of this server".to_string()
+            DeleteChannelMessageError::NotCommunityMember => {
+                "You are not a member of this community".to_string()
             }
             DeleteChannelMessageError::MessageNotFound => "Message not found".to_string(),
         }
@@ -1056,7 +1056,7 @@ impl HttpMapping for DeleteChannelMessageError {
         match self {
             DeleteChannelMessageError::Repository(e) => e.to_error_code(),
             DeleteChannelMessageError::Domain(e) => e.to_error_code(),
-            DeleteChannelMessageError::NotServerMember => "SERVER_NOT_MEMBER",
+            DeleteChannelMessageError::NotCommunityMember => "SERVER_NOT_MEMBER",
             DeleteChannelMessageError::MessageNotFound => "MESSAGE_NOT_FOUND",
         }
     }
@@ -1066,7 +1066,7 @@ impl HttpMapping for ListChannelMessagesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListChannelMessagesError::Repository(e) => e.to_http_status(),
-            ListChannelMessagesError::NotServerMember => StatusCode::FORBIDDEN,
+            ListChannelMessagesError::NotCommunityMember => StatusCode::FORBIDDEN,
             ListChannelMessagesError::NotChannelMember => StatusCode::FORBIDDEN,
             ListChannelMessagesError::ChannelNotFound => StatusCode::NOT_FOUND,
             ListChannelMessagesError::NotTextChannel => StatusCode::BAD_REQUEST,
@@ -1078,8 +1078,8 @@ impl HttpMapping for ListChannelMessagesError {
     fn to_user_message(&self) -> String {
         match self {
             ListChannelMessagesError::Repository(e) => e.to_user_message(),
-            ListChannelMessagesError::NotServerMember => {
-                "You are not a member of this server".to_string()
+            ListChannelMessagesError::NotCommunityMember => {
+                "You are not a member of this community".to_string()
             }
             ListChannelMessagesError::NotChannelMember => {
                 "You are not a member of this channel".to_string()
@@ -1098,7 +1098,7 @@ impl HttpMapping for ListChannelMessagesError {
     fn to_error_code(&self) -> &'static str {
         match self {
             ListChannelMessagesError::Repository(e) => e.to_error_code(),
-            ListChannelMessagesError::NotServerMember => "SERVER_NOT_MEMBER",
+            ListChannelMessagesError::NotCommunityMember => "SERVER_NOT_MEMBER",
             ListChannelMessagesError::NotChannelMember => "CHANNEL_NOT_MEMBER",
             ListChannelMessagesError::ChannelNotFound => "CHANNEL_NOT_FOUND",
             ListChannelMessagesError::NotTextChannel => "CHANNEL_NOT_TEXT",
@@ -1112,7 +1112,7 @@ impl HttpMapping for SearchChannelMessagesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             SearchChannelMessagesError::Repository(e) => e.to_http_status(),
-            SearchChannelMessagesError::NotServerMember => StatusCode::FORBIDDEN,
+            SearchChannelMessagesError::NotCommunityMember => StatusCode::FORBIDDEN,
             SearchChannelMessagesError::NotChannelMember => StatusCode::FORBIDDEN,
             SearchChannelMessagesError::ChannelNotFound => StatusCode::NOT_FOUND,
             SearchChannelMessagesError::NotTextChannel => StatusCode::BAD_REQUEST,
@@ -1123,8 +1123,8 @@ impl HttpMapping for SearchChannelMessagesError {
     fn to_user_message(&self) -> String {
         match self {
             SearchChannelMessagesError::Repository(e) => e.to_user_message(),
-            SearchChannelMessagesError::NotServerMember => {
-                "You are not a member of this server".to_string()
+            SearchChannelMessagesError::NotCommunityMember => {
+                "You are not a member of this community".to_string()
             }
             SearchChannelMessagesError::NotChannelMember => {
                 "You are not a member of this channel".to_string()
@@ -1140,7 +1140,7 @@ impl HttpMapping for SearchChannelMessagesError {
     fn to_error_code(&self) -> &'static str {
         match self {
             SearchChannelMessagesError::Repository(e) => e.to_error_code(),
-            SearchChannelMessagesError::NotServerMember => "SERVER_NOT_MEMBER",
+            SearchChannelMessagesError::NotCommunityMember => "SERVER_NOT_MEMBER",
             SearchChannelMessagesError::NotChannelMember => "CHANNEL_NOT_MEMBER",
             SearchChannelMessagesError::ChannelNotFound => "CHANNEL_NOT_FOUND",
             SearchChannelMessagesError::NotTextChannel => "CHANNEL_NOT_TEXT",
@@ -1310,62 +1310,62 @@ impl HttpMapping for SendDmMessageError {
     }
 }
 
-impl HttpMapping for SendServerInviteError {
+impl HttpMapping for SendCommunityInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            SendServerInviteError::Repository(e) => e.to_http_status(),
-            SendServerInviteError::Domain(e) => e.to_http_status(),
-            SendServerInviteError::NotFriends => StatusCode::FORBIDDEN,
-            SendServerInviteError::Blocked => StatusCode::FORBIDDEN,
-            SendServerInviteError::DmsClosed => StatusCode::FORBIDDEN,
-            SendServerInviteError::RecipientInactive => StatusCode::FORBIDDEN,
-            SendServerInviteError::ServerNotFound => StatusCode::NOT_FOUND,
-            SendServerInviteError::NotServerMember => StatusCode::FORBIDDEN,
-            SendServerInviteError::NotAllowed => StatusCode::FORBIDDEN,
-            SendServerInviteError::AlreadyMember => StatusCode::CONFLICT,
-            SendServerInviteError::InviteAlreadyPending => StatusCode::CONFLICT,
+            SendCommunityInviteError::Repository(e) => e.to_http_status(),
+            SendCommunityInviteError::Domain(e) => e.to_http_status(),
+            SendCommunityInviteError::NotFriends => StatusCode::FORBIDDEN,
+            SendCommunityInviteError::Blocked => StatusCode::FORBIDDEN,
+            SendCommunityInviteError::DmsClosed => StatusCode::FORBIDDEN,
+            SendCommunityInviteError::RecipientInactive => StatusCode::FORBIDDEN,
+            SendCommunityInviteError::CommunityNotFound => StatusCode::NOT_FOUND,
+            SendCommunityInviteError::NotCommunityMember => StatusCode::FORBIDDEN,
+            SendCommunityInviteError::NotAllowed => StatusCode::FORBIDDEN,
+            SendCommunityInviteError::AlreadyMember => StatusCode::CONFLICT,
+            SendCommunityInviteError::InviteAlreadyPending => StatusCode::CONFLICT,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
-            SendServerInviteError::Repository(e) => e.to_user_message(),
-            SendServerInviteError::Domain(e) => e.to_user_message(),
-            SendServerInviteError::DmsClosed => {
+            SendCommunityInviteError::Repository(e) => e.to_user_message(),
+            SendCommunityInviteError::Domain(e) => e.to_user_message(),
+            SendCommunityInviteError::DmsClosed => {
                 "This user does not accept direct messages".to_string()
             }
-            SendServerInviteError::Blocked => "You cannot interact with this user.".to_string(),
-            SendServerInviteError::NotFriends => {
+            SendCommunityInviteError::Blocked => "You cannot interact with this user.".to_string(),
+            SendCommunityInviteError::NotFriends => {
                 "You can only invite users who are your friends".to_string()
             }
-            SendServerInviteError::RecipientInactive => "This user is unavailable".to_string(),
-            SendServerInviteError::ServerNotFound => "Server not found".to_string(),
-            SendServerInviteError::NotServerMember => {
-                "Only members of this server can invite people".to_string()
+            SendCommunityInviteError::RecipientInactive => "This user is unavailable".to_string(),
+            SendCommunityInviteError::CommunityNotFound => "Community not found".to_string(),
+            SendCommunityInviteError::NotCommunityMember => {
+                "Only members of this community can invite people".to_string()
             }
-            SendServerInviteError::NotAllowed => {
+            SendCommunityInviteError::NotAllowed => {
                 "You don't have permission to manage invites".to_string()
             }
-            SendServerInviteError::AlreadyMember => {
-                "This user is already a member of the server".to_string()
+            SendCommunityInviteError::AlreadyMember => {
+                "This user is already a member of the community".to_string()
             }
-            SendServerInviteError::InviteAlreadyPending => {
-                "You've already invited this user to this server".to_string()
+            SendCommunityInviteError::InviteAlreadyPending => {
+                "You've already invited this user to this community".to_string()
             }
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
-            SendServerInviteError::Repository(e) => e.to_error_code(),
-            SendServerInviteError::Domain(e) => e.to_error_code(),
-            SendServerInviteError::NotFriends => "NOT_FRIENDS",
-            SendServerInviteError::Blocked => "USER_BLOCKED",
-            SendServerInviteError::DmsClosed => "DMS_CLOSED",
-            SendServerInviteError::RecipientInactive => "RECIPIENT_INACTIVE",
-            SendServerInviteError::ServerNotFound => "SERVER_NOT_FOUND",
-            SendServerInviteError::NotServerMember => "SERVER_NOT_MEMBER",
-            SendServerInviteError::NotAllowed => "INVITE_NOT_ALLOWED",
-            SendServerInviteError::AlreadyMember => "ALREADY_MEMBER",
-            SendServerInviteError::InviteAlreadyPending => "INVITE_ALREADY_PENDING",
+            SendCommunityInviteError::Repository(e) => e.to_error_code(),
+            SendCommunityInviteError::Domain(e) => e.to_error_code(),
+            SendCommunityInviteError::NotFriends => "NOT_FRIENDS",
+            SendCommunityInviteError::Blocked => "USER_BLOCKED",
+            SendCommunityInviteError::DmsClosed => "DMS_CLOSED",
+            SendCommunityInviteError::RecipientInactive => "RECIPIENT_INACTIVE",
+            SendCommunityInviteError::CommunityNotFound => "SERVER_NOT_FOUND",
+            SendCommunityInviteError::NotCommunityMember => "SERVER_NOT_MEMBER",
+            SendCommunityInviteError::NotAllowed => "INVITE_NOT_ALLOWED",
+            SendCommunityInviteError::AlreadyMember => "ALREADY_MEMBER",
+            SendCommunityInviteError::InviteAlreadyPending => "INVITE_ALREADY_PENDING",
         }
     }
 }
@@ -1382,7 +1382,7 @@ impl HttpMapping for KickMemberError {
     fn to_user_message(&self) -> String {
         match self {
             KickMemberError::Repository(e) => e.to_user_message(),
-            KickMemberError::NotMember => "User is not a member of this server".to_string(),
+            KickMemberError::NotMember => "User is not a member of this community".to_string(),
             KickMemberError::NotAllowed => {
                 "You don't have permission to kick this member".to_string()
             }
@@ -1398,112 +1398,112 @@ impl HttpMapping for KickMemberError {
     }
 }
 
-impl HttpMapping for LeaveServerError {
+impl HttpMapping for LeaveCommunityError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            LeaveServerError::Repository(e) => e.to_http_status(),
-            LeaveServerError::NotMember => StatusCode::NOT_FOUND,
-            LeaveServerError::OwnerCannotLeave => StatusCode::CONFLICT,
+            LeaveCommunityError::Repository(e) => e.to_http_status(),
+            LeaveCommunityError::NotMember => StatusCode::NOT_FOUND,
+            LeaveCommunityError::OwnerCannotLeave => StatusCode::CONFLICT,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
-            LeaveServerError::Repository(e) => e.to_user_message(),
-            LeaveServerError::NotMember => {
-                "You are not a member of this server".to_string()
+            LeaveCommunityError::Repository(e) => e.to_user_message(),
+            LeaveCommunityError::NotMember => {
+                "You are not a member of this community".to_string()
             }
-            LeaveServerError::OwnerCannotLeave => {
-                "Server owners cannot leave their own server; delete it instead".to_string()
+            LeaveCommunityError::OwnerCannotLeave => {
+                "Community owners cannot leave their own community; delete it instead".to_string()
             }
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
-            LeaveServerError::Repository(e) => e.to_error_code(),
-            LeaveServerError::NotMember => "SERVER_NOT_MEMBER",
-            LeaveServerError::OwnerCannotLeave => "SERVER_OWNER_CANNOT_LEAVE",
+            LeaveCommunityError::Repository(e) => e.to_error_code(),
+            LeaveCommunityError::NotMember => "SERVER_NOT_MEMBER",
+            LeaveCommunityError::OwnerCannotLeave => "SERVER_OWNER_CANNOT_LEAVE",
         }
     }
 }
 
-impl HttpMapping for ListSentServerInvitesError {
+impl HttpMapping for ListSentCommunityInvitesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            ListSentServerInvitesError::Repository(e) => e.to_http_status(),
-            ListSentServerInvitesError::NotMember => StatusCode::FORBIDDEN,
+            ListSentCommunityInvitesError::Repository(e) => e.to_http_status(),
+            ListSentCommunityInvitesError::NotMember => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
-            ListSentServerInvitesError::Repository(e) => e.to_user_message(),
-            ListSentServerInvitesError::NotMember => {
-                "You are not a member of this server".to_string()
+            ListSentCommunityInvitesError::Repository(e) => e.to_user_message(),
+            ListSentCommunityInvitesError::NotMember => {
+                "You are not a member of this community".to_string()
             }
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
-            ListSentServerInvitesError::Repository(e) => e.to_error_code(),
-            ListSentServerInvitesError::NotMember => "SERVER_NOT_MEMBER",
+            ListSentCommunityInvitesError::Repository(e) => e.to_error_code(),
+            ListSentCommunityInvitesError::NotMember => "SERVER_NOT_MEMBER",
         }
     }
 }
 
-impl HttpMapping for DeclineServerInviteError {
+impl HttpMapping for DeclineCommunityInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            DeclineServerInviteError::Repository(e) => e.to_http_status(),
-            DeclineServerInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
-            DeclineServerInviteError::NotRecipient => StatusCode::FORBIDDEN,
+            DeclineCommunityInviteError::Repository(e) => e.to_http_status(),
+            DeclineCommunityInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
+            DeclineCommunityInviteError::NotRecipient => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
-            DeclineServerInviteError::Repository(e) => e.to_user_message(),
-            DeclineServerInviteError::NotAnInvite => {
-                "This message is not a server invite".to_string()
+            DeclineCommunityInviteError::Repository(e) => e.to_user_message(),
+            DeclineCommunityInviteError::NotAnInvite => {
+                "This message is not a community invite".to_string()
             }
-            DeclineServerInviteError::NotRecipient => {
+            DeclineCommunityInviteError::NotRecipient => {
                 "This invite was not addressed to you".to_string()
             }
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
-            DeclineServerInviteError::Repository(e) => e.to_error_code(),
-            DeclineServerInviteError::NotAnInvite => "INVITE_INVALID",
-            DeclineServerInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
+            DeclineCommunityInviteError::Repository(e) => e.to_error_code(),
+            DeclineCommunityInviteError::NotAnInvite => "INVITE_INVALID",
+            DeclineCommunityInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
         }
     }
 }
 
-impl HttpMapping for AcceptServerInviteError {
+impl HttpMapping for AcceptCommunityInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            AcceptServerInviteError::Repository(e) => e.to_http_status(),
-            AcceptServerInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
-            AcceptServerInviteError::NotRecipient => StatusCode::FORBIDDEN,
-            AcceptServerInviteError::Blocked => StatusCode::FORBIDDEN,
+            AcceptCommunityInviteError::Repository(e) => e.to_http_status(),
+            AcceptCommunityInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
+            AcceptCommunityInviteError::NotRecipient => StatusCode::FORBIDDEN,
+            AcceptCommunityInviteError::Blocked => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
-            AcceptServerInviteError::Repository(e) => e.to_user_message(),
-            AcceptServerInviteError::NotAnInvite => {
-                "This message is not a server invite".to_string()
+            AcceptCommunityInviteError::Repository(e) => e.to_user_message(),
+            AcceptCommunityInviteError::NotAnInvite => {
+                "This message is not a community invite".to_string()
             }
-            AcceptServerInviteError::NotRecipient => {
+            AcceptCommunityInviteError::NotRecipient => {
                 "This invite was not addressed to you".to_string()
             }
-            AcceptServerInviteError::Blocked => "You cannot interact with this user.".to_string(),
+            AcceptCommunityInviteError::Blocked => "You cannot interact with this user.".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
-            AcceptServerInviteError::Repository(e) => e.to_error_code(),
-            AcceptServerInviteError::NotAnInvite => "INVITE_INVALID",
-            AcceptServerInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
-            AcceptServerInviteError::Blocked => "USER_BLOCKED",
+            AcceptCommunityInviteError::Repository(e) => e.to_error_code(),
+            AcceptCommunityInviteError::NotAnInvite => "INVITE_INVALID",
+            AcceptCommunityInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
+            AcceptCommunityInviteError::Blocked => "USER_BLOCKED",
         }
     }
 }
@@ -1843,7 +1843,7 @@ impl HttpMapping for ListChannelParticipantsError {
         match self {
             ListChannelParticipantsError::Repository(e) => e.to_user_message(),
             ListChannelParticipantsError::NotMember => {
-                "You are not a member of this server".to_string()
+                "You are not a member of this community".to_string()
             }
             ListChannelParticipantsError::NotChannelMember => {
                 "You are not a member of this channel".to_string()
@@ -1876,7 +1876,7 @@ impl HttpMapping for RoleError {
     fn to_user_message(&self) -> String {
         match self {
             RoleError::Repository(e) => e.to_user_message(),
-            RoleError::NotMember => "You are not a member of this server".to_string(),
+            RoleError::NotMember => "You are not a member of this community".to_string(),
             RoleError::NotAllowed => {
                 "You don't have permission to manage roles".to_string()
             }

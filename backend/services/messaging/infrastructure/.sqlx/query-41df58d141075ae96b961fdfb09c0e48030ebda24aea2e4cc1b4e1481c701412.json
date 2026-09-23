@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT DISTINCT v.channel_id\n                FROM channel_stream_viewers v\n                INNER JOIN channels c ON c.id = v.channel_id\n                WHERE v.streamer_id = $1 AND c.community_id = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "41df58d141075ae96b961fdfb09c0e48030ebda24aea2e4cc1b4e1481c701412"
+}

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT COUNT(*) as \"count!\"\n                FROM communities s\n                INNER JOIN community_members sm ON sm.community_id = s.id\n                WHERE sm.user_id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "607a6cab1ee86be7ade313786d00edbfba57e8b35b87ed0b59c40bd751f826a9"
+}

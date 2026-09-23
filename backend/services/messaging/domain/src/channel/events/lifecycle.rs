@@ -1,13 +1,13 @@
 use chrono::{DateTime, Utc};
 
-use crate::{channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, server::id::ServerId};
+use crate::{channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, community::id::CommunityId};
 use domain::{event::EventId, user::id::UserId};
 
 #[derive(Debug)]
 pub struct ChannelCreated {
     pub id: EventId,
     pub channel_id: ChannelId,
-    pub server_id: ServerId,
+    pub community_id: CommunityId,
     pub owner_id: UserId,
     pub name: ChannelName,
     pub kind: ChannelKind,
@@ -20,7 +20,7 @@ pub struct ChannelCreated {
 impl ChannelCreated {
     pub fn record(
         channel_id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         owner_id: UserId,
         name: ChannelName,
         kind: ChannelKind,
@@ -30,7 +30,7 @@ impl ChannelCreated {
         Self {
             id: EventId::generate(),
             channel_id,
-            server_id,
+            community_id,
             owner_id,
             name,
             kind,
@@ -46,7 +46,7 @@ impl ChannelCreated {
 pub struct ChannelRenamed {
     pub id: EventId,
     pub channel_id: ChannelId,
-    pub server_id: ServerId,
+    pub community_id: CommunityId,
     pub old_name: ChannelName,
     pub new_name: ChannelName,
     pub occurred_at: DateTime<Utc>,
@@ -55,7 +55,7 @@ pub struct ChannelRenamed {
 impl ChannelRenamed {
     pub fn record(
         channel_id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         old_name: ChannelName,
         new_name: ChannelName,
         now: DateTime<Utc>,
@@ -63,7 +63,7 @@ impl ChannelRenamed {
         Self {
             id: EventId::generate(),
             channel_id,
-            server_id,
+            community_id,
             old_name,
             new_name,
             occurred_at: now,
@@ -75,7 +75,7 @@ impl ChannelRenamed {
 pub struct ChannelDeleted {
     pub id: EventId,
     pub channel_id: ChannelId,
-    pub server_id: ServerId,
+    pub community_id: CommunityId,
     pub deleted_by: UserId,
     pub occurred_at: DateTime<Utc>,
     pub recipient_ids: Vec<UserId>,
@@ -84,14 +84,14 @@ pub struct ChannelDeleted {
 impl ChannelDeleted {
     pub fn record(
         channel_id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         deleted_by: UserId,
         now: DateTime<Utc>,
     ) -> Self {
         Self {
             id: EventId::generate(),
             channel_id,
-            server_id,
+            community_id,
             deleted_by,
             occurred_at: now,
             recipient_ids: Vec::new(),

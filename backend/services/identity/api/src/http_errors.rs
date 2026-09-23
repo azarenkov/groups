@@ -115,7 +115,7 @@ impl HttpMapping for TokenIssuerError {
 
     fn to_user_message(&self) -> String {
         match self {
-            TokenIssuerError::Encoding(_) => "Internal server error".to_string(),
+            TokenIssuerError::Encoding(_) => "Internal community error".to_string(),
             TokenIssuerError::Decoding(_) | TokenIssuerError::InvalidTokenType => {
                 "Invalid refresh token".to_string()
             }

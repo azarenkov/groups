@@ -14,8 +14,8 @@ struct ActiveFriendItem {
     user_name: String,
     channel_id: Uuid,
     channel_name: String,
-    server_id: Uuid,
-    server_name: String,
+    community_id: Uuid,
+    community_name: String,
     joined_at: DateTime<Utc>,
     is_muted: bool,
     camera_on: bool,
@@ -28,8 +28,8 @@ struct ActiveFriendItem {
 struct RecentRoomItem {
     channel_id: Uuid,
     channel_name: String,
-    server_id: Uuid,
-    server_name: String,
+    community_id: Uuid,
+    community_name: String,
     live_count: i64,
     last_join: DateTime<Utc>,
 }
@@ -59,8 +59,8 @@ async fn get_home_overview(
                 user_name: r.user_name,
                 channel_id: r.channel_id.uuid(),
                 channel_name: r.channel_name,
-                server_id: r.server_id.uuid(),
-                server_name: r.server_name,
+                community_id: r.community_id.uuid(),
+                community_name: r.community_name,
                 joined_at: r.joined_at,
                 is_muted: r.is_muted,
                 camera_on: r.camera_on,
@@ -74,8 +74,8 @@ async fn get_home_overview(
             .map(|r| RecentRoomItem {
                 channel_id: r.channel_id.uuid(),
                 channel_name: r.channel_name,
-                server_id: r.server_id.uuid(),
-                server_name: r.server_name,
+                community_id: r.community_id.uuid(),
+                community_name: r.community_name,
                 live_count: r.live_count,
                 last_join: r.last_join,
             })
@@ -86,7 +86,7 @@ async fn get_home_overview(
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-struct MutualServerItem {
+struct MutualCommunityItem {
     id: Uuid,
     name: String,
     accent_color: Option<String>,
@@ -97,8 +97,8 @@ struct MutualServerItem {
 struct VoiceRoomItem {
     channel_id: Uuid,
     channel_name: String,
-    server_id: Uuid,
-    server_name: String,
+    community_id: Uuid,
+    community_name: String,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -116,7 +116,7 @@ struct PublicProfileResponse {
     accepts_friend_requests: bool,
     blocked: bool,
     blocked_by: bool,
-    mutual_servers: Vec<MutualServerItem>,
+    mutual_communities: Vec<MutualCommunityItem>,
     voice_room: Option<VoiceRoomItem>,
 }
 
@@ -169,10 +169,10 @@ async fn get_user_profile(
         accepts_friend_requests,
         blocked: relation.blocking,
         blocked_by: relation.blocked_by,
-        mutual_servers: if hidden { Vec::new() } else { view.mutual_servers }
+        mutual_communities: if hidden { Vec::new() } else { view.mutual_communities }
             .into_iter()
-            .map(|m| MutualServerItem {
-                id: m.server_id.uuid(),
+            .map(|m| MutualCommunityItem {
+                id: m.community_id.uuid(),
                 name: m.name,
                 accent_color: m.accent_color,
             })
@@ -180,8 +180,8 @@ async fn get_user_profile(
         voice_room: if hidden { None } else { view.voice_room }.map(|v| VoiceRoomItem {
             channel_id: v.channel_id.uuid(),
             channel_name: v.channel_name,
-            server_id: v.server_id.uuid(),
-            server_name: v.server_name,
+            community_id: v.community_id.uuid(),
+            community_name: v.community_name,
         }),
     })))
 }

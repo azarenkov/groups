@@ -3,39 +3,39 @@ use contracts::internal::{
     attachments::{LinkedRequestV1, LinkedResponseV1},
     calls::CallPermitResponseV1,
     friendships::{BlockRelationResponseV1, BlockRelationsRequestV1, BlockRelationsResponseV1, FriendsResponseV1},
-    servers::{CanManageResponseV1, OwnerResponseV1},
+    communities::{CanManageResponseV1, OwnerResponseV1},
     users::{ActivityAudienceRequestV1, ActivityAudienceResponseV1, DmPeersRequestV1, DmPeersResponseV1, StateResponseV1},
 };
-use messaging_domain::{dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::repository::MessageRepository, privacy::ContactPolicy, privacy::PrivacyRepository, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::repository::MessageRepository, privacy::ContactPolicy, privacy::PrivacyRepository, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::user::id::UserId;
 use uuid::Uuid;
 
 use crate::state::AppState;
 use crate::http_errors::HttpError;
 
-#[get("/servers/{server_id}/can-manage/{user_id}")]
-async fn server_can_manage(
+#[get("/communities/{community_id}/can-manage/{user_id}")]
+async fn community_can_manage(
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, HttpError> {
-    let (server_id, user_id) = path.into_inner();
+    let (community_id, user_id) = path.into_inner();
     let allowed = app_state
-        .can_manage_server_usecase
-        .execute(ServerId::new(server_id), UserId::new(user_id))
+        .can_manage_community_usecase
+        .execute(CommunityId::new(community_id), UserId::new(user_id))
         .await
         .map_err(HttpError::from)?;
     Ok(HttpResponse::Ok().json(CanManageResponseV1 { allowed }))
 }
 
-#[get("/servers/{server_id}/owner")]
-async fn server_owner(
+#[get("/communities/{community_id}/owner")]
+async fn community_owner(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     match app_state
-        .server_repository
-        .find_server_owner(&server_id)
+        .community_repository
+        .find_community_owner(&community_id)
         .await
         .map_err(HttpError::from)?
     {
@@ -52,7 +52,7 @@ async fn user_has_state(
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
     let has_state = app_state
-        .server_repository
+        .community_repository
         .has_user_messaging_state(path.into_inner())
         .await
         .map_err(HttpError::from)?;
@@ -193,7 +193,7 @@ async fn activity_audience(
     body: web::Json<ActivityAudienceRequestV1>,
 ) -> Result<impl Responder, HttpError> {
     let ids = app_state
-        .server_repository
+        .community_repository
         .activity_audience(path.into_inner(), &body.ids)
         .await
         .map_err(HttpError::from)?;
@@ -204,8 +204,8 @@ pub fn internal_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/internal")
             .service(activity_audience)
-            .service(server_can_manage)
-            .service(server_owner)
+            .service(community_can_manage)
+            .service(community_owner)
             .service(user_has_state)
             .service(friendship_pair)
             .service(block_pair)

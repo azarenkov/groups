@@ -1,10 +1,10 @@
 use chrono::Utc;
 use contracts::events::{
     channel::ChannelCreatedV1, dm_message::DmMessageSentV1, friendship::FriendRequestSentV1,
-    message::ChannelMessageSentV1, server::ServerRolesChangedV1,
+    message::ChannelMessageSentV1, community::CommunityRolesChangedV1,
 };
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
-use messaging_domain::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, dm_message::DmMessage, events::MessagingEvent, friendship::pair::FriendshipPair, message::Message, message::content::MessageContent, server::events::ServerEvent, server::events::lifecycle::ServerRolesChanged, server::id::ServerId};
+use messaging_domain::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, dm_message::DmMessage, events::MessagingEvent, friendship::pair::FriendshipPair, message::Message, message::content::MessageContent, community::events::CommunityEvent, community::events::lifecycle::CommunityRolesChanged, community::id::CommunityId};
 use messaging_infrastructure::outbox::mapping::to_record;
 use ports::outbox::record::AggregateType;
 
@@ -71,30 +71,30 @@ fn dm_call_and_invite_facts_are_part_of_the_event() {
     assert_eq!(evt.call_status.as_deref(), Some("missed"));
     assert_eq!(evt.call_duration_seconds, Some(42));
 
-    let server_id = ServerId::generate();
-    let mut invite = DmMessage::create_server_invite(
+    let community_id = CommunityId::generate();
+    let mut invite = DmMessage::create_community_invite(
         sender,
         recipient,
-        server_id,
+        community_id,
         MessageContent::new("Rift HQ".to_string()).unwrap(),
         Utc::now(),
     );
     let record = to_record(&MessagingEvent::from(invite.pull_events().remove(0)), None).unwrap();
     assert_eq!(record.aggregate_type, AggregateType::DmMessage);
     let evt: DmMessageSentV1 = decode(record.payload);
-    assert_eq!(evt.invite_server_id, Some(server_id.uuid()));
-    assert_eq!(evt.invite_server_name.as_deref(), Some("Rift HQ"));
+    assert_eq!(evt.invite_community_id, Some(community_id.uuid()));
+    assert_eq!(evt.invite_community_name.as_deref(), Some("Rift HQ"));
 }
 
 #[test]
-fn channel_created_maps_recipients_and_parent_server() {
+fn channel_created_maps_recipients_and_parent_community() {
     let channel_id = ChannelId::generate();
-    let server_id = ServerId::generate();
+    let community_id = CommunityId::generate();
     let owner = UserId::generate();
     let member = UserId::generate();
     let event = ChannelEvent::Created(ChannelCreated::record(
         channel_id,
-        server_id,
+        community_id,
         owner,
         ChannelName::new("general".to_string()),
         ChannelKind::Text,
@@ -105,7 +105,7 @@ fn channel_created_maps_recipients_and_parent_server() {
     let record = to_record(&MessagingEvent::from(event), None).unwrap();
     assert_eq!(record.event_type, "created");
     assert_eq!(record.aggregate_type, AggregateType::Channel);
-    assert_eq!(record.parent_type, Some(AggregateType::Server));
+    assert_eq!(record.parent_type, Some(AggregateType::Community));
     let evt: ChannelCreatedV1 = decode(record.payload);
     assert_eq!(evt.recipient_ids, vec![member.uuid()]);
     assert_eq!(evt.name, serde_json::json!("general"));
@@ -113,12 +113,12 @@ fn channel_created_maps_recipients_and_parent_server() {
 
 #[test]
 fn roles_changed_keeps_its_subject_and_recipients() {
-    let server_id = ServerId::generate();
+    let community_id = CommunityId::generate();
     let member = UserId::generate();
-    let event = ServerEvent::RolesChanged(ServerRolesChanged::record(server_id, vec![member], Utc::now()));
+    let event = CommunityEvent::RolesChanged(CommunityRolesChanged::record(community_id, vec![member], Utc::now()));
     let record = to_record(&MessagingEvent::from(event), None).unwrap();
-    assert_eq!(record.event_type, "server.roles.changed");
-    let evt: ServerRolesChangedV1 = decode(record.payload);
+    assert_eq!(record.event_type, "community.roles.changed");
+    let evt: CommunityRolesChangedV1 = decode(record.payload);
     assert_eq!(evt.recipients, vec![member.uuid()]);
 }
 

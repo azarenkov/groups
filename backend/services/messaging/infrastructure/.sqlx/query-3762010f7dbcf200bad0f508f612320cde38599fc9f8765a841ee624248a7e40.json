@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT sm.user_id\n            FROM community_members sm\n            LEFT JOIN messaging_user_profiles p ON p.user_id = sm.user_id\n            WHERE sm.community_id = $1\n              AND sm.user_id <> $2\n              AND NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id = sm.user_id)\n            ORDER BY COALESCE(p.active, true) DESC, sm.joined_at ASC, sm.user_id ASC\n            LIMIT 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3762010f7dbcf200bad0f508f612320cde38599fc9f8765a841ee624248a7e40"
+}

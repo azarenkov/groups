@@ -86,7 +86,7 @@ impl ChannelTransaction for PostgresChannelTransaction {
             .collect();
         let voice_changes = channel.pull_voice_changes();
         let media_changes = channel.pull_media_changes();
-        let server_id = channel.server_id().uuid();
+        let community_id = channel.community_id().uuid();
         let channel_uuid = channel.id().uuid();
         let tx = &mut self.tx;
 
@@ -128,26 +128,26 @@ impl ChannelTransaction for PostgresChannelTransaction {
         let mut records: Vec<OutboxRecord> = Vec::new();
         for (viewer, session) in added_sessions {
             records.extend(
-                recompute_session_watched_streams(tx, channel_uuid, server_id, viewer, &session, Utc::now(), request_id.clone())
+                recompute_session_watched_streams(tx, channel_uuid, community_id, viewer, &session, Utc::now(), request_id.clone())
                     .await?,
             );
         }
         for (viewer, session) in removed_sessions {
             records.extend(
-                cleanup_session_stream_viewer(tx, channel_uuid, server_id, viewer, &session, Utc::now(), request_id.clone())
+                cleanup_session_stream_viewer(tx, channel_uuid, community_id, viewer, &session, Utc::now(), request_id.clone())
                     .await?,
             );
         }
         for streamer in departed.into_iter().chain(screen_stopped) {
             if let Some(record) =
-                clear_stream_for_streamer(tx, channel_uuid, server_id, streamer, Utc::now(), request_id.clone()).await?
+                clear_stream_for_streamer(tx, channel_uuid, community_id, streamer, Utc::now(), request_id.clone()).await?
             {
                 records.push(record);
             }
         }
         for streamer in screen_started {
             let count = count_stream_viewers(tx, channel_uuid, streamer).await?;
-            records.push(stream_viewers_record(channel_uuid, server_id, streamer, count, Utc::now(), request_id.clone()));
+            records.push(stream_viewers_record(channel_uuid, community_id, streamer, count, Utc::now(), request_id.clone()));
         }
         save_outbox_records(tx, &records).await
     }

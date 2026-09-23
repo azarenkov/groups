@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    WITH live AS (\n                        SELECT community_id FROM media_community_owners\n                        WHERE community_id = $1 AND deleted_at IS NULL\n                        FOR UPDATE\n                    ), old AS (\n                        SELECT community_id, storage_key FROM media_community_logos\n                        WHERE community_id = $1 AND EXISTS (SELECT 1 FROM live)\n                        FOR UPDATE\n                    ), ins AS (\n                        INSERT INTO media_community_logos (community_id, storage_key)\n                        SELECT community_id, $2 FROM live\n                        ON CONFLICT (community_id) DO UPDATE SET storage_key = EXCLUDED.storage_key\n                    ), q AS (\n                        INSERT INTO storage_cleanup_queue (storage_key)\n                        SELECT storage_key FROM old\n                        WHERE storage_key IS DISTINCT FROM $2\n                        ON CONFLICT (storage_key) DO NOTHING\n                    )\n                    SELECT\n                        EXISTS(SELECT 1 FROM live) AS \"live!\",\n                        (SELECT storage_key FROM old) AS old_key\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "live!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 1,
+        "name": "old_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "49f71a7f4230ea3b2ce1d92ad381f5eda1e48927045db9c69fe3a3c46b2d96d6"
+}

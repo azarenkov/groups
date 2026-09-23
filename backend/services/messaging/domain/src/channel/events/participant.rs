@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{channel::id::ChannelId, server::id::ServerId};
+use crate::{channel::id::ChannelId, community::id::CommunityId};
 use domain::{event::EventId, user::id::UserId};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -39,7 +39,7 @@ pub enum ConnectionAbortReason {
 pub struct ParticipantJoined {
     pub id: EventId,
     pub channel_id: ChannelId,
-    pub server_id: ServerId,
+    pub community_id: CommunityId,
     pub user_id: UserId,
     pub occurred_at: DateTime<Utc>,
 }
@@ -47,14 +47,14 @@ pub struct ParticipantJoined {
 impl ParticipantJoined {
     pub fn record(
         channel_id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         user_id: UserId,
         now: DateTime<Utc>,
     ) -> Self {
         Self {
             id: EventId::generate(),
             channel_id,
-            server_id,
+            community_id,
             user_id,
             occurred_at: now,
         }
@@ -65,7 +65,7 @@ impl ParticipantJoined {
 pub struct ParticipantLeft {
     pub id: EventId,
     pub channel_id: ChannelId,
-    pub server_id: ServerId,
+    pub community_id: CommunityId,
     pub user_id: UserId,
     pub reason: LeaveReason,
     pub occurred_at: DateTime<Utc>,
@@ -74,7 +74,7 @@ pub struct ParticipantLeft {
 impl ParticipantLeft {
     pub fn record(
         channel_id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         user_id: UserId,
         reason: LeaveReason,
         now: DateTime<Utc>,
@@ -82,7 +82,7 @@ impl ParticipantLeft {
         Self {
             id: EventId::generate(),
             channel_id,
-            server_id,
+            community_id,
             user_id,
             reason,
             occurred_at: now,
@@ -94,7 +94,7 @@ impl ParticipantLeft {
 pub struct ParticipantMuted {
     pub id: EventId,
     pub channel_id: ChannelId,
-    pub server_id: ServerId,
+    pub community_id: CommunityId,
     pub user_id: UserId,
     pub muted_by: UserId,
     pub occurred_at: DateTime<Utc>,
@@ -103,7 +103,7 @@ pub struct ParticipantMuted {
 impl ParticipantMuted {
     pub fn record(
         channel_id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         user_id: UserId,
         muted_by: UserId,
         now: DateTime<Utc>,
@@ -111,7 +111,7 @@ impl ParticipantMuted {
         Self {
             id: EventId::generate(),
             channel_id,
-            server_id,
+            community_id,
             user_id,
             muted_by,
             occurred_at: now,
@@ -123,7 +123,7 @@ impl ParticipantMuted {
 pub struct ParticipantDeafened {
     pub id: EventId,
     pub channel_id: ChannelId,
-    pub server_id: ServerId,
+    pub community_id: CommunityId,
     pub user_id: UserId,
     pub deafened_by: UserId,
     pub occurred_at: DateTime<Utc>,
@@ -132,7 +132,7 @@ pub struct ParticipantDeafened {
 impl ParticipantDeafened {
     pub fn record(
         channel_id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         user_id: UserId,
         deafened_by: UserId,
         now: DateTime<Utc>,
@@ -140,7 +140,7 @@ impl ParticipantDeafened {
         Self {
             id: EventId::generate(),
             channel_id,
-            server_id,
+            community_id,
             user_id,
             deafened_by,
             occurred_at: now,
@@ -152,7 +152,7 @@ impl ParticipantDeafened {
 pub struct ParticipantUndeafened {
     pub id: EventId,
     pub channel_id: ChannelId,
-    pub server_id: ServerId,
+    pub community_id: CommunityId,
     pub user_id: UserId,
     pub undeafened_by: UserId,
     pub occurred_at: DateTime<Utc>,
@@ -161,7 +161,7 @@ pub struct ParticipantUndeafened {
 impl ParticipantUndeafened {
     pub fn record(
         channel_id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         user_id: UserId,
         undeafened_by: UserId,
         now: DateTime<Utc>,
@@ -169,7 +169,7 @@ impl ParticipantUndeafened {
         Self {
             id: EventId::generate(),
             channel_id,
-            server_id,
+            community_id,
             user_id,
             undeafened_by,
             occurred_at: now,
@@ -181,7 +181,7 @@ impl ParticipantUndeafened {
 pub struct ParticipantUnmuted {
     pub id: EventId,
     pub channel_id: ChannelId,
-    pub server_id: ServerId,
+    pub community_id: CommunityId,
     pub user_id: UserId,
     pub unmuted_by: UserId,
     pub occurred_at: DateTime<Utc>,
@@ -190,7 +190,7 @@ pub struct ParticipantUnmuted {
 impl ParticipantUnmuted {
     pub fn record(
         channel_id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         user_id: UserId,
         unmuted_by: UserId,
         now: DateTime<Utc>,
@@ -198,7 +198,7 @@ impl ParticipantUnmuted {
         Self {
             id: EventId::generate(),
             channel_id,
-            server_id,
+            community_id,
             user_id,
             unmuted_by,
             occurred_at: now,
@@ -210,7 +210,7 @@ impl ParticipantUnmuted {
 pub struct ParticipantMediaChanged {
     pub id: EventId,
     pub channel_id: ChannelId,
-    pub server_id: ServerId,
+    pub community_id: CommunityId,
     pub user_id: UserId,
     pub source: MediaSource,
     pub enabled: bool,
@@ -220,7 +220,7 @@ pub struct ParticipantMediaChanged {
 impl ParticipantMediaChanged {
     pub fn record(
         channel_id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         user_id: UserId,
         source: MediaSource,
         enabled: bool,
@@ -229,7 +229,7 @@ impl ParticipantMediaChanged {
         Self {
             id: EventId::generate(),
             channel_id,
-            server_id,
+            community_id,
             user_id,
             source,
             enabled,
@@ -242,7 +242,7 @@ impl ParticipantMediaChanged {
 pub struct TextChannelJoined {
     pub id: EventId,
     pub channel_id: ChannelId,
-    pub server_id: ServerId,
+    pub community_id: CommunityId,
     pub user_id: UserId,
     pub joined_at: DateTime<Utc>,
     pub recipient_ids: Vec<UserId>,
@@ -251,14 +251,14 @@ pub struct TextChannelJoined {
 impl TextChannelJoined {
     pub fn record(
         channel_id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         user_id: UserId,
         now: DateTime<Utc>,
     ) -> Self {
         Self {
             id: EventId::generate(),
             channel_id,
-            server_id,
+            community_id,
             user_id,
             joined_at: now,
             recipient_ids: Vec::new(),
@@ -270,7 +270,7 @@ impl TextChannelJoined {
 pub struct ParticipantConnectionAborted {
     pub id: EventId,
     pub channel_id: ChannelId,
-    pub server_id: ServerId,
+    pub community_id: CommunityId,
     pub user_id: UserId,
     pub reason: ConnectionAbortReason,
     pub occurred_at: DateTime<Utc>,
@@ -279,7 +279,7 @@ pub struct ParticipantConnectionAborted {
 impl ParticipantConnectionAborted {
     pub fn record(
         channel_id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         user_id: UserId,
         reason: ConnectionAbortReason,
         now: DateTime<Utc>,
@@ -287,7 +287,7 @@ impl ParticipantConnectionAborted {
         Self {
             id: EventId::generate(),
             channel_id,
-            server_id,
+            community_id,
             user_id,
             reason,
             occurred_at: now,

@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 
 use chrono::{DateTime, Utc};
-use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::repository::ChannelRepository, channel::repository::FriendVoicePresenceRow, channel::repository::RecentVoiceRoomRow, channel::repository::VisibleVoiceRoom, channel::repository::VoiceParticipantRow, channel::session_id::SessionId, server::id::ServerId};
+use messaging_domain::{channel::Channel, channel::MediaChange, channel::VoiceChange, channel::events::participant::MediaSource, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::repository::ChannelRepository, channel::repository::FriendVoicePresenceRow, channel::repository::RecentVoiceRoomRow, channel::repository::VisibleVoiceRoom, channel::repository::VoiceParticipantRow, channel::session_id::SessionId, community::id::CommunityId};
 use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -31,17 +31,17 @@ impl PostgresChannelRepository {
 #[async_trait]
 impl ChannelRepository for PostgresChannelRepository {
 
-    async fn list_voice_channel_ids_by_server(
+    async fn list_voice_channel_ids_by_community(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
     ) -> Result<Vec<ChannelId>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
             SELECT id
             FROM channels
-            WHERE server_id = $1 AND kind = 'voice'::kind
+            WHERE community_id = $1 AND kind = 'voice'::kind
             "#,
-            server_id.uuid(),
+            community_id.uuid(),
         )
         .fetch_all(&self.pool)
         .await
@@ -57,11 +57,11 @@ impl ChannelRepository for PostgresChannelRepository {
     ) -> Result<Option<VisibleVoiceRoom>, RepositoryError> {
         let row = sqlx::query!(
             r#"
-            SELECT c.id AS channel_id, c.name AS channel_name, s.id AS server_id, s.name AS server_name
+            SELECT c.id AS channel_id, c.name AS channel_name, s.id AS community_id, s.name AS community_name
             FROM channel_voice_participants cvp
             INNER JOIN channels c ON c.id = cvp.channel_id
-            INNER JOIN servers s ON s.id = c.server_id
-            INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = $2
+            INNER JOIN communities s ON s.id = c.community_id
+            INNER JOIN community_members me ON me.community_id = s.id AND me.user_id = $2
             INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id AND u.show_activity AND u.active
             WHERE cvp.user_id = $1
             ORDER BY cvp.joined_at DESC
@@ -76,8 +76,8 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(row.map(|r| VisibleVoiceRoom {
             channel_id: ChannelId::new(r.channel_id),
             channel_name: r.channel_name,
-            server_id: ServerId::new(r.server_id),
-            server_name: r.server_name,
+            community_id: CommunityId::new(r.community_id),
+            community_name: r.community_name,
         }))
     }
 
@@ -102,7 +102,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
     async fn list_channel_participants(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
         channel_id: &ChannelId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<(UserId, UserName, String, Option<DateTime<Utc>>)>, RepositoryError> {
@@ -110,10 +110,10 @@ impl ChannelRepository for PostgresChannelRepository {
             r#"
             SELECT kind AS "kind: ChannelKindDto"
             FROM channels
-            WHERE id = $1 AND server_id = $2
+            WHERE id = $1 AND community_id = $2
             "#,
             channel_id.uuid(),
-            server_id.uuid(),
+            community_id.uuid(),
         )
         .fetch_optional(&self.pool)
         .await
@@ -207,9 +207,9 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(PaginatedResult::new(Vec::new(), 0, pagination))
     }
 
-    async fn list_voice_presence_for_server(
+    async fn list_voice_presence_for_community(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
     ) -> Result<Vec<messaging_domain::channel::repository::VoicePresenceRow>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
@@ -232,10 +232,10 @@ impl ChannelRepository for PostgresChannelRepository {
             FROM channel_voice_participants cvp
             INNER JOIN channels c ON c.id = cvp.channel_id
             INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id
-            WHERE c.server_id = $1
+            WHERE c.community_id = $1
             GROUP BY cvp.channel_id, cvp.user_id, u.name
             "#,
-            server_id.uuid(),
+            community_id.uuid(),
         )
         .fetch_all(&self.pool)
         .await
@@ -246,10 +246,10 @@ impl ChannelRepository for PostgresChannelRepository {
             SELECT d.channel_id, d.user_id, d.deafened_by
             FROM channel_deafened_participants d
             INNER JOIN channels c ON c.id = d.channel_id
-            WHERE c.server_id = $1
+            WHERE c.community_id = $1
             "#,
         )
-        .bind(server_id.uuid())
+        .bind(community_id.uuid())
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
@@ -275,7 +275,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
     async fn set_stream_viewer(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
         channel_id: &ChannelId,
         streamer_id: &UserId,
         viewer_id: &UserId,
@@ -291,15 +291,15 @@ impl ChannelRepository for PostgresChannelRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
 
         sqlx::query!(
-            r#"SELECT 1 AS one FROM channels WHERE id = $1 AND server_id = $2 FOR UPDATE"#,
+            r#"SELECT 1 AS one FROM channels WHERE id = $1 AND community_id = $2 FOR UPDATE"#,
             channel_id.uuid(),
-            server_id.uuid(),
+            community_id.uuid(),
         )
         .fetch_optional(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?
         .ok_or(RepositoryError::NotFound)?;
-        let server_id = server_id.uuid();
+        let community_id = community_id.uuid();
 
         if watching {
             sqlx::query!(
@@ -343,7 +343,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
         let record = stream_viewers_record(
             channel_id.uuid(),
-            server_id,
+            community_id,
             streamer_id.uuid(),
             count,
             occurred_at,
@@ -355,9 +355,9 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(count)
     }
 
-    async fn list_stream_viewer_counts_for_server(
+    async fn list_stream_viewer_counts_for_community(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
     ) -> Result<Vec<messaging_domain::channel::repository::StreamViewerCountRow>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
@@ -367,7 +367,7 @@ impl ChannelRepository for PostgresChannelRepository {
                 count(DISTINCT v.viewer_id) AS "count!"
             FROM channel_stream_viewers v
             INNER JOIN channels c ON c.id = v.channel_id
-            WHERE c.server_id = $1
+            WHERE c.community_id = $1
               AND v.viewer_id <> v.streamer_id
               AND EXISTS (
                 SELECT 1 FROM channel_voice_participants p
@@ -383,7 +383,7 @@ impl ChannelRepository for PostgresChannelRepository {
               )
             GROUP BY v.channel_id, v.streamer_id
             "#,
-            server_id.uuid(),
+            community_id.uuid(),
         )
         .fetch_all(&self.pool)
         .await
@@ -437,8 +437,8 @@ impl ChannelRepository for PostgresChannelRepository {
                 u.name AS user_name,
                 c.id AS channel_id,
                 c.name AS channel_name,
-                s.id AS server_id,
-                s.name AS server_name,
+                s.id AS community_id,
+                s.name AS community_name,
                 u.profile_updated_at,
                 MIN(cvp.joined_at) AS "joined_at!",
                 bool_or(cvp.camera_on) AS "camera_on!",
@@ -450,8 +450,8 @@ impl ChannelRepository for PostgresChannelRepository {
                 ) AS "is_muted!"
             FROM channel_voice_participants cvp
             INNER JOIN channels c ON c.id = cvp.channel_id
-            INNER JOIN servers s ON s.id = c.server_id
-            INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = $1
+            INNER JOIN communities s ON s.id = c.community_id
+            INNER JOIN community_members me ON me.community_id = s.id AND me.user_id = $1
             INNER JOIN friendships f
                 ON f.user_id = $1 AND f.friend_id = cvp.user_id AND f.status = 'accepted'
             INNER JOIN messaging_user_profiles u ON u.user_id = cvp.user_id AND u.show_activity AND u.active
@@ -470,8 +470,8 @@ impl ChannelRepository for PostgresChannelRepository {
                 user_name: r.user_name,
                 channel_id: ChannelId::new(r.channel_id),
                 channel_name: r.channel_name,
-                server_id: ServerId::new(r.server_id),
-                server_name: r.server_name,
+                community_id: CommunityId::new(r.community_id),
+                community_name: r.community_name,
                 joined_at: r.joined_at,
                 is_muted: r.is_muted,
                 camera_on: r.camera_on,
@@ -491,8 +491,8 @@ impl ChannelRepository for PostgresChannelRepository {
             SELECT
                 c.id AS channel_id,
                 c.name AS channel_name,
-                s.id AS server_id,
-                s.name AS server_name,
+                s.id AS community_id,
+                s.name AS community_name,
                 cvv.last_joined_at AS last_join,
                 (
                     SELECT COUNT(DISTINCT v.user_id)
@@ -501,8 +501,8 @@ impl ChannelRepository for PostgresChannelRepository {
                 ) AS "live_count!"
             FROM channel_voice_visits cvv
             INNER JOIN channels c ON c.id = cvv.channel_id
-            INNER JOIN servers s ON s.id = c.server_id
-            INNER JOIN server_members me ON me.server_id = s.id AND me.user_id = cvv.user_id
+            INNER JOIN communities s ON s.id = c.community_id
+            INNER JOIN community_members me ON me.community_id = s.id AND me.user_id = cvv.user_id
             WHERE cvv.user_id = $1
               AND c.kind = 'voice'
               AND cvv.last_joined_at > now() - interval '7 days'
@@ -520,8 +520,8 @@ impl ChannelRepository for PostgresChannelRepository {
             .map(|r| RecentVoiceRoomRow {
                 channel_id: ChannelId::new(r.channel_id),
                 channel_name: r.channel_name,
-                server_id: ServerId::new(r.server_id),
-                server_name: r.server_name,
+                community_id: CommunityId::new(r.community_id),
+                community_name: r.community_name,
                 live_count: r.live_count,
                 last_join: r.last_join,
             })
@@ -601,7 +601,7 @@ impl ChannelRepository for PostgresChannelRepository {
         let dto = sqlx::query_as!(
             ChannelDto,
             r#"
-            SELECT id, server_id, owner_id, name,
+            SELECT id, community_id, owner_id, name,
                    kind AS "kind: ChannelKindDto",
                    visibility AS "visibility: ChannelVisibilityDto",
                    password_hash, created_at, updated_at, last_join, is_default
@@ -681,7 +681,7 @@ impl ChannelRepository for PostgresChannelRepository {
 
         let channel = Channel::restore(
             ChannelId::new(dto.id),
-            ServerId::new(dto.server_id),
+            CommunityId::new(dto.community_id),
             UserId::new(dto.owner_id),
             ChannelName::new(dto.name),
             kind,
@@ -846,7 +846,7 @@ pub(crate) async fn count_stream_viewers(
 
 pub(crate) fn stream_viewers_record(
     channel_id: uuid::Uuid,
-    server_id: uuid::Uuid,
+    community_id: uuid::Uuid,
     streamer_id: uuid::Uuid,
     count: i64,
     occurred_at: DateTime<Utc>,
@@ -856,12 +856,12 @@ pub(crate) fn stream_viewers_record(
         id: uuid::Uuid::new_v4(),
         aggregate_id: channel_id,
         aggregate_type: ports::outbox::record::AggregateType::Channel,
-        parent_id: Some(server_id),
-        parent_type: Some(ports::outbox::record::AggregateType::Server),
+        parent_id: Some(community_id),
+        parent_type: Some(ports::outbox::record::AggregateType::Community),
         event_type: "stream.viewers".to_string(),
         payload: serde_json::json!({
             "channel_id": channel_id,
-            "server_id": server_id,
+            "community_id": community_id,
             "streamer_id": streamer_id,
             "count": count,
             "occurred_at": occurred_at,
@@ -874,7 +874,7 @@ pub(crate) fn stream_viewers_record(
 pub(crate) async fn clear_stream_for_streamer(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     channel_id: uuid::Uuid,
-    server_id: uuid::Uuid,
+    community_id: uuid::Uuid,
     streamer_id: uuid::Uuid,
     occurred_at: DateTime<Utc>,
     request_id: Option<String>,
@@ -897,7 +897,7 @@ pub(crate) async fn clear_stream_for_streamer(
 
     Ok(Some(stream_viewers_record(
         channel_id,
-        server_id,
+        community_id,
         streamer_id,
         0,
         occurred_at,
@@ -908,7 +908,7 @@ pub(crate) async fn clear_stream_for_streamer(
 pub(crate) async fn recompute_session_watched_streams(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     channel_id: uuid::Uuid,
-    server_id: uuid::Uuid,
+    community_id: uuid::Uuid,
     viewer_id: uuid::Uuid,
     viewer_session_id: &str,
     occurred_at: DateTime<Utc>,
@@ -933,7 +933,7 @@ pub(crate) async fn recompute_session_watched_streams(
         let count = count_stream_viewers(tx, channel_id, w.streamer_id).await?;
         records.push(stream_viewers_record(
             channel_id,
-            server_id,
+            community_id,
             w.streamer_id,
             count,
             occurred_at,
@@ -946,7 +946,7 @@ pub(crate) async fn recompute_session_watched_streams(
 pub(crate) async fn cleanup_session_stream_viewer(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     channel_id: uuid::Uuid,
-    server_id: uuid::Uuid,
+    community_id: uuid::Uuid,
     viewer_id: uuid::Uuid,
     viewer_session_id: &str,
     occurred_at: DateTime<Utc>,
@@ -988,7 +988,7 @@ pub(crate) async fn cleanup_session_stream_viewer(
         let count = count_stream_viewers(tx, channel_id, w.streamer_id).await?;
         records.push(stream_viewers_record(
             channel_id,
-            server_id,
+            community_id,
             w.streamer_id,
             count,
             occurred_at,
@@ -1006,7 +1006,7 @@ pub(crate) async fn load_channel_for_update(
     let dto = sqlx::query_as!(
         ChannelDto,
         r#"
-        SELECT id, server_id, owner_id, name,
+        SELECT id, community_id, owner_id, name,
                kind AS "kind: ChannelKindDto",
                visibility AS "visibility: ChannelVisibilityDto",
                password_hash, created_at, updated_at, last_join, is_default
@@ -1088,7 +1088,7 @@ pub(crate) async fn load_channel_for_update(
 
     Ok(Channel::restore(
         ChannelId::new(dto.id),
-        ServerId::new(dto.server_id),
+        CommunityId::new(dto.community_id),
         UserId::new(dto.owner_id),
         ChannelName::new(dto.name),
         kind,

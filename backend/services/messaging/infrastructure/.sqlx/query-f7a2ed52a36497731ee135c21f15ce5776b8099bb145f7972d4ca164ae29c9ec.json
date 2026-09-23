@@ -1,0 +1,102 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, community_id, owner_id, name,\n               kind AS \"kind: ChannelKindDto\",\n               visibility AS \"visibility: ChannelVisibilityDto\",\n               password_hash, created_at, updated_at, last_join, is_default\n        FROM channels\n        WHERE id = $1\n        FOR UPDATE\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "community_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "owner_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "kind: ChannelKindDto",
+        "type_info": {
+          "Custom": {
+            "name": "kind",
+            "kind": {
+              "Enum": [
+                "text",
+                "voice"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "visibility: ChannelVisibilityDto",
+        "type_info": {
+          "Custom": {
+            "name": "visibility",
+            "kind": {
+              "Enum": [
+                "public",
+                "private"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "password_hash",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "last_join",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "is_default",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f7a2ed52a36497731ee135c21f15ce5776b8099bb145f7972d4ca164ae29c9ec"
+}

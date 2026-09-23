@@ -1,12 +1,12 @@
 use chrono::Utc;
 
 use super::{Channel, ChannelError, UnmuteOutcome, kind::ChannelKind, moderation::ModerationGrant, moderation::Publication, name::ChannelName, session_id::SessionId, visibility::ChannelVisibility};
-use crate::{channel::events::ChannelEvent, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, server::id::ServerId};
+use crate::{channel::events::ChannelEvent, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, community::id::CommunityId};
 use domain::user::id::UserId;
 
 fn voice_channel(owner: UserId) -> Channel {
     let mut channel = Channel::create(
-        ServerId::generate(),
+        CommunityId::generate(),
         owner,
         ChannelName::new("voice".to_string()),
         ChannelKind::Voice,
@@ -23,7 +23,7 @@ fn voice_channel(owner: UserId) -> Channel {
 fn default_channel_cannot_be_deleted_but_others_can() {
     let owner = UserId::generate();
     let mut general = Channel::create(
-        ServerId::generate(),
+        CommunityId::generate(),
         owner,
         ChannelName::new("general".to_string()),
         ChannelKind::Text,

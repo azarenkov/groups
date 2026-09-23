@@ -44,12 +44,12 @@ fn nobody_can_report_themselves() {
 }
 
 #[test]
-fn a_server_cannot_be_reported_for_a_personal_reason() {
+fn a_community_cannot_be_reported_for_a_personal_reason() {
     let result = Report::create(
         UserId::generate(),
-        ReportTarget::Server,
+        ReportTarget::Community,
         Uuid::new_v4(),
-        "server".to_string(),
+        "community".to_string(),
         ReportReason::Impersonation,
         None,
         ReportContext::default(),
@@ -57,7 +57,7 @@ fn a_server_cannot_be_reported_for_a_personal_reason() {
     );
     assert!(matches!(result, Err(ReportError::ReasonNotAllowed)));
     assert!(!ReportReason::Raid.allowed_for(ReportTarget::User));
-    assert!(ReportReason::Raid.allowed_for(ReportTarget::Server));
+    assert!(ReportReason::Raid.allowed_for(ReportTarget::Community));
 }
 
 #[test]

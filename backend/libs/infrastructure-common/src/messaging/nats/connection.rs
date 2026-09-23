@@ -63,7 +63,7 @@ const STREAMS: &[StreamDef] = &[
     },
     StreamDef {
         name: "RIFT_SERVER_EVENTS",
-        subject_suffix: "server.>",
+        subject_suffix: "community.>",
         max_age_secs: 60 * 60 * 24 * 180,
         tier: StreamTier::Cold,
         durability: StreamDurability::Expiring,

@@ -3,9 +3,9 @@ use api_common::api_error::StatusCode;
 use api_common::dto::responses::ApiResponse;
 use api_common::middleware::auth::RateLimitedAuthToken;
 use domain::user::id::UserId;
-use messaging_domain::server::invite_link::InviteToken;
+use messaging_domain::community::invite_link::InviteToken;
 
-use crate::dto::responses::server::invite_links::{InvitePreviewResponse, JoinInviteResponse};
+use crate::dto::responses::community::invite_links::{InvitePreviewResponse, JoinInviteResponse};
 use crate::http_errors::HttpError;
 use crate::state::AppState;
 

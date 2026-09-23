@@ -5,7 +5,7 @@ use crate::dto::RequestContext;
 
 #[derive(Debug)]
 pub struct CreateChannelRequest {
-    pub server_id: Uuid,
+    pub community_id: Uuid,
     pub name: String,
     pub kind: ChannelKindDto,
     pub visibility: ChannelVisibilityDto,
@@ -15,7 +15,7 @@ pub struct CreateChannelRequest {
 
 impl CreateChannelRequest {
     pub fn new(
-        server_id: Uuid,
+        community_id: Uuid,
         name: String,
         kind: ChannelKindDto,
         visibility: ChannelVisibilityDto,
@@ -23,7 +23,7 @@ impl CreateChannelRequest {
         ctx: RequestContext,
     ) -> Self {
         Self {
-            server_id,
+            community_id,
             name,
             kind,
             visibility,

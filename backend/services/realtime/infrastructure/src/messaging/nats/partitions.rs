@@ -21,7 +21,7 @@ pub struct DispatcherSettings {
     pub channel_stream: String,
     pub message_stream: String,
     pub dm_message_stream: String,
-    pub server_stream: String,
+    pub community_stream: String,
     pub consumer_prefix: String,
     pub max_deliver: u32,
 }
@@ -301,7 +301,7 @@ fn partition_specs(
         ("channel", cfg.channel_stream.clone()),
         ("message", cfg.message_stream.clone()),
         ("dm_message", cfg.dm_message_stream.clone()),
-        ("server", cfg.server_stream.clone()),
+        ("community", cfg.community_stream.clone()),
     ];
     domains
         .into_iter()

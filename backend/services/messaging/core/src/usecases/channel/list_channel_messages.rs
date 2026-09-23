@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::visibility::ChannelVisibility, message::id::MessageId, message::repository::MessageRepository, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::visibility::ChannelVisibility, message::id::MessageId, message::repository::MessageRepository, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -16,8 +16,8 @@ const MAX_LIMIT: i64 = 100;
 pub enum ListChannelMessagesError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Not a member of the server")]
-    NotServerMember,
+    #[error("Not a member of the community")]
+    NotCommunityMember,
     #[error("Not a member of the channel")]
     NotChannelMember,
     #[error("Channel not found")]
@@ -34,28 +34,28 @@ pub struct ListChannelMessages<M, C, S>
 where
     M: MessageRepository,
     C: ChannelRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
-    server_repository: Arc<S>,
+    community_repository: Arc<S>,
 }
 
 impl<M, C, S> ListChannelMessages<M, C, S>
 where
     M: MessageRepository,
     C: ChannelRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
 {
     pub fn new(
         message_repository: Arc<M>,
         channel_repository: Arc<C>,
-        server_repository: Arc<S>,
+        community_repository: Arc<S>,
     ) -> Self {
         Self {
             message_repository,
             channel_repository,
-            server_repository,
+            community_repository,
         }
     }
 
@@ -64,15 +64,15 @@ where
         request: ListChannelMessagesRequest,
         requester_id: UserId,
     ) -> Result<Vec<ChannelMessageDto>, ListChannelMessagesError> {
-        let server_id = ServerId::new(request.server_id);
+        let community_id = CommunityId::new(request.community_id);
         let channel_id = ChannelId::new(request.channel_id);
 
         let is_member = self
-            .server_repository
-            .is_server_member(&server_id, &requester_id)
+            .community_repository
+            .is_community_member(&community_id, &requester_id)
             .await?;
         if !is_member {
-            return Err(ListChannelMessagesError::NotServerMember);
+            return Err(ListChannelMessagesError::NotCommunityMember);
         }
 
         let channel = self
@@ -83,7 +83,7 @@ where
                 RepositoryError::NotFound => ListChannelMessagesError::ChannelNotFound,
                 other => ListChannelMessagesError::Repository(other),
             })?;
-        if channel.server_id() != &server_id {
+        if channel.community_id() != &community_id {
             return Err(ListChannelMessagesError::ChannelNotFound);
         }
 

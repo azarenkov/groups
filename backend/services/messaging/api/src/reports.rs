@@ -44,8 +44,8 @@ async fn report_user(
     Ok(HttpResponse::Accepted().finish())
 }
 
-#[post("/{server_id}/report")]
-async fn report_server(
+#[post("/{community_id}/report")]
+async fn report_community(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
@@ -53,7 +53,7 @@ async fn report_server(
 ) -> Result<impl Responder, HttpError> {
     let request = body
         .into_inner()
-        .into_request(ReportTarget::Server, path.into_inner());
+        .into_request(ReportTarget::Community, path.into_inner());
     app_state
         .create_report_usecase
         .execute(UserId::new(auth_token.id), request)
@@ -65,6 +65,6 @@ pub fn user_report_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(report_user);
 }
 
-pub fn server_report_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(report_server);
+pub fn community_report_routes(cfg: &mut web::ServiceConfig) {
+    cfg.service(report_community);
 }

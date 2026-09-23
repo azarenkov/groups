@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use voice_domain::{call::repository::CallParticipantView, call::repository::CallRepository};
-use domain::{channel::id::ChannelId, channel::token::ChannelToken, server::id::ServerId, user::id::UserId};
+use domain::{channel::id::ChannelId, channel::token::ChannelToken, community::id::CommunityId, user::id::UserId};
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
@@ -136,7 +136,7 @@ where
         let call_id = Uuid::new_v4();
         let room = ChannelId::new(call_id);
         self.voice_service
-            .create_voice_channel(&room, &ServerId::new(call_id))
+            .create_voice_channel(&room, &CommunityId::new(call_id))
             .await?;
 
         let token = self

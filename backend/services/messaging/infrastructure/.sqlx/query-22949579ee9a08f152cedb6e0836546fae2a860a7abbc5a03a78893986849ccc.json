@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO community_members (community_id, user_id, joined_at)\n                VALUES ($1, $2, NOW())\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "22949579ee9a08f152cedb6e0836546fae2a860a7abbc5a03a78893986849ccc"
+}

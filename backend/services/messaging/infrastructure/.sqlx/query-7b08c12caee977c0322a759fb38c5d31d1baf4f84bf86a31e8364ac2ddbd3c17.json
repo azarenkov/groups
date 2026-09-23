@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT kind AS \"kind: ChannelKindDto\"\n            FROM channels\n            WHERE id = $1 AND community_id = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind: ChannelKindDto",
+        "type_info": {
+          "Custom": {
+            "name": "kind",
+            "kind": {
+              "Enum": [
+                "text",
+                "voice"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7b08c12caee977c0322a759fb38c5d31d1baf4f84bf86a31e8364ac2ddbd3c17"
+}

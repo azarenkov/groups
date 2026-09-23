@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use domain::{channel::id::ChannelId, channel::token::ChannelToken, server::id::ServerId, user::id::UserId, user::name::UserName};
+use domain::{channel::id::ChannelId, channel::token::ChannelToken, community::id::CommunityId, user::id::UserId, user::name::UserName};
 
 #[async_trait]
 pub trait VoiceService {
@@ -12,7 +12,7 @@ pub trait VoiceService {
     async fn create_voice_channel(
         &self,
         channel_id: &ChannelId,
-        server_id: &ServerId,
+        community_id: &CommunityId,
     ) -> Result<(), VoiceServiceError>;
     async fn delete_voice_channel(
         &self,

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, channel::unit_of_work::ChannelUnitOfWork, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, channel::unit_of_work::ChannelUnitOfWork, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -18,8 +18,8 @@ pub enum JoinTextChannelError {
     Domain(#[from] ChannelError),
     #[error("Hash error: {0}")]
     Hash(#[from] HashError),
-    #[error("Not a member of the server")]
-    NotServerMember,
+    #[error("Not a member of the community")]
+    NotCommunityMember,
     #[error("Channel not found")]
     ChannelNotFound,
     #[error("Channel is not a text channel")]
@@ -33,12 +33,12 @@ pub enum JoinTextChannelError {
 pub struct JoinTextChannel<C, S, W, H>
 where
     C: ChannelRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
     W: ChannelUnitOfWork,
     H: Hasher,
 {
     channel_repository: Arc<C>,
-    server_repository: Arc<S>,
+    community_repository: Arc<S>,
     unit_of_work: Arc<W>,
     hasher: Arc<H>,
 }
@@ -46,19 +46,19 @@ where
 impl<C, S, W, H> JoinTextChannel<C, S, W, H>
 where
     C: ChannelRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
     W: ChannelUnitOfWork,
     H: Hasher,
 {
     pub fn new(
         channel_repository: Arc<C>,
-        server_repository: Arc<S>,
+        community_repository: Arc<S>,
         unit_of_work: Arc<W>,
         hasher: Arc<H>,
     ) -> Self {
         Self {
             channel_repository,
-            server_repository,
+            community_repository,
             unit_of_work,
             hasher,
         }
@@ -69,15 +69,15 @@ where
         request: JoinTextChannelRequest,
         requester_id: UserId,
     ) -> Result<(), JoinTextChannelError> {
-        let server_id = ServerId::new(request.server_id);
+        let community_id = CommunityId::new(request.community_id);
         let channel_id = ChannelId::new(request.channel_id);
 
         let is_member = self
-            .server_repository
-            .is_server_member(&server_id, &requester_id)
+            .community_repository
+            .is_community_member(&community_id, &requester_id)
             .await?;
         if !is_member {
-            return Err(JoinTextChannelError::NotServerMember);
+            return Err(JoinTextChannelError::NotCommunityMember);
         }
 
         let mut channel = self
@@ -89,7 +89,7 @@ where
                 other => JoinTextChannelError::Repository(other),
             })?;
 
-        if channel.server_id() != &server_id {
+        if channel.community_id() != &community_id {
             return Err(JoinTextChannelError::ChannelNotFound);
         }
 

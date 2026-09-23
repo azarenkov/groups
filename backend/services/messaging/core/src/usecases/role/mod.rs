@@ -6,7 +6,7 @@ pub mod revoke_role;
 pub mod swap_roles;
 pub mod update_role;
 
-use messaging_domain::{server::id::ServerId, server::policy::PolicyError, server::repository::ServerRepository};
+use messaging_domain::{community::id::CommunityId, community::policy::PolicyError, community::repository::CommunityRepository};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -14,7 +14,7 @@ use ports::repository::RepositoryError;
 pub enum RoleError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Not a member of the server")]
+    #[error("Not a member of the community")]
     NotMember,
     #[error("Missing permission to manage roles")]
     NotAllowed,
@@ -54,12 +54,12 @@ pub fn validate_role_input(name: &str, color: &str) -> Result<(), RoleError> {
     Ok(())
 }
 
-pub async fn ensure_member<S: ServerRepository>(
-    server_repository: &S,
-    server_id: &ServerId,
+pub async fn ensure_member<S: CommunityRepository>(
+    community_repository: &S,
+    community_id: &CommunityId,
     user_id: &UserId,
 ) -> Result<(), RoleError> {
-    if !server_repository.is_server_member(server_id, user_id).await? {
+    if !community_repository.is_community_member(community_id, user_id).await? {
         return Err(RoleError::NotMember);
     }
     Ok(())

@@ -1,7 +1,7 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post, put, web};
-use messaging::dto::requests::server::delete_server::DeleteServerRequest;
-use messaging_domain::server::id::ServerId;
-use messaging_domain::server::invite_link::InviteToken;
+use messaging::dto::requests::community::delete_community::DeleteCommunityRequest;
+use messaging_domain::community::id::CommunityId;
+use messaging_domain::community::invite_link::InviteToken;
 use api_common::api_error::StatusCode;
 use domain::user::id::UserId;
 use api_common::middleware::auth::RateLimitedAuthToken;
@@ -11,32 +11,32 @@ use validator::Validate;
 use crate::state::AppState;
 use api_common::{context::request_context};
 use api_common::dto::{cursor::CursorQuery, pagination::{PaginationMeta, PaginationQuery}, responses::ApiResponse};
-use crate::dto::{requests::server::{ create_server::CreateServerRequestBody, update_server::UpdateServerRequestBody, }, responses::server::{ create_server::CreateServerResponse, invite_links::{InviteLinkResponse, ListInviteLinksResponse}, list_sent_server_invites::ListSentServerInvitesResponse, list_server_channels::ListServerChannelsResponse, list_server_members::ListServerMembersResponse, list_servers_by_user::ListServersByUserResponse, }};
+use crate::dto::{requests::community::{ create_community::CreateCommunityRequestBody, update_community::UpdateCommunityRequestBody, }, responses::community::{ create_community::CreateCommunityResponse, invite_links::{InviteLinkResponse, ListInviteLinksResponse}, list_sent_community_invites::ListSentCommunityInvitesResponse, list_community_channels::ListCommunityChannelsResponse, list_community_members::ListCommunityMembersResponse, list_communities_by_user::ListCommunitiesByUserResponse, }};
 use crate::http_errors::HttpError;
 
 #[post("")]
-async fn create_server(
+async fn create_community(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
-    body: web::Json<CreateServerRequestBody>,
+    body: web::Json<CreateCommunityRequestBody>,
 ) -> Result<impl Responder, HttpError> {
-    let body: CreateServerRequestBody = body.into_inner();
+    let body: CreateCommunityRequestBody = body.into_inner();
     body.validate()?;
 
     let ctx = request_context(&req);
-    let server = app_state
-        .create_server_usecase
+    let community = app_state
+        .create_community_usecase
         .execute(body.into_request(ctx), UserId::new(auth_token.id))
         .await?;
 
-    let response = CreateServerResponse::from(server);
+    let response = CreateCommunityResponse::from(community);
 
     Ok(HttpResponse::Created().json(ApiResponse::success(response)))
 }
 
 #[get("")]
-async fn list_servers_by_user(
+async fn list_communities_by_user(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     query: web::Query<PaginationQuery>,
@@ -47,18 +47,18 @@ async fn list_servers_by_user(
     let pagination = api_common::pagination::parse(query.page, query.per_page)?;
 
     let result = app_state
-        .list_servers_by_user_usecase
+        .list_communities_by_user_usecase
         .execute(user_id, pagination)
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = ListServersByUserResponse::new(result.items);
+    let response = ListCommunitiesByUserResponse::new(result.items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
-#[get("/{server_id}/members")]
-async fn list_server_members(
+#[get("/{community_id}/members")]
+async fn list_community_members(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
@@ -66,23 +66,23 @@ async fn list_server_members(
 ) -> Result<impl Responder, HttpError> {
     query.validate()?;
 
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let requester_id = UserId::new(auth_token.id);
     let pagination = api_common::pagination::parse(query.page, query.per_page)?;
 
     let result = app_state
-        .list_server_members_usecase
-        .execute(server_id, requester_id, pagination)
+        .list_community_members_usecase
+        .execute(community_id, requester_id, pagination)
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = ListServerMembersResponse::new(result.items);
+    let response = ListCommunityMembersResponse::new(result.items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
-#[get("/{server_id}/channels")]
-async fn list_server_channels(
+#[get("/{community_id}/channels")]
+async fn list_community_channels(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
@@ -90,33 +90,33 @@ async fn list_server_channels(
 ) -> Result<impl Responder, HttpError> {
     query.validate()?;
 
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let requester_id = UserId::new(auth_token.id);
     let pagination = api_common::pagination::parse(query.page, query.per_page)?;
 
     let result = app_state
-        .list_server_channels_usecase
-        .execute(server_id, requester_id, pagination)
+        .list_community_channels_usecase
+        .execute(community_id, requester_id, pagination)
         .await?;
 
     let pagination_meta = PaginationMeta::new(result.total, query.page, query.per_page);
-    let response = ListServerChannelsResponse::new(result.items);
+    let response = ListCommunityChannelsResponse::new(result.items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
 }
 
-#[get("/{server_id}/voice-presence")]
+#[get("/{community_id}/voice-presence")]
 async fn list_voice_presence(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let requester_id = UserId::new(auth_token.id);
 
     let snapshot = app_state
         .get_voice_presence_usecase
-        .execute(server_id, requester_id)
+        .execute(community_id, requester_id)
         .await?;
 
     let items: Vec<VoicePresenceItem> = snapshot
@@ -187,7 +187,7 @@ struct UpdateStreamViewerBody {
     watching: bool,
 }
 
-#[put("/{server_id}/stream-viewers")]
+#[put("/{community_id}/stream-viewers")]
 async fn update_stream_viewer(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
@@ -195,7 +195,7 @@ async fn update_stream_viewer(
     path: web::Path<Uuid>,
     body: web::Json<UpdateStreamViewerBody>,
 ) -> Result<impl Responder, HttpError> {
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let viewer_id = UserId::new(auth_token.id);
     let body = body.into_inner();
     let ctx = request_context(&req);
@@ -203,7 +203,7 @@ async fn update_stream_viewer(
     app_state
         .update_stream_viewer_usecase
         .execute(
-            server_id,
+            community_id,
             viewer_id,
             messaging::dto::requests::channel::update_stream_viewer::UpdateStreamViewerRequest {
                 channel_id: body.channel_id,
@@ -218,50 +218,50 @@ async fn update_stream_viewer(
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[get("/{server_id}/sent-invites")]
-async fn list_sent_server_invites(
+#[get("/{community_id}/sent-invites")]
+async fn list_sent_community_invites(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let sender_id = UserId::new(auth_token.id);
 
     let recipient_ids = app_state
-        .list_sent_server_invites_usecase
-        .execute(server_id, sender_id)
+        .list_sent_community_invites_usecase
+        .execute(community_id, sender_id)
         .await?;
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(
-        ListSentServerInvitesResponse::new(recipient_ids),
+        ListSentCommunityInvitesResponse::new(recipient_ids),
     )))
 }
 
-#[delete("/{server_id}/members/{member_id}")]
+#[delete("/{community_id}/members/{member_id}")]
 async fn kick_member(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, Uuid)>,
 ) -> Result<impl Responder, HttpError> {
     let actor = UserId::new(auth_token.id);
-    let (server_id, member_id) = path.into_inner();
+    let (community_id, member_id) = path.into_inner();
     app_state
         .kick_member_usecase
-        .execute(ServerId::new(server_id), actor, UserId::new(member_id))
+        .execute(CommunityId::new(community_id), actor, UserId::new(member_id))
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[delete("/{server_id}/members/me")]
-async fn leave_server(
+#[delete("/{community_id}/members/me")]
+async fn leave_community(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let user_id = UserId::new(auth_token.id);
 
-    app_state.leave_server_usecase.execute(server_id, user_id).await?;
+    app_state.leave_community_usecase.execute(community_id, user_id).await?;
     Ok(HttpResponse::NoContent().finish())
 }
 
@@ -286,7 +286,7 @@ fn parse_invite_token(raw: &str) -> Result<InviteToken, HttpError> {
     })
 }
 
-#[post("/{server_id}/invite-links")]
+#[post("/{community_id}/invite-links")]
 async fn create_invite_link(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
@@ -296,13 +296,13 @@ async fn create_invite_link(
     let body = body.into_inner();
     body.validate()?;
 
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let user_id = UserId::new(auth_token.id);
     let name = body.name.map(|n| n.trim().to_string()).filter(|n| !n.is_empty());
 
     let link = app_state
         .create_invite_link_usecase
-        .execute(server_id, user_id, name, body.expires_days, body.max_uses)
+        .execute(community_id, user_id, name, body.expires_days, body.max_uses)
         .await?;
 
     Ok(HttpResponse::Created().json(ApiResponse::success(InviteLinkResponse::from_link(
@@ -311,14 +311,14 @@ async fn create_invite_link(
     ))))
 }
 
-#[get("/{server_id}/invite-links")]
+#[get("/{community_id}/invite-links")]
 async fn list_invite_links(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     query: web::Query<CursorQuery>,
 ) -> Result<impl Responder, HttpError> {
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let user_id = UserId::new(auth_token.id);
     let (cursor, limit) = query.keyset().map_err(|_| {
         HttpError::new("Invalid cursor".to_string(), StatusCode::BAD_REQUEST, "INVALID_CURSOR")
@@ -331,7 +331,7 @@ async fn list_invite_links(
 
     let result = app_state
         .list_invite_links_usecase
-        .execute(server_id, user_id, cursor, limit)
+        .execute(community_id, user_id, cursor, limit)
         .await?;
 
     let response = ListInviteLinksResponse {
@@ -347,64 +347,64 @@ async fn list_invite_links(
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
 
-#[delete("/{server_id}/invite-links/{token}")]
+#[delete("/{community_id}/invite-links/{token}")]
 async fn revoke_invite_link(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<(Uuid, String)>,
 ) -> Result<impl Responder, HttpError> {
-    let (server_id, token) = path.into_inner();
+    let (community_id, token) = path.into_inner();
     let token = parse_invite_token(&token)?;
-    let server_id = ServerId::new(server_id);
+    let community_id = CommunityId::new(community_id);
     let user_id = UserId::new(auth_token.id);
 
     app_state
         .revoke_invite_link_usecase
-        .execute(server_id, token, user_id)
+        .execute(community_id, token, user_id)
         .await?;
 
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[patch("/{server_id}")]
-async fn update_server(
+#[patch("/{community_id}")]
+async fn update_community(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
-    body: web::Json<UpdateServerRequestBody>,
+    body: web::Json<UpdateCommunityRequestBody>,
 ) -> Result<impl Responder, HttpError> {
-    let body: UpdateServerRequestBody = body.into_inner();
+    let body: UpdateCommunityRequestBody = body.into_inner();
     body.validate()?;
 
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let owner_id = UserId::new(auth_token.id);
 
     app_state
-        .update_server_usecase
-        .execute(body.into_request(server_id, owner_id, request_context(&req)))
+        .update_community_usecase
+        .execute(body.into_request(community_id, owner_id, request_context(&req)))
         .await?;
 
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[delete("/{server_id}")]
-async fn delete_server(
+#[delete("/{community_id}")]
+async fn delete_community(
     req: HttpRequest,
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let owner_id = UserId::new(auth_token.id);
 
-    let data = DeleteServerRequest {
-        server_id,
+    let data = DeleteCommunityRequest {
+        community_id,
         owner_id,
         ctx: request_context(&req),
     };
 
-    let deleted = app_state.delete_server_usecase.execute(data).await?;
+    let deleted = app_state.delete_community_usecase.execute(data).await?;
 
     if deleted {
         Ok(HttpResponse::NoContent().finish())

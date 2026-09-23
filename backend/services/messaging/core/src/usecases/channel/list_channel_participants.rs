@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::visibility::ChannelVisibility, friendship::repository::FriendshipRepository, server::id::ServerId, server::repository::ServerRepository};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, channel::visibility::ChannelVisibility, friendship::repository::FriendshipRepository, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::{pagination::PaginatedResult, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -13,7 +13,7 @@ use crate::dto::{
 pub enum ListChannelParticipantsError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Not a member of the server")]
+    #[error("Not a member of the community")]
     NotMember,
     #[error("Channel not found")]
     ChannelNotFound,
@@ -24,28 +24,28 @@ pub enum ListChannelParticipantsError {
 pub struct ListChannelParticipants<C, S, F>
 where
     C: ChannelRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
     F: FriendshipRepository,
 {
     channel_repository: Arc<C>,
-    server_repository: Arc<S>,
+    community_repository: Arc<S>,
     friendship_repository: Arc<F>,
 }
 
 impl<C, S, F> ListChannelParticipants<C, S, F>
 where
     C: ChannelRepository,
-    S: ServerRepository,
+    S: CommunityRepository,
     F: FriendshipRepository,
 {
     pub fn new(
         channel_repository: Arc<C>,
-        server_repository: Arc<S>,
+        community_repository: Arc<S>,
         friendship_repository: Arc<F>,
     ) -> Self {
         Self {
             channel_repository,
-            server_repository,
+            community_repository,
             friendship_repository,
         }
     }
@@ -54,13 +54,13 @@ where
         &self,
         request: ListChannelParticipantsRequest,
     ) -> Result<PaginatedResult<ChannelParticipantDto>, ListChannelParticipantsError> {
-        let server_id = ServerId::new(request.server_id);
+        let community_id = CommunityId::new(request.community_id);
         let channel_id = ChannelId::new(request.channel_id);
         let requester_id = UserId::new(request.requester_id);
 
         let is_member = self
-            .server_repository
-            .is_server_member(&server_id, &requester_id)
+            .community_repository
+            .is_community_member(&community_id, &requester_id)
             .await?;
         if !is_member {
             return Err(ListChannelParticipantsError::NotMember);
@@ -74,7 +74,7 @@ where
                 RepositoryError::NotFound => ListChannelParticipantsError::ChannelNotFound,
                 other => ListChannelParticipantsError::Repository(other),
             })?;
-        if channel.server_id() != &server_id {
+        if channel.community_id() != &community_id {
             return Err(ListChannelParticipantsError::ChannelNotFound);
         }
 
@@ -90,7 +90,7 @@ where
 
         let result = self
             .channel_repository
-            .list_channel_participants(&server_id, &channel_id, request.pagination)
+            .list_channel_participants(&community_id, &channel_id, request.pagination)
             .await?;
 
         let mut items: Vec<ChannelParticipantDto> = result

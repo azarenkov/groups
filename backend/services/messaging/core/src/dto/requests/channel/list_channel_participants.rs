@@ -5,7 +5,7 @@ use crate::dto::RequestContext;
 
 #[derive(Debug)]
 pub struct ListChannelParticipantsRequest {
-    pub server_id: Uuid,
+    pub community_id: Uuid,
     pub channel_id: Uuid,
     pub requester_id: Uuid,
     pub pagination: Pagination,
@@ -14,14 +14,14 @@ pub struct ListChannelParticipantsRequest {
 
 impl ListChannelParticipantsRequest {
     pub fn new(
-        server_id: Uuid,
+        community_id: Uuid,
         channel_id: Uuid,
         requester_id: Uuid,
         pagination: Pagination,
         ctx: RequestContext,
     ) -> Self {
         Self {
-            server_id,
+            community_id,
             channel_id,
             requester_id,
             pagination,

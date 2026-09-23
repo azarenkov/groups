@@ -159,7 +159,7 @@ impl ReadStateRepository for PostgresReadStateRepository {
     ) -> Result<Vec<ChannelUnread>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
-            SELECT m.channel_id, c.server_id, COUNT(*) AS "count!"
+            SELECT m.channel_id, c.community_id, COUNT(*) AS "count!"
             FROM messages m
             INNER JOIN channels c ON c.id = m.channel_id
             INNER JOIN channel_text_participants p
@@ -181,7 +181,7 @@ impl ReadStateRepository for PostgresReadStateRepository {
                   COALESCE(np.level, $2) <> 'mentions'
                   OR $1 = ANY(m.mentions)
               )
-            GROUP BY m.channel_id, c.server_id
+            GROUP BY m.channel_id, c.community_id
             "#,
             user_id.uuid(),
             default_level,
@@ -194,7 +194,7 @@ impl ReadStateRepository for PostgresReadStateRepository {
             .into_iter()
             .map(|r| ChannelUnread {
                 channel_id: r.channel_id,
-                server_id: r.server_id,
+                community_id: r.community_id,
                 count: r.count,
             })
             .collect())

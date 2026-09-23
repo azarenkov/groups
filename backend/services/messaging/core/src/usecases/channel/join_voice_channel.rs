@@ -40,7 +40,7 @@ pub enum JoinVoiceChannelError {
     Domain(#[from] ChannelError),
     #[error("Voice not supported for this channel")]
     VoiceNotSupported,
-    #[error("Not a member of this server")]
+    #[error("Not a member of this community")]
     NotMember,
 }
 
@@ -51,13 +51,13 @@ where
     U: ChannelRepository,
     R: ports::user_profile::UserProfileRepository,
     H: Hasher,
-    S: messaging_domain::server::repository::ServerRepository,
+    S: messaging_domain::community::repository::CommunityRepository,
 {
     voice_service: Arc<T>,
     channel_repository: Arc<U>,
     user_repository: Arc<R>,
     hasher: Arc<H>,
-    server_repository: Arc<S>,
+    community_repository: Arc<S>,
 }
 
 impl<T, U, R, H, S> JoinVoiceChannel<T, U, R, H, S>
@@ -66,21 +66,21 @@ where
     U: ChannelRepository,
     R: ports::user_profile::UserProfileRepository,
     H: Hasher,
-    S: messaging_domain::server::repository::ServerRepository,
+    S: messaging_domain::community::repository::CommunityRepository,
 {
     pub fn new(
         voice_service: Arc<T>,
         channel_repository: Arc<U>,
         user_repository: Arc<R>,
         hasher: Arc<H>,
-        server_repository: Arc<S>,
+        community_repository: Arc<S>,
     ) -> Self {
         Self {
             voice_service,
             channel_repository,
             user_repository,
             hasher,
-            server_repository,
+            community_repository,
         }
     }
 
@@ -96,14 +96,14 @@ where
             .find_channel_by_id(&channel_id)
             .await?;
 
-        if channel.server_id().uuid() != request.server_id {
+        if channel.community_id().uuid() != request.community_id {
             return Err(JoinVoiceChannelError::ChannelNotFound);
         }
 
-        let server_id = messaging_domain::server::id::ServerId::new(request.server_id);
+        let community_id = messaging_domain::community::id::CommunityId::new(request.community_id);
         if !self
-            .server_repository
-            .is_server_member(&server_id, &user_id)
+            .community_repository
+            .is_community_member(&community_id, &user_id)
             .await?
         {
             return Err(JoinVoiceChannelError::NotMember);
@@ -134,7 +134,7 @@ where
         }
 
         self.voice_service
-            .create_voice_channel(channel.id(), channel.server_id())
+            .create_voice_channel(channel.id(), channel.community_id())
             .await?;
 
         let mute_record = channel.mute_record(&user_id);

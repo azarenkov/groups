@@ -1,6 +1,6 @@
 use actix_multipart::Multipart;
 use actix_web::{HttpResponse, Responder, delete, get, post, web};
-use domain::{server::id::ServerId, user::id::UserId};
+use domain::{community::id::CommunityId, user::id::UserId};
 use futures::StreamExt;
 use image::{ImageDecoder, ImageFormat, imageops::FilterType};
 use api_common::middleware::auth::{AuthToken, RateLimitedAuthToken};
@@ -390,48 +390,48 @@ async fn get_user_avatar(
     Ok(image_response(stream, content_type))
 }
 
-#[post("/{server_id}/logo")]
-async fn upload_server_logo(
+#[post("/{community_id}/logo")]
+async fn upload_community_logo(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
     mut payload: Multipart,
 ) -> Result<impl Responder, HttpError> {
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let user_id = UserId::new(auth_token.id);
     let (_permit, upload) = read_upload(&app_state, &mut payload).await?;
     let normalized = process(move || normalize_square(upload, &AVATAR_CODES)).await?;
     app_state
-        .update_server_logo_usecase
-        .execute(server_id, user_id, Some(normalized))
+        .update_community_logo_usecase
+        .execute(community_id, user_id, Some(normalized))
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[delete("/{server_id}/logo")]
-async fn delete_server_logo(
+#[delete("/{community_id}/logo")]
+async fn delete_community_logo(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
-    let server_id = ServerId::new(path.into_inner());
+    let community_id = CommunityId::new(path.into_inner());
     let user_id = UserId::new(auth_token.id);
     app_state
-        .update_server_logo_usecase
-        .execute(server_id, user_id, None)
+        .update_community_logo_usecase
+        .execute(community_id, user_id, None)
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }
 
-#[get("/{server_id}/logo")]
-async fn get_server_logo(
+#[get("/{community_id}/logo")]
+async fn get_community_logo(
     auth_token: AuthToken,
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
     check_image_read_limit(&app_state, auth_token.id).await?;
-    let server_id = ServerId::new(path.into_inner());
-    let stream = app_state.get_server_logo_usecase.execute(server_id).await?;
+    let community_id = CommunityId::new(path.into_inner());
+    let stream = app_state.get_community_logo_usecase.execute(community_id).await?;
     Ok(image_response(stream, "image/png"))
 }
 

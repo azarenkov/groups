@@ -18,7 +18,7 @@ pub struct OutboxRecord {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AggregateType {
     Channel,
-    Server,
+    Community,
     User,
     Message,
     DmMessage,
@@ -29,7 +29,7 @@ impl AggregateType {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Channel => "channel",
-            Self::Server => "server",
+            Self::Community => "community",
             Self::User => "user",
             Self::Message => "message",
             Self::DmMessage => "dm_message",

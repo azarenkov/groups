@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use contracts::events::{channel::ParticipantDeafenedV1, channel::ParticipantMutedV1, channel::ParticipantUndeafenedV1, channel::ParticipantUnmutedV1, server::ServerMemberV1, user::UserLifecycleV1};
+use contracts::events::{channel::ParticipantDeafenedV1, channel::ParticipantMutedV1, channel::ParticipantUndeafenedV1, channel::ParticipantUnmutedV1, community::CommunityMemberV1, user::UserLifecycleV1};
 use domain::user::id::UserId;
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
@@ -9,10 +9,10 @@ use messaging::{
     ports::voice_service::VoiceService,
     usecases::channel::enforce_user_deactivation::EnforceUserDeactivation,
     usecases::channel::enforce_voice_mute::EnforceVoiceMute,
-    usecases::server::enforce_departure::EnforceServerDeparture,
-    usecases::server::resolve_deleted_user_servers::ResolveDeletedUserServers,
+    usecases::community::enforce_departure::EnforceCommunityDeparture,
+    usecases::community::resolve_deleted_user_communities::ResolveDeletedUserCommunities,
 };
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::id::ServerId, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, community::id::CommunityId, community::unit_of_work::CommunityUnitOfWork};
 use ports::user_profile::UserProfileRepository;
 use tracing::Instrument;
 
@@ -23,7 +23,7 @@ const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
 pub struct VoiceEffectsSpec {
     pub subject_prefix: String,
     pub channel_stream: String,
-    pub server_stream: String,
+    pub community_stream: String,
     pub user_stream: String,
 }
 
@@ -31,12 +31,12 @@ pub fn spawn<C, W, V, P>(
     jetstream: async_nats::jetstream::Context,
     spec: VoiceEffectsSpec,
     channel_repository: Arc<C>,
-    server_unit_of_work: Arc<W>,
+    community_unit_of_work: Arc<W>,
     voice_service: Arc<V>,
     profiles: Arc<P>,
 ) where
     C: ChannelRepository + Send + Sync + 'static,
-    W: ServerUnitOfWork + Send + Sync + 'static,
+    W: CommunityUnitOfWork + Send + Sync + 'static,
     V: VoiceService + Send + Sync + 'static,
     P: UserProfileRepository + Send + Sync + 'static,
 {
@@ -44,7 +44,7 @@ pub fn spawn<C, W, V, P>(
     let dlq = format!("{prefix}.dlq.messaging.voice_effects");
     let enforce_mute = Arc::new(EnforceVoiceMute::new(
         channel_repository.clone(),
-        server_unit_of_work.clone(),
+        community_unit_of_work.clone(),
         voice_service.clone(),
     ));
     let enforce_deactivation = Arc::new(EnforceUserDeactivation::new(
@@ -52,13 +52,13 @@ pub fn spawn<C, W, V, P>(
         voice_service.clone(),
         profiles,
     ));
-    let resolve_servers = Arc::new(ResolveDeletedUserServers::new(
+    let resolve_communities = Arc::new(ResolveDeletedUserCommunities::new(
         channel_repository.clone(),
-        server_unit_of_work.clone(),
+        community_unit_of_work.clone(),
         voice_service.clone(),
     ));
-    let enforce_departure = Arc::new(EnforceServerDeparture::new(
-        server_unit_of_work,
+    let enforce_departure = Arc::new(EnforceCommunityDeparture::new(
+        community_unit_of_work,
         channel_repository,
         voice_service,
     ));
@@ -83,14 +83,14 @@ pub fn spawn<C, W, V, P>(
                 dlq,
                 move |subject, payload| {
                     let enforce_deactivation = enforce_deactivation.clone();
-                    let resolve_servers = resolve_servers.clone();
+                    let resolve_communities = resolve_communities.clone();
                     async move {
                         if !(subject.ends_with(".disabled") || subject.ends_with(".deleted")) {
                             return Ok(());
                         }
                         let evt: UserLifecycleV1 = serde_json::from_slice(&payload)?;
                         if subject.ends_with(".deleted") {
-                            resolve_servers
+                            resolve_communities
                                 .execute(UserId::new(evt.user_id), evt.occurred_at, None)
                                 .await?;
                         }
@@ -155,14 +155,14 @@ pub fn spawn<C, W, V, P>(
         });
     }
     {
-        let subject = format!("{prefix}.server.*.member_left");
+        let subject = format!("{prefix}.community.*.member_left");
         tokio::spawn(async move {
             run(
                 jetstream,
-                spec.server_stream,
-                "messaging-voice-effects-server".to_string(),
+                spec.community_stream,
+                "messaging-voice-effects-community".to_string(),
                 subject,
-                vec![format!("{prefix}.server.member_left")],
+                vec![format!("{prefix}.community.member_left")],
                 dlq,
                 move |subject, payload| {
                     let enforce_departure = enforce_departure.clone();
@@ -170,9 +170,9 @@ pub fn spawn<C, W, V, P>(
                         if !subject.ends_with(".member_left") {
                             return Ok(());
                         }
-                        let evt: ServerMemberV1 = serde_json::from_slice(&payload)?;
+                        let evt: CommunityMemberV1 = serde_json::from_slice(&payload)?;
                         enforce_departure
-                            .execute(ServerId::new(evt.server_id), UserId::new(evt.user_id))
+                            .execute(CommunityId::new(evt.community_id), UserId::new(evt.user_id))
                             .await?;
                         Ok(())
                     }

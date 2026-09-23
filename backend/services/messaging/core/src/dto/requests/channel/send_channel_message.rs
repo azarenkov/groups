@@ -4,7 +4,7 @@ use crate::dto::RequestContext;
 
 #[derive(Debug)]
 pub struct SendChannelMessageRequest {
-    pub server_id: Uuid,
+    pub community_id: Uuid,
     pub channel_id: Uuid,
     pub content: String,
     pub attachment_ids: Vec<Uuid>,
@@ -13,14 +13,14 @@ pub struct SendChannelMessageRequest {
 
 impl SendChannelMessageRequest {
     pub fn new(
-        server_id: Uuid,
+        community_id: Uuid,
         channel_id: Uuid,
         content: String,
         attachment_ids: Vec<Uuid>,
         ctx: RequestContext,
     ) -> Self {
         Self {
-            server_id,
+            community_id,
             channel_id,
             content,
             attachment_ids,

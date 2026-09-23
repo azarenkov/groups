@@ -11,21 +11,21 @@ pub const DUPLICATE_WINDOW_HOURS: i64 = 24;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReportTarget {
     User,
-    Server,
+    Community,
 }
 
 impl ReportTarget {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::User => "user",
-            Self::Server => "server",
+            Self::Community => "community",
         }
     }
 
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "user" => Some(Self::User),
-            "server" => Some(Self::Server),
+            "community" => Some(Self::Community),
             _ => None,
         }
     }
@@ -102,7 +102,7 @@ impl ReportReason {
                     | Self::Illegal
                     | Self::Other
             ),
-            ReportTarget::Server => matches!(
+            ReportTarget::Community => matches!(
                 self,
                 Self::Spam
                     | Self::Harassment

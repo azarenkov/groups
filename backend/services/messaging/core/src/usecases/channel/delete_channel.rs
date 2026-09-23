@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::repository::ChannelRepository, server::policy::PolicyError, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::repository::ChannelRepository, community::policy::PolicyError, community::unit_of_work::CommunityUnitOfWork};
 use ports::repository::RepositoryError;
 
 use crate::{
@@ -33,7 +33,7 @@ pub struct DeleteChannel<C, V, W>
 where
     C: ChannelRepository,
     V: VoiceService,
-    W: ServerUnitOfWork,
+    W: CommunityUnitOfWork,
 {
     channel_repository: Arc<C>,
     voice_service: Arc<V>,
@@ -44,7 +44,7 @@ impl<C, V, W> DeleteChannel<C, V, W>
 where
     C: ChannelRepository,
     V: VoiceService,
-    W: ServerUnitOfWork,
+    W: CommunityUnitOfWork,
 {
     pub fn new(channel_repository: Arc<C>, voice_service: Arc<V>, unit_of_work: Arc<W>) -> Self {
         Self {
@@ -56,7 +56,7 @@ where
 
     pub async fn execute(&self, request: DeleteChannelRequest) -> Result<(), DeleteChannelError> {
         let DeleteChannelRequest {
-            server_id,
+            community_id,
             channel_id,
             deleted_by,
             ctx,
@@ -67,22 +67,22 @@ where
             .find_channel_by_id(&channel_id)
             .await?;
 
-        if channel.server_id() != &server_id {
+        if channel.community_id() != &community_id {
             return Err(DeleteChannelError::ChannelNotFound);
         }
 
         let now = Utc::now();
         let supports_voice = channel.supports_voice();
 
-        let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let server = tx.load_server().await?;
-        let grant = server.ensure_can_manage_channels(&deleted_by)?;
+        let mut tx = self.unit_of_work.begin(&community_id).await?;
+        let community = tx.load_community().await?;
+        let grant = community.ensure_can_manage_channels(&deleted_by)?;
         channel.delete(deleted_by, grant, now).map_err(|e| match e {
             ChannelError::NotAllowed => DeleteChannelError::NotOwner,
             other => DeleteChannelError::Domain(other),
         })?;
 
-        let member_ids = server.member_ids();
+        let member_ids = community.member_ids();
         let request_id = ctx.request_id.clone();
         let events = channel.pull_events();
         let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_recipients(&member_ids))).collect();

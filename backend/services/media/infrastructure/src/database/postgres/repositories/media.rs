@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use media_domain::media::repository::MediaRepository;
-use domain::{server::id::ServerId, user::id::UserId};
+use domain::{community::id::CommunityId, user::id::UserId};
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
 
@@ -149,22 +149,22 @@ impl MediaRepository for PostgresMediaRepository {
         Ok(old)
     }
 
-    async fn get_server_logo_key(
+    async fn get_community_logo_key(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
     ) -> Result<Option<String>, RepositoryError> {
         sqlx::query_scalar!(
-            r#"SELECT storage_key FROM media_server_logos WHERE server_id = $1"#,
-            server_id.uuid(),
+            r#"SELECT storage_key FROM media_community_logos WHERE community_id = $1"#,
+            community_id.uuid(),
         )
         .fetch_optional(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)
     }
 
-    async fn set_server_logo_key(
+    async fn set_community_logo_key(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
         key: Option<&str>,
     ) -> Result<Option<String>, RepositoryError> {
         match key {
@@ -172,17 +172,17 @@ impl MediaRepository for PostgresMediaRepository {
                 let row = sqlx::query!(
                     r#"
                     WITH live AS (
-                        SELECT server_id FROM media_server_owners
-                        WHERE server_id = $1 AND deleted_at IS NULL
+                        SELECT community_id FROM media_community_owners
+                        WHERE community_id = $1 AND deleted_at IS NULL
                         FOR UPDATE
                     ), old AS (
-                        SELECT server_id, storage_key FROM media_server_logos
-                        WHERE server_id = $1 AND EXISTS (SELECT 1 FROM live)
+                        SELECT community_id, storage_key FROM media_community_logos
+                        WHERE community_id = $1 AND EXISTS (SELECT 1 FROM live)
                         FOR UPDATE
                     ), ins AS (
-                        INSERT INTO media_server_logos (server_id, storage_key)
-                        SELECT server_id, $2 FROM live
-                        ON CONFLICT (server_id) DO UPDATE SET storage_key = EXCLUDED.storage_key
+                        INSERT INTO media_community_logos (community_id, storage_key)
+                        SELECT community_id, $2 FROM live
+                        ON CONFLICT (community_id) DO UPDATE SET storage_key = EXCLUDED.storage_key
                     ), q AS (
                         INSERT INTO storage_cleanup_queue (storage_key)
                         SELECT storage_key FROM old
@@ -193,7 +193,7 @@ impl MediaRepository for PostgresMediaRepository {
                         EXISTS(SELECT 1 FROM live) AS "live!",
                         (SELECT storage_key FROM old) AS old_key
                     "#,
-                    server_id.uuid(),
+                    community_id.uuid(),
                     key,
                 )
                 .fetch_one(&self.pool)
@@ -207,7 +207,7 @@ impl MediaRepository for PostgresMediaRepository {
             None => sqlx::query_scalar!(
                 r#"
                 WITH old AS (
-                    DELETE FROM media_server_logos WHERE server_id = $1
+                    DELETE FROM media_community_logos WHERE community_id = $1
                     RETURNING storage_key
                 ), q AS (
                     INSERT INTO storage_cleanup_queue (storage_key)
@@ -216,7 +216,7 @@ impl MediaRepository for PostgresMediaRepository {
                 )
                 SELECT storage_key FROM old
                 "#,
-                server_id.uuid(),
+                community_id.uuid(),
             )
             .fetch_optional(&self.pool)
             .await
@@ -224,13 +224,13 @@ impl MediaRepository for PostgresMediaRepository {
         }
     }
 
-    async fn get_server_owner(
+    async fn get_community_owner(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
     ) -> Result<Option<UserId>, RepositoryError> {
         let owner = sqlx::query_scalar!(
-            r#"SELECT owner_id FROM media_server_owners WHERE server_id = $1 AND deleted_at IS NULL"#,
-            server_id.uuid(),
+            r#"SELECT owner_id FROM media_community_owners WHERE community_id = $1 AND deleted_at IS NULL"#,
+            community_id.uuid(),
         )
         .fetch_optional(&self.pool)
         .await
@@ -238,22 +238,22 @@ impl MediaRepository for PostgresMediaRepository {
         Ok(owner.map(UserId::new))
     }
 
-    async fn upsert_server_owner(
+    async fn upsert_community_owner(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
         owner_id: &UserId,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError> {
         sqlx::query!(
             r#"
-            INSERT INTO media_server_owners (server_id, owner_id, updated_at)
+            INSERT INTO media_community_owners (community_id, owner_id, updated_at)
             VALUES ($1, $2, $3)
-            ON CONFLICT (server_id) DO UPDATE
+            ON CONFLICT (community_id) DO UPDATE
                 SET owner_id = EXCLUDED.owner_id, updated_at = EXCLUDED.updated_at
-                WHERE media_server_owners.deleted_at IS NULL
-                  AND media_server_owners.updated_at <= EXCLUDED.updated_at
+                WHERE media_community_owners.deleted_at IS NULL
+                  AND media_community_owners.updated_at <= EXCLUDED.updated_at
             "#,
-            server_id.uuid(),
+            community_id.uuid(),
             owner_id.uuid(),
             occurred_at,
         )
@@ -263,9 +263,9 @@ impl MediaRepository for PostgresMediaRepository {
         Ok(())
     }
 
-    async fn remove_server_media(
+    async fn remove_community_media(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
         owner_id: &UserId,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError> {
@@ -277,13 +277,13 @@ impl MediaRepository for PostgresMediaRepository {
 
         sqlx::query!(
             r#"
-            INSERT INTO media_server_owners (server_id, owner_id, updated_at, deleted_at)
+            INSERT INTO media_community_owners (community_id, owner_id, updated_at, deleted_at)
             VALUES ($1, $2, $3, $3)
-            ON CONFLICT (server_id) DO UPDATE
+            ON CONFLICT (community_id) DO UPDATE
                 SET deleted_at = EXCLUDED.deleted_at,
-                    updated_at = GREATEST(media_server_owners.updated_at, EXCLUDED.updated_at)
+                    updated_at = GREATEST(media_community_owners.updated_at, EXCLUDED.updated_at)
             "#,
-            server_id.uuid(),
+            community_id.uuid(),
             owner_id.uuid(),
             occurred_at,
         )
@@ -294,14 +294,14 @@ impl MediaRepository for PostgresMediaRepository {
         sqlx::query!(
             r#"
             WITH old AS (
-                DELETE FROM media_server_logos WHERE server_id = $1
+                DELETE FROM media_community_logos WHERE community_id = $1
                 RETURNING storage_key
             )
             INSERT INTO storage_cleanup_queue (storage_key)
             SELECT storage_key FROM old
             ON CONFLICT (storage_key) DO NOTHING
             "#,
-            server_id.uuid(),
+            community_id.uuid(),
         )
         .execute(&mut *tx)
         .await

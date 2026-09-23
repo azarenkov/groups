@@ -21,10 +21,10 @@ use contracts::events::{
         ChannelMessageDeletedV1 as ChannelMsgDeleted, ChannelMessageEditedV1 as ChannelMsgEdited,
         ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto,
     },
-    server::{
-        ServerCreatedV1 as ServerCreatedDto, ServerDeletedV1 as ServerDeletedDto,
-        ServerMemberV1 as ServerMemberDto, ServerRolesChangedV1 as ServerRolesChangedDto,
-        ServerOwnerChangedV1 as ServerOwnerChangedDto, ServerUpdatedV1 as ServerUpdatedDto,
+    community::{
+        CommunityCreatedV1 as CommunityCreatedDto, CommunityDeletedV1 as CommunityDeletedDto,
+        CommunityMemberV1 as CommunityMemberDto, CommunityRolesChangedV1 as CommunityRolesChangedDto,
+        CommunityOwnerChangedV1 as CommunityOwnerChangedDto, CommunityUpdatedV1 as CommunityUpdatedDto,
     },
     user::{
         NotificationPreferenceUpdatedV1 as NotificationPrefUpdated,
@@ -102,8 +102,8 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "recipientId": evt.recipient_id,
                 "content": evt.content,
                 "occurredAt": evt.occurred_at,
-                "inviteServerId": evt.invite_server_id,
-                "inviteServerName": evt.invite_server_name,
+                "inviteCommunityId": evt.invite_community_id,
+                "inviteCommunityName": evt.invite_community_name,
                 "callStatus": evt.call_status,
                 "callDurationSeconds": evt.call_duration_seconds,
                 "attachments": evt.attachments.unwrap_or_else(|| json!([])),
@@ -186,13 +186,13 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         return Ok(());
     }
 
-    if ends_with(subject, ".server.roles.changed") {
-        let evt: ServerRolesChangedDto = serde_json::from_slice(payload)?;
-        let mut recipients = resolver.server_members(evt.server_id).await?;
+    if ends_with(subject, ".community.roles.changed") {
+        let evt: CommunityRolesChangedDto = serde_json::from_slice(payload)?;
+        let mut recipients = resolver.community_members(evt.community_id).await?;
         recipients.extend(evt.recipients);
         let envelope = Envelope::new(
-            "server.roles.changed",
-            json!({ "serverId": evt.server_id }),
+            "community.roles.changed",
+            json!({ "communityId": evt.community_id }),
         );
         publisher
             .publish_to_users(unique(recipients), &envelope)
@@ -279,7 +279,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
     if ends_with(subject, ".channel.created") {
         let evt: ChannelCreatedDto = serde_json::from_slice(payload)?;
         let recipients = if evt.recipient_ids.is_empty() {
-            resolver.server_members(evt.server_id).await?
+            resolver.community_members(evt.community_id).await?
         } else {
             evt.recipient_ids.clone()
         };
@@ -287,7 +287,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             "channel.created",
             json!({
                 "id": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "ownerId": evt.owner_id,
                 "isDefault": evt.is_default,
                 "name": evt.name,
@@ -302,12 +302,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
 
     if ends_with(subject, ".channel.renamed") {
         let evt: ChannelRenamedDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = resolver.community_members(evt.community_id).await?;
         let envelope = Envelope::new(
             "channel.renamed",
             json!({
                 "id": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "oldName": evt.old_name,
                 "newName": evt.new_name,
                 "occurredAt": evt.occurred_at,
@@ -320,7 +320,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
     if ends_with(subject, ".channel.deleted") {
         let evt: ChannelDeletedDto = serde_json::from_slice(payload)?;
         let recipients = if evt.recipient_ids.is_empty() {
-            resolver.server_members(evt.server_id).await?
+            resolver.community_members(evt.community_id).await?
         } else {
             evt.recipient_ids.clone()
         };
@@ -328,7 +328,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             "channel.deleted",
             json!({
                 "id": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "deletedBy": evt.deleted_by,
                 "occurredAt": evt.occurred_at,
             }),
@@ -339,13 +339,13 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
 
     if ends_with(subject, ".channel.participant.joined") {
         let evt: ParticipantSimple = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = resolver.community_members(evt.community_id).await?;
         let user_name = resolver.user_name(evt.user_id).await?;
         let envelope = Envelope::new(
             "channel.participant.joined",
             json!({
                 "channelId": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "userId": evt.user_id,
                 "userName": user_name,
                 "occurredAt": evt.occurred_at,
@@ -357,12 +357,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
 
     if ends_with(subject, ".channel.participant.left") {
         let evt: ParticipantLeftDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = resolver.community_members(evt.community_id).await?;
         let envelope = Envelope::new(
             "channel.participant.left",
             json!({
                 "channelId": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "userId": evt.user_id,
                 "reason": evt.reason,
                 "occurredAt": evt.occurred_at,
@@ -374,12 +374,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
 
     if ends_with(subject, ".channel.participant.muted") {
         let evt: ParticipantMutedDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = resolver.community_members(evt.community_id).await?;
         let envelope = Envelope::new(
             "channel.participant.muted",
             json!({
                 "channelId": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "userId": evt.user_id,
                 "mutedBy": evt.muted_by,
                 "occurredAt": evt.occurred_at,
@@ -391,12 +391,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
 
     if ends_with(subject, ".channel.participant.unmuted") {
         let evt: ParticipantUnmutedDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = resolver.community_members(evt.community_id).await?;
         let envelope = Envelope::new(
             "channel.participant.unmuted",
             json!({
                 "channelId": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "userId": evt.user_id,
                 "unmutedBy": evt.unmuted_by,
                 "occurredAt": evt.occurred_at,
@@ -408,12 +408,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
 
     if ends_with(subject, ".channel.participant.deafened") {
         let evt: ParticipantDeafenedDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = resolver.community_members(evt.community_id).await?;
         let envelope = Envelope::new(
             "channel.participant.deafened",
             json!({
                 "channelId": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "userId": evt.user_id,
                 "deafenedBy": evt.deafened_by,
                 "occurredAt": evt.occurred_at,
@@ -425,12 +425,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
 
     if ends_with(subject, ".channel.participant.undeafened") {
         let evt: ParticipantUndeafenedDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = resolver.community_members(evt.community_id).await?;
         let envelope = Envelope::new(
             "channel.participant.undeafened",
             json!({
                 "channelId": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "userId": evt.user_id,
                 "undeafenedBy": evt.undeafened_by,
                 "occurredAt": evt.occurred_at,
@@ -442,12 +442,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
 
     if ends_with(subject, ".channel.stream.viewers") {
         let evt: StreamViewersDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = resolver.community_members(evt.community_id).await?;
         let envelope = Envelope::new(
             "channel.stream.viewers",
             json!({
                 "channelId": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "streamerId": evt.streamer_id,
                 "count": evt.count,
                 "occurredAt": evt.occurred_at,
@@ -463,7 +463,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         || ends_with(subject, ".channel.participant.screen.off")
     {
         let evt: ParticipantMediaDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = resolver.community_members(evt.community_id).await?;
         let ws_event = match (evt.source.as_str(), evt.enabled) {
             ("camera", true) => "channel.participant.camera.on",
             ("camera", false) => "channel.participant.camera.off",
@@ -474,7 +474,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             ws_event,
             json!({
                 "channelId": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "userId": evt.user_id,
                 "source": evt.source,
                 "enabled": evt.enabled,
@@ -487,12 +487,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
 
     if ends_with(subject, ".channel.participant.connection_aborted") {
         let evt: ParticipantConnectionAbortedDto = serde_json::from_slice(payload)?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+        let recipients = resolver.community_members(evt.community_id).await?;
         let envelope = Envelope::new(
             "channel.participant.connectionAborted",
             json!({
                 "channelId": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "userId": evt.user_id,
                 "reason": evt.reason,
                 "occurredAt": evt.occurred_at,
@@ -509,7 +509,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             "channel.text.joined",
             json!({
                 "channelId": evt.channel_id,
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "userId": evt.user_id,
                 "joinedAt": evt.joined_at,
             }),
@@ -518,13 +518,13 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         return Ok(());
     }
 
-    if ends_with(subject, ".server.created") {
-        let evt: ServerCreatedDto = serde_json::from_slice(payload)?;
-        resolver.add_server_member(evt.server_id, evt.owner_id, evt.occurred_at).await?;
+    if ends_with(subject, ".community.created") {
+        let evt: CommunityCreatedDto = serde_json::from_slice(payload)?;
+        resolver.add_community_member(evt.community_id, evt.owner_id, evt.occurred_at).await?;
         let envelope = Envelope::new(
-            "server.created",
+            "community.created",
             json!({
-                "id": evt.server_id,
+                "id": evt.community_id,
                 "ownerId": evt.owner_id,
                 "name": evt.name,
                 "description": evt.description,
@@ -537,12 +537,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         return Ok(());
     }
 
-    if ends_with(subject, ".server.owner_changed") {
-        let evt: ServerOwnerChangedDto = serde_json::from_slice(payload)?;
+    if ends_with(subject, ".community.owner_changed") {
+        let evt: CommunityOwnerChangedDto = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(
-            "server.ownerChanged",
+            "community.ownerChanged",
             json!({
-                "id": evt.server_id,
+                "id": evt.community_id,
                 "ownerId": evt.owner_id,
                 "previousOwnerId": evt.previous_owner_id,
                 "occurredAt": evt.occurred_at,
@@ -554,12 +554,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         return Ok(());
     }
 
-    if ends_with(subject, ".server.updated") {
-        let evt: ServerUpdatedDto = serde_json::from_slice(payload)?;
+    if ends_with(subject, ".community.updated") {
+        let evt: CommunityUpdatedDto = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(
-            "server.updated",
+            "community.updated",
             json!({
-                "id": evt.server_id,
+                "id": evt.community_id,
                 "name": evt.name,
                 "description": evt.description,
                 "occurredAt": evt.occurred_at,
@@ -571,12 +571,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         return Ok(());
     }
 
-    if ends_with(subject, ".server.deleted") {
-        let evt: ServerDeletedDto = serde_json::from_slice(payload)?;
+    if ends_with(subject, ".community.deleted") {
+        let evt: CommunityDeletedDto = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(
-            "server.deleted",
+            "community.deleted",
             json!({
-                "id": evt.server_id,
+                "id": evt.community_id,
                 "ownerId": evt.owner_id,
                 "occurredAt": evt.occurred_at,
             }),
@@ -586,19 +586,19 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         publisher
             .publish_to_users(unique(recipients), &envelope)
             .await?;
-        resolver.remove_server(evt.server_id, evt.occurred_at).await?;
+        resolver.remove_community(evt.community_id, evt.occurred_at).await?;
         return Ok(());
     }
 
-    if ends_with(subject, ".server.member_joined") {
-        let evt: ServerMemberDto = serde_json::from_slice(payload)?;
-        resolver.add_server_member(evt.server_id, evt.user_id, evt.occurred_at).await?;
-        let recipients = resolver.server_members(evt.server_id).await?;
+    if ends_with(subject, ".community.member_joined") {
+        let evt: CommunityMemberDto = serde_json::from_slice(payload)?;
+        resolver.add_community_member(evt.community_id, evt.user_id, evt.occurred_at).await?;
+        let recipients = resolver.community_members(evt.community_id).await?;
         let user_name = resolver.user_name_versioned(evt.user_id).await?;
         let envelope = Envelope::new(
-            "server.memberJoined",
+            "community.memberJoined",
             json!({
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "userId": evt.user_id,
                 "userName": user_name.as_ref().map(|(name, _)| name.clone()),
                 "userNameUpdatedAt": user_name.as_ref().map(|(_, at)| *at),
@@ -609,15 +609,15 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         return Ok(());
     }
 
-    if ends_with(subject, ".server.member_left") {
-        let evt: ServerMemberDto = serde_json::from_slice(payload)?;
-        let mut recipients = resolver.server_members(evt.server_id).await?;
+    if ends_with(subject, ".community.member_left") {
+        let evt: CommunityMemberDto = serde_json::from_slice(payload)?;
+        let mut recipients = resolver.community_members(evt.community_id).await?;
         recipients.push(evt.user_id);
-        resolver.remove_server_member(evt.server_id, evt.user_id, evt.occurred_at).await?;
+        resolver.remove_community_member(evt.community_id, evt.user_id, evt.occurred_at).await?;
         let envelope = Envelope::new(
-            "server.memberLeft",
+            "community.memberLeft",
             json!({
-                "serverId": evt.server_id,
+                "communityId": evt.community_id,
                 "userId": evt.user_id,
                 "occurredAt": evt.occurred_at,
             }),

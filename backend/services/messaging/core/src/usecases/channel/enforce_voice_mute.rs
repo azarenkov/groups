@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use domain::user::id::UserId;
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, server::unit_of_work::ServerUnitOfWork};
+use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, community::unit_of_work::CommunityUnitOfWork};
 use ports::voice_service::ParticipantAccess;
 
 use crate::usecases::channel::voice_access::participant_access;
@@ -24,7 +24,7 @@ const LOCKED_ENFORCEMENT_BUDGET: Duration = Duration::from_secs(5);
 pub struct EnforceVoiceMute<C, W, V>
 where
     C: ChannelRepository,
-    W: ServerUnitOfWork,
+    W: CommunityUnitOfWork,
     V: VoiceService,
 {
     channel_repository: Arc<C>,
@@ -35,7 +35,7 @@ where
 impl<C, W, V> EnforceVoiceMute<C, W, V>
 where
     C: ChannelRepository,
-    W: ServerUnitOfWork,
+    W: CommunityUnitOfWork,
     V: VoiceService,
 {
     pub fn new(channel_repository: Arc<C>, unit_of_work: Arc<W>, voice_service: Arc<V>) -> Self {
@@ -47,18 +47,18 @@ where
     }
 
     pub async fn execute(&self, channel_id: ChannelId, user_id: UserId) -> Result<(), EnforceVoiceMuteError> {
-        let server_id = match self.channel_repository.find_channel_by_id(&channel_id).await {
-            Ok(channel) => *channel.server_id(),
+        let community_id = match self.channel_repository.find_channel_by_id(&channel_id).await {
+            Ok(channel) => *channel.community_id(),
             Err(RepositoryError::NotFound) => return Ok(()),
             Err(e) => return Err(e.into()),
         };
-        let mut tx = self.unit_of_work.begin(&server_id).await?;
-        let server = match tx.load_server().await {
-            Ok(server) => server,
+        let mut tx = self.unit_of_work.begin(&community_id).await?;
+        let community = match tx.load_community().await {
+            Ok(community) => community,
             Err(RepositoryError::NotFound) => return Ok(()),
             Err(e) => return Err(e.into()),
         };
-        let is_member = server.is_member(&user_id);
+        let is_member = community.is_member(&user_id);
         let access: Option<ParticipantAccess> = if is_member {
             match tx.load_channel(&channel_id).await {
                 Ok(channel) => Some(participant_access(&channel, &user_id)),

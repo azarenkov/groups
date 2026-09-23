@@ -11,9 +11,9 @@ pub trait ChannelRepository {
 
     async fn find_channel_by_id(&self, channel_id: &ChannelId) -> Result<Channel, RepositoryError>;
 
-    async fn list_voice_channel_ids_by_server(
+    async fn list_voice_channel_ids_by_community(
         &self,
-        server_id: &crate::server::id::ServerId,
+        community_id: &crate::community::id::CommunityId,
     ) -> Result<Vec<ChannelId>, RepositoryError>;
     async fn find_visible_voice_room(
         &self,
@@ -27,7 +27,7 @@ pub trait ChannelRepository {
 
     async fn list_channel_participants(
         &self,
-        server_id: &crate::server::id::ServerId,
+        community_id: &crate::community::id::CommunityId,
         channel_id: &ChannelId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<(UserId, UserName, String, Option<DateTime<Utc>>)>, RepositoryError>;
@@ -49,14 +49,14 @@ pub trait ChannelRepository {
         lowercase_names: &[String],
     ) -> Result<Vec<(UserId, String)>, RepositoryError>;
 
-    async fn list_voice_presence_for_server(
+    async fn list_voice_presence_for_community(
         &self,
-        server_id: &crate::server::id::ServerId,
+        community_id: &crate::community::id::CommunityId,
     ) -> Result<Vec<VoicePresenceRow>, RepositoryError>;
 
     async fn set_stream_viewer(
         &self,
-        server_id: &crate::server::id::ServerId,
+        community_id: &crate::community::id::CommunityId,
         channel_id: &ChannelId,
         streamer_id: &UserId,
         viewer_id: &UserId,
@@ -66,9 +66,9 @@ pub trait ChannelRepository {
         request_id: Option<String>,
     ) -> Result<i64, RepositoryError>;
 
-    async fn list_stream_viewer_counts_for_server(
+    async fn list_stream_viewer_counts_for_community(
         &self,
-        server_id: &crate::server::id::ServerId,
+        community_id: &crate::community::id::CommunityId,
     ) -> Result<Vec<StreamViewerCountRow>, RepositoryError>;
 
     async fn list_voice_participants_joined_before(
@@ -92,8 +92,8 @@ pub trait ChannelRepository {
 pub struct VisibleVoiceRoom {
     pub channel_id: ChannelId,
     pub channel_name: String,
-    pub server_id: crate::server::id::ServerId,
-    pub server_name: String,
+    pub community_id: crate::community::id::CommunityId,
+    pub community_name: String,
 }
 
 #[derive(Debug, Clone)]
@@ -102,8 +102,8 @@ pub struct FriendVoicePresenceRow {
     pub user_name: String,
     pub channel_id: ChannelId,
     pub channel_name: String,
-    pub server_id: crate::server::id::ServerId,
-    pub server_name: String,
+    pub community_id: crate::community::id::CommunityId,
+    pub community_name: String,
     pub joined_at: DateTime<Utc>,
     pub is_muted: bool,
     pub camera_on: bool,
@@ -115,8 +115,8 @@ pub struct FriendVoicePresenceRow {
 pub struct RecentVoiceRoomRow {
     pub channel_id: ChannelId,
     pub channel_name: String,
-    pub server_id: crate::server::id::ServerId,
-    pub server_name: String,
+    pub community_id: crate::community::id::CommunityId,
+    pub community_name: String,
     pub live_count: i64,
     pub last_join: DateTime<Utc>,
 }

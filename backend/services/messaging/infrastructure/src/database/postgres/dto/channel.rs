@@ -6,7 +6,7 @@ use super::{kind::ChannelKindDto, visibility::ChannelVisibilityDto};
 #[derive(Debug, FromRow)]
 pub struct ChannelDto {
     pub id: Uuid,
-    pub server_id: Uuid,
+    pub community_id: Uuid,
     pub owner_id: Uuid,
     pub name: String,
     pub kind: ChannelKindDto,

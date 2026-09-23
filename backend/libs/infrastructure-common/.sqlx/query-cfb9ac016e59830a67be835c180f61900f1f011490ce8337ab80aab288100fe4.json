@@ -13,7 +13,7 @@
             "kind": {
               "Enum": [
                 "channel",
-                "server",
+                "community",
                 "user",
                 "message",
                 "dm_message",
@@ -29,7 +29,7 @@
             "kind": {
               "Enum": [
                 "channel",
-                "server",
+                "community",
                 "user",
                 "message",
                 "dm_message",

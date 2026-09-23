@@ -16,10 +16,10 @@ impl PostgresRealtimeProjection {
         Self { pool }
     }
 
-    async fn server_members(&self, server_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+    async fn community_members(&self, community_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
         let rows =
-            sqlx::query("SELECT user_id FROM realtime_server_members WHERE server_id = $1 AND NOT removed")
-                .bind(server_id)
+            sqlx::query("SELECT user_id FROM realtime_community_members WHERE community_id = $1 AND NOT removed")
+                .bind(community_id)
                 .fetch_all(&self.pool)
                 .await?;
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
@@ -227,9 +227,9 @@ impl PostgresRealtimeProjection {
                   )
                 UNION
                 SELECT DISTINCT sm2.user_id
-                FROM realtime_server_members sm1
-                INNER JOIN realtime_server_members sm2
-                    ON sm2.server_id = sm1.server_id AND NOT sm2.removed
+                FROM realtime_community_members sm1
+                INNER JOIN realtime_community_members sm2
+                    ON sm2.community_id = sm1.community_id AND NOT sm2.removed
                 WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
             ) r
             WHERE NOT (
@@ -247,25 +247,25 @@ impl PostgresRealtimeProjection {
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
     }
 
-    async fn add_server_member(
+    async fn add_community_member(
         &self,
-        server_id: Uuid,
+        community_id: Uuid,
         user_id: Uuid,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
-            INSERT INTO realtime_server_members (server_id, user_id, removed, updated_at)
+            INSERT INTO realtime_community_members (community_id, user_id, removed, updated_at)
             SELECT $1, $2, FALSE, $3
             WHERE NOT EXISTS (
-                SELECT 1 FROM realtime_deleted_servers WHERE server_id = $1
+                SELECT 1 FROM realtime_deleted_communities WHERE community_id = $1
             )
-            ON CONFLICT (server_id, user_id) DO UPDATE
+            ON CONFLICT (community_id, user_id) DO UPDATE
                 SET removed = EXCLUDED.removed, updated_at = EXCLUDED.updated_at
-                WHERE realtime_server_members.updated_at <= EXCLUDED.updated_at
+                WHERE realtime_community_members.updated_at <= EXCLUDED.updated_at
             "#,
         )
-        .bind(server_id)
+        .bind(community_id)
         .bind(user_id)
         .bind(occurred_at)
         .execute(&self.pool)
@@ -273,22 +273,22 @@ impl PostgresRealtimeProjection {
         Ok(())
     }
 
-    async fn remove_server_member(
+    async fn remove_community_member(
         &self,
-        server_id: Uuid,
+        community_id: Uuid,
         user_id: Uuid,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
-            INSERT INTO realtime_server_members (server_id, user_id, removed, updated_at)
+            INSERT INTO realtime_community_members (community_id, user_id, removed, updated_at)
             VALUES ($1, $2, TRUE, $3)
-            ON CONFLICT (server_id, user_id) DO UPDATE
+            ON CONFLICT (community_id, user_id) DO UPDATE
                 SET removed = EXCLUDED.removed, updated_at = EXCLUDED.updated_at
-                WHERE realtime_server_members.updated_at <= EXCLUDED.updated_at
+                WHERE realtime_community_members.updated_at <= EXCLUDED.updated_at
             "#,
         )
-        .bind(server_id)
+        .bind(community_id)
         .bind(user_id)
         .bind(occurred_at)
         .execute(&self.pool)
@@ -296,30 +296,30 @@ impl PostgresRealtimeProjection {
         Ok(())
     }
 
-    async fn remove_server(
+    async fn remove_community(
         &self,
-        server_id: Uuid,
+        community_id: Uuid,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
-            INSERT INTO realtime_deleted_servers (server_id, deleted_at)
+            INSERT INTO realtime_deleted_communities (community_id, deleted_at)
             VALUES ($1, $2)
             ON CONFLICT DO NOTHING
             "#,
         )
-        .bind(server_id)
+        .bind(community_id)
         .bind(occurred_at)
         .execute(&self.pool)
         .await?;
         sqlx::query(
             r#"
-            UPDATE realtime_server_members
+            UPDATE realtime_community_members
             SET removed = TRUE, updated_at = $2
-            WHERE server_id = $1 AND updated_at <= $2
+            WHERE community_id = $1 AND updated_at <= $2
             "#,
         )
-        .bind(server_id)
+        .bind(community_id)
         .bind(occurred_at)
         .execute(&self.pool)
         .await?;
@@ -337,9 +337,9 @@ impl PostgresRealtimeProjection {
                 WHERE user_id = $1 AND NOT removed AND NOT pending
                 UNION
                 SELECT DISTINCT sm2.user_id AS user_id
-                FROM realtime_server_members sm1
-                INNER JOIN realtime_server_members sm2
-                    ON sm2.server_id = sm1.server_id AND NOT sm2.removed
+                FROM realtime_community_members sm1
+                INNER JOIN realtime_community_members sm2
+                    ON sm2.community_id = sm1.community_id AND NOT sm2.removed
                 WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
             ) AS interested
             WHERE NOT EXISTS (
@@ -382,21 +382,21 @@ impl RealtimeProjection for PostgresRealtimeProjection {
     async fn remove_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), RepositoryError> {
         PostgresRealtimeProjection::remove_dm_pair(self, a, b).await.map_err(map_sqlx_error_to_domain_error)
     }
-    async fn add_server_member(&self, server_id: Uuid, user_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
-        PostgresRealtimeProjection::add_server_member(self, server_id, user_id, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
+    async fn add_community_member(&self, community_id: Uuid, user_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
+        PostgresRealtimeProjection::add_community_member(self, community_id, user_id, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
     }
-    async fn remove_server_member(&self, server_id: Uuid, user_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
-        PostgresRealtimeProjection::remove_server_member(self, server_id, user_id, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
+    async fn remove_community_member(&self, community_id: Uuid, user_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
+        PostgresRealtimeProjection::remove_community_member(self, community_id, user_id, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
     }
-    async fn remove_server(&self, server_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
-        PostgresRealtimeProjection::remove_server(self, server_id, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
+    async fn remove_community(&self, community_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
+        PostgresRealtimeProjection::remove_community(self, community_id, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
     }
 }
 
 #[async_trait]
 impl RecipientDirectory for PostgresRealtimeProjection {
-    async fn server_members(&self, server_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
-        PostgresRealtimeProjection::server_members(self, server_id).await.map_err(map_sqlx_error_to_domain_error)
+    async fn community_members(&self, community_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
+        PostgresRealtimeProjection::community_members(self, community_id).await.map_err(map_sqlx_error_to_domain_error)
     }
     async fn user_name(&self, user_id: Uuid) -> Result<Option<String>, RepositoryError> {
         PostgresRealtimeProjection::user_name(self, user_id).await.map_err(map_sqlx_error_to_domain_error)

@@ -17,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 
-use crate::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantDeafened, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUndeafened, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, channel::kind::ChannelKind, channel::moderation::ModerationGrant, channel::moderation::Publication, channel::moderation::Subscription, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, channel::visibility::ChannelVisibility, server::id::ServerId};
+use crate::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::events::lifecycle::ChannelDeleted, channel::events::lifecycle::ChannelRenamed, channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::events::participant::ParticipantConnectionAborted, channel::events::participant::ParticipantJoined, channel::events::participant::ParticipantLeft, channel::events::participant::ParticipantMediaChanged, channel::events::participant::ParticipantDeafened, channel::events::participant::ParticipantMuted, channel::events::participant::ParticipantUndeafened, channel::events::participant::ParticipantUnmuted, channel::events::participant::TextChannelJoined, channel::id::ChannelId, channel::kind::ChannelKind, channel::moderation::ModerationGrant, channel::moderation::Publication, channel::moderation::Subscription, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, channel::visibility::ChannelVisibility, community::id::CommunityId};
 use domain::{password_hash::PasswordHash, user::id::UserId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,7 +79,7 @@ pub struct MediaChange {
 #[derive(Debug)]
 pub struct Channel {
     id: ChannelId,
-    server_id: ServerId,
+    community_id: CommunityId,
     owner_id: UserId,
     name: ChannelName,
     kind: ChannelKind,
@@ -102,7 +102,7 @@ pub struct Channel {
 
 impl Channel {
     pub fn create(
-        server_id: ServerId,
+        community_id: CommunityId,
         owner_id: UserId,
         name: ChannelName,
         kind: ChannelKind,
@@ -142,7 +142,7 @@ impl Channel {
         let deafened_participants = if kind.supports_voice() { Some(HashMap::new()) } else { None };
         let mut channel = Self {
             id,
-            server_id,
+            community_id,
             owner_id,
             name: name.clone(),
             kind,
@@ -164,7 +164,7 @@ impl Channel {
         };
 
         channel.record(ChannelEvent::Created(ChannelCreated::record(
-            id, server_id, owner_id, name, kind, visibility, now,
+            id, community_id, owner_id, name, kind, visibility, now,
         )));
 
         Ok(channel)
@@ -173,7 +173,7 @@ impl Channel {
     #[allow(clippy::too_many_arguments)]
     pub fn restore(
         id: ChannelId,
-        server_id: ServerId,
+        community_id: CommunityId,
         owner_id: UserId,
         name: ChannelName,
         kind: ChannelKind,
@@ -191,7 +191,7 @@ impl Channel {
     ) -> Self {
         Self {
             id,
-            server_id,
+            community_id,
             owner_id,
             name,
             kind,
@@ -227,7 +227,7 @@ impl Channel {
 
         self.record(ChannelEvent::Renamed(ChannelRenamed::record(
             self.id,
-            self.server_id,
+            self.community_id,
             old_name,
             new_name,
             now,
@@ -251,7 +251,7 @@ impl Channel {
 
         self.record(ChannelEvent::Deleted(ChannelDeleted::record(
             self.id,
-            self.server_id,
+            self.community_id,
             deleted_by,
             now,
         )));
@@ -316,14 +316,14 @@ impl Channel {
         if was_empty {
             self.record(ChannelEvent::ParticipantJoined(ParticipantJoined::record(
                 self.id,
-                self.server_id,
+                self.community_id,
                 user_id,
                 now,
             )));
             if let Some(deafened_by) = self.deafen_record(&user_id).map(|r| r.deafened_by) {
                 self.record(ChannelEvent::ParticipantDeafened(ParticipantDeafened::record(
                     self.id,
-                    self.server_id,
+                    self.community_id,
                     user_id,
                     deafened_by,
                     now,
@@ -369,7 +369,7 @@ impl Channel {
         if now_empty {
             self.record(ChannelEvent::ParticipantLeft(ParticipantLeft::record(
                 self.id,
-                self.server_id,
+                self.community_id,
                 user_id,
                 reason,
                 now,
@@ -413,7 +413,7 @@ impl Channel {
 
         if now_empty {
             self.record(ChannelEvent::ParticipantConnectionAborted(
-                ParticipantConnectionAborted::record(self.id, self.server_id, user_id, reason, now),
+                ParticipantConnectionAborted::record(self.id, self.community_id, user_id, reason, now),
             ));
         }
 
@@ -497,7 +497,7 @@ impl Channel {
             self.record(ChannelEvent::ParticipantMediaChanged(
                 ParticipantMediaChanged::record(
                     self.id,
-                    self.server_id,
+                    self.community_id,
                     user_id,
                     source,
                     is_active,
@@ -547,7 +547,7 @@ impl Channel {
                 self.record(ChannelEvent::ParticipantMediaChanged(
                     ParticipantMediaChanged::record(
                         self.id,
-                        self.server_id,
+                        self.community_id,
                         user_id,
                         source,
                         false,
@@ -585,7 +585,7 @@ impl Channel {
 
         self.record(ChannelEvent::ParticipantMuted(ParticipantMuted::record(
             self.id,
-            self.server_id,
+            self.community_id,
             target,
             initiator,
             now,
@@ -637,7 +637,7 @@ impl Channel {
                 .insert(target, ParticipantMute::new(target, target, now, true));
             self.record(ChannelEvent::ParticipantMuted(ParticipantMuted::record(
                 self.id,
-                self.server_id,
+                self.community_id,
                 target,
                 target,
                 now,
@@ -651,7 +651,7 @@ impl Channel {
             .remove(&target);
 
         self.record(ChannelEvent::ParticipantUnmuted(
-            ParticipantUnmuted::record(self.id, self.server_id, target, initiator, now),
+            ParticipantUnmuted::record(self.id, self.community_id, target, initiator, now),
         ));
 
         Ok(UnmuteOutcome::Removed)
@@ -692,7 +692,7 @@ impl Channel {
         deafened.insert(target, ParticipantDeafen::new(target, initiator, now));
         self.record(ChannelEvent::ParticipantDeafened(ParticipantDeafened::record(
             self.id,
-            self.server_id,
+            self.community_id,
             target,
             initiator,
             now,
@@ -718,7 +718,7 @@ impl Channel {
             return Err(ChannelError::NotDeafened);
         }
         self.record(ChannelEvent::ParticipantUndeafened(
-            ParticipantUndeafened::record(self.id, self.server_id, target, initiator, now),
+            ParticipantUndeafened::record(self.id, self.community_id, target, initiator, now),
         ));
         Ok(())
     }
@@ -747,8 +747,8 @@ impl Channel {
         &self.id
     }
 
-    pub fn server_id(&self) -> &ServerId {
-        &self.server_id
+    pub fn community_id(&self) -> &CommunityId {
+        &self.community_id
     }
 
     pub fn owner_id(&self) -> &UserId {
@@ -825,7 +825,7 @@ impl Channel {
 
         self.record(ChannelEvent::TextJoined(TextChannelJoined::record(
             self.id,
-            self.server_id,
+            self.community_id,
             user_id,
             now,
         )));

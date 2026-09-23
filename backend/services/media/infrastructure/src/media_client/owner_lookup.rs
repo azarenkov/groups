@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use media::ports::server_owner_lookup::{ServerOwnerLookup, ServerOwnerLookupError};
-use domain::{server::id::ServerId, user::id::UserId};
-use contracts::internal::servers::{CanManageResponseV1, OwnerResponseV1};
+use media::ports::community_owner_lookup::{CommunityOwnerLookup, CommunityOwnerLookupError};
+use domain::{community::id::CommunityId, user::id::UserId};
+use contracts::internal::communities::{CanManageResponseV1, OwnerResponseV1};
 
 pub struct MessagingOwnerClient {
     client: reqwest::Client,
@@ -21,31 +21,31 @@ impl MessagingOwnerClient {
 }
 
 #[async_trait]
-impl ServerOwnerLookup for MessagingOwnerClient {
+impl CommunityOwnerLookup for MessagingOwnerClient {
     async fn find_owner(
         &self,
-        server_id: &ServerId,
-    ) -> Result<Option<UserId>, ServerOwnerLookupError> {
+        community_id: &CommunityId,
+    ) -> Result<Option<UserId>, CommunityOwnerLookupError> {
         let response = super::with_request_id(
             self.client
             .get(format!(
-                "{}/internal/servers/{}/owner",
+                "{}/internal/communities/{}/owner",
                 self.base_url,
-                server_id.uuid()
+                community_id.uuid()
             )))
             .send()
             .await
-            .map_err(|e| ServerOwnerLookupError::Unavailable(e.to_string()))?;
+            .map_err(|e| CommunityOwnerLookupError::Unavailable(e.to_string()))?;
         match response.status().as_u16() {
             200 => {
                 let dto: OwnerResponseV1 = response
                     .json()
                     .await
-                    .map_err(|e| ServerOwnerLookupError::Unavailable(e.to_string()))?;
+                    .map_err(|e| CommunityOwnerLookupError::Unavailable(e.to_string()))?;
                 Ok(Some(UserId::new(dto.owner_id)))
             }
             404 => Ok(None),
-            status => Err(ServerOwnerLookupError::Unavailable(format!(
+            status => Err(CommunityOwnerLookupError::Unavailable(format!(
                 "owner endpoint returned status {status}"
             ))),
         }
@@ -53,22 +53,22 @@ impl ServerOwnerLookup for MessagingOwnerClient {
 
     async fn can_manage(
         &self,
-        server_id: &ServerId,
+        community_id: &CommunityId,
         user_id: &UserId,
-    ) -> Result<bool, ServerOwnerLookupError> {
+    ) -> Result<bool, CommunityOwnerLookupError> {
         let response = super::with_request_id(
             self.client.get(format!(
-                "{}/internal/servers/{}/can-manage/{}",
+                "{}/internal/communities/{}/can-manage/{}",
                 self.base_url,
-                server_id.uuid(),
+                community_id.uuid(),
                 user_id.uuid(),
             )),
         )
         .send()
         .await
-        .map_err(|e| ServerOwnerLookupError::Unavailable(e.to_string()))?;
+        .map_err(|e| CommunityOwnerLookupError::Unavailable(e.to_string()))?;
         if response.status().as_u16() != 200 {
-            return Err(ServerOwnerLookupError::Unavailable(format!(
+            return Err(CommunityOwnerLookupError::Unavailable(format!(
                 "status {}",
                 response.status()
             )));
@@ -76,7 +76,7 @@ impl ServerOwnerLookup for MessagingOwnerClient {
         let body: CanManageResponseV1 = response
             .json()
             .await
-            .map_err(|e| ServerOwnerLookupError::Unavailable(e.to_string()))?;
+            .map_err(|e| CommunityOwnerLookupError::Unavailable(e.to_string()))?;
         Ok(body.allowed)
     }
 }

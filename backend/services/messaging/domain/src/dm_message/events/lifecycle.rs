@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{dm_message::id::DmMessageId, message::content::MessageContent, server::id::ServerId};
+use crate::{dm_message::id::DmMessageId, message::content::MessageContent, community::id::CommunityId};
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
 
 #[derive(Debug)]
@@ -12,8 +12,8 @@ pub struct DmMessageSent {
     pub recipient_id: UserId,
     pub content: MessageContent,
     pub occurred_at: DateTime<Utc>,
-    pub invite_server_id: Option<ServerId>,
-    pub invite_server_name: Option<String>,
+    pub invite_community_id: Option<CommunityId>,
+    pub invite_community_name: Option<String>,
     pub call_status: Option<String>,
     pub call_duration_seconds: Option<i32>,
     pub attachments: Vec<AttachmentSnapshot>,
@@ -34,8 +34,8 @@ impl DmMessageSent {
             recipient_id,
             content,
             occurred_at: now,
-            invite_server_id: None,
-            invite_server_name: None,
+            invite_community_id: None,
+            invite_community_name: None,
             call_status: None,
             call_duration_seconds: None,
             attachments: Vec::new(),
@@ -48,9 +48,9 @@ impl DmMessageSent {
         self
     }
 
-    pub fn for_invite(mut self, server_id: ServerId, server_name: &str) -> Self {
-        self.invite_server_id = Some(server_id);
-        self.invite_server_name = Some(server_name.to_string());
+    pub fn for_invite(mut self, community_id: CommunityId, community_name: &str) -> Self {
+        self.invite_community_id = Some(community_id);
+        self.invite_community_name = Some(community_name.to_string());
         self
     }
 }

@@ -5,13 +5,13 @@ use media::ports::{
     file_storage::{FileStorage, FileStorageError},
 };
 use media_domain::media::repository::MediaRepository;
-use domain::{server::id::ServerId, user::id::UserId};
+use domain::{community::id::CommunityId, user::id::UserId};
 use futures::StreamExt;
 use tracing::Instrument;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
-use contracts::events::server::{
-    ServerCreatedV1 as ServerOwnerDto, ServerDeletedV1 as ServerDeletedDto,
-    ServerOwnerChangedV1 as ServerOwnerChangedDto,
+use contracts::events::community::{
+    CommunityCreatedV1 as CommunityOwnerDto, CommunityDeletedV1 as CommunityDeletedDto,
+    CommunityOwnerChangedV1 as CommunityOwnerChangedDto,
 };
 
 pub fn spawn<M, FS>(
@@ -29,11 +29,11 @@ pub fn spawn<M, FS>(
         let consumer = NatsEventConsumer::new(jetstream, stream.clone());
         loop {
             let opts = SubscribeOptions {
-                consumer_name: "media-projection-server".to_string(),
-                subject: format!("{prefix}.server.>"),
+                consumer_name: "media-projection-community".to_string(),
+                subject: format!("{prefix}.community.>"),
                 start_position: StartPosition::All,
                 max_deliver: Some(5),
-                dlq_subject: Some(format!("{prefix}.dlq.media.server")),
+                dlq_subject: Some(format!("{prefix}.dlq.media.community")),
                 extra_subjects: vec![],
                 ack_wait: None,
             };
@@ -91,40 +91,40 @@ where
     M: MediaRepository + Send + Sync,
     FS: FileStorage + Send + Sync,
 {
-    if subject.ends_with(".server.created") {
-        let evt: ServerOwnerDto = serde_json::from_slice(payload)?;
+    if subject.ends_with(".community.created") {
+        let evt: CommunityOwnerDto = serde_json::from_slice(payload)?;
         media_repository
-            .upsert_server_owner(
-                &ServerId::new(evt.server_id),
+            .upsert_community_owner(
+                &CommunityId::new(evt.community_id),
                 &UserId::new(evt.owner_id),
                 evt.occurred_at,
             )
             .await?;
         return Ok(());
     }
-    if subject.ends_with(".server.owner_changed") {
-        let evt: ServerOwnerChangedDto = serde_json::from_slice(payload)?;
+    if subject.ends_with(".community.owner_changed") {
+        let evt: CommunityOwnerChangedDto = serde_json::from_slice(payload)?;
         media_repository
-            .upsert_server_owner(
-                &ServerId::new(evt.server_id),
+            .upsert_community_owner(
+                &CommunityId::new(evt.community_id),
                 &UserId::new(evt.owner_id),
                 evt.occurred_at,
             )
             .await?;
         return Ok(());
     }
-    if subject.ends_with(".server.deleted") {
-        let evt: ServerDeletedDto = serde_json::from_slice(payload)?;
-        let server_id = ServerId::new(evt.server_id);
-        let logo_key = media_repository.get_server_logo_key(&server_id).await?;
+    if subject.ends_with(".community.deleted") {
+        let evt: CommunityDeletedDto = serde_json::from_slice(payload)?;
+        let community_id = CommunityId::new(evt.community_id);
+        let logo_key = media_repository.get_community_logo_key(&community_id).await?;
         media_repository
-            .remove_server_media(&server_id, &UserId::new(evt.owner_id), evt.occurred_at)
+            .remove_community_media(&community_id, &UserId::new(evt.owner_id), evt.occurred_at)
             .await?;
         if let Some(key) = logo_key {
             match storage.delete(&key).await {
                 Ok(()) | Err(FileStorageError::NotFound) => {}
                 Err(e) => {
-                    tracing::warn!(error = %e, %key, "Failed to delete server logo object; cleanup queue will retry");
+                    tracing::warn!(error = %e, %key, "Failed to delete community logo object; cleanup queue will retry");
                 }
             }
         }

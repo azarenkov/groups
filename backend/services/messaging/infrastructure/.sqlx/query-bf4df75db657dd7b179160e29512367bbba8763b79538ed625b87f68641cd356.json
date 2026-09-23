@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE community_roles AS r\n            SET position = o.position\n            FROM community_roles AS o\n            WHERE r.community_id = $1 AND o.community_id = $1\n              AND ((r.id = $2 AND o.id = $3) OR (r.id = $3 AND o.id = $2))\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bf4df75db657dd7b179160e29512367bbba8763b79538ed625b87f68641cd356"
+}

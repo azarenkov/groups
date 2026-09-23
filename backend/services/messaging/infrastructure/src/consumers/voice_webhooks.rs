@@ -41,12 +41,12 @@ pub fn spawn<T, W, S, V>(
     stream: String,
     channel_repository: Arc<T>,
     channel_unit_of_work: Arc<W>,
-    server_repository: Arc<S>,
+    community_repository: Arc<S>,
     voice_service: Arc<V>,
 ) where
     T: ChannelRepository + Send + Sync + 'static,
     W: messaging_domain::channel::unit_of_work::ChannelUnitOfWork + Send + Sync + 'static,
-    S: messaging_domain::server::repository::ServerRepository + Send + Sync + 'static,
+    S: messaging_domain::community::repository::CommunityRepository + Send + Sync + 'static,
     V: messaging::ports::voice_service::VoiceService + Send + Sync + 'static,
 {
     tokio::spawn(async move {
@@ -54,7 +54,7 @@ pub fn spawn<T, W, S, V>(
         let consumer = NatsEventConsumer::new(jetstream, stream.clone());
         let admit_uc = AdmitVoiceParticipant::new(
             channel_repository.clone(),
-            server_repository.clone(),
+            community_repository.clone(),
             voice_service.clone(),
         );
         let join_uc = JoinVoiceConnection::new(channel_unit_of_work.clone());
@@ -165,7 +165,7 @@ async fn apply<T, W, S, V>(
 where
     T: ChannelRepository + Send + Sync,
     W: messaging_domain::channel::unit_of_work::ChannelUnitOfWork + Send + Sync,
-    S: messaging_domain::server::repository::ServerRepository + Send + Sync,
+    S: messaging_domain::community::repository::CommunityRepository + Send + Sync,
     V: messaging::ports::voice_service::VoiceService + Send + Sync,
 {
     let evt: WebhookEventDto = match serde_json::from_slice(payload) {
