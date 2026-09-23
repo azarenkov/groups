@@ -19,6 +19,7 @@ import { useScreenShares } from "../hooks/useScreenShares";
 import { qualityClass, qualityLabel } from "../lib/quality";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useSpeakingStore } from "../store/speakingStore";
+import { useVoiceChannelStore } from "../store/voiceChannelStore";
 import { colorForId, initialFor } from "../../../shared/lib/avatar";
 
 interface VoiceViewProps {
@@ -126,6 +127,21 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       leaveChannel();
     };
   }, [channelId, communityId, password, joinChannel, leaveChannel, onJoinFailed]);
+
+  const leaveChannelRef = useRef(leaveChannel);
+  leaveChannelRef.current = leaveChannel;
+
+  useEffect(() => {
+    useVoiceChannelStore.getState().setSession(channelName, async () => {
+      await leaveChannelRef.current();
+      onLeaveRef.current();
+    });
+    return () => {
+      if (useVoiceChannelStore.getState().name === channelName) {
+        useVoiceChannelStore.getState().setSession(null, null);
+      }
+    };
+  }, [channelName]);
 
   const handleLeave = async () => {
     await leaveChannel();
