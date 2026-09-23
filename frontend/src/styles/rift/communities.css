@@ -49,7 +49,6 @@
 .sb-scroll::-webkit-scrollbar { width: 6px; }
 .sb-scroll::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 3px; }
 
-/* ---- Segmented switcher (Direct / Servers) ---- */
 .sb-seg {
   position: relative;
   display: flex;
@@ -83,7 +82,6 @@
 }
 .sb-seg-btn.active { color: var(--fg-1); }
 
-/* ---- Tabbed view section header ---- */
 .sb-view { display: flex; flex-direction: column; }
 .sb-vhead {
   display: flex; align-items: center; justify-content: space-between;
@@ -104,7 +102,6 @@
 }
 .sb-load-more:hover { background: var(--bg-3); color: var(--fg-1); }
 
-/* ---- DM rows ---- */
 .sb-dm {
   display: flex; align-items: center; gap: 11px;
   height: 48px; padding: 0 12px;
@@ -155,7 +152,6 @@
   display: inline-flex; align-items: center; justify-content: center;
 }
 
-/* ---- Server rows ---- */
 .sb-srv {
   display: flex; align-items: center; gap: 11px;
   height: 42px; padding: 0 12px;
@@ -663,7 +659,6 @@
   color: var(--fg-2);
 }
 
-/* ---- Server settings view ---- */
 .ssv-identity {
   display: flex; align-items: center; gap: 12px;
   padding: 0 4px 16px;
@@ -866,7 +861,6 @@ textarea.ssv-input:focus-visible {
 .ssv-danger-title { font-size: 15px; font-weight: 600; color: var(--fg-1); margin-bottom: 4px; }
 .ssv-danger-sub { font-size: 13px; color: var(--fg-3); line-height: 1.5; }
 
-/* ---- Invite code card ---- */
 .ssv-invite-card {
   border-radius: 16px;
   background: var(--surface-panel);
@@ -964,7 +958,6 @@ textarea.ssv-input:focus-visible {
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* ---- Server add/create/join modal ---- */
 @keyframes riftPop {
   from { opacity: 0; transform: scale(0.96) translateY(6px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
