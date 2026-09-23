@@ -738,6 +738,10 @@ const CommunitiesPage: React.FC = () => {
                   ]
                 }
                 onStreamWatch={reportStreamWatch}
+                onOpenStage={() => {
+                  setSelectedCommunity(joinedChannel.communityId);
+                  setSelectedChannel(joinedChannel.channel.id);
+                }}
                 onLeave={handleVoiceLeave}
                 onJoinFailed={handleVoiceJoinFailed}
               />

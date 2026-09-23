@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { communityAPI } from "../../communities/api/community";
 import { getLiveKitService } from "../lib/livekit";
 import { useCallStore } from "../store/callStore";
+import { useVoiceChannelStore } from "../store/voiceChannelStore";
 import type { Channel } from "../../../shared/types/channel";
 import type { Community } from "../../../shared/types/community";
 
@@ -22,6 +23,20 @@ export function useVoiceSession() {
     setJoinedChannel(null);
     setVoiceJoinFailed(false);
   }, []);
+
+  useEffect(() => {
+    const name = joinedChannel?.channel.name ?? null;
+    useVoiceChannelStore.getState().setSession(name, async () => {
+      setJoinedChannel(null);
+      setVoiceJoinFailed(false);
+      await getLiveKitService().disconnect().catch(() => {});
+    });
+    return () => {
+      if (useVoiceChannelStore.getState().name === name) {
+        useVoiceChannelStore.getState().setSession(null, null);
+      }
+    };
+  }, [joinedChannel]);
 
   const handleVoiceJoinFailed = useCallback(() => {
     setVoiceJoinFailed(true);

@@ -85,8 +85,9 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
       isDeafened={deafened}
       onToggleDeafen={() => setDeafened(!deafened)}
       onLeave={() => leave()}
-      onOpen={open}
+      onOpen={focused ? undefined : open}
       openTitle={t("openCall")}
+      active={focused}
       badge={attention && !focused}
     />,
     mountPoint,

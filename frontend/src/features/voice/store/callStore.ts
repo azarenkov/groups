@@ -19,6 +19,7 @@ import {
   getAuthedUserId,
   leaveAsInitiator,
 } from "../lib/callSession";
+import { leaveVoiceChannel } from "./voiceChannelStore";
 
 const armFallbackMuteRelease = (
   userId: string | null,
@@ -516,6 +517,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     const inc = get().incoming;
     if (!inc) return;
     if (get().activeCallId) await get().leave();
+    await leaveVoiceChannel();
     set({ connecting: true, incoming: null });
     try {
       const initiator = await getAuthedIdentity();

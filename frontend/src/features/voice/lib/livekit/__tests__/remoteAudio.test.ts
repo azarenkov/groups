@@ -270,3 +270,41 @@ describe("RemoteAudioGraph", () => {
     expect(graph.tracksSpeaking()).toBe(false);
   });
 });
+
+describe("ownership", () => {
+  it("knows which elements it plays", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    attach(graph, "rosa");
+    const own = document.querySelectorAll("audio");
+    expect(graph.manages(own[own.length - 1] as HTMLMediaElement)).toBe(true);
+    expect(graph.manages(document.createElement("audio"))).toBe(false);
+  });
+});
+
+describe("deafening", () => {
+  it("silences a participant's screen audio as well as their microphone", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    const mic = attach(graph, "pete");
+    const screen = attach(graph, "pete");
+
+    graph.setVolume("pete", 1.5);
+    graph.setDeafened(true);
+    expect(mic.gain.value).toBe(0);
+    expect(screen.gain.value).toBe(0);
+
+    graph.setDeafened(false);
+    expect(mic.gain.value).toBeCloseTo(1.5);
+    expect(screen.gain.value).toBeCloseTo(1.5);
+  });
+
+  it("silences audio that arrives while deafened", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    graph.setDeafened(true);
+    const late = attach(graph, "quinn");
+
+    expect(late.gain.value).toBe(0);
+
+    graph.setDeafened(false);
+    expect(late.gain.value).toBeCloseTo(1);
+  });
+});

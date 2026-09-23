@@ -201,6 +201,13 @@ export class RemoteAudioGraph {
     return this.volumes.get(identity) ?? 1.0;
   }
 
+  manages(element: HTMLMediaElement): boolean {
+    for (const list of Array.from(this.elements.values())) {
+      if (list.includes(element)) return true;
+    }
+    return false;
+  }
+
   supportsBoost(identity: string): boolean {
     if (this.disabled) return false;
     const gains = this.gainNodes.get(identity);

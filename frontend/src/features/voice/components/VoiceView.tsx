@@ -31,6 +31,7 @@ interface VoiceViewProps {
   stageActive?: boolean;
   viewersFor?: (id: string) => number | undefined;
   onStreamWatch?: (streamerId: string, watching: boolean) => void;
+  onOpenStage?: () => void;
   onLeave: () => void;
   onJoinFailed?: (message: string) => void;
 }
@@ -45,6 +46,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   stageActive,
   viewersFor,
   onStreamWatch,
+  onOpenStage,
   onLeave,
   onJoinFailed,
 }) => {
@@ -345,6 +347,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           deafenLocked={deafenLocked}
           onToggleDeafen={toggleDeafen}
           onLeave={handleLeave}
+          onOpen={stageActive ? undefined : onOpenStage}
+          openTitle={t("openChannel")}
+          active={stageActive}
           className={qualityClass(localQuality)}
           titleAttr={`${t("connected")}: ${qualityLabel(localQuality)}`}
         />,

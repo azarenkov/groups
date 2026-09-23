@@ -30,6 +30,7 @@ interface VoicePillProps {
   invite?: VoicePillInvite;
   onOpen?: () => void;
   openTitle?: string;
+  active?: boolean;
   badge?: boolean;
 }
 
@@ -50,6 +51,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
   invite,
   onOpen,
   openTitle,
+  active,
   badge,
 }) => {
   const { t } = useTranslation("voice");
@@ -270,8 +272,19 @@ const VoicePill: React.FC<VoicePillProps> = ({
       title={titleAttr}
     >
       <div
-        className={"vp-meta-wrap" + (onOpen ? " clickable" : "")}
+        className={
+          "vp-meta-wrap" +
+          (onOpen ? " clickable" : "") +
+          (active ? " active" : "")
+        }
         onClick={onOpen}
+        onKeyDown={(e) => {
+          if (!onOpen) return;
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          onOpen();
+        }}
+        tabIndex={onOpen ? 0 : undefined}
         title={onOpen ? openTitle : undefined}
         role={onOpen ? "button" : undefined}
       >

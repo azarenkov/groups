@@ -1,4 +1,6 @@
 {
+  "acceptAndLeave": "Accept and leave {{channel}}",
+  "leavesChannel": "You will leave {{channel}}",
   "sharingNow": "Sharing a screen",
   "watchStream": "Watch",
   "stopWatching": "Stop watching",
