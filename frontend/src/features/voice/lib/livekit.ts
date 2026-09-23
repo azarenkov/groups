@@ -24,10 +24,12 @@ import { RemoteAudioGraph } from "./livekit/remoteAudio";
 import {
   degradationFor,
   pickScreenCodec,
+  primaryOutbound,
   shouldFallBack,
 } from "./videoCodec";
 import type {
   EncoderSample,
+  OutboundReport,
   ScreenContent,
   VideoCodec,
 } from "./videoCodec";
@@ -1340,23 +1342,15 @@ export class LiveKitService {
     if (!sender?.getStats) return;
     try {
       const stats = await sender.getStats();
-      type Report = {
-        type: string;
-        id: string;
-        kind?: string;
-        mediaSourceId?: string;
-        qualityLimitationReason?: string;
-        framesPerSecond?: number;
-      };
-      let outbound: Report | null = null;
-      const sources = new Map<string, Report>();
-      stats.forEach((entry) => {
-        const report = entry as unknown as Report;
-        if (report.type === "outbound-rtp") outbound = report;
-        if (report.type === "media-source") sources.set(report.id, report);
-      });
-      const encoded = outbound as Report | null;
+      const reports: OutboundReport[] = [];
+      stats.forEach((entry) => reports.push(entry as OutboundReport));
+      const encoded = primaryOutbound(reports);
       if (!encoded) return;
+      const sources = new Map(
+        reports
+          .filter((report) => report.type === "media-source")
+          .map((report) => [report.id, report]),
+      );
       const source = encoded.mediaSourceId
         ? sources.get(encoded.mediaSourceId)
         : undefined;

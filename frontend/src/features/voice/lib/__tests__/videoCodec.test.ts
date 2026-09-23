@@ -2,6 +2,7 @@ import {
   CPU_LIMIT_HOLD_MS,
   chooseCodec,
   degradationFor,
+  primaryOutbound,
   shouldFallBack,
 } from "../videoCodec";
 
@@ -94,5 +95,36 @@ describe("falling back to vp9", () => {
       sample(6000, true, 20),
     ];
     expect(shouldFallBack(samples, 12000)).toBe(false);
+  });
+});
+
+describe("picking the encoder report", () => {
+  const outbound = (id: string, extra: Record<string, unknown>) => ({
+    type: "outbound-rtp",
+    id,
+    ...extra,
+  });
+
+  it("ignores a secondary stream listed after the primary one", () => {
+    const primary = outbound("main", {
+      kind: "video",
+      mediaSourceId: "src",
+      bytesSent: 900_000,
+      qualityLimitationReason: "cpu",
+    });
+    const secondary = outbound("rtx", { kind: "video", bytesSent: 4_000 });
+    expect(primaryOutbound([primary, secondary])?.id).toBe("main");
+  });
+
+  it("prefers the stream carrying the most data", () => {
+    const small = outbound("small", { kind: "video", mediaSourceId: "a", bytesSent: 10 });
+    const big = outbound("big", { kind: "video", mediaSourceId: "a", bytesSent: 10_000 });
+    expect(primaryOutbound([big, small])?.id).toBe("big");
+  });
+
+  it("skips inactive and audio streams", () => {
+    const off = outbound("off", { kind: "video", mediaSourceId: "a", active: false, bytesSent: 99 });
+    const sound = outbound("sound", { kind: "audio", mediaSourceId: "b", bytesSent: 99 });
+    expect(primaryOutbound([off, sound])).toBeNull();
   });
 });

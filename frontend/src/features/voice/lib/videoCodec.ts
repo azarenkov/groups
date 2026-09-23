@@ -40,6 +40,31 @@ export interface EncoderSample {
   at: number;
 }
 
+export interface OutboundReport {
+  type: string;
+  id: string;
+  kind?: string;
+  active?: boolean;
+  mediaSourceId?: string;
+  qualityLimitationReason?: string;
+  framesPerSecond?: number;
+  bytesSent?: number;
+}
+
+export function primaryOutbound(
+  reports: OutboundReport[],
+): OutboundReport | null {
+  let best: OutboundReport | null = null;
+  for (const report of reports) {
+    if (report.type !== "outbound-rtp") continue;
+    if (report.kind !== undefined && report.kind !== "video") continue;
+    if (report.active === false) continue;
+    if (!report.mediaSourceId) continue;
+    if (!best || (report.bytesSent ?? 0) > (best.bytesSent ?? 0)) best = report;
+  }
+  return best;
+}
+
 export function isStruggling(sample: EncoderSample): boolean {
   if (sample.cpuLimited) return true;
   if (sample.sourceFramesPerSecond === null) return false;
