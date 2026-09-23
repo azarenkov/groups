@@ -33,7 +33,7 @@ export class RemoteAudioGraph {
   private sourceNodes: WeakMap<
     HTMLMediaElement,
     {
-      source: MediaElementAudioSourceNode;
+      source: AudioNode;
       gain: GainNode;
       identity: string;
       analyser?: SpeechAnalyser;
@@ -249,7 +249,9 @@ export class RemoteAudioGraph {
         ctx.resume().catch(() => {});
       }
       try {
-        const source = ctx.createMediaElementSource(audioElement);
+        const source = ctx.createMediaStreamSource(
+          new MediaStream([track.mediaStreamTrack]),
+        );
         const speechAnalyser = ctx.createAnalyser();
         speechAnalyser.fftSize = 512;
         source.connect(speechAnalyser);
@@ -271,6 +273,12 @@ export class RemoteAudioGraph {
         gain.connect(compressor);
         compressor.connect(ctx.destination);
         this.sourceNodes.set(audioElement, { source, gain, identity, analyser });
+        audioElement.muted = true;
+        audioElement.addEventListener("volumechange", () => {
+          if (this.sourceNodes.has(audioElement) && !audioElement.muted) {
+            audioElement.muted = true;
+          }
+        });
         const gains = this.gainNodes.get(identity) ?? [];
         gains.push(gain);
         this.gainNodes.set(identity, gains);
