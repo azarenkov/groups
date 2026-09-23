@@ -1,13 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { userAPI } from "../../social/api/user";
 import { usePresenceStore } from "../../social/store/presenceStore";
 import { setActivityHiddenByPresence } from "../../social/lib/gameActivity";
+
+const RETRY_MS = 5000;
 
 export function useAppearOffline(params: {
   hasSession: boolean;
   currentUserId?: string;
 }) {
   const { hasSession, currentUserId } = params;
+  const [attempt, setAttempt] = useState(0);
+  const retry = useRef<number | null>(null);
   const [appearOffline, setAppearOffline] = useState<boolean>(() => {
     try {
       return localStorage.getItem("rift:appearOffline") === "1";
@@ -19,6 +23,10 @@ export function useAppearOffline(params: {
   useEffect(() => {
     if (!hasSession) return;
     let cancelled = false;
+    if (retry.current !== null) {
+      window.clearTimeout(retry.current);
+      retry.current = null;
+    }
     if (appearOffline) setActivityHiddenByPresence(true);
     userAPI
       .setAppearOffline(appearOffline)
@@ -27,12 +35,14 @@ export function useAppearOffline(params: {
       })
       .catch((err) => {
         console.warn("[presence] setAppearOffline failed:", err);
-        if (!cancelled && !appearOffline) setActivityHiddenByPresence(false);
+        if (cancelled) return;
+        if (!appearOffline) setActivityHiddenByPresence(false);
+        retry.current = window.setTimeout(() => setAttempt((n) => n + 1), RETRY_MS);
       });
     return () => {
       cancelled = true;
     };
-  }, [appearOffline, hasSession]);
+  }, [appearOffline, hasSession, attempt]);
 
   useEffect(() => {
     if (!currentUserId) return;

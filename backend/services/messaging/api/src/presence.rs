@@ -19,6 +19,19 @@ async fn set_presence(
     body: web::Json<PresenceBody>,
 ) -> Result<impl Responder, HttpError> {
     let user_id = auth_token.id;
+    app_state
+        .identity_users
+        .set_activity_visibility(user_id, body.appear_offline)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, %user_id, "Failed to store activity visibility");
+            HttpError::new(
+                "Failed to store activity visibility".to_string(),
+                actix_web::http::StatusCode::BAD_GATEWAY,
+                "ACTIVITY_VISIBILITY_FAILED",
+            )
+        })?;
+
     let payload = serde_json::to_vec(&PresencePreferenceV1 {
         user_id,
         appear_offline: body.appear_offline,
@@ -40,14 +53,6 @@ async fn set_presence(
                 "PRESENCE_PUBLISH_FAILED",
             )
         })?;
-
-    if let Err(e) = app_state
-        .identity_users
-        .set_activity_visibility(user_id, body.appear_offline)
-        .await
-    {
-        tracing::warn!(error = %e, %user_id, "Failed to hide activity for presence change");
-    }
 
     Ok(HttpResponse::NoContent().finish())
 }

@@ -27,7 +27,6 @@ fn default_true() -> bool {
     true
 }
 
-const HIDDEN_TTL_SECS: u64 = 60 * 60 * 24 * 30;
 
 const SET_IF_CURRENT: &str = r#"
 if redis.call('GET', KEYS[1]) == ARGV[1] then
@@ -216,7 +215,7 @@ impl ActivityStore for RedisActivityStore {
         let key = Self::hidden_key(user_id);
         if hidden {
             let _: () = connection
-                .set_ex(&key, "1", HIDDEN_TTL_SECS)
+                .set(&key, "1")
                 .await
                 .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
         } else {
