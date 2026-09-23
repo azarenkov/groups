@@ -93,12 +93,10 @@ class DfnProcessor extends AudioWorkletProcessor {
     this.block = HOP * this.decimation;
     this.inputBuffer = new Float32Array(this.block);
     this.inputFill = 0;
-    const delay = (coefficients.length - 1) / 2;
     this.analysisFir = new Fir(coefficients);
     this.synthesisFir = new Fir(coefficients);
-    this.dryDelay = new Delay(delay);
-    this.lowDelay = new Delay(delay);
-    this.highDelay = new Delay(delay);
+    this.dryRefFir = new Fir(coefficients);
+    this.dryDelay = new Delay(coefficients.length - 1);
     this.scratchLow = new Float32Array(this.block);
     this.scratchDry = new Float32Array(this.block);
     this.scratchUp = new Float32Array(this.block);
@@ -198,32 +196,30 @@ class DfnProcessor extends AudioWorkletProcessor {
 
   pushBlock() {
     const size = this.block;
-    const low = new Float32Array(size);
     this.analysisFir.run(this.inputBuffer, this.scratchLow);
     this.dryDelay.run(this.inputBuffer, this.scratchDry);
-    const high = new Float32Array(size);
-    for (let i = 0; i < size; i++) {
-      high[i] = this.scratchDry[i] - this.scratchLow[i];
-    }
-    const lowDelayed = new Float32Array(size);
-    const highDelayed = new Float32Array(size);
-    this.lowDelay.run(this.scratchLow, lowDelayed);
-    this.highDelay.run(high, highDelayed);
-    low.set(lowDelayed);
-
-    const seq = this.seq++;
-    this.evictOldestPendingIfFull();
-    this.frames.set(seq, {
-      low,
-      high: highDelayed,
-      status: 'pending',
-      wet: null,
-    });
 
     const payload = new Float32Array(HOP);
     for (let i = 0; i < HOP; i++) {
       payload[i] = this.scratchLow[i * this.decimation];
     }
+
+    const up = this.scratchUp;
+    up.fill(0);
+    for (let i = 0; i < HOP; i++) {
+      up[i * this.decimation] = payload[i] * this.decimation;
+    }
+    const low = new Float32Array(size);
+    this.dryRefFir.run(up, low);
+
+    const high = new Float32Array(size);
+    for (let i = 0; i < size; i++) {
+      high[i] = this.scratchDry[i] - low[i];
+    }
+
+    const seq = this.seq++;
+    this.evictOldestPendingIfFull();
+    this.frames.set(seq, { low, high, status: 'pending', wet: null });
     if (this.worker) {
       this.worker.postMessage({ type: 'frame', seq, payload }, [payload.buffer]);
     } else {

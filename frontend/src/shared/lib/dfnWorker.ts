@@ -11,8 +11,11 @@ interface InitMessage {
 
 let session: DtlnSession | null = null;
 
+const MAX_PENDING = 8;
+
 const serve = (port: MessagePort) => {
   let chain: Promise<void> = Promise.resolve();
+  let pending = 0;
   port.onmessage = (event: MessageEvent) => {
     const msg = event.data;
     if (!msg || msg.type !== "frame") return;
@@ -22,6 +25,11 @@ const serve = (port: MessagePort) => {
       port.postMessage({ type: "frame", seq, payload }, [payload.buffer]);
       return;
     }
+    if (pending >= MAX_PENDING) {
+      port.postMessage({ type: "drop", seq });
+      return;
+    }
+    pending += 1;
     chain = chain.then(async () => {
       try {
         const processed = await session!.process(payload);
@@ -30,6 +38,8 @@ const serve = (port: MessagePort) => {
         ]);
       } catch {
         port.postMessage({ type: "drop", seq });
+      } finally {
+        pending = Math.max(0, pending - 1);
       }
     });
   };
