@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import { useCallStore } from "../store/callStore";
+import { useVoiceChannelStore } from "../store/voiceChannelStore";
 import {
   callAlertsAllowed,
   desktopNotifAllowed,
@@ -16,6 +17,7 @@ const IncomingCallModal: React.FC = () => {
   const accept = useCallStore((s) => s.accept);
   const decline = useCallStore((s) => s.decline);
   const dismissIncoming = useCallStore((s) => s.dismissIncoming);
+  const channelName = useVoiceChannelStore((s) => s.name);
   const { t } = useTranslation("call");
   const callsEnabled = useNotificationSettingsStore((s) => s.callsEnabled);
   const quietHoursEnabled = useNotificationSettingsStore((s) => s.quietHoursEnabled);
@@ -105,6 +107,9 @@ const IncomingCallModal: React.FC = () => {
           {incoming.video ? t("incomingVideo") : t("incoming")}
         </div>
       </div>
+      {channelName && (
+        <div className="ic-note">{t("leavesChannel", { channel: channelName })}</div>
+      )}
       <div className="ic-actions">
         <button
           type="button"
@@ -127,7 +132,15 @@ const IncomingCallModal: React.FC = () => {
           type="button"
           className={"ic-btn accept" + (incoming.video ? " secondary" : "")}
           onClick={() => accept(false)}
-          title={incoming.video ? t("acceptAudioOnly") : t("accept")}
+          title={
+            channelName
+              ? incoming.video
+                ? t("acceptAudioAndLeave", { channel: channelName })
+                : t("acceptAndLeave", { channel: channelName })
+              : incoming.video
+                ? t("acceptAudioOnly")
+                : t("accept")
+          }
         >
           <Icon name="phone" size={17} />
         </button>
@@ -136,7 +149,11 @@ const IncomingCallModal: React.FC = () => {
             type="button"
             className="ic-btn accept"
             onClick={() => accept(true)}
-            title={t("acceptWithVideo")}
+            title={
+              channelName
+                ? t("acceptVideoAndLeave", { channel: channelName })
+                : t("acceptWithVideo")
+            }
           >
             <Icon name="video" size={17} />
           </button>

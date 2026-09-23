@@ -201,6 +201,13 @@ export class RemoteAudioGraph {
     return this.volumes.get(identity) ?? 1.0;
   }
 
+  manages(element: HTMLMediaElement): boolean {
+    for (const list of Array.from(this.elements.values())) {
+      if (list.includes(element)) return true;
+    }
+    return false;
+  }
+
   supportsBoost(identity: string): boolean {
     if (this.disabled) return false;
     const gains = this.gainNodes.get(identity);
@@ -219,12 +226,10 @@ export class RemoteAudioGraph {
     const v = Math.max(0, Math.min(RemoteAudioGraph.GAIN_MAX, volume));
     this.volumes.set(identity, v);
     const gain = this.effectiveGain(v);
-    const gains = this.gainNodes.get(identity);
-    if (gains && gains.length > 0) {
-      for (const g of gains) g.gain.value = gain;
-    } else {
-      const els = this.elements.get(identity);
-      if (els) for (const el of els) el.volume = this.elementVolume(v);
+    for (const g of this.gainNodes.get(identity) ?? []) g.gain.value = gain;
+    for (const el of this.elements.get(identity) ?? []) {
+      if (this.sourceNodes.has(el)) continue;
+      el.volume = this.elementVolume(v);
     }
   }
 
@@ -410,9 +415,11 @@ export class RemoteAudioGraph {
       for (const g of gains) g.gain.value = this.effectiveGain(ui);
     }
     for (const [identity, els] of Array.from(this.elements.entries())) {
-      if (this.gainNodes.has(identity)) continue;
       const ui = this.volumes.get(identity) ?? 1.0;
-      for (const el of els) el.volume = this.elementVolume(ui);
+      for (const el of els) {
+        if (this.sourceNodes.has(el)) continue;
+        el.volume = this.elementVolume(ui);
+      }
     }
   }
 }

@@ -23,6 +23,7 @@ export function useVoiceSession() {
     setVoiceJoinFailed(false);
   }, []);
 
+
   const handleVoiceJoinFailed = useCallback(() => {
     setVoiceJoinFailed(true);
   }, []);

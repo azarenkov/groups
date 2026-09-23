@@ -1367,15 +1367,25 @@ export class LiveKitService {
     participant: RemoteParticipant,
   ): void {
     this.ensureParticipant(participant.identity, participant.name);
-    this.updateParticipant(participant.identity, { audioTrack: track });
+    const microphone = track.source !== Track.Source.ScreenShareAudio;
+    if (microphone) {
+      this.updateParticipant(participant.identity, { audioTrack: track });
+    }
 
-    if (track.attachedElements.length > 0) {
+    if (track.attachedElements.some((el) => this.remoteAudio.manages(el))) {
       return;
     }
 
-    this.remoteAudio.attach(track, participant.identity, () =>
-      this.updateParticipant(participant.identity, { audioTrack: null }),
-    );
+    for (const element of Array.from(track.attachedElements)) {
+      track.detach(element);
+      element.remove();
+    }
+
+    this.remoteAudio.attach(track, participant.identity, () => {
+      if (microphone) {
+        this.updateParticipant(participant.identity, { audioTrack: null });
+      }
+    });
   }
 
   subscribeRemoteSpeaking(fn: (state: SpeakingState) => void): () => void {

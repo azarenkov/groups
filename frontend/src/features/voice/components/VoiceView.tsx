@@ -19,6 +19,7 @@ import { useScreenShares } from "../hooks/useScreenShares";
 import { qualityClass, qualityLabel } from "../lib/quality";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useSpeakingStore } from "../store/speakingStore";
+import { useVoiceChannelStore } from "../store/voiceChannelStore";
 import { colorForId, initialFor } from "../../../shared/lib/avatar";
 
 interface VoiceViewProps {
@@ -31,6 +32,7 @@ interface VoiceViewProps {
   stageActive?: boolean;
   viewersFor?: (id: string) => number | undefined;
   onStreamWatch?: (streamerId: string, watching: boolean) => void;
+  onOpenStage?: () => void;
   onLeave: () => void;
   onJoinFailed?: (message: string) => void;
 }
@@ -45,6 +47,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   stageActive,
   viewersFor,
   onStreamWatch,
+  onOpenStage,
   onLeave,
   onJoinFailed,
 }) => {
@@ -124,6 +127,21 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       leaveChannel();
     };
   }, [channelId, communityId, password, joinChannel, leaveChannel, onJoinFailed]);
+
+  const leaveChannelRef = useRef(leaveChannel);
+  leaveChannelRef.current = leaveChannel;
+
+  useEffect(() => {
+    useVoiceChannelStore.getState().setSession(channelName, async () => {
+      await leaveChannelRef.current();
+      onLeaveRef.current();
+    });
+    return () => {
+      if (useVoiceChannelStore.getState().name === channelName) {
+        useVoiceChannelStore.getState().setSession(null, null);
+      }
+    };
+  }, [channelName]);
 
   const handleLeave = async () => {
     await leaveChannel();
@@ -345,6 +363,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           deafenLocked={deafenLocked}
           onToggleDeafen={toggleDeafen}
           onLeave={handleLeave}
+          onOpen={stageActive ? undefined : onOpenStage}
+          openTitle={t("openChannel")}
+          active={stageActive}
           className={qualityClass(localQuality)}
           titleAttr={`${t("connected")}: ${qualityLabel(localQuality)}`}
         />,
