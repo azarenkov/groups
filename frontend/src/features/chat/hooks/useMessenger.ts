@@ -1,5 +1,5 @@
 import React from "react";
-import { channelAPI } from "../../servers/api/channel";
+import { channelAPI } from "../../communities/api/channel";
 import { dmAPI } from "../../dm/api/dm";
 import type { ChannelMessage, PaginationMeta } from "../../../shared/types/channel";
 import type { ChannelMeta, DmMeta } from "../types";
@@ -30,11 +30,11 @@ export interface Messenger {
 
 export function useMessenger(params: {
   channel?: ChannelMeta;
-  serverId?: string;
+  communityId?: string;
   dm?: DmMeta;
   isDm: boolean;
 }): Messenger | null {
-  const { channel, serverId, dm, isDm } = params;
+  const { channel, communityId, dm, isDm } = params;
   return React.useMemo<Messenger | null>(() => {
     if (isDm && dm) {
       return {
@@ -53,15 +53,15 @@ export function useMessenger(params: {
           dmAPI.searchMessages(dm.friendId, query, page, perPage),
       };
     }
-    if (channel && serverId) {
+    if (channel && communityId) {
       return {
         listMessages: (opts) =>
-          channelAPI.listMessages(serverId, channel.id, opts),
+          channelAPI.listMessages(communityId, channel.id, opts),
         sendMessage: (content, attachmentIds) =>
-          channelAPI.sendMessage(serverId, channel.id, content, attachmentIds),
+          channelAPI.sendMessage(communityId, channel.id, content, attachmentIds),
         editMessage: (messageId, content, addAttachmentIds, removeAttachmentIds) =>
           channelAPI.editMessage(
-            serverId,
+            communityId,
             channel.id,
             messageId,
             content,
@@ -69,11 +69,11 @@ export function useMessenger(params: {
             removeAttachmentIds,
           ),
         deleteMessage: (messageId) =>
-          channelAPI.deleteMessage(serverId, channel.id, messageId),
+          channelAPI.deleteMessage(communityId, channel.id, messageId),
         searchMessages: (query, page, perPage) =>
-          channelAPI.searchMessages(serverId, channel.id, query, page, perPage),
+          channelAPI.searchMessages(communityId, channel.id, query, page, perPage),
       };
     }
     return null;
-  }, [isDm, dm, channel, serverId]);
+  }, [isDm, dm, channel, communityId]);
 }

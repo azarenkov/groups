@@ -26,7 +26,7 @@ export const USER_REPORT_REASONS = [
   "other",
 ] as const;
 
-export const SERVER_REPORT_REASONS = [
+export const COMMUNITY_REPORT_REASONS = [
   "spam",
   "harassment",
   "hate",
@@ -41,4 +41,4 @@ export const SERVER_REPORT_REASONS = [
 
 export type ReportReason =
   | (typeof USER_REPORT_REASONS)[number]
-  | (typeof SERVER_REPORT_REASONS)[number];
+  | (typeof COMMUNITY_REPORT_REASONS)[number];

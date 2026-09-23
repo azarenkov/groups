@@ -310,7 +310,7 @@ class UserAPI {
   }
 
   async getUnread(defaultLevel?: string): Promise<{
-    channels: { channelId: string; serverId: string; count: number }[];
+    channels: { channelId: string; communityId: string; count: number }[];
     dms: { friendId: string; count: number }[];
   }> {
     const response = await this.client.get("/v1/me/unread", {

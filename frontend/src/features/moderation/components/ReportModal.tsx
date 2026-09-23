@@ -6,7 +6,7 @@ import { ApiError } from "../../../shared/lib/apiError";
 import { reportAPI } from "../api/report";
 import {
   MAX_REPORT_DETAILS,
-  SERVER_REPORT_REASONS,
+  COMMUNITY_REPORT_REASONS,
   USER_REPORT_REASONS,
   countReportDetails,
   detailsLengthAfterEdit,
@@ -62,7 +62,7 @@ const ReportModal: React.FC = () => {
   if (!target) return null;
 
   const reasons =
-    target.type === "user" ? USER_REPORT_REASONS : SERVER_REPORT_REASONS;
+    target.type === "user" ? USER_REPORT_REASONS : COMMUNITY_REPORT_REASONS;
   const trimmed = details.trim();
   const written = countReportDetails(trimmed);
   const needsDetails = reason === "other" && written === 0;
@@ -84,7 +84,7 @@ const ReportModal: React.FC = () => {
       if (target.type === "user") {
         await reportAPI.reportUser(target.id, payload);
       } else {
-        await reportAPI.reportServer(target.id, payload);
+        await reportAPI.reportCommunity(target.id, payload);
       }
       if (!stillHere()) return;
       setSent(true);
@@ -118,7 +118,7 @@ const ReportModal: React.FC = () => {
       >
         <div className="m-head">
           <h3>
-            {target.type === "user" ? t("titleUser") : t("titleServer")}
+            {target.type === "user" ? t("titleUser") : t("titleCommunity")}
           </h3>
           <button
             type="button"

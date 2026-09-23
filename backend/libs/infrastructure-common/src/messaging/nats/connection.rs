@@ -62,7 +62,7 @@ const STREAMS: &[StreamDef] = &[
         durability: StreamDurability::Expiring,
     },
     StreamDef {
-        name: "RIFT_SERVER_EVENTS",
+        name: "RIFT_COMMUNITY_EVENTS",
         subject_suffix: "community.>",
         max_age_secs: 60 * 60 * 24 * 180,
         tier: StreamTier::Cold,

@@ -8,7 +8,7 @@ import { formatCallDuration, formatFileSize } from "../lib/messageFormat";
 import { copyTextToClipboard } from "../../../shared/lib/clipboard";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import { rememberMentionTarget } from "../lib/mentionTargets";
-import { UserAvatar, ServerLogo } from "../../../shared/ui/Avatar";
+import { UserAvatar, CommunityLogo } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
 import { openReport } from "../../moderation/store/reportModalStore";
 import AttachmentItem from "./AttachmentItem";
@@ -44,7 +44,7 @@ export interface MessageProps {
   onDelete: () => void;
   onAcceptInvite: () => void;
   onDeclineInvite: () => void;
-  onOpenInviteServer: () => void;
+  onOpenInviteCommunity: () => void;
 }
 
 export const Message: React.FC<MessageProps> = ({
@@ -73,7 +73,7 @@ export const Message: React.FC<MessageProps> = ({
   onDelete,
   onAcceptInvite,
   onDeclineInvite,
-  onOpenInviteServer,
+  onOpenInviteCommunity,
 }) => {
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
@@ -180,22 +180,22 @@ export const Message: React.FC<MessageProps> = ({
               </div>
             </div>
           </div>
-        ) : msg.inviteServerId ? (
+        ) : msg.inviteCommunityId ? (
           <div className="dm-invite-card">
             <div className="dm-invite-card-label">
               {i18n.t("invite.label", { ns: "chat" })}
             </div>
             <div className="dm-invite-card-row">
-              <ServerLogo
-                serverId={msg.inviteServerId}
-                name={msg.inviteServerName ?? "?"}
+              <CommunityLogo
+                communityId={msg.inviteCommunityId}
+                name={msg.inviteCommunityName ?? "?"}
                 className="dm-invite-card-glyph"
                 style={{ display: "inline-flex" }}
               />
               <div className="dm-invite-card-info">
                 <div className="dm-invite-card-name">
-                  {msg.inviteServerName ??
-                    i18n.t("invite.serverFallback", { ns: "chat" })}
+                  {msg.inviteCommunityName ??
+                    i18n.t("invite.communityFallback", { ns: "chat" })}
                 </div>
                 <div className="dm-invite-card-sub">
                   {isMine
@@ -210,7 +210,7 @@ export const Message: React.FC<MessageProps> = ({
                 <button
                   type="button"
                   className="dm-invite-card-btn joined"
-                  onClick={onOpenInviteServer}
+                  onClick={onOpenInviteCommunity}
                 >
                   {i18n.t("invite.open", { ns: "chat" })}
                 </button>
@@ -391,7 +391,7 @@ export const Message: React.FC<MessageProps> = ({
             </span>
           </div>
         )}
-        {isMine && !editing && !msg.inviteServerId && (
+        {isMine && !editing && !msg.inviteCommunityId && (
           <div className="msg-actions">
             {!msg.callStatus && (
               <button
@@ -415,7 +415,7 @@ export const Message: React.FC<MessageProps> = ({
         )}
         {!isMine &&
           !editing &&
-          !msg.inviteServerId &&
+          !msg.inviteCommunityId &&
           ((msg.content.length > 0 && !msg.callStatus) ||
             (msg.attachments?.length ?? 0) > 0 ||
             canModerate) && (

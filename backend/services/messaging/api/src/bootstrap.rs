@@ -169,8 +169,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         community_repository.clone(),
         livekit_service.clone(),
     );
-    let community_stream = std::env::var("MESSAGING_SERVER_STREAM")
-        .unwrap_or_else(|_| "RIFT_SERVER_EVENTS".to_string());
+    let community_stream = std::env::var("MESSAGING_COMMUNITY_STREAM")
+        .unwrap_or_else(|_| "RIFT_COMMUNITY_EVENTS".to_string());
     messaging_infrastructure::consumers::voice_effects::spawn(
         nats_jetstream.clone(),
         messaging_infrastructure::consumers::voice_effects::VoiceEffectsSpec {

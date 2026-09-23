@@ -50,7 +50,7 @@ fn default_dm_message_stream() -> String {
 }
 
 fn default_community_stream() -> String {
-    "RIFT_SERVER_EVENTS".to_string()
+    "RIFT_COMMUNITY_EVENTS".to_string()
 }
 
 fn default_consumer_prefix() -> String {

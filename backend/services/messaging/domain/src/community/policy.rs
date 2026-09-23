@@ -8,4 +8,4 @@ pub enum PolicyError {
     LimitReached,
 }
 
-pub const MAX_ROLES_PER_SERVER: usize = 50;
+pub const MAX_ROLES_PER_COMMUNITY: usize = 50;

@@ -31,7 +31,7 @@ export const dmHandlers: WsHandlers = {
         senderId,
         content: asString(d.content) ?? "",
         callStatus: asString(d.callStatus) ?? null,
-        inviteServerId: asString(d.inviteServerId) ?? null,
+        inviteCommunityId: asString(d.inviteCommunityId) ?? null,
         hasAttachments: Array.isArray(d.attachments) && d.attachments.length > 0,
         createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
       });

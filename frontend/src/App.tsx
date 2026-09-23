@@ -10,8 +10,8 @@ import {
 import { AnimatePresence } from "framer-motion";
 import LoginPage from "./features/auth/components/LoginPage";
 import RegisterPage from "./features/auth/components/RegisterPage";
-import ServersPage from "./features/servers/components/ServersPage";
-import JoinPage from "./features/servers/components/JoinPage";
+import CommunitiesPage from "./features/communities/components/CommunitiesPage";
+import JoinPage from "./features/communities/components/JoinPage";
 import ScreenSharePicker from "./features/voice/components/ScreenSharePicker";
 import { useAuthStore } from "./features/auth/store/authStore";
 import { resetSessionStores } from "./shared/store/resetSession";
@@ -255,7 +255,7 @@ const App: React.FC = () => {
               path="/app"
               element={
                 isAuthenticated && !hasUnverifiedSession ? (
-                  <ServersPage />
+                  <CommunitiesPage />
                 ) : (
                   <Navigate to={hasUnverifiedSession ? "/register" : "/login"} />
                 )

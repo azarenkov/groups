@@ -1,6 +1,6 @@
 import { isBlockedEitherWay } from "../../features/social/store/blockStore";
-import { useChannelStore } from "../../features/servers/store/channelStore";
-import { useServerStore } from "../../features/servers/store/serverStore";
+import { useChannelStore } from "../../features/communities/store/channelStore";
+import { useCommunityStore } from "../../features/communities/store/communityStore";
 import { useUnreadStore } from "../../features/chat/store/unreadStore";
 import { useVoicePresenceStore } from "../../features/voice/store/voicePresenceStore";
 
@@ -79,16 +79,16 @@ export function scheduleUnreadRefetch() {
   }, UNREAD_REFETCH_DELAY_MS);
 }
 
-export function purgeServerLocally(id: string) {
-  void import("../../features/servers/store/rolesStore").then(({ useRolesStore }) => {
-    useRolesStore.getState().clearServer(id);
+export function purgeCommunityLocally(id: string) {
+  void import("../../features/communities/store/rolesStore").then(({ useRolesStore }) => {
+    useRolesStore.getState().clearCommunity(id);
   });
-  const serverState = useServerStore.getState();
+  const communityState = useCommunityStore.getState();
   const channelState = useChannelStore.getState();
   const voiceState = useVoicePresenceStore.getState();
   const unreadState = useUnreadStore.getState();
-  const channelIds = (channelState.channelsByServer[id] ?? []).map((c) => c.id);
-  voiceState.purgePendingForServer(id, channelIds);
+  const channelIds = (channelState.channelsByCommunity[id] ?? []).map((c) => c.id);
+  voiceState.purgePendingForCommunity(id, channelIds);
   for (const cid of channelIds) {
     voiceState.clearChannel(cid);
     unreadState.resetChannel(cid);
@@ -100,8 +100,8 @@ export function purgeServerLocally(id: string) {
     channelState.setSelectedChannel(null);
   }
   channelState.clearChannels(id);
-  if (serverState.selectedServerId === id) {
-    serverState.setSelectedServer(null);
+  if (communityState.selectedCommunityId === id) {
+    communityState.setSelectedCommunity(null);
   }
-  serverState.removeServer(id);
+  communityState.removeCommunity(id);
 }

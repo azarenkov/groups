@@ -44,17 +44,17 @@ export const UserAvatar: React.FC<
   );
 };
 
-export const ServerLogo: React.FC<
-  AvatarBaseProps & { serverId?: string | null; name: string; accent?: string | null }
-> = ({ serverId, name, accent, className, style, title, children, onClick }) => {
-  const url = useAvatarUrl("server", serverId);
+export const CommunityLogo: React.FC<
+  AvatarBaseProps & { communityId?: string | null; name: string; accent?: string | null }
+> = ({ communityId, name, accent, className, style, title, children, onClick }) => {
+  const url = useAvatarUrl("community", communityId);
   return (
     <div
       className={className}
       title={title}
       onClick={onClick}
       style={{
-        background: accent || colorForId(serverId ?? ""),
+        background: accent || colorForId(communityId ?? ""),
         position: "relative",
         ...style,
       }}

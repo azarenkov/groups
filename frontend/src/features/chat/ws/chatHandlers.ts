@@ -1,7 +1,7 @@
 import type { WsHandlers } from "../../../shared/ws/types";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useBlockStore } from "../../social/store/blockStore";
-import { useChannelStore } from "../../servers/store/channelStore";
+import { useChannelStore } from "../../communities/store/channelStore";
 import { notificationPrefsLoaded, useNotificationPrefsStore } from "../../settings/store/notificationPrefsStore";
 import { defaultMentionLevel, desktopNotifAllowed, messageSoundAllowed } from "../../settings/store/notificationSettingsStore";
 import { useReadReceiptStore } from "../store/readReceiptStore";
@@ -41,13 +41,13 @@ export const chatHandlers: WsHandlers = {
           : !!myName && mentionsUser(asString(d.content) ?? "", myName);
         if (!mentioned) return;
       }
-      const byServer = useChannelStore.getState().channelsByServer;
-      let serverId: string | undefined;
+      const byCommunity = useChannelStore.getState().channelsByCommunity;
+      let communityId: string | undefined;
       let channelName: string | undefined;
-      for (const [sid, chans] of Object.entries(byServer)) {
+      for (const [sid, chans] of Object.entries(byCommunity)) {
         const found = chans.find((c) => c.id === channelId);
         if (found) {
-          serverId = sid;
+          communityId = sid;
           channelName = found.name;
           break;
         }
@@ -56,7 +56,7 @@ export const chatHandlers: WsHandlers = {
         lastChannelBumpAt[channelId] ?? 0,
         eventTs(d.occurredAt),
       );
-      useUnreadStore.getState().bumpChannel(channelId, serverId);
+      useUnreadStore.getState().bumpChannel(channelId, communityId);
       if (asString(d.kind) === "system") return;
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {

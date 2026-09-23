@@ -6,8 +6,8 @@ export interface ActiveFriend {
   userName: string;
   channelId: string;
   channelName: string;
-  serverId: string;
-  serverName: string;
+  communityId: string;
+  communityName: string;
   joinedAt: string;
   isMuted: boolean;
   cameraOn: boolean;
@@ -34,15 +34,15 @@ export interface PublicProfile {
   acceptsFriendRequests: boolean;
   blocked: boolean;
   blockedBy: boolean;
-  mutualServers: { id: string; name: string; accentColor: string | null }[];
-  voiceRoom: { channelId: string; channelName: string; serverId: string; serverName: string } | null;
+  mutualCommunities: { id: string; name: string; accentColor: string | null }[];
+  voiceRoom: { channelId: string; channelName: string; communityId: string; communityName: string } | null;
 }
 
 export interface RecentRoom {
   channelId: string;
   channelName: string;
-  serverId: string;
-  serverName: string;
+  communityId: string;
+  communityName: string;
   liveCount: number;
   lastJoin: string;
 }

@@ -1,6 +1,6 @@
 import React from "react";
 
-import { channelAPI } from "../../servers/api/channel";
+import { channelAPI } from "../../communities/api/channel";
 import type { ChannelMeta } from "../types";
 import type { ChannelParticipant } from "../../../shared/types/channel";
 import { useReadReceiptStore } from "../store/readReceiptStore";
@@ -9,7 +9,7 @@ import { rememberMentionTarget } from "../lib/mentionTargets";
 
 interface MentionsOptions {
   channel?: ChannelMeta;
-  serverId?: string;
+  communityId?: string;
   currentUserId?: string;
   nameOverrides: Record<string, string>;
   text: string;
@@ -19,7 +19,7 @@ interface MentionsOptions {
 
 export function useMentions({
   channel,
-  serverId,
+  communityId,
   currentUserId,
   nameOverrides,
   text,
@@ -42,7 +42,7 @@ export function useMentions({
   }, [channelMemberCount]);
 
   const ensureParticipants = React.useCallback(() => {
-    if (!channel || !serverId) return;
+    if (!channel || !communityId) return;
     if (participantsChannelRef.current === channel.id) return;
     const channelId = channel.id;
     participantsChannelRef.current = channelId;
@@ -55,7 +55,7 @@ export function useMentions({
         let totalPages = 1;
         do {
           const res = await channelAPI.listParticipants(
-            serverId,
+            communityId,
             channelId,
             page,
             50,
@@ -81,7 +81,7 @@ export function useMentions({
         }
       }
     })();
-  }, [channel, serverId]);
+  }, [channel, communityId]);
 
   const updateMentionQuery = React.useCallback(
     (value: string, caret: number | null) => {

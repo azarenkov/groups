@@ -280,8 +280,8 @@ impl HttpMapping for UpdateCommunityLogoError {
     }
     fn to_error_code(&self) -> &'static str {
         match self {
-            UpdateCommunityLogoError::CommunityNotFound => "SERVER_NOT_FOUND",
-            UpdateCommunityLogoError::NotOwner => "SERVER_NOT_OWNER",
+            UpdateCommunityLogoError::CommunityNotFound => "COMMUNITY_NOT_FOUND",
+            UpdateCommunityLogoError::NotOwner => "COMMUNITY_NOT_OWNER",
             UpdateCommunityLogoError::OwnerLookup(_) => "OWNER_LOOKUP_UNAVAILABLE",
             UpdateCommunityLogoError::Repository(e) => e.to_error_code(),
             UpdateCommunityLogoError::Storage(e) => e.to_error_code(),

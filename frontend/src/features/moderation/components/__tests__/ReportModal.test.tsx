@@ -6,7 +6,7 @@ import ReportModal from "../ReportModal";
 import { reportAPI } from "../../api/report";
 import {
   MAX_REPORT_DETAILS,
-  SERVER_REPORT_REASONS,
+  COMMUNITY_REPORT_REASONS,
   USER_REPORT_REASONS,
 } from "../../lib/reasons";
 import { useReportModalStore } from "../../store/reportModalStore";
@@ -14,7 +14,7 @@ import { useReportModalStore } from "../../store/reportModalStore";
 jest.mock("../../api/report", () => ({
   reportAPI: {
     reportUser: jest.fn().mockResolvedValue(undefined),
-    reportServer: jest.fn().mockResolvedValue(undefined),
+    reportCommunity: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -40,10 +40,10 @@ describe("ReportModal", () => {
     expect(screen.getAllByRole("radio")).toHaveLength(USER_REPORT_REASONS.length);
 
     act(() => {
-      useReportModalStore.getState().open({ type: "server", id: "s1", name: "den" });
+      useReportModalStore.getState().open({ type: "community", id: "s1", name: "den" });
     });
     rerender(<ReportModal />);
-    expect(screen.getAllByRole("radio")).toHaveLength(SERVER_REPORT_REASONS.length);
+    expect(screen.getAllByRole("radio")).toHaveLength(COMMUNITY_REPORT_REASONS.length);
   });
 
   it("sends the picked reason for the reported user", async () => {
@@ -120,12 +120,12 @@ describe("ReportModal", () => {
     fireEvent.click(submitButton());
 
     act(() => {
-      useReportModalStore.getState().open({ type: "server", id: "s1", name: "den" });
+      useReportModalStore.getState().open({ type: "community", id: "s1", name: "den" });
       settle();
     });
 
     await waitFor(() =>
-      expect(screen.getAllByRole("radio")).toHaveLength(SERVER_REPORT_REASONS.length),
+      expect(screen.getAllByRole("radio")).toHaveLength(COMMUNITY_REPORT_REASONS.length),
     );
     expect(useReportModalStore.getState().target?.id).toBe("s1");
     expect(submitButton()).toBeDisabled();
@@ -160,7 +160,7 @@ describe("ReportModal", () => {
   it("keeps escape to itself so the screen underneath stays open", () => {
     const underneath = jest.fn();
     window.addEventListener("keydown", underneath);
-    useReportModalStore.getState().open({ type: "server", id: "s1", name: "den" });
+    useReportModalStore.getState().open({ type: "community", id: "s1", name: "den" });
     render(<ReportModal />);
 
     fireEvent.keyDown(document.body, { key: "Escape" });

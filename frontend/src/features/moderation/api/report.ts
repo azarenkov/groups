@@ -13,8 +13,8 @@ class ReportAPI {
     await this.client.post(`/v1/users/${userId}/report`, payload);
   }
 
-  async reportServer(serverId: string, payload: ReportPayload): Promise<void> {
-    await this.client.post(`/v1/servers/${serverId}/report`, payload);
+  async reportCommunity(communityId: string, payload: ReportPayload): Promise<void> {
+    await this.client.post(`/v1/communities/${communityId}/report`, payload);
   }
 }
 

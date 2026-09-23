@@ -17,7 +17,7 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{channel::moderation::ModerationGrant, community::description::CommunityDescription, community::events::CommunityEvent, community::events::lifecycle::CommunityCreated, community::events::lifecycle::CommunityDeleted, community::events::lifecycle::CommunityOwnerChanged, community::events::lifecycle::CommunityMemberLeft, community::events::lifecycle::CommunityRolesChanged, community::events::lifecycle::CommunityUpdated, community::id::CommunityId, community::name::CommunityName, community::policy::MAX_ROLES_PER_SERVER, community::policy::PolicyError, community::role::PERM_ALL, community::role::PERM_KICK_MEMBERS, community::role::PERM_MANAGE_CHANNELS, community::role::PERM_MANAGE_INVITES, community::role::PERM_MANAGE_MESSAGES, community::role::PERM_MANAGE_ROLES, community::role::PERM_MANAGE_SERVER, community::role::PERM_DEAFEN_MEMBERS, community::role::PERM_MUTE_MEMBERS, community::role::RolePatch, community::role::CommunityRole, community::role::has_permission};
+use crate::{channel::moderation::ModerationGrant, community::description::CommunityDescription, community::events::CommunityEvent, community::events::lifecycle::CommunityCreated, community::events::lifecycle::CommunityDeleted, community::events::lifecycle::CommunityOwnerChanged, community::events::lifecycle::CommunityMemberLeft, community::events::lifecycle::CommunityRolesChanged, community::events::lifecycle::CommunityUpdated, community::id::CommunityId, community::name::CommunityName, community::policy::MAX_ROLES_PER_COMMUNITY, community::policy::PolicyError, community::role::PERM_ALL, community::role::PERM_KICK_MEMBERS, community::role::PERM_MANAGE_CHANNELS, community::role::PERM_MANAGE_INVITES, community::role::PERM_MANAGE_MESSAGES, community::role::PERM_MANAGE_ROLES, community::role::PERM_MANAGE_COMMUNITY, community::role::PERM_DEAFEN_MEMBERS, community::role::PERM_MUTE_MEMBERS, community::role::RolePatch, community::role::CommunityRole, community::role::has_permission};
 use domain::user::id::UserId;
 
 #[derive(Debug)]
@@ -148,7 +148,7 @@ impl Community {
     }
 
     pub fn ensure_can_manage(&self, actor: &UserId) -> Result<(), PolicyError> {
-        self.ensure_permission(actor, PERM_MANAGE_SERVER)
+        self.ensure_permission(actor, PERM_MANAGE_COMMUNITY)
     }
 
     pub fn update_details(
@@ -158,7 +158,7 @@ impl Community {
         description: Option<CommunityDescription>,
         now: DateTime<Utc>,
     ) -> Result<(), PolicyError> {
-        self.ensure_permission(actor, PERM_MANAGE_SERVER)?;
+        self.ensure_permission(actor, PERM_MANAGE_COMMUNITY)?;
         self.name = name.clone();
         self.description = description.clone();
         self.updated_at = now;
@@ -181,7 +181,7 @@ impl Community {
         now: DateTime<Utc>,
     ) -> Result<CommunityRole, PolicyError> {
         self.ensure_role_manager(actor)?;
-        if self.roles.len() >= MAX_ROLES_PER_SERVER {
+        if self.roles.len() >= MAX_ROLES_PER_COMMUNITY {
             return Err(PolicyError::LimitReached);
         }
         let permissions = permissions & PERM_ALL;

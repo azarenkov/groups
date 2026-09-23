@@ -1,0 +1,253 @@
+import { http } from "../../../shared/api/http";
+import { appendCrop } from "../../../shared/lib/imageCrop";
+import {
+  ListCommunitiesResponse,
+  ListCommunityMembersResponse,
+  CreateCommunityRequest,
+  CreateCommunityResponse,
+  InviteLink,
+  InvitePreview,
+  JoinInviteResponse,
+} from "../../../shared/types/community";
+
+class CommunityAPI {
+  private client = http;
+
+  async listCommunities(
+    page: number = 1,
+    perPage: number = 20,
+  ): Promise<ListCommunitiesResponse> {
+    const response = await this.client.get("/v1/communities", {
+      params: { page, per_page: perPage },
+    });
+    return {
+      ...response.data.data,
+      pagination: response.data.meta?.pagination,
+    };
+  }
+
+  async createCommunity(data: CreateCommunityRequest): Promise<CreateCommunityResponse> {
+    const response = await this.client.post("/v1/communities", data);
+    return response.data.data;
+  }
+
+  async updateCommunity(
+    communityId: string,
+    data: { name: string; description?: string },
+  ): Promise<void> {
+    await this.client.patch(`/v1/communities/${communityId}`, data);
+  }
+
+  async uploadLogo(communityId: string, file: File): Promise<void> {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    appendCrop(form, file);
+    await this.client.post(`/v1/communities/${communityId}/logo`, form, {
+      timeout: 60000,
+    });
+  }
+
+  async deleteLogo(communityId: string): Promise<void> {
+    await this.client.delete(`/v1/communities/${communityId}/logo`);
+  }
+
+  async downloadLogo(communityId: string): Promise<Blob> {
+    const response = await this.client.get(`/v1/communities/${communityId}/logo`, {
+      responseType: "blob",
+      timeout: 30000,
+    });
+    return response.data;
+  }
+
+  async listRoles(communityId: string): Promise<{
+    roles: { id: string; name: string; color: string; permissions: number; position: number }[];
+    assignments: { userId: string; roleId: string }[];
+  }> {
+    const response = await this.client.get(`/v1/communities/${communityId}/roles`);
+    return response.data.data;
+  }
+
+  async createRole(
+    communityId: string,
+    name: string,
+    color: string,
+    permissions: number,
+  ): Promise<{ id: string }> {
+    const response = await this.client.post(`/v1/communities/${communityId}/roles`, {
+      name,
+      color,
+      permissions,
+    });
+    return response.data.data;
+  }
+
+  async updateRole(
+    communityId: string,
+    roleId: string,
+    patch: {
+      name?: string;
+      color?: string;
+      permissionsAdd?: number;
+      permissionsRemove?: number;
+    },
+  ): Promise<void> {
+    await this.client.put(`/v1/communities/${communityId}/roles/${roleId}`, patch);
+  }
+
+  async deleteRole(communityId: string, roleId: string): Promise<void> {
+    await this.client.delete(`/v1/communities/${communityId}/roles/${roleId}`);
+  }
+
+  async kickMember(communityId: string, memberId: string): Promise<void> {
+    await this.client.delete(`/v1/communities/${communityId}/members/${memberId}`);
+  }
+
+  async swapRoles(communityId: string, roleA: string, roleB: string): Promise<void> {
+    await this.client.post(`/v1/communities/${communityId}/roles/${roleA}/swap/${roleB}`);
+  }
+
+  async assignRole(communityId: string, memberId: string, roleId: string): Promise<void> {
+    await this.client.put(
+      `/v1/communities/${communityId}/members/${memberId}/roles/${roleId}`,
+    );
+  }
+
+  async revokeRole(communityId: string, memberId: string, roleId: string): Promise<void> {
+    await this.client.delete(
+      `/v1/communities/${communityId}/members/${memberId}/roles/${roleId}`,
+    );
+  }
+
+  async deleteCommunity(communityId: string): Promise<void> {
+    await this.client.delete(`/v1/communities/${communityId}`);
+  }
+
+  async leave(communityId: string): Promise<void> {
+    await this.client.delete(`/v1/communities/${communityId}/members/me`);
+  }
+
+  async listMembers(
+    communityId: string,
+    page: number = 1,
+    perPage: number = 50,
+  ): Promise<ListCommunityMembersResponse> {
+    const response = await this.client.get(
+      `/v1/communities/${communityId}/members`,
+      { params: { page, per_page: perPage } },
+    );
+    return {
+      ...response.data.data,
+      pagination: response.data.meta?.pagination,
+    };
+  }
+
+  async listAllMembers(communityId: string): Promise<{ id: string; name: string }[]> {
+    const perPage = 50;
+    const all: { id: string; name: string }[] = [];
+    let page = 1;
+    while (true) {
+      const res = await this.listMembers(communityId, page, perPage);
+      all.push(...res.members);
+      const total = res.pagination?.totalPages ?? 1;
+      if (page >= total) break;
+      page++;
+    }
+    return all;
+  }
+
+  async createInviteLink(
+    communityId: string,
+    opts: { name?: string; expiresDays?: number; maxUses?: number } = {},
+  ): Promise<InviteLink> {
+    const response = await this.client.post(
+      `/v1/communities/${communityId}/invite-links`,
+      {
+        name: opts.name,
+        expiresDays: opts.expiresDays,
+        maxUses: opts.maxUses,
+      },
+    );
+    return response.data.data;
+  }
+
+  async listInviteLinks(
+    communityId: string,
+    opts: { cursor?: string | null; limit?: number } = {},
+  ): Promise<{ primary: InviteLink; links: InviteLink[]; nextCursor: string | null }> {
+    const response = await this.client.get(
+      `/v1/communities/${communityId}/invite-links`,
+      { params: { cursor: opts.cursor ?? undefined, limit: opts.limit } },
+    );
+    return response.data.data;
+  }
+
+  async revokeInviteLink(communityId: string, token: string): Promise<void> {
+    await this.client.delete(
+      `/v1/communities/${communityId}/invite-links/${encodeURIComponent(token)}`,
+    );
+  }
+
+  async previewInvite(token: string): Promise<InvitePreview> {
+    const response = await this.client.get(
+      `/v1/invites/${encodeURIComponent(token)}`,
+    );
+    return response.data.data;
+  }
+
+  async joinByInvite(token: string): Promise<JoinInviteResponse> {
+    const response = await this.client.post(
+      `/v1/invites/${encodeURIComponent(token)}/join`,
+    );
+    return response.data.data;
+  }
+
+  async listVoicePresence(communityId: string): Promise<{
+    items: {
+      channelId: string;
+      userId: string;
+      userName: string;
+      isMuted: boolean;
+      mutedBy?: string | null;
+      deafenedBy?: string | null;
+      cameraOn: boolean;
+      screenOn: boolean;
+    }[];
+    streamViewers: {
+      channelId: string;
+      streamerId: string;
+      count: number;
+    }[];
+  }> {
+    const response = await this.client.get(
+      `/v1/communities/${communityId}/voice-presence`,
+    );
+    return {
+      items: response.data.data.items,
+      streamViewers: response.data.data.streamViewers ?? [],
+    };
+  }
+
+  async updateStreamViewer(
+    communityId: string,
+    channelId: string,
+    streamerId: string,
+    viewerSessionId: string,
+    watching: boolean,
+  ): Promise<void> {
+    await this.client.put(`/v1/communities/${communityId}/stream-viewers`, {
+      channelId,
+      streamerId,
+      viewerSessionId,
+      watching,
+    });
+  }
+
+  async listSentInvites(communityId: string): Promise<{ recipientIds: string[] }> {
+    const response = await this.client.get(
+      `/v1/communities/${communityId}/sent-invites`,
+    );
+    return { recipientIds: response.data.data.recipientIds };
+  }
+}
+
+export const communityAPI = new CommunityAPI();

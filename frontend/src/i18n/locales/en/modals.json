@@ -1,18 +1,18 @@
 {
-  "createServer": {
-    "title": "Create a server",
+  "createCommunity": {
+    "title": "Create a community",
     "subtitle": "Give your community a home. You can change this later.",
-    "nameLabel": "Server name",
-    "namePlaceholder": "My server",
-    "create": "Create server",
+    "nameLabel": "Community name",
+    "namePlaceholder": "My community",
+    "create": "Create community",
     "creating": "Creating…",
-    "nameNotAllowed": "This server name isn't allowed.",
+    "nameNotAllowed": "This community name isn't allowed.",
     "descriptionNotAllowed": "This description isn't allowed.",
     "moderationUnavailable": "Text moderation is temporarily unavailable. Try again later."
   },
   "createChannel": {
     "title": "Create a channel",
-    "subtitle": "Channels organize conversations within a server.",
+    "subtitle": "Channels organize conversations within a community.",
     "nameLabel": "Channel name",
     "namePlaceholder": "general",
     "kindLabel": "Channel kind",
@@ -25,7 +25,7 @@
     "creating": "Creating…",
     "voiceSub": "Voice, video and screen sharing",
     "textSub": "Messages, files and mentions",
-    "publicSub": "Visible to every server member",
+    "publicSub": "Visible to every community member",
     "privateSub": "Joining requires a password",
     "passwordLabel": "Password",
     "passwordHint": "Everyone will need it the first time they join"
@@ -49,7 +49,7 @@
     "hint": "Usernames are 3+ characters: letters, digits and underscores. Ask your friend to check theirs in profile settings."
   },
   "inviteFriends": {
-    "title": "Invite friends to {{server}}",
+    "title": "Invite friends to {{community}}",
     "subtitle": "Pick friends to send a join invite.",
     "search": "Find a friend",
     "invite": "Invite",
@@ -91,9 +91,9 @@
     "confirm": "Confirm",
     "thisCantBeUndone": "This can't be undone.",
     "aboutToDelete": "You're about to delete <0>{{name}}</0>.",
-    "deleteServerTitle": "Delete server?",
-    "leaveServerTitle": "Leave server?",
-    "leaveServerSubtitle": "You can rejoin if invited again.",
+    "deleteCommunityTitle": "Delete community?",
+    "leaveCommunityTitle": "Leave community?",
+    "leaveCommunitySubtitle": "You can rejoin if invited again.",
     "deleteChannelTitle": "Delete channel?",
     "removeFriendTitle": "Remove friend?",
     "removeFriendSubtitle": "You can send a new request later.",
@@ -105,21 +105,21 @@
     "delete": "Delete"
   },
   "accent": "Accent",
-  "serverModal": {
-    "addTitle": "Add a server",
-    "addSub": "Create a new server or join with an invite.",
+  "communityModal": {
+    "addTitle": "Add a community",
+    "addSub": "Create a new community or join with an invite.",
     "createOwn": "Create my own",
     "createOwnSub": "Set up a new space from scratch.",
     "haveInvite": "I have an invite",
     "haveInviteSub": "Join with an invite link.",
-    "createBlurb": "A server is a private space for voice and chat. Create it and invite people.",
+    "createBlurb": "A community is a private space for voice and chat. Create it and invite people.",
     "namePlaceholder": "e.g. Focus Lab",
     "descLabel": "Description",
     "descOptional": "— optional",
-    "descPlaceholder": "What is this server about?",
-    "accentLabel": "Server color",
-    "joinTitle": "Join a server",
-    "joinBlurb": "Paste an invite link to join an existing server.",
+    "descPlaceholder": "What is this community about?",
+    "accentLabel": "Community color",
+    "joinTitle": "Join a community",
+    "joinBlurb": "Paste an invite link to join an existing community.",
     "linkLabel": "Invite link",
     "linkHint": "An invite link looks like:",
     "linkInvalid": "This does not look like an invite link.",
@@ -132,14 +132,14 @@
     "inviteExpired": "This invite link has expired.",
     "inviteExhausted": "This invite link has reached its usage limit.",
     "inviteRevoked": "This invite link has been revoked.",
-    "joinPageTitle": "You are invited to a server",
+    "joinPageTitle": "You are invited to a community",
     "joinPageSub": "Sign in to join.",
     "signInToJoin": "Sign in and join",
     "createAccount": "Create an account",
     "openInApp": "Open in the app",
-    "logoPick": "Server photo (optional)",
+    "logoPick": "Community photo (optional)",
     "logoRejected": "the image was rejected by content moderation",
     "logoUploadGeneric": "the upload failed",
-    "logoUploadFailed": "The server was created, but the logo could not be uploaded: {{reason}}. You can add it later in server settings."
+    "logoUploadFailed": "The community was created, but the logo could not be uploaded: {{reason}}. You can add it later in community settings."
   }
 }

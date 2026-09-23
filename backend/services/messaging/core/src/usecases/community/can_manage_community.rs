@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::{community::id::CommunityId, community::repository::CommunityRepository, community::role::PERM_MANAGE_SERVER, community::role::CommunityRoleRepository, community::role::has_permission};
+use messaging_domain::{community::id::CommunityId, community::repository::CommunityRepository, community::role::PERM_MANAGE_COMMUNITY, community::role::CommunityRoleRepository, community::role::has_permission};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -26,6 +26,6 @@ impl<S: CommunityRepository, R: CommunityRoleRepository> CanManageCommunity<S, R
             return Ok(false);
         }
         let perms = self.role_repository.user_permissions(&community_id, &user_id).await?;
-        Ok(has_permission(perms, PERM_MANAGE_SERVER))
+        Ok(has_permission(perms, PERM_MANAGE_COMMUNITY))
     }
 }

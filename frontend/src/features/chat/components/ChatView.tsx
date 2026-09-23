@@ -5,10 +5,10 @@ import { friendshipAPI } from "../../social/api/friendship";
 import Icon from "../../../shared/ui/Icon";
 import CallJoinBanner from "../../voice/components/CallJoinBanner";
 import ConfirmModal from "../../../shared/ui/ConfirmModal";
-import { channelAPI } from "../../servers/api/channel";
+import { channelAPI } from "../../communities/api/channel";
 import { dmAPI } from "../../dm/api/dm";
 import { ChannelMessage } from "../../../shared/types/channel";
-import { Server } from "../../../shared/types/server";
+import { Community } from "../../../shared/types/community";
 import { ApiError } from "../../../shared/lib/apiError";
 import i18n from "../../../i18n";
 import { useUserNamesStore } from "../../social/store/userNamesStore";
@@ -17,7 +17,7 @@ import {
   PERM_MANAGE_MESSAGES,
   useRolesStore,
   userPermissions,
-} from "../../servers/store/rolesStore";
+} from "../../communities/store/rolesStore";
 import ChannelHeader from "./ChannelHeader";
 import Composer from "./Composer";
 import SearchResults from "./SearchResults";
@@ -36,30 +36,30 @@ import type { ChannelMeta, DmMeta } from "../types";
 
 interface ChatViewProps {
   channel?: ChannelMeta;
-  serverId?: string;
+  communityId?: string;
   currentUserId?: string;
   dm?: DmMeta;
   membersOpen?: boolean;
-  servers?: Server[];
+  communities?: Community[];
   onToggleMembers?: () => void;
   onRemoveFriend?: () => void;
   onBlockUser?: () => void;
-  onGoToServer?: (serverId: string) => void | Promise<void>;
+  onGoToCommunity?: (communityId: string) => void | Promise<void>;
   topSlot?: React.ReactNode;
   callMode?: boolean;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
   channel,
-  serverId,
+  communityId,
   currentUserId,
   dm,
   membersOpen,
-  servers,
+  communities,
   onToggleMembers,
   onRemoveFriend,
   onBlockUser,
-  onGoToServer,
+  onGoToCommunity,
   topSlot,
   callMode,
 }) => {
@@ -111,10 +111,10 @@ const ChatView: React.FC<ChatViewProps> = ({
     dmFriendId,
   });
 
-  const isText = !!channel && !!serverId;
+  const isText = !!channel && !!communityId;
   const isDm = !!dm && !!dm.friendId;
   const convId = channelId ?? dmFriendId;
-  const messenger = useMessenger({ channel, serverId, dm, isDm });
+  const messenger = useMessenger({ channel, communityId, dm, isDm });
 
   const {
     messages,
@@ -168,7 +168,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const composer = useMessageComposer({
     messenger,
     channel,
-    serverId,
+    communityId,
     dm,
     isText,
     convId,
@@ -189,15 +189,15 @@ const ChatView: React.FC<ChatViewProps> = ({
   });
 
   const rolesData = useRolesStore((s) =>
-    serverId ? s.byServer[serverId] : undefined,
+    communityId ? s.byCommunity[communityId] : undefined,
   );
   const fetchRoles = useRolesStore((s) => s.fetch);
   React.useEffect(() => {
-    if (serverId) void fetchRoles(serverId).catch(() => {});
-  }, [serverId, fetchRoles]);
-  const serverOwnerId = React.useMemo(
-    () => servers?.find((sv) => sv.id === serverId)?.ownerId,
-    [servers, serverId],
+    if (communityId) void fetchRoles(communityId).catch(() => {});
+  }, [communityId, fetchRoles]);
+  const communityOwnerId = React.useMemo(
+    () => communities?.find((sv) => sv.id === communityId)?.ownerId,
+    [communities, communityId],
   );
   const {
     mentionQuery,
@@ -210,7 +210,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     applyMention,
   } = useMentions({
     channel,
-    serverId,
+    communityId,
     currentUserId,
     nameOverrides,
     text,
@@ -234,7 +234,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const canModerateMessages =
     !!channel &&
     !!currentUserId &&
-    (serverOwnerId === currentUserId ||
+    (communityOwnerId === currentUserId ||
       (userPermissions(rolesData, currentUserId) & PERM_MANAGE_MESSAGES) !== 0);
 
   const handleJumpToMessage = async (target: ChannelMessage) => {
@@ -243,9 +243,9 @@ const ChatView: React.FC<ChatViewProps> = ({
   };
 
   const handleJoinFromAccessError = async () => {
-    if (!channel || !serverId) return;
+    if (!channel || !communityId) return;
     try {
-      await channelAPI.joinText(serverId, channel.id);
+      await channelAPI.joinText(communityId, channel.id);
       setAccessError(null);
       await refreshHistory();
     } catch (err) {
@@ -255,7 +255,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         const pw = window.prompt(`Enter password for #${channel.name}`);
         if (pw === null) return;
         try {
-          await channelAPI.joinText(serverId, channel.id, pw);
+          await channelAPI.joinText(communityId, channel.id, pw);
           setAccessError(null);
           await refreshHistory();
         } catch (retryErr) {
@@ -268,33 +268,33 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
   };
 
-  const myServerIds = React.useMemo(
-    () => new Set((servers ?? []).map((s) => s.id)),
-    [servers],
+  const myCommunityIds = React.useMemo(
+    () => new Set((communities ?? []).map((s) => s.id)),
+    [communities],
   );
 
   const handleAcceptInvite = async (msg: ChannelMessage) => {
-    if (!msg.inviteServerId) return;
+    if (!msg.inviteCommunityId) return;
     setComposerError(null);
     try {
-      await dmAPI.acceptServerInvite(msg.id);
+      await dmAPI.acceptCommunityInvite(msg.id);
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
-      setComposerError(apiErr?.message || i18n.t("couldNotJoinServer", { ns: "chat" }));
+      setComposerError(apiErr?.message || i18n.t("couldNotJoinCommunity", { ns: "chat" }));
       return;
     }
     try {
-      await onGoToServer?.(msg.inviteServerId);
+      await onGoToCommunity?.(msg.inviteCommunityId);
     } catch (err) {
       console.warn("[ChatView] post-accept navigation failed:", err);
     }
   };
 
   const handleDeclineInvite = async (msg: ChannelMessage) => {
-    if (!msg.inviteServerId) return;
+    if (!msg.inviteCommunityId) return;
     setComposerError(null);
     try {
-      await dmAPI.declineServerInvite(msg.id);
+      await dmAPI.declineCommunityInvite(msg.id);
       setMessages((prev) => prev.filter((m) => m.id !== msg.id));
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
@@ -507,7 +507,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             savingEdit={editing.savingEdit}
             highlightedMessageId={highlightedMessageId}
             canModerateMessages={canModerateMessages}
-            myServerIds={myServerIds}
+            myCommunityIds={myCommunityIds}
             receiptFor={receiptFor}
             onEditTextChange={editing.setEditText}
             onStartEdit={editing.startEdit}
@@ -519,7 +519,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             onDelete={editing.setDeleteTarget}
             onAcceptInvite={handleAcceptInvite}
             onDeclineInvite={handleDeclineInvite}
-            onOpenInviteServer={onGoToServer}
+            onOpenInviteCommunity={onGoToCommunity}
           />
         )}
       </div>

@@ -1,7 +1,7 @@
 import { ws, WsEnvelope } from "./websocket";
 import { chatHandlers } from "../../features/chat/ws/chatHandlers";
 import { dmHandlers } from "../../features/dm/ws/dmHandlers";
-import { serverHandlers } from "../../features/servers/ws/serverHandlers";
+import { communityHandlers } from "../../features/communities/ws/communityHandlers";
 import { socialHandlers } from "../../features/social/ws/socialHandlers";
 import { voiceHandlers } from "../../features/voice/ws/voiceHandlers";
 import type { WsHandlers } from "./types";
@@ -35,7 +35,7 @@ let installed = false;
 let prefsReloadGen = 0;
 
 const handlers: WsHandlers = {
-  ...serverHandlers,
+  ...communityHandlers,
   ...chatHandlers,
   ...dmHandlers,
   ...voiceHandlers,
@@ -88,14 +88,14 @@ export function installWsBootstrap() {
       if (gen !== prefsReloadGen) return;
       scheduleUnreadRefetch();
     })();
-    void import("../../features/servers/store/rolesStore").then(({ useRolesStore }) => {
+    void import("../../features/communities/store/rolesStore").then(({ useRolesStore }) => {
       const roles = useRolesStore.getState();
       const tracked = new Set([
-        ...Object.keys(roles.byServer),
-        ...roles.trackedServers(),
+        ...Object.keys(roles.byCommunity),
+        ...roles.trackedCommunities(),
       ]);
-      for (const serverId of tracked) {
-        void roles.fetch(serverId).catch(() => {});
+      for (const communityId of tracked) {
+        void roles.fetch(communityId).catch(() => {});
       }
     });
     void useCallStore.getState().rehydrate();

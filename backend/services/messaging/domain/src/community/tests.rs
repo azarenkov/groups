@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use chrono::Utc;
 use uuid::Uuid;
 
-use super::{Community, events::CommunityEvent, id::CommunityId, name::CommunityName, policy::MAX_ROLES_PER_SERVER, policy::PolicyError, role::PERM_ALL, role::PERM_KICK_MEMBERS, role::PERM_MANAGE_ROLES, role::PERM_MUTE_MEMBERS, role::RolePatch, role::CommunityRole};
+use super::{Community, events::CommunityEvent, id::CommunityId, name::CommunityName, policy::MAX_ROLES_PER_COMMUNITY, policy::PolicyError, role::PERM_ALL, role::PERM_KICK_MEMBERS, role::PERM_MANAGE_ROLES, role::PERM_MUTE_MEMBERS, role::RolePatch, role::CommunityRole};
 use domain::user::id::UserId;
 use crate::channel::moderation::ModerationGrant;
 
@@ -104,7 +104,7 @@ fn created_roles_sit_below_the_creator_and_cannot_exceed_their_permissions() {
 #[test]
 fn role_limit_is_enforced() {
     let mut f = fixture();
-    for _ in 0..(MAX_ROLES_PER_SERVER - 2) {
+    for _ in 0..(MAX_ROLES_PER_COMMUNITY - 2) {
         f.community.create_role(&f.owner, "r".into(), "#000000".into(), 0, Utc::now()).unwrap();
     }
     assert_eq!(

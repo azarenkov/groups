@@ -52,7 +52,7 @@ export function useMessageEditing(params: {
         (m) =>
           m.authorId === currentUserId &&
           !m.callStatus &&
-          !m.inviteServerId &&
+          !m.inviteCommunityId &&
           !m.system,
       );
     if (!last) return false;

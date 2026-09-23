@@ -108,8 +108,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let nats_config = infrastructure_common::config::nats::NatsConfig::from_env()?;
     let nats_jetstream =
         infrastructure_common::messaging::nats::connection::create_jetstream(&nats_config).await?;
-    let community_stream = std::env::var("MEDIA_SERVER_STREAM")
-        .unwrap_or_else(|_| "RIFT_SERVER_EVENTS".to_string());
+    let community_stream = std::env::var("MEDIA_COMMUNITY_STREAM")
+        .unwrap_or_else(|_| "RIFT_COMMUNITY_EVENTS".to_string());
     crate::projection::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),

@@ -72,8 +72,8 @@ export interface DmMessageHandlers {
     recipientId: string;
     content: string;
     occurredAt: string;
-    inviteServerId?: string;
-    inviteServerName?: string;
+    inviteCommunityId?: string;
+    inviteCommunityName?: string;
     callStatus?: string;
     callDurationSeconds?: number;
     attachments?: {

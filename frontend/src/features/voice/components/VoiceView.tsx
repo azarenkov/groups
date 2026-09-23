@@ -5,15 +5,15 @@ import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import VoicePill from "./VoicePill";
 import VoiceTheater, { TheaterEntry } from "./VoiceTheater";
-import { channelAPI } from "../../servers/api/channel";
-import { useServerStore } from "../../servers/store/serverStore";
+import { channelAPI } from "../../communities/api/channel";
+import { useCommunityStore } from "../../communities/store/communityStore";
 import {
   PERM_DEAFEN_MEMBERS,
   PERM_MUTE_MEMBERS,
   topRoleFor,
   useRolesStore,
   userPermissions,
-} from "../../servers/store/rolesStore";
+} from "../../communities/store/rolesStore";
 import { useLiveKit } from "../hooks/useLiveKit";
 import { useScreenShares } from "../hooks/useScreenShares";
 import { qualityClass, qualityLabel } from "../lib/quality";
@@ -23,7 +23,7 @@ import { colorForId, initialFor } from "../../../shared/lib/avatar";
 
 interface VoiceViewProps {
   channelId: string;
-  serverId: string;
+  communityId: string;
   channelName: string;
   password?: string;
   currentUserId?: string;
@@ -37,7 +37,7 @@ interface VoiceViewProps {
 
 const VoiceView: React.FC<VoiceViewProps> = ({
   channelId,
-  serverId,
+  communityId,
   channelName,
   password,
   currentUserId,
@@ -103,7 +103,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       hasJoinedRef.current = true;
       currentChannelRef.current = channelId;
       isJoiningRef.current = true;
-      joinChannel(channelId, serverId, password)
+      joinChannel(channelId, communityId, password)
         .then(() => {
           isJoiningRef.current = false;
         })
@@ -123,7 +123,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       isJoiningRef.current = false;
       leaveChannel();
     };
-  }, [channelId, serverId, password, joinChannel, leaveChannel, onJoinFailed]);
+  }, [channelId, communityId, password, joinChannel, leaveChannel, onJoinFailed]);
 
   const handleLeave = async () => {
     await leaveChannel();
@@ -142,73 +142,73 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     : 0;
 
   const selfId = currentUserId || "you";
-  const serverOwnerId = useServerStore(
-    (s) => s.servers.find((sv) => sv.id === serverId)?.ownerId,
+  const communityOwnerId = useCommunityStore(
+    (s) => s.communities.find((sv) => sv.id === communityId)?.ownerId,
   );
-  const rolesData = useRolesStore((s) => s.byServer[serverId]);
+  const rolesData = useRolesStore((s) => s.byCommunity[communityId]);
   const fetchRoles = useRolesStore((s) => s.fetch);
   useEffect(() => {
-    void fetchRoles(serverId).catch(() => {});
-  }, [serverId, fetchRoles]);
+    void fetchRoles(communityId).catch(() => {});
+  }, [communityId, fetchRoles]);
   const muteLocked =
-    (isModeratorMuted || isModeratorDeafened) && serverOwnerId !== currentUserId;
+    (isModeratorMuted || isModeratorDeafened) && communityOwnerId !== currentUserId;
   useHotkey("toggleMute", () => {
     if (!muteLocked) toggleMute();
   });
   useHotkey("leaveVoice", () => {
     void handleLeave();
   });
-  const deafenLocked = isModeratorDeafened && serverOwnerId !== currentUserId;
+  const deafenLocked = isModeratorDeafened && communityOwnerId !== currentUserId;
   useHotkey("toggleDeafen", () => {
     if (!deafenLocked) toggleDeafen();
   });
   const canModerateDeafen =
     !!currentUserId &&
-    (serverOwnerId === currentUserId ||
+    (communityOwnerId === currentUserId ||
       (userPermissions(rolesData, currentUserId) & PERM_DEAFEN_MEMBERS) !== 0);
   const canModerateMute =
     !!currentUserId &&
-    (serverOwnerId === currentUserId ||
+    (communityOwnerId === currentUserId ||
       (userPermissions(rolesData, currentUserId) & PERM_MUTE_MEMBERS) !== 0);
   const presenceMembers = useVoicePresenceStore((s) => s.byChannel[channelId]);
   const moderationExcluded = React.useMemo(() => {
     if (!currentUserId) return undefined;
-    const isOwner = serverOwnerId === currentUserId;
+    const isOwner = communityOwnerId === currentUserId;
     const myTop = topRoleFor(rolesData, currentUserId)?.position;
     return (presenceMembers ?? [])
       .filter((m) => {
         if (m.id === currentUserId) return false;
-        if (m.id === serverOwnerId) return true;
+        if (m.id === communityOwnerId) return true;
         if (isOwner) return false;
         if (myTop === undefined) return true;
         const targetTop = topRoleFor(rolesData, m.id)?.position;
         return targetTop !== undefined && targetTop >= myTop;
       })
       .map((m) => m.id);
-  }, [currentUserId, serverOwnerId, rolesData, presenceMembers]);
+  }, [currentUserId, communityOwnerId, rolesData, presenceMembers]);
   const moderateMute = (id: string, currentlyMuted: boolean) => {
-    if (id === serverOwnerId) return;
+    if (id === communityOwnerId) return;
     const rec = presenceMembers?.find((m) => m.id === id);
     const moderatorMuted =
       currentlyMuted && !!rec?.mutedBy && rec.mutedBy !== id;
     const call = moderatorMuted
-      ? channelAPI.unmute(serverId, channelId, id)
-      : channelAPI.mute(serverId, channelId, id);
+      ? channelAPI.unmute(communityId, channelId, id)
+      : channelAPI.mute(communityId, channelId, id);
     call.catch((err) => console.warn("[voice] moderate mute failed:", err));
   };
   const deafenExcluded = React.useMemo(() => {
-    if (!currentUserId || currentUserId === serverOwnerId) return undefined;
+    if (!currentUserId || currentUserId === communityOwnerId) return undefined;
     return (presenceMembers ?? [])
       .filter(
-        (m) => !!m.deafenedBy && m.deafenedBy !== m.id && m.deafenedBy === serverOwnerId,
+        (m) => !!m.deafenedBy && m.deafenedBy !== m.id && m.deafenedBy === communityOwnerId,
       )
       .map((m) => m.id);
-  }, [currentUserId, serverOwnerId, presenceMembers]);
+  }, [currentUserId, communityOwnerId, presenceMembers]);
   const moderateDeafen = (id: string, currentlyDeafened: boolean) => {
-    if (id === serverOwnerId) return;
+    if (id === communityOwnerId) return;
     const call = currentlyDeafened
-      ? channelAPI.undeafen(serverId, channelId, id)
-      : channelAPI.deafen(serverId, channelId, id);
+      ? channelAPI.undeafen(communityId, channelId, id)
+      : channelAPI.deafen(communityId, channelId, id);
     call.catch((err) => console.warn("[voice] moderate deafen failed:", err));
   };
   const selfName = userName || "You";

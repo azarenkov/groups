@@ -25,9 +25,9 @@ const STATUS_FALLBACK: Record<number, string> = {
   423: "This is locked. Try again later.",
   429: "Too many requests. Please slow down.",
   500: "Something went wrong on our side. Please try again.",
-  502: "We're having trouble reaching the server. Try again shortly.",
+  502: "We're having trouble reaching the community. Try again shortly.",
   503: "Service is temporarily unavailable. Try again shortly.",
-  504: "The server is taking too long to respond. Try again.",
+  504: "The community is taking too long to respond. Try again.",
 };
 
 const CODE_FALLBACK: Record<string, string> = {
@@ -42,7 +42,7 @@ const CODE_FALLBACK: Record<string, string> = {
   RESOURCE_NOT_FOUND: "We couldn't find what you were looking for.",
   RESOURCE_ALREADY_EXISTS: "That already exists.",
   CHANNEL_NOT_OWNER: "Only the channel owner can do that.",
-  SERVER_NOT_OWNER: "Only the server owner can do that.",
+  COMMUNITY_NOT_OWNER: "Only the community owner can do that.",
   INVALID_CHANNEL_PASSWORD: "Wrong channel password.",
   VALIDATION_FAILED: "Some of the details look wrong. Please check and try again.",
   SERVICE_UNAVAILABLE: "Service is temporarily unavailable. Try again shortly.",
@@ -60,7 +60,7 @@ export function getApiErrorMessage(error: unknown): string {
     const ax = error as AxiosError<ErrorEnvelope>;
 
     if (ax.code === "ERR_NETWORK" || ax.message === "Network Error") {
-      return "Can't reach the server. Check your internet connection.";
+      return "Can't reach the community. Check your internet connection.";
     }
     if (ax.code === "ECONNABORTED") {
       return "The request took too long. Try again.";

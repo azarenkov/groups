@@ -21,7 +21,7 @@
   "memberSince": "Member since",
   "localTime": "Local time",
   "connections": "Connections",
-  "mutualServers": "Mutual servers — {{count}}",
+  "mutualCommunities": "Mutual communities — {{count}}",
   "viewProfile": "View profile",
   "copyLogin": "Copy login",
   "block": "Block",
