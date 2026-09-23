@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 realtime-core = { workspace = true }
+realtime-domain = { workspace = true }
 realtime-infrastructure = { workspace = true }
 api-common = { workspace = true }
 infrastructure-common = { workspace = true }
@@ -15,6 +16,9 @@ envy = { workspace = true }
 serde = { workspace = true }
 futures = { workspace = true }
 uuid = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+contracts = { workspace = true }
 
 tokio = { workspace = true, features = ["macros", "signal", "time", "rt-multi-thread", "sync"] }
 actix-web = { workspace = true }

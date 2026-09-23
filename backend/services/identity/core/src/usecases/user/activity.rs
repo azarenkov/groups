@@ -247,12 +247,14 @@ impl<S: ActivityStore, A: ActivityAudience> GetActivities<S, A> {
                 activities: Vec::new(),
             });
         }
+        let others: Vec<UserId> = visible.iter().copied().filter(|id| id != &viewer).collect();
+        let hidden = self.store.hidden_among(&others).await?;
         let activities = self
             .store
             .get_many(&visible)
             .await?
             .into_iter()
-            .filter(|(_, activity)| activity.published)
+            .filter(|(id, activity)| activity.published && !hidden.contains(id))
             .collect();
         Ok(ActivitySnapshot { as_of, activities })
     }

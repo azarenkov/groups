@@ -805,6 +805,10 @@ impl Channel {
         self.kind.supports_voice()
     }
 
+    pub fn has_explicit_text_membership(&self) -> bool {
+        self.supports_text() && self.visibility() == ChannelVisibility::Private
+    }
+
     pub fn supports_text(&self) -> bool {
         self.kind.supports_text()
     }

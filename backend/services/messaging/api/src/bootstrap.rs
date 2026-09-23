@@ -379,6 +379,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         badge_repository: badge_repository.clone(),
         nats_core,
         presence_preference_subject,
+        identity_users: mention_resolver.clone(),
         send_dm_message_usecase: SendDmMessage::new(
             dm_repository.clone(),
             dm_unit_of_work.clone(),

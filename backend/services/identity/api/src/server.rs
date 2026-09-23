@@ -231,6 +231,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         update_appearance_usecase: UpdateAppearance::new(unit_of_work.clone()),
         set_activity_usecase: SetActivity::new(activity_store.clone(), unit_of_work.clone()),
         clear_activity_usecase: ClearActivity::new(activity_store.clone(), unit_of_work.clone()),
+        activity_store: activity_store.clone(),
         get_activities_usecase: GetActivities::new(activity_store.clone(), activity_audience.clone()),
         get_voice_settings_usecase: GetVoiceSettings::new(user_repository.clone(), entitlements_repository.clone()),
         update_voice_settings_usecase: UpdateVoiceSettings::new(unit_of_work.clone()),

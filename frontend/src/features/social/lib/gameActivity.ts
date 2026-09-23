@@ -27,6 +27,17 @@ let leasedFor: string | null = null;
 let leaseClearAttempts = 0;
 let heartbeat: number | null = null;
 let hiddenFor: string | null = null;
+let appearOffline = false;
+
+export function activityAllowed(params: {
+  showGameActivity?: boolean;
+  hiddenForUser: boolean;
+  appearOffline: boolean;
+}): boolean {
+  if (params.showGameActivity === false) return false;
+  if (params.hiddenForUser) return false;
+  return !params.appearOffline;
+}
 let retryTimer: number | null = null;
 let initialized = false;
 let chain: Promise<void> = Promise.resolve();
@@ -74,7 +85,11 @@ const run = async (): Promise<void> => {
     dropLease();
     stopHeartbeat();
   }
-  const allowed = auth.user?.showGameActivity !== false && hiddenFor !== userId;
+  const allowed = activityAllowed({
+    showGameActivity: auth.user?.showGameActivity,
+    hiddenForUser: hiddenFor === userId,
+    appearOffline,
+  });
   if (!current || !allowed) {
     stopHeartbeat();
     if (publishedOwner === userId || leasedFor === userId) {
@@ -178,6 +193,27 @@ export const clearActivityForLogout = (
   };
   chain = chain.then(task, task);
   return chain;
+};
+
+export const setActivityHiddenByPresence = (hidden: boolean): void => {
+  if (appearOffline === hidden) return;
+  appearOffline = hidden;
+  if (hidden) {
+    sync();
+    return;
+  }
+  const bridge = window.electron;
+  if (!bridge?.getGameActivity) {
+    sync();
+    return;
+  }
+  void bridge
+    .getGameActivity()
+    .then((activity) => {
+      current = activity ?? null;
+      sync();
+    })
+    .catch(() => sync());
 };
 
 export const initGameActivity = (): void => {

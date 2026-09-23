@@ -872,6 +872,10 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "occurredAt": evt.occurred_at,
             }),
         );
+        if resolver.appear_offline(evt.user_id).await? {
+            publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
+            return Ok(());
+        }
         let mut recipients = resolver.interested_in(evt.user_id).await?;
         let relations = blocks.block_relations(evt.user_id, &recipients).await?;
         recipients.retain(|r| !relations.blocking.contains(r) && !relations.blocked_by.contains(r));

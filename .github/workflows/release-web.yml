@@ -101,6 +101,10 @@ jobs:
               gh release edit "$TAG" --repo "$REPO" --notes-file /tmp/notes.md
               ;;
           esac
+          name="$(gh api "repos/$REPO/releases/$release_id" --jq .name)"
+          if [ "$name" != "$TAG" ]; then
+            gh release edit "$TAG" --repo "$REPO" --title "$TAG"
+          fi
           for asset in "$ARCHIVE" "$ARCHIVE.sha256"; do
             existing="$(gh api "repos/$REPO/releases/$release_id/assets" --jq ".[] | select(.name == \"$asset\") | .id" | head -n1)"
             if [ -n "$existing" ]; then

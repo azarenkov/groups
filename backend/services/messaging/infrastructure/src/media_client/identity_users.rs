@@ -52,3 +52,31 @@ impl MentionResolver for IdentityUsersClient {
             .collect())
     }
 }
+
+impl IdentityUsersClient {
+    pub async fn set_activity_visibility(
+        &self,
+        user_id: Uuid,
+        hidden: bool,
+    ) -> Result<(), String> {
+        let response = super::with_request_id(
+            self.client
+                .post(format!(
+                    "{}/internal/users/activity-visibility",
+                    self.base_url
+                ))
+                .json(&serde_json::json!({ "userId": user_id, "hidden": hidden })),
+        )
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+        if !response.status().is_success() {
+            return Err(format!(
+                "identity activity visibility failed: {}",
+                response.status()
+            ));
+        }
+        Ok(())
+    }
+}

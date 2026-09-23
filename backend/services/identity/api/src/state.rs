@@ -4,6 +4,7 @@ use identity::usecases::entitlements::{
 };
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
 use identity_infrastructure::database::postgres::repositories::entitlements::PostgresEntitlementsRepository;
+use std::sync::Arc;
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
 use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
 use identity_infrastructure::media_client::block_lookup::MessagingBlockClient;
@@ -77,6 +78,7 @@ pub struct AppState {
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresIdentityUnitOfWork>,
+    pub activity_store: Arc<RedisActivityStore>,
     pub update_profile_usecase: UpdateProfile<PostgresIdentityUnitOfWork, RedisActivityStore, NsfwDetector>,
     pub rename_user_usecase: RenameUser<PostgresUserRepository, PostgresIdentityUnitOfWork, NsfwDetector>,
     pub change_password_usecase: ChangePassword<
