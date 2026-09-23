@@ -99,10 +99,23 @@ const TileVolumeMenu: React.FC<{
       <button
         ref={btnRef}
         type="button"
-        className={"cs-menu-btn" + (className ? ` ${className}` : "") + (open ? " on" : "")}
+        className={
+          "cs-menu-btn" +
+          (className ? ` ${className}` : "") +
+          (open ? " on" : "") +
+          (vol !== 100 ? " adjusted" : "")
+        }
         onClick={toggle}
+        title={`${i18nTheater.t("voice:volume")} ${vol}%`}
+        aria-label={`${i18nTheater.t("voice:volume")} ${vol}%`}
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
-        <Icon name="more" size={16} />
+        <Icon
+          name={vol === 0 ? "speaker-off" : vol < 40 ? "speaker-lo" : "speaker-hi"}
+          size={14}
+        />
+        {vol !== 100 && <span className="cs-menu-btn-pct">{vol}%</span>}
       </button>
       {open &&
         pos &&
