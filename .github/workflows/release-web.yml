@@ -76,7 +76,7 @@ jobs:
           ARCHIVE: ${{ steps.package.outputs.archive }}
         run: |
           set -euo pipefail
-          bash scripts/release/notes.sh "$TAG" > /tmp/notes.md
+          bash ../scripts/release/notes.sh "$TAG" > /tmp/notes.md
           find_release() {
             gh api "repos/$REPO/releases?per_page=100" --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -n1
           }
