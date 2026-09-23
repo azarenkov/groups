@@ -1,4 +1,6 @@
 const HOP = 128;
+const WINDOW = 512;
+const MODEL_LOOKBACK = (WINDOW - HOP) / HOP;
 const RING_CAPACITY = HOP * 3 * 64;
 const DRY_MAX = 8;
 
@@ -97,6 +99,8 @@ class DfnProcessor extends AudioWorkletProcessor {
     this.synthesisFir = new Fir(coefficients);
     this.dryRefFir = new Fir(coefficients);
     this.dryDelay = new Delay(coefficients.length - 1);
+    this.lowAlign = new Delay(this.block * MODEL_LOOKBACK);
+    this.highAlign = new Delay(this.block * MODEL_LOOKBACK);
     this.scratchLow = new Float32Array(this.block);
     this.scratchDry = new Float32Array(this.block);
     this.scratchUp = new Float32Array(this.block);
@@ -209,13 +213,18 @@ class DfnProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < HOP; i++) {
       up[i * this.decimation] = payload[i] * this.decimation;
     }
-    const low = new Float32Array(size);
-    this.dryRefFir.run(up, low);
+    const reference = new Float32Array(size);
+    this.dryRefFir.run(up, reference);
 
-    const high = new Float32Array(size);
+    const carried = new Float32Array(size);
     for (let i = 0; i < size; i++) {
-      high[i] = this.scratchDry[i] - low[i];
+      carried[i] = this.scratchDry[i] - reference[i];
     }
+
+    const low = new Float32Array(size);
+    const high = new Float32Array(size);
+    this.lowAlign.run(reference, low);
+    this.highAlign.run(carried, high);
 
     const seq = this.seq++;
     this.evictOldestPendingIfFull();

@@ -55,10 +55,13 @@ export function firFilter(
   return output;
 }
 
+export const MODEL_LOOKBACK_FRAMES = 3;
+
 export function bandReconstruction(
   input: Float32Array,
   coefficients: Float32Array,
   decimation: number,
+  modelLatency = 0,
 ): Float32Array {
   const low = firFilter(input, coefficients);
   const up = new Float32Array(input.length);
@@ -69,8 +72,10 @@ export function bandReconstruction(
   const delay = coefficients.length - 1;
   const output = new Float32Array(input.length);
   for (let i = 0; i < input.length; i++) {
-    const delayed = i - delay >= 0 ? input[i - delay] : 0;
-    output[i] = reference[i] + (delayed - reference[i]);
+    const source = i - modelLatency;
+    if (source < 0) continue;
+    const delayed = source - delay >= 0 ? input[source - delay] : 0;
+    output[i] = reference[source] + (delayed - reference[source]);
   }
   return output;
 }

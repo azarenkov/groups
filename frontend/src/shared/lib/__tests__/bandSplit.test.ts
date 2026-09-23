@@ -1,6 +1,7 @@
 import {
   DECIMATION,
   LOWPASS_TAPS,
+  MODEL_LOOKBACK_FRAMES,
   bandReconstruction,
   designLowpass,
   firFilter,
@@ -83,5 +84,29 @@ describe("splitting and putting the signal back together", () => {
   it("filters without inventing energy", () => {
     const filtered = firFilter(tone(12000, 1024), filter);
     expect(peak(filtered, settle)).toBeLessThan(0.02);
+  });
+});
+
+describe("lining the bands up with the model", () => {
+  const modelLatency = MODEL_LOOKBACK_FRAMES * 128 * DECIMATION;
+  const settle = modelLatency + LOWPASS_TAPS * 4;
+
+  it("keeps the carried band in step with what the model returns", () => {
+    const input = tone(1000, 4096);
+    const out = bandReconstruction(input, filter, DECIMATION, modelLatency);
+    const delay = LOWPASS_TAPS - 1 + modelLatency;
+    for (let i = settle; i < 3000; i++) {
+      expect(out[i]).toBeCloseTo(input[i - delay], 5);
+    }
+  });
+
+  it("still leaves no notch at the crossover once the delay is in", () => {
+    const input = tone(7200, 4096);
+    const out = bandReconstruction(input, filter, DECIMATION, modelLatency);
+    expect(peak(out, settle)).toBeGreaterThan(0.97);
+  });
+
+  it("delays by three model hops, which is 24 ms", () => {
+    expect(modelLatency / RATE).toBeCloseTo(0.024, 4);
   });
 });
