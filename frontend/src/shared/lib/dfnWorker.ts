@@ -17,7 +17,7 @@ const WARMUP_FRAMES = 3;
 const serve = (port: MessagePort) => {
   let chain: Promise<void> = Promise.resolve();
   let pending = 0;
-  let desynced = false;
+  let lastProcessed: number | null = null;
   let warmup = 0;
   port.onmessage = (event: MessageEvent) => {
     const msg = event.data;
@@ -29,19 +29,18 @@ const serve = (port: MessagePort) => {
       return;
     }
     if (pending >= MAX_PENDING) {
-      desynced = true;
       port.postMessage({ type: "drop", seq });
       return;
     }
     pending += 1;
     chain = chain.then(async () => {
       try {
-        if (desynced) {
+        if (lastProcessed !== null && seq !== lastProcessed + 1) {
           session!.reset();
-          desynced = false;
           warmup = WARMUP_FRAMES;
         }
         const processed = await session!.process(payload);
+        lastProcessed = seq;
         if (warmup > 0) {
           warmup -= 1;
           port.postMessage({ type: "drop", seq });
@@ -51,7 +50,7 @@ const serve = (port: MessagePort) => {
           processed.buffer,
         ]);
       } catch {
-        desynced = true;
+        lastProcessed = null;
         port.postMessage({ type: "drop", seq });
       } finally {
         pending = Math.max(0, pending - 1);
