@@ -17,14 +17,26 @@ export const VideoTileCell: React.FC<{
   const ref = useRef<HTMLVideoElement>(null);
   const { t } = useTranslation("voice");
   const [volOpen, setVolOpen] = useState(false);
+  const [volumeMax, setVolumeMax] = useState(() =>
+    getLiveKitService().supportsRemoteBoost(tile.identity)
+      ? REMOTE_VOLUME_MAX
+      : REMOTE_VOLUME_PLAIN_MAX,
+  );
   const [volume, setVolume] = useState(() =>
     Math.min(
-      REMOTE_VOLUME_PLAIN_MAX,
-      Math.round((getLiveKitService().getRemoteVolume(tile.identity) ?? 1) * 100),
+      volumeMax,
+      Math.round(getLiveKitService().getRemoteVolume(tile.identity) * 100),
     ),
   );
-  const [volumeMax, setVolumeMax] = useState(REMOTE_VOLUME_PLAIN_MAX);
   const volRef = useRef<HTMLDivElement>(null);
+
+  useEffect(
+    () =>
+      getLiveKitService().subscribeRemoteVolume((who, level) => {
+        if (who === tile.identity) setVolume(Math.round(level * 100));
+      }),
+    [tile.identity],
+  );
 
   useEffect(() => {
     const el = ref.current;

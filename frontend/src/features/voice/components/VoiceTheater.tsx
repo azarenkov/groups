@@ -31,6 +31,14 @@ const TileVolumeMenu: React.FC<{
   );
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
+
+  useEffect(
+    () =>
+      getLiveKitService().subscribeRemoteVolume((who, volume) => {
+        if (who === id) setVol(Math.round(volume * 100));
+      }),
+    [id],
+  );
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {

@@ -136,6 +136,24 @@ describe("RemoteAudioGraph", () => {
     expect(graph.getVolume("bob")).toBeCloseTo(1);
   });
 
+  it("tells every subscriber when a participant's volume changes", () => {
+    const graph = new RemoteAudioGraph(() => null);
+    const heard: [string, number][] = [];
+    const stop = graph.subscribeVolume((identity, volume) =>
+      heard.push([identity, volume]),
+    );
+
+    graph.setVolume("alice", 0.6);
+    graph.setVolume("bob", 9);
+    stop();
+    graph.setVolume("alice", 0.2);
+
+    expect(heard).toEqual([
+      ["alice", 0.6],
+      ["bob", RemoteAudioGraph.GAIN_MAX],
+    ]);
+  });
+
   it("keeps a volume set before the track arrives", () => {
     const graph = new RemoteAudioGraph(() => null);
     graph.setVolume("carol", 1.8);
