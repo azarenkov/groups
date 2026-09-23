@@ -743,7 +743,7 @@ export class LiveKitService {
       );
       return;
     }
-    const { buildDfnPipeline, DENOISER_SAMPLE_RATE } = dfnModule;
+    const { buildDfnPipeline, PIPELINE_SAMPLE_RATE } = dfnModule;
     if (stale()) return;
 
     let lastErr: unknown;
@@ -763,7 +763,7 @@ export class LiveKitService {
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext })
             .webkitAudioContext;
-        ctx = new AudioCtx({ sampleRate: DENOISER_SAMPLE_RATE });
+        ctx = new AudioCtx({ sampleRate: PIPELINE_SAMPLE_RATE });
         if (ctx.state === "suspended") {
           step = "ctx.resume";
           await ctx.resume();
