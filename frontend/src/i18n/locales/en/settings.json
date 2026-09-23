@@ -180,7 +180,7 @@
     "noiseOff": "Off",
     "noiseStandard": "Standard",
     "noiseHigh": "High",
-    "noiseDefaultHint": "Noise suppression mode applied when joining voice. During a call with High enabled, adjust the suppression strength with the slider in the voice panel.",
+    "noiseDefaultHint": "Noise suppression mode applied when joining voice. There is no strength to tune: High runs the model at full strength.",
     "autoSensitivity": "Automatic input sensitivity",
     "autoSensitivityHint": "Detect the voice threshold automatically.",
     "sensitivity": "Input sensitivity",
