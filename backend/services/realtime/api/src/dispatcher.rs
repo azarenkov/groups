@@ -148,6 +148,7 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
         let projection = presence_projection.clone();
         let publisher = presence_publisher.clone();
         let directory = presence_directory.clone();
+        let mut rx = shutdown_rx.clone();
         consumer_handles.push(actix_web::rt::spawn(async move {
             let mut sub = match core.subscribe(subject.clone()).await {
                 Ok(sub) => sub,
@@ -156,7 +157,17 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
                     return;
                 }
             };
-            while let Some(msg) = sub.next().await {
+            loop {
+                let msg = tokio::select! {
+                    incoming = sub.next() => match incoming {
+                        Some(msg) => msg,
+                        None => break,
+                    },
+                    _ = rx.changed() => break,
+                };
+                if *rx.borrow() {
+                    break;
+                }
                 let body: PresencePreferenceV1 = match serde_json::from_slice(&msg.payload) {
                     Ok(body) => body,
                     Err(e) => {
