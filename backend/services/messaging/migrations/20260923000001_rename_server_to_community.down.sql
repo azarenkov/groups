@@ -1,6 +1,18 @@
 ALTER TABLE messaging.reports DROP CONSTRAINT reports_target_type_check;
-ALTER TABLE messaging.reports ADD CONSTRAINT reports_target_type_check CHECK (target_type IN ('user', 'server'));
 UPDATE messaging.reports SET target_type = 'server' WHERE target_type = 'community';
+ALTER TABLE messaging.reports ADD CONSTRAINT reports_target_type_check CHECK (target_type IN ('user', 'server'));
+
+UPDATE messaging.outbox
+SET event_type = replace(event_type, 'community.', 'server.'),
+    payload = replace(
+      replace(
+        replace(payload::text, '"invite_community_id"', '"invite_server_id"'),
+        '"invite_community_name"', '"invite_server_name"'),
+      '"community_id"', '"server_id"')::jsonb
+WHERE processed_at IS NULL
+  AND (event_type LIKE 'community.%' OR payload::text LIKE '%"community_id"%'
+       OR payload::text LIKE '%"invite_community_id"%'
+       OR payload::text LIKE '%"invite_community_name"%');
 
 ALTER TYPE messaging.aggregate_type RENAME VALUE 'community' TO 'server';
 
