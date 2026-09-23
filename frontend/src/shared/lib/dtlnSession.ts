@@ -78,6 +78,13 @@ export class DtlnSession {
     this.state2 = new Float32Array(STATE_SIZE);
   }
 
+  reset(): void {
+    this.inputBuffer.fill(0);
+    this.outputBuffer.fill(0);
+    this.state1 = new Float32Array(STATE_SIZE);
+    this.state2 = new Float32Array(STATE_SIZE);
+  }
+
   async process(hopSamples: Float32Array): Promise<Float32Array> {
     this.inputBuffer.copyWithin(0, HOP);
     this.inputBuffer.set(hopSamples, WINDOW - HOP);
