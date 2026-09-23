@@ -132,6 +132,7 @@ export class LiveKitService {
   private screenCodecFallback: VideoCodec | null = null;
   private encoderTimer: ReturnType<typeof setInterval> | null = null;
   private encoderSamples: EncoderSample[] = [];
+  private republishingScreen = false;
   private screenSubscriptions: Map<string, boolean> = new Map();
   private screenViewers = 0;
   private screenShareListeners: Set<(state: ScreenShareState) => void> =
@@ -386,6 +387,9 @@ export class LiveKitService {
       this.micRebuildPending = false;
       this.watchedScreen = null;
       this.screenSubscriptions.clear();
+      this.stopEncoderWatchdog();
+      this.activeScreenCodec = null;
+      this.screenCodecFallback = null;
       this.notifyScreenShares();
       this.remoteAudio.clear();
       if (this.deafened) {
@@ -1059,6 +1063,12 @@ export class LiveKitService {
 
   private refreshScreenShares(): void {
     const state = this.getScreenShares();
+    const sharing = state.shares.some((share) => share.isLocal);
+    if (!sharing && !this.republishingScreen && this.activeScreenCodec !== null) {
+      this.stopEncoderWatchdog();
+      this.activeScreenCodec = null;
+      this.screenCodecFallback = null;
+    }
     this.watchedScreen = nextWatched(state.shares, this.watchedScreen);
     this.applyScreenSubscriptions();
     this.notifyScreenShares();
@@ -1230,6 +1240,32 @@ export class LiveKitService {
     this.notifyScreenShares();
   }
 
+  private async republishScreen(codec: VideoCodec): Promise<void> {
+    const local = this.room?.localParticipant;
+    const publication = local?.getTrackPublication(Track.Source.ScreenShare);
+    const track = publication?.track;
+    if (!local || !track) return;
+    const quality = this.screenShareQuality;
+    this.republishingScreen = true;
+    try {
+      await local.unpublishTrack(track, false);
+      await local.publishTrack(track, {
+        simulcast: false,
+        videoCodec: codec,
+        backupCodec: codec === "vp9" ? undefined : { codec: "vp8" },
+        screenShareEncoding: {
+          maxBitrate: quality.maxBitrate,
+          maxFramerate: quality.frameRate,
+        },
+      });
+      this.activeScreenCodec = codec;
+    } catch (e) {
+      console.warn("[LiveKitService] failed to republish the screen:", e);
+    } finally {
+      this.republishingScreen = false;
+    }
+  }
+
   private async videoPreferences(): Promise<{
     screenCodec: CodecPreference;
     screenContent: ScreenContent;
@@ -1288,8 +1324,7 @@ export class LiveKitService {
       console.warn("[LiveKitService] av1 encoder is cpu bound, falling back");
       this.stopEncoderWatchdog();
       this.screenCodecFallback = "vp9";
-      await this.setScreenShareEnabled(false);
-      await this.setScreenShareEnabled(true);
+      await this.republishScreen("vp9");
     } catch (e) {
       console.warn("[LiveKitService] encoder stats unavailable:", e);
       this.stopEncoderWatchdog();
