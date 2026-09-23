@@ -8,6 +8,7 @@ export function planQueue(
   sequences: number[],
   capacity: number,
   warmupFrames: number,
+  failing: number[] = [],
 ): QueueEvent[] {
   const events: QueueEvent[] = [];
   let pending = 0;
@@ -18,14 +19,20 @@ export function planQueue(
   const run = () => {
     while (queue.length > 0) {
       const seq = queue.shift() as number;
-      const reset = lastProcessed !== null && seq !== lastProcessed + 1;
-      if (reset) warmup = warmupFrames;
+      const gap = lastProcessed !== null && seq !== lastProcessed + 1;
+      if (gap) warmup = warmupFrames;
       lastProcessed = seq;
+      if (failing.includes(seq)) {
+        warmup = warmupFrames;
+        events.push({ seq, action: "drop", reset: true });
+        pending -= 1;
+        continue;
+      }
       if (warmup > 0) {
         warmup -= 1;
-        events.push({ seq, action: "drop", reset });
+        events.push({ seq, action: "drop", reset: gap });
       } else {
-        events.push({ seq, action: "process", reset });
+        events.push({ seq, action: "process", reset: gap });
       }
       pending -= 1;
     }
@@ -70,5 +77,12 @@ describe("the inference queue", () => {
       action: "process",
       reset: false,
     });
+  });
+
+  it("restarts the model when inference fails", () => {
+    const events = planQueue([0, 1, 2, 3, 4, 5], 8, 3, [1]);
+    const dry = events.filter((e) => e.action === "drop").map((e) => e.seq);
+    expect(dry).toEqual([1, 2, 3, 4]);
+    expect(events[events.length - 1].action).toBe("process");
   });
 });

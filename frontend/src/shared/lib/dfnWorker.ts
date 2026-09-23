@@ -50,7 +50,9 @@ const serve = (port: MessagePort) => {
           processed.buffer,
         ]);
       } catch {
-        lastProcessed = null;
+        session!.reset();
+        warmup = WARMUP_FRAMES;
+        lastProcessed = seq;
         port.postMessage({ type: "drop", seq });
       } finally {
         pending = Math.max(0, pending - 1);
