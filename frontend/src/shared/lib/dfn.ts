@@ -1,10 +1,6 @@
-import { DECIMATION, LOWPASS_TAPS, designLowpass } from "./bandSplit";
-import { DENOISER_SAMPLE_RATE } from "./dtlnSession";
+export const PIPELINE_SAMPLE_RATE = 48000;
 
-export const PIPELINE_SAMPLE_RATE = DENOISER_SAMPLE_RATE * DECIMATION;
-export { DENOISER_SAMPLE_RATE };
-
-const LOWPASS_CUTOFF_HZ = 7200;
+const MODEL_PATH = "models/deepfilter/DeepFilterNet3_onnx.tar.gz";
 const READY_TIMEOUT_MS = 15000;
 
 export interface DfnPipeline {
@@ -18,6 +14,14 @@ export interface DfnPipeline {
 interface BuildOptions {
   source: MediaStreamAudioSourceNode;
   context: AudioContext;
+}
+
+interface ReadyMessage {
+  type: "ready";
+  denoising: boolean;
+  frameLength: number;
+  latency: number;
+  sampleRate: number;
 }
 
 function assetBase(): string {
@@ -61,44 +65,41 @@ export async function buildDfnPipeline({
 
   const worker = startWorker();
   const channel = new MessageChannel();
-  const coefficients = designLowpass(
-    LOWPASS_TAPS,
-    LOWPASS_CUTOFF_HZ,
-    context.sampleRate,
-  );
 
-  const ready = new Promise<boolean>((resolve) => {
-    const timer = setTimeout(() => resolve(false), READY_TIMEOUT_MS);
+  const ready = new Promise<ReadyMessage | null>((resolve) => {
+    const timer = setTimeout(() => resolve(null), READY_TIMEOUT_MS);
     worker.onmessage = (event: MessageEvent) => {
-      if (!event.data || event.data.type !== "ready") return;
+      const msg = event.data as ReadyMessage | undefined;
+      if (!msg || msg.type !== "ready") return;
       clearTimeout(timer);
-      resolve(!!event.data.denoising);
+      resolve(msg);
     };
   });
 
-  node.port.postMessage(
-    {
-      type: "init",
-      coefficients,
-      decimation: DECIMATION,
-      port: channel.port2,
-    },
-    [channel.port2],
-  );
-
   worker.postMessage(
-    {
-      type: "init",
-      model1: assetUrl("models/dtln/model_1.onnx"),
-      model2: assetUrl("models/dtln/model_2.onnx"),
-      wasmPath: assetUrl("ort/"),
-      port: channel.port1,
-    },
+    { type: "init", model: assetUrl(MODEL_PATH), port: channel.port1 },
     [channel.port1],
   );
 
-  const hasDenoiser = await ready;
-  node.port.postMessage({ type: "bypass", value: !hasDenoiser });
+  const status = await ready;
+  const hasDenoiser =
+    !!status?.denoising &&
+    status.frameLength > 0 &&
+    status.sampleRate === context.sampleRate;
+
+  if (hasDenoiser && status) {
+    node.port.postMessage(
+      {
+        type: "init",
+        frameLength: status.frameLength,
+        latency: status.latency,
+        port: channel.port2,
+      },
+      [channel.port2],
+    );
+  } else {
+    worker.terminate();
+  }
 
   const outputTrack = destination.stream.getAudioTracks()[0];
 
@@ -107,8 +108,8 @@ export async function buildDfnPipeline({
     outputTrack,
     hasDenoiser,
     setStrength: (value: number) => {
-      const clamped = Math.min(1, Math.max(0, value));
-      node.port.postMessage({ type: "strength", value: clamped });
+      if (!hasDenoiser) return;
+      worker.postMessage({ type: "strength", value });
     },
     dispose: async () => {
       try {
