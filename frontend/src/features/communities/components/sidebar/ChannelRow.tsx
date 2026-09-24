@@ -7,7 +7,7 @@ import type { Community } from "../../../../shared/types/community";
 import type { Channel } from "../../../../shared/types/channel";
 import type { SidebarVoiceMember } from "./types";
 import { moderatorDeafened, type SidebarPermissions } from "./permissions";
-import { moderateDeafen, moderateMute } from "./moderation";
+import { moderateDeafen, moderateDisconnect, moderateMute } from "./moderation";
 import { useSpeakingStore } from "../../../voice/store/speakingStore";
 import { useProfileModalStore } from "../../../social/store/profileModalStore";
 import { useDmOpenerStore } from "../../../social/store/dmOpenerStore";
@@ -121,6 +121,16 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
         icon: deafened ? "headphones" : "headphones-off",
         danger: !deafened,
         onSelect: () => moderateDeafen(community, channel.id, m),
+      });
+    }
+    if (canMute) {
+      entries.push({
+        kind: "item",
+        id: "disconnect",
+        label: t("disconnectMember"),
+        icon: "logout",
+        danger: true,
+        onSelect: () => moderateDisconnect(community, channel.id, m),
       });
     }
     return entries;

@@ -96,6 +96,17 @@ class ChannelAPI {
     );
   }
 
+  async disconnect(
+    communityId: string,
+    channelId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    await this.client.post(
+      `/v1/communities/${communityId}/channels/${channelId}/disconnect`,
+      { targetUserId },
+    );
+  }
+
   async deafen(
     communityId: string,
     channelId: string,

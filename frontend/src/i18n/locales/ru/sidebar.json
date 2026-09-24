@@ -53,5 +53,6 @@
   "memberMessage": "Написать",
   "memberVolume": "Громкость",
   "muteForMe": "Заглушить для себя",
-  "unmuteForMe": "Включить для себя"
+  "unmuteForMe": "Включить для себя",
+  "disconnectMember": "Отключить от канала"
 }
