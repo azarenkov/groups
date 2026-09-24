@@ -11,7 +11,7 @@
   vertical-align: middle;
 }
 
-.pro-badge-sm { height: 16px; padding: 0 6px; font-size: 9px; }
+.pro-badge-sm { height: 18px; padding: 0 6px; font-size: 10px; }
 .pro-badge-md { height: 22px; padding: 0 9px; font-size: 11px; }
 .pro-badge-lg { height: 28px; padding: 0 12px; font-size: 13px; }
 
@@ -44,14 +44,16 @@
 .pro-badge-count {
   display: inline-flex;
   align-items: center;
-  height: calc(100% - 6px);
-  padding: 0 6px;
+  height: calc(100% - 4px);
+  padding: 0 5px;
   border-radius: 999px;
   background: var(--accent);
   color: #fff;
   font-family: var(--font-mono);
-  font-size: 0.85em;
-  letter-spacing: 0.08em;
+  font-size: 1em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
 }
 
 .profile-banner-image {
