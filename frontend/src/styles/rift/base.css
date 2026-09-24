@@ -104,6 +104,33 @@ body {
   background: var(--surface-canvas);
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "cv11","ss01","ss03";
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+[contenteditable=""],
+.msg .txt,
+.msg-system-text,
+.search-result .head,
+.search-result .content,
+.main-header .ch-name,
+.main-header .topic,
+.profile-name,
+.profile-handle,
+.profile-about,
+.profile-value,
+.profile-conn,
+.ssv-invite-url {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.msg .txt .msg-edited {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 ::selection { background: var(--accent-tint-2); color: var(--fg-1); }
@@ -941,7 +968,6 @@ body.electron .body-area::before {
   display: inline-flex; align-items: center; gap: 8px;
   color: var(--fg-2);
   cursor: pointer;
-  user-select: none;
 }
 .auth-check input { appearance: none; -webkit-appearance: none; margin: 0; }
 .auth-check .box {
@@ -1242,7 +1268,6 @@ body.electron .body-area::before {
   display: inline-flex; align-items: center; gap: 8px;
   color: var(--fg-2);
   cursor: pointer;
-  user-select: none;
 }
 .auth-check input { appearance: none; -webkit-appearance: none; margin: 0; }
 .auth-check .box {
