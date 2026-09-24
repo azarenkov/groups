@@ -220,6 +220,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
 
           {error && (
             <div
+              className="error-text"
               style={{
                 fontSize: 12,
                 color: "var(--danger)",

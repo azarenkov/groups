@@ -188,6 +188,7 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
               )}
               {error && (
                 <div
+                  className="error-text"
                   style={{
                     fontSize: 12,
                     color: "var(--danger)",
