@@ -118,8 +118,6 @@ export function VoiceSection() {
   const autoSensitivity = useVoiceSettingsStore((s) => s.autoSensitivity);
   const sensitivity = useVoiceSettingsStore((s) => s.sensitivity);
   const pushToTalk = useVoiceSettingsStore((s) => s.pushToTalk);
-  const pttGlobal = useVoiceSettingsStore((s) => s.pttGlobal);
-  const setPttGlobal = useVoiceSettingsStore((s) => s.setPttGlobal);
   const screenContent = useVoiceSettingsStore((s) => s.screenContent);
   const setScreenContent = useVoiceSettingsStore((s) => s.setScreenContent);
   const globalStatus = usePushToTalkGlobalStatus();
@@ -277,7 +275,19 @@ export function VoiceSection() {
 
       <div className="s-section">
         <h2>{t("voice.behavior")}</h2>
-        <SettingsRow label={t("voice.pushToTalk")} hint={pttNotice ?? t("voice.pushToTalkHint", { key: pttKeyLabel(pttKey) })}>
+        <SettingsRow label={t("voice.pushToTalk")} hint={
+            pttNotice ??
+            [
+              t("voice.pushToTalkHint", { key: pttKeyLabel(pttKey) }),
+              !globalSupported
+                ? t("voice.pttWebFocusOnly")
+                : globalFailed
+                  ? t("voice.pttGlobalUnavailable")
+                  : null,
+            ]
+              .filter(Boolean)
+              .join(" ")
+          }>
           <button
             type="button"
             className={"kbd s-kbd-btn" + (capturingKey ? " capturing" : "")}
@@ -287,22 +297,6 @@ export function VoiceSection() {
             {capturingKey ? t("voice.pttPressKey") : pttKeyLabel(pttKey)}
           </button>
           <Switch on={pushToTalk} onClick={() => update({ pushToTalk: !pushToTalk })}/>
-        </SettingsRow>
-        <SettingsRow
-          label={t("voice.pttGlobal")}
-          hint={
-            !globalSupported
-              ? t("voice.pttGlobalWeb")
-              : globalFailed
-                ? t("voice.pttGlobalUnavailable")
-                : t("voice.pttGlobalHint")
-          }
-        >
-          <Switch
-            on={globalSupported && !globalFailed && pttGlobal}
-            disabled={!globalSupported || globalFailed || !pushToTalk}
-            onClick={() => setPttGlobal(!pttGlobal)}
-          />
         </SettingsRow>
         <SettingsRow label={t("voice.screenContent")} hint={t("voice.screenContentHint")}>
           <div className="s-seg">
