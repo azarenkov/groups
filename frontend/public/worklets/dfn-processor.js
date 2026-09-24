@@ -1,5 +1,6 @@
 const RING_CAPACITY = 48000;
 const PENDING_MAX = 8;
+const IN_FLIGHT_MAX = 4;
 const PRIME_FRAMES = 2;
 const EXCESS_FRAMES = 4;
 
@@ -42,6 +43,7 @@ class DfnProcessor extends AudioWorkletProcessor {
     this.maxBuffered = 0;
     this.primed = false;
     this.frames = new Map();
+    this.inFlight = new Set();
     this.seq = 0;
     this.nextOut = 0;
     this.worker = null;
@@ -64,6 +66,7 @@ class DfnProcessor extends AudioWorkletProcessor {
     this.worker.onmessage = (frameEvent) => {
       const frame = frameEvent.data;
       if (!frame) return;
+      this.inFlight.delete(frame.seq);
       if (frame.type === 'frame') this.markWet(frame.seq, frame.payload);
       else if (frame.type === 'drop') this.markDry(frame.seq);
     };
@@ -147,10 +150,16 @@ class DfnProcessor extends AudioWorkletProcessor {
   pushFrame() {
     const dry = new Float32Array(this.frameLength);
     this.dryDelay.run(this.inputBuffer, dry);
-    const payload = this.inputBuffer.slice();
     const seq = this.seq++;
     this.evictOldestPendingIfFull();
+    if (this.inFlight.size >= IN_FLIGHT_MAX) {
+      this.frames.set(seq, { dry, status: 'dry', wet: null });
+      this.drain();
+      return;
+    }
+    const payload = this.inputBuffer.slice();
     this.frames.set(seq, { dry, status: 'pending', wet: null });
+    this.inFlight.add(seq);
     this.worker.postMessage({ type: 'frame', seq, payload }, [payload.buffer]);
   }
 
