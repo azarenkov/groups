@@ -138,6 +138,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     isDm,
     nameSyncTick,
     reseedChannelReads,
+    currentUserId,
   });
 
   useChatWsMessages({
