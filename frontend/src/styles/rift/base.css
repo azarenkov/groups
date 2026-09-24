@@ -157,6 +157,7 @@ textarea,
 }
 
 button,
+[role="button"],
 .msg .txt .msg-edited,
 .ssv-row-name .ssv-default-badge,
 .profile-mutual .profile-chip-logo {
@@ -164,7 +165,8 @@ button,
   user-select: none;
 }
 
-.msg-mention {
+.msg-mention,
+.msg-attach-file-info {
   -webkit-user-select: text;
   user-select: text;
 }
