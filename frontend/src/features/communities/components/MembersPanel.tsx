@@ -107,7 +107,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ communityId, channelId }) =
       {loading && members.length === 0 && (
         <div className="mp-empty">{t("common:loading")}</div>
       )}
-      {error && <div className="mp-empty">{error}</div>}
+      {error && <div className="mp-empty error-text">{error}</div>}
       {!loading && !error && members.length === 0 && (
         <div className="mp-empty">{t("noMembers")}</div>
       )}

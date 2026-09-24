@@ -10,15 +10,16 @@ export function Switch({ on, onClick, disabled }: SwitchProps) {
 export interface SettingsRowProps {
   label: string;
   hint?: string;
+  hintClassName?: string;
   children: React.ReactNode;
 }
 
-export function SettingsRow({ label, hint, children }: SettingsRowProps) {
+export function SettingsRow({ label, hint, hintClassName, children }: SettingsRowProps) {
   return (
     <div className="s-row">
       <div className="s-row-text">
         <div className="lbl">{label}</div>
-        {hint && <div className="hint">{hint}</div>}
+        {hint && <div className={"hint" + (hintClassName ? ` ${hintClassName}` : "")}>{hint}</div>}
       </div>
       <div className="s-row-control">{children}</div>
     </div>

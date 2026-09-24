@@ -130,7 +130,7 @@ export const VerifyEmail: React.FC<{
             <Icon name="camera" size={26} />
           </div>
           <h1>{t("verifyTitle")}</h1>
-          <p className="sub">{avatarWarning}</p>
+          <p className="sub error-text">{avatarWarning}</p>
           <button
             type="button"
             className="btn primary"
@@ -187,7 +187,7 @@ export const VerifyEmail: React.FC<{
             </div>
           </div>
           {changeError && (
-            <div className="pw-strength-label" style={{ color: "#ff453a" }}>{changeError}</div>
+            <div className="pw-strength-label error-text" style={{ color: "#ff453a" }}>{changeError}</div>
           )}
           <div className="verify-change-email-actions">
             <button type="button" className="auth-link muted" onClick={() => setEditingEmail(false)}>
@@ -236,7 +236,7 @@ export const VerifyEmail: React.FC<{
         />
         {error && (
           <div
-            className="pw-strength-label"
+            className="pw-strength-label error-text"
             style={{
               color: "#ff453a",
               justifyContent: "center",

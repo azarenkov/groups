@@ -182,7 +182,6 @@
   font-size: 11px; font-weight: 600;
   color: var(--fg-3);
   letter-spacing: 0.06em; text-transform: uppercase;
-  user-select: none;
   cursor: pointer;
   white-space: nowrap;
   gap: 8px;
@@ -233,7 +232,6 @@
   color: var(--fg-1);
   cursor: pointer;
   transition: background var(--dur-fast);
-  user-select: none;
   position: relative;
   height: 28px;
 }
@@ -563,7 +561,6 @@
   font-size: 13px; font-weight: 600;
   color: var(--fg-1);
   cursor: pointer;
-  user-select: none;
   transition: background var(--dur-fast);
 }
 .sb-room-head:hover { background: var(--surface-hover); }

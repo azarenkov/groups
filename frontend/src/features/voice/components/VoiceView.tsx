@@ -314,7 +314,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
         className="voice-pill in-dock"
         style={{ background: "var(--danger-tint)", color: "var(--danger)" }}
       >
-        <span>{error}</span>
+        <span className="error-text">{error}</span>
         <button
           className="vp-btn leave"
           onClick={handleLeave}

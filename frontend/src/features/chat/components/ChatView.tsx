@@ -421,7 +421,7 @@ const ChatView: React.FC<ChatViewProps> = ({
               </div>
             ) : search.searchError ? (
               <div className="empty-state">
-                <p>{search.searchError}</p>
+                <p className="error-text">{search.searchError}</p>
               </div>
             ) : !dm && !blocksLoaded ? (
               <div className="msg-loader">
@@ -469,7 +469,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             <h3>
               {isDm ? "Can't open this conversation" : `Join #${headerName}`}
             </h3>
-            <p>{accessError}</p>
+            <p className="error-text">{accessError}</p>
             {isText && (
               <button
                 type="button"

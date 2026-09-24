@@ -104,6 +104,71 @@ body {
   background: var(--surface-canvas);
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "cv11","ss01","ss03";
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+[contenteditable=""],
+.msg .txt,
+.msg-system-text,
+.msg.system time,
+.dm-call-info,
+.dm-invite-card-info,
+.search-result .head,
+.search-result .content,
+.main-header .ch-name,
+.main-header .topic,
+.pc-name-text,
+.pc-handle,
+.s-data,
+.profile-name,
+.profile-handle,
+.profile-about,
+.profile-value,
+.profile-conn,
+.profile-mutual .profile-chip,
+.conn-meta,
+.auth-card .sub b,
+.account-dialog-sub,
+.srvm-preview-name,
+.srvm-preview-desc,
+.ssv-identity-name,
+.s-blocked-name,
+.s-error,
+.ssv-error,
+.m-error,
+.srvm-error,
+.report-error,
+.profile-style-error,
+.image-crop-error,
+.composer-error,
+.call-error-toast,
+.error-toast-text,
+.error-text,
+.ssv-invite-url,
+.ssv-invite-by,
+.ssv-row-name,
+.ssv-role-member-name {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+button,
+[role="button"],
+.msg .txt .msg-edited,
+.ssv-row-name .ssv-default-badge,
+.profile-mutual .profile-chip-logo {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.msg-mention,
+.msg-attach-file-info {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 ::selection { background: var(--accent-tint-2); color: var(--fg-1); }
@@ -941,7 +1006,6 @@ body.electron .body-area::before {
   display: inline-flex; align-items: center; gap: 8px;
   color: var(--fg-2);
   cursor: pointer;
-  user-select: none;
 }
 .auth-check input { appearance: none; -webkit-appearance: none; margin: 0; }
 .auth-check .box {
@@ -1242,7 +1306,6 @@ body.electron .body-area::before {
   display: inline-flex; align-items: center; gap: 8px;
   color: var(--fg-2);
   cursor: pointer;
-  user-select: none;
 }
 .auth-check input { appearance: none; -webkit-appearance: none; margin: 0; }
 .auth-check .box {

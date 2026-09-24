@@ -318,6 +318,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
 
           {error && (
             <div
+              className="error-text"
               style={{
                 fontSize: 12,
                 color: "var(--danger)",
@@ -436,7 +437,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
               />
             </div>
             {errors.name && (
-              <span style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>
+              <span className="error-text" style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>
                 {errors.name.message}
               </span>
             )}
@@ -462,7 +463,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
             />
           </div>
           {errors.email && (
-            <span style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>
+            <span className="error-text" style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>
               {errors.email.message}
             </span>
           )}
@@ -490,7 +491,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
             </button>
           </div>
           {errors.password && (
-            <span style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>
+            <span className="error-text" style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>
               {errors.password.message}
             </span>
           )}
@@ -515,6 +516,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
 
         {error && (
           <div
+            className="error-text"
             style={{
               fontSize: 12,
               color: "var(--danger)",

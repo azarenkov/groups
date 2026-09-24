@@ -27,7 +27,7 @@ const ErrorToast: React.FC<ErrorToastProps> = ({ message, onDismiss }) =>
             fontSize: 13,
           }}
         >
-          <span>{message}</span>
+          <span className="error-toast-text">{message}</span>
           <button
             type="button"
             onClick={onDismiss}

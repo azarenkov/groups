@@ -299,6 +299,7 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
         <SettingsRow
           label={t("account.username")}
           hint={user?.name ? `@${user.name}` : t("account.usernameHint")}
+          hintClassName={user?.name ? "s-data" : undefined}
         >
           {nameEditing ? (
             <>
@@ -339,7 +340,7 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
           )}
         </SettingsRow>
         {nameError && <div className="s-error">{nameError}</div>}
-        <SettingsRow label={t("account.email")} hint={emailHint}>
+        <SettingsRow label={t("account.email")} hint={emailHint} hintClassName={user?.email ? "s-data" : undefined}>
           <button className="s-btn secondary" onClick={() => setDialog("email")}>{t("actions.edit")}</button>
         </SettingsRow>
       </div>
@@ -393,7 +394,11 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
             {bioError && <div className="s-error">{bioError}</div>}
           </div>
         ) : (
-          <SettingsRow label={t("account.about")} hint={user?.bio ? user.bio : t("account.aboutEmpty")}>
+          <SettingsRow
+            label={t("account.about")}
+            hint={user?.bio ? user.bio : t("account.aboutEmpty")}
+            hintClassName={user?.bio ? "s-data" : undefined}
+          >
             <button className="s-btn secondary" onClick={() => setBioEditing(true)}>
               {user?.bio ? t("actions.edit") : t("actions.add")}
             </button>
