@@ -11,6 +11,7 @@ import { loadActivitiesFor, trackActivityIds, useActivityStore } from "../../soc
 import { useUserNamesStore } from "../../social/store/userNamesStore";
 import { topRoleFor, useRolesStore } from "../store/rolesStore";
 import { useCommunityStore } from "../store/communityStore";
+import { groupMembers } from "../lib/memberOrder";
 
 interface MembersPanelProps {
   communityId: string;
@@ -90,13 +91,76 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ communityId, channelId }) =
     };
   }, [communityId, channelId, syncTick]);
 
-  const orderedMembers = selfUserId
-    ? [...members].sort((a, b) => {
-        if (a.id === selfUserId) return -1;
-        if (b.id === selfUserId) return 1;
-        return 0;
-      })
-    : members;
+  const groups = groupMembers(
+    members.map((m) => ({
+      ...m,
+      name: nameOverrides[m.id] ?? m.name,
+      online: m.id === selfUserId ? selfOnline : !!onlineUsers[m.id],
+      owner: m.id === communityOwnerId,
+      rolePosition: topRoleFor(rolesData, m.id)?.position ?? null,
+    })),
+  );
+
+  const renderMember = (m: (typeof groups.online)[number]) => {
+    const isSelf = m.id === selfUserId;
+    const isOnline = m.online;
+    const displayName = m.name;
+    const topRole = topRoleFor(rolesData, m.id);
+    const game = isOnline ? activities[m.id] : undefined;
+    const statusLabel = game
+      ? t("playing", { game: game.name })
+      : isOnline
+        ? t("common:online")
+        : t("common:offline");
+    return (
+      <div
+        key={m.id}
+        className="member-row clickable"
+        role="button"
+        tabIndex={0}
+        onClick={() => useProfileModalStore.getState().open(m.id)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            useProfileModalStore.getState().open(m.id);
+          }
+        }}
+      >
+        <UserAvatar userId={m.id} name={displayName} className="ava">
+          <span
+            className={"presence " + (isOnline ? "online" : "offline")}
+            title={statusLabel}
+            aria-label={statusLabel}
+          />
+        </UserAvatar>
+        <div className="info">
+          <div className="name">
+            <span className="name-text">{displayName}</span>
+            <UserBadge userId={m.id} size="sm" />
+            {isSelf && <span className="member-you">{t("you")}</span>}
+          </div>
+          <div className="role">
+            {m.id === communityOwnerId ? (
+              <span className="member-role-badge owner">{t("owner")}</span>
+            ) : (
+              topRole && (
+                <span
+                  className="member-role-badge"
+                  style={{
+                    color: topRole.color,
+                    background: `color-mix(in srgb, ${topRole.color} 16%, transparent)`,
+                  }}
+                >
+                  {topRole.name}
+                </span>
+              )
+            )}
+            <span className="member-status">{statusLabel}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <aside className="members-panel">
@@ -111,66 +175,14 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ communityId, channelId }) =
       {!loading && !error && members.length === 0 && (
         <div className="mp-empty">{t("noMembers")}</div>
       )}
-      {orderedMembers.map((m) => {
-        const isSelf = m.id === selfUserId;
-        const isOnline = isSelf ? selfOnline : !!onlineUsers[m.id];
-        const displayName = nameOverrides[m.id] ?? m.name;
-        const topRole = topRoleFor(rolesData, m.id);
-        const game = isOnline ? activities[m.id] : undefined;
-        const statusLabel = game
-          ? t("playing", { game: game.name })
-          : isOnline
-            ? t("common:online")
-            : t("common:offline");
-        return (
-          <div
-            key={m.id}
-            className="member-row clickable"
-            role="button"
-            tabIndex={0}
-            onClick={() => useProfileModalStore.getState().open(m.id)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                useProfileModalStore.getState().open(m.id);
-              }
-            }}
-          >
-            <UserAvatar userId={m.id} name={displayName} className="ava">
-              <span
-                className={"presence " + (isOnline ? "online" : "offline")}
-                title={statusLabel}
-                aria-label={statusLabel}
-              />
-            </UserAvatar>
-            <div className="info">
-              <div className="name">
-                <span className="name-text">{displayName}</span>
-                <UserBadge userId={m.id} size="sm" />
-                {isSelf && <span className="member-you">{t("you")}</span>}
-              </div>
-              <div className="role">
-                {m.id === communityOwnerId ? (
-                  <span className="member-role-badge owner">{t("owner")}</span>
-                ) : (
-                  topRole && (
-                    <span
-                      className="member-role-badge"
-                      style={{
-                        color: topRole.color,
-                        background: `color-mix(in srgb, ${topRole.color} 16%, transparent)`,
-                      }}
-                    >
-                      {topRole.name}
-                    </span>
-                  )
-                )}
-                <span className="member-status">{statusLabel}</span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      {groups.online.length > 0 && (
+        <div className="mp-group">{t("online", { count: groups.online.length })}</div>
+      )}
+      {groups.online.map(renderMember)}
+      {groups.offline.length > 0 && (
+        <div className="mp-group">{t("offline", { count: groups.offline.length })}</div>
+      )}
+      {groups.offline.map(renderMember)}
     </aside>
   );
 };
