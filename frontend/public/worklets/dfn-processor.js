@@ -1,5 +1,5 @@
 const RING_CAPACITY = 48000;
-const PENDING_MAX = 8;
+const PENDING_MAX = 3;
 const IN_FLIGHT_MAX = 4;
 const PRIME_FRAMES = 2;
 const EXCESS_FRAMES = 4;
@@ -44,6 +44,9 @@ class DfnProcessor extends AudioWorkletProcessor {
     this.primed = false;
     this.frames = new Map();
     this.inFlight = new Set();
+    this.latencyFrames = 0;
+    this.lastPosted = -1;
+    this.run = 0;
     this.seq = 0;
     this.nextOut = 0;
     this.worker = null;
@@ -59,6 +62,9 @@ class DfnProcessor extends AudioWorkletProcessor {
     this.inputBuffer = new Float32Array(this.frameLength);
     this.inputFill = 0;
     this.dryDelay = new Delay(msg.latency || 0);
+    this.latencyFrames = Math.ceil((msg.latency || 0) / this.frameLength);
+    this.lastPosted = -1;
+    this.run = 0;
     this.prime = this.frameLength * PRIME_FRAMES;
     this.maxBuffered = this.prime + this.frameLength * EXCESS_FRAMES;
     this.primed = false;
@@ -77,8 +83,12 @@ class DfnProcessor extends AudioWorkletProcessor {
   markWet(seq, wet) {
     const entry = this.frames.get(seq);
     if (!entry || entry.status !== 'pending') return;
-    entry.status = 'wet';
-    entry.wet = wet;
+    if (entry.aligned) {
+      entry.status = 'wet';
+      entry.wet = wet;
+    } else {
+      entry.status = 'dry';
+    }
     this.drain();
   }
 
@@ -157,8 +167,11 @@ class DfnProcessor extends AudioWorkletProcessor {
       this.drain();
       return;
     }
+    this.run = this.lastPosted === seq - 1 ? this.run + 1 : 1;
+    this.lastPosted = seq;
+    const aligned = this.run > this.latencyFrames;
     const payload = this.inputBuffer.slice();
-    this.frames.set(seq, { dry, status: 'pending', wet: null });
+    this.frames.set(seq, { dry, status: 'pending', wet: null, aligned });
     this.inFlight.add(seq);
     this.worker.postMessage({ type: 'frame', seq, payload }, [payload.buffer]);
   }
