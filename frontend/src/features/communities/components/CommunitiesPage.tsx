@@ -45,6 +45,7 @@ import { useSpeakingTracking } from "../../voice/hooks/useSpeakingTracking";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 import { useStreamQualitySync } from "../../subscription/hooks/useStreamQualitySync";
 import ErrorToast from "../../../shared/ui/ErrorToast";
+import PanelResizer from "../../../shared/ui/PanelResizer";
 import Icon from "../../../shared/ui/Icon";
 import { useLocalQuality } from "../../voice/hooks/useLocalQuality";
 import { qualityClass, qualityLabel } from "../../voice/lib/quality";
@@ -581,6 +582,16 @@ const CommunitiesPage: React.FC = () => {
           onSetStatus={handleSetStatus}
         />
 
+        <PanelResizer
+          cssVar="--w-sidebar"
+          otherSelector=".members-panel"
+          side="start"
+          min={240}
+          max={420}
+          fallback={320}
+          storageKey="rift.panel.sidebar"
+          label={i18n.t("resizeSidebar", { ns: "common" })}
+        />
         <main className="main">
           <div className="main-inner">
             <CallReturnBar />
@@ -751,10 +762,22 @@ const CommunitiesPage: React.FC = () => {
           </div>
 
           {showMembersForChannel && selectedCommunity && activeTextChannel && (
-            <MembersPanel
-              communityId={selectedCommunity.id}
-              channelId={activeTextChannel.id}
-            />
+            <>
+              <PanelResizer
+                cssVar="--w-members"
+                otherSelector=".sb"
+                side="end"
+                min={220}
+                max={360}
+                fallback={240}
+                storageKey="rift.panel.members"
+                label={i18n.t("resizeMembers", { ns: "common" })}
+              />
+              <MembersPanel
+                communityId={selectedCommunity.id}
+                channelId={activeTextChannel.id}
+              />
+            </>
           )}
         </main>
 
