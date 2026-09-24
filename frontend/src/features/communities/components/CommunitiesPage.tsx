@@ -46,6 +46,8 @@ import { useEntitlementsStore } from "../../subscription/store/entitlementsStore
 import { useStreamQualitySync } from "../../subscription/hooks/useStreamQualitySync";
 import ErrorToast from "../../../shared/ui/ErrorToast";
 import PanelResizer from "../../../shared/ui/PanelResizer";
+import ContextMenuHost from "../../../shared/ui/contextMenu/ContextMenuHost";
+import { useDmOpenerStore } from "../../social/store/dmOpenerStore";
 import Icon from "../../../shared/ui/Icon";
 import { useLocalQuality } from "../../voice/hooks/useLocalQuality";
 import { qualityClass, qualityLabel } from "../../voice/lib/quality";
@@ -496,6 +498,12 @@ const CommunitiesPage: React.FC = () => {
       friendship: "none",
     });
   };
+  const openDmRef = React.useRef(handleOpenDmFromHome);
+  openDmRef.current = handleOpenDmFromHome;
+  useEffect(() => {
+    useDmOpenerStore.getState().register((id, name) => openDmRef.current(id, name));
+    return () => useDmOpenerStore.getState().register(null);
+  }, []);
 
   const handleCallFromHome = (friendId: string, video = false) => {
     handleOpenDmFromHome(friendId);
@@ -868,6 +876,7 @@ const CommunitiesPage: React.FC = () => {
         }}
       />
       <ErrorToast message={error} onDismiss={clearError} />
+      <ContextMenuHost />
     </div>
   );
 };

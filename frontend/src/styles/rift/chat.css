@@ -96,20 +96,8 @@
 
 .msg { display: flex; gap: 12px; padding: 4px 8px; border-radius: 8px; position: relative; }
 .msg:hover { background: var(--surface-hover); }
-.msg-actions {
-  position: absolute;
-  top: -10px;
-  right: 0;
-  display: none;
-  gap: 2px;
-  background: var(--surface-panel);
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-  padding: 2px;
-  box-shadow: var(--shadow-md);
-}
-.msg .body:hover .msg-actions { display: flex; }
-.msg-actions .icon-btn { width: 26px; height: 26px; }
+.msg:focus { outline: none; }
+.msg:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .msg-edited { font-size: 11px; color: var(--fg-3); margin-left: 4px; }
 .msg-meta {
   display: inline-flex;

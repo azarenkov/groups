@@ -19,6 +19,14 @@ import ReadTicks from "./ReadTicks";
 import { renderWithLinks } from "./MessageText";
 import { enterAction, insertNewline } from "../lib/composerKeys";
 import { useAutoGrow } from "../hooks/useAutoGrow";
+import { messageActions, messageCopyText, selectionInside } from "../lib/messageMenu";
+import type { MessageAction } from "../lib/messageMenu";
+import {
+  openContextMenu,
+  openContextMenuAt,
+} from "../../../shared/ui/contextMenu/contextMenuStore";
+import type { MenuEntry } from "../../../shared/ui/contextMenu/contextMenuStore";
+import { useLongPress } from "../../../shared/ui/contextMenu/useLongPress";
 import type { PendingFile } from "../types";
 import { MAX_CONTENT } from "../constants";
 
@@ -85,26 +93,65 @@ export const Message: React.FC<MessageProps> = ({
   }, [displayName, msg.authorId]);
   const editRef = React.useRef<HTMLTextAreaElement>(null);
   useAutoGrow(editRef, editing ? editText : "");
-  const [copied, setCopied] = React.useState(false);
   const [revealed, setRevealed] = React.useState(false);
-  const copiedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  React.useEffect(
-    () => () => {
-      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
-    },
-    [],
-  );
-  const handleCopy = () => {
-    void copyTextToClipboard(msg.content)
-      .then(() => {
-        setCopied(true);
-        if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
-        copiedTimerRef.current = setTimeout(() => setCopied(false), 1200);
-      })
-      .catch((e) => console.warn("[ChatView] copy failed:", e));
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const menuEntries = (): MenuEntry[] => {
+    const selection = selectionInside(rootRef.current);
+    const actions = messageActions({
+      msg,
+      isMine,
+      canModerate: !!canModerate,
+      hasSelection: selection.trim().length > 0,
+    });
+    const entry: Record<MessageAction, MenuEntry> = {
+      copy: {
+        kind: "item",
+        id: "copy",
+        label: i18n.t("copyText", { ns: "chat" }),
+        icon: "copy",
+        onSelect: () => {
+          void copyTextToClipboard(messageCopyText(msg, selection)).catch((e) =>
+            console.warn("[ChatView] copy failed:", e),
+          );
+        },
+      },
+      edit: {
+        kind: "item",
+        id: "edit",
+        label: i18n.t("edit", { ns: "chat" }),
+        icon: "edit",
+        onSelect: onStartEdit,
+      },
+      report: {
+        kind: "item",
+        id: "report",
+        label: i18n.t("action", { ns: "report" }),
+        icon: "flag",
+        onSelect: () =>
+          openReport({ type: "user", id: msg.authorId, name: displayName, messageId: msg.id }),
+      },
+      delete: {
+        kind: "item",
+        id: "delete",
+        label: i18n.t("delete", { ns: "chat" }),
+        icon: "trash",
+        danger: true,
+        onSelect: onDelete,
+      },
+    };
+    const pick = (action: MessageAction) => (actions.includes(action) ? [entry[action]] : []);
+    return [
+      ...pick("copy"),
+      { kind: "separator", id: "s1" },
+      ...pick("edit"),
+      ...pick("report"),
+      { kind: "separator", id: "s2" },
+      ...pick("delete"),
+    ];
   };
+  const longPress = useLongPress((point) => {
+    if (!editing) openContextMenu(point, menuEntries());
+  });
   const created = new Date(msg.createdAt);
   const time = created.toLocaleTimeString([], {
     hour: "2-digit",
@@ -145,7 +192,21 @@ export const Message: React.FC<MessageProps> = ({
   }
   return (
     <div
+      ref={rootRef}
       data-msg-id={msg.id}
+      tabIndex={-1}
+      onContextMenu={(e) => {
+        if (editing) return;
+        openContextMenu(e, menuEntries());
+      }}
+      onKeyDown={(e) => {
+        if (editing || e.target !== e.currentTarget) return;
+        if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+          e.preventDefault();
+          openContextMenuAt(e.currentTarget, menuEntries());
+        }
+      }}
+      {...longPress}
       className={
         "msg bubble " +
         (isMine ? "mine" : "theirs") +
@@ -425,74 +486,6 @@ export const Message: React.FC<MessageProps> = ({
             </span>
           </div>
         )}
-        {isMine && !editing && !msg.inviteCommunityId && (
-          <div className="msg-actions">
-            {!msg.callStatus && (
-              <button
-                type="button"
-                className="icon-btn"
-                title="Edit"
-                onClick={onStartEdit}
-              >
-                <Icon name="edit" size={13} />
-              </button>
-            )}
-            <button
-              type="button"
-              className="icon-btn"
-              title="Delete"
-              onClick={onDelete}
-            >
-              <Icon name="trash" size={13} />
-            </button>
-          </div>
-        )}
-        {!isMine &&
-          !editing &&
-          !msg.inviteCommunityId &&
-          ((msg.content.length > 0 && !msg.callStatus) ||
-            (msg.attachments?.length ?? 0) > 0 ||
-            canModerate) && (
-            <div className="msg-actions">
-              {msg.content.length > 0 && !msg.callStatus && (
-                <button
-                  type="button"
-                  className="icon-btn"
-                  title={i18n.t("copyMessage", { ns: "chat" })}
-                  onClick={handleCopy}
-                >
-                  <Icon name={copied ? "check" : "copy"} size={13} />
-                </button>
-              )}
-              {!msg.callStatus && !msg.system && (
-                <button
-                  type="button"
-                  className="icon-btn"
-                  title={i18n.t("action", { ns: "report" })}
-                  onClick={() =>
-                    openReport({
-                      type: "user",
-                      id: msg.authorId,
-                      name: displayName,
-                      messageId: msg.id,
-                    })
-                  }
-                >
-                  <Icon name="flag" size={13} />
-                </button>
-              )}
-              {canModerate && (
-                <button
-                  type="button"
-                  className="icon-btn"
-                  title="Delete"
-                  onClick={onDelete}
-                >
-                  <Icon name="trash" size={13} />
-                </button>
-              )}
-            </div>
-          )}
       </div>
     </div>
   );

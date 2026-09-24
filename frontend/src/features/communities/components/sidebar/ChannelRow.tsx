@@ -10,6 +10,14 @@ import { moderatorDeafened, type SidebarPermissions } from "./permissions";
 import { moderateDeafen, moderateMute } from "./moderation";
 import { useSpeakingStore } from "../../../voice/store/speakingStore";
 import { useProfileModalStore } from "../../../social/store/profileModalStore";
+import { useDmOpenerStore } from "../../../social/store/dmOpenerStore";
+import {
+  openContextMenu,
+  openContextMenuAt,
+} from "../../../../shared/ui/contextMenu/contextMenuStore";
+import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
+import MemberVolumeSlider from "../../../voice/components/MemberVolumeSlider";
+import { getLiveKitService } from "../../../voice/lib/livekit";
 
 interface ChannelRowProps {
   community: Community;
@@ -40,6 +48,78 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
 }) => {
   const speakingIds = useSpeakingStore((state) => state.ids);
   const { t } = useTranslation(["sidebar", "common"]);
+  const memberMenu = (m: SidebarVoiceMember): MenuEntry[] => {
+    const self = m.id === currentUserId;
+    const openDm = useDmOpenerStore.getState().open;
+    const inMyCall =
+      !self && getLiveKitService().getParticipants().some((p) => p.identity === m.id);
+    const localVolume = inMyCall ? getLiveKitService().getRemoteVolume(m.id) : 1;
+    const entries: MenuEntry[] = [
+      {
+        kind: "item",
+        id: "profile",
+        label: t("memberProfile"),
+        icon: "user",
+        onSelect: () => useProfileModalStore.getState().open(m.id),
+      },
+    ];
+    if (!self && openDm) {
+      entries.push({
+        kind: "item",
+        id: "message",
+        label: t("memberMessage"),
+        icon: "message",
+        onSelect: () => openDm(m.id, m.name),
+      });
+    }
+    if (inMyCall) {
+      entries.push(
+        { kind: "separator", id: "s-volume" },
+        {
+          kind: "custom",
+          id: "volume",
+          render: () => <MemberVolumeSlider userId={m.id} label={t("memberVolume")} />,
+        },
+        {
+          kind: "item",
+          id: "mute-for-me",
+          label: localVolume === 0 ? t("unmuteForMe") : t("muteForMe"),
+          icon: localVolume === 0 ? "volume" : "speaker-off",
+          onSelect: () => getLiveKitService().setRemoteVolume(m.id, localVolume === 0 ? 1 : 0),
+        },
+      );
+    }
+    const canMute = !self && perms.canMuteIn(community) && perms.outranksIn(community, m.id);
+    const canDeafen =
+      !self &&
+      perms.canDeafenIn(community) &&
+      perms.outranksIn(community, m.id) &&
+      perms.canLiftDeafenIn(community, m);
+    if (canMute || canDeafen) entries.push({ kind: "separator", id: "s-moderation" });
+    if (canMute) {
+      const moderatorMuted = !!m.isMuted && !!m.mutedBy && m.mutedBy !== m.id;
+      entries.push({
+        kind: "item",
+        id: "mute",
+        label: moderatorMuted ? t("unmuteMember") : t("muteMember"),
+        icon: moderatorMuted ? "mic" : "mic-off",
+        danger: !moderatorMuted,
+        onSelect: () => moderateMute(community, channel.id, m),
+      });
+    }
+    if (canDeafen) {
+      const deafened = moderatorDeafened(m);
+      entries.push({
+        kind: "item",
+        id: "deafen",
+        label: deafened ? t("undeafenMember") : t("deafenMember"),
+        icon: deafened ? "headphones" : "headphones-off",
+        danger: !deafened,
+        onSelect: () => moderateDeafen(community, channel.id, m),
+      });
+    }
+    return entries;
+  };
   return (
     <>
       <div
@@ -117,10 +197,20 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                     useProfileModalStore.getState().open(m.id);
                   }}
                   onKeyDown={(e) => {
+                    if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openContextMenuAt(e.currentTarget, memberMenu(m));
+                      return;
+                    }
                     if (e.key !== "Enter" && e.key !== " ") return;
                     e.preventDefault();
                     e.stopPropagation();
                     useProfileModalStore.getState().open(m.id);
+                  }}
+                  onContextMenu={(e) => {
+                    e.stopPropagation();
+                    openContextMenu(e, memberMenu(m));
                   }}
                 >
                   <UserAvatar
@@ -158,51 +248,6 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                     <span className="sb-voice-member-badge muted" title="Deafened">
                       <Icon name="headphones-off" size={11} />
                     </span>
-                  )}
-                  {m.id !== currentUserId &&
-                    perms.canMuteIn(community) &&
-                    perms.outranksIn(community, m.id) && (
-                    <button
-                      type="button"
-                      className="sb-voice-mute-btn"
-                      title={
-                        m.isMuted && m.mutedBy && m.mutedBy !== m.id
-                          ? t("unmuteMember")
-                          : t("muteMember")
-                      }
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moderateMute(community, channel.id, m);
-                      }}
-                    >
-                      <Icon
-                        name={
-                          m.isMuted && m.mutedBy && m.mutedBy !== m.id
-                            ? "mic"
-                            : "mic-off"
-                        }
-                        size={12}
-                      />
-                    </button>
-                  )}
-                  {m.id !== currentUserId &&
-                    perms.canDeafenIn(community) &&
-                    perms.outranksIn(community, m.id) &&
-                    perms.canLiftDeafenIn(community, m) && (
-                    <button
-                      type="button"
-                      className="sb-voice-mute-btn"
-                      title={moderatorDeafened(m) ? t("undeafenMember") : t("deafenMember")}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moderateDeafen(community, channel.id, m);
-                      }}
-                    >
-                      <Icon
-                        name={moderatorDeafened(m) ? "headphones" : "headphones-off"}
-                        size={12}
-                      />
-                    </button>
                   )}
                 </div>
               ))}

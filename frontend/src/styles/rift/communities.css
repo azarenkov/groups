@@ -510,6 +510,9 @@
   color: var(--fg-2);
   cursor: pointer;
 }
+.sb-voice-member:hover { background: var(--surface-hover); color: var(--fg-1); }
+.sb-voice-member:focus { outline: none; }
+.sb-voice-member:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 .sb-voice-member-ava {
   width: 18px; height: 18px; border-radius: 50%;
   box-shadow: 0 0 0 0 transparent;
@@ -1222,23 +1225,4 @@ textarea.ssv-input:focus-visible {
 .ssv-role-reorder .ssv-row-delete:disabled { opacity: 0.3; cursor: default; }
 .ssv-role-reorder .ssv-row-delete:disabled:hover { background: transparent; color: var(--fg-3); }
 
-.sb-voice-mute-btn {
-  width: 20px; height: 20px;
-  display: inline-flex;
-  opacity: 0;
-  pointer-events: none;
-  align-items: center; justify-content: center;
-  border: 0; border-radius: 5px;
-  background: transparent;
-  color: var(--fg-3);
-  cursor: pointer;
-  margin-left: auto;
-  flex: 0 0 auto;
-}
-.sb-voice-member:hover .sb-voice-mute-btn {
-  opacity: 1;
-  pointer-events: auto;
-}
-.sb-voice-mute-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
-.sb-voice-mute-btn + .sb-voice-mute-btn { margin-left: 2px; }
 .ssv-role-member-row .s-switch:disabled { opacity: 0.4; cursor: default; }
