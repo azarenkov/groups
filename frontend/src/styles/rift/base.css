@@ -128,10 +128,12 @@ textarea,
 .profile-about,
 .profile-value,
 .profile-conn,
+.profile-mutual .profile-chip,
 .conn-meta,
 .ssv-invite-url,
 .ssv-invite-by,
-.ssv-row-name {
+.ssv-row-name,
+.ssv-role-member-name {
   -webkit-user-select: text;
   user-select: text;
 }
