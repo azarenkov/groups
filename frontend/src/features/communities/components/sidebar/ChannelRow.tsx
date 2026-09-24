@@ -9,6 +9,7 @@ import type { SidebarVoiceMember } from "./types";
 import { moderatorDeafened, type SidebarPermissions } from "./permissions";
 import { moderateDeafen, moderateMute } from "./moderation";
 import { useSpeakingStore } from "../../../voice/store/speakingStore";
+import { useProfileModalStore } from "../../../social/store/profileModalStore";
 
 interface ChannelRowProps {
   community: Community;
@@ -106,7 +107,22 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
           return (
             <div className="sb-voice-members">
               {membersForChannel.map((m) => (
-                <div key={m.id} className="sb-voice-member">
+                <div
+                  key={m.id}
+                  className="sb-voice-member"
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    useProfileModalStore.getState().open(m.id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    useProfileModalStore.getState().open(m.id);
+                  }}
+                >
                   <UserAvatar
                     userId={m.id}
                     name={m.name}

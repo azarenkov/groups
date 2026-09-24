@@ -77,8 +77,8 @@
     "decline": "Decline"
   },
   "system": {
-    "memberJoined": "{{name}} joined the community",
-    "memberLeft": "{{name}} left the community"
+    "memberJoined": "<0>{{name}}</0> joined the community",
+    "memberLeft": "<0>{{name}}</0> left the community"
   },
   "attachFile": "Attach a file",
   "attachmentsUploading": "Files are still uploading…",

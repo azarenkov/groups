@@ -77,8 +77,8 @@
     "decline": "Отклонить"
   },
   "system": {
-    "memberJoined": "{{name}} присоединился к сообществу",
-    "memberLeft": "{{name}} покинул сообщество"
+    "memberJoined": "<0>{{name}}</0> присоединился к сообществу",
+    "memberLeft": "<0>{{name}}</0> покинул сообщество"
   },
   "attachFile": "Прикрепить файл",
   "attachmentsUploading": "Файлы ещё загружаются…",
