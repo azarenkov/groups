@@ -1,6 +1,6 @@
 import { http } from "../../../shared/api/http";
 
-import { Attachment, ChannelMessage } from "../../../shared/types/channel";
+import { Attachment, ChannelMessage, ReplyPreview } from "../../../shared/types/channel";
 
 interface DmRow {
   id: string;
@@ -13,6 +13,7 @@ interface DmRow {
   callStatus?: string;
   callDurationSeconds?: number;
   attachments?: Attachment[];
+  replyTo?: ReplyPreview;
   createdAt: string;
   editedAt: string | null;
 }
@@ -28,6 +29,7 @@ const toChannelMessage = (r: DmRow): ChannelMessage => ({
   callStatus: r.callStatus,
   callDurationSeconds: r.callDurationSeconds,
   attachments: r.attachments,
+  replyTo: r.replyTo,
   createdAt: r.createdAt,
   editedAt: r.editedAt,
 });
@@ -76,10 +78,18 @@ class DmAPI {
     friendId: string,
     content: string,
     attachmentIds?: string[],
+    replyToMessageId?: string,
   ): Promise<ChannelMessage> {
     const response = await this.client.post(
       `/v1/users/me/dms/${friendId}/messages`,
-      { content, attachmentIds },
+      { content, attachmentIds, replyToMessageId },
+    );
+    return toChannelMessage(response.data.data);
+  }
+
+  async getMessage(friendId: string, messageId: string): Promise<ChannelMessage> {
+    const response = await this.client.get(
+      `/v1/users/me/dms/${friendId}/messages/${messageId}`,
     );
     return toChannelMessage(response.data.data);
   }

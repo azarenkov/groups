@@ -948,6 +948,7 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::NotTextChannel => StatusCode::BAD_REQUEST,
             SendChannelMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             SendChannelMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+            SendChannelMessageError::InvalidReply => StatusCode::BAD_REQUEST,
         }
     }
 
@@ -972,6 +973,9 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::NotTextChannel => {
                 "Channel does not support text".to_string()
             }
+            SendChannelMessageError::InvalidReply => {
+                "The message you are replying to is not available.".to_string()
+            }
         }
     }
 
@@ -986,6 +990,7 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
             SendChannelMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
             SendChannelMessageError::NotTextChannel => "CHANNEL_NOT_TEXT",
+            SendChannelMessageError::InvalidReply => "REPLY_INVALID",
         }
     }
 }
@@ -1072,6 +1077,7 @@ impl HttpMapping for ListChannelMessagesError {
             ListChannelMessagesError::NotTextChannel => StatusCode::BAD_REQUEST,
             ListChannelMessagesError::InvalidCursor => StatusCode::BAD_REQUEST,
             ListChannelMessagesError::ConflictingCursors => StatusCode::BAD_REQUEST,
+            ListChannelMessagesError::MessageNotFound => StatusCode::NOT_FOUND,
         }
     }
 
@@ -1092,6 +1098,7 @@ impl HttpMapping for ListChannelMessagesError {
             ListChannelMessagesError::ConflictingCursors => {
                 "Cannot specify both before and after cursors".to_string()
             }
+            ListChannelMessagesError::MessageNotFound => "Message not found".to_string(),
         }
     }
 
@@ -1104,6 +1111,7 @@ impl HttpMapping for ListChannelMessagesError {
             ListChannelMessagesError::NotTextChannel => "CHANNEL_NOT_TEXT",
             ListChannelMessagesError::InvalidCursor => "INVALID_CURSOR",
             ListChannelMessagesError::ConflictingCursors => "CONFLICTING_CURSORS",
+            ListChannelMessagesError::MessageNotFound => "MESSAGE_NOT_FOUND",
         }
     }
 }
@@ -1272,6 +1280,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::RecipientInactive => StatusCode::FORBIDDEN,
             SendDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             SendDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+            SendDmMessageError::InvalidReply => StatusCode::BAD_REQUEST,
         }
     }
     fn to_user_message(&self) -> String {
@@ -1293,6 +1302,9 @@ impl HttpMapping for SendDmMessageError {
             }
             SendDmMessageError::SelfDm => "You cannot message yourself".to_string(),
             SendDmMessageError::RecipientInactive => "This user is unavailable".to_string(),
+            SendDmMessageError::InvalidReply => {
+                "The message you are replying to is not available.".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -1306,6 +1318,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::DmsClosed => "DMS_CLOSED",
             SendDmMessageError::SelfDm => "SELF_DM",
             SendDmMessageError::RecipientInactive => "RECIPIENT_INACTIVE",
+            SendDmMessageError::InvalidReply => "REPLY_INVALID",
         }
     }
 }
@@ -1656,6 +1669,7 @@ impl HttpMapping for ListDmMessagesError {
             ListDmMessagesError::Repository(e) => e.to_http_status(),
             ListDmMessagesError::InvalidCursor
             | ListDmMessagesError::ConflictingCursors => StatusCode::BAD_REQUEST,
+            ListDmMessagesError::MessageNotFound => StatusCode::NOT_FOUND,
         }
     }
     fn to_user_message(&self) -> String {
@@ -1665,6 +1679,7 @@ impl HttpMapping for ListDmMessagesError {
             ListDmMessagesError::ConflictingCursors => {
                 "Cannot specify both before and after cursors".to_string()
             }
+            ListDmMessagesError::MessageNotFound => "Message not found".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -1672,6 +1687,7 @@ impl HttpMapping for ListDmMessagesError {
             ListDmMessagesError::Repository(e) => e.to_error_code(),
             ListDmMessagesError::InvalidCursor => "INVALID_CURSOR",
             ListDmMessagesError::ConflictingCursors => "CONFLICTING_CURSORS",
+            ListDmMessagesError::MessageNotFound => "MESSAGE_NOT_FOUND",
         }
     }
 }

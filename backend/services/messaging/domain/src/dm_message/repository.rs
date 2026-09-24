@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::view::DmMessageView, community::id::CommunityId};
+use crate::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::view::DmMessageView, message::view::ReplyPreviewView, community::id::CommunityId};
 use domain::{pagination::KeysetCursor, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -33,6 +33,18 @@ pub trait DmMessageRepository {
     ) -> Result<Vec<(Uuid, domain::attachment::AttachmentLink)>, RepositoryError>;
 
     async fn find_by_id(&self, id: &DmMessageId) -> Result<DmMessage, RepositoryError>;
+
+    async fn find_view_between(
+        &self,
+        id: &DmMessageId,
+        user_a: &UserId,
+        user_b: &UserId,
+    ) -> Result<DmMessageView, RepositoryError>;
+
+    async fn list_dm_reply_previews(
+        &self,
+        dm_message_ids: &[Uuid],
+    ) -> Result<Vec<ReplyPreviewView>, RepositoryError>;
 
     async fn list_between(
         &self,

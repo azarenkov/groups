@@ -18,6 +18,8 @@ pub struct ChannelMessageSentV1 {
     pub mentions: Option<Vec<Uuid>>,
     #[serde(default)]
     pub system: Option<Value>,
+    #[serde(default)]
+    pub reply_to: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

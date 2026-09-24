@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use messaging_domain::message::system::SystemMessage;
 use domain::{attachment::AttachmentLink, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
-use messaging_domain::{channel::id::ChannelId, message::Message, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::view::MessageView};
+use messaging_domain::{channel::id::ChannelId, message::Message, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::view::MessageView, message::view::ReplyPreviewView};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
@@ -189,6 +189,60 @@ impl MessageRepository for PostgresMessageRepository {
         dto_to_message(dto)
     }
 
+    async fn find_message_view(
+        &self,
+        message_id: &MessageId,
+    ) -> Result<MessageView, RepositoryError> {
+        let dto = sqlx::query_as!(
+            MessageViewDto,
+            r#"
+            SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
+                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
+            FROM messages m
+            INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
+            WHERE m.id = $1
+            "#,
+            message_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .ok_or(RepositoryError::NotFound)?;
+        Ok(view_dto_to_view(dto))
+    }
+
+    async fn list_reply_previews(
+        &self,
+        message_ids: &[Uuid],
+    ) -> Result<Vec<ReplyPreviewView>, RepositoryError> {
+        if message_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query!(
+            r#"
+            SELECT m.id, m.author_id, u.name AS author_name, m.content,
+                   EXISTS(SELECT 1 FROM message_attachments a WHERE a.message_id = m.id) AS "has_attachments!"
+            FROM messages m
+            INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
+            WHERE m.id = ANY($1)
+            "#,
+            message_ids,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| ReplyPreviewView {
+                message_id: r.id,
+                author_id: UserId::new(r.author_id),
+                author_name: r.author_name,
+                content: r.content,
+                has_attachments: r.has_attachments,
+            })
+            .collect())
+    }
+
     async fn list_messages_in_channel(
         &self,
         channel_id: &ChannelId,
@@ -203,7 +257,7 @@ impl MessageRepository for PostgresMessageRepository {
                     MessageViewDto,
                     r#"
                     SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload"
+                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
                     FROM messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
@@ -226,7 +280,7 @@ impl MessageRepository for PostgresMessageRepository {
                     MessageViewDto,
                     r#"
                     SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload"
+                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
                     FROM messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
@@ -249,7 +303,7 @@ impl MessageRepository for PostgresMessageRepository {
                 MessageViewDto,
                 r#"
                 SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                       m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload"
+                       m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
                 FROM messages m
                 INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                 WHERE m.channel_id = $1
@@ -292,7 +346,7 @@ impl MessageRepository for PostgresMessageRepository {
             MessageViewDto,
             r#"
             SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload"
+                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.channel_id = $1
@@ -347,6 +401,7 @@ fn view_dto_to_view(dto: MessageViewDto) -> MessageView {
         created_at: dto.created_at,
         edited_at: dto.edited_at,
         system: system_from_row(&dto.kind, dto.system_payload.as_deref()),
+        reply_to: dto.reply_to_message_id,
     }
 }
 

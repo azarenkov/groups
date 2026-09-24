@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT m.id, m.author_id, u.name AS author_name, m.content,\n                   EXISTS(SELECT 1 FROM message_attachments a WHERE a.message_id = m.id) AS \"has_attachments!\"\n            FROM messages m\n            INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id\n            WHERE m.id = ANY($1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "author_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "author_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "has_attachments!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "c3784f672a6121742e4c43754191bf3a5784300c6b5bd7d3d056047bb62d4140"
+}

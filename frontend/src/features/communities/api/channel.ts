@@ -156,10 +156,22 @@ class ChannelAPI {
     channelId: string,
     content: string,
     attachmentIds?: string[],
+    replyToMessageId?: string,
   ): Promise<ChannelMessage> {
     const response = await this.client.post(
       `/v1/communities/${communityId}/channels/${channelId}/messages`,
-      { content, attachmentIds },
+      { content, attachmentIds, replyToMessageId },
+    );
+    return response.data.data;
+  }
+
+  async getMessage(
+    communityId: string,
+    channelId: string,
+    messageId: string,
+  ): Promise<ChannelMessage> {
+    const response = await this.client.get(
+      `/v1/communities/${communityId}/channels/${channelId}/messages/${messageId}`,
     );
     return response.data.data;
   }

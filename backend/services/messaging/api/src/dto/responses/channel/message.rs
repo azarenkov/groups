@@ -3,6 +3,7 @@ use messaging::dto::responses::channel::{
     send_channel_message::SendChannelMessageResponse,
 };
 use chrono::{DateTime, Utc};
+use crate::dto::responses::reply::{RepliesTo, ReplyPreviewResponse};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -22,6 +23,19 @@ pub struct MessageResponse {
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<SystemMessageResponse>,
+    #[serde(skip)]
+    pub reply_to_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply_to: Option<ReplyPreviewResponse>,
+}
+
+impl RepliesTo for MessageResponse {
+    fn reply_to_id(&self) -> Option<Uuid> {
+        self.reply_to_id
+    }
+    fn set_reply(&mut self, reply: ReplyPreviewResponse) {
+        self.reply_to = Some(reply);
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -58,6 +72,8 @@ impl From<SendChannelMessageResponse> for MessageResponse {
                 .collect(),
             kind: "user".to_string(),
             system: None,
+            reply_to_id: value.reply.as_ref().map(|r| r.id),
+            reply_to: value.reply.map(ReplyPreviewResponse::from),
         }
     }
 }
@@ -75,6 +91,8 @@ impl From<ChannelMessageDto> for MessageResponse {
             attachments: Vec::new(),
             kind: value.kind,
             system: value.system.map(SystemMessageResponse::from),
+            reply_to_id: value.reply_to_message_id,
+            reply_to: None,
         }
     }
 }

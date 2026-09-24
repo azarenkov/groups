@@ -5,7 +5,7 @@ pub mod view;
 
 use chrono::{DateTime, Utc};
 
-use crate::{dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent, community::id::CommunityId};
+use crate::{message::reply::ReplyPreview, dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent, community::id::CommunityId};
 use domain::user::id::UserId;
 use uuid::Uuid;
 
@@ -31,6 +31,7 @@ pub struct DmMessage {
     call_id: Option<Uuid>,
     created_at: DateTime<Utc>,
     edited_at: Option<DateTime<Utc>>,
+    reply: Option<ReplyPreview>,
     events: Vec<DmMessageDomainEvent>,
 }
 
@@ -53,6 +54,7 @@ impl DmMessage {
             call_id: None,
             created_at: now,
             edited_at: None,
+            reply: None,
             events: Vec::new(),
         };
         message.events.push(DmMessageDomainEvent::Sent(
@@ -82,6 +84,7 @@ impl DmMessage {
             call_id: Some(call_id),
             created_at: now,
             edited_at: None,
+            reply: None,
             events: Vec::new(),
         };
         message.events.push(DmMessageDomainEvent::Sent(
@@ -110,6 +113,7 @@ impl DmMessage {
             call_id: None,
             created_at: now,
             edited_at: None,
+            reply: None,
             events: Vec::new(),
         };
         let community_name = content.as_str().to_string();
@@ -121,6 +125,20 @@ impl DmMessage {
     }
 
     #[allow(clippy::too_many_arguments)]
+    pub fn with_reply(mut self, reply: ReplyPreview) -> Self {
+        for event in &mut self.events {
+            if let DmMessageDomainEvent::Sent(sent) = event {
+                sent.reply = Some(reply.clone());
+            }
+        }
+        self.reply = Some(reply);
+        self
+    }
+
+    pub fn reply(&self) -> Option<&ReplyPreview> {
+        self.reply.as_ref()
+    }
+
     pub fn restore(
         id: DmMessageId,
         sender_id: UserId,
@@ -143,6 +161,7 @@ impl DmMessage {
             call_id: None,
             created_at,
             edited_at,
+            reply: None,
             events: Vec::new(),
         }
     }

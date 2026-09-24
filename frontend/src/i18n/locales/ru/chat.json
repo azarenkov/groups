@@ -94,5 +94,12 @@
   "friendRequestSent": "Заявка отправлена",
   "friendRequestIncoming": "{{user}} отправил(а) вам заявку в друзья.",
   "acceptFriendRequest": "Принять",
-  "more": "Ещё"
+  "more": "Ещё",
+  "replyUnavailable": "Сообщение, на которое вы отвечаете, больше недоступно",
+  "replyingTo": "В ответ {{name}}",
+  "cancelReply": "Отменить ответ",
+  "replyDeleted": "Сообщение удалено",
+  "replyAttachment": "Вложение",
+  "jumpToReply": "Перейти к сообщению",
+  "copyMessageLink": "Копировать ссылку на сообщение"
 }

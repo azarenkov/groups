@@ -7,6 +7,7 @@ use ports::repository::RepositoryError;
 use crate::dto::{
     requests::dm::list_dm_messages::ListDmMessagesRequest,
     responses::dm::dm_message::DmMessageDto,
+    responses::reply::ReplyPreviewDto,
 };
 
 const DEFAULT_LIMIT: i64 = 50;
@@ -20,6 +21,8 @@ pub enum ListDmMessagesError {
     InvalidCursor,
     #[error("Cannot specify both before and after cursors")]
     ConflictingCursors,
+    #[error("Message not found")]
+    MessageNotFound,
 }
 
 pub struct ListDmMessages<M>
@@ -69,6 +72,40 @@ where
             })?;
 
         Ok(rows.into_iter().map(DmMessageDto::from).collect())
+    }
+
+    pub async fn find_one(
+        &self,
+        friend_id: uuid::Uuid,
+        message_id: uuid::Uuid,
+        requester_id: UserId,
+    ) -> Result<DmMessageDto, ListDmMessagesError> {
+        let view = self
+            .dm_repository
+            .find_view_between(
+                &DmMessageId::new(message_id),
+                &requester_id,
+                &UserId::new(friend_id),
+            )
+            .await
+            .map_err(|e| match e {
+                RepositoryError::NotFound => ListDmMessagesError::MessageNotFound,
+                other => ListDmMessagesError::Repository(other),
+            })?;
+        Ok(DmMessageDto::from(view))
+    }
+
+    pub async fn reply_previews(
+        &self,
+        message_ids: &[uuid::Uuid],
+    ) -> Result<Vec<ReplyPreviewDto>, ListDmMessagesError> {
+        Ok(self
+            .dm_repository
+            .list_dm_reply_previews(message_ids)
+            .await?
+            .into_iter()
+            .map(ReplyPreviewDto::from)
+            .collect())
     }
 }
 

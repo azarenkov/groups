@@ -27,6 +27,12 @@ import {
 } from "../../../shared/ui/contextMenu/contextMenuStore";
 import type { MenuEntry } from "../../../shared/ui/contextMenu/contextMenuStore";
 import { useLongPress } from "../../../shared/ui/contextMenu/useLongPress";
+import {
+  IDLE_WHEEL_SWIPE,
+  SWIPE_TRIGGER_PX,
+  nextWheelSwipe,
+  touchSwipeOffset,
+} from "../lib/swipe";
 import type { PendingFile } from "../types";
 import { MAX_CONTENT } from "../constants";
 
@@ -57,6 +63,9 @@ export interface MessageProps {
   onAcceptInvite: () => void;
   onDeclineInvite: () => void;
   onOpenInviteCommunity: () => void;
+  onReply?: () => void;
+  onJumpToReply?: (messageId: string) => void;
+  onCopyLink?: () => void;
 }
 
 export const Message: React.FC<MessageProps> = ({
@@ -86,6 +95,9 @@ export const Message: React.FC<MessageProps> = ({
   onAcceptInvite,
   onDeclineInvite,
   onOpenInviteCommunity,
+  onReply,
+  onJumpToReply,
+  onCopyLink,
 }) => {
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
@@ -104,6 +116,14 @@ export const Message: React.FC<MessageProps> = ({
       hasSelection: selection.trim().length > 0,
     });
     const entry: Record<MessageAction, MenuEntry> = {
+      reply: {
+        kind: "item",
+        id: "reply",
+        label: i18n.t("reply", { ns: "chat" }),
+        icon: "reply",
+        disabled: !onReply,
+        onSelect: () => onReply?.(),
+      },
       copy: {
         kind: "item",
         id: "copy",
@@ -114,6 +134,14 @@ export const Message: React.FC<MessageProps> = ({
             console.warn("[ChatView] copy failed:", e),
           );
         },
+      },
+      link: {
+        kind: "item",
+        id: "link",
+        label: i18n.t("copyMessageLink", { ns: "chat" }),
+        icon: "link",
+        disabled: !onCopyLink,
+        onSelect: () => onCopyLink?.(),
       },
       edit: {
         kind: "item",
@@ -141,7 +169,9 @@ export const Message: React.FC<MessageProps> = ({
     };
     const pick = (action: MessageAction) => (actions.includes(action) ? [entry[action]] : []);
     return [
+      ...pick("reply"),
       ...pick("copy"),
+      ...pick("link"),
       { kind: "separator", id: "s1" },
       ...pick("edit"),
       ...pick("report"),
@@ -152,6 +182,64 @@ export const Message: React.FC<MessageProps> = ({
   const longPress = useLongPress((point) => {
     if (!editing) openContextMenu(point, menuEntries());
   });
+  const canSwipe = !!onReply && !editing && !msg.system && !msg.callStatus && !msg.inviteCommunityId;
+  const [swipeOffset, setSwipeOffset] = React.useState(0);
+  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const wheelSwipeRef = React.useRef(IDLE_WHEEL_SWIPE);
+  const wheelResetRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(
+    () => () => {
+      if (wheelResetRef.current) clearTimeout(wheelResetRef.current);
+    },
+    [],
+  );
+  const selectingText = () => {
+    const selection = window.getSelection();
+    return !!selection && !selection.isCollapsed;
+  };
+  const swipeHandlers = {
+    onTouchStart: (e: React.TouchEvent) => {
+      longPress.onTouchStart(e);
+      if (!canSwipe || e.touches.length !== 1) return;
+      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    },
+    onTouchMove: (e: React.TouchEvent) => {
+      longPress.onTouchMove(e);
+      const start = touchStartRef.current;
+      if (!start) return;
+      const offset = touchSwipeOffset(
+        start.x - e.touches[0].clientX,
+        start.y - e.touches[0].clientY,
+      );
+      if (offset === null) {
+        touchStartRef.current = null;
+        setSwipeOffset(0);
+        return;
+      }
+      setSwipeOffset(offset);
+    },
+    onTouchEnd: () => {
+      longPress.onTouchEnd();
+      if (touchStartRef.current && swipeOffset >= SWIPE_TRIGGER_PX) onReply?.();
+      touchStartRef.current = null;
+      setSwipeOffset(0);
+    },
+    onTouchCancel: () => {
+      longPress.onTouchCancel();
+      touchStartRef.current = null;
+      setSwipeOffset(0);
+    },
+    onWheel: (e: React.WheelEvent) => {
+      if (!canSwipe || selectingText()) return;
+      const next = nextWheelSwipe(wheelSwipeRef.current, e.deltaX, e.deltaY, e.timeStamp);
+      wheelSwipeRef.current = next.state;
+      if (next.state.accum === 0) return;
+      setSwipeOffset(Math.min(next.state.accum, SWIPE_TRIGGER_PX + 20));
+      if (next.fire) onReply?.();
+      if (wheelResetRef.current) clearTimeout(wheelResetRef.current);
+      wheelResetRef.current = setTimeout(() => setSwipeOffset(0), 180);
+    },
+  };
   const created = new Date(msg.createdAt);
   const time = created.toLocaleTimeString([], {
     hour: "2-digit",
@@ -206,7 +294,12 @@ export const Message: React.FC<MessageProps> = ({
           openContextMenuAt(e.currentTarget, menuEntries());
         }
       }}
-      {...longPress}
+      {...swipeHandlers}
+      style={
+        swipeOffset > 0
+          ? { transform: `translateX(${-swipeOffset}px)`, transition: "none" }
+          : undefined
+      }
       className={
         "msg bubble " +
         (isMine ? "mine" : "theirs") +
@@ -216,6 +309,17 @@ export const Message: React.FC<MessageProps> = ({
         (editing ? " editing" : "")
       }
     >
+      {swipeOffset > 0 && (
+        <span
+          className="msg-swipe-hint"
+          style={{
+            right: `${8 - swipeOffset}px`,
+            opacity: Math.min(1, swipeOffset / SWIPE_TRIGGER_PX),
+          }}
+        >
+          <Icon name="reply" size={16} />
+        </span>
+      )}
       <UserAvatar
         userId={msg.authorId}
         name={displayName}
@@ -448,6 +552,40 @@ export const Message: React.FC<MessageProps> = ({
                 >
                   {displayName}
                 </ProfileLink>
+              </div>
+            )}
+            {msg.replyTo && (
+              <div
+                className={"msg-reply" + (msg.replyTo.deleted ? " deleted" : "")}
+                role={msg.replyTo.deleted ? undefined : "button"}
+                tabIndex={msg.replyTo.deleted ? undefined : 0}
+                title={msg.replyTo.deleted ? undefined : i18n.t("jumpToReply", { ns: "chat" })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (msg.replyTo && !msg.replyTo.deleted) onJumpToReply?.(msg.replyTo.id);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  if (msg.replyTo && !msg.replyTo.deleted) onJumpToReply?.(msg.replyTo.id);
+                }}
+              >
+                {msg.replyTo.deleted ? (
+                  <span className="msg-reply-text">{i18n.t("replyDeleted", { ns: "chat" })}</span>
+                ) : (
+                  <>
+                    <span
+                      className="msg-reply-author"
+                      style={{ color: colorForId(msg.replyTo.authorId ?? "") }}
+                    >
+                      {msg.replyTo.authorName}
+                    </span>
+                    <span className="msg-reply-text">
+                      {msg.replyTo.content ||
+                        (msg.replyTo.hasAttachments ? i18n.t("replyAttachment", { ns: "chat" }) : "")}
+                    </span>
+                  </>
+                )}
               </div>
             )}
             <span className="msg-text">{renderWithLinks(msg.content)}</span>

@@ -3,7 +3,7 @@ use domain::pagination::KeysetCursor;
 use async_trait::async_trait;
 use domain::{attachment::AttachmentLink, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
-use messaging_domain::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::repository::DmConversationPreview, dm_message::repository::DmMessageRepository, dm_message::view::DmMessageView, message::content::MessageContent, community::id::CommunityId};
+use messaging_domain::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::repository::DmConversationPreview, dm_message::repository::DmMessageRepository, dm_message::view::DmMessageView, message::content::MessageContent, message::view::ReplyPreviewView, community::id::CommunityId};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
@@ -58,8 +58,8 @@ pub(crate) async fn insert_dm_message(
 ) -> Result<(), RepositoryError> {
     sqlx::query!(
         r#"
-        INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, call_id, created_at, edited_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, call_id, created_at, edited_at, reply_to_message_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         "#,
         message.id().uuid(),
         message.sender_id().uuid(),
@@ -71,6 +71,7 @@ pub(crate) async fn insert_dm_message(
         message.call_id(),
         message.created_at(),
         message.edited_at(),
+        message.reply().map(|r| r.message_id),
     )
     .execute(&mut **tx)
     .await
@@ -166,6 +167,83 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         ))
     }
 
+    async fn find_view_between(
+        &self,
+        id: &DmMessageId,
+        user_a: &UserId,
+        user_b: &UserId,
+    ) -> Result<DmMessageView, RepositoryError> {
+        let r = sqlx::query!(
+            r#"
+            SELECT m.id, m.sender_id, m.recipient_id,
+                   u.name AS sender_name,
+                   m.content, m.invite_community_id,
+                   s.name AS "invite_community_name?",
+                   m.call_status, m.call_duration_seconds,
+                   m.created_at, m.edited_at, m.reply_to_message_id
+            FROM dm_messages m
+            INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
+            LEFT JOIN communities s ON s.id = m.invite_community_id
+            WHERE m.id = $1
+              AND LEAST(m.sender_id, m.recipient_id) = LEAST($2::uuid, $3::uuid)
+              AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($2::uuid, $3::uuid)
+            "#,
+            id.uuid(),
+            user_a.uuid(),
+            user_b.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?
+        .ok_or(RepositoryError::NotFound)?;
+        Ok(DmMessageView {
+            id: DmMessageId::new(r.id),
+            sender_id: UserId::new(r.sender_id),
+            sender_name: r.sender_name,
+            recipient_id: UserId::new(r.recipient_id),
+            content: r.content,
+            invite_community_id: r.invite_community_id.map(CommunityId::new),
+            invite_community_name: r.invite_community_name,
+            call_status: r.call_status,
+            call_duration_seconds: r.call_duration_seconds,
+            created_at: r.created_at,
+            edited_at: r.edited_at,
+            reply_to: r.reply_to_message_id,
+        })
+    }
+
+    async fn list_dm_reply_previews(
+        &self,
+        dm_message_ids: &[Uuid],
+    ) -> Result<Vec<ReplyPreviewView>, RepositoryError> {
+        if dm_message_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query!(
+            r#"
+            SELECT m.id, m.sender_id, u.name AS sender_name, m.content,
+                   EXISTS(SELECT 1 FROM dm_message_attachments a WHERE a.dm_message_id = m.id) AS "has_attachments!"
+            FROM dm_messages m
+            INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
+            WHERE m.id = ANY($1)
+            "#,
+            dm_message_ids,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| ReplyPreviewView {
+                message_id: r.id,
+                author_id: UserId::new(r.sender_id),
+                author_name: r.sender_name,
+                content: r.content,
+                has_attachments: r.has_attachments,
+            })
+            .collect())
+    }
+
     async fn list_between(
         &self,
         user_a: &UserId,
@@ -184,7 +262,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            m.content, m.invite_community_id,
                            s.name AS "invite_community_name?",
                            m.call_status, m.call_duration_seconds,
-                           m.created_at, m.edited_at
+                           m.created_at, m.edited_at, m.reply_to_message_id
                     FROM dm_messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                     LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -216,6 +294,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     call_duration_seconds: r.call_duration_seconds,
                     created_at: r.created_at,
                     edited_at: r.edited_at,
+                    reply_to: r.reply_to_message_id,
                 })
                 .collect()
             }
@@ -228,7 +307,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            m.content, m.invite_community_id,
                            s.name AS "invite_community_name?",
                            m.call_status, m.call_duration_seconds,
-                           m.created_at, m.edited_at
+                           m.created_at, m.edited_at, m.reply_to_message_id
                     FROM dm_messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                     LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -260,6 +339,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     call_duration_seconds: r.call_duration_seconds,
                     created_at: r.created_at,
                     edited_at: r.edited_at,
+                    reply_to: r.reply_to_message_id,
                 })
                 .collect();
                 rows.reverse();
@@ -272,7 +352,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                        m.content, m.invite_community_id,
                        s.name AS "invite_community_name?",
                        m.call_status, m.call_duration_seconds,
-                       m.created_at, m.edited_at
+                       m.created_at, m.edited_at, m.reply_to_message_id
                 FROM dm_messages m
                 INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                 LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -301,6 +381,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 call_duration_seconds: r.call_duration_seconds,
                 created_at: r.created_at,
                 edited_at: r.edited_at,
+                reply_to: r.reply_to_message_id,
             })
             .collect(),
         };
@@ -339,7 +420,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                    m.content, m.invite_community_id,
                    s.name AS "invite_community_name?",
                    m.call_status, m.call_duration_seconds,
-                   m.created_at, m.edited_at
+                   m.created_at, m.edited_at, m.reply_to_message_id
             FROM dm_messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
             LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -374,6 +455,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 call_duration_seconds: r.call_duration_seconds,
                 created_at: r.created_at,
                 edited_at: r.edited_at,
+                reply_to: r.reply_to_message_id,
             })
             .collect();
         Ok(PaginatedResult::new(items, total, pagination))

@@ -10,6 +10,7 @@ pub struct SendChannelMessageResponse {
     pub content: String,
     pub attachments: Vec<domain::attachment::AttachmentLink>,
     pub created_at: DateTime<Utc>,
+    pub reply: Option<crate::dto::responses::reply::ReplyPreviewDto>,
 }
 
 impl From<&Message> for SendChannelMessageResponse {
@@ -21,6 +22,9 @@ impl From<&Message> for SendChannelMessageResponse {
             content: value.content().as_str().to_string(),
             attachments: Vec::new(),
             created_at: value.created_at(),
+            reply: value
+                .reply()
+                .map(|r| crate::dto::responses::reply::ReplyPreviewDto::from_preview(r, None)),
         }
     }
 }

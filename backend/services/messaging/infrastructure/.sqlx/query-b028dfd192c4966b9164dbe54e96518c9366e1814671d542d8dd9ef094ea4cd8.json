@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT m.id, m.sender_id, m.recipient_id,\n                           u.name AS sender_name,\n                           m.content, m.invite_community_id,\n                           s.name AS \"invite_community_name?\",\n                           m.call_status, m.call_duration_seconds,\n                           m.created_at, m.edited_at\n                    FROM dm_messages m\n                    INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id\n                    LEFT JOIN communities s ON s.id = m.invite_community_id\n                    WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)\n                      AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)\n                      AND (m.created_at, m.id) > ($3, $4)\n                    ORDER BY m.created_at ASC, m.id ASC\n                    LIMIT $5\n                    ",
+  "query": "\n                SELECT m.id, m.sender_id, m.recipient_id,\n                       u.name AS sender_name,\n                       m.content, m.invite_community_id,\n                       s.name AS \"invite_community_name?\",\n                       m.call_status, m.call_duration_seconds,\n                       m.created_at, m.edited_at, m.reply_to_message_id\n                FROM dm_messages m\n                INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id\n                LEFT JOIN communities s ON s.id = m.invite_community_id\n                WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)\n                  AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)\n                ORDER BY m.created_at DESC, m.id DESC\n                LIMIT $3\n                ",
   "describe": {
     "columns": [
       {
@@ -57,13 +57,16 @@
         "ordinal": 10,
         "name": "edited_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "reply_to_message_id",
+        "type_info": "Uuid"
       }
     ],
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid",
-        "Timestamptz",
         "Uuid",
         "Int8"
       ]
@@ -79,8 +82,9 @@
       true,
       true,
       false,
+      true,
       true
     ]
   },
-  "hash": "81d8ac006897ef223fd70d5371e0f7ec678a449c65b84307aa5fb2319b967838"
+  "hash": "b028dfd192c4966b9164dbe54e96518c9366e1814671d542d8dd9ef094ea4cd8"
 }

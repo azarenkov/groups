@@ -17,6 +17,7 @@ pub struct DmMessageSent {
     pub call_status: Option<String>,
     pub call_duration_seconds: Option<i32>,
     pub attachments: Vec<AttachmentSnapshot>,
+    pub reply: Option<crate::message::reply::ReplyPreview>,
 }
 
 impl DmMessageSent {
@@ -39,6 +40,7 @@ impl DmMessageSent {
             call_status: None,
             call_duration_seconds: None,
             attachments: Vec::new(),
+            reply: None,
         }
     }
 

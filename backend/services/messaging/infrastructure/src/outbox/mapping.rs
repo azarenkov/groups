@@ -199,6 +199,7 @@ fn message_record(event: &MessageDomainEvent) -> Result<OutboxRecord, Repository
             attachments: Some(value(&e.attachments)?),
             mentions: Some(uuids(&e.mentions)),
             system: e.system.as_ref().map(|s| s.to_json()),
+            reply_to: e.reply.as_ref().map(reply_json),
         })?,
         MessageDomainEvent::Edited(e) => encode(&ChannelMessageEditedV1 {
             message_id: e.message_id.uuid(),
@@ -239,6 +240,7 @@ fn dm_record(event: &DmMessageDomainEvent) -> Result<OutboxRecord, RepositoryErr
             call_status: e.call_status.clone(),
             call_duration_seconds: e.call_duration_seconds,
             attachments: Some(value(&e.attachments)?),
+            reply_to: e.reply.as_ref().map(reply_json),
         })?,
         DmMessageDomainEvent::Edited(e) => encode(&DmMessageEditedV1 {
             message_id: e.message_id.uuid(),
@@ -345,4 +347,13 @@ fn snake_case<T: Serialize>(v: &T) -> Result<String, RepositoryError> {
 
 fn encode<T: Serialize>(v: &T) -> Result<Value, RepositoryError> {
     value(v)
+}
+
+fn reply_json(reply: &messaging_domain::message::reply::ReplyPreview) -> Value {
+    serde_json::json!({
+        "id": reply.message_id,
+        "authorId": reply.author_id.uuid(),
+        "content": reply.snippet,
+        "hasAttachments": reply.has_attachments,
+    })
 }

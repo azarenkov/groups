@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use domain::{attachment::AttachmentLink, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
-use crate::{channel::id::ChannelId, message::Message, message::id::MessageId, message::view::MessageView};
+use crate::{channel::id::ChannelId, message::Message, message::id::MessageId, message::view::MessageView, message::view::ReplyPreviewView};
 
 #[async_trait]
 pub trait MessageRepository {
@@ -27,6 +27,16 @@ pub trait MessageRepository {
         &self,
         message_id: &MessageId,
     ) -> Result<Message, RepositoryError>;
+
+    async fn find_message_view(
+        &self,
+        message_id: &MessageId,
+    ) -> Result<MessageView, RepositoryError>;
+
+    async fn list_reply_previews(
+        &self,
+        message_ids: &[uuid::Uuid],
+    ) -> Result<Vec<ReplyPreviewView>, RepositoryError>;
 
     async fn list_messages_in_channel(
         &self,

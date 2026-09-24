@@ -48,6 +48,8 @@ import ErrorToast from "../../../shared/ui/ErrorToast";
 import PanelResizer from "../../../shared/ui/PanelResizer";
 import ContextMenuHost from "../../../shared/ui/contextMenu/ContextMenuHost";
 import { useDmOpenerStore } from "../../social/store/dmOpenerStore";
+import { parseMessageLink } from "../../chat/lib/messageLink";
+import type { OpenMessageLink } from "../../chat/lib/messageLink";
 import Icon from "../../../shared/ui/Icon";
 import { useLocalQuality } from "../../voice/hooks/useLocalQuality";
 import { qualityClass, qualityLabel } from "../../voice/lib/quality";
@@ -107,6 +109,14 @@ const CommunitiesPage: React.FC = () => {
     setCommunityModalView("join");
     setIsCommunityModalOpen(true);
   }, [searchParams, setSearchParams]);
+  const [pendingMessageLink, setPendingMessageLink] = useState<OpenMessageLink | null>(null);
+  const [openMessage, setOpenMessage] = useState<{ convId: string; messageId: string } | null>(null);
+  useEffect(() => {
+    const link = parseMessageLink(searchParams, user?.id);
+    if (!link) return;
+    setSearchParams({}, { replace: true });
+    setPendingMessageLink(link);
+  }, [searchParams, setSearchParams, user?.id]);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalCommunity, setInviteModalCommunity] = useState<Community | null>(null);
@@ -504,6 +514,21 @@ const CommunitiesPage: React.FC = () => {
     useDmOpenerStore.getState().register((id, name) => openDmRef.current(id, name));
     return () => useDmOpenerStore.getState().register(null);
   }, []);
+  useEffect(() => {
+    const link = pendingMessageLink;
+    if (!link) return;
+    if (link.kind === "dm") {
+      setPendingMessageLink(null);
+      openDmRef.current(link.peerId);
+      setOpenMessage({ convId: link.peerId, messageId: link.messageId });
+      return;
+    }
+    if (!communities.some((c) => c.id === link.communityId)) return;
+    setPendingMessageLink(null);
+    setSelectedCommunity(link.communityId);
+    setSelectedChannel(link.channelId);
+    setOpenMessage({ convId: link.channelId, messageId: link.messageId });
+  }, [pendingMessageLink, communities, setSelectedCommunity, setSelectedChannel]);
 
   const handleCallFromHome = (friendId: string, video = false) => {
     handleOpenDmFromHome(friendId);
@@ -634,6 +659,8 @@ const CommunitiesPage: React.FC = () => {
                   friendship: selectedDm.friendship ?? "accepted",
                 }}
                 currentUserId={user?.id}
+                openMessageId={openMessage?.convId === selectedDm.id ? openMessage.messageId : undefined}
+                onOpenMessageHandled={() => setOpenMessage(null)}
                 communities={communities}
                 onGoToCommunity={selection.handleGoToCommunity}
                 callMode={!!activeCallId && callFocused}
@@ -719,6 +746,12 @@ const CommunitiesPage: React.FC = () => {
                 }
                 communityId={selectedCommunity?.id}
                 currentUserId={user?.id}
+                openMessageId={
+                  activeTextChannel && openMessage?.convId === activeTextChannel.id
+                    ? openMessage.messageId
+                    : undefined
+                }
+                onOpenMessageHandled={() => setOpenMessage(null)}
                 membersOpen={
                   !!activeTextChannel ? !!membersOpenById[activeTextChannel.id] : false
                 }

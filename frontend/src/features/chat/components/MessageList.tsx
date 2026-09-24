@@ -30,6 +30,9 @@ interface MessageListProps {
   onAddEditFiles: (files: FileList | File[], room: number) => void;
   onRemoveEditFile: (localId: string) => void;
   onDelete: (message: ChannelMessage) => void;
+  onReply: (message: ChannelMessage, authorName: string) => void;
+  onJumpToMessage: (messageId: string) => void;
+  onCopyLink: (message: ChannelMessage) => void;
   onAcceptInvite: (message: ChannelMessage) => void;
   onDeclineInvite: (message: ChannelMessage) => void;
   onOpenInviteCommunity?: (communityId: string) => void;
@@ -59,6 +62,9 @@ const MessageList: React.FC<MessageListProps> = ({
   onAddEditFiles,
   onRemoveEditFile,
   onDelete,
+  onReply,
+  onJumpToMessage,
+  onCopyLink,
   onAcceptInvite,
   onDeclineInvite,
   onOpenInviteCommunity,
@@ -121,6 +127,9 @@ const MessageList: React.FC<MessageListProps> = ({
                   }
                   onRemoveEditFile={onRemoveEditFile}
                   onDelete={() => onDelete(m)}
+                  onReply={() => onReply(m, subjectName)}
+                  onJumpToReply={onJumpToMessage}
+                  onCopyLink={() => onCopyLink(m)}
                   onAcceptInvite={() => onAcceptInvite(m)}
                   onDeclineInvite={() => onDeclineInvite(m)}
                   onOpenInviteCommunity={() =>

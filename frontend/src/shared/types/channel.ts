@@ -81,6 +81,15 @@ export interface Attachment {
   sizeBytes: number;
 }
 
+export interface ReplyPreview {
+  id: string;
+  authorId?: string;
+  authorName?: string;
+  content: string;
+  hasAttachments: boolean;
+  deleted: boolean;
+}
+
 export interface ChannelMessage {
   id: string;
   channelId: string;
@@ -94,6 +103,7 @@ export interface ChannelMessage {
   attachments?: Attachment[];
   kind?: "user" | "system";
   system?: SystemMessageInfo;
+  replyTo?: ReplyPreview;
   createdAt: string;
   editedAt: string | null;
 }

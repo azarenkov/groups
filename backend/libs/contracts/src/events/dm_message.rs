@@ -20,6 +20,8 @@ pub struct DmMessageSentV1 {
     pub call_duration_seconds: Option<i32>,
     #[serde(default)]
     pub attachments: Option<Value>,
+    #[serde(default)]
+    pub reply_to: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

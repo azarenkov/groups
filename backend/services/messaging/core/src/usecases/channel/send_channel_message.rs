@@ -3,7 +3,7 @@ use std::sync::Arc;
 use messaging_domain::badge::attachments_per_message;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, message::Message, message::MessageError, message::content::MessageContent, message::repository::MessageRepository, message::unit_of_work::MessageUnitOfWork, community::id::CommunityId, community::repository::CommunityRepository};
+use messaging_domain::{events::MessagingEvent, channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository, message::Message, message::MessageError, message::content::MessageContent, message::id::MessageId, message::reply::ReplyPreview, message::repository::MessageRepository, message::unit_of_work::MessageUnitOfWork, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -32,6 +32,8 @@ pub enum SendChannelMessageError {
     InvalidAttachments,
     #[error("Attachment service unavailable: {0}")]
     AttachmentsUnavailable(String),
+    #[error("The message being replied to is not in this channel")]
+    InvalidReply,
 }
 
 pub struct SendChannelMessage<M, C, S, W, A, R>
@@ -133,13 +135,39 @@ where
         };
         let now = Utc::now();
         let mut message = Message::create(channel_id, author_id, content, now);
+        let mut reply_author_name = None;
+        if let Some(reply_id) = request.reply_to_message_id {
+            let target = self
+                .message_repository
+                .find_message_view(&MessageId::new(reply_id))
+                .await
+                .map_err(|e| match e {
+                    RepositoryError::NotFound => SendChannelMessageError::InvalidReply,
+                    other => SendChannelMessageError::Repository(other),
+                })?;
+            if target.channel_id != channel_id || target.system.is_some() {
+                return Err(SendChannelMessageError::InvalidReply);
+            }
+            let has_attachments = !self
+                .message_repository
+                .list_attachment_links_for_messages(&[reply_id])
+                .await?
+                .is_empty();
+            reply_author_name = Some(target.author_name.clone());
+            message = message.with_reply(ReplyPreview::new(
+                reply_id,
+                target.author_id,
+                &target.content,
+                has_attachments,
+            ));
+        }
 
         let recipient_ids = self
             .channel_repository
             .list_text_channel_member_ids(&channel_id)
             .await?;
 
-        let mentions = crate::usecases::channel::mentions::resolve_mentions(
+        let mut mentions = crate::usecases::channel::mentions::resolve_mentions(
             message.content().as_str(),
             &channel_id,
             &recipient_ids,
@@ -148,6 +176,15 @@ where
             self.mention_resolver.as_ref(),
         )
         .await?;
+        if let Some(reply) = message.reply() {
+            let replied = reply.author_id;
+            if replied != author_id
+                && recipient_ids.contains(&replied)
+                && !mentions.contains(&replied.uuid())
+            {
+                mentions.push(replied.uuid());
+            }
+        }
 
         let request_id = request.ctx.request_id.clone();
         let events = message.pull_events();
@@ -210,6 +247,9 @@ where
 
         let mut response = SendChannelMessageResponse::from(&message);
         response.attachments = attachments;
+        if let Some(reply) = response.reply.as_mut() {
+            reply.author_name = reply_author_name;
+        }
         Ok(response)
     }
 }

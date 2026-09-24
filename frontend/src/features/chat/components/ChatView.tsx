@@ -28,6 +28,11 @@ import { useChatWsMessages } from "../hooks/useChatWsMessages";
 import { useMessageComposer } from "../hooks/useMessageComposer";
 import { useMessageEditing } from "../hooks/useMessageEditing";
 import { useMessages } from "../hooks/useMessages";
+import { previewOf } from "../lib/replies";
+import { messageLink } from "../lib/messageLink";
+import type { MessageLinkTarget } from "../lib/messageLink";
+import { copyTextToClipboard } from "../../../shared/lib/clipboard";
+import { apiBaseUrl } from "../../../shared/config/runtime";
 import { useMessageSearch } from "../hooks/useMessageSearch";
 import { useMessenger } from "../hooks/useMessenger";
 import { useReadReceipts } from "../hooks/useReadReceipts";
@@ -47,6 +52,8 @@ interface ChatViewProps {
   onGoToCommunity?: (communityId: string) => void | Promise<void>;
   topSlot?: React.ReactNode;
   callMode?: boolean;
+  openMessageId?: string;
+  onOpenMessageHandled?: () => void;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
@@ -62,6 +69,8 @@ const ChatView: React.FC<ChatViewProps> = ({
   onGoToCommunity,
   topSlot,
   callMode,
+  openMessageId,
+  onOpenMessageHandled,
 }) => {
   const { t } = useTranslation("chat");
   const attachments = useAttachments();
@@ -131,6 +140,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     handleScroll,
     refreshHistory,
     jumpToMessage,
+    jumpToMessageId,
   } = useMessages({
     messenger,
     convId,
@@ -139,6 +149,14 @@ const ChatView: React.FC<ChatViewProps> = ({
     nameSyncTick,
     reseedChannelReads,
   });
+
+  const onOpenHandledRef = React.useRef(onOpenMessageHandled);
+  onOpenHandledRef.current = onOpenMessageHandled;
+  React.useEffect(() => {
+    if (!openMessageId || showInitialLoader) return;
+    void jumpToMessageId(openMessageId);
+    onOpenHandledRef.current?.();
+  }, [openMessageId, showInitialLoader, jumpToMessageId]);
 
   useChatWsMessages({
     channelId: channelId ?? null,
@@ -516,7 +534,24 @@ const ChatView: React.FC<ChatViewProps> = ({
             onToggleRemoveAttachment={toggleRemoveAttachment}
             onAddEditFiles={addEditFiles}
             onRemoveEditFile={removeEditFile}
-            onDelete={editing.setDeleteTarget}
+            onReply={(message, authorName) => {
+                composer.setReplyTarget(previewOf(message, authorName));
+                composerRef.current?.focus();
+              }}
+              onJumpToMessage={(id) => void jumpToMessageId(id)}
+              onCopyLink={(message) => {
+                const target: MessageLinkTarget | null =
+                  isDm && dmFriendId && currentUserId
+                    ? { kind: "dm", participants: [currentUserId, dmFriendId], messageId: message.id }
+                    : channelId && communityId
+                      ? { kind: "channel", communityId, channelId, messageId: message.id }
+                      : null;
+                if (!target) return;
+                void copyTextToClipboard(messageLink(new URL(apiBaseUrl()).origin, target)).catch(
+                  (e) => console.warn("[ChatView] copy link failed:", e),
+                );
+              }}
+              onDelete={editing.setDeleteTarget}
             onAcceptInvite={handleAcceptInvite}
             onDeclineInvite={handleDeclineInvite}
             onOpenInviteCommunity={onGoToCommunity}
@@ -563,6 +598,8 @@ const ChatView: React.FC<ChatViewProps> = ({
           onApplyMention={applyMention}
           onCloseMentions={() => setMentionQuery(null)}
           onEditLastMessage={editing.editLastOwnMessage}
+          replyTarget={composer.replyTarget}
+          onCancelReply={() => composer.setReplyTarget(null)}
         />
       )}
       {editing.deleteTarget && (

@@ -13,7 +13,9 @@ export interface Messenger {
   sendMessage: (
     content: string,
     attachmentIds?: string[],
+    replyToMessageId?: string,
   ) => Promise<ChannelMessage>;
+  getMessage: (messageId: string) => Promise<ChannelMessage>;
   editMessage: (
     messageId: string,
     content: string,
@@ -39,8 +41,9 @@ export function useMessenger(params: {
     if (isDm && dm) {
       return {
         listMessages: (opts) => dmAPI.listMessages(dm.friendId, opts),
-        sendMessage: (content, attachmentIds) =>
-          dmAPI.sendMessage(dm.friendId, content, attachmentIds),
+        sendMessage: (content, attachmentIds, replyToMessageId) =>
+          dmAPI.sendMessage(dm.friendId, content, attachmentIds, replyToMessageId),
+        getMessage: (messageId) => dmAPI.getMessage(dm.friendId, messageId),
         editMessage: (messageId, content, addAttachmentIds, removeAttachmentIds) =>
           dmAPI.editMessage(
             messageId,
@@ -57,8 +60,10 @@ export function useMessenger(params: {
       return {
         listMessages: (opts) =>
           channelAPI.listMessages(communityId, channel.id, opts),
-        sendMessage: (content, attachmentIds) =>
-          channelAPI.sendMessage(communityId, channel.id, content, attachmentIds),
+        sendMessage: (content, attachmentIds, replyToMessageId) =>
+          channelAPI.sendMessage(communityId, channel.id, content, attachmentIds, replyToMessageId),
+        getMessage: (messageId) =>
+          channelAPI.getMessage(communityId, channel.id, messageId),
         editMessage: (messageId, content, addAttachmentIds, removeAttachmentIds) =>
           channelAPI.editMessage(
             communityId,

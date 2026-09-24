@@ -1,13 +1,14 @@
 pub mod content;
 pub mod events;
 pub mod id;
+pub mod reply;
 pub mod repository;
 pub mod system;
 pub mod view;
 
 use chrono::{DateTime, Utc};
 
-use crate::{channel::id::ChannelId, message::content::MessageContent, message::events::MessageDomainEvent, message::events::lifecycle::MessageDeleted, message::events::lifecycle::MessageEdited, message::events::lifecycle::MessageSent, message::id::MessageId, message::system::MessageKind, message::system::SystemMessage, message::system::SystemMessageKind};
+use crate::{channel::id::ChannelId, message::reply::ReplyPreview, message::content::MessageContent, message::events::MessageDomainEvent, message::events::lifecycle::MessageDeleted, message::events::lifecycle::MessageEdited, message::events::lifecycle::MessageSent, message::id::MessageId, message::system::MessageKind, message::system::SystemMessage, message::system::SystemMessageKind};
 use domain::user::id::UserId;
 
 #[derive(Debug, thiserror::Error)]
@@ -33,6 +34,7 @@ pub struct Message {
     created_at: DateTime<Utc>,
     edited_at: Option<DateTime<Utc>>,
     system: Option<SystemMessage>,
+    reply: Option<ReplyPreview>,
     events: Vec<MessageDomainEvent>,
 }
 
@@ -52,6 +54,7 @@ impl Message {
             created_at: now,
             edited_at: None,
             system: None,
+            reply: None,
             events: Vec::new(),
         };
         message
@@ -84,6 +87,7 @@ impl Message {
             created_at: now,
             edited_at: None,
             system: Some(system),
+            reply: None,
             events: vec![MessageDomainEvent::Sent(sent)],
         }
     }
@@ -106,8 +110,23 @@ impl Message {
             created_at,
             edited_at,
             system,
+            reply: None,
             events: Vec::new(),
         }
+    }
+
+    pub fn with_reply(mut self, reply: ReplyPreview) -> Self {
+        for event in &mut self.events {
+            if let MessageDomainEvent::Sent(sent) = event {
+                sent.reply = Some(reply.clone());
+            }
+        }
+        self.reply = Some(reply);
+        self
+    }
+
+    pub fn reply(&self) -> Option<&ReplyPreview> {
+        self.reply.as_ref()
     }
 
     pub fn edit(

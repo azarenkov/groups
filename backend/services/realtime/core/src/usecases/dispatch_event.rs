@@ -56,6 +56,24 @@ pub enum DispatchError {
     Blocks(#[from] crate::ports::blocks::RelationLookupError),
 }
 
+async fn named_reply<D: RecipientDirectory>(
+    resolver: &D,
+    reply: Option<&serde_json::Value>,
+) -> Result<Option<serde_json::Value>, DispatchError> {
+    let Some(reply) = reply else {
+        return Ok(None);
+    };
+    let mut reply = reply.clone();
+    let author = reply
+        .get("authorId")
+        .and_then(|v| v.as_str())
+        .and_then(|v| Uuid::parse_str(v).ok());
+    if let Some(author) = author {
+        reply["authorName"] = json!(resolver.user_name(author).await?);
+    }
+    Ok(Some(reply))
+}
+
 async fn confirm_pending_dm_peers<D: RecipientDirectory + RealtimeProjection, B: crate::ports::blocks::RelationDirectory>(
     resolver: &D,
     relations: &B,
@@ -93,6 +111,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         let evt: DmSent = serde_json::from_slice(payload)?;
         resolver.record_dm_pair(evt.sender_id, evt.recipient_id).await?;
         let sender_name = resolver.user_name(evt.sender_id).await?;
+        let reply_to = named_reply(resolver, evt.reply_to.as_ref()).await?;
         let envelope = Envelope::new(
             "dm_message.sent",
             json!({
@@ -107,6 +126,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "callStatus": evt.call_status,
                 "callDurationSeconds": evt.call_duration_seconds,
                 "attachments": evt.attachments.unwrap_or_else(|| json!([])),
+                "replyTo": reply_to,
             }),
         );
         publisher
@@ -236,6 +256,9 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         data["kind"] = json!(if evt.system.is_some() { "system" } else { "user" });
         if let Some(system) = &evt.system {
             data["system"] = system.clone();
+        }
+        if let Some(reply) = named_reply(resolver, evt.reply_to.as_ref()).await? {
+            data["replyTo"] = reply;
         }
         let envelope = Envelope::new("message.sent", data);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
