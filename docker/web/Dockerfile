@@ -3,8 +3,7 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY frontend/package.json frontend/package-lock.json ./
-COPY frontend/scripts ./scripts
-RUN npm ci --ignore-scripts && node scripts/copy-ort-wasm.js
+RUN npm ci --ignore-scripts
 
 COPY frontend/tsconfig.json ./
 COPY frontend/public ./public
