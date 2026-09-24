@@ -137,6 +137,14 @@ textarea,
 .s-blocked-name,
 .s-error,
 .ssv-error,
+.m-error,
+.srvm-error,
+.report-error,
+.profile-style-error,
+.image-crop-error,
+.composer-error,
+.call-error-toast,
+.error-toast-text,
 .ssv-invite-url,
 .ssv-invite-by,
 .ssv-row-name,
@@ -145,7 +153,8 @@ textarea,
   user-select: text;
 }
 
-.msg .txt .msg-edited {
+.msg .txt .msg-edited,
+.ssv-row-name .ssv-default-badge {
   -webkit-user-select: none;
   user-select: none;
 }
