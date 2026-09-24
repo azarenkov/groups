@@ -117,6 +117,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                     useProfileModalStore.getState().open(m.id);
                   }}
                   onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
                     if (e.key !== "Enter" && e.key !== " ") return;
                     e.preventDefault();
                     e.stopPropagation();
