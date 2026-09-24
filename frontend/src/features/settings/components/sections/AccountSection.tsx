@@ -299,6 +299,7 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
         <SettingsRow
           label={t("account.username")}
           hint={user?.name ? `@${user.name}` : t("account.usernameHint")}
+          hintClassName={user?.name ? "s-data" : undefined}
         >
           {nameEditing ? (
             <>

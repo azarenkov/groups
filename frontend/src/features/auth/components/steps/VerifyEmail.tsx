@@ -130,7 +130,7 @@ export const VerifyEmail: React.FC<{
             <Icon name="camera" size={26} />
           </div>
           <h1>{t("verifyTitle")}</h1>
-          <p className="sub">{avatarWarning}</p>
+          <p className="sub error-text">{avatarWarning}</p>
           <button
             type="button"
             className="btn primary"
