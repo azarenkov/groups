@@ -5,6 +5,9 @@ import VoicePill from "./VoicePill";
 import { useCallStore } from "../store/callStore";
 import { useHotkey } from "../../settings/lib/hotkeys";
 import { useVideoTiles } from "../hooks/useVideoTiles";
+import { useSpeakingStore } from "../store/speakingStore";
+import { speakingName } from "../lib/speakingName";
+import { useAuthStore } from "../../auth/store/authStore";
 
 interface ActiveCallBarProps {
   dockId?: string;
@@ -35,6 +38,8 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
   const deafened = useCallStore((s) => s.deafened);
   const setDeafened = useCallStore((s) => s.setDeafened);
   const videoTiles = useVideoTiles();
+  const speakingIds = useSpeakingStore((s) => s.ids);
+  const selfId = useAuthStore((s) => s.user?.id ?? null);
   const [mountPoint, setMountPoint] = useState<HTMLElement | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const { t } = useTranslation(["call", "voice"]);
@@ -77,11 +82,15 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
   const toggleMute = () => setMicMuted(!muted);
 
   const count = Math.max(Object.keys(participants).length, 1);
+  const speaker = speakingName(participants, speakingIds, selfId);
+  const meta = speaker
+    ? `${speaker} — ${t("voice:speaking")}`
+    : `${formatDuration(startedAt, now)} · ${count} ${t("voice:connected").toLowerCase()}`;
 
   return createPortal(
     <VoicePill
       title={t("inCall")}
-      meta={`${formatDuration(startedAt, now)} · ${count} ${t("voice:connected").toLowerCase()}`}
+      meta={meta}
       isMuted={muted}
       onToggleMute={toggleMute}
       isDeafened={deafened}
