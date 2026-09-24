@@ -5,7 +5,7 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --ignore-scripts
 
-COPY frontend/tsconfig.json ./
+COPY frontend/tsconfig.json frontend/.eslintignore ./
 COPY frontend/public ./public
 COPY frontend/src ./src
 
