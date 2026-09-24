@@ -100,7 +100,11 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
       perms.canDeafenIn(community) &&
       perms.outranksIn(community, m.id) &&
       perms.canLiftDeafenIn(community, m);
-    if (canMute || canDeafen) entries.push({ kind: "separator", id: "s-moderation" });
+    const canDisconnect =
+      !self && perms.canDisconnectIn(community) && perms.outranksIn(community, m.id);
+    if (canMute || canDeafen || canDisconnect) {
+      entries.push({ kind: "separator", id: "s-moderation" });
+    }
     if (canMute) {
       const moderatorMuted = !!m.isMuted && !!m.mutedBy && m.mutedBy !== m.id;
       entries.push({
@@ -123,7 +127,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
         onSelect: () => moderateDeafen(community, channel.id, m),
       });
     }
-    if (canMute) {
+    if (canDisconnect) {
       entries.push({
         kind: "item",
         id: "disconnect",

@@ -75,14 +75,10 @@ where
         if !channel.supports_voice() {
             return Err(DisconnectVoiceMemberError::VoiceNotSupported);
         }
-        if initiator == target {
-            return Err(DisconnectVoiceMemberError::Domain(ChannelError::NotAllowed));
-        }
-
         {
             let mut tx = self.unit_of_work.begin(&community_id).await?;
             let community = tx.load_community().await?;
-            community.ensure_can_mute(&initiator, &target)?;
+            community.ensure_can_disconnect(&initiator, &target)?;
         }
 
         let connected = self
