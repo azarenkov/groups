@@ -144,6 +144,7 @@ use messaging::usecases::role::RoleError;
 use messaging::usecases::read_state::get_dm_read_receipt::GetDmReadReceiptError;
 use messaging::usecases::read_state::get_unread_counts::GetUnreadCountsError;
 use messaging::usecases::read_state::mark_channel_read::MarkChannelReadError;
+use messaging::usecases::hidden_message::hide_message::HideMessageError;
 use messaging::usecases::read_state::mark_dm_read::MarkDmReadError;
 use messaging::usecases::community::accept_community_invite::AcceptCommunityInviteError;
 use messaging::usecases::community::create_community::CreateCommunityError;
@@ -1732,6 +1733,24 @@ impl HttpMapping for MarkChannelReadError {
         match self {
             MarkChannelReadError::Repository(e) => e.to_error_code(),
             MarkChannelReadError::NotMember => "CHANNEL_NOT_MEMBER",
+        }
+    }
+}
+
+impl HttpMapping for HideMessageError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            HideMessageError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            HideMessageError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            HideMessageError::Repository(e) => e.to_error_code(),
         }
     }
 }

@@ -270,6 +270,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     LEFT JOIN communities s ON s.id = m.invite_community_id
                     WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                       AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
+                      AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
                       AND (m.created_at, m.id) < ($3, $4)
                     ORDER BY m.created_at DESC, m.id DESC
                     LIMIT $5
@@ -316,6 +317,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     LEFT JOIN communities s ON s.id = m.invite_community_id
                     WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                       AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
+                      AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
                       AND (m.created_at, m.id) > ($3, $4)
                     ORDER BY m.created_at ASC, m.id ASC
                     LIMIT $5
@@ -362,6 +364,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 LEFT JOIN communities s ON s.id = m.invite_community_id
                 WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                   AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
+                  AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
                 ORDER BY m.created_at DESC, m.id DESC
                 LIMIT $3
                 "#,
@@ -404,10 +407,11 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         let total = sqlx::query!(
             r#"
             SELECT COUNT(*) AS "count!"
-            FROM dm_messages
-            WHERE LEAST(sender_id, recipient_id) = LEAST($1::uuid, $2::uuid)
-              AND GREATEST(sender_id, recipient_id) = GREATEST($1::uuid, $2::uuid)
-              AND search_tsv @@ plainto_tsquery('simple', $3)
+            FROM dm_messages m
+            WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
+              AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
+              AND m.search_tsv @@ plainto_tsquery('simple', $3)
             "#,
             user_a.uuid(),
             user_b.uuid(),
@@ -431,6 +435,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             LEFT JOIN communities s ON s.id = m.invite_community_id
             WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
               AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
               AND m.search_tsv @@ plainto_tsquery('simple', $3)
             ORDER BY ts_rank(m.search_tsv, plainto_tsquery('simple', $3)) DESC,
                      m.created_at DESC, m.id DESC

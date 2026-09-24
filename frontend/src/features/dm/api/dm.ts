@@ -137,6 +137,10 @@ class DmAPI {
     await this.client.delete(`/v1/users/me/dms/messages/${messageId}`);
   }
 
+  async hideMessage(friendId: string, messageId: string): Promise<void> {
+    await this.client.post(`/v1/users/me/dms/${friendId}/messages/${messageId}/hide`);
+  }
+
   async searchMessages(
     friendId: string,
     query: string,

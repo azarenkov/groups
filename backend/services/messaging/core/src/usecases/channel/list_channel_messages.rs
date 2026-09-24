@@ -83,7 +83,7 @@ where
         let has_cursor = before.is_some() || after.is_some();
         let messages = self
             .message_repository
-            .list_messages_in_channel(&channel_id, before.as_ref(), after.as_ref(), limit)
+            .list_messages_in_channel(&channel_id, &requester_id, before.as_ref(), after.as_ref(), limit)
             .await
             .map_err(|e| match e {
                 RepositoryError::NotFound if has_cursor => {

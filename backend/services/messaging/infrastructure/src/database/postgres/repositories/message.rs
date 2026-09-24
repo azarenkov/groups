@@ -246,6 +246,7 @@ impl MessageRepository for PostgresMessageRepository {
     async fn list_messages_in_channel(
         &self,
         channel_id: &ChannelId,
+        viewer: &UserId,
         before: Option<&MessageId>,
         after: Option<&MessageId>,
         limit: i64,
@@ -262,6 +263,7 @@ impl MessageRepository for PostgresMessageRepository {
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
                       AND (m.created_at, m.id) < ($2, $3)
+                      AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $5 AND h.message_id = m.id)
                     ORDER BY m.created_at DESC, m.id DESC
                     LIMIT $4
                     "#,
@@ -269,6 +271,7 @@ impl MessageRepository for PostgresMessageRepository {
                     cursor.created_at,
                     cursor.id,
                     limit,
+                    viewer.uuid(),
                 )
                 .fetch_all(&self.pool)
                 .await
@@ -285,6 +288,7 @@ impl MessageRepository for PostgresMessageRepository {
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
                       AND (m.created_at, m.id) > ($2, $3)
+                      AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $5 AND h.message_id = m.id)
                     ORDER BY m.created_at ASC, m.id ASC
                     LIMIT $4
                     "#,
@@ -292,6 +296,7 @@ impl MessageRepository for PostgresMessageRepository {
                     cursor.created_at,
                     cursor.id,
                     limit,
+                    viewer.uuid(),
                 )
                 .fetch_all(&self.pool)
                 .await
@@ -307,11 +312,13 @@ impl MessageRepository for PostgresMessageRepository {
                 FROM messages m
                 INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                 WHERE m.channel_id = $1
+                  AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)
                 ORDER BY m.created_at DESC, m.id DESC
                 LIMIT $2
                 "#,
                 channel_id.uuid(),
                 limit,
+                viewer.uuid(),
             )
             .fetch_all(&self.pool)
             .await
@@ -324,18 +331,21 @@ impl MessageRepository for PostgresMessageRepository {
     async fn search_messages_in_channel(
         &self,
         channel_id: &ChannelId,
+        viewer: &UserId,
         query: &str,
         pagination: Pagination,
     ) -> Result<PaginatedResult<MessageView>, RepositoryError> {
         let total = sqlx::query!(
             r#"
             SELECT COUNT(*) AS "count!"
-            FROM messages
-            WHERE channel_id = $1
-              AND search_tsv @@ plainto_tsquery('simple', $2)
+            FROM messages m
+            WHERE m.channel_id = $1
+              AND m.search_tsv @@ plainto_tsquery('simple', $2)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)
             "#,
             channel_id.uuid(),
             query,
+            viewer.uuid(),
         )
         .fetch_one(&self.pool)
         .await
@@ -351,6 +361,7 @@ impl MessageRepository for PostgresMessageRepository {
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.channel_id = $1
               AND m.search_tsv @@ plainto_tsquery('simple', $2)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $5 AND h.message_id = m.id)
             ORDER BY ts_rank(m.search_tsv, plainto_tsquery('simple', $2)) DESC,
                      m.created_at DESC, m.id DESC
             LIMIT $3 OFFSET $4
@@ -359,6 +370,7 @@ impl MessageRepository for PostgresMessageRepository {
             query,
             pagination.limit(),
             pagination.offset(),
+            viewer.uuid(),
         )
         .fetch_all(&self.pool)
         .await

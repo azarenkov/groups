@@ -140,11 +140,15 @@ export function useMessageEditing(params: {
     }
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = async (scope: "everyone" | "me") => {
     if (!deleteTarget || !messenger) return;
     const target = deleteTarget;
     try {
-      await messenger.deleteMessage(target.id);
+      if (scope === "everyone") {
+        await messenger.deleteMessage(target.id);
+      } else {
+        await messenger.hideMessage(target.id);
+      }
       setMessages((prev) => prev.filter((m) => m.id !== target.id));
     } catch (err) {
       console.warn("[ChatView] delete failed:", err);

@@ -41,6 +41,7 @@ pub trait MessageRepository {
     async fn list_messages_in_channel(
         &self,
         channel_id: &ChannelId,
+        viewer: &UserId,
         before: Option<&MessageId>,
         after: Option<&MessageId>,
         limit: i64,
@@ -49,6 +50,7 @@ pub trait MessageRepository {
     async fn search_messages_in_channel(
         &self,
         channel_id: &ChannelId,
+        viewer: &UserId,
         query: &str,
         pagination: Pagination,
     ) -> Result<PaginatedResult<MessageView>, RepositoryError>;

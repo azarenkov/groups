@@ -359,6 +359,25 @@ async fn get_channel_message(
     Ok(HttpResponse::Ok().json(ApiResponse::success(items.remove(0))))
 }
 
+#[post("/{community_id}/channels/{channel_id}/messages/{message_id}/hide")]
+async fn hide_channel_message(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid, Uuid)>,
+) -> Result<impl Responder, HttpError> {
+    let (community_id, channel_id, message_id) = path.into_inner();
+    let user_id = UserId::new(auth_token.id);
+    app_state
+        .list_channel_messages_usecase
+        .find_one(community_id, channel_id, message_id, user_id)
+        .await?;
+    app_state
+        .hide_message_usecase
+        .execute(user_id, message_id)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
 async fn fill_channel_replies(
     app_state: &web::Data<AppState>,
     items: &mut [MessageResponse],

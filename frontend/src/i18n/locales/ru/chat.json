@@ -119,5 +119,9 @@
   "forwardFailed": "Не удалось переслать сообщение",
   "forwardPartial": "Не удалось переслать: {{targets}}",
   "forwardedFrom": "Переслано от {{name}}",
-  "forwardOpenSource": "Открыть оригинал"
+  "forwardOpenSource": "Открыть оригинал",
+  "deleteForMe": "Удалить у себя",
+  "deleteForEveryone": "Удалить у всех",
+  "deleteMessageChoose": "«Удалить у всех» уберёт сообщение для всех участников. «Удалить у себя» скроет его только в вашей ленте.",
+  "deleteForMeConfirm": "Сообщение пропадёт только из вашей ленты, у остальных оно останется."
 }

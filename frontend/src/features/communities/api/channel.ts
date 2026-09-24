@@ -204,6 +204,12 @@ class ChannelAPI {
     );
   }
 
+  async hideMessage(communityId: string, channelId: string, messageId: string): Promise<void> {
+    await this.client.post(
+      `/v1/communities/${communityId}/channels/${channelId}/messages/${messageId}/hide`,
+    );
+  }
+
   async joinText(
     communityId: string,
     channelId: string,

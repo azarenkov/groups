@@ -37,7 +37,6 @@ import type { PendingFile } from "../types";
 import { MAX_CONTENT } from "../constants";
 
 export interface MessageProps {
-  canModerate?: boolean;
   blockedAuthor?: boolean;
   msg: ChannelMessage;
   displayName: string;
@@ -71,7 +70,6 @@ export interface MessageProps {
 }
 
 export const Message: React.FC<MessageProps> = ({
-  canModerate,
   blockedAuthor,
   msg,
   displayName,
@@ -116,7 +114,6 @@ export const Message: React.FC<MessageProps> = ({
     const actions = messageActions({
       msg,
       isMine,
-      canModerate: !!canModerate,
       hasSelection: selection.trim().length > 0,
     });
     const entry: Record<MessageAction, MenuEntry> = {

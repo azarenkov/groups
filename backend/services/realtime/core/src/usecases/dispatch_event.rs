@@ -19,7 +19,7 @@ use contracts::events::{
     },
     message::{
         ChannelMessageDeletedV1 as ChannelMsgDeleted, ChannelMessageEditedV1 as ChannelMsgEdited,
-        ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto,
+        ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto, MessageHiddenV1 as MessageHiddenDto,
     },
     community::{
         CommunityCreatedV1 as CommunityCreatedDto, CommunityDeletedV1 as CommunityDeletedDto,
@@ -218,6 +218,19 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         publisher
             .publish_to_users(unique(recipients), &envelope)
             .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".message.hidden") {
+        let evt: MessageHiddenDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "message.hidden",
+            json!({
+                "messageId": evt.message_id,
+                "hiddenAt": evt.hidden_at,
+            }),
+        );
+        publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
         return Ok(());
     }
 

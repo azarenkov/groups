@@ -234,6 +234,25 @@ async fn get_dm_message(
     Ok(HttpResponse::Ok().json(ApiResponse::success(items.remove(0))))
 }
 
+#[post("/me/dms/{friend_id}/messages/{message_id}/hide")]
+async fn hide_dm_message(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+) -> Result<impl Responder, HttpError> {
+    let (friend_id, message_id) = path.into_inner();
+    let user_id = UserId::new(auth_token.id);
+    app_state
+        .list_dm_messages_usecase
+        .find_one(friend_id, message_id, user_id)
+        .await?;
+    app_state
+        .hide_message_usecase
+        .execute(user_id, message_id)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
 async fn fill_dm_replies(
     app_state: &web::Data<AppState>,
     items: &mut [DmMessageResponse],

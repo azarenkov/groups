@@ -5,12 +5,11 @@ export type MessageAction = "reply" | "forward" | "copy" | "link" | "edit" | "de
 export interface MessageMenuContext {
   msg: ChannelMessage;
   isMine: boolean;
-  canModerate: boolean;
   hasSelection: boolean;
 }
 
 export function messageActions(ctx: MessageMenuContext): MessageAction[] {
-  const { msg, isMine, canModerate, hasSelection } = ctx;
+  const { msg, isMine, hasSelection } = ctx;
   const card = !!msg.callStatus || !!msg.inviteCommunityId;
   const actions: MessageAction[] = [];
   if (!card && !msg.system) actions.push("reply");
@@ -19,9 +18,17 @@ export function messageActions(ctx: MessageMenuContext): MessageAction[] {
   if (!card && (hasText || hasSelection)) actions.push("copy");
   if (!msg.system) actions.push("link");
   if (isMine && !card && !msg.system) actions.push("edit");
-  if ((isMine && !msg.inviteCommunityId) || canModerate) actions.push("delete");
+  actions.push("delete");
   if (!isMine && !card && !msg.system) actions.push("report");
   return actions;
+}
+
+export function canDeleteForEveryone(
+  msg: ChannelMessage,
+  isMine: boolean,
+  canModerate: boolean,
+): boolean {
+  return (isMine && !msg.inviteCommunityId) || canModerate;
 }
 
 export function messageCopyText(msg: ChannelMessage, selection: string): string {

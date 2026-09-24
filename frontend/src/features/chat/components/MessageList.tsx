@@ -19,7 +19,6 @@ interface MessageListProps {
   editFiles: PendingFile[];
   savingEdit: boolean;
   highlightedMessageId: string | null;
-  canModerateMessages: boolean;
   myCommunityIds: Set<string>;
   receiptFor: (message: ChannelMessage, mine: boolean) => "sent" | "read" | null;
   onEditTextChange: (value: string) => void;
@@ -53,7 +52,6 @@ const MessageList: React.FC<MessageListProps> = ({
   editFiles,
   savingEdit,
   highlightedMessageId,
-  canModerateMessages,
   myCommunityIds,
   receiptFor,
   onEditTextChange,
@@ -111,7 +109,6 @@ const MessageList: React.FC<MessageListProps> = ({
                   inviteIsMember={
                     !!m.inviteCommunityId && myCommunityIds.has(m.inviteCommunityId)
                   }
-                  canModerate={canModerateMessages}
                   editRemovedIds={editRemovedIds}
                   editFiles={editFiles}
                   editSaving={savingEdit}
