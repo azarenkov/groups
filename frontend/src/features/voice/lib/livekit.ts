@@ -908,7 +908,7 @@ export class LiveKitService {
           };
           this.micGainNode = postGain;
           this.micGateGain = postGate;
-          this.startMicGate(postAnalyser);
+          this.startMicGate(denoisedAnalyser);
         }
         rawTrack.enabled = !this.isMicrophoneMuted();
         pipeline.setStrength(this.noiseStrength);
