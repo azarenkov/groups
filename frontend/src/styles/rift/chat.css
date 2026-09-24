@@ -12,7 +12,6 @@
 .chat-body {
   flex: 1;
   overflow-y: auto;
-  overflow-anchor: none;
   padding: 24px 24px 12px;
   display: flex; flex-direction: column;
 }

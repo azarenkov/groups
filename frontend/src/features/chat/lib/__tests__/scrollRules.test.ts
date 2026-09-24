@@ -1,4 +1,5 @@
 import {
+  appendedOwnMessage,
   IDLE_WHEEL_GESTURE,
   STICK_TO_BOTTOM_PX,
   WHEEL_GESTURE_GAP_MS,
@@ -46,5 +47,29 @@ describe("sticking to the bottom", () => {
 
   it("always shows the reader their own message", () => {
     expect(shouldStickToBottom(5000, true)).toBe(true);
+  });
+});
+
+describe("appendedOwnMessage", () => {
+  const m = (id: string, authorId: string) => ({ id, authorId });
+
+  it("sticks to the bottom when you append a message", () => {
+    expect(appendedOwnMessage("a", [m("a", "x"), m("b", "me")], "me")).toBe(true);
+  });
+
+  it("ignores a tail that is someone else's", () => {
+    expect(appendedOwnMessage("a", [m("a", "me"), m("b", "x")], "me")).toBe(false);
+  });
+
+  it("ignores a deletion that leaves your older message at the tail", () => {
+    expect(appendedOwnMessage("c", [m("a", "x"), m("b", "me")], "me")).toBe(false);
+  });
+
+  it("ignores rows prepended in front of an unchanged tail", () => {
+    expect(appendedOwnMessage("b", [m("z", "x"), m("a", "x"), m("b", "me")], "me")).toBe(false);
+  });
+
+  it("treats the first load as appended", () => {
+    expect(appendedOwnMessage(null, [m("a", "me")], "me")).toBe(true);
   });
 });

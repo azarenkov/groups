@@ -26,3 +26,15 @@ export function shouldStickToBottom(
 ): boolean {
   return ownMessage || distanceFromBottom <= STICK_TO_BOTTOM_PX;
 }
+
+export function appendedOwnMessage(
+  previousTailId: string | null,
+  messages: { id: string; authorId: string }[],
+  userId: string | undefined,
+): boolean {
+  const last = messages[messages.length - 1];
+  if (!last || !userId || last.authorId !== userId) return false;
+  if (last.id === previousTailId) return false;
+  if (previousTailId === null) return true;
+  return messages.slice(0, -1).some((m) => m.id === previousTailId);
+}

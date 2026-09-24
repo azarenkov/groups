@@ -4,7 +4,7 @@ import { ApiError } from "../../../shared/lib/apiError";
 import type { ChannelMessage } from "../../../shared/types/channel";
 import { PAGE_LIMIT } from "../constants";
 import { mergeWithLive } from "../lib/messageFormat";
-import { shouldStickToBottom } from "../lib/scrollRules";
+import { appendedOwnMessage, shouldStickToBottom } from "../lib/scrollRules";
 import type { Messenger } from "./useMessenger";
 
 const JUMP_CONTEXT = 25;
@@ -45,9 +45,10 @@ export function useMessages(params: {
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const loadingOlderRef = React.useRef(false);
   const skipNextAutoScrollRef = React.useRef(false);
-  const restoreScrollRef = React.useRef<{ top: number; height: number } | null>(
+  const restoreScrollRef = React.useRef<{ anchorId: string; offset: number } | null>(
     null,
   );
+  const tailIdRef = React.useRef<string | null>(null);
   const nearBottomRef = React.useRef(true);
   const currentUserIdRef = React.useRef(currentUserId);
   currentUserIdRef.current = currentUserId;
@@ -68,6 +69,8 @@ export function useMessages(params: {
     setAccessError(null);
     nearBottomRef.current = true;
     restoreScrollRef.current = null;
+    tailIdRef.current = null;
+    if (bodyRef.current) bodyRef.current.style.overflowAnchor = "";
     const messengerNow = messengerRef.current;
     if (!messengerNow || !convId) return;
 
@@ -155,19 +158,24 @@ export function useMessages(params: {
   React.useLayoutEffect(() => {
     const body = bodyRef.current;
     if (!body) return;
+    const previousTailId = tailIdRef.current;
+    tailIdRef.current = messagesRef.current[messagesRef.current.length - 1]?.id ?? null;
     const restore = restoreScrollRef.current;
     if (restore) {
       restoreScrollRef.current = null;
-      body.scrollTop = restore.top + (body.scrollHeight - restore.height);
+      const anchor = body.querySelector<HTMLElement>(`[data-msg-id="${restore.anchorId}"]`);
+      if (anchor) {
+        body.scrollTop +=
+          anchor.getBoundingClientRect().top - body.getBoundingClientRect().top - restore.offset;
+      }
+      body.style.overflowAnchor = "";
       return;
     }
     if (skipNextAutoScrollRef.current) {
       skipNextAutoScrollRef.current = false;
       return;
     }
-    const last = messagesRef.current[messagesRef.current.length - 1];
-    const own =
-      !!last && !!currentUserIdRef.current && last.authorId === currentUserIdRef.current;
+    const own = appendedOwnMessage(previousTailId, messagesRef.current, currentUserIdRef.current);
     if (!nearBottomRef.current && !own) return;
     body.scrollTop = body.scrollHeight;
     nearBottomRef.current = true;
@@ -194,9 +202,16 @@ export function useMessages(params: {
         setHasMore(false);
       } else {
         const body = bodyRef.current;
-        restoreScrollRef.current = body
-          ? { top: body.scrollTop, height: body.scrollHeight }
-          : null;
+        const anchor = body?.querySelector<HTMLElement>(`[data-msg-id="${oldestId}"]`);
+        if (body && anchor) {
+          body.style.overflowAnchor = "none";
+          restoreScrollRef.current = {
+            anchorId: oldestId,
+            offset: anchor.getBoundingClientRect().top - body.getBoundingClientRect().top,
+          };
+        } else {
+          restoreScrollRef.current = null;
+        }
         setMessages((prev) => [...older, ...prev]);
         setHasMore(res.messages.length >= PAGE_LIMIT);
       }
