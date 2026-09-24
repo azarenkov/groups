@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,\n                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS \"system_payload\", m.reply_to_message_id\n                    FROM messages m\n                    INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id\n                    WHERE m.channel_id = $1\n                      AND (m.created_at, m.id) < ($2, $3)\n                    ORDER BY m.created_at DESC, m.id DESC\n                    LIMIT $4\n                    ",
+  "query": "\n                    SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,\n                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS \"system_payload\", m.reply_to_message_id, m.forwarded_from::text AS \"forwarded_from\"\n                    FROM messages m\n                    INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id\n                    WHERE m.channel_id = $1\n                      AND (m.created_at, m.id) < ($2, $3)\n                    ORDER BY m.created_at DESC, m.id DESC\n                    LIMIT $4\n                    ",
   "describe": {
     "columns": [
       {
@@ -52,6 +52,11 @@
         "ordinal": 9,
         "name": "reply_to_message_id",
         "type_info": "Uuid"
+      },
+      {
+        "ordinal": 10,
+        "name": "forwarded_from",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -72,8 +77,9 @@
       true,
       false,
       null,
-      true
+      true,
+      null
     ]
   },
-  "hash": "ee37489f767b3fe149be9a7864a012aec19a692300b42b691da988b4660de6a6"
+  "hash": "fa2c121eaa53db2f32f7f8aa7380646980f98b032282b0318ed1941b85c713c6"
 }

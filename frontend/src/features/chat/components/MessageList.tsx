@@ -33,6 +33,8 @@ interface MessageListProps {
   onReply: (message: ChannelMessage, authorName: string) => void;
   onJumpToMessage: (messageId: string) => void;
   onCopyLink: (message: ChannelMessage) => void;
+  onForward: (message: ChannelMessage) => void;
+  onOpenForwardSource: (message: ChannelMessage) => void;
   onAcceptInvite: (message: ChannelMessage) => void;
   onDeclineInvite: (message: ChannelMessage) => void;
   onOpenInviteCommunity?: (communityId: string) => void;
@@ -65,6 +67,8 @@ const MessageList: React.FC<MessageListProps> = ({
   onReply,
   onJumpToMessage,
   onCopyLink,
+  onForward,
+  onOpenForwardSource,
   onAcceptInvite,
   onDeclineInvite,
   onOpenInviteCommunity,
@@ -130,6 +134,8 @@ const MessageList: React.FC<MessageListProps> = ({
                   onReply={() => onReply(m, subjectName)}
                   onJumpToReply={onJumpToMessage}
                   onCopyLink={() => onCopyLink(m)}
+                  onForward={() => onForward(m)}
+                  onOpenForwardSource={() => onOpenForwardSource(m)}
                   onAcceptInvite={() => onAcceptInvite(m)}
                   onDeclineInvite={() => onDeclineInvite(m)}
                   onOpenInviteCommunity={() =>

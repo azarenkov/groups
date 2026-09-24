@@ -101,5 +101,21 @@
   "replyDeleted": "Message deleted",
   "replyAttachment": "Attachment",
   "jumpToReply": "Jump to message",
-  "copyMessageLink": "Copy message link"
+  "copyMessageLink": "Copy message link",
+  "forward": "Forward",
+  "forwardTitle": "Forward message",
+  "forwardSearch": "Search friends and channels",
+  "forwardEmpty": "Nothing found",
+  "forwardSectionDms": "Direct messages",
+  "forwardSectionChannels": "Channels",
+  "forwardComment": "Add a comment (optional)",
+  "forwardSend": "Forward",
+  "forwardSendCount_one": "Forward ({{count}})",
+  "forwardSendCount_other": "Forward ({{count}})",
+  "forwardSending": "Forwarding…",
+  "forwardDone": "Forwarded",
+  "forwardFailed": "Couldn't forward the message",
+  "forwardPartial": "Couldn't forward to: {{targets}}",
+  "forwardedFrom": "Forwarded from {{name}}",
+  "forwardOpenSource": "Open original"
 }

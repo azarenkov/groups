@@ -2,6 +2,7 @@ import React from "react";
 import type {
   Attachment,
   ChannelMessage,
+  ForwardInfo,
   ReplyPreview,
   SystemMessageInfo,
 } from "../../../shared/types/channel";
@@ -29,6 +30,7 @@ export function useChatWsMessages(params: {
         kind?: "user" | "system";
         system?: SystemMessageInfo;
         replyTo?: Omit<ReplyPreview, "deleted">;
+        forwardedFrom?: ForwardInfo | null;
       }) => {
         setMessages((prev) =>
           prev.some((x) => x.id === m.id)
@@ -45,6 +47,7 @@ export function useChatWsMessages(params: {
                   kind: m.kind,
                   system: m.system,
                   replyTo: m.replyTo ? { ...m.replyTo, deleted: false } : undefined,
+                  forwardedFrom: m.forwardedFrom,
                   createdAt: m.occurredAt,
                   editedAt: null,
                 },
@@ -98,6 +101,7 @@ export function useChatWsMessages(params: {
         callDurationSeconds?: number;
         attachments?: Attachment[];
         replyTo?: Omit<ReplyPreview, "deleted"> | null;
+        forwardedFrom?: ForwardInfo | null;
       }) => {
         setMessages((prev) =>
           prev.some((x) => x.id === m.id)
@@ -116,6 +120,7 @@ export function useChatWsMessages(params: {
                   callDurationSeconds: m.callDurationSeconds,
                   attachments: m.attachments,
                   replyTo: m.replyTo ? { ...m.replyTo, deleted: false } : undefined,
+                  forwardedFrom: m.forwardedFrom,
                   createdAt: m.occurredAt,
                   editedAt: null,
                 },

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use messaging_domain::message::system::SystemMessage;
 use domain::{attachment::AttachmentLink, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
-use messaging_domain::{channel::id::ChannelId, message::Message, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::view::MessageView, message::view::ReplyPreviewView};
+use messaging_domain::{channel::id::ChannelId, message::Message, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::view::MessageView, message::view::ReplyPreviewView, message::forward::ForwardInfo};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
@@ -197,7 +197,7 @@ impl MessageRepository for PostgresMessageRepository {
             MessageViewDto,
             r#"
             SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
+                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.id = $1
@@ -257,7 +257,7 @@ impl MessageRepository for PostgresMessageRepository {
                     MessageViewDto,
                     r#"
                     SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
+                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
                     FROM messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
@@ -280,7 +280,7 @@ impl MessageRepository for PostgresMessageRepository {
                     MessageViewDto,
                     r#"
                     SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
+                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
                     FROM messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
@@ -303,7 +303,7 @@ impl MessageRepository for PostgresMessageRepository {
                 MessageViewDto,
                 r#"
                 SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                       m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
+                       m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
                 FROM messages m
                 INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                 WHERE m.channel_id = $1
@@ -346,7 +346,7 @@ impl MessageRepository for PostgresMessageRepository {
             MessageViewDto,
             r#"
             SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
+                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.channel_id = $1
@@ -402,6 +402,11 @@ fn view_dto_to_view(dto: MessageViewDto) -> MessageView {
         edited_at: dto.edited_at,
         system: system_from_row(&dto.kind, dto.system_payload.as_deref()),
         reply_to: dto.reply_to_message_id,
+        forwarded_from: dto
+            .forwarded_from
+            .as_deref()
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+            .and_then(|value| ForwardInfo::from_json(&value)),
     }
 }
 

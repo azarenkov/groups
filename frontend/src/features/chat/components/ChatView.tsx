@@ -1,5 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { blockGeneration, useBlockStore } from "../../social/store/blockStore";
 import { friendshipAPI } from "../../social/api/friendship";
 import Icon from "../../../shared/ui/Icon";
@@ -38,6 +39,7 @@ import { useMessenger } from "../hooks/useMessenger";
 import { useReadReceipts } from "../hooks/useReadReceipts";
 import { PULL_THRESHOLD, usePullToRefresh } from "../hooks/usePullToRefresh";
 import type { ChannelMeta, DmMeta } from "../types";
+import { openForward } from "../store/forwardModalStore";
 
 interface ChatViewProps {
   channel?: ChannelMeta;
@@ -73,6 +75,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   onOpenMessageHandled,
 }) => {
   const { t } = useTranslation("chat");
+  const navigate = useNavigate();
   const attachments = useAttachments();
   const {
     pendingFiles,
@@ -550,6 +553,26 @@ const ChatView: React.FC<ChatViewProps> = ({
                 void copyTextToClipboard(messageLink(new URL(apiBaseUrl()).origin, target)).catch(
                   (e) => console.warn("[ChatView] copy link failed:", e),
                 );
+              }}
+              onForward={(message) => {
+                if (isDm && dmFriendId) {
+                  openForward({ kind: "dm", friendId: dmFriendId, messageId: message.id });
+                } else if (channelId && communityId) {
+                  openForward({ kind: "channel", communityId, channelId, messageId: message.id });
+                }
+              }}
+              onOpenForwardSource={(message) => {
+                const origin = message.forwardedFrom;
+                if (!origin || origin.source.kind !== "channel") return;
+                const link = new URL(
+                  messageLink(window.location.origin, {
+                    kind: "channel",
+                    communityId: origin.source.communityId,
+                    channelId: origin.source.channelId,
+                    messageId: origin.messageId,
+                  }),
+                );
+                navigate(link.pathname + link.search);
               }}
               onDelete={editing.setDeleteTarget}
             onAcceptInvite={handleAcceptInvite}

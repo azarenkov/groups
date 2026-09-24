@@ -13,6 +13,7 @@ pub struct SendDmMessageResponse {
     pub attachments: Vec<domain::attachment::AttachmentLink>,
     pub created_at: DateTime<Utc>,
     pub reply: Option<crate::dto::responses::reply::ReplyPreviewDto>,
+    pub forwarded_from: Option<messaging_domain::message::forward::ForwardInfo>,
 }
 
 impl SendDmMessageResponse {
@@ -29,6 +30,7 @@ impl SendDmMessageResponse {
             reply: value
                 .reply()
                 .map(|r| crate::dto::responses::reply::ReplyPreviewDto::from_preview(r, None)),
+            forwarded_from: value.forward().cloned(),
         }
     }
 }
@@ -47,6 +49,7 @@ impl From<&DmMessage> for SendDmMessageResponse {
             reply: value
                 .reply()
                 .map(|r| crate::dto::responses::reply::ReplyPreviewDto::from_preview(r, None)),
+            forwarded_from: value.forward().cloned(),
         }
     }
 }

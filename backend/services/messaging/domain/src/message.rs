@@ -1,5 +1,6 @@
 pub mod content;
 pub mod events;
+pub mod forward;
 pub mod id;
 pub mod reply;
 pub mod repository;
@@ -8,7 +9,7 @@ pub mod view;
 
 use chrono::{DateTime, Utc};
 
-use crate::{channel::id::ChannelId, message::reply::ReplyPreview, message::content::MessageContent, message::events::MessageDomainEvent, message::events::lifecycle::MessageDeleted, message::events::lifecycle::MessageEdited, message::events::lifecycle::MessageSent, message::id::MessageId, message::system::MessageKind, message::system::SystemMessage, message::system::SystemMessageKind};
+use crate::{channel::id::ChannelId, message::forward::ForwardInfo, message::reply::ReplyPreview, message::content::MessageContent, message::events::MessageDomainEvent, message::events::lifecycle::MessageDeleted, message::events::lifecycle::MessageEdited, message::events::lifecycle::MessageSent, message::id::MessageId, message::system::MessageKind, message::system::SystemMessage, message::system::SystemMessageKind};
 use domain::user::id::UserId;
 
 #[derive(Debug, thiserror::Error)]
@@ -35,6 +36,7 @@ pub struct Message {
     edited_at: Option<DateTime<Utc>>,
     system: Option<SystemMessage>,
     reply: Option<ReplyPreview>,
+    forward: Option<ForwardInfo>,
     events: Vec<MessageDomainEvent>,
 }
 
@@ -55,6 +57,7 @@ impl Message {
             edited_at: None,
             system: None,
             reply: None,
+            forward: None,
             events: Vec::new(),
         };
         message
@@ -88,6 +91,7 @@ impl Message {
             edited_at: None,
             system: Some(system),
             reply: None,
+            forward: None,
             events: vec![MessageDomainEvent::Sent(sent)],
         }
     }
@@ -111,6 +115,7 @@ impl Message {
             edited_at,
             system,
             reply: None,
+            forward: None,
             events: Vec::new(),
         }
     }
@@ -127,6 +132,20 @@ impl Message {
 
     pub fn reply(&self) -> Option<&ReplyPreview> {
         self.reply.as_ref()
+    }
+
+    pub fn with_forward(mut self, forward: ForwardInfo) -> Self {
+        for event in &mut self.events {
+            if let MessageDomainEvent::Sent(sent) = event {
+                sent.forward = Some(forward.clone());
+            }
+        }
+        self.forward = Some(forward);
+        self
+    }
+
+    pub fn forward(&self) -> Option<&ForwardInfo> {
+        self.forward.as_ref()
     }
 
     pub fn edit(

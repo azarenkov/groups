@@ -124,13 +124,22 @@ where
         if request.attachment_ids.len() > attachments_per_message(&tier) {
             return Err(SendDmMessageError::InvalidAttachments);
         }
-        let content = if request.attachment_ids.is_empty() {
+        let forward = request.forward.clone();
+        let content = if let Some(forward) = &forward {
+            if forward.content.trim().is_empty() && forward.attachments.is_empty() {
+                return Err(MessageError::ContentEmpty.into());
+            }
+            MessageContent::new_allow_empty(forward.content.clone())?
+        } else if request.attachment_ids.is_empty() {
             MessageContent::new(request.content)?
         } else {
             MessageContent::new_allow_empty(request.content)?
         };
         let now = Utc::now();
         let mut message = DmMessage::create(sender_id, recipient_id, content, now);
+        if let Some(forward) = &forward {
+            message = message.with_forward(forward.info.clone());
+        }
         let mut reply_author_name = None;
         if let Some(reply_id) = request.reply_to_message_id {
             let target = self
@@ -161,7 +170,9 @@ where
         let events = message.pull_events();
 
         let claim_token = uuid::Uuid::new_v4();
-        let attachments = if request.attachment_ids.is_empty() {
+        let attachments = if let Some(forward) = &forward {
+            forward.attachments.clone()
+        } else if request.attachment_ids.is_empty() {
             Vec::new()
         } else {
             match self

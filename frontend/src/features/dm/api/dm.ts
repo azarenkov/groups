@@ -1,6 +1,6 @@
 import { http } from "../../../shared/api/http";
 
-import { Attachment, ChannelMessage, ReplyPreview } from "../../../shared/types/channel";
+import { Attachment, ChannelMessage, ForwardInfo, ReplyPreview } from "../../../shared/types/channel";
 
 interface DmRow {
   id: string;
@@ -14,6 +14,7 @@ interface DmRow {
   callDurationSeconds?: number;
   attachments?: Attachment[];
   replyTo?: ReplyPreview;
+  forwardedFrom?: ForwardInfo | null;
   createdAt: string;
   editedAt: string | null;
 }
@@ -30,6 +31,7 @@ const toChannelMessage = (r: DmRow): ChannelMessage => ({
   callDurationSeconds: r.callDurationSeconds,
   attachments: r.attachments,
   replyTo: r.replyTo,
+  forwardedFrom: r.forwardedFrom,
   createdAt: r.createdAt,
   editedAt: r.editedAt,
 });

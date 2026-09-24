@@ -127,6 +127,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "callDurationSeconds": evt.call_duration_seconds,
                 "attachments": evt.attachments.unwrap_or_else(|| json!([])),
                 "replyTo": reply_to,
+                "forwardedFrom": evt.forwarded_from,
             }),
         );
         publisher
@@ -259,6 +260,9 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         }
         if let Some(reply) = named_reply(resolver, evt.reply_to.as_ref()).await? {
             data["replyTo"] = reply;
+        }
+        if let Some(forwarded) = &evt.forwarded_from {
+            data["forwardedFrom"] = forwarded.clone();
         }
         let envelope = Envelope::new("message.sent", data);
         publisher.publish_to_users(unique(recipients), &envelope).await?;

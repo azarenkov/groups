@@ -21,15 +21,15 @@ const ctx = (over: Partial<Parameters<typeof messageActions>[0]> = {}) => ({
 
 describe("messageActions", () => {
   it("lets you copy, edit and delete your own message", () => {
-    expect(messageActions(ctx({ isMine: true }))).toEqual(["reply", "copy", "link", "edit", "delete"]);
+    expect(messageActions(ctx({ isMine: true }))).toEqual(["reply", "forward", "copy", "link", "edit", "delete"]);
   });
 
   it("lets you copy and report someone else's message", () => {
-    expect(messageActions(ctx())).toEqual(["reply", "copy", "link", "report"]);
+    expect(messageActions(ctx())).toEqual(["reply", "forward", "copy", "link", "report"]);
   });
 
   it("adds delete for moderators", () => {
-    expect(messageActions(ctx({ canModerate: true }))).toEqual(["reply", "copy", "link", "delete", "report"]);
+    expect(messageActions(ctx({ canModerate: true }))).toEqual(["reply", "forward", "copy", "link", "delete", "report"]);
   });
 
   it("offers only delete on your own call card", () => {
@@ -40,7 +40,7 @@ describe("messageActions", () => {
   });
 
   it("offers copy of a selection even on an empty message", () => {
-    expect(messageActions(ctx({ hasSelection: true, msg: msg({ content: "" }) }))).toEqual(["reply", "copy", "link", "report"]);
+    expect(messageActions(ctx({ hasSelection: true, msg: msg({ content: "" }) }))).toEqual(["reply", "forward", "copy", "link", "report"]);
   });
 });
 

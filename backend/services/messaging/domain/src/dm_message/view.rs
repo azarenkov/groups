@@ -17,4 +17,5 @@ pub struct DmMessageView {
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
     pub reply_to: Option<uuid::Uuid>,
+    pub forwarded_from: Option<crate::message::forward::ForwardInfo>,
 }

@@ -79,6 +79,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                 .service(
                     web::scope("/v1/users")
                         .configure(badge_routes)
+                        .service(crate::forward::forward_message)
                         .service(search_dm_messages)
                         .service(get_dm_message)
                         .service(list_dm_previews)

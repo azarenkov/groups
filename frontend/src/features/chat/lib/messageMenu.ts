@@ -1,6 +1,6 @@
 import type { ChannelMessage } from "../../../shared/types/channel";
 
-export type MessageAction = "reply" | "copy" | "link" | "edit" | "delete" | "report";
+export type MessageAction = "reply" | "forward" | "copy" | "link" | "edit" | "delete" | "report";
 
 export interface MessageMenuContext {
   msg: ChannelMessage;
@@ -14,6 +14,7 @@ export function messageActions(ctx: MessageMenuContext): MessageAction[] {
   const card = !!msg.callStatus || !!msg.inviteCommunityId;
   const actions: MessageAction[] = [];
   if (!card && !msg.system) actions.push("reply");
+  if (!card && !msg.system) actions.push("forward");
   const hasText = msg.content.length > 0 || (msg.attachments?.length ?? 0) > 0;
   if (!card && (hasText || hasSelection)) actions.push("copy");
   if (!msg.system) actions.push("link");

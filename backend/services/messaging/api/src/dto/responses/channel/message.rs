@@ -27,6 +27,8 @@ pub struct MessageResponse {
     pub reply_to_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_to: Option<ReplyPreviewResponse>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub forwarded_from: Option<serde_json::Value>,
 }
 
 impl RepliesTo for MessageResponse {
@@ -74,6 +76,7 @@ impl From<SendChannelMessageResponse> for MessageResponse {
             system: None,
             reply_to_id: value.reply.as_ref().map(|r| r.id),
             reply_to: value.reply.map(ReplyPreviewResponse::from),
+            forwarded_from: value.forwarded_from.as_ref().map(|f| f.to_json()),
         }
     }
 }
@@ -93,6 +96,7 @@ impl From<ChannelMessageDto> for MessageResponse {
             system: value.system.map(SystemMessageResponse::from),
             reply_to_id: value.reply_to_message_id,
             reply_to: None,
+            forwarded_from: value.forwarded_from.as_ref().map(|f| f.to_json()),
         }
     }
 }

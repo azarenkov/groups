@@ -90,6 +90,18 @@ export interface ReplyPreview {
   deleted: boolean;
 }
 
+export type ForwardSource =
+  | { kind: "channel"; communityId: string; channelId: string }
+  | { kind: "dm" };
+
+export interface ForwardInfo {
+  messageId: string;
+  authorId: string;
+  authorName: string;
+  sentAt: string;
+  source: ForwardSource;
+}
+
 export interface ChannelMessage {
   id: string;
   channelId: string;
@@ -104,6 +116,7 @@ export interface ChannelMessage {
   kind?: "user" | "system";
   system?: SystemMessageInfo;
   replyTo?: ReplyPreview;
+  forwardedFrom?: ForwardInfo | null;
   createdAt: string;
   editedAt: string | null;
 }

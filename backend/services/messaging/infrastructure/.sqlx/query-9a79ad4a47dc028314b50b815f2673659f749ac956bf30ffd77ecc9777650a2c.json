@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT m.id, m.sender_id, m.recipient_id,\n                   u.name AS sender_name,\n                   m.content, m.invite_community_id,\n                   s.name AS \"invite_community_name?\",\n                   m.call_status, m.call_duration_seconds,\n                   m.created_at, m.edited_at, m.reply_to_message_id\n            FROM dm_messages m\n            INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id\n            LEFT JOIN communities s ON s.id = m.invite_community_id\n            WHERE m.id = $1\n              AND LEAST(m.sender_id, m.recipient_id) = LEAST($2::uuid, $3::uuid)\n              AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($2::uuid, $3::uuid)\n            ",
+  "query": "\n                    SELECT m.id, m.sender_id, m.recipient_id,\n                           u.name AS sender_name,\n                           m.content, m.invite_community_id,\n                           s.name AS \"invite_community_name?\",\n                           m.call_status, m.call_duration_seconds,\n                           m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS \"forwarded_from?\"\n                    FROM dm_messages m\n                    INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id\n                    LEFT JOIN communities s ON s.id = m.invite_community_id\n                    WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)\n                      AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)\n                      AND (m.created_at, m.id) > ($3, $4)\n                    ORDER BY m.created_at ASC, m.id ASC\n                    LIMIT $5\n                    ",
   "describe": {
     "columns": [
       {
@@ -62,13 +62,20 @@
         "ordinal": 11,
         "name": "reply_to_message_id",
         "type_info": "Uuid"
+      },
+      {
+        "ordinal": 12,
+        "name": "forwarded_from?",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
         "Uuid",
         "Uuid",
-        "Uuid"
+        "Timestamptz",
+        "Uuid",
+        "Int8"
       ]
     },
     "nullable": [
@@ -83,8 +90,9 @@
       true,
       false,
       true,
-      true
+      true,
+      null
     ]
   },
-  "hash": "cbdc322b55ee1650197827421f7054883c0b5fc268483a4d5d54d4c5c072c92c"
+  "hash": "9a79ad4a47dc028314b50b815f2673659f749ac956bf30ffd77ecc9777650a2c"
 }

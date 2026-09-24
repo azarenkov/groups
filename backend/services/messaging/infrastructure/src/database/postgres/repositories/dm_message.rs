@@ -58,8 +58,8 @@ pub(crate) async fn insert_dm_message(
 ) -> Result<(), RepositoryError> {
     sqlx::query!(
         r#"
-        INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, call_id, created_at, edited_at, reply_to_message_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, call_id, created_at, edited_at, reply_to_message_id, forwarded_from)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, ($12::text)::jsonb)
         "#,
         message.id().uuid(),
         message.sender_id().uuid(),
@@ -72,6 +72,7 @@ pub(crate) async fn insert_dm_message(
         message.created_at(),
         message.edited_at(),
         message.reply().map(|r| r.message_id),
+        message.forward().map(|f| f.to_json().to_string()),
     )
     .execute(&mut **tx)
     .await
@@ -180,7 +181,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                    m.content, m.invite_community_id,
                    s.name AS "invite_community_name?",
                    m.call_status, m.call_duration_seconds,
-                   m.created_at, m.edited_at, m.reply_to_message_id
+                   m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?"
             FROM dm_messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
             LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -209,6 +210,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             created_at: r.created_at,
             edited_at: r.edited_at,
             reply_to: r.reply_to_message_id,
+            forwarded_from: parse_forward(r.forwarded_from.as_deref()),
         })
     }
 
@@ -262,7 +264,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            m.content, m.invite_community_id,
                            s.name AS "invite_community_name?",
                            m.call_status, m.call_duration_seconds,
-                           m.created_at, m.edited_at, m.reply_to_message_id
+                           m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?"
                     FROM dm_messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                     LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -295,6 +297,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     created_at: r.created_at,
                     edited_at: r.edited_at,
                     reply_to: r.reply_to_message_id,
+                    forwarded_from: parse_forward(r.forwarded_from.as_deref()),
                 })
                 .collect()
             }
@@ -307,7 +310,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            m.content, m.invite_community_id,
                            s.name AS "invite_community_name?",
                            m.call_status, m.call_duration_seconds,
-                           m.created_at, m.edited_at, m.reply_to_message_id
+                           m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?"
                     FROM dm_messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                     LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -340,6 +343,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     created_at: r.created_at,
                     edited_at: r.edited_at,
                     reply_to: r.reply_to_message_id,
+                    forwarded_from: parse_forward(r.forwarded_from.as_deref()),
                 })
                 .collect();
                 rows.reverse();
@@ -352,7 +356,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                        m.content, m.invite_community_id,
                        s.name AS "invite_community_name?",
                        m.call_status, m.call_duration_seconds,
-                       m.created_at, m.edited_at, m.reply_to_message_id
+                       m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?"
                 FROM dm_messages m
                 INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                 LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -382,6 +386,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 created_at: r.created_at,
                 edited_at: r.edited_at,
                 reply_to: r.reply_to_message_id,
+                forwarded_from: parse_forward(r.forwarded_from.as_deref()),
             })
             .collect(),
         };
@@ -420,7 +425,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                    m.content, m.invite_community_id,
                    s.name AS "invite_community_name?",
                    m.call_status, m.call_duration_seconds,
-                   m.created_at, m.edited_at, m.reply_to_message_id
+                   m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?"
             FROM dm_messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
             LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -456,6 +461,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 created_at: r.created_at,
                 edited_at: r.edited_at,
                 reply_to: r.reply_to_message_id,
+                forwarded_from: parse_forward(r.forwarded_from.as_deref()),
             })
             .collect();
         Ok(PaginatedResult::new(items, total, pagination))
@@ -638,4 +644,9 @@ pub(crate) async fn insert_dm_links(
         .map_err(map_sqlx_error_to_domain_error)?;
     }
     Ok(())
+}
+
+fn parse_forward(raw: Option<&str>) -> Option<messaging_domain::message::forward::ForwardInfo> {
+    let value: serde_json::Value = serde_json::from_str(raw?).ok()?;
+    messaging_domain::message::forward::ForwardInfo::from_json(&value)
 }
