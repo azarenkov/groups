@@ -18,6 +18,8 @@ import {
 import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import MemberVolumeSlider from "../../../voice/components/MemberVolumeSlider";
 import { getLiveKitService } from "../../../voice/lib/livekit";
+import { useVoiceSessionStore } from "../../../voice/store/voiceSessionStore";
+import VoiceSessionTimer from "../../../voice/components/VoiceSessionTimer";
 
 interface ChannelRowProps {
   community: Community;
@@ -48,6 +50,9 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
 }) => {
   const speakingIds = useSpeakingStore((state) => state.ids);
   const { t } = useTranslation(["sidebar", "common"]);
+  const sessionStartedAt = useVoiceSessionStore((st) =>
+    channel.kind === "voice" ? st.startedAt[channel.id] : undefined,
+  );
   const memberMenu = (m: SidebarVoiceMember): MenuEntry[] => {
     const self = m.id === currentUserId;
     const openDm = useDmOpenerStore.getState().open;
@@ -161,6 +166,12 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
         {channel.kind === "voice" &&
           (voiceMembersByChannel?.[channel.id]?.length ?? 0) > 0 && (
             <span className="meta">
+              {sessionStartedAt && (
+                <>
+                  <VoiceSessionTimer startedAt={sessionStartedAt} className="sb-voice-timer" />
+                  <span className="sb-voice-sep" aria-hidden="true">·</span>
+                </>
+              )}
               {voiceMembersByChannel?.[channel.id]?.length}
             </span>
           )}

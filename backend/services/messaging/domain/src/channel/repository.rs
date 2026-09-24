@@ -71,6 +71,11 @@ pub trait ChannelRepository {
         community_id: &crate::community::id::CommunityId,
     ) -> Result<Vec<StreamViewerCountRow>, RepositoryError>;
 
+    async fn list_voice_sessions_for_community(
+        &self,
+        community_id: &crate::community::id::CommunityId,
+    ) -> Result<Vec<VoiceSessionRow>, RepositoryError>;
+
     async fn list_voice_participants_joined_before(
         &self,
         cutoff: DateTime<Utc>,
@@ -135,6 +140,12 @@ pub struct StreamViewerCountRow {
     pub channel_id: ChannelId,
     pub streamer_id: UserId,
     pub count: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct VoiceSessionRow {
+    pub channel_id: ChannelId,
+    pub started_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Clone)]
