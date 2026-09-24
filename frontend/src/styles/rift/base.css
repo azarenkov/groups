@@ -129,7 +129,9 @@ textarea,
 .profile-value,
 .profile-conn,
 .conn-meta,
-.ssv-invite-url {
+.ssv-invite-url,
+.ssv-invite-by,
+.ssv-row-name {
   -webkit-user-select: text;
   user-select: text;
 }
