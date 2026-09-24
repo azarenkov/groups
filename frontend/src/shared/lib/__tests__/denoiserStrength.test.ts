@@ -1,5 +1,6 @@
 import {
   FULL_ATTENUATION_DB,
+  MIN_ATTENUATION_DB,
   PARTIAL_ATTENUATION_MAX_DB,
   attenuationFor,
 } from "../denoiserStrength";
@@ -10,9 +11,10 @@ describe("attenuationFor", () => {
     expect(attenuationFor(3)).toBe(FULL_ATTENUATION_DB);
   });
 
-  it("leaves the signal alone at zero strength", () => {
-    expect(attenuationFor(0)).toBe(0);
-    expect(attenuationFor(-1)).toBe(0);
+  it("barely touches the signal at zero strength but keeps the model running", () => {
+    expect(attenuationFor(0)).toBe(MIN_ATTENUATION_DB);
+    expect(attenuationFor(-1)).toBe(MIN_ATTENUATION_DB);
+    expect(MIN_ATTENUATION_DB).toBeGreaterThanOrEqual(0.01);
   });
 
   it("scales the limit in between", () => {
