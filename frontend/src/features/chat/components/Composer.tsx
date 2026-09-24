@@ -6,12 +6,14 @@ import type { ChannelParticipant } from "../../../shared/types/channel";
 import { colorForId } from "../../../shared/lib/avatar";
 import { eventMatches } from "../../settings/lib/hotkeyMatching";
 import { formatFileSize } from "../lib/messageFormat";
+import { enterAction, insertNewline } from "../lib/composerKeys";
+import { useAutoGrow } from "../hooks/useAutoGrow";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
 import type { PendingFile } from "../types";
 
 interface ComposerProps {
-  composerRef: React.RefObject<HTMLInputElement>;
+  composerRef: React.RefObject<HTMLTextAreaElement>;
   fileInputRef: React.RefObject<HTMLInputElement>;
   text: string;
   placeholder: string;
@@ -52,7 +54,9 @@ const Composer: React.FC<ComposerProps> = ({
   onApplyMention,
   onCloseMentions,
   onEditLastMessage,
-}) => (
+}) => {
+  useAutoGrow(composerRef, text);
+  return (
     <form className="composer" onSubmit={onSubmit}>
         {pendingFiles.length > 0 && (
           <div className="attach-chips">
@@ -144,8 +148,10 @@ const Composer: React.FC<ComposerProps> = ({
               ))}
             </div>
           )}
-          <input
+          <textarea
             ref={composerRef}
+            rows={1}
+            className="composer-input"
             placeholder={placeholder}
             value={text}
             onChange={(e) => onTextChange(e.target.value, e.target.selectionStart)}
@@ -160,7 +166,30 @@ const Composer: React.FC<ComposerProps> = ({
                 if (onEditLastMessage()) e.preventDefault();
                 return;
               }
-              if (!mentionQuery || mentionSuggestions.length === 0) return;
+              if (!mentionQuery || mentionSuggestions.length === 0) {
+                const action = enterAction({
+                  key: e.key,
+                  shiftKey: e.shiftKey,
+                  ctrlKey: e.ctrlKey,
+                  metaKey: e.metaKey,
+                  altKey: e.altKey,
+                  isComposing: e.nativeEvent.isComposing,
+                });
+                if (action === "send") {
+                  e.preventDefault();
+                  e.currentTarget.form?.requestSubmit();
+                } else if (action === "newline") {
+                  e.preventDefault();
+                  const el = e.currentTarget;
+                  const next = insertNewline(el.value, el.selectionStart, el.selectionEnd);
+                  onTextChange(next.value, next.caret);
+                  requestAnimationFrame(() => {
+                    el.selectionStart = next.caret;
+                    el.selectionEnd = next.caret;
+                  });
+                }
+                return;
+              }
               if (e.key === "ArrowDown") {
                 e.preventDefault();
                 onMentionIndexChange((i) => (i + 1) % mentionSuggestions.length);
@@ -211,6 +240,7 @@ const Composer: React.FC<ComposerProps> = ({
         </div>
         {composerError && <div className="composer-error">{composerError}</div>}
       </form>
-);
+  );
+};
 
 export default Composer;

@@ -38,7 +38,7 @@ export function useMessageComposer(params: {
   const [text, setText] = React.useState("");
   const [sending, setSending] = React.useState(false);
   const [composerError, setComposerError] = React.useState<string | null>(null);
-  const composerRef = React.useRef<HTMLInputElement>(null);
+  const composerRef = React.useRef<HTMLTextAreaElement>(null);
   const wasSendingRef = React.useRef(false);
 
   React.useEffect(() => {

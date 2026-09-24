@@ -17,6 +17,8 @@ import AttachmentItem from "./AttachmentItem";
 import LinkPreview from "./LinkPreview";
 import ReadTicks from "./ReadTicks";
 import { renderWithLinks } from "./MessageText";
+import { enterAction, insertNewline } from "../lib/composerKeys";
+import { useAutoGrow } from "../hooks/useAutoGrow";
 import type { PendingFile } from "../types";
 import { MAX_CONTENT } from "../constants";
 
@@ -81,6 +83,8 @@ export const Message: React.FC<MessageProps> = ({
   React.useEffect(() => {
     rememberMentionTarget(displayName, msg.authorId);
   }, [displayName, msg.authorId]);
+  const editRef = React.useRef<HTMLTextAreaElement>(null);
+  useAutoGrow(editRef, editing ? editText : "");
   const [copied, setCopied] = React.useState(false);
   const [revealed, setRevealed] = React.useState(false);
   const copiedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
@@ -316,7 +320,9 @@ export const Message: React.FC<MessageProps> = ({
               </div>
             )}
             <div className="msg-edit-input-row">
-              <input
+              <textarea
+                ref={editRef}
+                rows={1}
                 autoFocus
                 value={editText}
                 maxLength={MAX_CONTENT}
@@ -332,9 +338,28 @@ export const Message: React.FC<MessageProps> = ({
                   if (e.key === "Escape") {
                     e.preventDefault();
                     onCancelEdit();
-                  } else if (e.key === "Enter" && !e.shiftKey) {
+                    return;
+                  }
+                  const action = enterAction({
+                    key: e.key,
+                    shiftKey: e.shiftKey,
+                    ctrlKey: e.ctrlKey,
+                    metaKey: e.metaKey,
+                    altKey: e.altKey,
+                    isComposing: e.nativeEvent.isComposing,
+                  });
+                  if (action === "send") {
                     e.preventDefault();
                     onSaveEdit();
+                  } else if (action === "newline") {
+                    e.preventDefault();
+                    const el = e.currentTarget;
+                    const next = insertNewline(el.value, el.selectionStart, el.selectionEnd);
+                    onEditTextChange(next.value);
+                    requestAnimationFrame(() => {
+                      el.selectionStart = next.caret;
+                      el.selectionEnd = next.caret;
+                    });
                   }
                 }}
               />
@@ -364,7 +389,7 @@ export const Message: React.FC<MessageProps> = ({
                 </ProfileLink>
               </div>
             )}
-            {renderWithLinks(msg.content)}
+            <span className="msg-text">{renderWithLinks(msg.content)}</span>
             {(msg.attachments?.length ?? 0) > 0 && (
               <div className="msg-attachments">
                 {(msg.attachments ?? []).map((a) => (
