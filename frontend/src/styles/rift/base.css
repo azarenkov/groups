@@ -123,6 +123,7 @@ textarea,
 .main-header .topic,
 .pc-name-text,
 .pc-handle,
+.s-data,
 .profile-name,
 .profile-handle,
 .profile-about,
@@ -155,10 +156,17 @@ textarea,
   user-select: text;
 }
 
+button,
 .msg .txt .msg-edited,
-.ssv-row-name .ssv-default-badge {
+.ssv-row-name .ssv-default-badge,
+.profile-mutual .profile-chip-logo {
   -webkit-user-select: none;
   user-select: none;
+}
+
+.msg-mention {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 ::selection { background: var(--accent-tint-2); color: var(--fg-1); }
