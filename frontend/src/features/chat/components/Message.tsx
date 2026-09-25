@@ -365,6 +365,9 @@ export const Message: React.FC<MessageProps> = ({
                       : i18n.t("callMissed", { ns: "call" })}
               </div>
             </div>
+            <time className="dm-call-time" dateTime={msg.createdAt}>
+              {time}
+            </time>
           </div>
         ) : msg.inviteCommunityId ? (
           <div className="dm-invite-card">

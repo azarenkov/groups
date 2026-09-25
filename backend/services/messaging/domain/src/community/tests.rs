@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use chrono::Utc;
 use uuid::Uuid;
 
-use super::{Community, events::CommunityEvent, id::CommunityId, name::CommunityName, policy::MAX_ROLES_PER_COMMUNITY, policy::PolicyError, role::PERM_ALL, role::PERM_KICK_MEMBERS, role::PERM_MANAGE_ROLES, role::PERM_MUTE_MEMBERS, role::RolePatch, role::CommunityRole};
+use super::{Community, events::CommunityEvent, id::CommunityId, name::CommunityName, policy::MAX_ROLES_PER_COMMUNITY, policy::PolicyError, role::PERM_ALL, role::PERM_KICK_MEMBERS, role::PERM_MANAGE_ROLES, role::PERM_MUTE_MEMBERS, role::PERM_DISCONNECT_MEMBERS, role::RolePatch, role::CommunityRole};
 use domain::user::id::UserId;
 use crate::channel::moderation::ModerationGrant;
 
@@ -35,7 +35,7 @@ fn fixture() -> Fixture {
     let admin = UserId::generate();
     let moderator = UserId::generate();
     let member = UserId::generate();
-    let admin_role = role(&community_id, PERM_MANAGE_ROLES | PERM_KICK_MEMBERS | PERM_MUTE_MEMBERS, 10);
+    let admin_role = role(&community_id, PERM_MANAGE_ROLES | PERM_KICK_MEMBERS | PERM_MUTE_MEMBERS | PERM_DISCONNECT_MEMBERS, 10);
     let moderator_role = role(&community_id, PERM_MUTE_MEMBERS, 5);
     let admin_role_id = admin_role.id;
     let moderator_role_id = moderator_role.id;
@@ -166,6 +166,17 @@ fn owner_cannot_leave_but_members_can() {
     assert_eq!(f.community.leave(&UserId::generate(), Utc::now()).unwrap_err(), PolicyError::NotMember);
     f.community.leave(&f.member, Utc::now()).unwrap();
     assert!(!f.community.is_member(&f.member));
+}
+
+#[test]
+fn disconnect_requires_its_own_permission_and_rank() {
+    let f = fixture();
+    assert!(f.community.ensure_can_disconnect(&f.admin, &f.member).is_ok());
+    assert!(f.community.ensure_can_disconnect(&f.admin, &f.moderator).is_ok());
+    assert!(f.community.ensure_can_disconnect(&f.owner, &f.admin).is_ok());
+    assert_eq!(f.community.ensure_can_disconnect(&f.moderator, &f.member).unwrap_err(), PolicyError::NotAllowed);
+    assert_eq!(f.community.ensure_can_disconnect(&f.admin, &f.owner).unwrap_err(), PolicyError::NotAllowed);
+    assert_eq!(f.community.ensure_can_disconnect(&f.admin, &f.admin).unwrap_err(), PolicyError::NotAllowed);
 }
 
 #[test]

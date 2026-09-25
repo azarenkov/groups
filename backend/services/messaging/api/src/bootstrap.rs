@@ -46,6 +46,7 @@ use messaging::usecases::{
         mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
     hidden_message::hide_message::HideMessage,
+    channel::disconnect_voice_member::DisconnectVoiceMember,
     community::{
         accept_community_invite::AcceptCommunityInvite, can_manage_community::CanManageCommunity,
         create_community::CreateCommunity,
@@ -228,6 +229,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             user_repository.clone(),
             hasher.clone(),
             community_repository.clone(),
+        ),
+        disconnect_voice_member_usecase: DisconnectVoiceMember::new(
+            channel_repository.clone(),
+            community_unit_of_work.clone(),
+            livekit_service.clone(),
         ),
         mute_channel_usecase: MuteChannel::new(
             channel_repository.clone(),

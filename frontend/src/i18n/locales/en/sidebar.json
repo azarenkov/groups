@@ -53,5 +53,6 @@
   "memberMessage": "Message",
   "memberVolume": "Volume",
   "muteForMe": "Mute for me",
-  "unmuteForMe": "Unmute for me"
+  "unmuteForMe": "Unmute for me",
+  "disconnectMember": "Disconnect from channel"
 }
