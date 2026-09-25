@@ -17,7 +17,7 @@ BEGIN
     UPDATE messaging.channels
     SET voice_session_started_at = NEW.joined_at
     WHERE id = NEW.channel_id
-      AND voice_session_started_at IS NULL;
+      AND (voice_session_started_at IS NULL OR voice_session_started_at > NEW.joined_at);
     RETURN NEW;
 END;
 $$;
