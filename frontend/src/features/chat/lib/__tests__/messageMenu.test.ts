@@ -34,6 +34,10 @@ describe("messageActions", () => {
     ]);
   });
 
+  it("does not let the recipient hide an invite they have not answered", () => {
+    expect(messageActions(ctx({ msg: msg({ inviteCommunityId: "s", content: "" }) }))).toEqual(["link"]);
+  });
+
   it("offers copy of a selection even on an empty message", () => {
     expect(messageActions(ctx({ hasSelection: true, msg: msg({ content: "" }) }))).toEqual(["reply", "forward", "copy", "link", "delete", "report"]);
   });

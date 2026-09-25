@@ -242,10 +242,17 @@ async fn hide_dm_message(
 ) -> Result<impl Responder, HttpError> {
     let (friend_id, message_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
-    app_state
+    let message = app_state
         .list_dm_messages_usecase
         .find_one(friend_id, message_id, user_id)
         .await?;
+    if message.invite_community_id.is_some() && message.sender_id != user_id.uuid() {
+        return Err(HttpError::new(
+            "Accept or decline the invite instead of hiding it.".to_string(),
+            actix_web::http::StatusCode::BAD_REQUEST,
+            "INVITE_NOT_HIDEABLE",
+        ));
+    }
     app_state
         .hide_message_usecase
         .execute(user_id, message_id)

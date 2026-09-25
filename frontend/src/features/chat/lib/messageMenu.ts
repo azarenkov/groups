@@ -18,7 +18,7 @@ export function messageActions(ctx: MessageMenuContext): MessageAction[] {
   if (!card && (hasText || hasSelection)) actions.push("copy");
   if (!msg.system) actions.push("link");
   if (isMine && !card && !msg.system) actions.push("edit");
-  actions.push("delete");
+  if (isMine || !msg.inviteCommunityId) actions.push("delete");
   if (!isMine && !card && !msg.system) actions.push("report");
   return actions;
 }
