@@ -1,4 +1,4 @@
-import { messageActions, messageCopyText } from "../messageMenu";
+import { canDeleteForEveryone, messageActions, messageCopyText } from "../messageMenu";
 import type { ChannelMessage } from "../../../../shared/types/channel";
 
 const msg = (over: Partial<ChannelMessage> = {}): ChannelMessage => ({
@@ -14,7 +14,6 @@ const msg = (over: Partial<ChannelMessage> = {}): ChannelMessage => ({
 const ctx = (over: Partial<Parameters<typeof messageActions>[0]> = {}) => ({
   msg: msg(),
   isMine: false,
-  canModerate: false,
   hasSelection: false,
   ...over,
 });
@@ -24,12 +23,8 @@ describe("messageActions", () => {
     expect(messageActions(ctx({ isMine: true }))).toEqual(["reply", "forward", "copy", "link", "edit", "delete"]);
   });
 
-  it("lets you copy and report someone else's message", () => {
-    expect(messageActions(ctx())).toEqual(["reply", "forward", "copy", "link", "report"]);
-  });
-
-  it("adds delete for moderators", () => {
-    expect(messageActions(ctx({ canModerate: true }))).toEqual(["reply", "forward", "copy", "link", "delete", "report"]);
+  it("lets you copy, hide and report someone else's message", () => {
+    expect(messageActions(ctx())).toEqual(["reply", "forward", "copy", "link", "delete", "report"]);
   });
 
   it("offers only delete on your own call card", () => {
@@ -39,8 +34,12 @@ describe("messageActions", () => {
     ]);
   });
 
+  it("does not let the recipient hide an invite they have not answered", () => {
+    expect(messageActions(ctx({ msg: msg({ inviteCommunityId: "s", content: "" }) }))).toEqual(["link"]);
+  });
+
   it("offers copy of a selection even on an empty message", () => {
-    expect(messageActions(ctx({ hasSelection: true, msg: msg({ content: "" }) }))).toEqual(["reply", "forward", "copy", "link", "report"]);
+    expect(messageActions(ctx({ hasSelection: true, msg: msg({ content: "" }) }))).toEqual(["reply", "forward", "copy", "link", "delete", "report"]);
   });
 });
 
@@ -54,5 +53,23 @@ describe("messageCopyText", () => {
       attachments: [{ id: "f", fileName: "report.pdf" } as never],
     });
     expect(messageCopyText(withFiles, "")).toBe("hello\nreport.pdf");
+  });
+});
+
+describe("canDeleteForEveryone", () => {
+  it("allows your own message", () => {
+    expect(canDeleteForEveryone(msg(), true, false)).toBe(true);
+  });
+
+  it("only hides someone else's message for a regular member", () => {
+    expect(canDeleteForEveryone(msg(), false, false)).toBe(false);
+  });
+
+  it("allows moderators to delete anyone's message", () => {
+    expect(canDeleteForEveryone(msg(), false, true)).toBe(true);
+  });
+
+  it("keeps your own invite card deletable only for you", () => {
+    expect(canDeleteForEveryone(msg({ inviteCommunityId: "s" }), true, false)).toBe(false);
   });
 });

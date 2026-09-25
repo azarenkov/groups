@@ -53,3 +53,10 @@ pub struct ChannelReadV1 {
     pub read_at: DateTime<Utc>,
     pub recipients: Vec<Uuid>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageHiddenV1 {
+    pub user_id: Uuid,
+    pub message_id: Uuid,
+    pub hidden_at: DateTime<Utc>,
+}

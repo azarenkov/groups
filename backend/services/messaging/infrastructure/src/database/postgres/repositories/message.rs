@@ -74,6 +74,17 @@ impl MessageRepository for PostgresMessageRepository {
         Ok(rows)
     }
 
+    async fn list_users_hiding(&self, message_id: Uuid) -> Result<Vec<UserId>, RepositoryError> {
+        let rows = sqlx::query_scalar!(
+            r#"SELECT user_id FROM hidden_messages WHERE message_id = $1"#,
+            message_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(UserId::new).collect())
+    }
+
     async fn list_attachment_links_for_messages(
         &self,
         message_ids: &[uuid::Uuid],
@@ -132,6 +143,7 @@ impl MessageRepository for PostgresMessageRepository {
                 p.user_id IS NOT NULL
                 OR (c.visibility = 'public' AND sm.user_id IS NOT NULL)
               )
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)
             UNION ALL
             SELECT a.attachment_id AS "attachment_id!", a.file_name AS "file_name!",
                    a.content_type AS "content_type!", a.size_bytes AS "size_bytes!",
@@ -140,6 +152,7 @@ impl MessageRepository for PostgresMessageRepository {
             INNER JOIN dm_messages d ON d.id = a.dm_message_id
             WHERE a.attachment_id = $1
               AND (d.sender_id = $2 OR d.recipient_id = $2)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = d.id)
               AND EXISTS(
                   SELECT 1 FROM friendships f
                   WHERE f.user_id = $2
@@ -192,6 +205,7 @@ impl MessageRepository for PostgresMessageRepository {
     async fn find_message_view(
         &self,
         message_id: &MessageId,
+        viewer: &UserId,
     ) -> Result<MessageView, RepositoryError> {
         let dto = sqlx::query_as!(
             MessageViewDto,
@@ -201,8 +215,10 @@ impl MessageRepository for PostgresMessageRepository {
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.id = $1
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)
             "#,
             message_id.uuid(),
+            viewer.uuid(),
         )
         .fetch_optional(&self.pool)
         .await
@@ -214,6 +230,7 @@ impl MessageRepository for PostgresMessageRepository {
     async fn list_reply_previews(
         &self,
         message_ids: &[Uuid],
+        viewer: &UserId,
     ) -> Result<Vec<ReplyPreviewView>, RepositoryError> {
         if message_ids.is_empty() {
             return Ok(Vec::new());
@@ -225,8 +242,10 @@ impl MessageRepository for PostgresMessageRepository {
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.id = ANY($1)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)
             "#,
             message_ids,
+            viewer.uuid(),
         )
         .fetch_all(&self.pool)
         .await
@@ -246,6 +265,7 @@ impl MessageRepository for PostgresMessageRepository {
     async fn list_messages_in_channel(
         &self,
         channel_id: &ChannelId,
+        viewer: &UserId,
         before: Option<&MessageId>,
         after: Option<&MessageId>,
         limit: i64,
@@ -262,6 +282,7 @@ impl MessageRepository for PostgresMessageRepository {
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
                       AND (m.created_at, m.id) < ($2, $3)
+                      AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $5 AND h.message_id = m.id)
                     ORDER BY m.created_at DESC, m.id DESC
                     LIMIT $4
                     "#,
@@ -269,6 +290,7 @@ impl MessageRepository for PostgresMessageRepository {
                     cursor.created_at,
                     cursor.id,
                     limit,
+                    viewer.uuid(),
                 )
                 .fetch_all(&self.pool)
                 .await
@@ -285,6 +307,7 @@ impl MessageRepository for PostgresMessageRepository {
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
                       AND (m.created_at, m.id) > ($2, $3)
+                      AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $5 AND h.message_id = m.id)
                     ORDER BY m.created_at ASC, m.id ASC
                     LIMIT $4
                     "#,
@@ -292,6 +315,7 @@ impl MessageRepository for PostgresMessageRepository {
                     cursor.created_at,
                     cursor.id,
                     limit,
+                    viewer.uuid(),
                 )
                 .fetch_all(&self.pool)
                 .await
@@ -307,11 +331,13 @@ impl MessageRepository for PostgresMessageRepository {
                 FROM messages m
                 INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                 WHERE m.channel_id = $1
+                  AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)
                 ORDER BY m.created_at DESC, m.id DESC
                 LIMIT $2
                 "#,
                 channel_id.uuid(),
                 limit,
+                viewer.uuid(),
             )
             .fetch_all(&self.pool)
             .await
@@ -324,18 +350,21 @@ impl MessageRepository for PostgresMessageRepository {
     async fn search_messages_in_channel(
         &self,
         channel_id: &ChannelId,
+        viewer: &UserId,
         query: &str,
         pagination: Pagination,
     ) -> Result<PaginatedResult<MessageView>, RepositoryError> {
         let total = sqlx::query!(
             r#"
             SELECT COUNT(*) AS "count!"
-            FROM messages
-            WHERE channel_id = $1
-              AND search_tsv @@ plainto_tsquery('simple', $2)
+            FROM messages m
+            WHERE m.channel_id = $1
+              AND m.search_tsv @@ plainto_tsquery('simple', $2)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)
             "#,
             channel_id.uuid(),
             query,
+            viewer.uuid(),
         )
         .fetch_one(&self.pool)
         .await
@@ -351,6 +380,7 @@ impl MessageRepository for PostgresMessageRepository {
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.channel_id = $1
               AND m.search_tsv @@ plainto_tsquery('simple', $2)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $5 AND h.message_id = m.id)
             ORDER BY ts_rank(m.search_tsv, plainto_tsquery('simple', $2)) DESC,
                      m.created_at DESC, m.id DESC
             LIMIT $3 OFFSET $4
@@ -359,6 +389,7 @@ impl MessageRepository for PostgresMessageRepository {
             query,
             pagination.limit(),
             pagination.offset(),
+            viewer.uuid(),
         )
         .fetch_all(&self.pool)
         .await

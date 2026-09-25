@@ -8,6 +8,7 @@ import type {
 } from "../../../shared/types/channel";
 import { markReplyDeleted, refreshReplySnippet } from "../lib/replies";
 import { useWsChannelMessages, useWsDmMessages } from "./useWebSocketMessages";
+import { ws } from "../../../shared/ws/websocket";
 
 export function useChatWsMessages(params: {
   channelId: string | null;
@@ -29,7 +30,7 @@ export function useChatWsMessages(params: {
         attachments?: Attachment[];
         kind?: "user" | "system";
         system?: SystemMessageInfo;
-        replyTo?: Omit<ReplyPreview, "deleted">;
+        replyTo?: Omit<ReplyPreview, "deleted"> & { deleted?: boolean };
         forwardedFrom?: ForwardInfo | null;
       }) => {
         setMessages((prev) =>
@@ -46,7 +47,7 @@ export function useChatWsMessages(params: {
                   attachments: m.attachments,
                   kind: m.kind,
                   system: m.system,
-                  replyTo: m.replyTo ? { ...m.replyTo, deleted: false } : undefined,
+                  replyTo: m.replyTo ? { ...m.replyTo, deleted: m.replyTo.deleted ?? false } : undefined,
                   forwardedFrom: m.forwardedFrom,
                   createdAt: m.occurredAt,
                   editedAt: null,
@@ -100,7 +101,7 @@ export function useChatWsMessages(params: {
         callStatus?: string;
         callDurationSeconds?: number;
         attachments?: Attachment[];
-        replyTo?: Omit<ReplyPreview, "deleted"> | null;
+        replyTo?: (Omit<ReplyPreview, "deleted"> & { deleted?: boolean }) | null;
         forwardedFrom?: ForwardInfo | null;
       }) => {
         setMessages((prev) =>
@@ -119,7 +120,7 @@ export function useChatWsMessages(params: {
                   callStatus: m.callStatus,
                   callDurationSeconds: m.callDurationSeconds,
                   attachments: m.attachments,
-                  replyTo: m.replyTo ? { ...m.replyTo, deleted: false } : undefined,
+                  replyTo: m.replyTo ? { ...m.replyTo, deleted: m.replyTo.deleted ?? false } : undefined,
                   forwardedFrom: m.forwardedFrom,
                   createdAt: m.occurredAt,
                   editedAt: null,
@@ -158,4 +159,15 @@ export function useChatWsMessages(params: {
     [setMessages],
   );
   useWsDmMessages(dmFriendId, currentUserId, dmMsgHandlers);
+
+  React.useEffect(
+    () =>
+      ws.on((env) => {
+        if (env.type !== "message.hidden") return;
+        const id = (env.data as { messageId?: unknown }).messageId;
+        if (typeof id !== "string") return;
+        setMessages((prev) => (prev.some((m) => m.id === id) ? prev.filter((m) => m.id !== id) : prev));
+      }),
+    [setMessages],
+  );
 }

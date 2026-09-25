@@ -7,11 +7,11 @@ use crate::calls::call_log_routes;
 use crate::channel::{
     create_channel, delete_channel, delete_channel_message, edit_channel_message,
     join_text_channel, join_voice_channel, list_channel_messages, list_channel_participants,
-    deafen_channel, get_channel_message, mute_channel, search_channel_messages, send_channel_message, undeafen_channel, unmute_channel,
+    deafen_channel, disconnect_voice_member, get_channel_message, hide_channel_message, mute_channel, search_channel_messages, send_channel_message, undeafen_channel, unmute_channel,
 };
 use crate::dm::{
     accept_community_invite, decline_community_invite, delete_dm_message, edit_dm_message,
-    get_dm_message, list_dm_messages, list_dm_previews, search_dm_messages, send_dm_message,
+    get_dm_message, hide_dm_message, list_dm_messages, list_dm_previews, search_dm_messages, send_dm_message,
     send_community_invite,
 };
 use crate::home::{get_home_overview, get_user_profile};
@@ -65,6 +65,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(join_text_channel)
                         .service(search_channel_messages)
                         .service(get_channel_message)
+                        .service(disconnect_voice_member)
+                        .service(hide_channel_message)
                         .service(list_channel_messages)
                         .service(send_channel_message)
                         .service(edit_channel_message)
@@ -82,6 +84,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(crate::forward::forward_message)
                         .service(search_dm_messages)
                         .service(get_dm_message)
+                        .service(hide_dm_message)
                         .service(list_dm_previews)
                         .service(list_dm_messages)
                         .service(send_dm_message)

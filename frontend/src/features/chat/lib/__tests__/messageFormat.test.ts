@@ -51,8 +51,10 @@ describe("formatting helpers", () => {
   });
 
   it("formats call durations", () => {
-    expect(formatCallDuration(45)).toContain("45");
-    expect(formatCallDuration(3600)).toBeTruthy();
+    expect(formatCallDuration(45)).toBe("0:45");
+    expect(formatCallDuration(12 * 60 + 4)).toBe("12:04");
+    expect(formatCallDuration(3600 + 2 * 60 + 15)).toBe("1:02:15");
+    expect(formatCallDuration(-5)).toBe("0:00");
   });
 
   it("compares calendar days", () => {

@@ -36,6 +36,8 @@ pub struct DmMessageEditedV1 {
     pub recipient_id: Option<Uuid>,
     #[serde(default)]
     pub attachments: Option<Value>,
+    #[serde(default)]
+    pub hidden_for: Vec<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -251,6 +251,7 @@ fn dm_record(event: &DmMessageDomainEvent) -> Result<OutboxRecord, RepositoryErr
             occurred_at: e.occurred_at,
             recipient_id: Some(e.recipient_id.uuid()),
             attachments: Some(value(&e.attachments)?),
+            hidden_for: uuids(&e.hidden_for),
         })?,
         DmMessageDomainEvent::Deleted(e) => encode(&DmMessageDeletedV1 {
             message_id: e.message_id.uuid(),
@@ -357,5 +358,6 @@ fn reply_json(reply: &messaging_domain::message::reply::ReplyPreview) -> Value {
         "authorId": reply.author_id.uuid(),
         "content": reply.snippet,
         "hasAttachments": reply.has_attachments,
+        "hiddenFor": reply.hidden_for.iter().map(|u| u.uuid()).collect::<Vec<_>>(),
     })
 }

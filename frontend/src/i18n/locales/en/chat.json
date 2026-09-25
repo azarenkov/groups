@@ -117,5 +117,9 @@
   "forwardFailed": "Couldn't forward the message",
   "forwardPartial": "Couldn't forward to: {{targets}}",
   "forwardedFrom": "Forwarded from {{name}}",
-  "forwardOpenSource": "Open original"
+  "forwardOpenSource": "Open original",
+  "deleteForMe": "Delete for me",
+  "deleteForEveryone": "Delete for everyone",
+  "deleteMessageChoose": "“Delete for everyone” removes the message for all participants. “Delete for me” only hides it from your feed.",
+  "deleteForMeConfirm": "The message will disappear only from your feed; everyone else will still see it."
 }

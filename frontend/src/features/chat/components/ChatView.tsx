@@ -40,6 +40,7 @@ import { useReadReceipts } from "../hooks/useReadReceipts";
 import { PULL_THRESHOLD, usePullToRefresh } from "../hooks/usePullToRefresh";
 import type { ChannelMeta, DmMeta } from "../types";
 import { openForward } from "../store/forwardModalStore";
+import { canDeleteForEveryone } from "../lib/messageMenu";
 
 interface ChatViewProps {
   channel?: ChannelMeta;
@@ -527,7 +528,6 @@ const ChatView: React.FC<ChatViewProps> = ({
             editFiles={editFiles}
             savingEdit={editing.savingEdit}
             highlightedMessageId={highlightedMessageId}
-            canModerateMessages={canModerateMessages}
             myCommunityIds={myCommunityIds}
             receiptFor={receiptFor}
             onEditTextChange={editing.setEditText}
@@ -625,16 +625,32 @@ const ChatView: React.FC<ChatViewProps> = ({
           onCancelReply={() => composer.setReplyTarget(null)}
         />
       )}
-      {editing.deleteTarget && (
-        <ConfirmModal
-          title={i18n.t("deleteMessage", { ns: "chat" })}
-          subtitle={i18n.t("deleteMessageConfirm", { ns: "chat" })}
-          confirmLabel={i18n.t("delete", { ns: "common" })}
-          danger
-          onCancel={() => editing.setDeleteTarget(null)}
-          onConfirm={editing.confirmDelete}
-        />
-      )}
+      {editing.deleteTarget &&
+        (canDeleteForEveryone(
+          editing.deleteTarget,
+          editing.deleteTarget.authorId === currentUserId,
+          canModerateMessages,
+        ) ? (
+          <ConfirmModal
+            title={i18n.t("deleteMessage", { ns: "chat" })}
+            subtitle={i18n.t("deleteMessageChoose", { ns: "chat" })}
+            secondaryLabel={i18n.t("deleteForMe", { ns: "chat" })}
+            confirmLabel={i18n.t("deleteForEveryone", { ns: "chat" })}
+            danger
+            onCancel={() => editing.setDeleteTarget(null)}
+            onSecondary={() => void editing.confirmDelete("me")}
+            onConfirm={() => void editing.confirmDelete("everyone")}
+          />
+        ) : (
+          <ConfirmModal
+            title={i18n.t("deleteMessage", { ns: "chat" })}
+            subtitle={i18n.t("deleteForMeConfirm", { ns: "chat" })}
+            confirmLabel={i18n.t("deleteForMe", { ns: "chat" })}
+            danger
+            onCancel={() => editing.setDeleteTarget(null)}
+            onConfirm={() => void editing.confirmDelete("me")}
+          />
+        ))}
     </>
   );
 };

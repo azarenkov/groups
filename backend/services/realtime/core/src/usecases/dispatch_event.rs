@@ -19,7 +19,7 @@ use contracts::events::{
     },
     message::{
         ChannelMessageDeletedV1 as ChannelMsgDeleted, ChannelMessageEditedV1 as ChannelMsgEdited,
-        ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto,
+        ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto, MessageHiddenV1 as MessageHiddenDto,
     },
     community::{
         CommunityCreatedV1 as CommunityCreatedDto, CommunityDeletedV1 as CommunityDeletedDto,
@@ -54,6 +54,54 @@ pub enum DispatchError {
     Publish(#[from] PublishError),
     #[error("Block lookup error: {0}")]
     Blocks(#[from] crate::ports::blocks::RelationLookupError),
+}
+
+fn split_hidden_reply(reply: Option<&serde_json::Value>) -> (Option<serde_json::Value>, Vec<Uuid>) {
+    let Some(reply) = reply else {
+        return (None, Vec::new());
+    };
+    let mut reply = reply.clone();
+    let hidden_for = reply
+        .as_object_mut()
+        .and_then(|o| o.remove("hiddenFor"))
+        .and_then(|v| serde_json::from_value::<Vec<Uuid>>(v).ok())
+        .unwrap_or_default();
+    (Some(reply), hidden_for)
+}
+
+fn deleted_reply(reply: &serde_json::Value) -> serde_json::Value {
+    json!({
+        "id": reply.get("id").cloned().unwrap_or(serde_json::Value::Null),
+        "content": "",
+        "hasAttachments": false,
+        "deleted": true,
+    })
+}
+
+async fn publish_with_reply<P: RealtimePublisher>(
+    publisher: &P,
+    kind: &'static str,
+    mut data: serde_json::Value,
+    reply: Option<serde_json::Value>,
+    hidden_for: &[Uuid],
+    recipients: Vec<Uuid>,
+) -> Result<(), DispatchError> {
+    let Some(reply) = reply else {
+        publisher.publish_to_users(recipients, &Envelope::new(kind, data)).await?;
+        return Ok(());
+    };
+    let (hiding, seeing): (Vec<Uuid>, Vec<Uuid>) =
+        recipients.into_iter().partition(|r| hidden_for.contains(r));
+    if !hiding.is_empty() {
+        let mut masked = data.clone();
+        masked["replyTo"] = deleted_reply(&reply);
+        publisher.publish_to_users(hiding, &Envelope::new(kind, masked)).await?;
+    }
+    if !seeing.is_empty() {
+        data["replyTo"] = reply;
+        publisher.publish_to_users(seeing, &Envelope::new(kind, data)).await?;
+    }
+    Ok(())
 }
 
 async fn named_reply<D: RecipientDirectory>(
@@ -111,28 +159,31 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         let evt: DmSent = serde_json::from_slice(payload)?;
         resolver.record_dm_pair(evt.sender_id, evt.recipient_id).await?;
         let sender_name = resolver.user_name(evt.sender_id).await?;
-        let reply_to = named_reply(resolver, evt.reply_to.as_ref()).await?;
-        let envelope = Envelope::new(
+        let (reply_to, hidden_for) = split_hidden_reply(evt.reply_to.as_ref());
+        let reply_to = named_reply(resolver, reply_to.as_ref()).await?;
+        let data = json!({
+            "id": evt.message_id,
+            "senderId": evt.sender_id,
+            "senderName": sender_name,
+            "recipientId": evt.recipient_id,
+            "content": evt.content,
+            "occurredAt": evt.occurred_at,
+            "inviteCommunityId": evt.invite_community_id,
+            "inviteCommunityName": evt.invite_community_name,
+            "callStatus": evt.call_status,
+            "callDurationSeconds": evt.call_duration_seconds,
+            "attachments": evt.attachments.unwrap_or_else(|| json!([])),
+            "forwardedFrom": evt.forwarded_from,
+        });
+        publish_with_reply(
+            publisher,
             "dm_message.sent",
-            json!({
-                "id": evt.message_id,
-                "senderId": evt.sender_id,
-                "senderName": sender_name,
-                "recipientId": evt.recipient_id,
-                "content": evt.content,
-                "occurredAt": evt.occurred_at,
-                "inviteCommunityId": evt.invite_community_id,
-                "inviteCommunityName": evt.invite_community_name,
-                "callStatus": evt.call_status,
-                "callDurationSeconds": evt.call_duration_seconds,
-                "attachments": evt.attachments.unwrap_or_else(|| json!([])),
-                "replyTo": reply_to,
-                "forwardedFrom": evt.forwarded_from,
-            }),
-        );
-        publisher
-            .publish_to_users(unique([evt.sender_id, evt.recipient_id]), &envelope)
-            .await?;
+            data,
+            reply_to,
+            &hidden_for,
+            unique([evt.sender_id, evt.recipient_id]),
+        )
+        .await?;
         return Ok(());
     }
 
@@ -142,6 +193,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         if let Some(rid) = evt.recipient_id {
             recipients.push(rid);
         }
+        recipients.retain(|r| !evt.hidden_for.contains(r));
         let envelope = Envelope::new(
             "dm_message.edited",
             json!({
@@ -221,6 +273,19 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         return Ok(());
     }
 
+    if ends_with(subject, ".message.hidden") {
+        let evt: MessageHiddenDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "message.hidden",
+            json!({
+                "messageId": evt.message_id,
+                "hiddenAt": evt.hidden_at,
+            }),
+        );
+        publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".channel.read") {
         let evt: ChannelReadDto = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(
@@ -258,14 +323,13 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         if let Some(system) = &evt.system {
             data["system"] = system.clone();
         }
-        if let Some(reply) = named_reply(resolver, evt.reply_to.as_ref()).await? {
-            data["replyTo"] = reply;
-        }
+        let (reply_to, hidden_for) = split_hidden_reply(evt.reply_to.as_ref());
+        let reply_to = named_reply(resolver, reply_to.as_ref()).await?;
         if let Some(forwarded) = &evt.forwarded_from {
             data["forwardedFrom"] = forwarded.clone();
         }
-        let envelope = Envelope::new("message.sent", data);
-        publisher.publish_to_users(unique(recipients), &envelope).await?;
+        publish_with_reply(publisher, "message.sent", data, reply_to, &hidden_for, unique(recipients))
+            .await?;
         return Ok(());
     }
 
@@ -981,4 +1045,33 @@ fn ends_with(subject: &str, suffix: &str) -> bool {
 fn unique<I: IntoIterator<Item = Uuid>>(iter: I) -> Vec<Uuid> {
     let mut seen = HashSet::new();
     iter.into_iter().filter(|u| seen.insert(*u)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hidden_for_is_stripped_from_the_reply() {
+        let hider = Uuid::new_v4();
+        let reply = json!({ "id": "r", "content": "secret", "hiddenFor": [hider] });
+        let (visible, hidden_for) = split_hidden_reply(Some(&reply));
+        assert_eq!(hidden_for, vec![hider]);
+        assert!(visible.unwrap().get("hiddenFor").is_none());
+    }
+
+    #[test]
+    fn a_reply_without_hidden_for_is_visible_to_everyone() {
+        let reply = json!({ "id": "r", "content": "hi" });
+        let (visible, hidden_for) = split_hidden_reply(Some(&reply));
+        assert!(hidden_for.is_empty());
+        assert_eq!(visible.unwrap()["content"], "hi");
+        assert_eq!(split_hidden_reply(None), (None, Vec::new()));
+    }
+
+    #[test]
+    fn the_masked_reply_keeps_only_the_id() {
+        let masked = deleted_reply(&json!({ "id": "r", "content": "secret", "authorId": "a" }));
+        assert_eq!(masked, json!({ "id": "r", "content": "", "hasAttachments": false, "deleted": true }));
+    }
 }

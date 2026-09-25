@@ -148,7 +148,7 @@ where
         if let Some(reply_id) = request.reply_to_message_id {
             let target = self
                 .message_repository
-                .find_message_view(&MessageId::new(reply_id))
+                .find_message_view(&MessageId::new(reply_id), &author_id)
                 .await
                 .map_err(|e| match e {
                     RepositoryError::NotFound => SendChannelMessageError::InvalidReply,
@@ -162,13 +162,12 @@ where
                 .list_attachment_links_for_messages(&[reply_id])
                 .await?
                 .is_empty();
+            let hidden_for = self.message_repository.list_users_hiding(reply_id).await?;
             reply_author_name = Some(target.author_name.clone());
-            message = message.with_reply(ReplyPreview::new(
-                reply_id,
-                target.author_id,
-                &target.content,
-                has_attachments,
-            ));
+            message = message.with_reply(
+                ReplyPreview::new(reply_id, target.author_id, &target.content, has_attachments)
+                    .hidden_for(hidden_for),
+            );
         }
 
         let recipient_ids = self
