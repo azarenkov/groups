@@ -20,6 +20,7 @@ export function useVoicePresenceSync(params: {
     return ws.onOpen(() => {
       presenceSyncedRef.current.clear();
       useVoicePresenceStore.getState().resetRosters();
+      useVoiceSessionStore.getState().clearAll();
       usePresenceStore.getState().clearAll();
       setPresenceSyncTick((n) => n + 1);
     });
