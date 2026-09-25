@@ -112,13 +112,18 @@
 .msg-edited { font-size: 11px; color: var(--fg-3); margin-left: 4px; }
 .msg-meta {
   display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
+  align-items: center;
+  gap: 3px;
   margin-left: 6px;
   vertical-align: baseline;
   white-space: nowrap;
 }
-.msg-time { font-size: 11px; color: var(--fg-3); }
+.msg-time {
+  font-size: 10.5px;
+  line-height: 14px;
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+}
 .msg-receipt {
   display: inline-flex;
   align-items: center;
@@ -126,10 +131,11 @@
   user-select: none;
 }
 .msg-receipt .rc-icon {
-  width: 15px;
-  height: 11px;
+  width: 12px;
+  height: 10px;
   display: block;
 }
+.msg-receipt .rc-icon.double { width: 16px; }
 .msg-receipt.read { color: var(--accent); }
 
 .msg.system {
@@ -158,6 +164,13 @@
   border-radius: 16px;
   background: var(--surface-hover);
 }
+.msg.bubble .msg-meta {
+  display: flex;
+  justify-content: flex-start;
+  margin: 3px 12px 0;
+  height: 14px;
+}
+.msg.bubble.mine .msg-meta { justify-content: flex-end; }
 .msg-author {
   font-size: 12.5px;
   font-weight: 600;
@@ -165,9 +178,6 @@
   margin-bottom: 2px;
 }
 .msg.bubble.mine .txt { background: var(--accent); color: #fff; }
-.msg.bubble.mine .msg-time,
-.msg.bubble.mine .msg-receipt { color: rgba(255, 255, 255, 0.72); }
-.msg.bubble.mine .msg-receipt.read { color: #fff; }
 .msg-edit { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
 .msg-edit input {
   width: 100%;
