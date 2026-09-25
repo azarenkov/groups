@@ -579,14 +579,38 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         let rows: Vec<(Uuid, Uuid, String, Uuid, String, Option<String>, Option<Uuid>, bool, DateTime<Utc>)> =
             sqlx::query_as(
                 r#"
-                SELECT c.last_message_id, c.peer_id, u.name AS peer_name, m.sender_id, m.content, m.call_status,
+                SELECT e.message_id, c.peer_id, u.name AS peer_name, m.sender_id, m.content, m.call_status,
                        m.invite_community_id,
                        EXISTS(
                            SELECT 1 FROM dm_message_attachments att WHERE att.dm_message_id = m.id
                        ) AS has_attachments,
-                       c.last_created_at
+                       e.created_at
                 FROM dm_conversations c
-                INNER JOIN dm_messages m ON m.id = c.last_message_id
+                CROSS JOIN LATERAL (
+                    SELECT c.last_message_id AS message_id, c.last_created_at AS created_at
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM hidden_messages h
+                        WHERE h.user_id = $1 AND h.message_id = c.last_message_id
+                    )
+                    UNION ALL
+                    (
+                        SELECT v.id, v.created_at
+                        FROM dm_messages v
+                        WHERE EXISTS (
+                                SELECT 1 FROM hidden_messages h
+                                WHERE h.user_id = $1 AND h.message_id = c.last_message_id
+                            )
+                          AND LEAST(v.sender_id, v.recipient_id) = LEAST($1::uuid, c.peer_id)
+                          AND GREATEST(v.sender_id, v.recipient_id) = GREATEST($1::uuid, c.peer_id)
+                          AND NOT EXISTS (
+                              SELECT 1 FROM hidden_messages h
+                              WHERE h.user_id = $1 AND h.message_id = v.id
+                          )
+                        ORDER BY v.created_at DESC, v.id DESC
+                        LIMIT 1
+                    )
+                ) e
+                INNER JOIN dm_messages m ON m.id = e.message_id
                 INNER JOIN messaging_user_profiles u ON u.user_id = c.peer_id
                 WHERE c.user_id = $1
                   AND NOT EXISTS (
@@ -594,8 +618,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                       WHERE (b.blocker_id = $1 AND b.blocked_id = c.peer_id)
                          OR (b.blocker_id = c.peer_id AND b.blocked_id = $1)
                   )
-                  AND ($2::timestamptz IS NULL OR (c.last_created_at, c.last_message_id) < ($2, $3::uuid))
-                ORDER BY c.last_created_at DESC, c.last_message_id DESC
+                  AND ($2::timestamptz IS NULL OR (e.created_at, e.message_id) < ($2, $3::uuid))
+                ORDER BY e.created_at DESC, e.message_id DESC
                 LIMIT $4
                 "#,
             )

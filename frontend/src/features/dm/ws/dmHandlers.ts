@@ -83,6 +83,13 @@ export const dmHandlers: WsHandlers = {
       }
       return;
   },
+  "message.hidden": (d) => {
+      const id = asString(d.messageId);
+      if (id && useDmPreviewStore.getState().hasMessage(id)) {
+        refetchDmPreviews(true);
+      }
+      return;
+  },
   "dm.read": (d) => {
       const readerId = asString(d.readerId);
       const readAt = asString(d.readAt);
