@@ -88,6 +88,9 @@ export const dmHandlers: WsHandlers = {
       if (id && useDmPreviewStore.getState().hasMessage(id)) {
         refetchDmPreviews(true);
       }
+      void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
+        refetchUnread().catch(() => {}),
+      );
       return;
   },
   "dm.read": (d) => {
