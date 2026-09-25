@@ -35,6 +35,7 @@ const ForwardModal: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState<Record<string, string>>({});
   const [done, setDone] = React.useState(false);
+  const commentSentRef = React.useRef<Map<string, string>>(new Map());
   const activeOpeningRef = React.useRef(0);
   const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -51,6 +52,7 @@ const ForwardModal: React.FC = () => {
     setError(null);
     setFailed({});
     setDone(false);
+    commentSentRef.current = new Map();
   }, [opening]);
 
   React.useEffect(
@@ -102,8 +104,22 @@ const ForwardModal: React.FC = () => {
     setError(null);
     setFailed({});
     try {
-      const results = await forwardMessage(source, selected, comment);
+      const text = comment.trim();
+      const alreadyCommented = (t: ForwardTarget) =>
+        text.length > 0 && commentSentRef.current.get(forwardTargetKey(t)) === text;
+      const fresh = selected.filter((t) => !alreadyCommented(t));
+      const repeat = selected.filter(alreadyCommented);
+      const batches = await Promise.all([
+        fresh.length > 0 ? forwardMessage(source, fresh, comment) : Promise.resolve([]),
+        repeat.length > 0 ? forwardMessage(source, repeat) : Promise.resolve([]),
+      ]);
+      const results = batches.flat();
       if (activeOpeningRef.current !== opened) return;
+      for (const r of results) {
+        if (r.commentMessageId && text.length > 0) {
+          commentSentRef.current.set(forwardTargetKey(r.target), text);
+        }
+      }
       const errors: Record<string, string> = {};
       for (const r of results) {
         if (r.error) errors[forwardTargetKey(r.target)] = r.error.message;

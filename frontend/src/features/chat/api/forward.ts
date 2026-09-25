@@ -11,6 +11,7 @@ export type ForwardTarget =
 export interface ForwardResult {
   target: ForwardTarget;
   messageId?: string;
+  commentMessageId?: string;
   error?: { code: string; message: string };
 }
 

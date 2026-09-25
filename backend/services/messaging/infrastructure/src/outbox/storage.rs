@@ -26,6 +26,12 @@ pub(crate) async fn release_storage_keys(
         WHERE NOT EXISTS (
             SELECT 1 FROM reports WHERE context_attachment_keys @> ARRAY[key]
         )
+          AND NOT EXISTS (
+            SELECT 1 FROM message_attachments a WHERE a.storage_key = key
+        )
+          AND NOT EXISTS (
+            SELECT 1 FROM dm_message_attachments a WHERE a.storage_key = key
+        )
         "#,
         storage_keys,
     )

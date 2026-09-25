@@ -63,7 +63,25 @@ pub struct ForwardResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub comment_message_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<ForwardFailure>,
+}
+
+struct Delivery {
+    message_id: Option<Uuid>,
+    comment_message_id: Option<Uuid>,
+    error: Option<ForwardFailure>,
+}
+
+impl Delivery {
+    fn failed(comment_message_id: Option<Uuid>, error: ForwardFailure) -> Self {
+        Self { message_id: None, comment_message_id, error: Some(error) }
+    }
+
+    fn sent(message_id: Uuid, comment_message_id: Option<Uuid>) -> Self {
+        Self { message_id: Some(message_id), comment_message_id, error: None }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -160,9 +178,10 @@ async fn deliver(
     comment: Option<&str>,
     forwarded: &ForwardedContent,
     user_id: UserId,
-) -> Result<Uuid, ForwardFailure> {
+) -> Delivery {
     match *target {
         ForwardTargetBody::Channel { community_id, channel_id } => {
+            let mut comment_message_id = None;
             if let Some(comment) = comment {
                 let data = SendChannelMessageRequest::new(
                     community_id,
@@ -172,11 +191,10 @@ async fn deliver(
                     None,
                     request_context(req),
                 );
-                app_state
-                    .send_channel_message_usecase
-                    .execute(data, user_id)
-                    .await
-                    .map_err(failure)?;
+                match app_state.send_channel_message_usecase.execute(data, user_id).await {
+                    Ok(sent) => comment_message_id = Some(sent.id),
+                    Err(e) => return Delivery::failed(None, failure(e)),
+                }
             }
             let data = SendChannelMessageRequest::new(
                 community_id,
@@ -187,14 +205,13 @@ async fn deliver(
                 request_context(req),
             )
             .with_forward(forwarded.clone());
-            let sent = app_state
-                .send_channel_message_usecase
-                .execute(data, user_id)
-                .await
-                .map_err(failure)?;
-            Ok(sent.id)
+            match app_state.send_channel_message_usecase.execute(data, user_id).await {
+                Ok(sent) => Delivery::sent(sent.id, comment_message_id),
+                Err(e) => Delivery::failed(comment_message_id, failure(e)),
+            }
         }
         ForwardTargetBody::Dm { friend_id } => {
+            let mut comment_message_id = None;
             if let Some(comment) = comment {
                 let data = SendDmMessageRequest::new(
                     friend_id,
@@ -203,11 +220,10 @@ async fn deliver(
                     None,
                     request_context(req),
                 );
-                app_state
-                    .send_dm_message_usecase
-                    .execute(data, user_id)
-                    .await
-                    .map_err(failure)?;
+                match app_state.send_dm_message_usecase.execute(data, user_id).await {
+                    Ok(sent) => comment_message_id = Some(sent.id),
+                    Err(e) => return Delivery::failed(None, failure(e)),
+                }
             }
             let data = SendDmMessageRequest::new(
                 friend_id,
@@ -217,12 +233,10 @@ async fn deliver(
                 request_context(req),
             )
             .with_forward(forwarded.clone());
-            let sent = app_state
-                .send_dm_message_usecase
-                .execute(data, user_id)
-                .await
-                .map_err(failure)?;
-            Ok(sent.id)
+            match app_state.send_dm_message_usecase.execute(data, user_id).await {
+                Ok(sent) => Delivery::sent(sent.id, comment_message_id),
+                Err(e) => Delivery::failed(comment_message_id, failure(e)),
+            }
         }
     }
 }
@@ -247,9 +261,11 @@ async fn forward_message(
     let mut results = Vec::new();
     for target in unique_targets(body.targets).into_iter().take(MAX_FORWARD_TARGETS) {
         let outcome = deliver(&app_state, &req, &target, comment.as_deref(), &forwarded, user_id).await;
-        results.push(match outcome {
-            Ok(id) => ForwardResult { target, message_id: Some(id), error: None },
-            Err(error) => ForwardResult { target, message_id: None, error: Some(error) },
+        results.push(ForwardResult {
+            target,
+            message_id: outcome.message_id,
+            comment_message_id: outcome.comment_message_id,
+            error: outcome.error,
         });
     }
     Ok(HttpResponse::Ok().json(ApiResponse::success(ForwardResponse { results })))
