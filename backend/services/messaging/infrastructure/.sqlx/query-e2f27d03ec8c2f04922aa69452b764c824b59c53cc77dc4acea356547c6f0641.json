@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, created_at, edited_at\n            FROM dm_messages\n            WHERE id = $1\n            ",
+  "query": "\n            SELECT id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, created_at, edited_at, forwarded_from::text AS \"forwarded_from?\"\n            FROM dm_messages\n            WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -47,6 +47,11 @@
         "ordinal": 8,
         "name": "edited_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "forwarded_from?",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -63,8 +68,9 @@
       true,
       true,
       false,
-      true
+      true,
+      null
     ]
   },
-  "hash": "b598727b3eea2297666b9f292a2750f55970d7f81794400601d2d9bd121889d0"
+  "hash": "e2f27d03ec8c2f04922aa69452b764c824b59c53cc77dc4acea356547c6f0641"
 }

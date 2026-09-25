@@ -2078,6 +2078,7 @@ impl HttpMapping for MessageError {
             | MessageError::ContentUnchanged => StatusCode::BAD_REQUEST,
             MessageError::NotAuthor => StatusCode::FORBIDDEN,
             MessageError::SystemMessage => StatusCode::CONFLICT,
+            MessageError::Forwarded => StatusCode::BAD_REQUEST,
         }
     }
 
@@ -2092,6 +2093,7 @@ impl HttpMapping for MessageError {
                 "Only the message author can perform this action".to_string()
             }
             MessageError::SystemMessage => "System messages cannot be edited or deleted".to_string(),
+            MessageError::Forwarded => "Forwarded messages cannot be edited".to_string(),
         }
     }
 
@@ -2102,6 +2104,7 @@ impl HttpMapping for MessageError {
             MessageError::ContentUnchanged => "MESSAGE_CONTENT_UNCHANGED",
             MessageError::NotAuthor => "MESSAGE_NOT_AUTHOR",
             MessageError::SystemMessage => "MESSAGE_IS_SYSTEM",
+            MessageError::Forwarded => "MESSAGE_FORWARDED",
         }
     }
 }
@@ -2141,6 +2144,7 @@ impl HttpMapping for DmMessageError {
             DmMessageError::NotSender => StatusCode::FORBIDDEN,
             DmMessageError::ContentUnchanged => StatusCode::BAD_REQUEST,
             DmMessageError::NotEditable => StatusCode::BAD_REQUEST,
+            DmMessageError::Forwarded => StatusCode::BAD_REQUEST,
         }
     }
     fn to_user_message(&self) -> String {
@@ -2151,6 +2155,7 @@ impl HttpMapping for DmMessageError {
             DmMessageError::NotSender => "DM_NOT_SENDER",
             DmMessageError::ContentUnchanged => "DM_CONTENT_UNCHANGED",
             DmMessageError::NotEditable => "DM_NOT_EDITABLE",
+            DmMessageError::Forwarded => "MESSAGE_FORWARDED",
         }
     }
 }

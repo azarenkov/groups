@@ -188,7 +188,7 @@ impl MessageRepository for PostgresMessageRepository {
         let dto = sqlx::query_as!(
             MessageDto,
             r#"
-            SELECT id, channel_id, author_id, content, created_at, edited_at, kind, system_payload::text AS "system_payload"
+            SELECT id, channel_id, author_id, content, created_at, edited_at, kind, system_payload::text AS "system_payload", forwarded_from::text AS "forwarded_from"
             FROM messages
             WHERE id = $1
             "#,
@@ -403,7 +403,7 @@ impl MessageRepository for PostgresMessageRepository {
 fn dto_to_message(dto: MessageDto) -> Result<Message, RepositoryError> {
     let content = MessageContent::new_allow_empty(dto.content)
         .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
-    Ok(Message::restore(
+    let message = Message::restore(
         MessageId::new(dto.id),
         ChannelId::new(dto.channel_id),
         UserId::new(dto.author_id),
@@ -411,7 +411,16 @@ fn dto_to_message(dto: MessageDto) -> Result<Message, RepositoryError> {
         dto.created_at,
         dto.edited_at,
         system_from_row(&dto.kind, dto.system_payload.as_deref()),
-    ))
+    );
+    let forward = dto
+        .forwarded_from
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+        .and_then(|value| ForwardInfo::from_json(&value));
+    Ok(match forward {
+        Some(forward) => message.with_forward(forward),
+        None => message,
+    })
 }
 
 fn system_from_row(kind: &str, payload: Option<&str>) -> Option<SystemMessage> {

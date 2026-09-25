@@ -38,6 +38,19 @@ describe("messageActions", () => {
     expect(messageActions(ctx({ msg: msg({ inviteCommunityId: "s", content: "" }) }))).toEqual(["link"]);
   });
 
+  it("does not offer edit on a forwarded message", () => {
+    const forwarded = msg({
+      forwardedFrom: {
+        messageId: "o",
+        authorId: "b",
+        authorName: "Bob",
+        sentAt: "2026-09-24T09:00:00Z",
+        source: { kind: "dm" },
+      },
+    });
+    expect(messageActions(ctx({ isMine: true, msg: forwarded }))).not.toContain("edit");
+  });
+
   it("offers copy of a selection even on an empty message", () => {
     expect(messageActions(ctx({ hasSelection: true, msg: msg({ content: "" }) }))).toEqual(["reply", "forward", "copy", "link", "delete", "report"]);
   });

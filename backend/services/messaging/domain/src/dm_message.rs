@@ -17,6 +17,8 @@ pub enum DmMessageError {
     ContentUnchanged,
     #[error("Community invite messages cannot be edited")]
     NotEditable,
+    #[error("Forwarded messages cannot be edited")]
+    Forwarded,
 }
 
 #[derive(Debug)]
@@ -206,6 +208,9 @@ impl DmMessage {
         }
         if self.invite_community_id.is_some() {
             return Err(DmMessageError::NotEditable);
+        }
+        if self.forward.is_some() {
+            return Err(DmMessageError::Forwarded);
         }
         if !allow_unchanged && self.content == new_content {
             return Err(DmMessageError::ContentUnchanged);

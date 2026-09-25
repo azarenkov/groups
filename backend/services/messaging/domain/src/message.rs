@@ -24,6 +24,8 @@ pub enum MessageError {
     NotAuthor,
     #[error("System messages cannot be modified")]
     SystemMessage,
+    #[error("Forwarded messages cannot be edited")]
+    Forwarded,
 }
 
 #[derive(Debug)]
@@ -170,6 +172,9 @@ impl Message {
         if self.author_id != editor_id {
             return Err(MessageError::NotAuthor);
         }
+        if self.forward.is_some() {
+            return Err(MessageError::Forwarded);
+        }
         if !allow_unchanged && self.content == new_content {
             return Err(MessageError::ContentUnchanged);
         }
@@ -277,5 +282,21 @@ mod tests {
         let message = Message::create(channel, author, MessageContent::new("hi".to_string()).unwrap(), Utc::now());
         assert_eq!(message.kind(), MessageKind::User);
         assert!(message.system().is_none());
+    }
+
+    #[test]
+    fn forwarded_messages_cannot_be_edited() {
+        let channel = ChannelId::new(Uuid::new_v4());
+        let author = UserId::new(Uuid::new_v4());
+        let mut message = Message::create(channel, author, MessageContent::new("hi".to_string()).unwrap(), Utc::now())
+            .with_forward(crate::message::forward::ForwardInfo {
+                message_id: Uuid::new_v4(),
+                author_id: UserId::new(Uuid::new_v4()),
+                author_name: "someone".to_string(),
+                sent_at: Utc::now(),
+                source: crate::message::forward::ForwardSource::Dm,
+            });
+        let content = MessageContent::new("rewritten".to_string()).unwrap();
+        assert!(matches!(message.edit(content, author, Utc::now()), Err(MessageError::Forwarded)));
     }
 }

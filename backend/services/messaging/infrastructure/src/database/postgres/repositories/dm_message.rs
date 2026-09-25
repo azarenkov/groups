@@ -152,7 +152,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
     async fn find_by_id(&self, id: &DmMessageId) -> Result<DmMessage, RepositoryError> {
         let row = sqlx::query!(
             r#"
-            SELECT id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, created_at, edited_at
+            SELECT id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, created_at, edited_at, forwarded_from::text AS "forwarded_from?"
             FROM dm_messages
             WHERE id = $1
             "#,
@@ -166,7 +166,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         let content = MessageContent::new_allow_empty(row.content)
             .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
 
-        Ok(DmMessage::restore(
+        let message = DmMessage::restore(
             DmMessageId::new(row.id),
             UserId::new(row.sender_id),
             UserId::new(row.recipient_id),
@@ -176,7 +176,11 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             row.call_duration_seconds,
             row.created_at,
             row.edited_at,
-        ))
+        );
+        Ok(match parse_forward(row.forwarded_from.as_deref()) {
+            Some(forward) => message.with_forward(forward),
+            None => message,
+        })
     }
 
     async fn find_view_between(
