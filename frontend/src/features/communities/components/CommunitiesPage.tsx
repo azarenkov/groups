@@ -488,15 +488,15 @@ const CommunitiesPage: React.FC = () => {
       handleSelectChannel(community, channel);
   };
 
-  const handleOpenDmFromHome = (friendId: string, name?: string) => {
+  const handleOpenDmFromHome = (friendId: string, name?: string): boolean => {
     const dm = acceptedFriends.find((d) => d.id === friendId);
     if (dm) {
       handleSelectDm(dm);
-      return;
+      return true;
     }
     const preview = dmPreviews[friendId];
     const fallbackName = name ?? nameOverrides[friendId] ?? preview?.peerName;
-    if (!fallbackName) return;
+    if (!fallbackName) return false;
     handleSelectDm({
       id: friendId,
       name: fallbackName,
@@ -507,9 +507,12 @@ const CommunitiesPage: React.FC = () => {
       isFriend: false,
       friendship: "none",
     });
+    return true;
   };
   const openDmRef = React.useRef(handleOpenDmFromHome);
   openDmRef.current = handleOpenDmFromHome;
+  const expandCommunityRef = React.useRef(selection.expandCommunity);
+  expandCommunityRef.current = selection.expandCommunity;
   useEffect(() => {
     useDmOpenerStore.getState().register((id, name) => openDmRef.current(id, name));
     return () => useDmOpenerStore.getState().register(null);
@@ -518,17 +521,25 @@ const CommunitiesPage: React.FC = () => {
     const link = pendingMessageLink;
     if (!link) return;
     if (link.kind === "dm") {
+      if (!openDmRef.current(link.peerId)) return;
       setPendingMessageLink(null);
-      openDmRef.current(link.peerId);
       setOpenMessage({ convId: link.peerId, messageId: link.messageId });
       return;
     }
     if (!communities.some((c) => c.id === link.communityId)) return;
     setPendingMessageLink(null);
+    expandCommunityRef.current(link.communityId);
     setSelectedCommunity(link.communityId);
     setSelectedChannel(link.channelId);
     setOpenMessage({ convId: link.channelId, messageId: link.messageId });
-  }, [pendingMessageLink, communities, setSelectedCommunity, setSelectedChannel]);
+  }, [
+    pendingMessageLink,
+    communities,
+    acceptedFriends,
+    dmPreviews,
+    setSelectedCommunity,
+    setSelectedChannel,
+  ]);
 
   const handleCallFromHome = (friendId: string, video = false) => {
     handleOpenDmFromHome(friendId);

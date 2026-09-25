@@ -181,6 +181,15 @@ async fn deliver(
 ) -> Delivery {
     match *target {
         ForwardTargetBody::Channel { community_id, channel_id } => {
+            let join = messaging::dto::requests::channel::join_text_channel::JoinTextChannelRequest::new(
+                community_id,
+                channel_id,
+                None,
+                request_context(req),
+            );
+            if let Err(e) = app_state.join_text_channel_usecase.execute(join, user_id).await {
+                return Delivery::failed(None, failure(e));
+            }
             let mut comment_message_id = None;
             if let Some(comment) = comment {
                 let data = SendChannelMessageRequest::new(
