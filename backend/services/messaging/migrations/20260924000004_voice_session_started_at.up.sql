@@ -26,6 +26,7 @@ CREATE FUNCTION messaging.voice_session_end() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
+    PERFORM 1 FROM messaging.channels WHERE id = OLD.channel_id FOR UPDATE;
     UPDATE messaging.channels
     SET voice_session_started_at = NULL
     WHERE id = OLD.channel_id
