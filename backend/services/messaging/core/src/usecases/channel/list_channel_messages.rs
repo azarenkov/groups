@@ -83,7 +83,7 @@ where
         let has_cursor = before.is_some() || after.is_some();
         let messages = self
             .message_repository
-            .list_messages_in_channel(&channel_id, before.as_ref(), after.as_ref(), limit)
+            .list_messages_in_channel(&channel_id, &requester_id, before.as_ref(), after.as_ref(), limit)
             .await
             .map_err(|e| match e {
                 RepositoryError::NotFound if has_cursor => {
@@ -150,7 +150,7 @@ where
             .await?;
         let view = self
             .message_repository
-            .find_message_view(&MessageId::new(message_id))
+            .find_message_view(&MessageId::new(message_id), &requester_id)
             .await
             .map_err(|e| match e {
                 RepositoryError::NotFound => ListChannelMessagesError::MessageNotFound,
@@ -165,10 +165,11 @@ where
     pub async fn reply_previews(
         &self,
         message_ids: &[uuid::Uuid],
+        viewer: UserId,
     ) -> Result<Vec<ReplyPreviewDto>, ListChannelMessagesError> {
         Ok(self
             .message_repository
-            .list_reply_previews(message_ids)
+            .list_reply_previews(message_ids, &viewer)
             .await?
             .into_iter()
             .map(ReplyPreviewDto::from)

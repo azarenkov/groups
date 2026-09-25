@@ -8,8 +8,10 @@ interface ConfirmModalProps {
   targetName?: string;
   confirmLabel: string;
   danger?: boolean;
+  secondaryLabel?: string;
   onCancel: () => void;
   onConfirm: () => void;
+  onSecondary?: () => void;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -18,11 +20,14 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   targetName,
   confirmLabel,
   danger,
+  secondaryLabel,
   onCancel,
   onConfirm,
+  onSecondary,
 }) => {
   const { t } = useTranslation("common");
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const secondaryRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -36,17 +41,17 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
         return;
       }
       if (e.key !== "Tab") return;
-      const active = document.activeElement;
-      if (e.shiftKey && active === cancelRef.current) {
-        e.preventDefault();
-        confirmRef.current?.focus();
-      } else if (!e.shiftKey && active === confirmRef.current) {
-        e.preventDefault();
-        cancelRef.current?.focus();
-      } else if (active !== cancelRef.current && active !== confirmRef.current) {
-        e.preventDefault();
-        cancelRef.current?.focus();
+      const order = [cancelRef.current, secondaryRef.current, confirmRef.current].filter(
+        (el): el is HTMLButtonElement => !!el,
+      );
+      const index = order.indexOf(document.activeElement as HTMLButtonElement);
+      e.preventDefault();
+      if (index === -1) {
+        order[0]?.focus();
+        return;
       }
+      const next = (index + (e.shiftKey ? order.length - 1 : 1)) % order.length;
+      order[next]?.focus();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -88,6 +93,11 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <button ref={cancelRef} type="button" onClick={onCancel}>
             {t("cancel")}
           </button>
+          {secondaryLabel && onSecondary && (
+            <button ref={secondaryRef} type="button" onClick={onSecondary}>
+              {secondaryLabel}
+            </button>
+          )}
           <button
             ref={confirmRef}
             type="button"

@@ -7,7 +7,7 @@ import type { Community } from "../../../../shared/types/community";
 import type { Channel } from "../../../../shared/types/channel";
 import type { SidebarVoiceMember } from "./types";
 import { moderatorDeafened, type SidebarPermissions } from "./permissions";
-import { moderateDeafen, moderateMute } from "./moderation";
+import { moderateDeafen, moderateDisconnect, moderateMute } from "./moderation";
 import { useSpeakingStore } from "../../../voice/store/speakingStore";
 import { useProfileModalStore } from "../../../social/store/profileModalStore";
 import { useDmOpenerStore } from "../../../social/store/dmOpenerStore";
@@ -18,6 +18,8 @@ import {
 import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import MemberVolumeSlider from "../../../voice/components/MemberVolumeSlider";
 import { getLiveKitService } from "../../../voice/lib/livekit";
+import { useVoiceSessionStore } from "../../../voice/store/voiceSessionStore";
+import VoiceSessionTimer from "../../../voice/components/VoiceSessionTimer";
 
 interface ChannelRowProps {
   community: Community;
@@ -48,6 +50,9 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
 }) => {
   const speakingIds = useSpeakingStore((state) => state.ids);
   const { t } = useTranslation(["sidebar", "common"]);
+  const sessionStartedAt = useVoiceSessionStore((st) =>
+    channel.kind === "voice" ? st.startedAt[channel.id] : undefined,
+  );
   const memberMenu = (m: SidebarVoiceMember): MenuEntry[] => {
     const self = m.id === currentUserId;
     const openDm = useDmOpenerStore.getState().open;
@@ -95,7 +100,11 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
       perms.canDeafenIn(community) &&
       perms.outranksIn(community, m.id) &&
       perms.canLiftDeafenIn(community, m);
-    if (canMute || canDeafen) entries.push({ kind: "separator", id: "s-moderation" });
+    const canDisconnect =
+      !self && perms.canDisconnectIn(community) && perms.outranksIn(community, m.id);
+    if (canMute || canDeafen || canDisconnect) {
+      entries.push({ kind: "separator", id: "s-moderation" });
+    }
     if (canMute) {
       const moderatorMuted = !!m.isMuted && !!m.mutedBy && m.mutedBy !== m.id;
       entries.push({
@@ -116,6 +125,16 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
         icon: deafened ? "headphones" : "headphones-off",
         danger: !deafened,
         onSelect: () => moderateDeafen(community, channel.id, m),
+      });
+    }
+    if (canDisconnect) {
+      entries.push({
+        kind: "item",
+        id: "disconnect",
+        label: t("disconnectMember"),
+        icon: "logout",
+        danger: true,
+        onSelect: () => moderateDisconnect(community, channel.id, m),
       });
     }
     return entries;
@@ -161,6 +180,12 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
         {channel.kind === "voice" &&
           (voiceMembersByChannel?.[channel.id]?.length ?? 0) > 0 && (
             <span className="meta">
+              {sessionStartedAt && (
+                <>
+                  <VoiceSessionTimer startedAt={sessionStartedAt} className="sb-voice-timer" />
+                  <span className="sb-voice-sep" aria-hidden="true">·</span>
+                </>
+              )}
               {voiceMembersByChannel?.[channel.id]?.length}
             </span>
           )}

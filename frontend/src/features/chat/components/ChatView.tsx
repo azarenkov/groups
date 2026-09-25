@@ -1,5 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { blockGeneration, useBlockStore } from "../../social/store/blockStore";
 import { friendshipAPI } from "../../social/api/friendship";
 import Icon from "../../../shared/ui/Icon";
@@ -38,6 +39,8 @@ import { useMessenger } from "../hooks/useMessenger";
 import { useReadReceipts } from "../hooks/useReadReceipts";
 import { PULL_THRESHOLD, usePullToRefresh } from "../hooks/usePullToRefresh";
 import type { ChannelMeta, DmMeta } from "../types";
+import { openForward } from "../store/forwardModalStore";
+import { canDeleteForEveryone } from "../lib/messageMenu";
 
 interface ChatViewProps {
   channel?: ChannelMeta;
@@ -73,6 +76,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   onOpenMessageHandled,
 }) => {
   const { t } = useTranslation("chat");
+  const navigate = useNavigate();
   const attachments = useAttachments();
   const {
     pendingFiles,
@@ -524,7 +528,6 @@ const ChatView: React.FC<ChatViewProps> = ({
             editFiles={editFiles}
             savingEdit={editing.savingEdit}
             highlightedMessageId={highlightedMessageId}
-            canModerateMessages={canModerateMessages}
             myCommunityIds={myCommunityIds}
             receiptFor={receiptFor}
             onEditTextChange={editing.setEditText}
@@ -550,6 +553,26 @@ const ChatView: React.FC<ChatViewProps> = ({
                 void copyTextToClipboard(messageLink(new URL(apiBaseUrl()).origin, target)).catch(
                   (e) => console.warn("[ChatView] copy link failed:", e),
                 );
+              }}
+              onForward={(message) => {
+                if (isDm && dmFriendId) {
+                  openForward({ kind: "dm", friendId: dmFriendId, messageId: message.id });
+                } else if (channelId && communityId) {
+                  openForward({ kind: "channel", communityId, channelId, messageId: message.id });
+                }
+              }}
+              onOpenForwardSource={(message) => {
+                const origin = message.forwardedFrom;
+                if (!origin || origin.source.kind !== "channel") return;
+                const link = new URL(
+                  messageLink(window.location.origin, {
+                    kind: "channel",
+                    communityId: origin.source.communityId,
+                    channelId: origin.source.channelId,
+                    messageId: origin.messageId,
+                  }),
+                );
+                navigate(link.pathname + link.search);
               }}
               onDelete={editing.setDeleteTarget}
             onAcceptInvite={handleAcceptInvite}
@@ -602,16 +625,32 @@ const ChatView: React.FC<ChatViewProps> = ({
           onCancelReply={() => composer.setReplyTarget(null)}
         />
       )}
-      {editing.deleteTarget && (
-        <ConfirmModal
-          title={i18n.t("deleteMessage", { ns: "chat" })}
-          subtitle={i18n.t("deleteMessageConfirm", { ns: "chat" })}
-          confirmLabel={i18n.t("delete", { ns: "common" })}
-          danger
-          onCancel={() => editing.setDeleteTarget(null)}
-          onConfirm={editing.confirmDelete}
-        />
-      )}
+      {editing.deleteTarget &&
+        (canDeleteForEveryone(
+          editing.deleteTarget,
+          editing.deleteTarget.authorId === currentUserId,
+          canModerateMessages,
+        ) ? (
+          <ConfirmModal
+            title={i18n.t("deleteMessage", { ns: "chat" })}
+            subtitle={i18n.t("deleteMessageChoose", { ns: "chat" })}
+            secondaryLabel={i18n.t("deleteForMe", { ns: "chat" })}
+            confirmLabel={i18n.t("deleteForEveryone", { ns: "chat" })}
+            danger
+            onCancel={() => editing.setDeleteTarget(null)}
+            onSecondary={() => void editing.confirmDelete("me")}
+            onConfirm={() => void editing.confirmDelete("everyone")}
+          />
+        ) : (
+          <ConfirmModal
+            title={i18n.t("deleteMessage", { ns: "chat" })}
+            subtitle={i18n.t("deleteForMeConfirm", { ns: "chat" })}
+            confirmLabel={i18n.t("deleteForMe", { ns: "chat" })}
+            danger
+            onCancel={() => editing.setDeleteTarget(null)}
+            onConfirm={() => void editing.confirmDelete("me")}
+          />
+        ))}
     </>
   );
 };

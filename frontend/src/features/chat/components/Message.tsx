@@ -37,7 +37,6 @@ import type { PendingFile } from "../types";
 import { MAX_CONTENT } from "../constants";
 
 export interface MessageProps {
-  canModerate?: boolean;
   blockedAuthor?: boolean;
   msg: ChannelMessage;
   displayName: string;
@@ -66,10 +65,11 @@ export interface MessageProps {
   onReply?: () => void;
   onJumpToReply?: (messageId: string) => void;
   onCopyLink?: () => void;
+  onForward?: () => void;
+  onOpenForwardSource?: () => void;
 }
 
 export const Message: React.FC<MessageProps> = ({
-  canModerate,
   blockedAuthor,
   msg,
   displayName,
@@ -98,6 +98,8 @@ export const Message: React.FC<MessageProps> = ({
   onReply,
   onJumpToReply,
   onCopyLink,
+  onForward,
+  onOpenForwardSource,
 }) => {
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
@@ -112,7 +114,6 @@ export const Message: React.FC<MessageProps> = ({
     const actions = messageActions({
       msg,
       isMine,
-      canModerate: !!canModerate,
       hasSelection: selection.trim().length > 0,
     });
     const entry: Record<MessageAction, MenuEntry> = {
@@ -123,6 +124,14 @@ export const Message: React.FC<MessageProps> = ({
         icon: "reply",
         disabled: !onReply,
         onSelect: () => onReply?.(),
+      },
+      forward: {
+        kind: "item",
+        id: "forward",
+        label: i18n.t("forward", { ns: "chat" }),
+        icon: "forward",
+        disabled: !onForward,
+        onSelect: () => onForward?.(),
       },
       copy: {
         kind: "item",
@@ -170,6 +179,7 @@ export const Message: React.FC<MessageProps> = ({
     const pick = (action: MessageAction) => (actions.includes(action) ? [entry[action]] : []);
     return [
       ...pick("reply"),
+      ...pick("forward"),
       ...pick("copy"),
       ...pick("link"),
       { kind: "separator", id: "s1" },
@@ -355,6 +365,9 @@ export const Message: React.FC<MessageProps> = ({
                       : i18n.t("callMissed", { ns: "call" })}
               </div>
             </div>
+            <time className="dm-call-time" dateTime={msg.createdAt}>
+              {time}
+            </time>
           </div>
         ) : msg.inviteCommunityId ? (
           <div className="dm-invite-card">
@@ -554,6 +567,34 @@ export const Message: React.FC<MessageProps> = ({
                 </ProfileLink>
               </div>
             )}
+            {(() => {
+              const origin = msg.forwardedFrom;
+              if (!origin) return null;
+              const openable = origin.source.kind === "channel" && !!onOpenForwardSource;
+              return (
+                <div
+                  className={"msg-forwarded" + (openable ? " openable" : "")}
+                  role={openable ? "button" : undefined}
+                  tabIndex={openable ? 0 : undefined}
+                  title={openable ? i18n.t("forwardOpenSource", { ns: "chat" }) : undefined}
+                  onClick={(e) => {
+                    if (!openable) return;
+                    e.stopPropagation();
+                    onOpenForwardSource?.();
+                  }}
+                  onKeyDown={(e) => {
+                    if (!openable || (e.key !== "Enter" && e.key !== " ")) return;
+                    e.preventDefault();
+                    onOpenForwardSource?.();
+                  }}
+                >
+                  <Icon name="forward" size={12} />
+                  <span>
+                    {i18n.t("forwardedFrom", { ns: "chat", name: origin.authorName })}
+                  </span>
+                </div>
+              );
+            })()}
             {msg.replyTo && (
               <div
                 className={"msg-reply" + (msg.replyTo.deleted ? " deleted" : "")}

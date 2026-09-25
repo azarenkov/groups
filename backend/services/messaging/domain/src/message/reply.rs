@@ -9,6 +9,7 @@ pub struct ReplyPreview {
     pub author_id: UserId,
     pub snippet: String,
     pub has_attachments: bool,
+    pub hidden_for: Vec<UserId>,
 }
 
 impl ReplyPreview {
@@ -18,7 +19,13 @@ impl ReplyPreview {
             author_id,
             snippet: snippet(content),
             has_attachments,
+            hidden_for: Vec::new(),
         }
+    }
+
+    pub fn hidden_for(mut self, users: Vec<UserId>) -> Self {
+        self.hidden_for = users;
+        self
     }
 }
 

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use messaging_domain::message::system::SystemMessage;
 use domain::{attachment::AttachmentLink, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
-use messaging_domain::{channel::id::ChannelId, message::Message, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::view::MessageView, message::view::ReplyPreviewView};
+use messaging_domain::{channel::id::ChannelId, message::Message, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::view::MessageView, message::view::ReplyPreviewView, message::forward::ForwardInfo};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
@@ -74,6 +74,17 @@ impl MessageRepository for PostgresMessageRepository {
         Ok(rows)
     }
 
+    async fn list_users_hiding(&self, message_id: Uuid) -> Result<Vec<UserId>, RepositoryError> {
+        let rows = sqlx::query_scalar!(
+            r#"SELECT user_id FROM hidden_messages WHERE message_id = $1"#,
+            message_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(UserId::new).collect())
+    }
+
     async fn list_attachment_links_for_messages(
         &self,
         message_ids: &[uuid::Uuid],
@@ -132,6 +143,7 @@ impl MessageRepository for PostgresMessageRepository {
                 p.user_id IS NOT NULL
                 OR (c.visibility = 'public' AND sm.user_id IS NOT NULL)
               )
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)
             UNION ALL
             SELECT a.attachment_id AS "attachment_id!", a.file_name AS "file_name!",
                    a.content_type AS "content_type!", a.size_bytes AS "size_bytes!",
@@ -140,6 +152,7 @@ impl MessageRepository for PostgresMessageRepository {
             INNER JOIN dm_messages d ON d.id = a.dm_message_id
             WHERE a.attachment_id = $1
               AND (d.sender_id = $2 OR d.recipient_id = $2)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = d.id)
               AND EXISTS(
                   SELECT 1 FROM friendships f
                   WHERE f.user_id = $2
@@ -175,7 +188,7 @@ impl MessageRepository for PostgresMessageRepository {
         let dto = sqlx::query_as!(
             MessageDto,
             r#"
-            SELECT id, channel_id, author_id, content, created_at, edited_at, kind, system_payload::text AS "system_payload"
+            SELECT id, channel_id, author_id, content, created_at, edited_at, kind, system_payload::text AS "system_payload", forwarded_from::text AS "forwarded_from"
             FROM messages
             WHERE id = $1
             "#,
@@ -192,17 +205,20 @@ impl MessageRepository for PostgresMessageRepository {
     async fn find_message_view(
         &self,
         message_id: &MessageId,
+        viewer: &UserId,
     ) -> Result<MessageView, RepositoryError> {
         let dto = sqlx::query_as!(
             MessageViewDto,
             r#"
             SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
+                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.id = $1
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)
             "#,
             message_id.uuid(),
+            viewer.uuid(),
         )
         .fetch_optional(&self.pool)
         .await
@@ -214,6 +230,7 @@ impl MessageRepository for PostgresMessageRepository {
     async fn list_reply_previews(
         &self,
         message_ids: &[Uuid],
+        viewer: &UserId,
     ) -> Result<Vec<ReplyPreviewView>, RepositoryError> {
         if message_ids.is_empty() {
             return Ok(Vec::new());
@@ -225,8 +242,10 @@ impl MessageRepository for PostgresMessageRepository {
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.id = ANY($1)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)
             "#,
             message_ids,
+            viewer.uuid(),
         )
         .fetch_all(&self.pool)
         .await
@@ -246,6 +265,7 @@ impl MessageRepository for PostgresMessageRepository {
     async fn list_messages_in_channel(
         &self,
         channel_id: &ChannelId,
+        viewer: &UserId,
         before: Option<&MessageId>,
         after: Option<&MessageId>,
         limit: i64,
@@ -257,11 +277,12 @@ impl MessageRepository for PostgresMessageRepository {
                     MessageViewDto,
                     r#"
                     SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
+                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
                     FROM messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
                       AND (m.created_at, m.id) < ($2, $3)
+                      AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $5 AND h.message_id = m.id)
                     ORDER BY m.created_at DESC, m.id DESC
                     LIMIT $4
                     "#,
@@ -269,6 +290,7 @@ impl MessageRepository for PostgresMessageRepository {
                     cursor.created_at,
                     cursor.id,
                     limit,
+                    viewer.uuid(),
                 )
                 .fetch_all(&self.pool)
                 .await
@@ -280,11 +302,12 @@ impl MessageRepository for PostgresMessageRepository {
                     MessageViewDto,
                     r#"
                     SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
+                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
                     FROM messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
                       AND (m.created_at, m.id) > ($2, $3)
+                      AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $5 AND h.message_id = m.id)
                     ORDER BY m.created_at ASC, m.id ASC
                     LIMIT $4
                     "#,
@@ -292,6 +315,7 @@ impl MessageRepository for PostgresMessageRepository {
                     cursor.created_at,
                     cursor.id,
                     limit,
+                    viewer.uuid(),
                 )
                 .fetch_all(&self.pool)
                 .await
@@ -303,15 +327,17 @@ impl MessageRepository for PostgresMessageRepository {
                 MessageViewDto,
                 r#"
                 SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                       m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
+                       m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
                 FROM messages m
                 INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                 WHERE m.channel_id = $1
+                  AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)
                 ORDER BY m.created_at DESC, m.id DESC
                 LIMIT $2
                 "#,
                 channel_id.uuid(),
                 limit,
+                viewer.uuid(),
             )
             .fetch_all(&self.pool)
             .await
@@ -324,18 +350,21 @@ impl MessageRepository for PostgresMessageRepository {
     async fn search_messages_in_channel(
         &self,
         channel_id: &ChannelId,
+        viewer: &UserId,
         query: &str,
         pagination: Pagination,
     ) -> Result<PaginatedResult<MessageView>, RepositoryError> {
         let total = sqlx::query!(
             r#"
             SELECT COUNT(*) AS "count!"
-            FROM messages
-            WHERE channel_id = $1
-              AND search_tsv @@ plainto_tsquery('simple', $2)
+            FROM messages m
+            WHERE m.channel_id = $1
+              AND m.search_tsv @@ plainto_tsquery('simple', $2)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)
             "#,
             channel_id.uuid(),
             query,
+            viewer.uuid(),
         )
         .fetch_one(&self.pool)
         .await
@@ -346,11 +375,12 @@ impl MessageRepository for PostgresMessageRepository {
             MessageViewDto,
             r#"
             SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id
+                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.channel_id = $1
               AND m.search_tsv @@ plainto_tsquery('simple', $2)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $5 AND h.message_id = m.id)
             ORDER BY ts_rank(m.search_tsv, plainto_tsquery('simple', $2)) DESC,
                      m.created_at DESC, m.id DESC
             LIMIT $3 OFFSET $4
@@ -359,6 +389,7 @@ impl MessageRepository for PostgresMessageRepository {
             query,
             pagination.limit(),
             pagination.offset(),
+            viewer.uuid(),
         )
         .fetch_all(&self.pool)
         .await
@@ -372,7 +403,7 @@ impl MessageRepository for PostgresMessageRepository {
 fn dto_to_message(dto: MessageDto) -> Result<Message, RepositoryError> {
     let content = MessageContent::new_allow_empty(dto.content)
         .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
-    Ok(Message::restore(
+    let message = Message::restore(
         MessageId::new(dto.id),
         ChannelId::new(dto.channel_id),
         UserId::new(dto.author_id),
@@ -380,7 +411,16 @@ fn dto_to_message(dto: MessageDto) -> Result<Message, RepositoryError> {
         dto.created_at,
         dto.edited_at,
         system_from_row(&dto.kind, dto.system_payload.as_deref()),
-    ))
+    );
+    let forward = dto
+        .forwarded_from
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+        .and_then(|value| ForwardInfo::from_json(&value));
+    Ok(match forward {
+        Some(forward) => message.with_forward(forward),
+        None => message,
+    })
 }
 
 fn system_from_row(kind: &str, payload: Option<&str>) -> Option<SystemMessage> {
@@ -402,6 +442,11 @@ fn view_dto_to_view(dto: MessageViewDto) -> MessageView {
         edited_at: dto.edited_at,
         system: system_from_row(&dto.kind, dto.system_payload.as_deref()),
         reply_to: dto.reply_to_message_id,
+        forwarded_from: dto
+            .forwarded_from
+            .as_deref()
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+            .and_then(|value| ForwardInfo::from_json(&value)),
     }
 }
 

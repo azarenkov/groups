@@ -23,4 +23,5 @@ pub struct MessageView {
     pub edited_at: Option<DateTime<Utc>>,
     pub system: Option<SystemMessage>,
     pub reply_to: Option<uuid::Uuid>,
+    pub forwarded_from: Option<crate::message::forward::ForwardInfo>,
 }

@@ -1,5 +1,6 @@
 pub mod content;
 pub mod events;
+pub mod forward;
 pub mod id;
 pub mod reply;
 pub mod repository;
@@ -8,7 +9,7 @@ pub mod view;
 
 use chrono::{DateTime, Utc};
 
-use crate::{channel::id::ChannelId, message::reply::ReplyPreview, message::content::MessageContent, message::events::MessageDomainEvent, message::events::lifecycle::MessageDeleted, message::events::lifecycle::MessageEdited, message::events::lifecycle::MessageSent, message::id::MessageId, message::system::MessageKind, message::system::SystemMessage, message::system::SystemMessageKind};
+use crate::{channel::id::ChannelId, message::forward::ForwardInfo, message::reply::ReplyPreview, message::content::MessageContent, message::events::MessageDomainEvent, message::events::lifecycle::MessageDeleted, message::events::lifecycle::MessageEdited, message::events::lifecycle::MessageSent, message::id::MessageId, message::system::MessageKind, message::system::SystemMessage, message::system::SystemMessageKind};
 use domain::user::id::UserId;
 
 #[derive(Debug, thiserror::Error)]
@@ -23,6 +24,8 @@ pub enum MessageError {
     NotAuthor,
     #[error("System messages cannot be modified")]
     SystemMessage,
+    #[error("Forwarded messages cannot be edited")]
+    Forwarded,
 }
 
 #[derive(Debug)]
@@ -35,6 +38,7 @@ pub struct Message {
     edited_at: Option<DateTime<Utc>>,
     system: Option<SystemMessage>,
     reply: Option<ReplyPreview>,
+    forward: Option<ForwardInfo>,
     events: Vec<MessageDomainEvent>,
 }
 
@@ -55,6 +59,7 @@ impl Message {
             edited_at: None,
             system: None,
             reply: None,
+            forward: None,
             events: Vec::new(),
         };
         message
@@ -88,6 +93,7 @@ impl Message {
             edited_at: None,
             system: Some(system),
             reply: None,
+            forward: None,
             events: vec![MessageDomainEvent::Sent(sent)],
         }
     }
@@ -111,6 +117,7 @@ impl Message {
             edited_at,
             system,
             reply: None,
+            forward: None,
             events: Vec::new(),
         }
     }
@@ -127,6 +134,20 @@ impl Message {
 
     pub fn reply(&self) -> Option<&ReplyPreview> {
         self.reply.as_ref()
+    }
+
+    pub fn with_forward(mut self, forward: ForwardInfo) -> Self {
+        for event in &mut self.events {
+            if let MessageDomainEvent::Sent(sent) = event {
+                sent.forward = Some(forward.clone());
+            }
+        }
+        self.forward = Some(forward);
+        self
+    }
+
+    pub fn forward(&self) -> Option<&ForwardInfo> {
+        self.forward.as_ref()
     }
 
     pub fn edit(
@@ -150,6 +171,9 @@ impl Message {
         }
         if self.author_id != editor_id {
             return Err(MessageError::NotAuthor);
+        }
+        if self.forward.is_some() {
+            return Err(MessageError::Forwarded);
         }
         if !allow_unchanged && self.content == new_content {
             return Err(MessageError::ContentUnchanged);
@@ -258,5 +282,21 @@ mod tests {
         let message = Message::create(channel, author, MessageContent::new("hi".to_string()).unwrap(), Utc::now());
         assert_eq!(message.kind(), MessageKind::User);
         assert!(message.system().is_none());
+    }
+
+    #[test]
+    fn forwarded_messages_cannot_be_edited() {
+        let channel = ChannelId::new(Uuid::new_v4());
+        let author = UserId::new(Uuid::new_v4());
+        let mut message = Message::create(channel, author, MessageContent::new("hi".to_string()).unwrap(), Utc::now())
+            .with_forward(crate::message::forward::ForwardInfo {
+                message_id: Uuid::new_v4(),
+                author_id: UserId::new(Uuid::new_v4()),
+                author_name: "someone".to_string(),
+                sent_at: Utc::now(),
+                source: crate::message::forward::ForwardSource::Dm,
+            });
+        let content = MessageContent::new("rewritten".to_string()).unwrap();
+        assert!(matches!(message.edit(content, author, Utc::now()), Err(MessageError::Forwarded)));
     }
 }

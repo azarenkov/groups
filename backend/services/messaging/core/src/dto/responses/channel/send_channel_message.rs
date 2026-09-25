@@ -11,6 +11,7 @@ pub struct SendChannelMessageResponse {
     pub attachments: Vec<domain::attachment::AttachmentLink>,
     pub created_at: DateTime<Utc>,
     pub reply: Option<crate::dto::responses::reply::ReplyPreviewDto>,
+    pub forwarded_from: Option<messaging_domain::message::forward::ForwardInfo>,
 }
 
 impl From<&Message> for SendChannelMessageResponse {
@@ -25,6 +26,7 @@ impl From<&Message> for SendChannelMessageResponse {
             reply: value
                 .reply()
                 .map(|r| crate::dto::responses::reply::ReplyPreviewDto::from_preview(r, None)),
+            forwarded_from: value.forward().cloned(),
         }
     }
 }

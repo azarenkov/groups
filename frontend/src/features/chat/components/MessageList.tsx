@@ -19,7 +19,6 @@ interface MessageListProps {
   editFiles: PendingFile[];
   savingEdit: boolean;
   highlightedMessageId: string | null;
-  canModerateMessages: boolean;
   myCommunityIds: Set<string>;
   receiptFor: (message: ChannelMessage, mine: boolean) => "sent" | "read" | null;
   onEditTextChange: (value: string) => void;
@@ -33,6 +32,8 @@ interface MessageListProps {
   onReply: (message: ChannelMessage, authorName: string) => void;
   onJumpToMessage: (messageId: string) => void;
   onCopyLink: (message: ChannelMessage) => void;
+  onForward: (message: ChannelMessage) => void;
+  onOpenForwardSource: (message: ChannelMessage) => void;
   onAcceptInvite: (message: ChannelMessage) => void;
   onDeclineInvite: (message: ChannelMessage) => void;
   onOpenInviteCommunity?: (communityId: string) => void;
@@ -51,7 +52,6 @@ const MessageList: React.FC<MessageListProps> = ({
   editFiles,
   savingEdit,
   highlightedMessageId,
-  canModerateMessages,
   myCommunityIds,
   receiptFor,
   onEditTextChange,
@@ -65,6 +65,8 @@ const MessageList: React.FC<MessageListProps> = ({
   onReply,
   onJumpToMessage,
   onCopyLink,
+  onForward,
+  onOpenForwardSource,
   onAcceptInvite,
   onDeclineInvite,
   onOpenInviteCommunity,
@@ -107,7 +109,6 @@ const MessageList: React.FC<MessageListProps> = ({
                   inviteIsMember={
                     !!m.inviteCommunityId && myCommunityIds.has(m.inviteCommunityId)
                   }
-                  canModerate={canModerateMessages}
                   editRemovedIds={editRemovedIds}
                   editFiles={editFiles}
                   editSaving={savingEdit}
@@ -130,6 +131,8 @@ const MessageList: React.FC<MessageListProps> = ({
                   onReply={() => onReply(m, subjectName)}
                   onJumpToReply={onJumpToMessage}
                   onCopyLink={() => onCopyLink(m)}
+                  onForward={() => onForward(m)}
+                  onOpenForwardSource={() => onOpenForwardSource(m)}
                   onAcceptInvite={() => onAcceptInvite(m)}
                   onDeclineInvite={() => onDeclineInvite(m)}
                   onOpenInviteCommunity={() =>

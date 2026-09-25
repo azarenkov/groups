@@ -244,6 +244,8 @@
 .sb-item .sb-icon { flex-shrink: 0; color: var(--fg-3); width: 16px; display: flex; justify-content: center; }
 .sb-item .sb-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-item .meta { font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); letter-spacing: 0; }
+.sb-item .meta .sb-voice-timer { font-variant-numeric: tabular-nums; }
+.sb-item .meta .sb-voice-sep { margin: 0 4px; opacity: 0.6; }
 .sb-item .lock { color: var(--fg-4); }
 
 .sb-pending-toggle {

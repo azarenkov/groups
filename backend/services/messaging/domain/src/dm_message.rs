@@ -5,7 +5,7 @@ pub mod view;
 
 use chrono::{DateTime, Utc};
 
-use crate::{message::reply::ReplyPreview, dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent, community::id::CommunityId};
+use crate::{message::forward::ForwardInfo, message::reply::ReplyPreview, dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent, community::id::CommunityId};
 use domain::user::id::UserId;
 use uuid::Uuid;
 
@@ -17,6 +17,8 @@ pub enum DmMessageError {
     ContentUnchanged,
     #[error("Community invite messages cannot be edited")]
     NotEditable,
+    #[error("Forwarded messages cannot be edited")]
+    Forwarded,
 }
 
 #[derive(Debug)]
@@ -32,6 +34,7 @@ pub struct DmMessage {
     created_at: DateTime<Utc>,
     edited_at: Option<DateTime<Utc>>,
     reply: Option<ReplyPreview>,
+    forward: Option<ForwardInfo>,
     events: Vec<DmMessageDomainEvent>,
 }
 
@@ -55,6 +58,7 @@ impl DmMessage {
             created_at: now,
             edited_at: None,
             reply: None,
+            forward: None,
             events: Vec::new(),
         };
         message.events.push(DmMessageDomainEvent::Sent(
@@ -85,6 +89,7 @@ impl DmMessage {
             created_at: now,
             edited_at: None,
             reply: None,
+            forward: None,
             events: Vec::new(),
         };
         message.events.push(DmMessageDomainEvent::Sent(
@@ -114,6 +119,7 @@ impl DmMessage {
             created_at: now,
             edited_at: None,
             reply: None,
+            forward: None,
             events: Vec::new(),
         };
         let community_name = content.as_str().to_string();
@@ -139,6 +145,20 @@ impl DmMessage {
         self.reply.as_ref()
     }
 
+    pub fn with_forward(mut self, forward: ForwardInfo) -> Self {
+        for event in &mut self.events {
+            if let DmMessageDomainEvent::Sent(sent) = event {
+                sent.forward = Some(forward.clone());
+            }
+        }
+        self.forward = Some(forward);
+        self
+    }
+
+    pub fn forward(&self) -> Option<&ForwardInfo> {
+        self.forward.as_ref()
+    }
+
     pub fn restore(
         id: DmMessageId,
         sender_id: UserId,
@@ -162,6 +182,7 @@ impl DmMessage {
             created_at,
             edited_at,
             reply: None,
+            forward: None,
             events: Vec::new(),
         }
     }
@@ -187,6 +208,9 @@ impl DmMessage {
         }
         if self.invite_community_id.is_some() {
             return Err(DmMessageError::NotEditable);
+        }
+        if self.forward.is_some() {
+            return Err(DmMessageError::Forwarded);
         }
         if !allow_unchanged && self.content == new_content {
             return Err(DmMessageError::ContentUnchanged);

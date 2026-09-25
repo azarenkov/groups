@@ -96,6 +96,17 @@ class ChannelAPI {
     );
   }
 
+  async disconnect(
+    communityId: string,
+    channelId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    await this.client.post(
+      `/v1/communities/${communityId}/channels/${channelId}/disconnect`,
+      { targetUserId },
+    );
+  }
+
   async deafen(
     communityId: string,
     channelId: string,
@@ -201,6 +212,12 @@ class ChannelAPI {
   ): Promise<void> {
     await this.client.delete(
       `/v1/communities/${communityId}/channels/${channelId}/messages/${messageId}`,
+    );
+  }
+
+  async hideMessage(communityId: string, channelId: string, messageId: string): Promise<void> {
+    await this.client.post(
+      `/v1/communities/${communityId}/channels/${channelId}/messages/${messageId}/hide`,
     );
   }
 

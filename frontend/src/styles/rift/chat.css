@@ -659,6 +659,18 @@
 .msg.bubble.mine .msg-reply:hover { background: rgba(255, 255, 255, 0.22); }
 .msg.bubble.mine .msg-reply-author { color: #fff !important; }
 .msg.bubble.mine .msg-reply-text { color: rgba(255, 255, 255, 0.85); }
+.msg-forwarded {
+  display: flex; align-items: center; gap: 5px;
+  width: fit-content;
+  margin: 1px 0 3px;
+  font-size: 12px; font-style: italic;
+  color: var(--fg-3);
+  outline: none;
+}
+.msg-forwarded.openable { cursor: pointer; }
+.msg-forwarded.openable:hover span { text-decoration: underline; }
+.msg-forwarded:focus-visible { box-shadow: 0 0 0 2px var(--accent); border-radius: 4px; }
+.msg.bubble.mine .msg-forwarded { color: rgba(255, 255, 255, 0.8); }
 
 .msg-swipe-hint {
   position: absolute;

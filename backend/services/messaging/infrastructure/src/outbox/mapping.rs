@@ -200,6 +200,7 @@ fn message_record(event: &MessageDomainEvent) -> Result<OutboxRecord, Repository
             mentions: Some(uuids(&e.mentions)),
             system: e.system.as_ref().map(|s| s.to_json()),
             reply_to: e.reply.as_ref().map(reply_json),
+            forwarded_from: e.forward.as_ref().map(|f| f.to_json()),
         })?,
         MessageDomainEvent::Edited(e) => encode(&ChannelMessageEditedV1 {
             message_id: e.message_id.uuid(),
@@ -241,6 +242,7 @@ fn dm_record(event: &DmMessageDomainEvent) -> Result<OutboxRecord, RepositoryErr
             call_duration_seconds: e.call_duration_seconds,
             attachments: Some(value(&e.attachments)?),
             reply_to: e.reply.as_ref().map(reply_json),
+            forwarded_from: e.forward.as_ref().map(|f| f.to_json()),
         })?,
         DmMessageDomainEvent::Edited(e) => encode(&DmMessageEditedV1 {
             message_id: e.message_id.uuid(),
@@ -249,6 +251,7 @@ fn dm_record(event: &DmMessageDomainEvent) -> Result<OutboxRecord, RepositoryErr
             occurred_at: e.occurred_at,
             recipient_id: Some(e.recipient_id.uuid()),
             attachments: Some(value(&e.attachments)?),
+            hidden_for: uuids(&e.hidden_for),
         })?,
         DmMessageDomainEvent::Deleted(e) => encode(&DmMessageDeletedV1 {
             message_id: e.message_id.uuid(),
@@ -355,5 +358,6 @@ fn reply_json(reply: &messaging_domain::message::reply::ReplyPreview) -> Value {
         "authorId": reply.author_id.uuid(),
         "content": reply.snippet,
         "hasAttachments": reply.has_attachments,
+        "hiddenFor": reply.hidden_for.iter().map(|u| u.uuid()).collect::<Vec<_>>(),
     })
 }

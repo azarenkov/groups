@@ -8,6 +8,7 @@ pub struct SendDmMessageRequest {
     pub content: String,
     pub attachment_ids: Vec<Uuid>,
     pub reply_to_message_id: Option<Uuid>,
+    pub forward: Option<crate::dto::requests::forward::ForwardedContent>,
     pub ctx: RequestContext,
 }
 
@@ -24,7 +25,15 @@ impl SendDmMessageRequest {
             content,
             attachment_ids,
             reply_to_message_id,
+            forward: None,
             ctx,
         }
+    }
+
+    pub fn with_forward(mut self, forward: crate::dto::requests::forward::ForwardedContent) -> Self {
+        self.reply_to_message_id = None;
+        self.attachment_ids = Vec::new();
+        self.forward = Some(forward);
+        self
     }
 }
