@@ -31,11 +31,13 @@ pub trait MessageRepository {
     async fn find_message_view(
         &self,
         message_id: &MessageId,
+        viewer: &UserId,
     ) -> Result<MessageView, RepositoryError>;
 
     async fn list_reply_previews(
         &self,
         message_ids: &[uuid::Uuid],
+        viewer: &UserId,
     ) -> Result<Vec<ReplyPreviewView>, RepositoryError>;
 
     async fn list_messages_in_channel(

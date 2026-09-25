@@ -305,7 +305,7 @@ async fn list_channel_messages(
             m.attachments.push(link.into());
         }
     }
-    fill_channel_replies(&app_state, &mut items).await?;
+    fill_channel_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     let response = ListChannelMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
@@ -350,7 +350,7 @@ async fn search_channel_messages(
             m.attachments.push(link.into());
         }
     }
-    fill_channel_replies(&app_state, &mut items).await?;
+    fill_channel_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     let response = SearchChannelMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
@@ -375,7 +375,7 @@ async fn get_channel_message(
     for (_, link) in attachments {
         items[0].attachments.push(link.into());
     }
-    fill_channel_replies(&app_state, &mut items).await?;
+    fill_channel_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(items.remove(0))))
 }
 
@@ -401,6 +401,7 @@ async fn hide_channel_message(
 async fn fill_channel_replies(
     app_state: &web::Data<AppState>,
     items: &mut [MessageResponse],
+    viewer: UserId,
 ) -> Result<(), HttpError> {
     let ids = reply_ids(items);
     if ids.is_empty() {
@@ -408,7 +409,7 @@ async fn fill_channel_replies(
     }
     let previews = app_state
         .list_channel_messages_usecase
-        .reply_previews(&ids)
+        .reply_previews(&ids, viewer)
         .await?;
     fill_replies(items, previews);
     Ok(())

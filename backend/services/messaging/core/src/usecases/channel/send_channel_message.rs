@@ -148,7 +148,7 @@ where
         if let Some(reply_id) = request.reply_to_message_id {
             let target = self
                 .message_repository
-                .find_message_view(&MessageId::new(reply_id))
+                .find_message_view(&MessageId::new(reply_id), &author_id)
                 .await
                 .map_err(|e| match e {
                     RepositoryError::NotFound => SendChannelMessageError::InvalidReply,

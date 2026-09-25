@@ -205,7 +205,7 @@ async fn list_dm_messages(
             m.attachments.push(link.into());
         }
     }
-    fill_dm_replies(&app_state, &mut items).await?;
+    fill_dm_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     let response = ListDmMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
@@ -230,7 +230,7 @@ async fn get_dm_message(
     for (_, link) in attachments {
         items[0].attachments.push(link.into());
     }
-    fill_dm_replies(&app_state, &mut items).await?;
+    fill_dm_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(items.remove(0))))
 }
 
@@ -256,12 +256,13 @@ async fn hide_dm_message(
 async fn fill_dm_replies(
     app_state: &web::Data<AppState>,
     items: &mut [DmMessageResponse],
+    viewer: UserId,
 ) -> Result<(), HttpError> {
     let ids = reply_ids(items);
     if ids.is_empty() {
         return Ok(());
     }
-    let previews = app_state.list_dm_messages_usecase.reply_previews(&ids).await?;
+    let previews = app_state.list_dm_messages_usecase.reply_previews(&ids, viewer).await?;
     fill_replies(items, previews);
     Ok(())
 }
@@ -354,7 +355,7 @@ async fn search_dm_messages(
             m.attachments.push(link.into());
         }
     }
-    fill_dm_replies(&app_state, &mut items).await?;
+    fill_dm_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     let response = SearchDmMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))

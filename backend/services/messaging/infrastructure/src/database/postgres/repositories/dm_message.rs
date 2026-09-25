@@ -188,6 +188,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             WHERE m.id = $1
               AND LEAST(m.sender_id, m.recipient_id) = LEAST($2::uuid, $3::uuid)
               AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($2::uuid, $3::uuid)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)
             "#,
             id.uuid(),
             user_a.uuid(),
@@ -217,6 +218,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
     async fn list_dm_reply_previews(
         &self,
         dm_message_ids: &[Uuid],
+        viewer: &UserId,
     ) -> Result<Vec<ReplyPreviewView>, RepositoryError> {
         if dm_message_ids.is_empty() {
             return Ok(Vec::new());
@@ -228,8 +230,10 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             FROM dm_messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
             WHERE m.id = ANY($1)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)
             "#,
             dm_message_ids,
+            viewer.uuid(),
         )
         .fetch_all(&self.pool)
         .await

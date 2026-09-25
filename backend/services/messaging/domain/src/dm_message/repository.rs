@@ -44,6 +44,7 @@ pub trait DmMessageRepository {
     async fn list_dm_reply_previews(
         &self,
         dm_message_ids: &[Uuid],
+        viewer: &UserId,
     ) -> Result<Vec<ReplyPreviewView>, RepositoryError>;
 
     async fn list_between(
