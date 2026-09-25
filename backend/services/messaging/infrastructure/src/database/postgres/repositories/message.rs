@@ -192,6 +192,7 @@ impl MessageRepository for PostgresMessageRepository {
     async fn find_message_view(
         &self,
         message_id: &MessageId,
+        viewer: &UserId,
     ) -> Result<MessageView, RepositoryError> {
         let dto = sqlx::query_as!(
             MessageViewDto,
@@ -201,8 +202,10 @@ impl MessageRepository for PostgresMessageRepository {
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.id = $1
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)
             "#,
             message_id.uuid(),
+            viewer.uuid(),
         )
         .fetch_optional(&self.pool)
         .await
@@ -214,6 +217,7 @@ impl MessageRepository for PostgresMessageRepository {
     async fn list_reply_previews(
         &self,
         message_ids: &[Uuid],
+        viewer: &UserId,
     ) -> Result<Vec<ReplyPreviewView>, RepositoryError> {
         if message_ids.is_empty() {
             return Ok(Vec::new());
@@ -225,8 +229,10 @@ impl MessageRepository for PostgresMessageRepository {
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.id = ANY($1)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)
             "#,
             message_ids,
+            viewer.uuid(),
         )
         .fetch_all(&self.pool)
         .await
