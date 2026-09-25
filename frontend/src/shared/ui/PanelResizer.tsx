@@ -51,6 +51,7 @@ const PanelResizer: React.FC<PanelResizerProps> = ({
   const [width, setWidth] = React.useState(fallback);
   const [dragging, setDragging] = React.useState(false);
   const dragRef = React.useRef<{ x: number; width: number } | null>(null);
+  const preferredRef = React.useRef<number | null>(null);
 
   const apply = React.useCallback(
     (requested: number) => {
@@ -69,12 +70,27 @@ const PanelResizer: React.FC<PanelResizerProps> = ({
 
   React.useEffect(() => {
     const stored = readStored(storageKey);
+    preferredRef.current = stored;
     if (stored !== null) apply(stored);
     else setWidth(readVar(cssVar, fallback));
   }, [apply, storageKey, cssVar, fallback]);
 
+  React.useEffect(() => {
+    const onResize = () => {
+      if (preferredRef.current !== null) apply(preferredRef.current);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [apply]);
+
+  const remember = (value: number) => {
+    preferredRef.current = value;
+    store(storageKey, value);
+  };
+
   const reset = () => {
     document.documentElement.style.removeProperty(cssVar);
+    preferredRef.current = null;
     store(storageKey, null);
     setWidth(readVar(cssVar, fallback));
   };
@@ -101,7 +117,7 @@ const PanelResizer: React.FC<PanelResizerProps> = ({
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
-    store(storageKey, readVar(cssVar, fallback));
+    remember(readVar(cssVar, fallback));
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -109,7 +125,7 @@ const PanelResizer: React.FC<PanelResizerProps> = ({
     e.preventDefault();
     const step = e.shiftKey ? KEY_STEP_LARGE : KEY_STEP;
     const grow = (e.key === "ArrowRight") === (side === "start");
-    store(storageKey, apply(width + (grow ? step : -step)));
+    remember(apply(width + (grow ? step : -step)));
   };
 
   return (

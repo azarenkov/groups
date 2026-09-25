@@ -649,20 +649,22 @@ export const Message: React.FC<MessageProps> = ({
                 </div>
               );
             })()}
-            <span className="msg-meta">
-              <time className="msg-time">{time}</time>
-                {receipt && (
-                  <span
-                    className={"msg-receipt" + (receipt === "read" ? " read" : "")}
-                    title={i18n.t(receipt === "read" ? "seen" : "delivered", {
-                      ns: "chat",
-                    })}
-                    aria-hidden="true"
-                  >
-                    <ReadTicks read={receipt === "read"} />
-                  </span>
-              )}
-            </span>
+          </div>
+        )}
+        {!editing && !msg.callStatus && !msg.inviteCommunityId && (
+          <div className="msg-meta">
+            <time className="msg-time">{time}</time>
+            {receipt && (
+              <span
+                className={"msg-receipt" + (receipt === "read" ? " read" : "")}
+                title={i18n.t(receipt === "read" ? "seen" : "delivered", {
+                  ns: "chat",
+                })}
+                aria-hidden="true"
+              >
+                <ReadTicks read={receipt === "read"} />
+              </span>
+            )}
           </div>
         )}
       </div>
