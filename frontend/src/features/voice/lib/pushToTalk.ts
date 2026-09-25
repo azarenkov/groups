@@ -113,8 +113,8 @@ const syncGlobalBinding = async () => {
     setGlobalStatus("unsupported");
     return;
   }
-  const { pushToTalk, pttKey, pttGlobal } = useVoiceSettingsStore.getState();
-  const code = pushToTalk && pttGlobal ? pttKey : null;
+  const { pushToTalk, pttKey } = useVoiceSettingsStore.getState();
+  const code = pushToTalk ? pttKey : null;
   const seq = ++globalSeq;
   let bound = false;
   try {
@@ -139,7 +139,7 @@ export const initPushToTalk = (): void => {
       void syncGlobalBinding();
       return;
     }
-    if (state.pttKey !== prev.pttKey || state.pttGlobal !== prev.pttGlobal) {
+    if (state.pttKey !== prev.pttKey) {
       stopTransmitting();
       void syncGlobalBinding();
     }
