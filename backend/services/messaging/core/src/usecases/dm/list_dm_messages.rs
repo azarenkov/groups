@@ -98,10 +98,11 @@ where
     pub async fn reply_previews(
         &self,
         message_ids: &[uuid::Uuid],
+        viewer: UserId,
     ) -> Result<Vec<ReplyPreviewDto>, ListDmMessagesError> {
         Ok(self
             .dm_repository
-            .list_dm_reply_previews(message_ids)
+            .list_dm_reply_previews(message_ids, &viewer)
             .await?
             .into_iter()
             .map(ReplyPreviewDto::from)

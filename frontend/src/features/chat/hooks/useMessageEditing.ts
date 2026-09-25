@@ -140,9 +140,12 @@ export function useMessageEditing(params: {
     }
   };
 
+  const deletingRef = React.useRef(new Set<string>());
   const confirmDelete = async (scope: "everyone" | "me") => {
-    if (!deleteTarget || !messenger) return;
+    if (!deleteTarget || !messenger || deletingRef.current.has(deleteTarget.id)) return;
     const target = deleteTarget;
+    deletingRef.current.add(target.id);
+    setDeleteTarget(null);
     try {
       if (scope === "everyone") {
         await messenger.deleteMessage(target.id);
@@ -153,7 +156,7 @@ export function useMessageEditing(params: {
     } catch (err) {
       console.warn("[ChatView] delete failed:", err);
     } finally {
-      setDeleteTarget(null);
+      deletingRef.current.delete(target.id);
     }
   };
 
