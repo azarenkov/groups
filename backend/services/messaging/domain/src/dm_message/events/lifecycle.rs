@@ -68,6 +68,7 @@ pub struct DmMessageEdited {
     pub new_content: MessageContent,
     pub occurred_at: DateTime<Utc>,
     pub attachments: Vec<AttachmentSnapshot>,
+    pub hidden_for: Vec<UserId>,
 }
 
 impl DmMessageEdited {
@@ -86,6 +87,7 @@ impl DmMessageEdited {
             new_content,
             occurred_at: now,
             attachments: Vec::new(),
+            hidden_for: Vec::new(),
         }
     }
 }

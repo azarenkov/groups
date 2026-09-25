@@ -193,6 +193,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         if let Some(rid) = evt.recipient_id {
             recipients.push(rid);
         }
+        recipients.retain(|r| !evt.hidden_for.contains(r));
         let envelope = Envelope::new(
             "dm_message.edited",
             json!({
