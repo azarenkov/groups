@@ -51,4 +51,16 @@ describe("PanelResizer", () => {
     expect(width()).toBe("");
     expect(window.localStorage.getItem("test.panel")).toBeNull();
   });
+
+  it("re-clamps the saved width when the window narrows and restores it when it widens", () => {
+    window.localStorage.setItem("test.panel", "420");
+    setup();
+    expect(width()).toBe("420px");
+    Object.defineProperty(window, "innerWidth", { value: 700, configurable: true });
+    fireEvent(window, new Event("resize"));
+    expect(parseFloat(width())).toBeLessThan(420);
+    Object.defineProperty(window, "innerWidth", { value: 1600, configurable: true });
+    fireEvent(window, new Event("resize"));
+    expect(width()).toBe("420px");
+  });
 });

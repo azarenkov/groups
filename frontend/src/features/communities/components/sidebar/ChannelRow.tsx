@@ -208,6 +208,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                     useProfileModalStore.getState().open(m.id);
                   }}
                   onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
                     if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
                       e.preventDefault();
                       e.stopPropagation();
