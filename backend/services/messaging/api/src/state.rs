@@ -42,6 +42,7 @@ use messaging::usecases::{
         mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
     hidden_message::hide_message::HideMessage,
+    channel::disconnect_voice_member::DisconnectVoiceMember,
     community::{
         accept_community_invite::AcceptCommunityInvite, can_manage_community::CanManageCommunity,
         create_community::CreateCommunity,
@@ -94,6 +95,11 @@ pub struct AppState {
         PostgresUserProfileRepository,
         BcryptHasher,
         PostgresCommunityRepository,
+    >,
+    pub disconnect_voice_member_usecase: DisconnectVoiceMember<
+        PostgresChannelRepository,
+        PostgresCommunityUnitOfWork,
+        LiveKitService,
     >,
     pub mute_channel_usecase: MuteChannel<
         PostgresChannelRepository,

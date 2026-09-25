@@ -107,6 +107,26 @@ async fn mute_channel(
     Ok(HttpResponse::NoContent().finish())
 }
 
+#[post("/{community_id}/channels/{channel_id}/disconnect")]
+async fn disconnect_voice_member(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+    body: web::Json<MuteRequestBody>,
+) -> Result<HttpResponse, HttpError> {
+    let (community_id, channel_id) = path.into_inner();
+    app_state
+        .disconnect_voice_member_usecase
+        .execute(
+            CommunityId::new(community_id),
+            ChannelId::new(channel_id),
+            UserId::new(body.target_user_id),
+            UserId::new(auth_token.id),
+        )
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
 #[post("/{community_id}/channels/{channel_id}/unmute")]
 async fn unmute_channel(
     req: HttpRequest,

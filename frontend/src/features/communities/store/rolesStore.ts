@@ -18,6 +18,7 @@ export const PERM_MANAGE_ROLES = 16;
 export const PERM_MANAGE_COMMUNITY = 32;
 export const PERM_KICK_MEMBERS = 64;
 export const PERM_DEAFEN_MEMBERS = 128;
+export const PERM_DISCONNECT_MEMBERS = 256;
 
 interface CommunityRolesData {
   roles: CommunityRole[];

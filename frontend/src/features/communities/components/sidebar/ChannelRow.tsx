@@ -7,7 +7,7 @@ import type { Community } from "../../../../shared/types/community";
 import type { Channel } from "../../../../shared/types/channel";
 import type { SidebarVoiceMember } from "./types";
 import { moderatorDeafened, type SidebarPermissions } from "./permissions";
-import { moderateDeafen, moderateMute } from "./moderation";
+import { moderateDeafen, moderateDisconnect, moderateMute } from "./moderation";
 import { useSpeakingStore } from "../../../voice/store/speakingStore";
 import { useProfileModalStore } from "../../../social/store/profileModalStore";
 import { useDmOpenerStore } from "../../../social/store/dmOpenerStore";
@@ -100,7 +100,11 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
       perms.canDeafenIn(community) &&
       perms.outranksIn(community, m.id) &&
       perms.canLiftDeafenIn(community, m);
-    if (canMute || canDeafen) entries.push({ kind: "separator", id: "s-moderation" });
+    const canDisconnect =
+      !self && perms.canDisconnectIn(community) && perms.outranksIn(community, m.id);
+    if (canMute || canDeafen || canDisconnect) {
+      entries.push({ kind: "separator", id: "s-moderation" });
+    }
     if (canMute) {
       const moderatorMuted = !!m.isMuted && !!m.mutedBy && m.mutedBy !== m.id;
       entries.push({
@@ -121,6 +125,16 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
         icon: deafened ? "headphones" : "headphones-off",
         danger: !deafened,
         onSelect: () => moderateDeafen(community, channel.id, m),
+      });
+    }
+    if (canDisconnect) {
+      entries.push({
+        kind: "item",
+        id: "disconnect",
+        label: t("disconnectMember"),
+        icon: "logout",
+        danger: true,
+        onSelect: () => moderateDisconnect(community, channel.id, m),
       });
     }
     return entries;
