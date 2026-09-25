@@ -251,7 +251,7 @@ impl HttpMapping for DisconnectVoiceMemberError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DisconnectVoiceMemberError::ChannelNotFound
-            | DisconnectVoiceMemberError::TargetNotConnected => StatusCode::NOT_FOUND,
+            | DisconnectVoiceMemberError::TargetNotMember => StatusCode::NOT_FOUND,
             DisconnectVoiceMemberError::VoiceNotSupported => StatusCode::BAD_REQUEST,
             DisconnectVoiceMemberError::Repository(e) => e.to_http_status(),
             DisconnectVoiceMemberError::Domain(e) => e.to_http_status(),
@@ -262,9 +262,7 @@ impl HttpMapping for DisconnectVoiceMemberError {
     fn to_user_message(&self) -> String {
         match self {
             DisconnectVoiceMemberError::ChannelNotFound => "Channel not found".to_string(),
-            DisconnectVoiceMemberError::TargetNotConnected => {
-                "User is not connected to this voice channel".to_string()
-            }
+            DisconnectVoiceMemberError::TargetNotMember => "Target user not found".to_string(),
             DisconnectVoiceMemberError::VoiceNotSupported => {
                 "Voice is not supported for this channel".to_string()
             }
@@ -277,7 +275,7 @@ impl HttpMapping for DisconnectVoiceMemberError {
     fn to_error_code(&self) -> &'static str {
         match self {
             DisconnectVoiceMemberError::ChannelNotFound => "CHANNEL_NOT_FOUND",
-            DisconnectVoiceMemberError::TargetNotConnected => "VOICE_TARGET_NOT_CONNECTED",
+            DisconnectVoiceMemberError::TargetNotMember => "TARGET_USER_NOT_FOUND",
             DisconnectVoiceMemberError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
             DisconnectVoiceMemberError::Repository(e) => e.to_error_code(),
             DisconnectVoiceMemberError::Domain(e) => e.to_error_code(),

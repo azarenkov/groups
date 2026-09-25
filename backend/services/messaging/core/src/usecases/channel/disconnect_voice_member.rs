@@ -8,8 +8,8 @@ use ports::{repository::RepositoryError, voice_service::{VoiceService, VoiceServ
 pub enum DisconnectVoiceMemberError {
     #[error("Channel not found")]
     ChannelNotFound,
-    #[error("Target user is not in this voice channel")]
-    TargetNotConnected,
+    #[error("Target user not found")]
+    TargetNotMember,
     #[error("Voice not supported for this channel")]
     VoiceNotSupported,
     #[error("Repository error: {0}")]
@@ -23,7 +23,7 @@ pub enum DisconnectVoiceMemberError {
 impl From<PolicyError> for DisconnectVoiceMemberError {
     fn from(err: PolicyError) -> Self {
         match err {
-            PolicyError::TargetNotMember => DisconnectVoiceMemberError::TargetNotConnected,
+            PolicyError::TargetNotMember => DisconnectVoiceMemberError::TargetNotMember,
             _ => DisconnectVoiceMemberError::Domain(ChannelError::NotAllowed),
         }
     }
@@ -79,14 +79,6 @@ where
             let mut tx = self.unit_of_work.begin(&community_id).await?;
             let community = tx.load_community().await?;
             community.ensure_can_disconnect(&initiator, &target)?;
-        }
-
-        let connected = self
-            .channel_repository
-            .list_voice_channel_ids_with_participant(&target)
-            .await?;
-        if !connected.contains(&channel_id) {
-            return Err(DisconnectVoiceMemberError::TargetNotConnected);
         }
 
         self.voice_service
