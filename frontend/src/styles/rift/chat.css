@@ -165,18 +165,13 @@
   border-radius: 16px;
   background: var(--surface-hover);
 }
-.msg.bubble .txt::after {
-  content: "";
-  display: block;
-  clear: both;
-}
 .msg.bubble .msg-meta {
-  float: right;
-  position: relative;
-  top: 6px;
+  display: flex;
+  justify-content: flex-start;
+  margin: 3px 12px 0;
   height: 14px;
-  margin: 0 -4px 0 10px;
 }
+.msg.bubble.mine .msg-meta { justify-content: flex-end; }
 .profile-link {
   cursor: pointer;
   border-radius: 3px;
@@ -190,9 +185,6 @@
   margin-bottom: 2px;
 }
 .msg.bubble.mine .txt { background: var(--accent); color: #fff; }
-.msg.bubble.mine .msg-time,
-.msg.bubble.mine .msg-receipt { color: rgba(255, 255, 255, 0.72); }
-.msg.bubble.mine .msg-receipt.read { color: #fff; }
 .msg-edit { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
 .msg-edit textarea {
   width: 100%;
