@@ -67,6 +67,10 @@ impl MessageTransaction for PostgresMessageTransaction {
         .execute(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        if message.forward().is_some() {
+            let keys: Vec<String> = attachments.iter().map(|a| a.storage_key.clone()).collect();
+            crate::outbox::storage::ensure_storage_keys_linked(&mut self.tx, &keys).await?;
+        }
         insert_message_links(&mut self.tx, message.id().uuid(), attachments).await
     }
 

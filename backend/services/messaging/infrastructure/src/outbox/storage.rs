@@ -12,6 +12,48 @@ use crate::database::postgres::repositories::outbox_record::save_outbox_records;
 
 const MAX_KEYS_PER_RELEASE: usize = 500;
 
+pub(crate) async fn lock_storage_keys(
+    tx: &mut Transaction<'_, Postgres>,
+    storage_keys: &[String],
+) -> Result<(), RepositoryError> {
+    let mut keys = storage_keys.to_vec();
+    keys.sort();
+    keys.dedup();
+    for key in &keys {
+        sqlx::query!("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", key)
+            .execute(&mut **tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+    }
+    Ok(())
+}
+
+pub(crate) async fn ensure_storage_keys_linked(
+    tx: &mut Transaction<'_, Postgres>,
+    storage_keys: &[String],
+) -> Result<(), RepositoryError> {
+    if storage_keys.is_empty() {
+        return Ok(());
+    }
+    lock_storage_keys(tx, storage_keys).await?;
+    let missing = sqlx::query_scalar!(
+        r#"
+        SELECT COUNT(*) AS "count!"
+        FROM unnest($1::text[]) AS key
+        WHERE NOT EXISTS (SELECT 1 FROM message_attachments a WHERE a.storage_key = key)
+          AND NOT EXISTS (SELECT 1 FROM dm_message_attachments a WHERE a.storage_key = key)
+        "#,
+        storage_keys,
+    )
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    if missing > 0 {
+        return Err(RepositoryError::NotFound);
+    }
+    Ok(())
+}
+
 pub(crate) async fn release_storage_keys(
     tx: &mut Transaction<'_, Postgres>,
     storage_keys: &[String],
@@ -19,6 +61,7 @@ pub(crate) async fn release_storage_keys(
     if storage_keys.is_empty() {
         return Ok(());
     }
+    lock_storage_keys(tx, storage_keys).await?;
     let releasable = sqlx::query_scalar!(
         r#"
         SELECT key AS "key!"

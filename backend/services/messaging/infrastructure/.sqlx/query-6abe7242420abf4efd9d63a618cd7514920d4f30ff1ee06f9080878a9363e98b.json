@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) AS \"count!\"\n        FROM unnest($1::text[]) AS key\n        WHERE NOT EXISTS (SELECT 1 FROM message_attachments a WHERE a.storage_key = key)\n          AND NOT EXISTS (SELECT 1 FROM dm_message_attachments a WHERE a.storage_key = key)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "6abe7242420abf4efd9d63a618cd7514920d4f30ff1ee06f9080878a9363e98b"
+}

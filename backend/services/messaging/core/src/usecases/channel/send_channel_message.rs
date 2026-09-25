@@ -175,15 +175,19 @@ where
             .list_text_channel_member_ids(&channel_id)
             .await?;
 
-        let mut mentions = crate::usecases::channel::mentions::resolve_mentions(
-            message.content().as_str(),
-            &channel_id,
-            &recipient_ids,
-            author_id.uuid(),
-            self.channel_repository.as_ref(),
-            self.mention_resolver.as_ref(),
-        )
-        .await?;
+        let mut mentions = if forward.is_some() {
+            Vec::new()
+        } else {
+            crate::usecases::channel::mentions::resolve_mentions(
+                message.content().as_str(),
+                &channel_id,
+                &recipient_ids,
+                author_id.uuid(),
+                self.channel_repository.as_ref(),
+                self.mention_resolver.as_ref(),
+            )
+            .await?
+        };
         if let Some(reply) = message.reply() {
             let replied = reply.author_id;
             if replied != author_id
