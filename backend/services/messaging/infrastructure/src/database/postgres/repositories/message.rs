@@ -74,6 +74,17 @@ impl MessageRepository for PostgresMessageRepository {
         Ok(rows)
     }
 
+    async fn list_users_hiding(&self, message_id: Uuid) -> Result<Vec<UserId>, RepositoryError> {
+        let rows = sqlx::query_scalar!(
+            r#"SELECT user_id FROM hidden_messages WHERE message_id = $1"#,
+            message_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(UserId::new).collect())
+    }
+
     async fn list_attachment_links_for_messages(
         &self,
         message_ids: &[uuid::Uuid],
@@ -132,6 +143,7 @@ impl MessageRepository for PostgresMessageRepository {
                 p.user_id IS NOT NULL
                 OR (c.visibility = 'public' AND sm.user_id IS NOT NULL)
               )
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)
             UNION ALL
             SELECT a.attachment_id AS "attachment_id!", a.file_name AS "file_name!",
                    a.content_type AS "content_type!", a.size_bytes AS "size_bytes!",
@@ -140,6 +152,7 @@ impl MessageRepository for PostgresMessageRepository {
             INNER JOIN dm_messages d ON d.id = a.dm_message_id
             WHERE a.attachment_id = $1
               AND (d.sender_id = $2 OR d.recipient_id = $2)
+              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = d.id)
               AND EXISTS(
                   SELECT 1 FROM friendships f
                   WHERE f.user_id = $2

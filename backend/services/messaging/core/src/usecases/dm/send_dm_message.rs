@@ -158,13 +158,12 @@ where
                 .list_attachment_links_for_dm_messages(&[reply_id])
                 .await?
                 .is_empty();
+            let hidden_for = self.dm_repository.list_users_hiding(reply_id).await?;
             reply_author_name = Some(target.sender_name.clone());
-            message = message.with_reply(ReplyPreview::new(
-                reply_id,
-                target.sender_id,
-                &target.content,
-                has_attachments,
-            ));
+            message = message.with_reply(
+                ReplyPreview::new(reply_id, target.sender_id, &target.content, has_attachments)
+                    .hidden_for(hidden_for),
+            );
         }
         let request_id = request.ctx.request_id.clone();
         let events = message.pull_events();

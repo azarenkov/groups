@@ -27,6 +27,8 @@ pub trait DmMessageRepository {
         attachment_ids: &[uuid::Uuid],
     ) -> Result<Vec<uuid::Uuid>, RepositoryError>;
 
+    async fn list_users_hiding(&self, message_id: uuid::Uuid) -> Result<Vec<UserId>, RepositoryError>;
+
     async fn list_attachment_links_for_dm_messages(
         &self,
         dm_message_ids: &[Uuid],

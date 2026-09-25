@@ -102,6 +102,17 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         Ok(rows)
     }
 
+    async fn list_users_hiding(&self, message_id: Uuid) -> Result<Vec<UserId>, RepositoryError> {
+        let rows = sqlx::query_scalar!(
+            r#"SELECT user_id FROM hidden_messages WHERE message_id = $1"#,
+            message_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(UserId::new).collect())
+    }
+
     async fn list_attachment_links_for_dm_messages(
         &self,
         dm_message_ids: &[Uuid],

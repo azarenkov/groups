@@ -7,6 +7,8 @@ use crate::{channel::id::ChannelId, message::Message, message::id::MessageId, me
 #[async_trait]
 pub trait MessageRepository {
 
+    async fn list_users_hiding(&self, message_id: uuid::Uuid) -> Result<Vec<UserId>, RepositoryError>;
+
     async fn list_attachment_links_for_messages(
         &self,
         message_ids: &[uuid::Uuid],
