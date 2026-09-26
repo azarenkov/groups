@@ -98,6 +98,18 @@ export const Message: React.FC<MessageProps> = ({
   const [revealed, setRevealed] = React.useState(false);
   const focusOnRevealRef = React.useRef(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
+  const wasEditingRef = React.useRef(editing);
+  React.useEffect(() => {
+    const wasEditing = wasEditingRef.current;
+    wasEditingRef.current = editing;
+    if (!wasEditing || editing) return;
+    const active = document.activeElement;
+    const row = rootRef.current;
+    if (!row) return;
+    if (active && active !== document.body && !row.contains(active)) return;
+    row.focus({ preventScroll: true });
+  }, [editing]);
+
   React.useEffect(() => {
     if (!revealed || !focusOnRevealRef.current) return;
     focusOnRevealRef.current = false;
