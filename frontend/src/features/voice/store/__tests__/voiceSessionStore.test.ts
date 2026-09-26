@@ -29,4 +29,24 @@ describe("voiceSessionStore", () => {
       live: "2026-09-24T10:00:00Z",
     });
   });
+
+  it("keeps live updates that arrived after the snapshot was requested", () => {
+    const store = useVoiceSessionStore.getState();
+    const since = useVoiceSessionStore.getState().seq;
+    store.begin("joined", "2026-09-24T12:00:00Z");
+    store.begin("left", "2026-09-24T11:00:00Z");
+    store.end("left");
+    useVoiceSessionStore.getState().replaceForChannels(
+      ["joined", "left", "quiet"],
+      [
+        { channelId: "left", startedAt: "2026-09-24T10:00:00Z" },
+        { channelId: "quiet", startedAt: "2026-09-24T09:00:00Z" },
+      ],
+      since,
+    );
+    expect(useVoiceSessionStore.getState().startedAt).toEqual({
+      joined: "2026-09-24T12:00:00Z",
+      quiet: "2026-09-24T09:00:00Z",
+    });
+  });
 });

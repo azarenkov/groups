@@ -32,6 +32,7 @@ export function useVoicePresenceSync(params: {
     communities.forEach((s) => {
       if (synced.has(s.id)) return;
       synced.add(s.id);
+      const sessionSince = useVoiceSessionStore.getState().seq;
       communityAPI
         .listVoicePresence(s.id)
         .then(({ items, streamViewers, sessions }) => {
@@ -76,6 +77,7 @@ export function useVoicePresenceSync(params: {
               ...snapshotChannels,
             ],
             sessions,
+            sessionSince,
           );
         })
         .catch((err) => {

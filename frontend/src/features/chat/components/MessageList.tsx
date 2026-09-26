@@ -96,7 +96,12 @@ const MessageList: React.FC<MessageListProps> = ({
                     </div>
                   )}
                 <Message
-                  blockedAuthor={!isDm && !m.system && !!blockedIds[m.authorId]}
+                  blockedAuthor={
+                    !isDm &&
+                    !m.system &&
+                    (!!blockedIds[m.authorId] ||
+                      (!!m.forwardedFrom && !!blockedIds[m.forwardedFrom.authorId]))
+                  }
                   blockedReplyAuthor={!isDm && !!m.replyTo?.authorId && !!blockedIds[m.replyTo.authorId]}
                   msg={m}
                   displayName={displayName}
