@@ -38,6 +38,7 @@ import { MAX_CONTENT } from "../constants";
 
 export interface MessageProps {
   blockedAuthor?: boolean;
+  blockedReplyAuthor?: boolean;
   msg: ChannelMessage;
   displayName: string;
   continued: boolean;
@@ -71,6 +72,7 @@ export interface MessageProps {
 
 export const Message: React.FC<MessageProps> = ({
   blockedAuthor,
+  blockedReplyAuthor,
   msg,
   displayName,
   continued,
@@ -108,6 +110,7 @@ export const Message: React.FC<MessageProps> = ({
   const editRef = React.useRef<HTMLTextAreaElement>(null);
   useAutoGrow(editRef, editing ? editText : "");
   const [revealed, setRevealed] = React.useState(false);
+  const [quoteRevealed, setQuoteRevealed] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
   const menuEntries = (): MenuEntry[] => {
     const selection = selectionInside(rootRef.current);
@@ -595,40 +598,60 @@ export const Message: React.FC<MessageProps> = ({
                 </div>
               );
             })()}
-            {msg.replyTo && (
-              <div
-                className={"msg-reply" + (msg.replyTo.deleted ? " deleted" : "")}
-                role={msg.replyTo.deleted ? undefined : "button"}
-                tabIndex={msg.replyTo.deleted ? undefined : 0}
-                title={msg.replyTo.deleted ? undefined : i18n.t("jumpToReply", { ns: "chat" })}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (msg.replyTo && !msg.replyTo.deleted) onJumpToReply?.(msg.replyTo.id);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter" && e.key !== " ") return;
-                  e.preventDefault();
-                  if (msg.replyTo && !msg.replyTo.deleted) onJumpToReply?.(msg.replyTo.id);
-                }}
-              >
-                {msg.replyTo.deleted ? (
-                  <span className="msg-reply-text">{i18n.t("replyDeleted", { ns: "chat" })}</span>
-                ) : (
-                  <>
-                    <span
-                      className="msg-reply-author"
-                      style={{ color: colorForId(msg.replyTo.authorId ?? "") }}
-                    >
-                      {msg.replyTo.authorName}
-                    </span>
-                    <span className="msg-reply-text">
-                      {msg.replyTo.content ||
-                        (msg.replyTo.hasAttachments ? i18n.t("replyAttachment", { ns: "chat" }) : "")}
-                    </span>
-                  </>
-                )}
-              </div>
-            )}
+            {msg.replyTo && (() => {
+              const reply = msg.replyTo;
+              const masked = !reply.deleted && !!blockedReplyAuthor && !quoteRevealed;
+              const activate = () => {
+                if (reply.deleted) return;
+                if (masked) {
+                  setQuoteRevealed(true);
+                  return;
+                }
+                onJumpToReply?.(reply.id);
+              };
+              return (
+                <div
+                  className={"msg-reply" + (reply.deleted ? " deleted" : "")}
+                  role={reply.deleted ? undefined : "button"}
+                  tabIndex={reply.deleted ? undefined : 0}
+                  title={
+                    reply.deleted
+                      ? undefined
+                      : masked
+                        ? i18n.t("showBlockedMessage", { ns: "chat" })
+                        : i18n.t("jumpToReply", { ns: "chat" })
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    activate();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    activate();
+                  }}
+                >
+                  {reply.deleted ? (
+                    <span className="msg-reply-text">{i18n.t("replyDeleted", { ns: "chat" })}</span>
+                  ) : masked ? (
+                    <span className="msg-reply-text">{i18n.t("blockedMessage", { ns: "chat" })}</span>
+                  ) : (
+                    <>
+                      <span
+                        className="msg-reply-author"
+                        style={{ color: colorForId(reply.authorId ?? "") }}
+                      >
+                        {reply.authorName}
+                      </span>
+                      <span className="msg-reply-text">
+                        {reply.content ||
+                          (reply.hasAttachments ? i18n.t("replyAttachment", { ns: "chat" }) : "")}
+                      </span>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
             <span className="msg-text">{renderWithLinks(msg.content)}</span>
             {(msg.attachments?.length ?? 0) > 0 && (
               <div className="msg-attachments">

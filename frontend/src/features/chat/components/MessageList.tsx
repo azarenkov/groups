@@ -97,6 +97,7 @@ const MessageList: React.FC<MessageListProps> = ({
                   )}
                 <Message
                   blockedAuthor={!isDm && !m.system && !!blockedIds[m.authorId]}
+                  blockedReplyAuthor={!isDm && !!m.replyTo?.authorId && !!blockedIds[m.replyTo.authorId]}
                   msg={m}
                   displayName={displayName}
                   continued={cont}
