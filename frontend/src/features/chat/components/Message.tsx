@@ -96,7 +96,13 @@ export const Message: React.FC<MessageProps> = ({
   const editRef = React.useRef<HTMLTextAreaElement>(null);
   useAutoGrow(editRef, editing ? editText : "");
   const [revealed, setRevealed] = React.useState(false);
+  const focusOnRevealRef = React.useRef(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!revealed || !focusOnRevealRef.current) return;
+    focusOnRevealRef.current = false;
+    rootRef.current?.focus();
+  }, [revealed]);
   const menuEntries = (): MenuEntry[] => {
     const selection = selectionInside(rootRef.current);
     const actions = messageActions({
@@ -166,7 +172,14 @@ export const Message: React.FC<MessageProps> = ({
           <Icon name="shield" size={13} />
         </span>
         <span className="msg-system-text">{i18n.t("blockedMessage", { ns: "chat" })}</span>
-        <button type="button" className="link-btn" onClick={() => setRevealed(true)}>
+        <button
+          type="button"
+          className="link-btn"
+          onClick={() => {
+            focusOnRevealRef.current = true;
+            setRevealed(true);
+          }}
+        >
           {i18n.t("showBlockedMessage", { ns: "chat" })}
         </button>
       </div>
@@ -196,7 +209,7 @@ export const Message: React.FC<MessageProps> = ({
     <div
       ref={rootRef}
       data-msg-id={msg.id}
-      tabIndex={tabbable ? 0 : -1}
+      tabIndex={tabbable || (blockedAuthor && revealed) ? 0 : -1}
       onContextMenu={(e) => {
         if (editing) return;
         openContextMenu(e, menuEntries());

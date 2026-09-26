@@ -23,7 +23,10 @@ export function useLongPress(
 
   return {
     onTouchStart: (e: React.TouchEvent) => {
-      if (e.touches.length !== 1) return;
+      if (e.touches.length !== 1) {
+        cancel();
+        return;
+      }
       fired.current = false;
       target.current = e.currentTarget as HTMLElement;
       const touch = e.touches[0];
