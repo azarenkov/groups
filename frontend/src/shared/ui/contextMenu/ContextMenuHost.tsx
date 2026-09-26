@@ -111,7 +111,7 @@ const ContextMenuHost: React.FC = () => {
       }
       onContextMenu={(e) => e.preventDefault()}
       onKeyDown={(e) => {
-        const inControl = (e.target as HTMLElement).closest(".ctx-custom") !== null;
+        const inControl = (e.target as HTMLElement).matches(".ctx-custom input");
         if (e.key === "ArrowDown" && !inControl) {
           e.preventDefault();
           moveFocus(1);

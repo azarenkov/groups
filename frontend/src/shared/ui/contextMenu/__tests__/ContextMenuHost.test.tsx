@@ -86,4 +86,26 @@ describe("ContextMenuHost", () => {
     unmount();
     expect(useContextMenuStore.getState().menu).toBeNull();
   });
+
+  it("moves with the arrows from a custom menu item", () => {
+    render(<ContextMenuHost />);
+    act(() => {
+      openContextMenu({ clientX: 10, clientY: 10 }, [
+        {
+          kind: "custom",
+          id: "mute",
+          render: () => (
+            <button type="button" role="menuitem">
+              Mute for me
+            </button>
+          ),
+        },
+        { kind: "item", id: "profile", label: "Profile", onSelect: jest.fn() },
+      ]);
+    });
+    const mute = screen.getByRole("menuitem", { name: "Mute for me" });
+    expect(mute).toHaveFocus();
+    fireEvent.keyDown(mute, { key: "ArrowDown" });
+    expect(screen.getByRole("menuitem", { name: "Profile" })).toHaveFocus();
+  });
 });

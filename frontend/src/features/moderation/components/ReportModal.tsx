@@ -48,6 +48,24 @@ const ReportModal: React.FC = () => {
     [],
   );
 
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const isOpen = !!target;
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    let previous: HTMLElement | null = null;
+    const frame = requestAnimationFrame(() => {
+      previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      dialogRef.current
+        ?.querySelector<HTMLElement>("input:not([disabled]), textarea:not([disabled]), button:not([tabindex='-1'])")
+        ?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      if (previous && previous.isConnected) previous.focus({ preventScroll: true });
+    };
+  }, [isOpen, opening]);
+
   React.useEffect(() => {
     if (!target) return;
     const onKey = (e: KeyboardEvent) => {
@@ -111,6 +129,7 @@ const ReportModal: React.FC = () => {
   return (
     <div className="modal-overlay" onMouseDown={close}>
       <div
+        ref={dialogRef}
         className="modal report-modal"
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
