@@ -166,49 +166,55 @@ const Composer: React.FC<ComposerProps> = ({
                 if (onEditLastMessage()) e.preventDefault();
                 return;
               }
-              if (!mentionQuery || mentionSuggestions.length === 0) {
-                const action = enterAction({
-                  key: e.key,
-                  shiftKey: e.shiftKey,
-                  ctrlKey: e.ctrlKey,
-                  metaKey: e.metaKey,
-                  altKey: e.altKey,
-                  isComposing: e.nativeEvent.isComposing,
-                });
-                if (action === "send") {
+              const action = enterAction({
+                key: e.key,
+                shiftKey: e.shiftKey,
+                ctrlKey: e.ctrlKey,
+                metaKey: e.metaKey,
+                altKey: e.altKey,
+                isComposing: e.nativeEvent.isComposing,
+              });
+              if (mentionQuery && mentionSuggestions.length > 0) {
+                if (e.key === "ArrowDown") {
                   e.preventDefault();
-                  e.currentTarget.form?.requestSubmit();
-                } else if (action === "newline") {
-                  e.preventDefault();
-                  const el = e.currentTarget;
-                  const next = insertNewline(el.value, el.selectionStart, el.selectionEnd, el.maxLength);
-                  if (!next) return;
-                  onTextChange(next.value, next.caret);
-                  requestAnimationFrame(() => {
-                    el.selectionStart = next.caret;
-                    el.selectionEnd = next.caret;
-                  });
+                  onMentionIndexChange((i) => (i + 1) % mentionSuggestions.length);
+                  return;
                 }
-                return;
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  onMentionIndexChange(
+                    (i) =>
+                      (i - 1 + mentionSuggestions.length) %
+                      mentionSuggestions.length,
+                  );
+                  return;
+                }
+                if (e.key === "Tab" || action === "send") {
+                  e.preventDefault();
+                  const pick =
+                    mentionSuggestions[mentionIndex] ?? mentionSuggestions[0];
+                  onApplyMention(pick.name);
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  onCloseMentions();
+                  return;
+                }
               }
-              if (e.key === "ArrowDown") {
+              if (action === "send") {
                 e.preventDefault();
-                onMentionIndexChange((i) => (i + 1) % mentionSuggestions.length);
-              } else if (e.key === "ArrowUp") {
+                e.currentTarget.form?.requestSubmit();
+              } else if (action === "newline") {
                 e.preventDefault();
-                onMentionIndexChange(
-                  (i) =>
-                    (i - 1 + mentionSuggestions.length) %
-                    mentionSuggestions.length,
-                );
-              } else if (e.key === "Enter" || e.key === "Tab") {
-                e.preventDefault();
-                const pick =
-                  mentionSuggestions[mentionIndex] ?? mentionSuggestions[0];
-                onApplyMention(pick.name);
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                onCloseMentions();
+                const el = e.currentTarget;
+                const next = insertNewline(el.value, el.selectionStart, el.selectionEnd, el.maxLength);
+                if (!next) return;
+                onTextChange(next.value, next.caret);
+                requestAnimationFrame(() => {
+                  el.selectionStart = next.caret;
+                  el.selectionEnd = next.caret;
+                });
               }
             }}
             onBlur={onCloseMentions}
