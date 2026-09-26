@@ -62,7 +62,16 @@ const MessageList: React.FC<MessageListProps> = ({
   onAcceptInvite,
   onDeclineInvite,
   onOpenInviteCommunity,
-}) => (
+}) => {
+  let lastBubbleIndex = -1;
+  for (let k = messages.length - 1; k >= 0; k -= 1) {
+    const candidate = messages[k];
+    if (!candidate.system && (isDm || !blockedIds[candidate.authorId])) {
+      lastBubbleIndex = k;
+      break;
+    }
+  }
+  return (
   <div className="inner">
             {loadingOlder && (
               <div className="msg-loader">
@@ -88,7 +97,7 @@ const MessageList: React.FC<MessageListProps> = ({
                     </div>
                   )}
                 <Message
-                  tabbable={i === messages.length - 1}
+                  tabbable={i === lastBubbleIndex}
                   blockedAuthor={!isDm && !m.system && !!blockedIds[m.authorId]}
                   msg={m}
                   displayName={displayName}
@@ -132,6 +141,7 @@ const MessageList: React.FC<MessageListProps> = ({
               );
             })}
   </div>
-);
+  );
+};
 
 export default MessageList;

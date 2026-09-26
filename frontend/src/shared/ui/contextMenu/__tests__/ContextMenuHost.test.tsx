@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import ContextMenuHost from "../ContextMenuHost";
-import { openContextMenu, useContextMenuStore } from "../contextMenuStore";
+import { openContextMenu, openContextMenuAt, useContextMenuStore } from "../contextMenuStore";
 
 const openWith = (onCopy: jest.Mock, onDelete: jest.Mock) =>
   act(() => {
@@ -57,5 +57,26 @@ describe("ContextMenuHost", () => {
     expect(profile).toHaveFocus();
     fireEvent.keyDown(profile, { key: "Tab" });
     expect(screen.getByLabelText("Volume")).toHaveFocus();
+  });
+
+  it("returns focus to the row that opened the menu from the keyboard", () => {
+    render(
+      <>
+        <div tabIndex={0} data-testid="row">
+          row
+        </div>
+        <ContextMenuHost />
+      </>,
+    );
+    const row = screen.getByTestId("row");
+    row.focus();
+    act(() => {
+      openContextMenuAt(row, [{ kind: "item", id: "copy", label: "Copy", onSelect: jest.fn() }]);
+    });
+    expect(screen.getByRole("menuitem", { name: "Copy" })).toHaveFocus();
+    act(() => {
+      fireEvent.keyDown(document, { key: "Escape" });
+    });
+    expect(row).toHaveFocus();
   });
 });

@@ -21,11 +21,12 @@ interface OpenMenu {
   y: number;
   entries: MenuEntry[];
   seq: number;
+  returnFocus: HTMLElement | null;
 }
 
 interface ContextMenuState {
   menu: OpenMenu | null;
-  open: (x: number, y: number, entries: MenuEntry[]) => void;
+  open: (x: number, y: number, entries: MenuEntry[], returnFocus?: HTMLElement | null) => void;
   close: () => void;
 }
 
@@ -33,9 +34,9 @@ let seq = 0;
 
 export const useContextMenuStore = create<ContextMenuState>()((set) => ({
   menu: null,
-  open: (x, y, entries) => {
+  open: (x, y, entries, returnFocus = null) => {
     seq += 1;
-    set({ menu: { x, y, entries, seq } });
+    set({ menu: { x, y, entries, seq, returnFocus } });
   },
   close: () => set({ menu: null }),
 }));
@@ -55,14 +56,19 @@ export function visibleEntries(entries: MenuEntry[]): MenuEntry[] {
 export function openContextMenu(
   e: { clientX: number; clientY: number; preventDefault?: () => void },
   entries: MenuEntry[],
+  returnFocus: HTMLElement | null = null,
 ): void {
   const shown = visibleEntries(entries);
   if (shown.length === 0) return;
   e.preventDefault?.();
-  useContextMenuStore.getState().open(e.clientX, e.clientY, shown);
+  useContextMenuStore.getState().open(e.clientX, e.clientY, shown, returnFocus);
 }
 
 export function openContextMenuAt(el: Element, entries: MenuEntry[]): void {
   const rect = el.getBoundingClientRect();
-  openContextMenu({ clientX: rect.left + 12, clientY: rect.top + rect.height / 2 }, entries);
+  openContextMenu(
+    { clientX: rect.left + 12, clientY: rect.top + rect.height / 2 },
+    entries,
+    el instanceof HTMLElement ? el : null,
+  );
 }

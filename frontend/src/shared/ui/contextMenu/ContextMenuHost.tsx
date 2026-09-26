@@ -10,6 +10,20 @@ const ContextMenuHost: React.FC = () => {
   const close = useContextMenuStore((s) => s.close);
   const ref = React.useRef<HTMLDivElement>(null);
   const [pos, setPos] = React.useState<{ left: number; top: number } | null>(null);
+  const returnFocusRef = React.useRef<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    if (menu) {
+      returnFocusRef.current = menu.returnFocus;
+      return;
+    }
+    const target = returnFocusRef.current;
+    returnFocusRef.current = null;
+    if (!target || !target.isConnected) return;
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    target.focus({ preventScroll: true });
+  }, [menu]);
 
   React.useLayoutEffect(() => {
     if (!menu) {
