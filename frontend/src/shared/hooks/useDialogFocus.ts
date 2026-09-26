@@ -1,5 +1,7 @@
 import React from "react";
 
+import { focusReturnTarget } from "../ui/contextMenu/contextMenuStore";
+
 const FOCUSABLE =
   "input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not([tabindex='-1']), a[href], [tabindex]:not([tabindex='-1'])";
 
@@ -8,7 +10,7 @@ export function useDialogFocus(ref: React.RefObject<HTMLElement>, open: boolean,
     if (!open) return;
     let previous: HTMLElement | null = null;
     const frame = requestAnimationFrame(() => {
-      previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      previous = focusReturnTarget();
       const dialog = ref.current;
       if (!dialog) return;
       const first = dialog.querySelector<HTMLElement>(FOCUSABLE);

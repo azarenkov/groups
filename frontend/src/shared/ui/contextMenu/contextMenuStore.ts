@@ -31,11 +31,19 @@ interface ContextMenuState {
 }
 
 let seq = 0;
+let lastOpener: HTMLElement | null = null;
+
+export function focusReturnTarget(): HTMLElement | null {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && active !== document.body) return active;
+  return lastOpener && lastOpener.isConnected ? lastOpener : null;
+}
 
 export const useContextMenuStore = create<ContextMenuState>()((set) => ({
   menu: null,
   open: (x, y, entries, returnFocus = null) => {
     seq += 1;
+    lastOpener = returnFocus;
     set({ menu: { x, y, entries, seq, returnFocus } });
   },
   close: () => set({ menu: null }),

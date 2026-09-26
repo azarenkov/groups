@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import Icon from "./Icon";
+import { focusReturnTarget } from "./contextMenu/contextMenuStore";
 
 interface ConfirmModalProps {
   title: string;
@@ -26,7 +27,11 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const confirmRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    const previous = focusReturnTarget();
     cancelRef.current?.focus();
+    return () => {
+      if (previous && previous.isConnected) previous.focus({ preventScroll: true });
+    };
   }, []);
 
   useEffect(() => {

@@ -4,6 +4,8 @@ import Icon from "../../../shared/ui/Icon";
 import { useContextMenuStore } from "../../../shared/ui/contextMenu/contextMenuStore";
 import { getLiveKitService } from "../lib/livekit";
 
+const volumeBeforeMute = new Map<string, number>();
+
 const MuteForMeItem: React.FC<{ userId: string; muteLabel: string; unmuteLabel: string }> = ({
   userId,
   muteLabel,
@@ -28,7 +30,13 @@ const MuteForMeItem: React.FC<{ userId: string; muteLabel: string; unmuteLabel: 
         const service = getLiveKitService();
         const current = service.getRemoteVolume(userId);
         useContextMenuStore.getState().close();
-        service.setRemoteVolume(userId, current === 0 ? 1 : 0);
+        if (current === 0) {
+          service.setRemoteVolume(userId, volumeBeforeMute.get(userId) ?? 1);
+          volumeBeforeMute.delete(userId);
+        } else {
+          volumeBeforeMute.set(userId, current);
+          service.setRemoteVolume(userId, 0);
+        }
       }}
     >
       <span className="ctx-ico">
