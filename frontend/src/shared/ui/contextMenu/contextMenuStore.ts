@@ -57,11 +57,12 @@ export function openContextMenu(
   e: { clientX: number; clientY: number; preventDefault?: () => void },
   entries: MenuEntry[],
   returnFocus: HTMLElement | null = null,
-): void {
+): boolean {
   const shown = visibleEntries(entries);
-  if (shown.length === 0) return;
+  if (shown.length === 0) return false;
   e.preventDefault?.();
   useContextMenuStore.getState().open(e.clientX, e.clientY, shown, returnFocus);
+  return true;
 }
 
 export function openContextMenuAt(el: Element, entries: MenuEntry[]): void {

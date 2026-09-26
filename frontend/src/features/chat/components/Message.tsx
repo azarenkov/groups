@@ -157,9 +157,7 @@ export const Message: React.FC<MessageProps> = ({
       ...pick("delete"),
     ];
   };
-  const longPress = useLongPress((point) => {
-    if (!editing) openContextMenu(point, menuEntries());
-  });
+  const longPress = useLongPress((point) => !editing && openContextMenu(point, menuEntries()));
   const created = new Date(msg.createdAt);
   const time = created.toLocaleTimeString([], {
     hour: "2-digit",

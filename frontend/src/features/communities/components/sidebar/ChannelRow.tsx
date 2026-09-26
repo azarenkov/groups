@@ -53,7 +53,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
   const shownMembersRef = React.useRef(new Map<string, SidebarVoiceMember>());
   const memberLongPress = useLongPress((point, el) => {
     const member = el.dataset.memberId ? shownMembersRef.current.get(el.dataset.memberId) : undefined;
-    if (member) openContextMenu(point, memberMenu(member));
+    return !!member && openContextMenu(point, memberMenu(member));
   });
   const memberMenu = (m: SidebarVoiceMember): MenuEntry[] => {
     const self = m.id === currentUserId;

@@ -79,7 +79,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   ];
   const friendLongPress = useLongPress((point, el) => {
     const friendId = el.dataset.friendId;
-    if (friendId) openContextMenu(point, friendMenu(friendId));
+    return !!friendId && openContextMenu(point, friendMenu(friendId));
   });
   const now = useNow(30_000);
   const activities = useActivityStore((s) => s.byUser);

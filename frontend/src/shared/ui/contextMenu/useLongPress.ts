@@ -4,7 +4,7 @@ const LONG_PRESS_MS = 500;
 const MOVE_TOLERANCE = 10;
 
 export function useLongPress(
-  onLongPress: (point: { clientX: number; clientY: number }, target: HTMLElement) => void,
+  onLongPress: (point: { clientX: number; clientY: number }, target: HTMLElement) => boolean,
 ) {
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const start = React.useRef<{ x: number; y: number } | null>(null);
@@ -47,8 +47,7 @@ export function useLongPress(
         const el = target.current;
         cancel();
         if (!point || !el) return;
-        fired.current = true;
-        callback.current({ clientX: point.x, clientY: point.y }, el);
+        fired.current = callback.current({ clientX: point.x, clientY: point.y }, el);
       }, LONG_PRESS_MS);
     },
     onTouchMove: (e: React.TouchEvent) => {
