@@ -232,7 +232,7 @@ export const Message: React.FC<MessageProps> = ({
           next.scrollIntoView({ block: "nearest" });
         }
       }}
-      {...longPress}
+      {...(editing ? {} : longPress)}
       className={
         "msg bubble " +
         (isMine ? "mine" : "theirs") +
