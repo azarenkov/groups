@@ -17,6 +17,7 @@ import {
 } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import MemberVolumeSlider from "../../../voice/components/MemberVolumeSlider";
+import MuteForMeItem from "../../../voice/components/MuteForMeItem";
 import { getLiveKitService } from "../../../voice/lib/livekit";
 
 interface ChannelRowProps {
@@ -53,7 +54,6 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
     const openDm = useDmOpenerStore.getState().open;
     const inMyCall =
       !self && getLiveKitService().getParticipants().some((p) => p.identity === m.id);
-    const localVolume = inMyCall ? getLiveKitService().getRemoteVolume(m.id) : 1;
     const entries: MenuEntry[] = [
       {
         kind: "item",
@@ -81,11 +81,11 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
           render: () => <MemberVolumeSlider userId={m.id} label={t("memberVolume")} />,
         },
         {
-          kind: "item",
+          kind: "custom",
           id: "mute-for-me",
-          label: localVolume === 0 ? t("unmuteForMe") : t("muteForMe"),
-          icon: localVolume === 0 ? "volume" : "speaker-off",
-          onSelect: () => getLiveKitService().setRemoteVolume(m.id, localVolume === 0 ? 1 : 0),
+          render: () => (
+            <MuteForMeItem userId={m.id} muteLabel={t("muteForMe")} unmuteLabel={t("unmuteForMe")} />
+          ),
         },
       );
     }
