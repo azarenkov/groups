@@ -111,4 +111,14 @@ describe("PanelResizer", () => {
     other.remove();
     document.documentElement.style.removeProperty("--w-other");
   });
+
+  it("tells the other panel when a reset frees space", () => {
+    window.localStorage.setItem("test.panel", "400");
+    setup();
+    const heard = jest.fn();
+    window.addEventListener("rift:panels-changed", heard);
+    fireEvent.doubleClick(screen.getByRole("separator", { name: "Resize" }));
+    window.removeEventListener("rift:panels-changed", heard);
+    expect(heard).toHaveBeenCalled();
+  });
 });

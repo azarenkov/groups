@@ -293,7 +293,7 @@ body.electron .sb-nav { -webkit-app-region: no-drag; }
   display: flex;
   flex-direction: column;
   min-height: 0;
-  min-width: 360px;
+  min-width: 340px;
   position: relative;
 }
 

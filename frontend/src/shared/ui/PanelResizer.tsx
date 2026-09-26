@@ -131,6 +131,7 @@ const PanelResizer: React.FC<PanelResizerProps> = ({
     store(storageKey, null);
     document.documentElement.style.removeProperty(cssVar);
     reclamp();
+    announcePanels(cssVar);
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
