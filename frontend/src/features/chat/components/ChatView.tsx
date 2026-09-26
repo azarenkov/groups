@@ -33,7 +33,7 @@ import { previewOf } from "../lib/replies";
 import { messageLink } from "../lib/messageLink";
 import type { MessageLinkTarget } from "../lib/messageLink";
 import { copyTextToClipboard } from "../../../shared/lib/clipboard";
-import { apiBaseUrl } from "../../../shared/config/runtime";
+import { publicAppOrigin } from "../../../shared/config/runtime";
 import { useMessageSearch } from "../hooks/useMessageSearch";
 import { useMessenger } from "../hooks/useMessenger";
 import { useReadReceipts } from "../hooks/useReadReceipts";
@@ -550,7 +550,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                       ? { kind: "channel", communityId, channelId, messageId: message.id }
                       : null;
                 if (!target) return;
-                void copyTextToClipboard(messageLink(new URL(apiBaseUrl()).origin, target)).catch(
+                void copyTextToClipboard(messageLink(publicAppOrigin(), target)).catch(
                   (e) => console.warn("[ChatView] copy link failed:", e),
                 );
               }}
