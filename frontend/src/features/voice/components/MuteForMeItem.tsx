@@ -2,7 +2,7 @@ import React from "react";
 
 import Icon from "../../../shared/ui/Icon";
 import { useContextMenuStore } from "../../../shared/ui/contextMenu/contextMenuStore";
-import { getLiveKitService } from "../lib/livekit";
+import { REMOTE_VOLUME_MAX, REMOTE_VOLUME_PLAIN_MAX, getLiveKitService } from "../lib/livekit";
 
 const volumeBeforeMute = new Map<string, number>();
 
@@ -31,7 +31,9 @@ const MuteForMeItem: React.FC<{ userId: string; muteLabel: string; unmuteLabel: 
         const current = service.getRemoteVolume(userId);
         useContextMenuStore.getState().close();
         if (current === 0) {
-          service.setRemoteVolume(userId, volumeBeforeMute.get(userId) ?? 1);
+          const max =
+            (service.supportsRemoteBoost(userId) ? REMOTE_VOLUME_MAX : REMOTE_VOLUME_PLAIN_MAX) / 100;
+          service.setRemoteVolume(userId, Math.min(volumeBeforeMute.get(userId) ?? 1, max));
           volumeBeforeMute.delete(userId);
         } else {
           volumeBeforeMute.set(userId, current);
