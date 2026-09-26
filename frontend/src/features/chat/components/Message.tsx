@@ -31,6 +31,7 @@ import type { PendingFile } from "../types";
 import { MAX_CONTENT } from "../constants";
 
 export interface MessageProps {
+  tabbable?: boolean;
   canModerate?: boolean;
   blockedAuthor?: boolean;
   msg: ChannelMessage;
@@ -60,6 +61,7 @@ export interface MessageProps {
 }
 
 export const Message: React.FC<MessageProps> = ({
+  tabbable,
   canModerate,
   blockedAuthor,
   msg,
@@ -194,7 +196,7 @@ export const Message: React.FC<MessageProps> = ({
     <div
       ref={rootRef}
       data-msg-id={msg.id}
-      tabIndex={-1}
+      tabIndex={tabbable ? 0 : -1}
       onContextMenu={(e) => {
         if (editing) return;
         openContextMenu(e, menuEntries());
@@ -204,6 +206,17 @@ export const Message: React.FC<MessageProps> = ({
         if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
           e.preventDefault();
           openContextMenuAt(e.currentTarget, menuEntries());
+          return;
+        }
+        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          const rows = Array.from(
+            e.currentTarget.parentElement?.closest(".chat-body")?.querySelectorAll<HTMLElement>(".msg.bubble[tabindex]") ?? [],
+          );
+          const next = rows[rows.indexOf(e.currentTarget) + (e.key === "ArrowUp" ? -1 : 1)];
+          if (!next) return;
+          e.preventDefault();
+          next.focus();
+          next.scrollIntoView({ block: "nearest" });
         }
       }}
       {...longPress}

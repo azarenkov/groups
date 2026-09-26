@@ -88,6 +88,7 @@ const MessageList: React.FC<MessageListProps> = ({
                     </div>
                   )}
                 <Message
+                  tabbable={i === messages.length - 1}
                   blockedAuthor={!isDm && !m.system && !!blockedIds[m.authorId]}
                   msg={m}
                   displayName={displayName}

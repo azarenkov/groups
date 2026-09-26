@@ -6,6 +6,7 @@ const MOVE_TOLERANCE = 10;
 export function useLongPress(onLongPress: (point: { clientX: number; clientY: number }) => void) {
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const start = React.useRef<{ x: number; y: number } | null>(null);
+  const fired = React.useRef(false);
   const callback = React.useRef(onLongPress);
   callback.current = onLongPress;
 
@@ -20,13 +21,16 @@ export function useLongPress(onLongPress: (point: { clientX: number; clientY: nu
   return {
     onTouchStart: (e: React.TouchEvent) => {
       if (e.touches.length !== 1) return;
+      fired.current = false;
       const touch = e.touches[0];
       start.current = { x: touch.clientX, y: touch.clientY };
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
         const point = start.current;
         cancel();
-        if (point) callback.current({ clientX: point.x, clientY: point.y });
+        if (!point) return;
+        fired.current = true;
+        callback.current({ clientX: point.x, clientY: point.y });
       }, LONG_PRESS_MS);
     },
     onTouchMove: (e: React.TouchEvent) => {
@@ -35,7 +39,16 @@ export function useLongPress(onLongPress: (point: { clientX: number; clientY: nu
       const touch = e.touches[0];
       if (Math.hypot(touch.clientX - origin.x, touch.clientY - origin.y) > MOVE_TOLERANCE) cancel();
     },
-    onTouchEnd: cancel,
+    onTouchEnd: (e?: React.TouchEvent) => {
+      cancel();
+      if (fired.current && e?.cancelable) e.preventDefault();
+    },
     onTouchCancel: cancel,
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!fired.current) return;
+      fired.current = false;
+      e.preventDefault();
+      e.stopPropagation();
+    },
   };
 }

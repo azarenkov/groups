@@ -44,4 +44,18 @@ describe("ContextMenuHost", () => {
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole("menu")).toBeNull();
   });
+
+  it("lets Tab reach custom controls such as a volume slider", () => {
+    render(<ContextMenuHost />);
+    act(() => {
+      openContextMenu({ clientX: 10, clientY: 10 }, [
+        { kind: "item", id: "profile", label: "Profile", onSelect: jest.fn() },
+        { kind: "custom", id: "volume", render: () => <input type="range" aria-label="Volume" /> },
+      ]);
+    });
+    const profile = screen.getByRole("menuitem", { name: "Profile" });
+    expect(profile).toHaveFocus();
+    fireEvent.keyDown(profile, { key: "Tab" });
+    expect(screen.getByLabelText("Volume")).toHaveFocus();
+  });
 });

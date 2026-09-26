@@ -60,7 +60,9 @@ const ContextMenuHost: React.FC = () => {
     const el = ref.current;
     if (!el) return;
     const items = Array.from(
-      el.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])'),
+      el.querySelectorAll<HTMLElement>(
+        '[role="menuitem"]:not([aria-disabled="true"]), .ctx-custom input:not([disabled]), .ctx-custom button:not([disabled])',
+      ),
     );
     if (items.length === 0) return;
     const index = items.indexOf(document.activeElement as HTMLElement);
@@ -77,10 +79,11 @@ const ContextMenuHost: React.FC = () => {
       style={pos ? { left: pos.left, top: pos.top } : { left: menu.x, top: menu.y, visibility: "hidden" }}
       onContextMenu={(e) => e.preventDefault()}
       onKeyDown={(e) => {
-        if (e.key === "ArrowDown") {
+        const inControl = (e.target as HTMLElement).closest(".ctx-custom") !== null;
+        if (e.key === "ArrowDown" && !inControl) {
           e.preventDefault();
           moveFocus(1);
-        } else if (e.key === "ArrowUp") {
+        } else if (e.key === "ArrowUp" && !inControl) {
           e.preventDefault();
           moveFocus(-1);
         } else if (e.key === "Tab") {
