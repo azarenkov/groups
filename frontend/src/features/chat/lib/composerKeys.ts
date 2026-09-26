@@ -21,6 +21,9 @@ export function insertNewline(
   value: string,
   start: number,
   end: number,
-): { value: string; caret: number } {
-  return { value: `${value.slice(0, start)}\n${value.slice(end)}`, caret: start + 1 };
+  maxLength = -1,
+): { value: string; caret: number } | null {
+  const next = `${value.slice(0, start)}\n${value.slice(end)}`;
+  if (maxLength >= 0 && next.length > maxLength) return null;
+  return { value: next, caret: start + 1 };
 }

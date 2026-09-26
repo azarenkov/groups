@@ -181,7 +181,8 @@ const Composer: React.FC<ComposerProps> = ({
                 } else if (action === "newline") {
                   e.preventDefault();
                   const el = e.currentTarget;
-                  const next = insertNewline(el.value, el.selectionStart, el.selectionEnd);
+                  const next = insertNewline(el.value, el.selectionStart, el.selectionEnd, el.maxLength);
+                  if (!next) return;
                   onTextChange(next.value, next.caret);
                   requestAnimationFrame(() => {
                     el.selectionStart = next.caret;

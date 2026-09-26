@@ -354,7 +354,8 @@ export const Message: React.FC<MessageProps> = ({
                   } else if (action === "newline") {
                     e.preventDefault();
                     const el = e.currentTarget;
-                    const next = insertNewline(el.value, el.selectionStart, el.selectionEnd);
+                    const next = insertNewline(el.value, el.selectionStart, el.selectionEnd, el.maxLength);
+                    if (!next) return;
                     onEditTextChange(next.value);
                     requestAnimationFrame(() => {
                       el.selectionStart = next.caret;

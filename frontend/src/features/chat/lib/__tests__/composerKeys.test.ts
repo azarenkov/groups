@@ -37,4 +37,9 @@ describe("insertNewline", () => {
   it("replaces the selection with a line break and moves the caret after it", () => {
     expect(insertNewline("hello world", 5, 6)).toEqual({ value: "hello\nworld", caret: 6 });
   });
+
+  it("refuses a line break that would go over the length limit", () => {
+    expect(insertNewline("abc", 3, 3, 3)).toBeNull();
+    expect(insertNewline("abc", 1, 2, 3)).toEqual({ value: "a\nc", caret: 2 });
+  });
 });
