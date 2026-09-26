@@ -529,6 +529,8 @@ const CommunitiesPage: React.FC = () => {
     if (!communities.some((c) => c.id === link.communityId)) return;
     setPendingMessageLink(null);
     expandCommunityRef.current(link.communityId);
+    useCallStore.getState().setFocused(false);
+    setSelectedDm(null);
     setSelectedCommunity(link.communityId);
     setSelectedChannel(link.channelId);
     setOpenMessage({ convId: link.channelId, messageId: link.messageId });
@@ -537,6 +539,7 @@ const CommunitiesPage: React.FC = () => {
     communities,
     acceptedFriends,
     dmPreviews,
+    setSelectedDm,
     setSelectedCommunity,
     setSelectedChannel,
   ]);
