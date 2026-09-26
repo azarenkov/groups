@@ -16,7 +16,7 @@ export function messageActions(ctx: MessageMenuContext): MessageAction[] {
   const hasText = msg.content.length > 0 || (msg.attachments?.length ?? 0) > 0;
   if (!card && (hasText || hasSelection)) actions.push("copy");
   if (isMine && !card && !msg.system) actions.push("edit");
-  if ((isMine && !msg.inviteCommunityId) || canModerate) actions.push("delete");
+  if (isMine || canModerate) actions.push("delete");
   if (!isMine && !card && !msg.system) actions.push("report");
   return actions;
 }

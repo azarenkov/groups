@@ -79,4 +79,11 @@ describe("ContextMenuHost", () => {
     });
     expect(row).toHaveFocus();
   });
+
+  it("drops an open menu when the host unmounts", () => {
+    const { unmount } = render(<ContextMenuHost />);
+    openWith(jest.fn(), jest.fn());
+    unmount();
+    expect(useContextMenuStore.getState().menu).toBeNull();
+  });
 });

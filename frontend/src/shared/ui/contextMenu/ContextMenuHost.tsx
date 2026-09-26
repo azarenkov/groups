@@ -12,6 +12,8 @@ const ContextMenuHost: React.FC = () => {
   const [pos, setPos] = React.useState<{ left: number; top: number; maxHeight: number } | null>(null);
   const returnFocusRef = React.useRef<HTMLElement | null>(null);
 
+  React.useEffect(() => () => useContextMenuStore.getState().close(), []);
+
   React.useEffect(() => {
     if (menu) {
       returnFocusRef.current = menu.returnFocus;

@@ -38,6 +38,12 @@ describe("messageActions", () => {
     ]);
   });
 
+  it("lets the sender delete their own invite card", () => {
+    expect(messageActions(ctx({ isMine: true, msg: msg({ inviteCommunityId: "s", content: "" }) }))).toEqual([
+      "delete",
+    ]);
+  });
+
   it("offers copy of a selection even on an empty message", () => {
     expect(messageActions(ctx({ hasSelection: true, msg: msg({ content: "" }) }))).toEqual(["copy", "report"]);
   });
