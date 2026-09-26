@@ -1,7 +1,7 @@
 import React from "react";
 import { render } from "@testing-library/react";
 
-import { useAutoGrow } from "../useAutoGrow";
+import { fittedHeight, useAutoGrow } from "../useAutoGrow";
 
 let notify: (() => void) | null = null;
 
@@ -41,5 +41,11 @@ describe("useAutoGrow", () => {
     width = 200;
     notify?.();
     expect(field.style.height).not.toBe("123px");
+  });
+
+  it("adds the borders for border-box and drops the padding for content-box", () => {
+    const base = { borderTopWidth: "1px", borderBottomWidth: "1px", paddingTop: "8px", paddingBottom: "8px" };
+    expect(fittedHeight(40, { ...base, boxSizing: "border-box" })).toBe(42);
+    expect(fittedHeight(40, { ...base, boxSizing: "content-box" })).toBe(24);
   });
 });

@@ -1,8 +1,22 @@
 import React from "react";
 
+export function fittedHeight(
+  scrollHeight: number,
+  style: Pick<
+    CSSStyleDeclaration,
+    "boxSizing" | "borderTopWidth" | "borderBottomWidth" | "paddingTop" | "paddingBottom"
+  >,
+): number {
+  const px = (v: string) => parseFloat(v) || 0;
+  if (style.boxSizing === "border-box") {
+    return scrollHeight + px(style.borderTopWidth) + px(style.borderBottomWidth);
+  }
+  return scrollHeight - px(style.paddingTop) - px(style.paddingBottom);
+}
+
 const fit = (el: HTMLTextAreaElement) => {
   el.style.height = "auto";
-  el.style.height = `${el.scrollHeight}px`;
+  el.style.height = `${fittedHeight(el.scrollHeight, getComputedStyle(el))}px`;
 };
 
 export function useAutoGrow(
