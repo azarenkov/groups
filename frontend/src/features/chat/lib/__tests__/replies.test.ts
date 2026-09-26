@@ -43,6 +43,15 @@ describe("live quote updates", () => {
     expect(out[0].replyTo?.authorName).toBe("Bob");
   });
 
+  it("refreshes the attachment flag of a quote after an edit", () => {
+    const withFile = refreshReplySnippet([msg("r", quote("x"))], "x", "", true);
+    expect(withFile[0].replyTo?.hasAttachments).toBe(true);
+    const kept = refreshReplySnippet(withFile, "x", "text");
+    expect(kept[0].replyTo?.hasAttachments).toBe(true);
+    const removed = refreshReplySnippet(withFile, "x", "text", false);
+    expect(removed[0].replyTo?.hasAttachments).toBe(false);
+  });
+
   it("leaves the list untouched when nothing quotes the message", () => {
     const list = [msg("r")];
     expect(markReplyDeleted(list, "x")).toBe(list);

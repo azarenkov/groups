@@ -33,12 +33,20 @@ export function refreshReplySnippet(
   messages: ChannelMessage[],
   id: string,
   content: string,
+  hasAttachments?: boolean,
 ): ChannelMessage[] {
   if (!messages.some((m) => m.replyTo?.id === id)) return messages;
   const snippet = replySnippet(content);
   return messages.map((m) =>
     m.replyTo?.id === id && !m.replyTo.deleted
-      ? { ...m, replyTo: { ...m.replyTo, content: snippet } }
+      ? {
+          ...m,
+          replyTo: {
+            ...m.replyTo,
+            content: snippet,
+            hasAttachments: hasAttachments ?? m.replyTo.hasAttachments,
+          },
+        }
       : m,
   );
 }

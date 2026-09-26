@@ -153,7 +153,7 @@ where
             .list_text_channel_member_ids(&channel_id)
             .await?;
 
-        let mentions = crate::usecases::channel::mentions::resolve_mentions(
+        let mut mentions = crate::usecases::channel::mentions::resolve_mentions(
             message.content().as_str(),
             &channel_id,
             &recipient_ids,
@@ -162,6 +162,14 @@ where
             self.mention_resolver.as_ref(),
         )
         .await?;
+        if let Some(replied) = self.message_repository.find_reply_author(message.id()).await? {
+            if replied != *message.author_id()
+                && recipient_ids.contains(&replied)
+                && !mentions.contains(&replied.uuid())
+            {
+                mentions.push(replied.uuid());
+            }
+        }
 
         let hidden_for = self
             .message_repository

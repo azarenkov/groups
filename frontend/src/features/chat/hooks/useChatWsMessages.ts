@@ -76,6 +76,7 @@ export function useChatWsMessages(params: {
             ),
             m.id,
             m.newContent,
+            m.attachments ? m.attachments.length > 0 : undefined,
           ),
         );
       },
@@ -149,6 +150,7 @@ export function useChatWsMessages(params: {
             ),
             m.id,
             m.newContent,
+            m.attachments ? m.attachments.length > 0 : undefined,
           ),
         );
       },

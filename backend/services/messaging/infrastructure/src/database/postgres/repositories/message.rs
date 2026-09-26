@@ -74,6 +74,22 @@ impl MessageRepository for PostgresMessageRepository {
         Ok(rows)
     }
 
+    async fn find_reply_author(&self, message_id: &MessageId) -> Result<Option<UserId>, RepositoryError> {
+        let author = sqlx::query_scalar!(
+            r#"
+            SELECT t.author_id
+            FROM messages m
+            INNER JOIN messages t ON t.id = m.reply_to_message_id
+            WHERE m.id = $1
+            "#,
+            message_id.uuid(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(author.map(UserId::new))
+    }
+
     async fn list_users_hiding(&self, message_id: Uuid) -> Result<Vec<UserId>, RepositoryError> {
         let rows = sqlx::query_scalar!(
             r#"SELECT user_id FROM hidden_messages WHERE message_id = $1"#,
