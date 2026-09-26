@@ -65,4 +65,20 @@ describe("useLongPress", () => {
     });
     expect(onLongPress).not.toHaveBeenCalled();
   });
+
+  it("cancels the pending long press when a second finger lands anywhere", () => {
+    const onLongPress = jest.fn();
+    render(<Row onLongPress={onLongPress} onLinkClick={jest.fn()} />);
+    fireEvent.touchStart(screen.getByTestId("row"), { touches: [{ clientX: 5, clientY: 5 }] });
+    fireEvent.touchStart(document.body, {
+      touches: [
+        { clientX: 5, clientY: 5 },
+        { clientX: 300, clientY: 300 },
+      ],
+    });
+    act(() => {
+      jest.advanceTimersByTime(600);
+    });
+    expect(onLongPress).not.toHaveBeenCalled();
+  });
 });

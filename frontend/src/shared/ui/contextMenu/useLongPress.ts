@@ -13,10 +13,14 @@ export function useLongPress(
   const callback = React.useRef(onLongPress);
   callback.current = onLongPress;
 
+  const stopWatching = React.useRef<(() => void) | null>(null);
+
   const cancel = React.useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     start.current = null;
+    stopWatching.current?.();
+    stopWatching.current = null;
   }, []);
 
   React.useEffect(() => cancel, [cancel]);
@@ -32,6 +36,12 @@ export function useLongPress(
       const touch = e.touches[0];
       start.current = { x: touch.clientX, y: touch.clientY };
       if (timer.current) clearTimeout(timer.current);
+      stopWatching.current?.();
+      const onAnyTouch = (ev: TouchEvent) => {
+        if (ev.touches.length > 1) cancel();
+      };
+      document.addEventListener("touchstart", onAnyTouch, true);
+      stopWatching.current = () => document.removeEventListener("touchstart", onAnyTouch, true);
       timer.current = setTimeout(() => {
         const point = start.current;
         const el = target.current;
