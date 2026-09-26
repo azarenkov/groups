@@ -9,7 +9,7 @@ const ContextMenuHost: React.FC = () => {
   const menu = useContextMenuStore((s) => s.menu);
   const close = useContextMenuStore((s) => s.close);
   const ref = React.useRef<HTMLDivElement>(null);
-  const [pos, setPos] = React.useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = React.useState<{ left: number; top: number; maxHeight: number } | null>(null);
   const returnFocusRef = React.useRef<HTMLElement | null>(null);
 
   React.useEffect(() => {
@@ -90,7 +90,7 @@ const ContextMenuHost: React.FC = () => {
       key={menu.seq}
       className="ctx-menu"
       role="menu"
-      style={pos ? { left: pos.left, top: pos.top } : { left: menu.x, top: menu.y, visibility: "hidden" }}
+      style={pos ? { left: pos.left, top: pos.top, maxHeight: pos.maxHeight, overflowY: "auto" } : { left: menu.x, top: menu.y, visibility: "hidden" }}
       onContextMenu={(e) => e.preventDefault()}
       onKeyDown={(e) => {
         const inControl = (e.target as HTMLElement).closest(".ctx-custom") !== null;

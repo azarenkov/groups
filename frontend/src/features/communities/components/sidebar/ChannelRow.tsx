@@ -17,6 +17,7 @@ import {
 } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import MemberVolumeSlider from "../../../voice/components/MemberVolumeSlider";
+import { useLongPress } from "../../../../shared/ui/contextMenu/useLongPress";
 import MuteForMeItem from "../../../voice/components/MuteForMeItem";
 import { getLiveKitService } from "../../../voice/lib/livekit";
 
@@ -49,6 +50,11 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
 }) => {
   const speakingIds = useSpeakingStore((state) => state.ids);
   const { t } = useTranslation(["sidebar", "common"]);
+  const shownMembersRef = React.useRef(new Map<string, SidebarVoiceMember>());
+  const memberLongPress = useLongPress((point, el) => {
+    const member = el.dataset.memberId ? shownMembersRef.current.get(el.dataset.memberId) : undefined;
+    if (member) openContextMenu(point, memberMenu(member));
+  });
   const memberMenu = (m: SidebarVoiceMember): MenuEntry[] => {
     const self = m.id === currentUserId;
     const openDm = useDmOpenerStore.getState().open;
@@ -184,6 +190,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
             membersForChannel = Array.from(merged.values());
           }
           if (membersForChannel.length === 0) return null;
+          shownMembersRef.current = new Map(membersForChannel.map((m) => [m.id, m]));
           return (
             <div className="sb-voice-members">
               {membersForChannel.map((m) => (
@@ -192,6 +199,8 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                   className="sb-voice-member"
                   role="button"
                   tabIndex={0}
+                  data-member-id={m.id}
+                  {...memberLongPress}
                   onClick={(e) => {
                     e.stopPropagation();
                     useProfileModalStore.getState().open(m.id);
