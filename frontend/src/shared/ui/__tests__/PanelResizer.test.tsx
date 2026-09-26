@@ -63,4 +63,52 @@ describe("PanelResizer", () => {
     fireEvent(window, new Event("resize"));
     expect(width()).toBe("420px");
   });
+
+  it("shrinks the default width when another panel appears in a narrow window", () => {
+    Object.defineProperty(window, "innerWidth", { value: 880, configurable: true });
+    const { rerender } = render(
+      <PanelResizer
+        cssVar="--w-test"
+        otherSelector=".other-panel"
+        side="start"
+        min={240}
+        max={420}
+        fallback={320}
+        storageKey="test.panel"
+        label="Resize"
+      />,
+    );
+    expect(width()).toBe("");
+    const other = document.createElement("div");
+    other.className = "other-panel";
+    other.getBoundingClientRect = () => ({ width: 240 }) as DOMRect;
+    document.body.appendChild(other);
+    rerender(
+      <>
+        <PanelResizer
+          cssVar="--w-test"
+          otherSelector=".other-panel"
+          side="start"
+          min={240}
+          max={420}
+          fallback={320}
+          storageKey="test.panel"
+          label="Resize"
+        />
+        <PanelResizer
+          cssVar="--w-other"
+          otherSelector=".nothing"
+          side="end"
+          min={220}
+          max={360}
+          fallback={240}
+          storageKey="test.other"
+          label="Resize other"
+        />
+      </>,
+    );
+    expect(width()).toBe("240px");
+    other.remove();
+    document.documentElement.style.removeProperty("--w-other");
+  });
 });

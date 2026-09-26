@@ -13,6 +13,11 @@ interface PanelResizerProps {
   label: string;
 }
 
+const PANELS_CHANGED = "rift:panels-changed";
+
+const announcePanels = (source: string) =>
+  window.dispatchEvent(new CustomEvent<string>(PANELS_CHANGED, { detail: source }));
+
 const KEY_STEP = 16;
 const KEY_STEP_LARGE = 48;
 
@@ -53,35 +58,68 @@ const PanelResizer: React.FC<PanelResizerProps> = ({
   const dragRef = React.useRef<{ x: number; width: number } | null>(null);
   const preferredRef = React.useRef<number | null>(null);
 
-  const apply = React.useCallback(
-    (requested: number) => {
-      const next = clampPanelWidth(
+  const clampFor = React.useCallback(
+    (requested: number) =>
+      clampPanelWidth(
         requested,
         { min, max },
         window.innerWidth,
         document.querySelector(otherSelector)?.getBoundingClientRect().width ?? 0,
-      );
-      document.documentElement.style.setProperty(cssVar, `${next}px`);
-      setWidth(next);
-      return next;
-    },
-    [cssVar, otherSelector, min, max],
+      ),
+    [otherSelector, min, max],
   );
 
-  React.useEffect(() => {
-    const stored = readStored(storageKey);
-    preferredRef.current = stored;
-    if (stored !== null) apply(stored);
-    else setWidth(readVar(cssVar, fallback));
-  }, [apply, storageKey, cssVar, fallback]);
+  const commit = React.useCallback(
+    (next: number, inline: boolean) => {
+      const root = document.documentElement.style;
+      const before = root.getPropertyValue(cssVar);
+      if (inline) root.setProperty(cssVar, `${next}px`);
+      else root.removeProperty(cssVar);
+      setWidth(next);
+      if (root.getPropertyValue(cssVar) !== before) announcePanels(cssVar);
+      return next;
+    },
+    [cssVar],
+  );
+
+  const apply = React.useCallback(
+    (requested: number) => commit(clampFor(requested), true),
+    [clampFor, commit],
+  );
+
+  const reclamp = React.useCallback(() => {
+    const preferred = preferredRef.current;
+    if (preferred !== null) {
+      apply(preferred);
+      return;
+    }
+    const root = document.documentElement.style;
+    const inline = root.getPropertyValue(cssVar);
+    root.removeProperty(cssVar);
+    const natural = readVar(cssVar, fallback);
+    if (inline) root.setProperty(cssVar, inline);
+    const next = clampFor(natural);
+    commit(next, next !== natural);
+  }, [apply, clampFor, commit, cssVar, fallback]);
 
   React.useEffect(() => {
-    const onResize = () => {
-      if (preferredRef.current !== null) apply(preferredRef.current);
+    preferredRef.current = readStored(storageKey);
+    reclamp();
+  }, [reclamp, storageKey]);
+
+  React.useEffect(() => {
+    const onPanels = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== cssVar) reclamp();
     };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [apply]);
+    window.addEventListener("resize", reclamp);
+    window.addEventListener(PANELS_CHANGED, onPanels);
+    announcePanels(cssVar);
+    return () => {
+      window.removeEventListener("resize", reclamp);
+      window.removeEventListener(PANELS_CHANGED, onPanels);
+      requestAnimationFrame(() => announcePanels(cssVar));
+    };
+  }, [reclamp, cssVar]);
 
   const remember = (value: number) => {
     preferredRef.current = value;
@@ -89,10 +127,10 @@ const PanelResizer: React.FC<PanelResizerProps> = ({
   };
 
   const reset = () => {
-    document.documentElement.style.removeProperty(cssVar);
     preferredRef.current = null;
     store(storageKey, null);
-    setWidth(readVar(cssVar, fallback));
+    document.documentElement.style.removeProperty(cssVar);
+    reclamp();
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
