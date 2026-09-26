@@ -3,8 +3,7 @@ import React from "react";
 import Icon from "../../../shared/ui/Icon";
 import { useContextMenuStore } from "../../../shared/ui/contextMenu/contextMenuStore";
 import { REMOTE_VOLUME_MAX, REMOTE_VOLUME_PLAIN_MAX, getLiveKitService } from "../lib/livekit";
-
-const volumeBeforeMute = new Map<string, number>();
+import { audibleVolume, rememberAudibleVolume, trackAudibleVolumes } from "../lib/audibleVolume";
 
 const MuteForMeItem: React.FC<{ userId: string; muteLabel: string; unmuteLabel: string }> = ({
   userId,
@@ -12,6 +11,11 @@ const MuteForMeItem: React.FC<{ userId: string; muteLabel: string; unmuteLabel: 
   unmuteLabel,
 }) => {
   const [muted, setMuted] = React.useState(() => getLiveKitService().getRemoteVolume(userId) === 0);
+
+  React.useEffect(() => {
+    trackAudibleVolumes();
+    rememberAudibleVolume(userId, getLiveKitService().getRemoteVolume(userId));
+  }, [userId]);
 
   React.useEffect(
     () =>
@@ -33,10 +37,9 @@ const MuteForMeItem: React.FC<{ userId: string; muteLabel: string; unmuteLabel: 
         if (current === 0) {
           const max =
             (service.supportsRemoteBoost(userId) ? REMOTE_VOLUME_MAX : REMOTE_VOLUME_PLAIN_MAX) / 100;
-          service.setRemoteVolume(userId, Math.min(volumeBeforeMute.get(userId) ?? 1, max));
-          volumeBeforeMute.delete(userId);
+          service.setRemoteVolume(userId, Math.min(audibleVolume(userId), max));
         } else {
-          volumeBeforeMute.set(userId, current);
+          rememberAudibleVolume(userId, current);
           service.setRemoteVolume(userId, 0);
         }
       }}
