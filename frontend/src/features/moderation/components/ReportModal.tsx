@@ -2,6 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 
 import Icon from "../../../shared/ui/Icon";
+import { useDialogFocus } from "../../../shared/hooks/useDialogFocus";
 import { ApiError } from "../../../shared/lib/apiError";
 import { reportAPI } from "../api/report";
 import {
@@ -51,20 +52,7 @@ const ReportModal: React.FC = () => {
   const dialogRef = React.useRef<HTMLDivElement>(null);
   const isOpen = !!target;
 
-  React.useEffect(() => {
-    if (!isOpen) return;
-    let previous: HTMLElement | null = null;
-    const frame = requestAnimationFrame(() => {
-      previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      dialogRef.current
-        ?.querySelector<HTMLElement>("input:not([disabled]), textarea:not([disabled]), button:not([tabindex='-1'])")
-        ?.focus();
-    });
-    return () => {
-      cancelAnimationFrame(frame);
-      if (previous && previous.isConnected) previous.focus({ preventScroll: true });
-    };
-  }, [isOpen, opening]);
+  useDialogFocus(dialogRef, isOpen, opening);
 
   React.useEffect(() => {
     if (!target) return;
