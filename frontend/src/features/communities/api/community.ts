@@ -1,7 +1,7 @@
 import { http } from "../../../shared/api/http";
 import { appendCrop } from "../../../shared/lib/imageCrop";
 import type { Permission } from "../lib/permissions";
-import { readPermissions } from "../lib/permissions";
+import { readPermissions, toLegacyMask } from "../lib/permissions";
 import {
   ListCommunitiesResponse,
   ListCommunityMembersResponse,
@@ -98,6 +98,7 @@ class CommunityAPI {
     const response = await this.client.post(`/v1/communities/${communityId}/roles`, {
       name,
       color,
+      permissions: toLegacyMask(permissions),
       permissionList: permissions,
     });
     return response.data.data;
@@ -116,6 +117,9 @@ class CommunityAPI {
     await this.client.put(`/v1/communities/${communityId}/roles/${roleId}`, {
       name: patch.name,
       color: patch.color,
+      permissionsAdd: patch.add && patch.add.length > 0 ? toLegacyMask(patch.add) : undefined,
+      permissionsRemove:
+        patch.remove && patch.remove.length > 0 ? toLegacyMask(patch.remove) : undefined,
       addPermissionList: patch.add && patch.add.length > 0 ? patch.add : undefined,
       removePermissionList: patch.remove && patch.remove.length > 0 ? patch.remove : undefined,
     });

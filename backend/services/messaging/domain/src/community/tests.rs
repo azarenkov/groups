@@ -224,3 +224,32 @@ fn mute_authority_follows_rank_and_mute_authorship() {
         ModerationGrant::SelfService
     );
 }
+
+#[test]
+fn a_role_with_a_permission_this_version_does_not_know_needs_the_owner_to_assign_it() {
+    let community_id = CommunityId::generate();
+    let owner = UserId::generate();
+    let manager = UserId::generate();
+    let member = UserId::generate();
+    let manager_role = role(&community_id, Permissions::all(), 10);
+    let future_role = role(&community_id, Permissions::from_bits_retain(1 << 20), 1);
+    let manager_role_id = manager_role.id;
+    let future_role_id = future_role.id;
+    let mut community = Community::load(
+        community_id,
+        CommunityName::new("rift".to_string()),
+        owner,
+        None,
+        None,
+        Utc::now(),
+        Utc::now(),
+        vec![manager_role, future_role],
+        vec![(manager, manager_role_id)],
+        [owner, manager, member].into_iter().collect(),
+    );
+    assert_eq!(
+        community.assign_role(&manager, &member, future_role_id, Utc::now()).unwrap_err(),
+        PolicyError::NotAllowed
+    );
+    assert!(community.assign_role(&owner, &member, future_role_id, Utc::now()).is_ok());
+}

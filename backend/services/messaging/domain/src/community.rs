@@ -610,7 +610,7 @@ impl Community {
     }
 
     fn ensure_grantable(&self, actor: &UserId, permissions: Permissions) -> Result<(), PolicyError> {
-        if !permissions.known().is_subset_of(self.permissions_of(actor)) {
+        if !permissions.is_subset_of(self.permissions_of(actor)) {
             return Err(PolicyError::NotAllowed);
         }
         Ok(())

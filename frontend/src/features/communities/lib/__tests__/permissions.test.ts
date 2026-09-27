@@ -3,6 +3,7 @@ import {
   PERMISSION_LABEL_KEYS,
   isSubset,
   readPermissions,
+  toLegacyMask,
   union,
   without,
 } from "../permissions";
@@ -31,5 +32,12 @@ describe("permission sets", () => {
 
   it("has a label for every permission", () => {
     for (const p of PERMISSIONS) expect(PERMISSION_LABEL_KEYS[p]).toBeTruthy();
+  });
+});
+
+describe("toLegacyMask", () => {
+  it("builds the old mask for servers that only read masks", () => {
+    expect(toLegacyMask(["muteMembers", "disconnectMembers"])).toBe(8 | 256);
+    expect(readPermissions(undefined, toLegacyMask(["kickMembers"]))).toEqual(["kickMembers"]);
   });
 });

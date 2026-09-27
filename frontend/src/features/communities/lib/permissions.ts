@@ -36,6 +36,10 @@ const LEGACY_BITS: Record<Permission, number> = {
   disconnectMembers: 256,
 };
 
+export function toLegacyMask(set: readonly Permission[]): number {
+  return set.reduce((mask, p) => mask | LEGACY_BITS[p], 0);
+}
+
 export function isPermission(value: unknown): value is Permission {
   return typeof value === "string" && (PERMISSIONS as readonly string[]).includes(value);
 }
