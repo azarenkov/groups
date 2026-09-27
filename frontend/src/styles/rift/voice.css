@@ -609,6 +609,26 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 .call-min:hover { background: rgba(10, 10, 12, 0.82); }
+.call-focus {
+  position: absolute; top: 12px; left: 12px; z-index: 5;
+  height: 32px; padding: 0 12px 0 10px; border-radius: 8px; border: 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(10, 10, 12, 0.6); color: #e6e6e9;
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  font: inherit; font-size: 12.5px; font-weight: 500;
+  max-width: 40%;
+}
+.call-focus span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.call-focus:disabled { cursor: default; opacity: 1; }
+.call-focus.pinned { cursor: pointer; }
+.call-focus.pinned:hover { background: rgba(10, 10, 12, 0.82); }
+.call-min ~ .call-focus { left: 52px; }
+.call-screen > .voice-tile { animation: stage-fade 0.25s ease; }
+@keyframes stage-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 .call-min svg { transform: rotate(90deg); }
 
 .call-live {
@@ -1253,6 +1273,14 @@
 .call-live-chip.stop { color: var(--fg-2); }
 .cs-tile.sharing { cursor: pointer; }
 .cs-tile.watched { outline: 2px solid var(--voice-live, #30a46c); outline-offset: -2px; }
+.cs-tile.pinnable { cursor: pointer; }
+.cs-tile.pinned { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cs-tile-pin {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff;
+}
 .cs-tile-live {
   position: absolute;
   top: 6px; left: 6px;

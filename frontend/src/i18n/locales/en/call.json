@@ -37,5 +37,9 @@
   "cancel": "Cancel",
   "noFriendsToAdd": "No friends to add",
   "callNotAllowed": "This user doesn't accept calls",
-  "callFailed": "Couldn't start the call"
+  "callFailed": "Couldn't start the call",
+  "pinToStage": "Pin to stage",
+  "unpinFromStage": "Unpin",
+  "stageAuto": "Auto",
+  "stageAutoHint": "The person talking is on stage. Click a tile to pin someone"
 }
