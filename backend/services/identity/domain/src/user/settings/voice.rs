@@ -185,7 +185,7 @@ pub struct VoiceSettings {
     push_to_talk: bool,
     ptt_key: PttKey,
     stream_quality: StreamQuality,
-    screen_content: ScreenContent,
+    screen_content: Option<ScreenContent>,
 }
 
 impl Default for VoiceSettings {
@@ -199,7 +199,7 @@ impl Default for VoiceSettings {
             push_to_talk: false,
             ptt_key: PttKey::default(),
             stream_quality: StreamQuality::default(),
-            screen_content: ScreenContent::default(),
+            screen_content: None,
         }
     }
 }
@@ -219,11 +219,11 @@ impl VoiceSettings {
         push_to_talk: bool,
         ptt_key: String,
         stream_quality: &str,
-        screen_content: &str,
+        screen_content: Option<&str>,
     ) -> Self {
         Self {
             stream_quality: StreamQuality::parse(stream_quality).unwrap_or_default(),
-            screen_content: ScreenContent::parse(screen_content).unwrap_or_default(),
+            screen_content: screen_content.and_then(ScreenContent::parse),
             mic_volume,
             output_volume,
             noise_mode: NoiseMode::parse(noise_mode).unwrap_or_default(),
@@ -272,7 +272,7 @@ impl VoiceSettings {
         }
         if let Some(content) = patch.screen_content.as_deref() {
             next.screen_content =
-                ScreenContent::parse(content).ok_or(VoiceSettingsError::InvalidScreenContent)?;
+                Some(ScreenContent::parse(content).ok_or(VoiceSettingsError::InvalidScreenContent)?);
         }
         Ok(next)
     }
@@ -293,7 +293,7 @@ impl VoiceSettings {
         self.stream_quality
     }
 
-    pub fn screen_content(&self) -> ScreenContent {
+    pub fn screen_content(&self) -> Option<ScreenContent> {
         self.screen_content
     }
 

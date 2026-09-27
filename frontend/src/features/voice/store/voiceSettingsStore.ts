@@ -73,31 +73,14 @@ const DEFAULT_SETTINGS: VoiceSyncedSettings = {
 export const parseScreenContent = (value: unknown): ScreenContent | null =>
   value === "auto" || value === "text" || value === "motion" ? value : null;
 
-const screenContentMigratedKey = (userId: string) => `rift.screenContentSynced.${userId}`;
-
-const screenContentMigrated = (userId: string): boolean => {
-  try {
-    return window.localStorage.getItem(screenContentMigratedKey(userId)) === "1";
-  } catch {
-    return true;
-  }
-};
-
-const markScreenContentMigrated = (userId: string) => {
-  try {
-    window.localStorage.setItem(screenContentMigratedKey(userId), "1");
-  } catch {}
-};
-
 export function resolveScreenContent(
   server: unknown,
   local: ScreenContent,
-  migrated: boolean,
 ): { value: ScreenContent; push: boolean } {
+  if (server === undefined) return { value: local, push: false };
   const fromServer = parseScreenContent(server);
-  if (fromServer === null) return { value: local, push: false };
-  if (!migrated && fromServer === "auto" && local !== "auto") return { value: local, push: true };
-  return { value: fromServer, push: false };
+  if (fromServer !== null) return { value: fromServer, push: false };
+  return { value: local, push: local !== "auto" };
 }
 
 const applyToEngine = (s: {
@@ -370,8 +353,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
           }
           const screen = resolveScreenContent(
             saved.screenContent,
-            get().screenContent,
-            switched || screenContentMigrated(userId),
+            switched ? DEFAULT_SETTINGS.screenContent : get().screenContent,
           );
           const next = preserveRecentEdits({
             micVolume: saved.micVolume,
@@ -389,7 +371,6 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
           });
           set({ ...next, ownerId: userId });
           applyToEngine(get());
-          if (parseScreenContent(saved.screenContent) !== null) markScreenContentMigrated(userId);
           if (screen.push) scheduleSave({ screenContent: screen.value }, userId);
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);

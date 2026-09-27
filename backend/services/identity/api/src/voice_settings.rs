@@ -20,7 +20,7 @@ struct VoiceSettingsResponse {
     push_to_talk: bool,
     ptt_key: String,
     stream_quality: String,
-    screen_content: String,
+    screen_content: Option<String>,
 }
 
 impl From<VoiceSettings> for VoiceSettingsResponse {
@@ -34,7 +34,7 @@ impl From<VoiceSettings> for VoiceSettingsResponse {
             push_to_talk: settings.push_to_talk(),
             ptt_key: settings.ptt_key().as_str().to_string(),
             stream_quality: settings.stream_quality().as_str().to_string(),
-            screen_content: settings.screen_content().as_str().to_string(),
+            screen_content: settings.screen_content().map(|c| c.as_str().to_string()),
         }
     }
 }

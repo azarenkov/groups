@@ -213,9 +213,9 @@ fn voice_settings_validate_ranges_modes_and_ptt_key() {
 
 #[test]
 fn voice_settings_restore_keeps_legacy_modifier_ptt_key() {
-    let restored = VoiceSettings::restore(100, 100, "standard", true, 50, true, "ShiftLeft".to_string(), "720p60", "text");
+    let restored = VoiceSettings::restore(100, 100, "standard", true, 50, true, "ShiftLeft".to_string(), "720p60", Some("text"));
     assert_eq!(restored.ptt_key().as_str(), "ShiftLeft");
-    assert_eq!(VoiceSettings::restore(1, 2, "weird", false, 3, false, "KeyA".to_string(), "weird", "weird").noise_mode(), NoiseMode::Standard);
+    assert_eq!(VoiceSettings::restore(1, 2, "weird", false, 3, false, "KeyA".to_string(), "weird", Some("weird")).noise_mode(), NoiseMode::Standard);
 }
 
 #[test]
@@ -322,22 +322,26 @@ fn auto_stream_quality_is_open_to_every_plan() {
 }
 
 #[test]
-fn screen_content_is_stored_and_validated() {
+fn screen_content_stays_unset_until_chosen_and_is_validated() {
     use crate::user::settings::voice::{ScreenContent, VoiceSettingsError, VoiceSettingsPatch};
     let defaults = VoiceSettings::default();
-    assert_eq!(defaults.screen_content(), ScreenContent::Auto);
-    let text = defaults
-        .apply(&VoiceSettingsPatch { screen_content: Some("text".to_string()), ..Default::default() })
+    assert_eq!(defaults.screen_content(), None);
+    let auto = defaults
+        .apply(&VoiceSettingsPatch { screen_content: Some("auto".to_string()), ..Default::default() })
         .unwrap();
-    assert_eq!(text.screen_content(), ScreenContent::Text);
+    assert_eq!(auto.screen_content(), Some(ScreenContent::Auto));
+    let other_field = defaults
+        .apply(&VoiceSettingsPatch { mic_volume: Some(50), ..Default::default() })
+        .unwrap();
+    assert_eq!(other_field.screen_content(), None);
     assert_eq!(
         defaults
             .apply(&VoiceSettingsPatch { screen_content: Some("cinema".to_string()), ..Default::default() })
             .unwrap_err(),
         VoiceSettingsError::InvalidScreenContent
     );
-    let restored = VoiceSettings::restore(100, 100, "standard", true, 50, false, "KeyM".to_string(), "auto", "motion");
-    assert_eq!(restored.screen_content(), ScreenContent::Motion);
-    let unknown = VoiceSettings::restore(100, 100, "standard", true, 50, false, "KeyM".to_string(), "auto", "weird");
-    assert_eq!(unknown.screen_content(), ScreenContent::Auto);
+    let restored = VoiceSettings::restore(100, 100, "standard", true, 50, false, "KeyM".to_string(), "auto", Some("motion"));
+    assert_eq!(restored.screen_content(), Some(ScreenContent::Motion));
+    let unset = VoiceSettings::restore(100, 100, "standard", true, 50, false, "KeyM".to_string(), "auto", None);
+    assert_eq!(unset.screen_content(), None);
 }

@@ -1,21 +1,18 @@
 import { parseScreenContent, resolveScreenContent } from "../voiceSettingsStore";
 
 describe("resolveScreenContent", () => {
-  it("takes the server value once this device has synced it", () => {
-    expect(resolveScreenContent("text", "motion", true)).toEqual({ value: "text", push: false });
-    expect(resolveScreenContent("auto", "motion", true)).toEqual({ value: "auto", push: false });
+  it("takes an explicit server choice, including auto", () => {
+    expect(resolveScreenContent("text", "motion")).toEqual({ value: "text", push: false });
+    expect(resolveScreenContent("auto", "motion")).toEqual({ value: "auto", push: false });
   });
 
-  it("keeps a local choice made before syncing and sends it to the server", () => {
-    expect(resolveScreenContent("auto", "motion", false)).toEqual({ value: "motion", push: true });
+  it("sends a local choice when the server has never stored one", () => {
+    expect(resolveScreenContent(null, "motion")).toEqual({ value: "motion", push: true });
+    expect(resolveScreenContent(null, "auto")).toEqual({ value: "auto", push: false });
   });
 
-  it("prefers an explicit server choice over the local one", () => {
-    expect(resolveScreenContent("text", "motion", false)).toEqual({ value: "text", push: false });
-  });
-
-  it("keeps the local value when the server does not know this setting yet", () => {
-    expect(resolveScreenContent(undefined, "text", false)).toEqual({ value: "text", push: false });
+  it("leaves the local value alone for a server that does not know this setting", () => {
+    expect(resolveScreenContent(undefined, "text")).toEqual({ value: "text", push: false });
     expect(parseScreenContent("cinema")).toBeNull();
   });
 });

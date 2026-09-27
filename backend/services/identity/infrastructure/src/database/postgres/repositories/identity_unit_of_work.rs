@@ -544,14 +544,14 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         user_id: &UserId,
     ) -> Result<Option<VoiceSettings>, RepositoryError> {
         self.lock_settings(user_id).await?;
-        let row: Option<(i16, i16, String, bool, i16, bool, String, String, String)> = sqlx::query_as(
+        let row: Option<(i16, i16, String, bool, i16, bool, String, String, Option<String>)> = sqlx::query_as(
             "SELECT mic_volume, output_volume, noise_mode, auto_sensitivity, sensitivity, push_to_talk, ptt_key, stream_quality, screen_content FROM voice_settings WHERE user_id = $1",
         )
         .bind(user_id.uuid())
         .fetch_optional(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.map(|r| VoiceSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6, &r.7, &r.8)))
+        Ok(row.map(|r| VoiceSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6, &r.7, r.8.as_deref())))
     }
 
     async fn save_voice_settings(
@@ -585,7 +585,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         .bind(settings.push_to_talk())
         .bind(settings.ptt_key().as_str())
         .bind(settings.stream_quality().as_str())
-        .bind(settings.screen_content().as_str())
+        .bind(settings.screen_content().map(|c| c.as_str()))
         .execute(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
