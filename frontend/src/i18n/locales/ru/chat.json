@@ -143,5 +143,8 @@
   "voiceSpeed": "Скорость воспроизведения",
   "voiceUnlistened": "Не прослушано",
   "voiceListened": "Прослушано",
-  "voiceLimitReached": "Достигнут лимит длительности"
+  "voiceLimitReached": "Достигнут лимит длительности",
+  "voiceNotSent": "Не отправлено",
+  "voiceRetry": "Отправить ещё раз",
+  "voiceDiscard": "Удалить запись"
 }

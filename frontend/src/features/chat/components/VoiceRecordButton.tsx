@@ -8,7 +8,7 @@ import { VoiceRecorder, voiceRecordingSupported } from "../lib/voiceRecorder";
 import type { VoiceRecording } from "../lib/voiceRecorder";
 import { useVoiceSettingsStore } from "../../voice/store/voiceSettingsStore";
 
-type Mode = "idle" | "starting" | "holding" | "locked";
+type Mode = "idle" | "starting" | "holding" | "locked" | "failed" | "retrying";
 
 const CANCEL_SWIPE_PX = 90;
 const LOCK_SWIPE_PX = 70;
@@ -47,6 +47,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
   const [paused, setPaused] = React.useState(false);
   const [previewing, setPreviewing] = React.useState(false);
   const [drag, setDrag] = React.useState({ x: 0, y: 0 });
+  const [failed, setFailed] = React.useState<VoiceRecording | null>(null);
   const recorderRef = React.useRef<VoiceRecorder | null>(null);
   const modeRef = React.useRef<Mode>("idle");
   const originRef = React.useRef({ x: 0, y: 0 });
@@ -81,6 +82,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     setElapsed(0);
     setLevels([]);
     setDrag({ x: 0, y: 0 });
+    setFailed(null);
     setModeBoth("idle");
   }, [stopPreview]);
 
@@ -101,8 +103,20 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
       onError(i18n.t("voiceTooShort", { ns: "chat" }));
       return;
     }
-    await onSend(recording);
+    if (await onSend(recording)) return;
+    setFailed(recording);
+    setModeBoth("failed");
   }, [onError, onSend, reset, stopPreview]);
+
+  const retry = async () => {
+    if (!failed || modeRef.current !== "failed") return;
+    setModeBoth("retrying");
+    if (await onSend(failed)) {
+      reset();
+      return;
+    }
+    setModeBoth("failed");
+  };
 
   const onActiveChangeRef = React.useRef(onActiveChange);
   onActiveChangeRef.current = onActiveChange;
@@ -268,6 +282,38 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
 
   const active = mode !== "idle";
   const locked = mode === "locked";
+
+  if ((mode === "failed" || mode === "retrying") && failed) {
+    return (
+      <>
+        <div className="voice-rec-bar locked failed">
+          <button
+            type="button"
+            className="voice-rec-icon danger"
+            title={i18n.t("voiceDiscard", { ns: "chat" })}
+            aria-label={i18n.t("voiceDiscard", { ns: "chat" })}
+            disabled={mode === "retrying"}
+            onClick={cancel}
+          >
+            <Icon name="trash" size={16} />
+          </button>
+          <span className="voice-rec-dot paused" />
+          <span className="voice-rec-time">{formatVoiceDuration(failed.durationMs)}</span>
+          <span className="voice-rec-hint">{i18n.t("voiceNotSent", { ns: "chat" })}</span>
+        </div>
+        <button
+          type="button"
+          className="send-btn enabled voice-rec-send"
+          title={i18n.t("voiceRetry", { ns: "chat" })}
+          aria-label={i18n.t("voiceRetry", { ns: "chat" })}
+          disabled={mode === "retrying" || disabled}
+          onClick={() => void retry()}
+        >
+          <Icon name="refresh" size={14} />
+        </button>
+      </>
+    );
+  }
 
   return (
     <>

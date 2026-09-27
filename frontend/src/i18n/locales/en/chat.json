@@ -141,5 +141,8 @@
   "voiceSpeed": "Playback speed",
   "voiceUnlistened": "Not listened yet",
   "voiceListened": "Listened",
-  "voiceLimitReached": "Length limit reached"
+  "voiceLimitReached": "Length limit reached",
+  "voiceNotSent": "Not sent",
+  "voiceRetry": "Send again",
+  "voiceDiscard": "Discard recording"
 }
