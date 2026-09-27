@@ -60,3 +60,11 @@ pub struct MessageHiddenV1 {
     pub message_id: Uuid,
     pub hidden_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VoiceListenedV1 {
+    pub message_id: Uuid,
+    pub listener_id: Uuid,
+    pub listened_at: DateTime<Utc>,
+    pub recipients: Vec<Uuid>,
+}

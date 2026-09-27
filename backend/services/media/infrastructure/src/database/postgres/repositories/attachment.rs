@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use domain::{attachment::Attachment, user::id::UserId};
+use domain::{attachment::Attachment, attachment::VoiceMeta, user::id::UserId};
 use ports::repository::RepositoryError;
 use media_domain::attachment::repository::AttachmentRepository;
 use sqlx::{Pool, Postgres};
@@ -17,6 +17,7 @@ impl PostgresAttachmentRepository {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn row_to_attachment(
     id: Uuid,
     owner_id: Uuid,
@@ -25,6 +26,7 @@ fn row_to_attachment(
     size_bytes: i64,
     storage_key: String,
     created_at: chrono::DateTime<chrono::Utc>,
+    voice: Option<VoiceMeta>,
 ) -> Attachment {
     Attachment {
         id,
@@ -34,6 +36,7 @@ fn row_to_attachment(
         size_bytes,
         storage_key,
         created_at,
+        voice,
     }
 }
 
@@ -79,8 +82,9 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         sqlx::query!(
             r#"
             INSERT INTO attachments
-                (id, owner_id, file_name, content_type, size_bytes, storage_key, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (id, owner_id, file_name, content_type, size_bytes, storage_key, created_at,
+                 voice_duration_ms, voice_waveform)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             "#,
             a.id,
             a.owner_id,
@@ -89,6 +93,8 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             a.size_bytes,
             a.storage_key,
             a.created_at,
+            a.voice.as_ref().map(|v| v.duration_ms),
+            a.voice.as_ref().map(|v| v.waveform.as_slice()),
         )
         .execute(&mut *tx)
         .await
@@ -113,7 +119,8 @@ impl AttachmentRepository for PostgresAttachmentRepository {
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Attachment>, RepositoryError> {
         let row = sqlx::query!(
             r#"
-            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key, created_at
+            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key, created_at,
+                   voice_duration_ms, voice_waveform
             FROM attachments
             WHERE id = $1
             "#,
@@ -132,6 +139,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
                 r.size_bytes,
                 r.storage_key,
                 r.created_at,
+                VoiceMeta::from_columns(r.voice_duration_ms, r.voice_waveform),
             )
         }))
     }
@@ -143,7 +151,8 @@ impl AttachmentRepository for PostgresAttachmentRepository {
     ) -> Result<Option<Attachment>, RepositoryError> {
         let row = sqlx::query!(
             r#"
-            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key, created_at
+            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key, created_at,
+                   voice_duration_ms, voice_waveform
             FROM attachments
             WHERE id = $1 AND owner_id = $2
               AND claimed_at IS NULL AND deleting_at IS NULL
@@ -164,6 +173,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
                 r.size_bytes,
                 r.storage_key,
                 r.created_at,
+                VoiceMeta::from_columns(r.voice_duration_ms, r.voice_waveform),
             )
         }))
     }
@@ -180,7 +190,8 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             SET claimed_at = now(), claim_token = $3
             WHERE id = ANY($1) AND owner_id = $2
               AND claimed_at IS NULL AND deleting_at IS NULL
-            RETURNING id, owner_id, file_name, content_type, size_bytes, storage_key, created_at
+            RETURNING id, owner_id, file_name, content_type, size_bytes, storage_key, created_at,
+                      voice_duration_ms, voice_waveform
             "#,
             ids,
             owner_id.uuid(),
@@ -212,6 +223,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
                     r.size_bytes,
                     r.storage_key,
                     r.created_at,
+                    VoiceMeta::from_columns(r.voice_duration_ms, r.voice_waveform),
                 )
             })
             .collect();

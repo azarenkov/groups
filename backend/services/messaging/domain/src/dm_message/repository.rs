@@ -16,6 +16,7 @@ pub struct DmConversationPreview {
     pub call_status: Option<String>,
     pub invite_community_id: Option<Uuid>,
     pub has_attachments: bool,
+    pub voice_duration_ms: Option<i32>,
     pub created_at: DateTime<Utc>,
 }
 

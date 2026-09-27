@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::{attachment::Attachment, attachment::AttachmentLink};
+use domain::{attachment::Attachment, attachment::AttachmentLink, attachment::VoiceMeta};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -11,6 +11,8 @@ pub struct AttachmentResponse {
     pub content_type: String,
     pub size_bytes: i64,
     pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice: Option<VoiceMeta>,
 }
 
 impl From<Attachment> for AttachmentResponse {
@@ -21,6 +23,7 @@ impl From<Attachment> for AttachmentResponse {
             content_type: a.content_type,
             size_bytes: a.size_bytes,
             created_at: a.created_at,
+            voice: a.voice,
         }
     }
 }
@@ -33,6 +36,7 @@ impl From<AttachmentLink> for AttachmentResponse {
             content_type: a.content_type,
             size_bytes: a.size_bytes,
             created_at: a.created_at,
+            voice: a.voice,
         }
     }
 }

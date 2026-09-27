@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO voice_listens (message_id, user_id)\n            VALUES ($1, $2)\n            ON CONFLICT (message_id, user_id) DO NOTHING\n            RETURNING listened_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "listened_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "40c44a9fd5267bbd684a37ec189aabc0a841e9b0d659e73fcb4950e4c0cb1a45"
+}

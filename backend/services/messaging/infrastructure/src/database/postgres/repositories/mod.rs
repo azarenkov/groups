@@ -6,6 +6,7 @@ pub mod dm_unit_of_work;
 pub mod friendship;
 pub mod friendship_unit_of_work;
 pub mod hidden_message;
+pub mod voice_listen;
 pub mod invite_link;
 pub mod message;
 pub mod message_unit_of_work;

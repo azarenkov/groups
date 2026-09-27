@@ -10,6 +10,7 @@ pub struct ReplyPreviewView {
     pub author_name: String,
     pub content: String,
     pub has_attachments: bool,
+    pub voice_duration_ms: Option<i32>,
 }
 
 #[derive(Debug, Clone)]

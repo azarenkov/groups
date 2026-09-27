@@ -20,6 +20,7 @@ mod reports;
 mod roles;
 mod routes;
 mod server;
+mod voice;
 mod state;
 
 use std::error::Error;

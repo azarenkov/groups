@@ -145,6 +145,7 @@ use messaging::usecases::read_state::get_dm_read_receipt::GetDmReadReceiptError;
 use messaging::usecases::read_state::get_unread_counts::GetUnreadCountsError;
 use messaging::usecases::read_state::mark_channel_read::MarkChannelReadError;
 use messaging::usecases::hidden_message::hide_message::HideMessageError;
+use messaging::usecases::voice_listen::voice_listens::VoiceListenError;
 use messaging::usecases::channel::disconnect_voice_member::DisconnectVoiceMemberError;
 use messaging::usecases::read_state::mark_dm_read::MarkDmReadError;
 use messaging::usecases::community::accept_community_invite::AcceptCommunityInviteError;
@@ -1789,6 +1790,27 @@ impl HttpMapping for HideMessageError {
     fn to_error_code(&self) -> &'static str {
         match self {
             HideMessageError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl HttpMapping for VoiceListenError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            VoiceListenError::Repository(e) => e.to_http_status(),
+            VoiceListenError::NotVoice => StatusCode::BAD_REQUEST,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            VoiceListenError::Repository(e) => e.to_user_message(),
+            VoiceListenError::NotVoice => "This message is not a voice message.".to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            VoiceListenError::Repository(e) => e.to_error_code(),
+            VoiceListenError::NotVoice => "NOT_A_VOICE_MESSAGE",
         }
     }
 }

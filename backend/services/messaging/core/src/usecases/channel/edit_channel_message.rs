@@ -124,6 +124,9 @@ where
             .into_iter()
             .map(|(_, link)| link)
             .collect();
+        if current.iter().any(|a| a.voice.is_some()) {
+            return Err(EditChannelMessageError::InvalidAttachments);
+        }
         let current_ids: HashSet<Uuid> = current.iter().map(|a| a.id).collect();
         let remove_ids: HashSet<Uuid> = request.remove_attachment_ids.iter().copied().collect();
         if !remove_ids.iter().all(|id| current_ids.contains(id)) {
@@ -214,6 +217,20 @@ where
             .collect();
         final_attachments.extend(added_attachments.clone());
         final_attachments.sort_by_key(|a| a.created_at);
+        if !messaging_domain::message::voice::voice_message_is_valid(
+            message.content().as_str(),
+            &final_attachments,
+        ) {
+            if !added_attachments.is_empty()
+                && let Err(re) = self
+                    .attachment_claims
+                    .release(&request.add_attachment_ids, claim_token)
+                    .await
+            {
+                tracing::warn!(error = %re, "Failed to release attachments of an invalid voice message");
+            }
+            return Err(EditChannelMessageError::InvalidAttachments);
+        }
 
         let persisted = async {
             let snapshots: Vec<AttachmentSnapshot> = final_attachments.iter().map(AttachmentSnapshot::from).collect();

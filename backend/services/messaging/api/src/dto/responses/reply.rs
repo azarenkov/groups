@@ -12,6 +12,8 @@ pub struct ReplyPreviewResponse {
     pub author_name: Option<String>,
     pub content: String,
     pub has_attachments: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice_duration_ms: Option<i32>,
     pub deleted: bool,
 }
 
@@ -23,6 +25,7 @@ impl ReplyPreviewResponse {
             author_name: None,
             content: String::new(),
             has_attachments: false,
+            voice_duration_ms: None,
             deleted: true,
         }
     }
@@ -36,6 +39,7 @@ impl From<ReplyPreviewDto> for ReplyPreviewResponse {
             author_name: value.author_name,
             content: value.content,
             has_attachments: value.has_attachments,
+            voice_duration_ms: value.voice_duration_ms,
             deleted: false,
         }
     }
@@ -105,6 +109,7 @@ mod tests {
                 author_name: Some("Ann".into()),
                 content: "hi".into(),
                 has_attachments: false,
+                voice_duration_ms: None,
             }],
         );
         let first = items[0].reply.as_ref().unwrap();

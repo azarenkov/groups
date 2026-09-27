@@ -153,15 +153,19 @@ where
             if target.call_status.is_some() || target.invite_community_id.is_some() {
                 return Err(SendDmMessageError::InvalidReply);
             }
-            let has_attachments = !self
+            let reply_links: Vec<domain::attachment::AttachmentLink> = self
                 .dm_repository
                 .list_attachment_links_for_dm_messages(&[reply_id])
                 .await?
-                .is_empty();
+                .into_iter()
+                .map(|(_, link)| link)
+                .collect();
+            let has_attachments = !reply_links.is_empty();
             let hidden_for = self.dm_repository.list_users_hiding(reply_id).await?;
             reply_author_name = Some(target.sender_name.clone());
             message = message.with_reply(
                 ReplyPreview::new(reply_id, target.sender_id, &target.content, has_attachments)
+                    .with_voice(messaging_domain::message::voice::voice_duration_of(&reply_links))
                     .hidden_for(hidden_for),
             );
         }
@@ -192,6 +196,15 @@ where
                 }
             }
         };
+        if !messaging_domain::message::voice::voice_message_is_valid(message.content().as_str(), &attachments) {
+            if forward.is_none()
+                && !request.attachment_ids.is_empty()
+                && let Err(re) = self.attachment_claims.release(&request.attachment_ids, claim_token).await
+            {
+                tracing::warn!(error = %re, "Failed to release attachments of an invalid voice message");
+            }
+            return Err(SendDmMessageError::InvalidAttachments);
+        }
         let persisted = async {
             let snapshots: Vec<AttachmentSnapshot> = attachments.iter().map(AttachmentSnapshot::from).collect();
         let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_attachments(&snapshots))).collect();

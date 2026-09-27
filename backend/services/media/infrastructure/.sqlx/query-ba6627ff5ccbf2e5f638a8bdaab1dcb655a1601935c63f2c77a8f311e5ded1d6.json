@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key, created_at\n            FROM attachments\n            WHERE id = $1 AND owner_id = $2\n              AND claimed_at IS NULL AND deleting_at IS NULL\n            ",
+  "query": "\n            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key, created_at,\n                   voice_duration_ms, voice_waveform\n            FROM attachments\n            WHERE id = $1 AND owner_id = $2\n              AND claimed_at IS NULL AND deleting_at IS NULL\n            ",
   "describe": {
     "columns": [
       {
@@ -37,6 +37,16 @@
         "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "voice_duration_ms",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "voice_waveform",
+        "type_info": "Bytea"
       }
     ],
     "parameters": {
@@ -52,8 +62,10 @@
       false,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "3e30dae4da62687ef03c47d6921d6df23876bc1b69422057d1100a4ea94e2dff"
+  "hash": "ba6627ff5ccbf2e5f638a8bdaab1dcb655a1601935c63f2c77a8f311e5ded1d6"
 }

@@ -26,6 +26,10 @@ pub struct ClaimedAttachmentV1 {
     pub size_bytes: i64,
     pub storage_key: String,
     pub created_at: DateTime<Utc>,
+    #[serde(default)]
+    pub voice_duration_ms: Option<i32>,
+    #[serde(default)]
+    pub voice_waveform: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -42,6 +42,7 @@ use messaging::usecases::{
         mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
     hidden_message::hide_message::HideMessage,
+    voice_listen::voice_listens::VoiceListens,
     channel::disconnect_voice_member::DisconnectVoiceMember,
     community::{
         accept_community_invite::AcceptCommunityInvite, can_manage_community::CanManageCommunity,
@@ -70,6 +71,7 @@ use messaging_infrastructure::{
         notification_preference::PostgresNotificationPreferenceRepository,
         read_state::PostgresReadStateRepository,
         hidden_message::PostgresHiddenMessageRepository,
+        voice_listen::PostgresVoiceListenRepository,
         community::PostgresCommunityRepository,
         community_role::PostgresCommunityRoleRepository,
         channel_unit_of_work::PostgresChannelUnitOfWork,
@@ -189,6 +191,7 @@ pub struct AppState {
     pub unblock_user_usecase: UnblockUser<PostgresFriendshipUnitOfWork>,
     pub list_blocked_users_usecase: ListBlockedUsers<PostgresFriendshipRepository>,
     pub hide_message_usecase: HideMessage<PostgresHiddenMessageRepository>,
+    pub voice_listens_usecase: VoiceListens<PostgresVoiceListenRepository>,
     pub mark_channel_read_usecase:
         MarkChannelRead<PostgresReadStateRepository, PostgresChannelRepository>,
     pub mark_dm_read_usecase:

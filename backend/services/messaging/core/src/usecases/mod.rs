@@ -5,6 +5,7 @@ pub mod channel;
 pub mod dm;
 pub mod friendship;
 pub mod hidden_message;
+pub mod voice_listen;
 pub mod notification;
 pub mod privacy;
 pub mod read_state;
