@@ -39,6 +39,7 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
   const loadingRef = React.useRef<Promise<SinkAudio> | null>(null);
   const pendingSeekRef = React.useRef<number | null>(null);
   const reportedRef = React.useRef(listened);
+  const disposedRef = React.useRef(false);
   const [playing, setPlaying] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
@@ -82,14 +83,15 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
     if (currentId !== messageId && playing) audioRef.current?.pause();
   }, [currentId, messageId, playing]);
 
-  React.useEffect(
-    () => () => {
+  React.useEffect(() => {
+    disposedRef.current = false;
+    return () => {
+      disposedRef.current = true;
       audioRef.current?.pause();
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
       useVoicePlaybackStore.getState().release(messageId);
-    },
-    [messageId],
-  );
+    };
+  }, [messageId]);
 
   const ensureAudio = React.useCallback((): Promise<SinkAudio> => {
     if (audioRef.current) return Promise.resolve(audioRef.current);
@@ -98,6 +100,7 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
     const promise = attachmentAPI
       .download(attachment.id, attachment.sizeBytes)
       .then((blob) => {
+        if (disposedRef.current) throw new Error("disposed");
         const url = URL.createObjectURL(blob);
         urlRef.current = url;
         const audio: SinkAudio = new Audio(url);

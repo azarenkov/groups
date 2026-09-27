@@ -33,6 +33,20 @@ impl VoiceListenRepository for PostgresVoiceListenRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
+        let exists: bool = sqlx::query_scalar(
+            r#"
+            SELECT EXISTS (SELECT 1 FROM (SELECT id FROM messages WHERE id = $1 FOR KEY SHARE) m)
+                OR EXISTS (SELECT 1 FROM (SELECT id FROM dm_messages WHERE id = $1 FOR KEY SHARE) d)
+            "#,
+        )
+        .bind(message_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !exists {
+            return Ok(());
+        }
+
         let listened_at = sqlx::query_scalar!(
             r#"
             INSERT INTO voice_listens (message_id, user_id)
