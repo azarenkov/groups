@@ -9,6 +9,7 @@ import type { SidebarVoiceMember } from "./types";
 import { moderatorDeafened, type SidebarPermissions } from "./permissions";
 import { moderateDeafen, moderateMute } from "./moderation";
 import { useSpeakingStore } from "../../../voice/store/speakingStore";
+import { useProfileModalStore } from "../../../social/store/profileModalStore";
 
 interface ChannelRowProps {
   community: Community;
@@ -106,43 +107,62 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
           return (
             <div className="sb-voice-members">
               {membersForChannel.map((m) => (
-                <div key={m.id} className="sb-voice-member">
-                  <UserAvatar
-                    userId={m.id}
-                    name={m.name}
-                    className={
-                      "sb-voice-member-ava" + (speakingIds.has(m.id) ? " speaking" : "")
-                    }
-                    style={{ background: m.color, display: "inline-flex" }}
-                  />
-                  <span className="sb-voice-member-title">
-                    <span className="sb-voice-member-name">{m.name}</span>
-                    <UserBadge
+                <div
+                  key={m.id}
+                  className="sb-voice-member"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    useProfileModalStore.getState().open(m.id);
+                  }}
+                >
+                  <div
+                    className="sb-voice-member-profile"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter" && e.key !== " ") return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      useProfileModalStore.getState().open(m.id);
+                    }}
+                  >
+                    <UserAvatar
                       userId={m.id}
-                      size="sm"
-                      className="sb-voice-member-pro"
+                      name={m.name}
+                      className={
+                        "sb-voice-member-ava" + (speakingIds.has(m.id) ? " speaking" : "")
+                      }
+                      style={{ background: m.color, display: "inline-flex" }}
                     />
-                  </span>
-                  {m.isCameraOn && (
-                    <span className="sb-voice-member-badge" title="Camera on">
-                      <Icon name="camera" size={11} />
+                    <span className="sb-voice-member-title">
+                      <span className="sb-voice-member-name">{m.name}</span>
+                      <UserBadge
+                        userId={m.id}
+                        size="sm"
+                        className="sb-voice-member-pro"
+                      />
                     </span>
-                  )}
-                  {m.isSharingScreen && (
-                    <span className="sb-voice-member-badge" title="Sharing screen">
-                      <Icon name="monitor" size={11} />
-                    </span>
-                  )}
-                  {m.isMuted && (
-                    <span className="sb-voice-member-badge muted" title="Muted">
-                      <Icon name="mic-off" size={11} />
-                    </span>
-                  )}
-                  {m.isDeafened && (
-                    <span className="sb-voice-member-badge muted" title="Deafened">
-                      <Icon name="headphones-off" size={11} />
-                    </span>
-                  )}
+                    {m.isCameraOn && (
+                      <span className="sb-voice-member-badge" title="Camera on">
+                        <Icon name="camera" size={11} />
+                      </span>
+                    )}
+                    {m.isSharingScreen && (
+                      <span className="sb-voice-member-badge" title="Sharing screen">
+                        <Icon name="monitor" size={11} />
+                      </span>
+                    )}
+                    {m.isMuted && (
+                      <span className="sb-voice-member-badge muted" title="Muted">
+                        <Icon name="mic-off" size={11} />
+                      </span>
+                    )}
+                    {m.isDeafened && (
+                      <span className="sb-voice-member-badge muted" title="Deafened">
+                        <Icon name="headphones-off" size={11} />
+                      </span>
+                    )}
+                  </div>
                   {m.id !== currentUserId &&
                     perms.canMuteIn(community) &&
                     perms.outranksIn(community, m.id) && (

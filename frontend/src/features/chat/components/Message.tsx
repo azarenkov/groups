@@ -1,4 +1,5 @@
 import React from "react";
+import { Trans } from "react-i18next";
 
 import i18n from "../../../i18n";
 import type { ChannelMessage } from "../../../shared/types/channel";
@@ -7,6 +8,7 @@ import { extractLinks } from "../../../shared/lib/links";
 import { formatCallDuration, formatFileSize } from "../lib/messageFormat";
 import { copyTextToClipboard } from "../../../shared/lib/clipboard";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
+import ProfileLink from "../../social/components/ProfileLink";
 import { rememberMentionTarget } from "../lib/mentionTargets";
 import { UserAvatar, CommunityLogo } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
@@ -125,10 +127,13 @@ export const Message: React.FC<MessageProps> = ({
           <Icon name={joined ? "user-plus" : "logout"} size={13} />
         </span>
         <span className="msg-system-text">
-          {i18n.t(joined ? "system.memberJoined" : "system.memberLeft", {
-            ns: "chat",
-            name: displayName,
-          })}
+          <Trans
+            i18n={i18n}
+            ns="chat"
+            i18nKey={joined ? "system.memberJoined" : "system.memberLeft"}
+            values={{ name: displayName }}
+            components={[<ProfileLink key="n" userId={msg.system.userId} />]}
+          />
         </span>
         <time>{time}</time>
       </div>
@@ -156,7 +161,9 @@ export const Message: React.FC<MessageProps> = ({
       <div className="body">
         {!continued && (
           <div className="head">
-            <b>{displayName}</b>
+            <ProfileLink userId={msg.authorId}>
+              <b>{displayName}</b>
+            </ProfileLink>
             <time>{time}</time>
           </div>
         )}
@@ -348,11 +355,13 @@ export const Message: React.FC<MessageProps> = ({
         ) : (
           <div className="txt">
             {!dmStyle && !isMine && !continued && (
-              <div
-                className="msg-author"
-                style={{ color: colorForId(msg.authorId) }}
-              >
-                {displayName}
+              <div className="msg-author">
+                <ProfileLink
+                  userId={msg.authorId}
+                  style={{ color: colorForId(msg.authorId) }}
+                >
+                  {displayName}
+                </ProfileLink>
               </div>
             )}
             {renderWithLinks(msg.content)}
