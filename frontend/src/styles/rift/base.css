@@ -2225,3 +2225,4 @@ body:has(.panel-resizer.dragging) { cursor: col-resize; }
 .ctx-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctx-sep { height: 1px; margin: 4px 6px; background: var(--hairline); }
 .ctx-custom { padding: 6px 10px; }
+.ctx-custom:has(> .ctx-item) { padding: 0; }

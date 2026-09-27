@@ -37,6 +37,7 @@ import type { PendingFile } from "../types";
 import { MAX_CONTENT } from "../constants";
 
 export interface MessageProps {
+  tabbable?: boolean;
   blockedAuthor?: boolean;
   blockedReplyAuthor?: boolean;
   msg: ChannelMessage;
@@ -71,6 +72,7 @@ export interface MessageProps {
 }
 
 export const Message: React.FC<MessageProps> = ({
+  tabbable,
   blockedAuthor,
   blockedReplyAuthor,
   msg,
@@ -111,7 +113,25 @@ export const Message: React.FC<MessageProps> = ({
   useAutoGrow(editRef, editing ? editText : "");
   const [revealed, setRevealed] = React.useState(false);
   const [quoteRevealed, setQuoteRevealed] = React.useState(false);
+  const focusOnRevealRef = React.useRef(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
+  const wasEditingRef = React.useRef(editing);
+  React.useEffect(() => {
+    const wasEditing = wasEditingRef.current;
+    wasEditingRef.current = editing;
+    if (!wasEditing || editing) return;
+    const active = document.activeElement;
+    const row = rootRef.current;
+    if (!row) return;
+    if (active && active !== document.body && !row.contains(active)) return;
+    row.focus({ preventScroll: true });
+  }, [editing]);
+
+  React.useEffect(() => {
+    if (!revealed || !focusOnRevealRef.current) return;
+    focusOnRevealRef.current = false;
+    rootRef.current?.focus();
+  }, [revealed]);
   const menuEntries = (): MenuEntry[] => {
     const selection = selectionInside(rootRef.current);
     const actions = messageActions({
@@ -192,9 +212,7 @@ export const Message: React.FC<MessageProps> = ({
       ...pick("delete"),
     ];
   };
-  const longPress = useLongPress((point) => {
-    if (!editing) openContextMenu(point, menuEntries());
-  });
+  const longPress = useLongPress((point) => !editing && openContextMenu(point, menuEntries()));
   const canSwipe = !!onReply && !editing && !msg.system && !msg.callStatus && !msg.inviteCommunityId;
   const [swipeOffset, setSwipeOffset] = React.useState(0);
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
@@ -212,12 +230,12 @@ export const Message: React.FC<MessageProps> = ({
   };
   const swipeHandlers = {
     onTouchStart: (e: React.TouchEvent) => {
-      longPress.onTouchStart(e);
+      if (!editing) longPress.onTouchStart(e);
       if (!canSwipe || e.touches.length !== 1) return;
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     },
     onTouchMove: (e: React.TouchEvent) => {
-      longPress.onTouchMove(e);
+      if (!editing) longPress.onTouchMove(e);
       const start = touchStartRef.current;
       if (!start) return;
       const offset = touchSwipeOffset(
@@ -231,16 +249,19 @@ export const Message: React.FC<MessageProps> = ({
       }
       setSwipeOffset(offset);
     },
-    onTouchEnd: () => {
-      longPress.onTouchEnd();
+    onTouchEnd: (e: React.TouchEvent) => {
+      if (!editing) longPress.onTouchEnd(e);
       if (touchStartRef.current && swipeOffset >= SWIPE_TRIGGER_PX) onReply?.();
       touchStartRef.current = null;
       setSwipeOffset(0);
     },
     onTouchCancel: () => {
-      longPress.onTouchCancel();
+      if (!editing) longPress.onTouchCancel();
       touchStartRef.current = null;
       setSwipeOffset(0);
+    },
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!editing) longPress.onClickCapture(e);
     },
     onWheel: (e: React.WheelEvent) => {
       if (!canSwipe || selectingText()) return;
@@ -265,7 +286,14 @@ export const Message: React.FC<MessageProps> = ({
           <Icon name="shield" size={13} />
         </span>
         <span className="msg-system-text">{i18n.t("blockedMessage", { ns: "chat" })}</span>
-        <button type="button" className="link-btn" onClick={() => setRevealed(true)}>
+        <button
+          type="button"
+          className="link-btn"
+          onClick={() => {
+            focusOnRevealRef.current = true;
+            setRevealed(true);
+          }}
+        >
           {i18n.t("showBlockedMessage", { ns: "chat" })}
         </button>
       </div>
@@ -295,7 +323,7 @@ export const Message: React.FC<MessageProps> = ({
     <div
       ref={rootRef}
       data-msg-id={msg.id}
-      tabIndex={-1}
+      tabIndex={tabbable || (blockedAuthor && revealed) ? 0 : -1}
       onContextMenu={(e) => {
         if (editing) return;
         openContextMenu(e, menuEntries());
@@ -305,6 +333,17 @@ export const Message: React.FC<MessageProps> = ({
         if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
           e.preventDefault();
           openContextMenuAt(e.currentTarget, menuEntries());
+          return;
+        }
+        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          const rows = Array.from(
+            e.currentTarget.parentElement?.closest(".chat-body")?.querySelectorAll<HTMLElement>(".msg.bubble[tabindex]") ?? [],
+          );
+          const next = rows[rows.indexOf(e.currentTarget) + (e.key === "ArrowUp" ? -1 : 1)];
+          if (!next) return;
+          e.preventDefault();
+          next.focus();
+          next.scrollIntoView({ block: "nearest" });
         }
       }}
       {...swipeHandlers}

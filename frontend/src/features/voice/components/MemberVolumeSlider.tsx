@@ -14,12 +14,19 @@ const MemberVolumeSlider: React.FC<{ userId: string; label: string }> = ({ userI
     Math.min(max, Math.round(service.getRemoteVolume(userId) * 100)),
   );
 
+  React.useEffect(() => {
+    const stored = Math.round(getLiveKitService().getRemoteVolume(userId) * 100);
+    const allowed = Math.min(stored, max);
+    if (allowed !== stored) getLiveKitService().setRemoteVolume(userId, allowed / 100);
+    setVol(allowed);
+  }, [userId, max]);
+
   React.useEffect(
     () =>
       getLiveKitService().subscribeRemoteVolume((who, volume) => {
-        if (who === userId) setVol(Math.round(volume * 100));
+        if (who === userId) setVol(Math.min(max, Math.round(volume * 100)));
       }),
-    [userId],
+    [userId, max],
   );
 
   return (

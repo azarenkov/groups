@@ -51,6 +51,13 @@ describe("messageActions", () => {
     expect(messageActions(ctx({ isMine: true, msg: forwarded }))).not.toContain("edit");
   });
 
+  it("lets the sender delete their own invite card", () => {
+    expect(messageActions(ctx({ isMine: true, msg: msg({ inviteCommunityId: "s", content: "" }) }))).toEqual([
+      "link",
+      "delete",
+    ]);
+  });
+
   it("offers copy of a selection even on an empty message", () => {
     expect(messageActions(ctx({ hasSelection: true, msg: msg({ content: "" }) }))).toEqual(["reply", "forward", "copy", "link", "delete", "report"]);
   });

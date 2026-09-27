@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import ContextMenuHost from "../ContextMenuHost";
-import { openContextMenu, useContextMenuStore } from "../contextMenuStore";
+import { openContextMenu, openContextMenuAt, useContextMenuStore } from "../contextMenuStore";
 
 const openWith = (onCopy: jest.Mock, onDelete: jest.Mock) =>
   act(() => {
@@ -43,5 +43,69 @@ describe("ContextMenuHost", () => {
     openWith(jest.fn(), jest.fn());
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("lets Tab reach custom controls such as a volume slider", () => {
+    render(<ContextMenuHost />);
+    act(() => {
+      openContextMenu({ clientX: 10, clientY: 10 }, [
+        { kind: "item", id: "profile", label: "Profile", onSelect: jest.fn() },
+        { kind: "custom", id: "volume", render: () => <input type="range" aria-label="Volume" /> },
+      ]);
+    });
+    const profile = screen.getByRole("menuitem", { name: "Profile" });
+    expect(profile).toHaveFocus();
+    fireEvent.keyDown(profile, { key: "Tab" });
+    expect(screen.getByLabelText("Volume")).toHaveFocus();
+  });
+
+  it("returns focus to the row that opened the menu from the keyboard", () => {
+    render(
+      <>
+        <div tabIndex={0} data-testid="row">
+          row
+        </div>
+        <ContextMenuHost />
+      </>,
+    );
+    const row = screen.getByTestId("row");
+    row.focus();
+    act(() => {
+      openContextMenuAt(row, [{ kind: "item", id: "copy", label: "Copy", onSelect: jest.fn() }]);
+    });
+    expect(screen.getByRole("menuitem", { name: "Copy" })).toHaveFocus();
+    act(() => {
+      fireEvent.keyDown(document, { key: "Escape" });
+    });
+    expect(row).toHaveFocus();
+  });
+
+  it("drops an open menu when the host unmounts", () => {
+    const { unmount } = render(<ContextMenuHost />);
+    openWith(jest.fn(), jest.fn());
+    unmount();
+    expect(useContextMenuStore.getState().menu).toBeNull();
+  });
+
+  it("moves with the arrows from a custom menu item", () => {
+    render(<ContextMenuHost />);
+    act(() => {
+      openContextMenu({ clientX: 10, clientY: 10 }, [
+        {
+          kind: "custom",
+          id: "mute",
+          render: () => (
+            <button type="button" role="menuitem">
+              Mute for me
+            </button>
+          ),
+        },
+        { kind: "item", id: "profile", label: "Profile", onSelect: jest.fn() },
+      ]);
+    });
+    const mute = screen.getByRole("menuitem", { name: "Mute for me" });
+    expect(mute).toHaveFocus();
+    fireEvent.keyDown(mute, { key: "ArrowDown" });
+    expect(screen.getByRole("menuitem", { name: "Profile" })).toHaveFocus();
   });
 });

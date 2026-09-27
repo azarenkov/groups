@@ -17,6 +17,8 @@ import {
 } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import MemberVolumeSlider from "../../../voice/components/MemberVolumeSlider";
+import { useLongPress } from "../../../../shared/ui/contextMenu/useLongPress";
+import MuteForMeItem from "../../../voice/components/MuteForMeItem";
 import { getLiveKitService } from "../../../voice/lib/livekit";
 import { useVoiceSessionStore } from "../../../voice/store/voiceSessionStore";
 import VoiceSessionTimer from "../../../voice/components/VoiceSessionTimer";
@@ -53,12 +55,16 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
   const sessionStartedAt = useVoiceSessionStore((st) =>
     channel.kind === "voice" ? st.startedAt[channel.id] : undefined,
   );
+  const shownMembersRef = React.useRef(new Map<string, SidebarVoiceMember>());
+  const memberLongPress = useLongPress((point, el) => {
+    const member = el.dataset.memberId ? shownMembersRef.current.get(el.dataset.memberId) : undefined;
+    return !!member && openContextMenu(point, memberMenu(member));
+  });
   const memberMenu = (m: SidebarVoiceMember): MenuEntry[] => {
     const self = m.id === currentUserId;
     const openDm = useDmOpenerStore.getState().open;
     const inMyCall =
       !self && getLiveKitService().getParticipants().some((p) => p.identity === m.id);
-    const localVolume = inMyCall ? getLiveKitService().getRemoteVolume(m.id) : 1;
     const entries: MenuEntry[] = [
       {
         kind: "item",
@@ -86,11 +92,11 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
           render: () => <MemberVolumeSlider userId={m.id} label={t("memberVolume")} />,
         },
         {
-          kind: "item",
+          kind: "custom",
           id: "mute-for-me",
-          label: localVolume === 0 ? t("unmuteForMe") : t("muteForMe"),
-          icon: localVolume === 0 ? "volume" : "speaker-off",
-          onSelect: () => getLiveKitService().setRemoteVolume(m.id, localVolume === 0 ? 1 : 0),
+          render: () => (
+            <MuteForMeItem userId={m.id} muteLabel={t("muteForMe")} unmuteLabel={t("unmuteForMe")} />
+          ),
         },
       );
     }
@@ -209,6 +215,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
             membersForChannel = Array.from(merged.values());
           }
           if (membersForChannel.length === 0) return null;
+          shownMembersRef.current = new Map(membersForChannel.map((m) => [m.id, m]));
           return (
             <div className="sb-voice-members">
               {membersForChannel.map((m) => (
@@ -217,6 +224,8 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                   className="sb-voice-member"
                   role="button"
                   tabIndex={0}
+                  data-member-id={m.id}
+                  {...memberLongPress}
                   onClick={(e) => {
                     e.stopPropagation();
                     useProfileModalStore.getState().open(m.id);

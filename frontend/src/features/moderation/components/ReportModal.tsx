@@ -2,6 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 
 import Icon from "../../../shared/ui/Icon";
+import { useDialogFocus } from "../../../shared/hooks/useDialogFocus";
 import { ApiError } from "../../../shared/lib/apiError";
 import { reportAPI } from "../api/report";
 import {
@@ -47,6 +48,11 @@ const ReportModal: React.FC = () => {
     },
     [],
   );
+
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const isOpen = !!target;
+
+  useDialogFocus(dialogRef, isOpen, opening);
 
   React.useEffect(() => {
     if (!target) return;
@@ -111,6 +117,7 @@ const ReportModal: React.FC = () => {
   return (
     <div className="modal-overlay" onMouseDown={close}>
       <div
+        ref={dialogRef}
         className="modal report-modal"
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"

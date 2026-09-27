@@ -14,6 +14,7 @@ import {
   openContextMenuAt,
 } from "../../../shared/ui/contextMenu/contextMenuStore";
 import type { MenuEntry } from "../../../shared/ui/contextMenu/contextMenuStore";
+import { useLongPress } from "../../../shared/ui/contextMenu/useLongPress";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import i18n from "../../../i18n";
 import "../../../styles/home.css";
@@ -76,6 +77,10 @@ const HomeView: React.FC<HomeViewProps> = ({
       onSelect: () => useProfileModalStore.getState().open(friendId),
     },
   ];
+  const friendLongPress = useLongPress((point, el) => {
+    const friendId = el.dataset.friendId;
+    return !!friendId && openContextMenu(point, friendMenu(friendId));
+  });
   const now = useNow(30_000);
   const activities = useActivityStore((s) => s.byUser);
   const friendStatuses = useFriendshipStore((s) => s.statusById);
@@ -162,6 +167,8 @@ const HomeView: React.FC<HomeViewProps> = ({
                       className="home-online-row clickable"
                       role="button"
                       tabIndex={0}
+                      data-friend-id={f.friendId}
+                      {...friendLongPress}
                       onClick={() => onOpenDm(f.friendId)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
