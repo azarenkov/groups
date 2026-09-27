@@ -594,7 +594,10 @@ const CommunitiesPage: React.FC = () => {
           onSelectChannel={handleSelectChannel}
           onSelectDm={handleSelectDm}
           onInviteCommunity={(community) => setInviteModalCommunity(community)}
-          onOpenCommunitySettings={(community) => setCommunitySettings(community)}
+          onOpenCommunitySettings={(community) => {
+            if (!channelsByCommunity[community.id]) void fetchChannels(community.id);
+            setCommunitySettings(community);
+          }}
           onLeaveCommunity={(community) =>
             setDeleteConfirm({
               type: community.ownerId === user?.id ? "community" : "leave-community",

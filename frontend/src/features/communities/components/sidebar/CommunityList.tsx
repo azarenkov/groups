@@ -13,6 +13,7 @@ import {
 } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import { useLongPress } from "../../../../shared/ui/contextMenu/useLongPress";
+import { useRolesStore } from "../../store/rolesStore";
 
 interface CommunityListProps {
   communities: Community[];
@@ -50,6 +51,14 @@ const CommunityList: React.FC<CommunityListProps> = ({
   onLeaveCommunity,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
+  React.useEffect(() => {
+    const roles = useRolesStore.getState();
+    for (const community of communities) {
+      if (!currentUserId || community.ownerId === currentUserId) continue;
+      if (roles.byCommunity[community.id] || roles.isTracked(community.id)) continue;
+      void roles.fetch(community.id).catch(() => {});
+    }
+  }, [communities, currentUserId]);
   const communityMenu = (community: Community): MenuEntry[] => {
     const owner = !!currentUserId && community.ownerId === currentUserId;
     return [
