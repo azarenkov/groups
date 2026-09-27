@@ -350,6 +350,10 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
           onPointerCancel={() => {
             if (modeRef.current === "holding" || modeRef.current === "starting") cancel();
           }}
+          onClick={(e) => {
+            if (e.detail !== 0 || disabled || modeRef.current !== "idle") return;
+            void begin(true);
+          }}
           onContextMenu={(e) => e.preventDefault()}
         >
           <Icon name="mic" size={16} />
