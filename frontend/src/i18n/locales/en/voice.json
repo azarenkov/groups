@@ -53,5 +53,6 @@
   "deafened": "Deafened",
   "deafenMember": "Deafen member",
   "undeafenMember": "Undeafen member",
-  "deafenedByModerator": "Deafened by a moderator"
+  "deafenedByModerator": "Deafened by a moderator",
+  "exitFullscreen": "Exit fullscreen"
 }
