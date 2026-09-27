@@ -82,6 +82,35 @@ pub enum VoiceSettingsError {
     InvalidPttKey,
     #[error("Invalid stream quality")]
     InvalidStreamQuality,
+    #[error("Invalid screen content")]
+    InvalidScreenContent,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ScreenContent {
+    #[default]
+    Auto,
+    Text,
+    Motion,
+}
+
+impl ScreenContent {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "auto" => Some(Self::Auto),
+            "text" => Some(Self::Text),
+            "motion" => Some(Self::Motion),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Text => "text",
+            Self::Motion => "motion",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -94,6 +123,7 @@ pub struct VoiceSettingsPatch {
     pub push_to_talk: Option<bool>,
     pub ptt_key: Option<String>,
     pub stream_quality: Option<String>,
+    pub screen_content: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -155,6 +185,7 @@ pub struct VoiceSettings {
     push_to_talk: bool,
     ptt_key: PttKey,
     stream_quality: StreamQuality,
+    screen_content: Option<ScreenContent>,
 }
 
 impl Default for VoiceSettings {
@@ -168,6 +199,7 @@ impl Default for VoiceSettings {
             push_to_talk: false,
             ptt_key: PttKey::default(),
             stream_quality: StreamQuality::default(),
+            screen_content: None,
         }
     }
 }
@@ -187,9 +219,11 @@ impl VoiceSettings {
         push_to_talk: bool,
         ptt_key: String,
         stream_quality: &str,
+        screen_content: Option<&str>,
     ) -> Self {
         Self {
             stream_quality: StreamQuality::parse(stream_quality).unwrap_or_default(),
+            screen_content: screen_content.and_then(ScreenContent::parse),
             mic_volume,
             output_volume,
             noise_mode: NoiseMode::parse(noise_mode).unwrap_or_default(),
@@ -236,6 +270,10 @@ impl VoiceSettings {
             next.stream_quality =
                 StreamQuality::parse(quality).ok_or(VoiceSettingsError::InvalidStreamQuality)?;
         }
+        if let Some(content) = patch.screen_content.as_deref() {
+            next.screen_content =
+                Some(ScreenContent::parse(content).ok_or(VoiceSettingsError::InvalidScreenContent)?);
+        }
         Ok(next)
     }
 
@@ -253,6 +291,10 @@ impl VoiceSettings {
 
     pub fn stream_quality(&self) -> StreamQuality {
         self.stream_quality
+    }
+
+    pub fn screen_content(&self) -> Option<ScreenContent> {
+        self.screen_content
     }
 
     pub fn allowed_for(&self, tier: Tier) -> bool {
