@@ -17,4 +17,17 @@ describe("ProBadge", () => {
     expect(screen.getByText("PREMIUM")).toBeInTheDocument();
     expect(document.querySelector(".pro-badge-count")).toBeNull();
   });
+
+  it("shows just the number for the number-only style", () => {
+    render(<ProBadge tier="pro" badgeStyle="number_only" memberNumber={42} />);
+    expect(screen.getByText("#42")).toBeInTheDocument();
+    expect(screen.queryByText("PRO")).toBeNull();
+    expect(screen.getByTitle("Rift Pro #42")).toBeInTheDocument();
+  });
+
+  it("falls back to a regular badge when the number is not known yet", () => {
+    render(<ProBadge tier="pro" badgeStyle="number_only" memberNumber={null} />);
+    expect(screen.getByText("PRO")).toBeInTheDocument();
+    expect(document.querySelector(".pro-badge-tint")).not.toBeNull();
+  });
 });
