@@ -1,5 +1,7 @@
 import React from "react";
 
+import { IDLE_WHEEL_GESTURE, nextWheelGesture } from "../lib/scrollRules";
+
 export const PULL_THRESHOLD = 64;
 export const PULL_MAX = 96;
 
@@ -14,6 +16,7 @@ export function usePullToRefresh(params: {
   const [refreshing, setRefreshing] = React.useState(false);
   const pullStartYRef = React.useRef<number | null>(null);
   const wheelPullRef = React.useRef(0);
+  const wheelGestureRef = React.useRef(IDLE_WHEEL_GESTURE);
   const wheelResetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -28,6 +31,7 @@ export function usePullToRefresh(params: {
     setPullDistance(0);
     pullStartYRef.current = null;
     wheelPullRef.current = 0;
+    wheelGestureRef.current = IDLE_WHEEL_GESTURE;
   }, [convId]);
 
   const triggerPullRefresh = React.useCallback(async () => {
@@ -84,8 +88,11 @@ export function usePullToRefresh(params: {
   const onPullWheel = (e: React.WheelEvent) => {
     if (refreshingRef.current) return;
     const b = bodyRef.current;
-    if (!b || !atBottom(b) || e.deltaY <= 0) {
-      if (wheelPullRef.current !== 0 && b && !atBottom(b)) {
+    if (!b) return;
+    const gesture = nextWheelGesture(wheelGestureRef.current, e.timeStamp, atBottom(b));
+    wheelGestureRef.current = gesture;
+    if (!gesture.armed || e.deltaY <= 0) {
+      if (!gesture.armed && wheelPullRef.current !== 0) {
         wheelPullRef.current = 0;
         setPullDistance(0);
       }

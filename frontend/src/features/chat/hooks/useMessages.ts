@@ -4,6 +4,7 @@ import { ApiError } from "../../../shared/lib/apiError";
 import type { ChannelMessage } from "../../../shared/types/channel";
 import { PAGE_LIMIT } from "../constants";
 import { mergeWithLive } from "../lib/messageFormat";
+import { appendedOwnMessage, shouldStickToBottom } from "../lib/scrollRules";
 import type { Messenger } from "./useMessenger";
 
 const JUMP_CONTEXT = 25;
@@ -15,6 +16,7 @@ export function useMessages(params: {
   isDm: boolean;
   nameSyncTick: number;
   reseedChannelReads: () => void;
+  currentUserId?: string | null;
 }) {
   const {
     messenger,
@@ -23,6 +25,7 @@ export function useMessages(params: {
     isDm,
     nameSyncTick,
     reseedChannelReads,
+    currentUserId,
   } = params;
 
   const [messages, setMessages] = React.useState<ChannelMessage[]>([]);
@@ -42,7 +45,13 @@ export function useMessages(params: {
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const loadingOlderRef = React.useRef(false);
   const skipNextAutoScrollRef = React.useRef(false);
-  const lastScrollHeightRef = React.useRef(0);
+  const restoreScrollRef = React.useRef<{ anchorId: string; offset: number } | null>(
+    null,
+  );
+  const tailIdRef = React.useRef<string | null>(null);
+  const nearBottomRef = React.useRef(true);
+  const currentUserIdRef = React.useRef(currentUserId);
+  currentUserIdRef.current = currentUserId;
   const loadedChannelIdRef = React.useRef<string | null>(null);
   const currentChannelIdRef = React.useRef<string | undefined>();
   const convIdRef = React.useRef(convId);
@@ -58,6 +67,10 @@ export function useMessages(params: {
     setMessages([]);
     setHasMore(false);
     setAccessError(null);
+    nearBottomRef.current = true;
+    restoreScrollRef.current = null;
+    tailIdRef.current = null;
+    if (bodyRef.current) bodyRef.current.style.overflowAnchor = "";
     const messengerNow = messengerRef.current;
     if (!messengerNow || !convId) return;
 
@@ -142,13 +155,30 @@ export function useMessages(params: {
     };
   }, [nameSyncTick]);
 
-  React.useEffect(() => {
-    if (!bodyRef.current) return;
+  React.useLayoutEffect(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const previousTailId = tailIdRef.current;
+    tailIdRef.current = messagesRef.current[messagesRef.current.length - 1]?.id ?? null;
+    const restore = restoreScrollRef.current;
+    if (restore) {
+      restoreScrollRef.current = null;
+      const anchor = body.querySelector<HTMLElement>(`[data-msg-id="${restore.anchorId}"]`);
+      if (anchor) {
+        body.scrollTop +=
+          anchor.getBoundingClientRect().top - body.getBoundingClientRect().top - restore.offset;
+      }
+      body.style.overflowAnchor = "";
+      return;
+    }
     if (skipNextAutoScrollRef.current) {
       skipNextAutoScrollRef.current = false;
       return;
     }
-    bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    const own = appendedOwnMessage(previousTailId, messagesRef.current, currentUserIdRef.current);
+    if (!nearBottomRef.current && !own) return;
+    body.scrollTop = body.scrollHeight;
+    nearBottomRef.current = true;
   }, [messages.length, loadingInitial]);
 
   const loadOlder = React.useCallback(async () => {
@@ -161,12 +191,6 @@ export function useMessages(params: {
     const targetId = convId;
     loadingOlderRef.current = true;
     setLoadingOlder(true);
-    const body = bodyRef.current;
-    let prevScrollTop = 0;
-    if (body) {
-      lastScrollHeightRef.current = body.scrollHeight;
-      prevScrollTop = body.scrollTop;
-    }
     try {
       const res = await messengerNow.listMessages({
         before: oldestId,
@@ -177,15 +201,19 @@ export function useMessages(params: {
       if (older.length === 0) {
         setHasMore(false);
       } else {
-        skipNextAutoScrollRef.current = true;
+        const body = bodyRef.current;
+        const anchor = body?.querySelector<HTMLElement>(`[data-msg-id="${oldestId}"]`);
+        if (body && anchor) {
+          body.style.overflowAnchor = "none";
+          restoreScrollRef.current = {
+            anchorId: oldestId,
+            offset: anchor.getBoundingClientRect().top - body.getBoundingClientRect().top,
+          };
+        } else {
+          restoreScrollRef.current = null;
+        }
         setMessages((prev) => [...older, ...prev]);
         setHasMore(res.messages.length >= PAGE_LIMIT);
-        requestAnimationFrame(() => {
-          const b = bodyRef.current;
-          if (!b) return;
-          const delta = b.scrollHeight - lastScrollHeightRef.current;
-          b.scrollTop = prevScrollTop + delta;
-        });
       }
     } catch (err) {
       console.warn("[ChatView] failed to load older messages:", err);
@@ -198,6 +226,10 @@ export function useMessages(params: {
   const handleScroll = React.useCallback(() => {
     const b = bodyRef.current;
     if (!b) return;
+    nearBottomRef.current = shouldStickToBottom(
+      b.scrollHeight - b.scrollTop - b.clientHeight,
+      false,
+    );
     if (b.scrollTop < 80) void loadOlder();
   }, [loadOlder]);
 
