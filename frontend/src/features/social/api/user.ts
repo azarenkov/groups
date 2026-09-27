@@ -42,6 +42,7 @@ export interface VoiceSettings {
   pushToTalk: boolean;
   pttKey: string;
   streamQuality?: string;
+  screenContent?: string;
 }
 
 export interface NotificationSettings {

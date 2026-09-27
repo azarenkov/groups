@@ -30,12 +30,12 @@ export interface VoiceSyncedSettings {
   pushToTalk: boolean;
   pttKey: string;
   streamQuality: StreamQualityId;
+  screenContent: ScreenContent;
 }
 
 interface VoiceSettingsState extends VoiceSyncedSettings {
   micDeviceId: string;
   speakerDeviceId: string;
-  screenContent: ScreenContent;
   ownerId: string | null;
   update: (patch: Partial<VoiceSyncedSettings>) => void;
   setScreenContent: (value: ScreenContent) => void;
@@ -55,6 +55,7 @@ const SETTING_KEYS = [
   "pushToTalk",
   "pttKey",
   "streamQuality",
+  "screenContent",
 ] as const;
 
 const DEFAULT_SETTINGS: VoiceSyncedSettings = {
@@ -66,7 +67,38 @@ const DEFAULT_SETTINGS: VoiceSyncedSettings = {
   pushToTalk: false,
   pttKey: "KeyM",
   streamQuality: "auto",
+  screenContent: "auto",
 };
+
+export const parseScreenContent = (value: unknown): ScreenContent | null =>
+  value === "auto" || value === "text" || value === "motion" ? value : null;
+
+const screenContentMigratedKey = (userId: string) => `rift.screenContentSynced.${userId}`;
+
+const screenContentMigrated = (userId: string): boolean => {
+  try {
+    return window.localStorage.getItem(screenContentMigratedKey(userId)) === "1";
+  } catch {
+    return true;
+  }
+};
+
+const markScreenContentMigrated = (userId: string) => {
+  try {
+    window.localStorage.setItem(screenContentMigratedKey(userId), "1");
+  } catch {}
+};
+
+export function resolveScreenContent(
+  server: unknown,
+  local: ScreenContent,
+  migrated: boolean,
+): { value: ScreenContent; push: boolean } {
+  const fromServer = parseScreenContent(server);
+  if (fromServer === null) return { value: local, push: false };
+  if (!migrated && fromServer === "auto" && local !== "auto") return { value: local, push: true };
+  return { value: fromServer, push: false };
+}
 
 const applyToEngine = (s: {
   micDeviceId: string;
@@ -74,7 +106,9 @@ const applyToEngine = (s: {
   outputVolume: number;
   micVolume: number;
   noiseMode: NoiseMode;
+  screenContent: ScreenContent;
 }) => {
+  getLiveKitService().setScreenContent(s.screenContent);
   getLiveKitService().setAudioPreferences({
     micDeviceId: s.micDeviceId || null,
     speakerDeviceId: s.speakerDeviceId || null,
@@ -147,6 +181,7 @@ const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
   pushToTalk: 0,
   pttKey: 0,
   streamQuality: 0,
+  screenContent: 0,
 };
 
 const cancelPendingSaves = () => {
@@ -241,7 +276,6 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
       ...DEFAULT_SETTINGS,
       micDeviceId: "",
       speakerDeviceId: "",
-      screenContent: "auto",
       ownerId: null,
 
       update: (patch) => {
@@ -256,8 +290,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
       },
 
       setScreenContent: (value) => {
-        set({ screenContent: value });
-        getLiveKitService().setScreenContent(value);
+        get().update({ screenContent: value });
       },
 
       updateDevices: (patch) => {
@@ -325,6 +358,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
                     pushToTalk: get().pushToTalk,
                     pttKey: get().pttKey,
                     streamQuality: get().streamQuality,
+                    screenContent: get().screenContent,
                   },
             );
             set({ ...local, ownerId: userId });
@@ -334,6 +368,11 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
             markUserSynced(userId);
             return;
           }
+          const screen = resolveScreenContent(
+            saved.screenContent,
+            get().screenContent,
+            switched || screenContentMigrated(userId),
+          );
           const next = preserveRecentEdits({
             micVolume: saved.micVolume,
             outputVolume: saved.outputVolume,
@@ -346,9 +385,12 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
             pushToTalk: saved.pushToTalk,
             pttKey: saved.pttKey || "KeyM",
             streamQuality: parseStreamQuality(saved.streamQuality),
+            screenContent: screen.value,
           });
           set({ ...next, ownerId: userId });
           applyToEngine(get());
+          if (parseScreenContent(saved.screenContent) !== null) markScreenContentMigrated(userId);
+          if (screen.push) scheduleSave({ screenContent: screen.value }, userId);
           if (pendingOwner === userId && Object.keys(pendingPatch).length > 0) {
             scheduleSave({}, userId);
           }
