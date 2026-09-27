@@ -13,7 +13,11 @@ import {
 } from "../lib/livekit";
 import type { ScreenShareInfo } from "../lib/livekit";
 import { UserAvatar } from "../../../shared/ui/Avatar";
-import { openContextMenu } from "../../../shared/ui/contextMenu/contextMenuStore";
+import {
+  openContextMenu,
+  openContextMenuAt,
+} from "../../../shared/ui/contextMenu/contextMenuStore";
+import type { MenuEntry } from "../../../shared/ui/contextMenu/contextMenuStore";
 import { IDLE_AUTO_FOCUS, autoFocusWait, nextAutoFocus } from "../lib/stageFocus";
 
 const TileVolumeMenu: React.FC<{
@@ -367,6 +371,18 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
         ? t("you")
         : (roster.find((r) => r.id === pinnedId)?.name ?? ""))
     : "";
+  const strip = roster.slice(0, STRIP_MAX);
+  const overflow = roster.slice(STRIP_MAX);
+  const overflowMenu: MenuEntry[] = overflow
+    .filter((r) => r.camera)
+    .map((r) => ({
+      kind: "item" as const,
+      id: `pin-${r.id}`,
+      label: `${pinnedId === r.id ? t("unpinFromStage") : t("pinToStage")}: ${r.isSelf ? t("you") : r.name}`,
+      icon: "pin" as const,
+      onSelect: () => togglePin(r.id),
+    }));
+  const stageOwner = mainVideo && mainVideo.source === "camera" ? mainVideo.identity : null;
   const tileMenu = (e: React.MouseEvent, id: string) =>
     openContextMenu(e, [
       {
@@ -377,8 +393,6 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
         onSelect: () => togglePin(id),
       },
     ]);
-  const strip = roster.slice(0, STRIP_MAX);
-  const overflow = roster.slice(STRIP_MAX);
   const mainName = mainVideo
     ? (roster.find((r) => r.id === mainVideo.identity)?.name ?? "")
     : "";
@@ -433,7 +447,10 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
         )}
 
         {mainVideo ? (
-          <div className="call-screen">
+          <div
+            className="call-screen"
+            onContextMenu={stageOwner ? (e) => tileMenu(e, stageOwner) : undefined}
+          >
             <VideoTileCell
               key={`${mainVideo.identity}:${mainVideo.source}`}
               tile={mainVideo}
@@ -757,7 +774,22 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
             </div>
           ))}
         {overflow.length > 0 && (
-          <div className="cs-more">
+          <div
+            className={"cs-more" + (overflowMenu.length > 0 ? " clickable" : "")}
+            role={overflowMenu.length > 0 ? "button" : undefined}
+            tabIndex={overflowMenu.length > 0 ? 0 : undefined}
+            onClick={overflowMenu.length > 0 ? (e) => openContextMenu(e, overflowMenu) : undefined}
+            onContextMenu={overflowMenu.length > 0 ? (e) => openContextMenu(e, overflowMenu) : undefined}
+            onKeyDown={
+              overflowMenu.length > 0
+                ? (e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    openContextMenuAt(e.currentTarget, overflowMenu);
+                  }
+                : undefined
+            }
+          >
             <div className="cs-more-avas">
               {overflow.slice(0, 2).map((r) => (
                 <span key={r.id} style={{ background: r.color }} />

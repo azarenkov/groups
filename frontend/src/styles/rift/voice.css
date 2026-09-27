@@ -1274,6 +1274,7 @@
 .cs-tile.sharing { cursor: pointer; }
 .cs-tile.watched { outline: 2px solid var(--voice-live, #30a46c); outline-offset: -2px; }
 .cs-tile.pinnable { cursor: pointer; }
+.cs-more.clickable { cursor: pointer; }
 .cs-tile.pinned { outline: 2px solid var(--accent); outline-offset: -2px; }
 .cs-tile-pin {
   position: absolute; top: 6px; right: 6px; z-index: 2;
