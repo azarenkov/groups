@@ -32,6 +32,7 @@ import {
   SWIPE_TRIGGER_PX,
   nextWheelSwipe,
   touchSwipeOffset,
+  wheelSwipeOffset,
 } from "../lib/swipe";
 import type { PendingFile } from "../types";
 import { MAX_CONTENT } from "../constants";
@@ -268,10 +269,12 @@ export const Message: React.FC<MessageProps> = ({
       const next = nextWheelSwipe(wheelSwipeRef.current, e.deltaX, e.deltaY, e.timeStamp);
       wheelSwipeRef.current = next.state;
       if (next.state.accum === 0) return;
-      setSwipeOffset(Math.min(next.state.accum, SWIPE_TRIGGER_PX + 20));
+      setSwipeOffset(wheelSwipeOffset(next.state));
       if (next.fire) onReply?.();
       if (wheelResetRef.current) clearTimeout(wheelResetRef.current);
-      wheelResetRef.current = setTimeout(() => setSwipeOffset(0), 180);
+      if (!next.state.fired) {
+        wheelResetRef.current = setTimeout(() => setSwipeOffset(0), 180);
+      }
     },
   };
   const created = new Date(msg.createdAt);

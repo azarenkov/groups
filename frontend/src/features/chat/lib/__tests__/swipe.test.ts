@@ -4,6 +4,7 @@ import {
   SWIPE_TRIGGER_PX,
   WHEEL_SWIPE_GAP_MS,
   nextWheelSwipe,
+  wheelSwipeOffset,
   touchSwipeOffset,
 } from "../swipe";
 
@@ -49,5 +50,18 @@ describe("trackpad swipe", () => {
     expect(state.fired).toBe(true);
     const later = nextWheelSwipe(state, 70, 0, 1000 + WHEEL_SWIPE_GAP_MS + 1);
     expect(later.fire).toBe(true);
+  });
+});
+
+describe("wheelSwipeOffset", () => {
+  it("follows the fingers until the reply fires", () => {
+    expect(wheelSwipeOffset({ accum: 30, lastAt: 0, fired: false })).toBe(30);
+  });
+
+  it("springs back as soon as the reply fires, even while momentum keeps scrolling", () => {
+    const fired = nextWheelSwipe(IDLE_WHEEL_SWIPE, 70, 0, 1000).state;
+    expect(wheelSwipeOffset(fired)).toBe(0);
+    const momentum = nextWheelSwipe(fired, 20, 0, 1016).state;
+    expect(wheelSwipeOffset(momentum)).toBe(0);
   });
 });

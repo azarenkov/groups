@@ -7,6 +7,7 @@ import { mergeWithLive } from "../lib/messageFormat";
 import { appendedOwnMessage, shouldStickToBottom } from "../lib/scrollRules";
 import type { Messenger } from "./useMessenger";
 
+const HIGHLIGHT_MS = 2500;
 const JUMP_CONTEXT = 25;
 
 export function useMessages(params: {
@@ -282,6 +283,12 @@ export function useMessages(params: {
       }
     }
   }, []);
+
+  React.useEffect(() => {
+    if (!highlightedMessageId) return;
+    const timer = setTimeout(() => setHighlightedMessageId(null), HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [highlightedMessageId]);
 
   const lastScrolledToRef = React.useRef<string | null>(null);
   React.useEffect(() => {

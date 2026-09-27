@@ -5,6 +5,13 @@ import { UserAvatar } from "../../../../shared/ui/Avatar";
 import type { DirectConversation } from "../../../dm/types";
 import { useActivityStore } from "../../../social/store/activityStore";
 import UserBadge from "../../../subscription/components/UserBadge";
+import { useProfileModalStore } from "../../../social/store/profileModalStore";
+import {
+  openContextMenu,
+  openContextMenuAt,
+} from "../../../../shared/ui/contextMenu/contextMenuStore";
+import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
+import { useLongPress } from "../../../../shared/ui/contextMenu/useLongPress";
 
 interface DmListProps {
   directs: DirectConversation[];
@@ -17,6 +24,7 @@ interface DmListProps {
   onAddFriend: () => void;
   onOpenPending: () => void;
   onPick: (dm: DirectConversation) => void;
+  onCall?: (dm: DirectConversation) => void;
 }
 
 const DmList: React.FC<DmListProps> = ({
@@ -30,9 +38,28 @@ const DmList: React.FC<DmListProps> = ({
   onAddFriend,
   onOpenPending,
   onPick,
+  onCall,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   const activities = useActivityStore((s) => s.byUser);
+  const dmMenu = (d: DirectConversation): MenuEntry[] => [
+    { kind: "item", id: "message", label: t("memberMessage"), icon: "message", onSelect: () => onPick(d) },
+    ...(onCall
+      ? [{ kind: "item" as const, id: "call", label: t("callFriend"), icon: "phone" as const, onSelect: () => onCall(d) }]
+      : []),
+    { kind: "separator", id: "s1" },
+    {
+      kind: "item",
+      id: "profile",
+      label: t("memberProfile"),
+      icon: "user",
+      onSelect: () => useProfileModalStore.getState().open(d.id),
+    },
+  ];
+  const dmLongPress = useLongPress((point, el) => {
+    const dm = directs.find((d) => d.id === el.dataset.dmId);
+    return !!dm && openContextMenu(point, dmMenu(dm));
+  });
   return (
     <div className="sb-view">
       {!isFiltering && (
@@ -82,11 +109,17 @@ const DmList: React.FC<DmListProps> = ({
               (selectedDmId === d.id ? " active" : "") +
               (!d.online ? " off" : "")
             }
+            data-dm-id={d.id}
+            {...dmLongPress}
             onClick={() => onPick(d)}
+            onContextMenu={(e) => openContextMenu(e, dmMenu(d))}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 onPick(d);
+              } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+                e.preventDefault();
+                openContextMenuAt(e.currentTarget, dmMenu(d));
               }
             }}
           >

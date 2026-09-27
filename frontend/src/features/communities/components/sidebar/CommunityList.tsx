@@ -6,6 +6,13 @@ import { colorForId } from "../../../../shared/lib/avatar";
 import type { Community } from "../../../../shared/types/community";
 import type { Channel } from "../../../../shared/types/channel";
 import type { SidebarVoiceMember } from "./types";
+import type { SidebarPermissions } from "./permissions";
+import {
+  openContextMenu,
+  openContextMenuAt,
+} from "../../../../shared/ui/contextMenu/contextMenuStore";
+import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
+import { useLongPress } from "../../../../shared/ui/contextMenu/useLongPress";
 
 interface CommunityListProps {
   communities: Community[];
@@ -18,6 +25,11 @@ interface CommunityListProps {
   onJoinCommunity: () => void;
   onPick: (community: Community) => void;
   renderChannel: (community: Community, channel: Channel) => React.ReactNode;
+  perms: SidebarPermissions;
+  currentUserId?: string;
+  onInviteCommunity: (community: Community) => void;
+  onOpenCommunitySettings: (community: Community) => void;
+  onLeaveCommunity?: (community: Community) => void;
 }
 
 const CommunityList: React.FC<CommunityListProps> = ({
@@ -31,8 +43,54 @@ const CommunityList: React.FC<CommunityListProps> = ({
   onJoinCommunity,
   onPick,
   renderChannel,
+  perms,
+  currentUserId,
+  onInviteCommunity,
+  onOpenCommunitySettings,
+  onLeaveCommunity,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
+  const communityMenu = (community: Community): MenuEntry[] => {
+    const owner = !!currentUserId && community.ownerId === currentUserId;
+    return [
+      { kind: "item", id: "open", label: t("openCommunity"), icon: "chev", onSelect: () => onPick(community) },
+      ...(perms.canInviteIn(community)
+        ? [
+            {
+              kind: "item" as const,
+              id: "invite",
+              label: t("inviteFriends"),
+              icon: "user-plus" as const,
+              onSelect: () => onInviteCommunity(community),
+            },
+          ]
+        : []),
+      {
+        kind: "item",
+        id: "settings",
+        label: t("communitySettings"),
+        icon: "settings",
+        onSelect: () => onOpenCommunitySettings(community),
+      },
+      ...(onLeaveCommunity
+        ? [
+            { kind: "separator" as const, id: "s1" },
+            {
+              kind: "item" as const,
+              id: "leave",
+              label: owner ? t("deleteCommunity") : t("leaveCommunity"),
+              icon: (owner ? "trash" : "logout") as "trash" | "logout",
+              danger: true,
+              onSelect: () => onLeaveCommunity(community),
+            },
+          ]
+        : []),
+    ];
+  };
+  const communityLongPress = useLongPress((point, el) => {
+    const community = communities.find((c) => c.id === el.dataset.communityId);
+    return !!community && openContextMenu(point, communityMenu(community));
+  });
   return (
     <div className="sb-view">
       {!isFiltering && (
@@ -79,11 +137,17 @@ const CommunityList: React.FC<CommunityListProps> = ({
               role="button"
               tabIndex={0}
               className="sb-srv"
+              data-community-id={community.id}
+              {...communityLongPress}
               onClick={() => onPick(community)}
+              onContextMenu={(e) => openContextMenu(e, communityMenu(community))}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   onPick(community);
+                } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+                  e.preventDefault();
+                  openContextMenuAt(e.currentTarget, communityMenu(community));
                 }
               }}
             >
