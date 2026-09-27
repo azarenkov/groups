@@ -88,7 +88,13 @@ fn probe_source(media: Box<dyn MediaSource>) -> Option<i64> {
         .format(&Hint::new(), source, &FormatOptions::default(), &MetadataOptions::default())
         .ok()?;
     let mut format = probed.format;
-    let track = format.default_track()?.clone();
+    let track = match format.tracks() {
+        [only] => only.clone(),
+        _ => return None,
+    };
+    if track.codec_params.codec != CODEC_TYPE_OPUS && track.codec_params.codec != CODEC_TYPE_AAC {
+        return None;
+    }
     let time_base = track
         .codec_params
         .time_base
@@ -104,7 +110,7 @@ fn probe_source(media: Box<dyn MediaSource>) -> Option<i64> {
     let mut packets = 0usize;
     while let Ok(packet) = format.next_packet() {
         if packet.track_id() != track.id {
-            continue;
+            return None;
         }
         packets += 1;
         end = end.max(packet.ts.saturating_add(packet.dur));
