@@ -73,11 +73,19 @@ export const VideoTileCell: React.FC<{
     return () => document.removeEventListener("mousedown", onDoc);
   }, [volOpen, tile.identity]);
 
-  const goFullscreen = () => {
-    const el = ref.current;
-    if (el?.requestFullscreen) {
-      el.requestFullscreen().catch(() => {});
+  const tileRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const onChange = () => setFullscreen(!!tileRef.current && document.fullscreenElement === tileRef.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+  const toggleFullscreen = () => {
+    if (fullscreen) {
+      document.exitFullscreen?.().catch(() => {});
+      return;
     }
+    tileRef.current?.requestFullscreen?.().catch(() => {});
   };
 
   const changeVolume = (v: number) => {
@@ -86,25 +94,27 @@ export const VideoTileCell: React.FC<{
   };
 
   return (
-    <div className="voice-tile video">
+    <div ref={tileRef} className="voice-tile video">
       <video
         ref={ref}
         autoPlay
         playsInline
         muted={tile.isLocal}
-        className={tile.isLocal && tile.source === "camera" ? "mirror" : ""}
+        className={
+          `source-${tile.source}` + (tile.isLocal && tile.source === "camera" ? " mirror" : "")
+        }
       />
       <button
         type="button"
         className="voice-tile-fs"
         onClick={(e) => {
           e.stopPropagation();
-          goFullscreen();
+          toggleFullscreen();
         }}
-        title={t("fullscreen")}
+        title={fullscreen ? t("exitFullscreen") : t("fullscreen")}
+        aria-label={fullscreen ? t("exitFullscreen") : t("fullscreen")}
       >
-        <Icon name="expand" size={14} />
-        <span>{t("fullscreen")}</span>
+        <Icon name={fullscreen ? "shrink" : "expand"} size={14} />
       </button>
       {!tile.isLocal && (
         <div

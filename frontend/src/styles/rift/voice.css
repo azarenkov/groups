@@ -733,24 +733,32 @@
 }
 .voice-tile-fs {
   position: absolute;
-  top: 8px; left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
+  top: 8px; right: 8px;
+  z-index: 3;
   display: inline-flex; align-items: center; justify-content: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px;
+  width: 28px; height: 28px;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 12px; font-weight: 500;
   cursor: pointer;
-  opacity: 0.9;
+  backdrop-filter: blur(10px);
+  opacity: 0;
   transition: opacity var(--dur-fast), background var(--dur-fast);
 }
-.voice-tile.video:hover .voice-tile-fs { opacity: 1; }
+.voice-tile.video:hover .voice-tile-fs,
+.voice-tile-fs:focus-visible { opacity: 1; }
 .voice-tile-fs:hover { background: rgba(0, 0, 0, 0.8); }
+@media (hover: none) {
+  .voice-tile-fs { opacity: 1; }
+}
+.cs-tile .voice-tile-fs { display: none; }
+.voice-tile.video:fullscreen { border: 0; border-radius: 0; background: #000; }
+.voice-tile.video:fullscreen .voice-tile-fs { opacity: 1; }
+.cs-tile > .voice-tile { min-height: 0; }
+.cs-tile .voice-tile.video video.source-camera,
+.voice-room-grid .voice-tile.video video.source-camera { object-fit: cover; }
 .voice-tile-vol {
   position: absolute;
   right: 8px; bottom: 8px;

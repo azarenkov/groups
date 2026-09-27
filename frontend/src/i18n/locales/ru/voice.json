@@ -55,5 +55,6 @@
   "deafened": "Звук отключён",
   "deafenMember": "Отключить звук участнику",
   "undeafenMember": "Включить звук участнику",
-  "deafenedByModerator": "Модератор отключил вам звук"
+  "deafenedByModerator": "Модератор отключил вам звук",
+  "exitFullscreen": "Выйти из полноэкранного режима"
 }
