@@ -205,10 +205,12 @@ where
             .collect();
         final_attachments.extend(added_attachments.clone());
         final_attachments.sort_by_key(|a| a.created_at);
-        if !messaging_domain::message::voice::voice_message_is_valid(
-            message.content().as_str(),
-            &final_attachments,
-        ) {
+        if added_attachments.iter().any(|a| a.voice.is_some())
+            || !messaging_domain::message::voice::voice_message_is_valid(
+                message.content().as_str(),
+                &final_attachments,
+            )
+        {
             if !added_attachments.is_empty()
                 && let Err(re) = self
                     .attachment_claims
