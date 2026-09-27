@@ -5,6 +5,7 @@ import { useChannelStore } from "../store/channelStore";
 import { usePresenceStore } from "../../social/store/presenceStore";
 import { useVoicePresenceStore } from "../../voice/store/voicePresenceStore";
 import { useStreamViewersStore } from "../../voice/store/streamViewersStore";
+import { useVoiceSessionStore } from "../../voice/store/voiceSessionStore";
 import type { Community } from "../../../shared/types/community";
 
 export function useVoicePresenceSync(params: {
@@ -19,6 +20,7 @@ export function useVoicePresenceSync(params: {
     return ws.onOpen(() => {
       presenceSyncedRef.current.clear();
       useVoicePresenceStore.getState().resetRosters();
+      useVoiceSessionStore.getState().clearAll();
       usePresenceStore.getState().clearAll();
       setPresenceSyncTick((n) => n + 1);
     });
@@ -30,9 +32,10 @@ export function useVoicePresenceSync(params: {
     communities.forEach((s) => {
       if (synced.has(s.id)) return;
       synced.add(s.id);
+      const sessionSince = useVoiceSessionStore.getState().seq;
       communityAPI
         .listVoicePresence(s.id)
-        .then(({ items, streamViewers }) => {
+        .then(({ items, streamViewers, sessions }) => {
           const groups: Record<
             string,
             {
@@ -68,6 +71,14 @@ export function useVoicePresenceSync(params: {
             useVoicePresenceStore.getState().setMembers(channelId, members);
           }
           useStreamViewersStore.getState().resetForCommunity(s.id, streamViewers);
+          useVoiceSessionStore.getState().replaceForChannels(
+            [
+              ...knownChannels.filter((c) => c.kind === "voice").map((c) => c.id),
+              ...snapshotChannels,
+            ],
+            sessions,
+            sessionSince,
+          );
         })
         .catch((err) => {
           synced.delete(s.id);

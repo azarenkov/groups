@@ -77,8 +77,8 @@
     "decline": "Отклонить"
   },
   "system": {
-    "memberJoined": "{{name}} присоединился к сообществу",
-    "memberLeft": "{{name}} покинул сообщество"
+    "memberJoined": "<0>{{name}}</0> присоединился к сообществу",
+    "memberLeft": "<0>{{name}}</0> покинул сообщество"
   },
   "attachFile": "Прикрепить файл",
   "attachmentsUploading": "Файлы ещё загружаются…",
@@ -94,5 +94,34 @@
   "friendRequestSent": "Заявка отправлена",
   "friendRequestIncoming": "{{user}} отправил(а) вам заявку в друзья.",
   "acceptFriendRequest": "Принять",
-  "more": "Ещё"
+  "more": "Ещё",
+  "replyUnavailable": "Сообщение, на которое вы отвечаете, больше недоступно",
+  "replyingTo": "В ответ {{name}}",
+  "cancelReply": "Отменить ответ",
+  "replyDeleted": "Сообщение удалено",
+  "replyAttachment": "Вложение",
+  "jumpToReply": "Перейти к сообщению",
+  "copyMessageLink": "Копировать ссылку на сообщение",
+  "forward": "Переслать",
+  "forwardTitle": "Переслать сообщение",
+  "forwardSearch": "Поиск друзей и каналов",
+  "forwardEmpty": "Ничего не найдено",
+  "forwardSectionDms": "Личные сообщения",
+  "forwardSectionChannels": "Каналы",
+  "forwardComment": "Добавить комментарий (необязательно)",
+  "forwardSend": "Переслать",
+  "forwardSendCount_one": "Переслать ({{count}})",
+  "forwardSendCount_few": "Переслать ({{count}})",
+  "forwardSendCount_many": "Переслать ({{count}})",
+  "forwardSendCount_other": "Переслать ({{count}})",
+  "forwardSending": "Пересылаем…",
+  "forwardDone": "Переслано",
+  "forwardFailed": "Не удалось переслать сообщение",
+  "forwardPartial": "Не удалось переслать: {{targets}}",
+  "forwardedFrom": "Переслано от {{name}}",
+  "forwardOpenSource": "Открыть оригинал",
+  "deleteForMe": "Удалить у себя",
+  "deleteForEveryone": "Удалить у всех",
+  "deleteMessageChoose": "«Удалить у всех» уберёт сообщение для всех участников. «Удалить у себя» скроет его только в вашей ленте.",
+  "deleteForMeConfirm": "Сообщение пропадёт только из вашей ленты, у остальных оно останется."
 }

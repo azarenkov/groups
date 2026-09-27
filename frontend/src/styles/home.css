@@ -49,8 +49,6 @@
 .home .home-btn-primary.sm, .home .home-btn-secondary.sm { height: 28px; padding: 0 12px; font-size: 12px; }
 .home-btn-secondary.sm { color: var(--fg-2); }
 
-.home-icon-btn { width: 28px; height: 28px; border-radius: 6px; color: var(--fg-3); display: flex; align-items: center; justify-content: center; transition: all var(--dur-fast) var(--ease-standard); }
-.home-icon-btn:hover { background: var(--surface-active); color: var(--fg-1); }
 
 .home-card { background: var(--surface-panel); border: 1px solid var(--hairline); border-radius: 14px; box-shadow: var(--shadow-sm); }
 .home-col-main > section { background: var(--surface-panel); border: 1px solid var(--hairline); border-radius: 14px; padding: 16px; }
@@ -78,6 +76,8 @@
 .home-online-list { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 0; flex: 1; min-height: 0; overflow-y: auto; }
 .home-online-row { display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 12px; margin: 0; border-radius: 10px; transition: background var(--dur-fast); }
 .home-online-row:hover { background: var(--surface-hover); }
+.home-online-row.clickable { cursor: pointer; outline: none; }
+.home-online-row.clickable:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 .home-online-row .who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .home-online-row .name { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 14px; font-weight: 500; line-height: 1.25; }
 .home-online-row .name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

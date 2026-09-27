@@ -299,6 +299,24 @@ export function useMessages(params: {
     }
   }, [highlightedMessageId, messages]);
 
+  const jumpToMessageId = React.useCallback(
+    async (messageId: string) => {
+      if (messagesRef.current.some((m) => m.id === messageId)) {
+        setHighlightedMessageId(null);
+        requestAnimationFrame(() => setHighlightedMessageId(messageId));
+        return;
+      }
+      const messengerNow = messengerRef.current;
+      if (!messengerNow) return;
+      try {
+        const target = await messengerNow.getMessage(messageId);
+        await jumpToMessage(target);
+      } catch (err) {
+        console.warn("[ChatView] failed to open the original message:", err);
+      }
+    },
+    [jumpToMessage],
+  );
   return {
     messages,
     setMessages,
@@ -315,5 +333,6 @@ export function useMessages(params: {
     handleScroll,
     refreshHistory,
     jumpToMessage,
+    jumpToMessageId,
   };
 }

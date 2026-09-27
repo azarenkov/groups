@@ -4,6 +4,15 @@ use crate::{channel::id::ChannelId, message::id::MessageId, message::system::Sys
 use domain::user::id::UserId;
 
 #[derive(Debug, Clone)]
+pub struct ReplyPreviewView {
+    pub message_id: uuid::Uuid,
+    pub author_id: UserId,
+    pub author_name: String,
+    pub content: String,
+    pub has_attachments: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct MessageView {
     pub id: MessageId,
     pub channel_id: ChannelId,
@@ -13,4 +22,6 @@ pub struct MessageView {
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
     pub system: Option<SystemMessage>,
+    pub reply_to: Option<uuid::Uuid>,
+    pub forwarded_from: Option<crate::message::forward::ForwardInfo>,
 }

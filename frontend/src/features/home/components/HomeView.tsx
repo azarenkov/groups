@@ -9,6 +9,14 @@ import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import UserBadge from "../../subscription/components/UserBadge";
 import Icon from "../../../shared/ui/Icon";
+import {
+  openContextMenu,
+  openContextMenuAt,
+} from "../../../shared/ui/contextMenu/contextMenuStore";
+import type { MenuEntry } from "../../../shared/ui/contextMenu/contextMenuStore";
+import { useLongPress } from "../../../shared/ui/contextMenu/useLongPress";
+import { useProfileModalStore } from "../../social/store/profileModalStore";
+import i18n from "../../../i18n";
 import "../../../styles/home.css";
 
 export interface HomeViewProps {
@@ -57,6 +65,22 @@ const HomeView: React.FC<HomeViewProps> = ({
   onAddFriend,
 }) => {
   const { t } = useTranslation("home");
+  const friendMenu = (friendId: string): MenuEntry[] => [
+    { kind: "item", id: "message", label: t("message"), icon: "message", onSelect: () => onOpenDm(friendId) },
+    { kind: "item", id: "call", label: t("call"), icon: "phone", onSelect: () => onCall(friendId) },
+    { kind: "separator", id: "s1" },
+    {
+      kind: "item",
+      id: "profile",
+      label: i18n.t("viewProfile", { ns: "profile" }),
+      icon: "user",
+      onSelect: () => useProfileModalStore.getState().open(friendId),
+    },
+  ];
+  const friendLongPress = useLongPress((point, el) => {
+    const friendId = el.dataset.friendId;
+    return !!friendId && openContextMenu(point, friendMenu(friendId));
+  });
   const now = useNow(30_000);
   const activities = useActivityStore((s) => s.byUser);
   const friendStatuses = useFriendshipStore((s) => s.statusById);
@@ -138,7 +162,25 @@ const HomeView: React.FC<HomeViewProps> = ({
               ) : (
                 <div className="home-online-list">
                   {onlineFriends.map((f) => (
-                    <div key={f.friendId} className="home-online-row">
+                    <div
+                      key={f.friendId}
+                      className="home-online-row clickable"
+                      role="button"
+                      tabIndex={0}
+                      data-friend-id={f.friendId}
+                      {...friendLongPress}
+                      onClick={() => onOpenDm(f.friendId)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onOpenDm(f.friendId);
+                        } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+                          e.preventDefault();
+                          openContextMenuAt(e.currentTarget, friendMenu(f.friendId));
+                        }
+                      }}
+                      onContextMenu={(e) => openContextMenu(e, friendMenu(f.friendId))}
+                    >
                       <span className="home-avatar-wrap">
                         <UserAvatar
                           userId={f.friendId}
@@ -161,22 +203,6 @@ const HomeView: React.FC<HomeViewProps> = ({
                               : t("statusOnline")}
                         </span>
                       </span>
-                      <button
-                        type="button"
-                        className="home-icon-btn"
-                        title={t("message")}
-                        onClick={() => onOpenDm(f.friendId)}
-                      >
-                        <Icon name="message" size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        className="home-icon-btn"
-                        title={t("call")}
-                        onClick={() => onCall(f.friendId)}
-                      >
-                        <Icon name="phone" size={15} />
-                      </button>
                     </div>
                   ))}
                 </div>

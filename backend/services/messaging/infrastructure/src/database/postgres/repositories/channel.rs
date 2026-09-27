@@ -396,6 +396,32 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(count)
     }
 
+    async fn list_voice_sessions_for_community(
+        &self,
+        community_id: &CommunityId,
+    ) -> Result<Vec<messaging_domain::channel::repository::VoiceSessionRow>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT c.id, c.voice_session_started_at AS "started_at!"
+            FROM channels c
+            WHERE c.community_id = $1
+              AND c.voice_session_started_at IS NOT NULL
+            "#,
+            community_id.uuid(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| messaging_domain::channel::repository::VoiceSessionRow {
+                channel_id: ChannelId::new(r.id),
+                started_at: r.started_at,
+            })
+            .collect())
+    }
+
     async fn list_stream_viewer_counts_for_community(
         &self,
         community_id: &CommunityId,

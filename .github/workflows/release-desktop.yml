@@ -41,6 +41,7 @@ jobs:
           CI: false
           REACT_APP_API_URL: ${{ vars.DESKTOP_API_URL }}
           REACT_APP_WS_URL: ${{ vars.DESKTOP_WS_URL }}
+          REACT_APP_PUBLIC_APP_URL: ${{ vars.DESKTOP_APP_URL }}
           REACT_APP_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
           GOOGLE_DESKTOP_CLIENT_ID: ${{ vars.GOOGLE_DESKTOP_CLIENT_ID }}
           GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}

@@ -15,6 +15,8 @@ pub struct MessageSent {
     pub attachments: Vec<AttachmentSnapshot>,
     pub mentions: Vec<UserId>,
     pub system: Option<SystemMessage>,
+    pub reply: Option<crate::message::reply::ReplyPreview>,
+    pub forward: Option<crate::message::forward::ForwardInfo>,
 }
 
 impl MessageSent {
@@ -36,6 +38,8 @@ impl MessageSent {
             attachments: Vec::new(),
             mentions: Vec::new(),
             system: None,
+            reply: None,
+            forward: None,
         }
     }
 }

@@ -19,7 +19,6 @@ interface MessageListProps {
   editFiles: PendingFile[];
   savingEdit: boolean;
   highlightedMessageId: string | null;
-  canModerateMessages: boolean;
   myCommunityIds: Set<string>;
   receiptFor: (message: ChannelMessage, mine: boolean) => "sent" | "read" | null;
   onEditTextChange: (value: string) => void;
@@ -30,6 +29,11 @@ interface MessageListProps {
   onAddEditFiles: (files: FileList | File[], room: number) => void;
   onRemoveEditFile: (localId: string) => void;
   onDelete: (message: ChannelMessage) => void;
+  onReply: (message: ChannelMessage, authorName: string) => void;
+  onJumpToMessage: (messageId: string) => void;
+  onCopyLink: (message: ChannelMessage) => void;
+  onForward: (message: ChannelMessage) => void;
+  onOpenForwardSource: (message: ChannelMessage) => void;
   onAcceptInvite: (message: ChannelMessage) => void;
   onDeclineInvite: (message: ChannelMessage) => void;
   onOpenInviteCommunity?: (communityId: string) => void;
@@ -48,7 +52,6 @@ const MessageList: React.FC<MessageListProps> = ({
   editFiles,
   savingEdit,
   highlightedMessageId,
-  canModerateMessages,
   myCommunityIds,
   receiptFor,
   onEditTextChange,
@@ -59,10 +62,27 @@ const MessageList: React.FC<MessageListProps> = ({
   onAddEditFiles,
   onRemoveEditFile,
   onDelete,
+  onReply,
+  onJumpToMessage,
+  onCopyLink,
+  onForward,
+  onOpenForwardSource,
   onAcceptInvite,
   onDeclineInvite,
   onOpenInviteCommunity,
-}) => (
+}) => {
+  let lastBubbleIndex = -1;
+  for (let k = messages.length - 1; k >= 0; k -= 1) {
+    const candidate = messages[k];
+    const blocked =
+      !!blockedIds[candidate.authorId] ||
+      (!!candidate.forwardedFrom && !!blockedIds[candidate.forwardedFrom.authorId]);
+    if (!candidate.system && (isDm || !blocked)) {
+      lastBubbleIndex = k;
+      break;
+    }
+  }
+  return (
   <div className="inner">
             {loadingOlder && (
               <div className="msg-loader">
@@ -88,7 +108,14 @@ const MessageList: React.FC<MessageListProps> = ({
                     </div>
                   )}
                 <Message
-                  blockedAuthor={!isDm && !m.system && !!blockedIds[m.authorId]}
+                  tabbable={i === lastBubbleIndex}
+                  blockedAuthor={
+                    !isDm &&
+                    !m.system &&
+                    (!!blockedIds[m.authorId] ||
+                      (!!m.forwardedFrom && !!blockedIds[m.forwardedFrom.authorId]))
+                  }
+                  blockedReplyAuthor={!isDm && !!m.replyTo?.authorId && !!blockedIds[m.replyTo.authorId]}
                   msg={m}
                   displayName={displayName}
                   continued={cont}
@@ -101,7 +128,6 @@ const MessageList: React.FC<MessageListProps> = ({
                   inviteIsMember={
                     !!m.inviteCommunityId && myCommunityIds.has(m.inviteCommunityId)
                   }
-                  canModerate={canModerateMessages}
                   editRemovedIds={editRemovedIds}
                   editFiles={editFiles}
                   editSaving={savingEdit}
@@ -121,6 +147,11 @@ const MessageList: React.FC<MessageListProps> = ({
                   }
                   onRemoveEditFile={onRemoveEditFile}
                   onDelete={() => onDelete(m)}
+                  onReply={() => onReply(m, subjectName)}
+                  onJumpToReply={onJumpToMessage}
+                  onCopyLink={() => onCopyLink(m)}
+                  onForward={() => onForward(m)}
+                  onOpenForwardSource={() => onOpenForwardSource(m)}
                   onAcceptInvite={() => onAcceptInvite(m)}
                   onDeclineInvite={() => onDeclineInvite(m)}
                   onOpenInviteCommunity={() =>
@@ -131,6 +162,7 @@ const MessageList: React.FC<MessageListProps> = ({
               );
             })}
   </div>
-);
+  );
+};
 
 export default MessageList;

@@ -1,6 +1,8 @@
 import React from "react";
 
 export type IconName =
+  | "reply"
+  | "forward"
   | "hash"
   | "mic"
   | "mic-off"
@@ -88,6 +90,18 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   message: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
+  reply: (
+    <>
+      <polyline points="9 14 4 9 9 4" />
+      <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+    </>
+  ),
+  forward: (
+    <>
+      <polyline points="15 14 20 9 15 4" />
+      <path d="M4 20v-7a4 4 0 0 1 4-4h12" />
+    </>
+  ),
   copy: (
     <>
       <rect x="9" y="9" width="13" height="13" rx="2" />

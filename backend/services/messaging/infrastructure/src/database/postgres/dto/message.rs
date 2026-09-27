@@ -11,6 +11,7 @@ pub struct MessageDto {
     pub edited_at: Option<DateTime<Utc>>,
     pub kind: String,
     pub system_payload: Option<String>,
+    pub forwarded_from: Option<String>,
 }
 
 #[derive(Debug, FromRow)]
@@ -24,4 +25,6 @@ pub struct MessageViewDto {
     pub edited_at: Option<DateTime<Utc>>,
     pub kind: String,
     pub system_payload: Option<String>,
+    pub reply_to_message_id: Option<Uuid>,
+    pub forwarded_from: Option<String>,
 }

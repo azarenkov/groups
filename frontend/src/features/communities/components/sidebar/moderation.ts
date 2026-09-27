@@ -24,3 +24,13 @@ export const moderateDeafen = (
     : channelAPI.deafen(community.id, channelId, m.id);
   call.catch((err) => console.warn("[sidebar] deafen toggle failed:", err));
 };
+
+export const moderateDisconnect = (
+  community: Community,
+  channelId: string,
+  m: { id: string },
+) => {
+  channelAPI
+    .disconnect(community.id, channelId, m.id)
+    .catch((err) => console.warn("[sidebar] disconnect failed:", err));
+};

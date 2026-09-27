@@ -7,6 +7,7 @@ use ports::repository::RepositoryError;
 use crate::dto::{
     requests::channel::list_channel_messages::ListChannelMessagesRequest,
     responses::channel::channel_message::ChannelMessageDto,
+    responses::reply::ReplyPreviewDto,
 };
 
 const DEFAULT_LIMIT: i64 = 50;
@@ -28,6 +29,8 @@ pub enum ListChannelMessagesError {
     InvalidCursor,
     #[error("Cannot specify both before and after cursors")]
     ConflictingCursors,
+    #[error("Message not found")]
+    MessageNotFound,
 }
 
 pub struct ListChannelMessages<M, C, S>
@@ -66,40 +69,8 @@ where
     ) -> Result<Vec<ChannelMessageDto>, ListChannelMessagesError> {
         let community_id = CommunityId::new(request.community_id);
         let channel_id = ChannelId::new(request.channel_id);
-
-        let is_member = self
-            .community_repository
-            .is_community_member(&community_id, &requester_id)
+        self.ensure_readable(&community_id, &channel_id, &requester_id)
             .await?;
-        if !is_member {
-            return Err(ListChannelMessagesError::NotCommunityMember);
-        }
-
-        let channel = self
-            .channel_repository
-            .find_channel_by_id(&channel_id)
-            .await
-            .map_err(|e| match e {
-                RepositoryError::NotFound => ListChannelMessagesError::ChannelNotFound,
-                other => ListChannelMessagesError::Repository(other),
-            })?;
-        if channel.community_id() != &community_id {
-            return Err(ListChannelMessagesError::ChannelNotFound);
-        }
-
-        if !channel.supports_text() {
-            return Err(ListChannelMessagesError::NotTextChannel);
-        }
-
-        if channel.visibility() == ChannelVisibility::Private {
-            let is_text_member = self
-                .channel_repository
-                .is_text_channel_member(&channel_id, &requester_id)
-                .await?;
-            if !is_text_member {
-                return Err(ListChannelMessagesError::NotChannelMember);
-            }
-        }
 
         let limit = clamp_limit(request.limit);
         let before = request.before.map(MessageId::new);
@@ -112,7 +83,7 @@ where
         let has_cursor = before.is_some() || after.is_some();
         let messages = self
             .message_repository
-            .list_messages_in_channel(&channel_id, before.as_ref(), after.as_ref(), limit)
+            .list_messages_in_channel(&channel_id, &requester_id, before.as_ref(), after.as_ref(), limit)
             .await
             .map_err(|e| match e {
                 RepositoryError::NotFound if has_cursor => {
@@ -122,6 +93,87 @@ where
             })?;
 
         Ok(messages.into_iter().map(ChannelMessageDto::from).collect())
+    }
+
+    async fn ensure_readable(
+        &self,
+        community_id: &CommunityId,
+        channel_id: &ChannelId,
+        requester_id: &UserId,
+    ) -> Result<(), ListChannelMessagesError> {
+        let is_member = self
+            .community_repository
+            .is_community_member(community_id, requester_id)
+            .await?;
+        if !is_member {
+            return Err(ListChannelMessagesError::NotCommunityMember);
+        }
+
+        let channel = self
+            .channel_repository
+            .find_channel_by_id(channel_id)
+            .await
+            .map_err(|e| match e {
+                RepositoryError::NotFound => ListChannelMessagesError::ChannelNotFound,
+                other => ListChannelMessagesError::Repository(other),
+            })?;
+        if channel.community_id() != community_id {
+            return Err(ListChannelMessagesError::ChannelNotFound);
+        }
+
+        if !channel.supports_text() {
+            return Err(ListChannelMessagesError::NotTextChannel);
+        }
+
+        if channel.visibility() == ChannelVisibility::Private {
+            let is_text_member = self
+                .channel_repository
+                .is_text_channel_member(channel_id, requester_id)
+                .await?;
+            if !is_text_member {
+                return Err(ListChannelMessagesError::NotChannelMember);
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn find_one(
+        &self,
+        community_id: uuid::Uuid,
+        channel_id: uuid::Uuid,
+        message_id: uuid::Uuid,
+        requester_id: UserId,
+    ) -> Result<ChannelMessageDto, ListChannelMessagesError> {
+        let community_id = CommunityId::new(community_id);
+        let channel_id = ChannelId::new(channel_id);
+        self.ensure_readable(&community_id, &channel_id, &requester_id)
+            .await?;
+        let view = self
+            .message_repository
+            .find_message_view(&MessageId::new(message_id), &requester_id)
+            .await
+            .map_err(|e| match e {
+                RepositoryError::NotFound => ListChannelMessagesError::MessageNotFound,
+                other => ListChannelMessagesError::Repository(other),
+            })?;
+        if view.channel_id != channel_id {
+            return Err(ListChannelMessagesError::MessageNotFound);
+        }
+        Ok(ChannelMessageDto::from(view))
+    }
+
+    pub async fn reply_previews(
+        &self,
+        message_ids: &[uuid::Uuid],
+        viewer: UserId,
+    ) -> Result<Vec<ReplyPreviewDto>, ListChannelMessagesError> {
+        Ok(self
+            .message_repository
+            .list_reply_previews(message_ids, &viewer)
+            .await?
+            .into_iter()
+            .map(ReplyPreviewDto::from)
+            .collect())
     }
 }
 

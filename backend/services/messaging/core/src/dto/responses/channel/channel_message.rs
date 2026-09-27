@@ -28,6 +28,8 @@ pub struct ChannelMessageDto {
     pub edited_at: Option<DateTime<Utc>>,
     pub kind: String,
     pub system: Option<SystemMessageDto>,
+    pub reply_to_message_id: Option<Uuid>,
+    pub forwarded_from: Option<messaging_domain::message::forward::ForwardInfo>,
 }
 
 impl From<Message> for ChannelMessageDto {
@@ -42,6 +44,8 @@ impl From<Message> for ChannelMessageDto {
             edited_at: value.edited_at(),
             kind: value.kind().as_str().to_string(),
             system: value.system().map(SystemMessageDto::from),
+            reply_to_message_id: value.reply().map(|r| r.message_id),
+            forwarded_from: value.forward().cloned(),
         }
     }
 }
@@ -58,6 +62,8 @@ impl From<MessageView> for ChannelMessageDto {
             edited_at: value.edited_at,
             kind: if value.system.is_some() { "system" } else { "user" }.to_string(),
             system: value.system.as_ref().map(SystemMessageDto::from),
+            reply_to_message_id: value.reply_to,
+            forwarded_from: value.forwarded_from,
         }
     }
 }
