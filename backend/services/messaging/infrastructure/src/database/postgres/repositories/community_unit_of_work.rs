@@ -138,7 +138,7 @@ pub async fn load_community(
         community_id: r.community_id,
         name: r.name,
         color: r.color,
-        permissions: r.permissions,
+        permissions: messaging_domain::community::role::Permissions::from_bits_retain(r.permissions),
         position: r.position,
         created_at: r.created_at,
     })
@@ -238,7 +238,7 @@ impl CommunityTransaction for PostgresCommunityTransaction {
             role.community_id,
             role.name,
             role.color,
-            role.permissions,
+            role.permissions.bits(),
             role.position,
             role.created_at,
         )
@@ -253,7 +253,7 @@ impl CommunityTransaction for PostgresCommunityTransaction {
         role_id: Uuid,
         name: Option<&str>,
         color: Option<&str>,
-        permissions: i64,
+        permissions: messaging_domain::community::role::Permissions,
     ) -> Result<bool, RepositoryError> {
         let result = sqlx::query!(
             r#"
@@ -265,7 +265,7 @@ impl CommunityTransaction for PostgresCommunityTransaction {
             self.community_id.uuid(),
             name,
             color,
-            permissions,
+            permissions.bits(),
         )
         .execute(&mut *self.tx)
         .await

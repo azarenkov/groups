@@ -40,7 +40,7 @@ impl CommunityRoleRepository for PostgresCommunityRoleRepository {
                 community_id: r.community_id,
                 name: r.name,
                 color: r.color,
-                permissions: r.permissions,
+                permissions: messaging_domain::community::role::Permissions::from_bits_retain(r.permissions),
                 position: r.position,
                 created_at: r.created_at,
             })
@@ -71,7 +71,7 @@ impl CommunityRoleRepository for PostgresCommunityRoleRepository {
         &self,
         community_id: &CommunityId,
         user_id: &UserId,
-    ) -> Result<i64, RepositoryError> {
+    ) -> Result<messaging_domain::community::role::Permissions, RepositoryError> {
         let perms: Option<i64> = sqlx::query_scalar!(
             r#"
             SELECT bit_or(r.permissions) AS "perms"
@@ -87,6 +87,6 @@ impl CommunityRoleRepository for PostgresCommunityRoleRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(perms.unwrap_or(0))
+        Ok(messaging_domain::community::role::Permissions::from_bits_retain(perms.unwrap_or(0)))
     }
 }

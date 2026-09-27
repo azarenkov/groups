@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use chrono::Utc;
 use uuid::Uuid;
 
-use super::{Community, events::CommunityEvent, id::CommunityId, name::CommunityName, policy::MAX_ROLES_PER_COMMUNITY, policy::PolicyError, role::PERM_ALL, role::PERM_KICK_MEMBERS, role::PERM_MANAGE_ROLES, role::PERM_MUTE_MEMBERS, role::PERM_DISCONNECT_MEMBERS, role::RolePatch, role::CommunityRole};
+use super::{Community, events::CommunityEvent, id::CommunityId, name::CommunityName, policy::MAX_ROLES_PER_COMMUNITY, policy::PolicyError, role::Permission, role::Permissions, role::RolePatch, role::CommunityRole};
 use domain::user::id::UserId;
 use crate::channel::moderation::ModerationGrant;
 
@@ -17,7 +17,7 @@ struct Fixture {
     moderator_role: Uuid,
 }
 
-fn role(community_id: &CommunityId, permissions: i64, position: i32) -> CommunityRole {
+fn role(community_id: &CommunityId, permissions: Permissions, position: i32) -> CommunityRole {
     CommunityRole {
         id: Uuid::new_v4(),
         community_id: community_id.uuid(),
@@ -35,8 +35,14 @@ fn fixture() -> Fixture {
     let admin = UserId::generate();
     let moderator = UserId::generate();
     let member = UserId::generate();
-    let admin_role = role(&community_id, PERM_MANAGE_ROLES | PERM_KICK_MEMBERS | PERM_MUTE_MEMBERS | PERM_DISCONNECT_MEMBERS, 10);
-    let moderator_role = role(&community_id, PERM_MUTE_MEMBERS, 5);
+    let admin_role = role(
+        &community_id,
+        [Permission::ManageRoles, Permission::KickMembers, Permission::MuteMembers, Permission::DisconnectMembers]
+            .into_iter()
+            .collect(),
+        10,
+    );
+    let moderator_role = role(&community_id, Permission::MuteMembers.into(), 5);
     let admin_role_id = admin_role.id;
     let moderator_role_id = moderator_role.id;
     let members: HashSet<UserId> = [owner, admin, moderator, member].into_iter().collect();
@@ -68,11 +74,11 @@ fn outsiders_and_plain_members_cannot_manage_roles() {
     let mut f = fixture();
     let stranger = UserId::generate();
     assert_eq!(
-        f.community.create_role(&stranger, "x".into(), "#000000".into(), 0, Utc::now()).unwrap_err(),
+        f.community.create_role(&stranger, "x".into(), "#000000".into(), Permissions::empty(), Utc::now()).unwrap_err(),
         PolicyError::NotMember
     );
     assert_eq!(
-        f.community.create_role(&f.member, "x".into(), "#000000".into(), 0, Utc::now()).unwrap_err(),
+        f.community.create_role(&f.member, "x".into(), "#000000".into(), Permissions::empty(), Utc::now()).unwrap_err(),
         PolicyError::NotAllowed
     );
 }
@@ -82,20 +88,20 @@ fn created_roles_sit_below_the_creator_and_cannot_exceed_their_permissions() {
     let mut f = fixture();
     let err = f
         .community
-        .create_role(&f.admin, "super".into(), "#000000".into(), PERM_ALL, Utc::now())
+        .create_role(&f.admin, "super".into(), "#000000".into(), Permissions::all(), Utc::now())
         .unwrap_err();
     assert_eq!(err, PolicyError::NotAllowed);
 
     let created = f
         .community
-        .create_role(&f.admin, "helper".into(), "#000000".into(), PERM_MUTE_MEMBERS, Utc::now())
+        .create_role(&f.admin, "helper".into(), "#000000".into(), Permission::MuteMembers.into(), Utc::now())
         .unwrap();
     assert!(created.position < 10);
     assert!(created.position != 5);
 
     let owner_role = f
         .community
-        .create_role(&f.owner, "top".into(), "#000000".into(), PERM_ALL, Utc::now())
+        .create_role(&f.owner, "top".into(), "#000000".into(), Permissions::all(), Utc::now())
         .unwrap();
     assert_eq!(owner_role.position, 11);
     assert!(matches!(f.community.pull_events().as_slice(), [CommunityEvent::RolesChanged(_), CommunityEvent::RolesChanged(_)]));
@@ -105,10 +111,10 @@ fn created_roles_sit_below_the_creator_and_cannot_exceed_their_permissions() {
 fn role_limit_is_enforced() {
     let mut f = fixture();
     for _ in 0..(MAX_ROLES_PER_COMMUNITY - 2) {
-        f.community.create_role(&f.owner, "r".into(), "#000000".into(), 0, Utc::now()).unwrap();
+        f.community.create_role(&f.owner, "r".into(), "#000000".into(), Permissions::empty(), Utc::now()).unwrap();
     }
     assert_eq!(
-        f.community.create_role(&f.owner, "r".into(), "#000000".into(), 0, Utc::now()).unwrap_err(),
+        f.community.create_role(&f.owner, "r".into(), "#000000".into(), Permissions::empty(), Utc::now()).unwrap_err(),
         PolicyError::LimitReached
     );
 }
@@ -121,9 +127,9 @@ fn hierarchy_guards_assignment_update_and_deletion() {
         PolicyError::HierarchyViolation
     );
     f.community.assign_role(&f.admin, &f.member, f.moderator_role, Utc::now()).unwrap();
-    assert!(f.community.has(&f.member, PERM_MUTE_MEMBERS));
+    assert!(f.community.has(&f.member, Permission::MuteMembers));
 
-    let patch = RolePatch { add_permissions: PERM_MANAGE_ROLES, ..Default::default() };
+    let patch = RolePatch { add_permissions: Permission::ManageRoles.into(), ..Default::default() };
     assert_eq!(
         f.community.update_role(&f.moderator, f.moderator_role, &patch, Utc::now()).unwrap_err(),
         PolicyError::NotAllowed
@@ -134,7 +140,7 @@ fn hierarchy_guards_assignment_update_and_deletion() {
     );
     f.community.delete_role(&f.owner, f.admin_role, Utc::now()).unwrap();
     assert!(f.community.role(f.admin_role).is_none());
-    assert!(!f.community.has(&f.admin, PERM_MANAGE_ROLES));
+    assert!(!f.community.has(&f.admin, Permission::ManageRoles));
 }
 
 #[test]
@@ -145,7 +151,7 @@ fn revoking_a_missing_assignment_is_reported() {
         PolicyError::RoleNotFound
     );
     f.community.revoke_role(&f.owner, &f.moderator, f.moderator_role, Utc::now()).unwrap();
-    assert!(!f.community.has(&f.moderator, PERM_MUTE_MEMBERS));
+    assert!(!f.community.has(&f.moderator, Permission::MuteMembers));
 }
 
 #[test]
@@ -217,4 +223,33 @@ fn mute_authority_follows_rank_and_mute_authorship() {
         f.community.ensure_can_unmute(&f.member, &f.member, Some(&f.moderator)).unwrap(),
         ModerationGrant::SelfService
     );
+}
+
+#[test]
+fn a_role_with_a_permission_this_version_does_not_know_needs_the_owner_to_assign_it() {
+    let community_id = CommunityId::generate();
+    let owner = UserId::generate();
+    let manager = UserId::generate();
+    let member = UserId::generate();
+    let manager_role = role(&community_id, Permissions::all(), 10);
+    let future_role = role(&community_id, Permissions::from_bits_retain(1 << 20), 1);
+    let manager_role_id = manager_role.id;
+    let future_role_id = future_role.id;
+    let mut community = Community::load(
+        community_id,
+        CommunityName::new("rift".to_string()),
+        owner,
+        None,
+        None,
+        Utc::now(),
+        Utc::now(),
+        vec![manager_role, future_role],
+        vec![(manager, manager_role_id)],
+        [owner, manager, member].into_iter().collect(),
+    );
+    assert_eq!(
+        community.assign_role(&manager, &member, future_role_id, Utc::now()).unwrap_err(),
+        PolicyError::NotAllowed
+    );
+    assert!(community.assign_role(&owner, &member, future_role_id, Utc::now()).is_ok());
 }

@@ -33,7 +33,7 @@ pub trait CommunityTransaction: Send {
         role_id: Uuid,
         name: Option<&str>,
         color: Option<&str>,
-        permissions: i64,
+        permissions: crate::community::role::Permissions,
     ) -> Result<bool, RepositoryError>;
     async fn delete_role(&mut self, role_id: Uuid) -> Result<bool, RepositoryError>;
     async fn assign_role(&mut self, user_id: &UserId, role_id: Uuid) -> Result<(), RepositoryError>;

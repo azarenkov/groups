@@ -14,11 +14,7 @@ import { ApiError } from "../../../shared/lib/apiError";
 import i18n from "../../../i18n";
 import { useUserNamesStore } from "../../social/store/userNamesStore";
 import { refetchUnread } from "../store/unreadStore";
-import {
-  PERM_MANAGE_MESSAGES,
-  useRolesStore,
-  userPermissions,
-} from "../../communities/store/rolesStore";
+import { useRolesStore, userPermissions } from "../../communities/store/rolesStore";
 import ChannelHeader from "./ChannelHeader";
 import Composer from "./Composer";
 import SearchResults from "./SearchResults";
@@ -258,7 +254,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     !!channel &&
     !!currentUserId &&
     (communityOwnerId === currentUserId ||
-      (userPermissions(rolesData, currentUserId) & PERM_MANAGE_MESSAGES) !== 0);
+      userPermissions(rolesData, currentUserId).includes("manageMessages"));
 
   const handleJumpToMessage = async (target: ChannelMessage) => {
     search.clearResults();

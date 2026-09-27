@@ -17,7 +17,7 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{channel::moderation::ModerationGrant, community::description::CommunityDescription, community::events::CommunityEvent, community::events::lifecycle::CommunityCreated, community::events::lifecycle::CommunityDeleted, community::events::lifecycle::CommunityOwnerChanged, community::events::lifecycle::CommunityMemberLeft, community::events::lifecycle::CommunityRolesChanged, community::events::lifecycle::CommunityUpdated, community::id::CommunityId, community::name::CommunityName, community::policy::MAX_ROLES_PER_COMMUNITY, community::policy::PolicyError, community::role::PERM_ALL, community::role::PERM_KICK_MEMBERS, community::role::PERM_MANAGE_CHANNELS, community::role::PERM_MANAGE_INVITES, community::role::PERM_MANAGE_MESSAGES, community::role::PERM_MANAGE_ROLES, community::role::PERM_MANAGE_COMMUNITY, community::role::PERM_DEAFEN_MEMBERS, community::role::PERM_DISCONNECT_MEMBERS, community::role::PERM_MUTE_MEMBERS, community::role::RolePatch, community::role::CommunityRole, community::role::has_permission};
+use crate::{channel::moderation::ModerationGrant, community::description::CommunityDescription, community::events::CommunityEvent, community::events::lifecycle::CommunityCreated, community::events::lifecycle::CommunityDeleted, community::events::lifecycle::CommunityOwnerChanged, community::events::lifecycle::CommunityMemberLeft, community::events::lifecycle::CommunityRolesChanged, community::events::lifecycle::CommunityUpdated, community::id::CommunityId, community::name::CommunityName, community::policy::MAX_ROLES_PER_COMMUNITY, community::policy::PolicyError, community::role::Permission, community::role::Permissions, community::role::RolePatch, community::role::CommunityRole};
 use domain::user::id::UserId;
 
 #[derive(Debug)]
@@ -148,7 +148,7 @@ impl Community {
     }
 
     pub fn ensure_can_manage(&self, actor: &UserId) -> Result<(), PolicyError> {
-        self.ensure_permission(actor, PERM_MANAGE_COMMUNITY)
+        self.ensure_permission(actor, Permission::ManageCommunity)
     }
 
     pub fn update_details(
@@ -158,7 +158,7 @@ impl Community {
         description: Option<CommunityDescription>,
         now: DateTime<Utc>,
     ) -> Result<(), PolicyError> {
-        self.ensure_permission(actor, PERM_MANAGE_COMMUNITY)?;
+        self.ensure_permission(actor, Permission::ManageCommunity)?;
         self.name = name.clone();
         self.description = description.clone();
         self.updated_at = now;
@@ -177,14 +177,14 @@ impl Community {
         actor: &UserId,
         name: String,
         color: String,
-        permissions: i64,
+        permissions: Permissions,
         now: DateTime<Utc>,
     ) -> Result<CommunityRole, PolicyError> {
         self.ensure_role_manager(actor)?;
         if self.roles.len() >= MAX_ROLES_PER_COMMUNITY {
             return Err(PolicyError::LimitReached);
         }
-        let permissions = permissions & PERM_ALL;
+        let permissions = permissions.known();
         self.ensure_grantable(actor, permissions)?;
         let taken: HashSet<i32> = self.roles.iter().map(|r| r.position).collect();
         let position = if self.is_owner(actor) {
@@ -223,10 +223,12 @@ impl Community {
         if !self.outranks_position(actor, role.position) {
             return Err(PolicyError::HierarchyViolation);
         }
-        let projected =
-            (role.permissions | patch.add_permissions) & !patch.remove_permissions & PERM_ALL;
-        self.ensure_grantable(actor, projected & !role.permissions)?;
-        if role.permissions & !projected != 0 {
+        let projected = role
+            .permissions
+            .union(patch.add_permissions.known())
+            .difference(patch.remove_permissions.known());
+        self.ensure_grantable(actor, projected.difference(role.permissions))?;
+        if !role.permissions.is_subset_of(projected) {
             self.ensure_outranks_holders(actor, role_id)?;
         }
         let updated = self
@@ -348,7 +350,7 @@ impl Community {
         if actor == target || self.is_owner(target) {
             return Err(PolicyError::NotAllowed);
         }
-        self.ensure_permission(actor, PERM_KICK_MEMBERS)?;
+        self.ensure_permission(actor, Permission::KickMembers)?;
         if !self.is_member(target) {
             return Err(PolicyError::TargetNotMember);
         }
@@ -381,7 +383,7 @@ impl Community {
         if self.is_owner(target) {
             return Err(PolicyError::NotAllowed);
         }
-        self.ensure_permission(actor, PERM_MUTE_MEMBERS)?;
+        self.ensure_permission(actor, Permission::MuteMembers)?;
         if !self.outranks_member(actor, target) {
             return Err(PolicyError::HierarchyViolation);
         }
@@ -404,7 +406,7 @@ impl Community {
         if muted_by.is_some_and(|by| self.is_owner(by)) {
             return Err(PolicyError::NotAllowed);
         }
-        self.ensure_permission(actor, PERM_MUTE_MEMBERS)?;
+        self.ensure_permission(actor, Permission::MuteMembers)?;
         if !self.outranks_member(actor, target) {
             return Err(PolicyError::HierarchyViolation);
         }
@@ -419,7 +421,7 @@ impl Community {
         if actor == target || self.is_owner(target) {
             return Err(PolicyError::NotAllowed);
         }
-        self.ensure_permission(actor, PERM_DISCONNECT_MEMBERS)?;
+        self.ensure_permission(actor, Permission::DisconnectMembers)?;
         if !self.outranks_member(actor, target) {
             return Err(PolicyError::HierarchyViolation);
         }
@@ -434,7 +436,7 @@ impl Community {
         if actor == target || self.is_owner(target) {
             return Err(PolicyError::NotAllowed);
         }
-        self.ensure_permission(actor, PERM_DEAFEN_MEMBERS)?;
+        self.ensure_permission(actor, Permission::DeafenMembers)?;
         if !self.outranks_member(actor, target) {
             return Err(PolicyError::HierarchyViolation);
         }
@@ -457,7 +459,7 @@ impl Community {
         if deafened_by.is_some_and(|by| self.is_owner(by)) {
             return Err(PolicyError::NotAllowed);
         }
-        self.ensure_permission(actor, PERM_DEAFEN_MEMBERS)?;
+        self.ensure_permission(actor, Permission::DeafenMembers)?;
         if !self.outranks_member(actor, target) {
             return Err(PolicyError::HierarchyViolation);
         }
@@ -465,14 +467,14 @@ impl Community {
     }
 
     pub fn ensure_can_manage_channels(&self, actor: &UserId) -> Result<ModerationGrant, PolicyError> {
-        self.ensure_permission(actor, PERM_MANAGE_CHANNELS)?;
+        self.ensure_permission(actor, Permission::ManageChannels)?;
         Ok(self.grant_for(actor))
     }
 
     fn grant_for(&self, actor: &UserId) -> ModerationGrant {
         if self.is_owner(actor) {
             ModerationGrant::Owner
-        } else if self.has(actor, PERM_MUTE_MEMBERS) || self.has(actor, PERM_MANAGE_CHANNELS) {
+        } else if self.has(actor, Permission::MuteMembers) || self.has(actor, Permission::ManageChannels) {
             ModerationGrant::Moderator
         } else {
             ModerationGrant::SelfService
@@ -485,7 +487,7 @@ impl Community {
         author: &UserId,
     ) -> Result<(), PolicyError> {
         self.ensure_member(actor)?;
-        if actor == author || self.has(actor, PERM_MANAGE_MESSAGES) {
+        if actor == author || self.has(actor, Permission::ManageMessages) {
             Ok(())
         } else {
             Err(PolicyError::NotAllowed)
@@ -493,11 +495,11 @@ impl Community {
     }
 
     pub fn ensure_can_manage_invites(&self, actor: &UserId) -> Result<(), PolicyError> {
-        self.ensure_permission(actor, PERM_MANAGE_INVITES)
+        self.ensure_permission(actor, Permission::ManageInvites)
     }
 
     pub fn can_revoke_any_invite(&self, actor: &UserId) -> bool {
-        self.is_member(actor) && self.has(actor, PERM_MANAGE_INVITES)
+        self.is_member(actor) && self.has(actor, Permission::ManageInvites)
     }
 
     pub fn is_owner(&self, user: &UserId) -> bool {
@@ -524,18 +526,18 @@ impl Community {
         &self.roles
     }
 
-    pub fn permissions_of(&self, user: &UserId) -> i64 {
+    pub fn permissions_of(&self, user: &UserId) -> Permissions {
         if self.is_owner(user) {
-            return PERM_ALL;
+            return Permissions::all();
         }
         if !self.is_member(user) {
-            return 0;
+            return Permissions::empty();
         }
-        self.roles_of(user).fold(0, |acc, r| acc | r.permissions)
+        self.roles_of(user).fold(Permissions::empty(), |acc, r| acc.union(r.permissions))
     }
 
-    pub fn has(&self, user: &UserId, permission: i64) -> bool {
-        has_permission(self.permissions_of(user), permission)
+    pub fn has(&self, user: &UserId, permission: Permission) -> bool {
+        self.permissions_of(user).contains(permission)
     }
 
     fn roles_of<'a>(&'a self, user: &'a UserId) -> impl Iterator<Item = &'a CommunityRole> + 'a {
@@ -589,7 +591,7 @@ impl Community {
         }
     }
 
-    fn ensure_permission(&self, actor: &UserId, permission: i64) -> Result<(), PolicyError> {
+    fn ensure_permission(&self, actor: &UserId, permission: Permission) -> Result<(), PolicyError> {
         self.ensure_member(actor)?;
         if self.has(actor, permission) {
             Ok(())
@@ -600,15 +602,15 @@ impl Community {
 
     fn ensure_role_manager(&self, actor: &UserId) -> Result<(), PolicyError> {
         self.ensure_member(actor)?;
-        if self.is_owner(actor) || self.has(actor, PERM_MANAGE_ROLES) {
+        if self.is_owner(actor) || self.has(actor, Permission::ManageRoles) {
             Ok(())
         } else {
             Err(PolicyError::NotAllowed)
         }
     }
 
-    fn ensure_grantable(&self, actor: &UserId, bits: i64) -> Result<(), PolicyError> {
-        if bits & !self.permissions_of(actor) != 0 {
+    fn ensure_grantable(&self, actor: &UserId, permissions: Permissions) -> Result<(), PolicyError> {
+        if !permissions.is_subset_of(self.permissions_of(actor)) {
             return Err(PolicyError::NotAllowed);
         }
         Ok(())

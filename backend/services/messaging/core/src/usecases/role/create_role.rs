@@ -21,7 +21,7 @@ impl<U: CommunityUnitOfWork> CreateRole<U> {
         actor: UserId,
         name: String,
         color: String,
-        permissions: i64,
+        permissions: messaging_domain::community::role::Permissions,
     ) -> Result<CommunityRole, RoleError> {
         validate_role_input(&name, &color)?;
         let mut tx = self.unit_of_work.begin(&community_id).await?;
