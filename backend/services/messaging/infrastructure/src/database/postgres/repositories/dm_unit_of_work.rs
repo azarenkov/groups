@@ -70,6 +70,10 @@ impl DmTransaction for PostgresDmTransaction {
         attachments: &[AttachmentLink],
     ) -> Result<(), RepositoryError> {
         insert_dm_message(&mut self.tx, message).await?;
+        if message.forward().is_some() {
+            let keys: Vec<String> = attachments.iter().map(|a| a.storage_key.clone()).collect();
+            crate::outbox::storage::ensure_storage_keys_linked(&mut self.tx, &keys).await?;
+        }
         insert_dm_links(&mut self.tx, message.id().uuid(), attachments).await
     }
 

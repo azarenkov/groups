@@ -12,6 +12,8 @@ pub struct SendDmMessageResponse {
     pub invite_community_name: Option<String>,
     pub attachments: Vec<domain::attachment::AttachmentLink>,
     pub created_at: DateTime<Utc>,
+    pub reply: Option<crate::dto::responses::reply::ReplyPreviewDto>,
+    pub forwarded_from: Option<messaging_domain::message::forward::ForwardInfo>,
 }
 
 impl SendDmMessageResponse {
@@ -25,6 +27,10 @@ impl SendDmMessageResponse {
             invite_community_id: value.invite_community_id().map(|id| id.uuid()),
             invite_community_name: Some(invite_community_name),
             created_at: value.created_at(),
+            reply: value
+                .reply()
+                .map(|r| crate::dto::responses::reply::ReplyPreviewDto::from_preview(r, None)),
+            forwarded_from: value.forward().cloned(),
         }
     }
 }
@@ -40,6 +46,10 @@ impl From<&DmMessage> for SendDmMessageResponse {
             invite_community_id: value.invite_community_id().map(|id| id.uuid()),
             invite_community_name: None,
             created_at: value.created_at(),
+            reply: value
+                .reply()
+                .map(|r| crate::dto::responses::reply::ReplyPreviewDto::from_preview(r, None)),
+            forwarded_from: value.forward().cloned(),
         }
     }
 }

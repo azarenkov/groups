@@ -2,7 +2,7 @@ import React from "react";
 
 import i18n from "../../../i18n";
 import { bindingFor } from "../../settings/lib/hotkeys";
-import type { ChannelParticipant } from "../../../shared/types/channel";
+import type { ChannelParticipant, ReplyPreview } from "../../../shared/types/channel";
 import { colorForId } from "../../../shared/lib/avatar";
 import { eventMatches } from "../../settings/lib/hotkeyMatching";
 import { formatFileSize } from "../lib/messageFormat";
@@ -32,6 +32,8 @@ interface ComposerProps {
   onApplyMention: (name: string) => void;
   onCloseMentions: () => void;
   onEditLastMessage: () => boolean;
+  replyTarget?: ReplyPreview | null;
+  onCancelReply?: () => void;
 }
 
 const Composer: React.FC<ComposerProps> = ({
@@ -54,10 +56,35 @@ const Composer: React.FC<ComposerProps> = ({
   onApplyMention,
   onCloseMentions,
   onEditLastMessage,
+  replyTarget,
+  onCancelReply,
 }) => {
   useAutoGrow(composerRef, text);
   return (
     <form className="composer" onSubmit={onSubmit}>
+        {replyTarget && (
+          <div className="composer-reply">
+            <Icon name="reply" size={15} />
+            <div className="composer-reply-body">
+              <div className="composer-reply-who">
+                {i18n.t("replyingTo", { ns: "chat", name: replyTarget.authorName ?? "" })}
+              </div>
+              <div className="composer-reply-text">
+                {replyTarget.content ||
+                  (replyTarget.hasAttachments ? i18n.t("replyAttachment", { ns: "chat" }) : "")}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="composer-reply-close"
+              title={i18n.t("cancelReply", { ns: "chat" })}
+              aria-label={i18n.t("cancelReply", { ns: "chat" })}
+              onClick={onCancelReply}
+            >
+              <Icon name="x" size={14} />
+            </button>
+          </div>
+        )}
         {pendingFiles.length > 0 && (
           <div className="attach-chips">
             {pendingFiles.map((p) => (
@@ -156,6 +183,15 @@ const Composer: React.FC<ComposerProps> = ({
             value={text}
             onChange={(e) => onTextChange(e.target.value, e.target.selectionStart)}
             onKeyDown={(e) => {
+              if (
+                e.key === "Escape" &&
+                replyTarget &&
+                !(mentionQuery && mentionSuggestions.length > 0)
+              ) {
+                e.preventDefault();
+                onCancelReply?.();
+                return;
+              }
               if (
                 text === "" &&
                 !mentionQuery &&

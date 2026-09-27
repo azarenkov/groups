@@ -144,9 +144,19 @@ async fn list_voice_presence(
         })
         .collect();
 
+    let sessions: Vec<VoiceSessionItem> = snapshot
+        .sessions
+        .into_iter()
+        .map(|r| VoiceSessionItem {
+            channel_id: r.channel_id.uuid(),
+            started_at: r.started_at,
+        })
+        .collect();
+
     Ok(HttpResponse::Ok().json(ApiResponse::success(VoicePresenceResponse {
         items,
         stream_viewers,
+        sessions,
     })))
 }
 
@@ -165,6 +175,13 @@ struct VoicePresenceItem {
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+struct VoiceSessionItem {
+    channel_id: Uuid,
+    started_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 struct StreamViewerItem {
     channel_id: Uuid,
     streamer_id: Uuid,
@@ -176,6 +193,7 @@ struct StreamViewerItem {
 struct VoicePresenceResponse {
     items: Vec<VoicePresenceItem>,
     stream_viewers: Vec<StreamViewerItem>,
+    sessions: Vec<VoiceSessionItem>,
 }
 
 #[derive(Debug, serde::Deserialize)]

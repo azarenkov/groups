@@ -3,7 +3,7 @@ use std::sync::Arc;
 use messaging_domain::badge::attachments_per_message;
 
 use chrono::Utc;
-use messaging_domain::{privacy::ContactPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent};
+use messaging_domain::{privacy::ContactPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent, message::reply::ReplyPreview, dm_message::id::DmMessageId};
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
 use ports::repository::RepositoryError;
 use ports::user_profile::UserProfileRepository;
@@ -36,6 +36,8 @@ pub enum SendDmMessageError {
     InvalidAttachments,
     #[error("Attachment service unavailable: {0}")]
     AttachmentsUnavailable(String),
+    #[error("The message being replied to is not in this conversation")]
+    InvalidReply,
 }
 
 pub struct SendDmMessage<M, W, F, A, P, U>
@@ -122,18 +124,54 @@ where
         if request.attachment_ids.len() > attachments_per_message(&tier) {
             return Err(SendDmMessageError::InvalidAttachments);
         }
-        let content = if request.attachment_ids.is_empty() {
+        let forward = request.forward.clone();
+        let content = if let Some(forward) = &forward {
+            if forward.content.trim().is_empty() && forward.attachments.is_empty() {
+                return Err(MessageError::ContentEmpty.into());
+            }
+            MessageContent::new_allow_empty(forward.content.clone())?
+        } else if request.attachment_ids.is_empty() {
             MessageContent::new(request.content)?
         } else {
             MessageContent::new_allow_empty(request.content)?
         };
         let now = Utc::now();
         let mut message = DmMessage::create(sender_id, recipient_id, content, now);
+        if let Some(forward) = &forward {
+            message = message.with_forward(forward.info.clone());
+        }
+        let mut reply_author_name = None;
+        if let Some(reply_id) = request.reply_to_message_id {
+            let target = self
+                .dm_repository
+                .find_view_between(&DmMessageId::new(reply_id), &sender_id, &recipient_id)
+                .await
+                .map_err(|e| match e {
+                    RepositoryError::NotFound => SendDmMessageError::InvalidReply,
+                    other => SendDmMessageError::Repository(other),
+                })?;
+            if target.call_status.is_some() || target.invite_community_id.is_some() {
+                return Err(SendDmMessageError::InvalidReply);
+            }
+            let has_attachments = !self
+                .dm_repository
+                .list_attachment_links_for_dm_messages(&[reply_id])
+                .await?
+                .is_empty();
+            let hidden_for = self.dm_repository.list_users_hiding(reply_id).await?;
+            reply_author_name = Some(target.sender_name.clone());
+            message = message.with_reply(
+                ReplyPreview::new(reply_id, target.sender_id, &target.content, has_attachments)
+                    .hidden_for(hidden_for),
+            );
+        }
         let request_id = request.ctx.request_id.clone();
         let events = message.pull_events();
 
         let claim_token = uuid::Uuid::new_v4();
-        let attachments = if request.attachment_ids.is_empty() {
+        let attachments = if let Some(forward) = &forward {
+            forward.attachments.clone()
+        } else if request.attachment_ids.is_empty() {
             Vec::new()
         } else {
             match self
@@ -193,6 +231,9 @@ where
 
         let mut response = SendDmMessageResponse::from(&message);
         response.attachments = attachments;
+        if let Some(reply) = response.reply.as_mut() {
+            reply.author_name = reply_author_name;
+        }
         Ok(response)
     }
 }

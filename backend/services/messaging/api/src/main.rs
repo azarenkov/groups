@@ -7,6 +7,7 @@ mod blocks;
 mod calls;
 mod channel;
 mod dm;
+mod forward;
 mod friendship;
 mod home;
 mod internal;

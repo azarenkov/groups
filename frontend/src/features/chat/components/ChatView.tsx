@@ -1,5 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { blockGeneration, useBlockStore } from "../../social/store/blockStore";
 import { friendshipAPI } from "../../social/api/friendship";
 import Icon from "../../../shared/ui/Icon";
@@ -28,11 +29,18 @@ import { useChatWsMessages } from "../hooks/useChatWsMessages";
 import { useMessageComposer } from "../hooks/useMessageComposer";
 import { useMessageEditing } from "../hooks/useMessageEditing";
 import { useMessages } from "../hooks/useMessages";
+import { previewOf } from "../lib/replies";
+import { messageLink } from "../lib/messageLink";
+import type { MessageLinkTarget } from "../lib/messageLink";
+import { copyTextToClipboard } from "../../../shared/lib/clipboard";
+import { publicAppOrigin } from "../../../shared/config/runtime";
 import { useMessageSearch } from "../hooks/useMessageSearch";
 import { useMessenger } from "../hooks/useMessenger";
 import { useReadReceipts } from "../hooks/useReadReceipts";
 import { PULL_THRESHOLD, usePullToRefresh } from "../hooks/usePullToRefresh";
 import type { ChannelMeta, DmMeta } from "../types";
+import { openForward } from "../store/forwardModalStore";
+import { canDeleteForEveryone } from "../lib/messageMenu";
 
 interface ChatViewProps {
   channel?: ChannelMeta;
@@ -47,6 +55,8 @@ interface ChatViewProps {
   onGoToCommunity?: (communityId: string) => void | Promise<void>;
   topSlot?: React.ReactNode;
   callMode?: boolean;
+  openMessageId?: string;
+  onOpenMessageHandled?: () => void;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
@@ -62,8 +72,11 @@ const ChatView: React.FC<ChatViewProps> = ({
   onGoToCommunity,
   topSlot,
   callMode,
+  openMessageId,
+  onOpenMessageHandled,
 }) => {
   const { t } = useTranslation("chat");
+  const navigate = useNavigate();
   const attachments = useAttachments();
   const {
     pendingFiles,
@@ -131,6 +144,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     handleScroll,
     refreshHistory,
     jumpToMessage,
+    jumpToMessageId,
   } = useMessages({
     messenger,
     convId,
@@ -139,6 +153,14 @@ const ChatView: React.FC<ChatViewProps> = ({
     nameSyncTick,
     reseedChannelReads,
   });
+
+  const onOpenHandledRef = React.useRef(onOpenMessageHandled);
+  onOpenHandledRef.current = onOpenMessageHandled;
+  React.useEffect(() => {
+    if (!openMessageId || showInitialLoader) return;
+    void jumpToMessageId(openMessageId);
+    onOpenHandledRef.current?.();
+  }, [openMessageId, showInitialLoader, jumpToMessageId]);
 
   useChatWsMessages({
     channelId: channelId ?? null,
@@ -506,7 +528,6 @@ const ChatView: React.FC<ChatViewProps> = ({
             editFiles={editFiles}
             savingEdit={editing.savingEdit}
             highlightedMessageId={highlightedMessageId}
-            canModerateMessages={canModerateMessages}
             myCommunityIds={myCommunityIds}
             receiptFor={receiptFor}
             onEditTextChange={editing.setEditText}
@@ -516,7 +537,44 @@ const ChatView: React.FC<ChatViewProps> = ({
             onToggleRemoveAttachment={toggleRemoveAttachment}
             onAddEditFiles={addEditFiles}
             onRemoveEditFile={removeEditFile}
-            onDelete={editing.setDeleteTarget}
+            onReply={(message, authorName) => {
+                composer.setReplyTarget(previewOf(message, authorName));
+                composerRef.current?.focus();
+              }}
+              onJumpToMessage={(id) => void jumpToMessageId(id)}
+              onCopyLink={(message) => {
+                const target: MessageLinkTarget | null =
+                  isDm && dmFriendId && currentUserId
+                    ? { kind: "dm", participants: [currentUserId, dmFriendId], messageId: message.id }
+                    : channelId && communityId
+                      ? { kind: "channel", communityId, channelId, messageId: message.id }
+                      : null;
+                if (!target) return;
+                void copyTextToClipboard(messageLink(publicAppOrigin(), target)).catch(
+                  (e) => console.warn("[ChatView] copy link failed:", e),
+                );
+              }}
+              onForward={(message) => {
+                if (isDm && dmFriendId) {
+                  openForward({ kind: "dm", friendId: dmFriendId, messageId: message.id });
+                } else if (channelId && communityId) {
+                  openForward({ kind: "channel", communityId, channelId, messageId: message.id });
+                }
+              }}
+              onOpenForwardSource={(message) => {
+                const origin = message.forwardedFrom;
+                if (!origin || origin.source.kind !== "channel") return;
+                const link = new URL(
+                  messageLink(window.location.origin, {
+                    kind: "channel",
+                    communityId: origin.source.communityId,
+                    channelId: origin.source.channelId,
+                    messageId: origin.messageId,
+                  }),
+                );
+                navigate(link.pathname + link.search);
+              }}
+              onDelete={editing.setDeleteTarget}
             onAcceptInvite={handleAcceptInvite}
             onDeclineInvite={handleDeclineInvite}
             onOpenInviteCommunity={onGoToCommunity}
@@ -563,18 +621,36 @@ const ChatView: React.FC<ChatViewProps> = ({
           onApplyMention={applyMention}
           onCloseMentions={() => setMentionQuery(null)}
           onEditLastMessage={editing.editLastOwnMessage}
+          replyTarget={composer.replyTarget}
+          onCancelReply={() => composer.setReplyTarget(null)}
         />
       )}
-      {editing.deleteTarget && (
-        <ConfirmModal
-          title={i18n.t("deleteMessage", { ns: "chat" })}
-          subtitle={i18n.t("deleteMessageConfirm", { ns: "chat" })}
-          confirmLabel={i18n.t("delete", { ns: "common" })}
-          danger
-          onCancel={() => editing.setDeleteTarget(null)}
-          onConfirm={editing.confirmDelete}
-        />
-      )}
+      {editing.deleteTarget &&
+        (canDeleteForEveryone(
+          editing.deleteTarget,
+          editing.deleteTarget.authorId === currentUserId,
+          canModerateMessages,
+        ) ? (
+          <ConfirmModal
+            title={i18n.t("deleteMessage", { ns: "chat" })}
+            subtitle={i18n.t("deleteMessageChoose", { ns: "chat" })}
+            secondaryLabel={i18n.t("deleteForMe", { ns: "chat" })}
+            confirmLabel={i18n.t("deleteForEveryone", { ns: "chat" })}
+            danger
+            onCancel={() => editing.setDeleteTarget(null)}
+            onSecondary={() => void editing.confirmDelete("me")}
+            onConfirm={() => void editing.confirmDelete("everyone")}
+          />
+        ) : (
+          <ConfirmModal
+            title={i18n.t("deleteMessage", { ns: "chat" })}
+            subtitle={i18n.t("deleteForMeConfirm", { ns: "chat" })}
+            confirmLabel={i18n.t("deleteForMe", { ns: "chat" })}
+            danger
+            onCancel={() => editing.setDeleteTarget(null)}
+            onConfirm={() => void editing.confirmDelete("me")}
+          />
+        ))}
     </>
   );
 };

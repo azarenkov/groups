@@ -27,6 +27,9 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
   void import("../../features/voice/store/voicePresenceStore").then((m) =>
     m.useVoicePresenceStore.getState().clearAll(),
   );
+  void import("../../features/voice/store/voiceSessionStore").then((m) =>
+    m.useVoiceSessionStore.getState().clearAll(),
+  );
 
   void import("../../features/voice/store/voiceSettingsStore").then((m) => m.invalidateVoiceSettingsSync());
   void import("../../features/settings/store/notificationSettingsStore").then((m) =>
