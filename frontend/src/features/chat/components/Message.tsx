@@ -46,6 +46,7 @@ export interface MessageProps {
   msg: ChannelMessage;
   displayName: string;
   continued: boolean;
+  hideMeta?: boolean;
   isMine: boolean;
   dmStyle: boolean;
   receipt: "sent" | "read" | null;
@@ -82,6 +83,7 @@ export const Message: React.FC<MessageProps> = ({
   msg,
   displayName,
   continued,
+  hideMeta,
   isMine,
   dmStyle,
   receipt,
@@ -732,7 +734,7 @@ export const Message: React.FC<MessageProps> = ({
             })()}
           </div>
         )}
-        {!editing && !msg.callStatus && !msg.inviteCommunityId && (
+        {!editing && !hideMeta && !msg.callStatus && !msg.inviteCommunityId && (
           <div className="msg-meta">
             <time className="msg-time">{time}</time>
             {receipt && (

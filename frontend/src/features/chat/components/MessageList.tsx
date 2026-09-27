@@ -4,6 +4,7 @@ import type { ChannelMessage } from "../../../shared/types/channel";
 import { maxAttachmentsPerMessage } from "../api/attachment";
 import { formatDayDivider, sameDay } from "../lib/messageFormat";
 import Message from "./Message";
+import { sharesTimeWithNext } from "../lib/messageTime";
 import type { PendingFile } from "../types";
 
 interface MessageListProps {
@@ -121,6 +122,7 @@ const MessageList: React.FC<MessageListProps> = ({
                   msg={m}
                   displayName={displayName}
                   continued={cont}
+                  hideMeta={sharesTimeWithNext(m, messages[i + 1])}
                   isMine={isMine}
                   dmStyle={isDm}
                   receipt={receiptFor(m, isMine)}
