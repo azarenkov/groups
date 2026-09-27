@@ -53,6 +53,7 @@ export function useMessageEditing(params: {
           m.authorId === currentUserId &&
           !m.callStatus &&
           !m.inviteCommunityId &&
+          !m.forwardedFrom &&
           !m.system,
       );
     if (!last) return false;
@@ -140,16 +141,23 @@ export function useMessageEditing(params: {
     }
   };
 
-  const confirmDelete = async () => {
-    if (!deleteTarget || !messenger) return;
+  const deletingRef = React.useRef(new Set<string>());
+  const confirmDelete = async (scope: "everyone" | "me") => {
+    if (!deleteTarget || !messenger || deletingRef.current.has(deleteTarget.id)) return;
     const target = deleteTarget;
+    deletingRef.current.add(target.id);
+    setDeleteTarget(null);
     try {
-      await messenger.deleteMessage(target.id);
+      if (scope === "everyone") {
+        await messenger.deleteMessage(target.id);
+      } else {
+        await messenger.hideMessage(target.id);
+      }
       setMessages((prev) => prev.filter((m) => m.id !== target.id));
     } catch (err) {
       console.warn("[ChatView] delete failed:", err);
     } finally {
-      setDeleteTarget(null);
+      deletingRef.current.delete(target.id);
     }
   };
 

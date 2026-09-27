@@ -202,9 +202,13 @@ where
             .collect();
         final_attachments.extend(added_attachments.clone());
         final_attachments.sort_by_key(|a| a.created_at);
+        let hidden_for = self
+            .dm_repository
+            .list_users_hiding(message.id().uuid())
+            .await?;
         let persisted = async {
             let snapshots: Vec<AttachmentSnapshot> = final_attachments.iter().map(AttachmentSnapshot::from).collect();
-        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_attachments(&snapshots))).collect();
+        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_attachments(&snapshots).with_hidden_for(&hidden_for))).collect();
         let mut tx = self.unit_of_work.begin().await?;
             tx.lock_pair(message.sender_id(), message.recipient_id()).await?;
             if tx

@@ -18,6 +18,10 @@ pub struct ChannelMessageSentV1 {
     pub mentions: Option<Vec<Uuid>>,
     #[serde(default)]
     pub system: Option<Value>,
+    #[serde(default)]
+    pub reply_to: Option<Value>,
+    #[serde(default)]
+    pub forwarded_from: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,4 +52,11 @@ pub struct ChannelReadV1 {
     pub reader_id: Uuid,
     pub read_at: DateTime<Utc>,
     pub recipients: Vec<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageHiddenV1 {
+    pub user_id: Uuid,
+    pub message_id: Uuid,
+    pub hidden_at: DateTime<Utc>,
 }

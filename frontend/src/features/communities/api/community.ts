@@ -217,6 +217,7 @@ class CommunityAPI {
       streamerId: string;
       count: number;
     }[];
+    sessions: { channelId: string; startedAt: string }[];
   }> {
     const response = await this.client.get(
       `/v1/communities/${communityId}/voice-presence`,
@@ -224,6 +225,7 @@ class CommunityAPI {
     return {
       items: response.data.data.items,
       streamViewers: response.data.data.streamViewers ?? [],
+      sessions: response.data.data.sessions ?? [],
     };
   }
 

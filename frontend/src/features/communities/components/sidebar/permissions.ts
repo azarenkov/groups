@@ -4,6 +4,7 @@ import {
   PERM_MANAGE_CHANNELS,
   PERM_MANAGE_INVITES,
   PERM_DEAFEN_MEMBERS,
+  PERM_DISCONNECT_MEMBERS,
   PERM_MUTE_MEMBERS,
   topRoleFor,
   useRolesStore,
@@ -16,6 +17,7 @@ export interface SidebarPermissions {
   outranksIn: (community: Community, memberId: string) => boolean;
   canMuteIn: (community: Community) => boolean;
   canDeafenIn: (community: Community) => boolean;
+  canDisconnectIn: (community: Community) => boolean;
   canLiftDeafenIn: (
     community: Community,
     m: { id: string; deafenedBy?: string },
@@ -69,6 +71,12 @@ export function useSidebarPermissions(
       (userPermissions(rolesByCommunity[community.id], currentUserId) &
         PERM_DEAFEN_MEMBERS) !==
         0);
+  const canDisconnectIn = (community: Community) =>
+    !!currentUserId &&
+    (community.ownerId === currentUserId ||
+      (userPermissions(rolesByCommunity[community.id], currentUserId) &
+        PERM_DISCONNECT_MEMBERS) !==
+        0);
   const canLiftDeafenIn = (
     community: Community,
     m: { id: string; deafenedBy?: string },
@@ -83,6 +91,7 @@ export function useSidebarPermissions(
     outranksIn,
     canMuteIn,
     canDeafenIn,
+    canDisconnectIn,
     canLiftDeafenIn,
   };
 }

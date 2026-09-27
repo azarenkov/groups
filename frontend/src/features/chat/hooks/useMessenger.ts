@@ -13,7 +13,9 @@ export interface Messenger {
   sendMessage: (
     content: string,
     attachmentIds?: string[],
+    replyToMessageId?: string,
   ) => Promise<ChannelMessage>;
+  getMessage: (messageId: string) => Promise<ChannelMessage>;
   editMessage: (
     messageId: string,
     content: string,
@@ -21,6 +23,7 @@ export interface Messenger {
     removeAttachmentIds?: string[],
   ) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
+  hideMessage: (messageId: string) => Promise<void>;
   searchMessages: (
     query: string,
     page: number,
@@ -39,8 +42,9 @@ export function useMessenger(params: {
     if (isDm && dm) {
       return {
         listMessages: (opts) => dmAPI.listMessages(dm.friendId, opts),
-        sendMessage: (content, attachmentIds) =>
-          dmAPI.sendMessage(dm.friendId, content, attachmentIds),
+        sendMessage: (content, attachmentIds, replyToMessageId) =>
+          dmAPI.sendMessage(dm.friendId, content, attachmentIds, replyToMessageId),
+        getMessage: (messageId) => dmAPI.getMessage(dm.friendId, messageId),
         editMessage: (messageId, content, addAttachmentIds, removeAttachmentIds) =>
           dmAPI.editMessage(
             messageId,
@@ -49,6 +53,7 @@ export function useMessenger(params: {
             removeAttachmentIds,
           ),
         deleteMessage: (messageId) => dmAPI.deleteMessage(messageId),
+        hideMessage: (messageId) => dmAPI.hideMessage(dm.friendId, messageId),
         searchMessages: (query, page, perPage) =>
           dmAPI.searchMessages(dm.friendId, query, page, perPage),
       };
@@ -57,8 +62,10 @@ export function useMessenger(params: {
       return {
         listMessages: (opts) =>
           channelAPI.listMessages(communityId, channel.id, opts),
-        sendMessage: (content, attachmentIds) =>
-          channelAPI.sendMessage(communityId, channel.id, content, attachmentIds),
+        sendMessage: (content, attachmentIds, replyToMessageId) =>
+          channelAPI.sendMessage(communityId, channel.id, content, attachmentIds, replyToMessageId),
+        getMessage: (messageId) =>
+          channelAPI.getMessage(communityId, channel.id, messageId),
         editMessage: (messageId, content, addAttachmentIds, removeAttachmentIds) =>
           channelAPI.editMessage(
             communityId,
@@ -70,6 +77,8 @@ export function useMessenger(params: {
           ),
         deleteMessage: (messageId) =>
           channelAPI.deleteMessage(communityId, channel.id, messageId),
+        hideMessage: (messageId) =>
+          channelAPI.hideMessage(communityId, channel.id, messageId),
         searchMessages: (query, page, perPage) =>
           channelAPI.searchMessages(communityId, channel.id, query, page, perPage),
       };

@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT a.attachment_id AS \"attachment_id!\", a.file_name AS \"file_name!\",\n                   a.content_type AS \"content_type!\", a.size_bytes AS \"size_bytes!\",\n                   a.storage_key AS \"storage_key!\", a.created_at AS \"created_at!\"\n            FROM message_attachments a\n            INNER JOIN messages m ON m.id = a.message_id\n            INNER JOIN channels c ON c.id = m.channel_id\n            LEFT JOIN channel_text_participants p\n                ON p.channel_id = m.channel_id AND p.user_id = $2\n            LEFT JOIN community_members sm\n                ON sm.community_id = c.community_id AND sm.user_id = $2\n            WHERE a.attachment_id = $1\n              AND (\n                p.user_id IS NOT NULL\n                OR (c.visibility = 'public' AND sm.user_id IS NOT NULL)\n              )\n              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)\n            UNION ALL\n            SELECT a.attachment_id AS \"attachment_id!\", a.file_name AS \"file_name!\",\n                   a.content_type AS \"content_type!\", a.size_bytes AS \"size_bytes!\",\n                   a.storage_key AS \"storage_key!\", a.created_at AS \"created_at!\"\n            FROM dm_message_attachments a\n            INNER JOIN dm_messages d ON d.id = a.dm_message_id\n            WHERE a.attachment_id = $1\n              AND (d.sender_id = $2 OR d.recipient_id = $2)\n              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = d.id)\n              AND EXISTS(\n                  SELECT 1 FROM friendships f\n                  WHERE f.user_id = $2\n                    AND f.friend_id = CASE\n                        WHEN d.sender_id = $2 THEN d.recipient_id\n                        ELSE d.sender_id\n                    END\n                    AND f.status = 'accepted'\n              )\n            LIMIT 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "attachment_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "file_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "content_type!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "size_bytes!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "storage_key!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at!",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "334472c209076f7d33e4ce6053c6948a0a90da11d052f01bfc11a2f8b7333933"
+}

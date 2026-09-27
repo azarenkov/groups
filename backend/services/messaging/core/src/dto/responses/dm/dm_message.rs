@@ -15,6 +15,8 @@ pub struct DmMessageDto {
     pub call_duration_seconds: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub edited_at: Option<DateTime<Utc>>,
+    pub reply_to_message_id: Option<Uuid>,
+    pub forwarded_from: Option<messaging_domain::message::forward::ForwardInfo>,
 }
 
 impl From<DmMessageView> for DmMessageDto {
@@ -31,6 +33,8 @@ impl From<DmMessageView> for DmMessageDto {
             call_duration_seconds: value.call_duration_seconds,
             created_at: value.created_at,
             edited_at: value.edited_at,
+            reply_to_message_id: value.reply_to,
+            forwarded_from: value.forwarded_from,
         }
     }
 }
