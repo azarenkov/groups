@@ -175,7 +175,7 @@ export function useMessages(params: {
       skipNextAutoScrollRef.current = false;
       return;
     }
-    const own = appendedOwnMessage(previousTailId, messagesRef.current, currentUserIdRef.current);
+    const own = appendedOwnMessage(previousTailId, messagesRef.current, currentUserIdRef.current ?? undefined);
     if (!nearBottomRef.current && !own) return;
     body.scrollTop = body.scrollHeight;
     nearBottomRef.current = true;
