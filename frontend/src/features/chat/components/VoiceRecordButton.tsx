@@ -104,7 +104,22 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     await onSend(recording);
   }, [onError, onSend, reset, stopPreview]);
 
-  React.useEffect(() => () => recorderRef.current?.cancel(), []);
+  const onActiveChangeRef = React.useRef(onActiveChange);
+  onActiveChangeRef.current = onActiveChange;
+  React.useEffect(
+    () => () => {
+      recorderRef.current?.cancel();
+      recorderRef.current = null;
+      const preview = previewRef.current;
+      if (preview) {
+        preview.audio.pause();
+        URL.revokeObjectURL(preview.url);
+        previewRef.current = null;
+      }
+      onActiveChangeRef.current?.(false);
+    },
+    [],
+  );
 
   React.useEffect(() => {
     if (mode !== "holding" && mode !== "locked") return;

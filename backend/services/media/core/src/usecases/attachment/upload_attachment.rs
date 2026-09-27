@@ -23,7 +23,8 @@ const MINUTE_MS: i32 = 60 * 1000;
 pub const VOICE_TYPES: &[&str] = &["audio/webm", "audio/ogg", "audio/mp4"];
 pub const VOICE_WAVEFORM_MIN: usize = 32;
 pub const VOICE_WAVEFORM_MAX: usize = 128;
-const VOICE_MAX_BYTES_PER_SECOND: u64 = 48 * 1024;
+const VOICE_MAX_BYTES_PER_SECOND: u64 = 24 * 1024;
+const VOICE_LENGTH_SLACK_MS: i64 = 1500;
 const VOICE_HEAD_BYTES: usize = 12;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -109,6 +110,17 @@ pub fn voice_signature_matches(content_type: &str, head: &[u8]) -> bool {
     }
 }
 
+pub fn voice_length_matches(declared_ms: i32, actual_ms: i64, limits: &UploadLimits) -> Result<(), UploadAttachmentError> {
+    if actual_ms > limits.max_voice_ms as i64 + VOICE_LENGTH_SLACK_MS {
+        return Err(UploadAttachmentError::VoiceTooLong);
+    }
+    let slack = VOICE_LENGTH_SLACK_MS.max(declared_ms as i64 / 20);
+    if (actual_ms - declared_ms as i64).abs() > slack {
+        return Err(UploadAttachmentError::InvalidVoice);
+    }
+    Ok(())
+}
+
 pub fn voice_size_plausible(bytes: u64, duration_ms: i32) -> bool {
     let seconds = (duration_ms.max(0) as u64).div_ceil(1000) + 2;
     bytes <= seconds * VOICE_MAX_BYTES_PER_SECOND
@@ -157,6 +169,24 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
     pub async fn limits_for(&self, owner_id: &UserId) -> Result<UploadLimits, UploadAttachmentError> {
         let tier = self.plans.tier_of(owner_id, Utc::now()).await?;
         Ok(UploadLimits::for_tier(&tier))
+    }
+
+    async fn verify_voice_length(
+        &self,
+        voice: Option<&VoiceMeta>,
+        buffer: &Mutex<Vec<u8>>,
+        limits: &UploadLimits,
+    ) -> Option<UploadAttachmentError> {
+        let meta = voice?;
+        let bytes = std::mem::take(&mut *buffer.lock().unwrap_or_else(|e| e.into_inner()));
+        let probed = tokio::task::spawn_blocking(move || {
+            super::voice_probe::probe_voice_duration_ms(bytes)
+        })
+        .await;
+        match probed {
+            Ok(Some(actual)) => voice_length_matches(meta.duration_ms, actual, limits).err(),
+            _ => Some(UploadAttachmentError::InvalidVoice),
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -216,7 +246,14 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
         let bad_voice = Arc::new(AtomicBool::new(false));
         let voice_checked = Arc::new(AtomicBool::new(voice.is_none()));
         let seen = Arc::new(AtomicU64::new(0));
+        let voice_bytes: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
+        let voice_cap = voice
+            .as_ref()
+            .map(|_| (limits.max_voice_ms as u64).div_ceil(1000).saturating_add(2) * VOICE_MAX_BYTES_PER_SECOND)
+            .unwrap_or(0);
         let limited: ByteStream = {
+            let voice_bytes = voice_bytes.clone();
+            let keep_voice = voice.is_some();
             let too_large = too_large.clone();
             let bad_voice = bad_voice.clone();
             let voice_checked = voice_checked.clone();
@@ -230,6 +267,16 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
                 if total > max {
                     too_large.store(true, Ordering::Relaxed);
                     return Err(FileStorageError::Internal("file exceeds the plan limit".to_string()));
+                }
+                if keep_voice {
+                    if total > voice_cap {
+                        bad_voice.store(true, Ordering::Relaxed);
+                        return Err(FileStorageError::Internal("voice file is too large".to_string()));
+                    }
+                    voice_bytes
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .extend_from_slice(&chunk);
                 }
                 if !voice_checked.load(Ordering::Relaxed) {
                     let mut head = head.lock().unwrap_or_else(|e| e.into_inner());
@@ -261,12 +308,15 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
             {
                 Some(UploadAttachmentError::InvalidVoice)
             }
-            Ok(bytes) => match self.repository.set_size(attachment.id, bytes as i64).await {
-                Ok(()) => {
-                    attachment.size_bytes = bytes as i64;
-                    None
-                }
-                Err(e) => Some(e.into()),
+            Ok(bytes) => match self.verify_voice_length(voice.as_ref(), &voice_bytes, &limits).await {
+                Some(failure) => Some(failure),
+                None => match self.repository.set_size(attachment.id, bytes as i64).await {
+                    Ok(()) => {
+                        attachment.size_bytes = bytes as i64;
+                        None
+                    }
+                    Err(e) => Some(e.into()),
+                },
             },
             Err(_) if too_large.load(Ordering::Relaxed) => Some(UploadAttachmentError::TooLarge),
             Err(_) if bad_voice.load(Ordering::Relaxed) => Some(UploadAttachmentError::InvalidVoice),
@@ -295,8 +345,8 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
 #[cfg(test)]
 mod tests {
     use super::{
-        UploadAttachmentError, UploadLimits, validate_voice, voice_signature_matches,
-        voice_size_plausible,
+        UploadAttachmentError, UploadLimits, validate_voice, voice_length_matches,
+        voice_signature_matches, voice_size_plausible,
     };
     use domain::attachment::VoiceMeta;
 
@@ -347,6 +397,21 @@ mod tests {
         assert!(voice_signature_matches("audio/mp4", &mp4));
         assert!(!voice_signature_matches("audio/mp4", &webm));
         assert!(!voice_signature_matches("audio/webm", b"<html><body>"));
+    }
+
+    #[test]
+    fn the_declared_length_must_match_the_audio() {
+        let free = UploadLimits::for_tier("free");
+        assert!(voice_length_matches(4000, 3900, &free).is_ok());
+        assert!(matches!(
+            voice_length_matches(4000, 60_000, &free),
+            Err(UploadAttachmentError::InvalidVoice)
+        ));
+        assert!(matches!(
+            voice_length_matches(299_000, 20 * 60 * 1000, &free),
+            Err(UploadAttachmentError::VoiceTooLong)
+        ));
+        assert!(voice_length_matches(299_000, 300_500, &free).is_ok());
     }
 
     #[test]

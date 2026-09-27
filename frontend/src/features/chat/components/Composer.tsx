@@ -39,6 +39,7 @@ interface ComposerProps {
   onCancelReply?: () => void;
   onSendVoice?: (recording: VoiceRecording) => Promise<boolean>;
   onVoiceError?: (message: string | null) => void;
+  conversationKey?: string;
 }
 
 const Composer: React.FC<ComposerProps> = ({
@@ -65,6 +66,7 @@ const Composer: React.FC<ComposerProps> = ({
   onCancelReply,
   onSendVoice,
   onVoiceError,
+  conversationKey,
 }) => {
   useAutoGrow(composerRef, text);
   const [voiceActive, setVoiceActive] = React.useState(false);
@@ -278,6 +280,7 @@ const Composer: React.FC<ComposerProps> = ({
           />
           {showVoice && onSendVoice ? (
             <VoiceRecordButton
+              key={conversationKey}
               disabled={sending}
               onSend={onSendVoice}
               onError={(message) => onVoiceError?.(message)}

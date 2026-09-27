@@ -637,6 +637,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           onCancelReply={() => composer.setReplyTarget(null)}
           onSendVoice={composer.sendVoice}
           onVoiceError={composer.setComposerError}
+          conversationKey={convId}
         />
       )}
       {editing.deleteTarget &&
