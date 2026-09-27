@@ -52,4 +52,14 @@ describe("channelStore.fetchChannels", () => {
     expect(channelsFullyLoaded("c4")).toBe(true);
     expect(listByCommunity).toHaveBeenCalledTimes(2);
   });
+
+  it("keeps quiet about a request that failed after the community was cleared", async () => {
+    let reject: (reason: unknown) => void = () => {};
+    listByCommunity.mockReturnValue(new Promise((_, r) => (reject = r)));
+    const pending = useChannelStore.getState().fetchChannels("c5");
+    useChannelStore.getState().clearChannels("c5");
+    reject(new Error("forbidden"));
+    await expect(pending).resolves.toBe(false);
+    expect(useChannelStore.getState().error).toBeNull();
+  });
 });

@@ -113,6 +113,7 @@ export const useChannelStore = create<ChannelState>((set, get) => {
       complete.add(communityId);
       return true;
     } catch (error) {
+      if (stale()) return false;
       set({
         error:
           error instanceof Error ? error.message : "Failed to fetch channels",
