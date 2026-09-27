@@ -13,6 +13,7 @@ import { openReport } from "../../moderation/store/reportModalStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { loadActivitiesFor, useActivityStore } from "../store/activityStore";
 import { useProfileModalStore } from "../store/profileModalStore";
+import { useDialogFocus } from "../../../shared/hooks/useDialogFocus";
 import { userAPI, type Connection } from "../api/user";
 import { useUserNamesStore } from "../store/userNamesStore";
 import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
@@ -66,6 +67,8 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const { t } = useTranslation("profile");
   const userId = useProfileModalStore((s) => s.userId);
   const close = useProfileModalStore((s) => s.close);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef, !!userId, userId);
   const selfId = useAuthStore((s) => s.user?.id);
   const friendStatuses = useFriendshipStore((s) => s.statusById);
   const blockedByMe = useBlockStore((s) => (userId ? !!s.blocked[userId] : false));
@@ -203,7 +206,13 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
 
   return (
     <div className="modal-overlay profile-overlay" onMouseDown={close}>
-      <div className="profile-window" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div
+        ref={dialogRef}
+        className="profile-window"
+        onMouseDown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
         <div
           className={"profile-band" + (bannerUrl ? " profile-banner-image" : "")}
           style={

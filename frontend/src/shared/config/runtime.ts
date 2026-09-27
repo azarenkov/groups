@@ -1,5 +1,6 @@
 interface RuntimeConfig {
   apiUrl?: string;
+  appUrl?: string;
   wsUrl?: string;
   googleClientId?: string;
 }
@@ -27,6 +28,16 @@ export const apiBaseUrl = (): string =>
       nonEmpty(process.env.REACT_APP_API_URL) ??
       "http://localhost:8080/api",
   );
+
+export const publicAppOrigin = (): string => {
+  const configured =
+    nonEmpty(runtime().appUrl) ?? nonEmpty(process.env.REACT_APP_PUBLIC_APP_URL);
+  if (configured) return new URL(absolute(configured)).origin;
+  if (typeof window !== "undefined" && /^https?:$/.test(window.location.protocol)) {
+    return window.location.origin;
+  }
+  return new URL(apiBaseUrl()).origin;
+};
 
 export const wsEndpoint = (): string => {
   const injected = runtime();

@@ -17,7 +17,7 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{channel::moderation::ModerationGrant, community::description::CommunityDescription, community::events::CommunityEvent, community::events::lifecycle::CommunityCreated, community::events::lifecycle::CommunityDeleted, community::events::lifecycle::CommunityOwnerChanged, community::events::lifecycle::CommunityMemberLeft, community::events::lifecycle::CommunityRolesChanged, community::events::lifecycle::CommunityUpdated, community::id::CommunityId, community::name::CommunityName, community::policy::MAX_ROLES_PER_COMMUNITY, community::policy::PolicyError, community::role::PERM_ALL, community::role::PERM_KICK_MEMBERS, community::role::PERM_MANAGE_CHANNELS, community::role::PERM_MANAGE_INVITES, community::role::PERM_MANAGE_MESSAGES, community::role::PERM_MANAGE_ROLES, community::role::PERM_MANAGE_COMMUNITY, community::role::PERM_DEAFEN_MEMBERS, community::role::PERM_MUTE_MEMBERS, community::role::RolePatch, community::role::CommunityRole, community::role::has_permission};
+use crate::{channel::moderation::ModerationGrant, community::description::CommunityDescription, community::events::CommunityEvent, community::events::lifecycle::CommunityCreated, community::events::lifecycle::CommunityDeleted, community::events::lifecycle::CommunityOwnerChanged, community::events::lifecycle::CommunityMemberLeft, community::events::lifecycle::CommunityRolesChanged, community::events::lifecycle::CommunityUpdated, community::id::CommunityId, community::name::CommunityName, community::policy::MAX_ROLES_PER_COMMUNITY, community::policy::PolicyError, community::role::PERM_ALL, community::role::PERM_KICK_MEMBERS, community::role::PERM_MANAGE_CHANNELS, community::role::PERM_MANAGE_INVITES, community::role::PERM_MANAGE_MESSAGES, community::role::PERM_MANAGE_ROLES, community::role::PERM_MANAGE_COMMUNITY, community::role::PERM_DEAFEN_MEMBERS, community::role::PERM_DISCONNECT_MEMBERS, community::role::PERM_MUTE_MEMBERS, community::role::RolePatch, community::role::CommunityRole, community::role::has_permission};
 use domain::user::id::UserId;
 
 #[derive(Debug)]
@@ -409,6 +409,21 @@ impl Community {
             return Err(PolicyError::HierarchyViolation);
         }
         Ok(ModerationGrant::Moderator)
+    }
+
+    pub fn ensure_can_disconnect(&self, actor: &UserId, target: &UserId) -> Result<(), PolicyError> {
+        self.ensure_member(actor)?;
+        if !self.is_member(target) {
+            return Err(PolicyError::TargetNotMember);
+        }
+        if actor == target || self.is_owner(target) {
+            return Err(PolicyError::NotAllowed);
+        }
+        self.ensure_permission(actor, PERM_DISCONNECT_MEMBERS)?;
+        if !self.outranks_member(actor, target) {
+            return Err(PolicyError::HierarchyViolation);
+        }
+        Ok(())
     }
 
     pub fn ensure_can_deafen(&self, actor: &UserId, target: &UserId) -> Result<ModerationGrant, PolicyError> {

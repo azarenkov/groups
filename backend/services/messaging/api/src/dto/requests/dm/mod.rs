@@ -9,6 +9,8 @@ pub struct SendDmMessageBody {
     pub content: String,
     #[serde(default)]
     pub attachment_ids: Vec<Uuid>,
+    #[serde(default)]
+    pub reply_to_message_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize, Validate)]

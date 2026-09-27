@@ -1,4 +1,5 @@
 import React from "react";
+import { Trans } from "react-i18next";
 
 import i18n from "../../../i18n";
 import type { ChannelMessage } from "../../../shared/types/channel";
@@ -7,6 +8,7 @@ import { extractLinks } from "../../../shared/lib/links";
 import { formatCallDuration, formatFileSize } from "../lib/messageFormat";
 import { copyTextToClipboard } from "../../../shared/lib/clipboard";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
+import ProfileLink from "../../social/components/ProfileLink";
 import { rememberMentionTarget } from "../lib/mentionTargets";
 import { UserAvatar, CommunityLogo } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
@@ -15,12 +17,29 @@ import AttachmentItem from "./AttachmentItem";
 import LinkPreview from "./LinkPreview";
 import ReadTicks from "./ReadTicks";
 import { renderWithLinks } from "./MessageText";
+import { enterAction, insertNewline } from "../lib/composerKeys";
+import { useAutoGrow } from "../hooks/useAutoGrow";
+import { messageActions, messageCopyText, selectionInside } from "../lib/messageMenu";
+import type { MessageAction } from "../lib/messageMenu";
+import {
+  openContextMenu,
+  openContextMenuAt,
+} from "../../../shared/ui/contextMenu/contextMenuStore";
+import type { MenuEntry } from "../../../shared/ui/contextMenu/contextMenuStore";
+import { useLongPress } from "../../../shared/ui/contextMenu/useLongPress";
+import {
+  IDLE_WHEEL_SWIPE,
+  SWIPE_TRIGGER_PX,
+  nextWheelSwipe,
+  touchSwipeOffset,
+} from "../lib/swipe";
 import type { PendingFile } from "../types";
 import { MAX_CONTENT } from "../constants";
 
 export interface MessageProps {
-  canModerate?: boolean;
+  tabbable?: boolean;
   blockedAuthor?: boolean;
+  blockedReplyAuthor?: boolean;
   msg: ChannelMessage;
   displayName: string;
   continued: boolean;
@@ -45,11 +64,17 @@ export interface MessageProps {
   onAcceptInvite: () => void;
   onDeclineInvite: () => void;
   onOpenInviteCommunity: () => void;
+  onReply?: () => void;
+  onJumpToReply?: (messageId: string) => void;
+  onCopyLink?: () => void;
+  onForward?: () => void;
+  onOpenForwardSource?: () => void;
 }
 
 export const Message: React.FC<MessageProps> = ({
-  canModerate,
+  tabbable,
   blockedAuthor,
+  blockedReplyAuthor,
   msg,
   displayName,
   continued,
@@ -74,30 +99,180 @@ export const Message: React.FC<MessageProps> = ({
   onAcceptInvite,
   onDeclineInvite,
   onOpenInviteCommunity,
+  onReply,
+  onJumpToReply,
+  onCopyLink,
+  onForward,
+  onOpenForwardSource,
 }) => {
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
     rememberMentionTarget(displayName, msg.authorId);
   }, [displayName, msg.authorId]);
-  const [copied, setCopied] = React.useState(false);
+  const editRef = React.useRef<HTMLTextAreaElement>(null);
+  useAutoGrow(editRef, editing ? editText : "");
   const [revealed, setRevealed] = React.useState(false);
-  const copiedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const [quoteRevealed, setQuoteRevealed] = React.useState(false);
+  const focusOnRevealRef = React.useRef(false);
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const wasEditingRef = React.useRef(editing);
+  React.useEffect(() => {
+    const wasEditing = wasEditingRef.current;
+    wasEditingRef.current = editing;
+    if (!wasEditing || editing) return;
+    const active = document.activeElement;
+    const row = rootRef.current;
+    if (!row) return;
+    if (active && active !== document.body && !row.contains(active)) return;
+    row.focus({ preventScroll: true });
+  }, [editing]);
+
+  React.useEffect(() => {
+    if (!revealed || !focusOnRevealRef.current) return;
+    focusOnRevealRef.current = false;
+    rootRef.current?.focus();
+  }, [revealed]);
+  const menuEntries = (): MenuEntry[] => {
+    const selection = selectionInside(rootRef.current);
+    const actions = messageActions({
+      msg,
+      isMine,
+      hasSelection: selection.trim().length > 0,
+    });
+    const entry: Record<MessageAction, MenuEntry> = {
+      reply: {
+        kind: "item",
+        id: "reply",
+        label: i18n.t("reply", { ns: "chat" }),
+        icon: "reply",
+        disabled: !onReply,
+        onSelect: () => onReply?.(),
+      },
+      forward: {
+        kind: "item",
+        id: "forward",
+        label: i18n.t("forward", { ns: "chat" }),
+        icon: "forward",
+        disabled: !onForward,
+        onSelect: () => onForward?.(),
+      },
+      copy: {
+        kind: "item",
+        id: "copy",
+        label: i18n.t("copyText", { ns: "chat" }),
+        icon: "copy",
+        onSelect: () => {
+          void copyTextToClipboard(messageCopyText(msg, selection)).catch((e) =>
+            console.warn("[ChatView] copy failed:", e),
+          );
+        },
+      },
+      link: {
+        kind: "item",
+        id: "link",
+        label: i18n.t("copyMessageLink", { ns: "chat" }),
+        icon: "link",
+        disabled: !onCopyLink,
+        onSelect: () => onCopyLink?.(),
+      },
+      edit: {
+        kind: "item",
+        id: "edit",
+        label: i18n.t("edit", { ns: "chat" }),
+        icon: "edit",
+        onSelect: onStartEdit,
+      },
+      report: {
+        kind: "item",
+        id: "report",
+        label: i18n.t("action", { ns: "report" }),
+        icon: "flag",
+        onSelect: () =>
+          openReport({ type: "user", id: msg.authorId, name: displayName, messageId: msg.id }),
+      },
+      delete: {
+        kind: "item",
+        id: "delete",
+        label: i18n.t("delete", { ns: "chat" }),
+        icon: "trash",
+        danger: true,
+        onSelect: onDelete,
+      },
+    };
+    const pick = (action: MessageAction) => (actions.includes(action) ? [entry[action]] : []);
+    return [
+      ...pick("reply"),
+      ...pick("forward"),
+      ...pick("copy"),
+      ...pick("link"),
+      { kind: "separator", id: "s1" },
+      ...pick("edit"),
+      ...pick("report"),
+      { kind: "separator", id: "s2" },
+      ...pick("delete"),
+    ];
+  };
+  const longPress = useLongPress((point) => !editing && openContextMenu(point, menuEntries()));
+  const canSwipe = !!onReply && !editing && !msg.system && !msg.callStatus && !msg.inviteCommunityId;
+  const [swipeOffset, setSwipeOffset] = React.useState(0);
+  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const wheelSwipeRef = React.useRef(IDLE_WHEEL_SWIPE);
+  const wheelResetRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   React.useEffect(
     () => () => {
-      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      if (wheelResetRef.current) clearTimeout(wheelResetRef.current);
     },
     [],
   );
-  const handleCopy = () => {
-    void copyTextToClipboard(msg.content)
-      .then(() => {
-        setCopied(true);
-        if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
-        copiedTimerRef.current = setTimeout(() => setCopied(false), 1200);
-      })
-      .catch((e) => console.warn("[ChatView] copy failed:", e));
+  const selectingText = () => {
+    const selection = window.getSelection();
+    return !!selection && !selection.isCollapsed;
+  };
+  const swipeHandlers = {
+    onTouchStart: (e: React.TouchEvent) => {
+      if (!editing) longPress.onTouchStart(e);
+      if (!canSwipe || e.touches.length !== 1) return;
+      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    },
+    onTouchMove: (e: React.TouchEvent) => {
+      if (!editing) longPress.onTouchMove(e);
+      const start = touchStartRef.current;
+      if (!start) return;
+      const offset = touchSwipeOffset(
+        start.x - e.touches[0].clientX,
+        start.y - e.touches[0].clientY,
+      );
+      if (offset === null) {
+        touchStartRef.current = null;
+        setSwipeOffset(0);
+        return;
+      }
+      setSwipeOffset(offset);
+    },
+    onTouchEnd: (e: React.TouchEvent) => {
+      if (!editing) longPress.onTouchEnd(e);
+      if (touchStartRef.current && swipeOffset >= SWIPE_TRIGGER_PX) onReply?.();
+      touchStartRef.current = null;
+      setSwipeOffset(0);
+    },
+    onTouchCancel: () => {
+      if (!editing) longPress.onTouchCancel();
+      touchStartRef.current = null;
+      setSwipeOffset(0);
+    },
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!editing) longPress.onClickCapture(e);
+    },
+    onWheel: (e: React.WheelEvent) => {
+      if (!canSwipe || selectingText()) return;
+      const next = nextWheelSwipe(wheelSwipeRef.current, e.deltaX, e.deltaY, e.timeStamp);
+      wheelSwipeRef.current = next.state;
+      if (next.state.accum === 0) return;
+      setSwipeOffset(Math.min(next.state.accum, SWIPE_TRIGGER_PX + 20));
+      if (next.fire) onReply?.();
+      if (wheelResetRef.current) clearTimeout(wheelResetRef.current);
+      wheelResetRef.current = setTimeout(() => setSwipeOffset(0), 180);
+    },
   };
   const created = new Date(msg.createdAt);
   const time = created.toLocaleTimeString([], {
@@ -111,7 +286,14 @@ export const Message: React.FC<MessageProps> = ({
           <Icon name="shield" size={13} />
         </span>
         <span className="msg-system-text">{i18n.t("blockedMessage", { ns: "chat" })}</span>
-        <button type="button" className="link-btn" onClick={() => setRevealed(true)}>
+        <button
+          type="button"
+          className="link-btn"
+          onClick={() => {
+            focusOnRevealRef.current = true;
+            setRevealed(true);
+          }}
+        >
           {i18n.t("showBlockedMessage", { ns: "chat" })}
         </button>
       </div>
@@ -125,10 +307,13 @@ export const Message: React.FC<MessageProps> = ({
           <Icon name={joined ? "user-plus" : "logout"} size={13} />
         </span>
         <span className="msg-system-text">
-          {i18n.t(joined ? "system.memberJoined" : "system.memberLeft", {
-            ns: "chat",
-            name: displayName,
-          })}
+          <Trans
+            i18n={i18n}
+            ns="chat"
+            i18nKey={joined ? "system.memberJoined" : "system.memberLeft"}
+            values={{ name: displayName }}
+            components={[<ProfileLink key="n" userId={msg.system.userId} />]}
+          />
         </span>
         <time>{time}</time>
       </div>
@@ -136,7 +321,37 @@ export const Message: React.FC<MessageProps> = ({
   }
   return (
     <div
+      ref={rootRef}
       data-msg-id={msg.id}
+      tabIndex={tabbable || (blockedAuthor && revealed) ? 0 : -1}
+      onContextMenu={(e) => {
+        if (editing) return;
+        openContextMenu(e, menuEntries());
+      }}
+      onKeyDown={(e) => {
+        if (editing || e.target !== e.currentTarget) return;
+        if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+          e.preventDefault();
+          openContextMenuAt(e.currentTarget, menuEntries());
+          return;
+        }
+        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          const rows = Array.from(
+            e.currentTarget.parentElement?.closest(".chat-body")?.querySelectorAll<HTMLElement>(".msg.bubble[tabindex]") ?? [],
+          );
+          const next = rows[rows.indexOf(e.currentTarget) + (e.key === "ArrowUp" ? -1 : 1)];
+          if (!next) return;
+          e.preventDefault();
+          next.focus();
+          next.scrollIntoView({ block: "nearest" });
+        }
+      }}
+      {...swipeHandlers}
+      style={
+        swipeOffset > 0
+          ? { transform: `translateX(${-swipeOffset}px)`, transition: "none" }
+          : undefined
+      }
       className={
         "msg bubble " +
         (isMine ? "mine" : "theirs") +
@@ -146,6 +361,17 @@ export const Message: React.FC<MessageProps> = ({
         (editing ? " editing" : "")
       }
     >
+      {swipeOffset > 0 && (
+        <span
+          className="msg-swipe-hint"
+          style={{
+            right: `${8 - swipeOffset}px`,
+            opacity: Math.min(1, swipeOffset / SWIPE_TRIGGER_PX),
+          }}
+        >
+          <Icon name="reply" size={16} />
+        </span>
+      )}
       <UserAvatar
         userId={msg.authorId}
         name={displayName}
@@ -156,7 +382,9 @@ export const Message: React.FC<MessageProps> = ({
       <div className="body">
         {!continued && (
           <div className="head">
-            <b>{displayName}</b>
+            <ProfileLink userId={msg.authorId}>
+              <b>{displayName}</b>
+            </ProfileLink>
             <time>{time}</time>
           </div>
         )}
@@ -179,6 +407,9 @@ export const Message: React.FC<MessageProps> = ({
                       : i18n.t("callMissed", { ns: "call" })}
               </div>
             </div>
+            <time className="dm-call-time" dateTime={msg.createdAt}>
+              {time}
+            </time>
           </div>
         ) : msg.inviteCommunityId ? (
           <div className="dm-invite-card">
@@ -309,7 +540,9 @@ export const Message: React.FC<MessageProps> = ({
               </div>
             )}
             <div className="msg-edit-input-row">
-              <input
+              <textarea
+                ref={editRef}
+                rows={1}
                 autoFocus
                 value={editText}
                 maxLength={MAX_CONTENT}
@@ -325,9 +558,29 @@ export const Message: React.FC<MessageProps> = ({
                   if (e.key === "Escape") {
                     e.preventDefault();
                     onCancelEdit();
-                  } else if (e.key === "Enter" && !e.shiftKey) {
+                    return;
+                  }
+                  const action = enterAction({
+                    key: e.key,
+                    shiftKey: e.shiftKey,
+                    ctrlKey: e.ctrlKey,
+                    metaKey: e.metaKey,
+                    altKey: e.altKey,
+                    isComposing: e.nativeEvent.isComposing,
+                  });
+                  if (action === "send") {
                     e.preventDefault();
                     onSaveEdit();
+                  } else if (action === "newline") {
+                    e.preventDefault();
+                    const el = e.currentTarget;
+                    const next = insertNewline(el.value, el.selectionStart, el.selectionEnd, el.maxLength);
+                    if (!next) return;
+                    onEditTextChange(next.value);
+                    requestAnimationFrame(() => {
+                      el.selectionStart = next.caret;
+                      el.selectionEnd = next.caret;
+                    });
                   }
                 }}
               />
@@ -348,14 +601,98 @@ export const Message: React.FC<MessageProps> = ({
         ) : (
           <div className="txt">
             {!dmStyle && !isMine && !continued && (
-              <div
-                className="msg-author"
-                style={{ color: colorForId(msg.authorId) }}
-              >
-                {displayName}
+              <div className="msg-author">
+                <ProfileLink
+                  userId={msg.authorId}
+                  style={{ color: colorForId(msg.authorId) }}
+                >
+                  {displayName}
+                </ProfileLink>
               </div>
             )}
-            {renderWithLinks(msg.content)}
+            {(() => {
+              const origin = msg.forwardedFrom;
+              if (!origin) return null;
+              const openable = origin.source.kind === "channel" && !!onOpenForwardSource;
+              return (
+                <div
+                  className={"msg-forwarded" + (openable ? " openable" : "")}
+                  role={openable ? "button" : undefined}
+                  tabIndex={openable ? 0 : undefined}
+                  title={openable ? i18n.t("forwardOpenSource", { ns: "chat" }) : undefined}
+                  onClick={(e) => {
+                    if (!openable) return;
+                    e.stopPropagation();
+                    onOpenForwardSource?.();
+                  }}
+                  onKeyDown={(e) => {
+                    if (!openable || (e.key !== "Enter" && e.key !== " ")) return;
+                    e.preventDefault();
+                    onOpenForwardSource?.();
+                  }}
+                >
+                  <Icon name="forward" size={12} />
+                  <span>
+                    {i18n.t("forwardedFrom", { ns: "chat", name: origin.authorName })}
+                  </span>
+                </div>
+              );
+            })()}
+            {msg.replyTo && (() => {
+              const reply = msg.replyTo;
+              const masked = !reply.deleted && !!blockedReplyAuthor && !quoteRevealed;
+              const activate = () => {
+                if (reply.deleted) return;
+                if (masked) {
+                  setQuoteRevealed(true);
+                  return;
+                }
+                onJumpToReply?.(reply.id);
+              };
+              return (
+                <div
+                  className={"msg-reply" + (reply.deleted ? " deleted" : "")}
+                  role={reply.deleted ? undefined : "button"}
+                  tabIndex={reply.deleted ? undefined : 0}
+                  title={
+                    reply.deleted
+                      ? undefined
+                      : masked
+                        ? i18n.t("showBlockedMessage", { ns: "chat" })
+                        : i18n.t("jumpToReply", { ns: "chat" })
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    activate();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    activate();
+                  }}
+                >
+                  {reply.deleted ? (
+                    <span className="msg-reply-text">{i18n.t("replyDeleted", { ns: "chat" })}</span>
+                  ) : masked ? (
+                    <span className="msg-reply-text">{i18n.t("blockedMessage", { ns: "chat" })}</span>
+                  ) : (
+                    <>
+                      <span
+                        className="msg-reply-author"
+                        style={{ color: colorForId(reply.authorId ?? "") }}
+                      >
+                        {reply.authorName}
+                      </span>
+                      <span className="msg-reply-text">
+                        {reply.content ||
+                          (reply.hasAttachments ? i18n.t("replyAttachment", { ns: "chat" }) : "")}
+                      </span>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+            <span className="msg-text">{renderWithLinks(msg.content)}</span>
             {(msg.attachments?.length ?? 0) > 0 && (
               <div className="msg-attachments">
                 {(msg.attachments ?? []).map((a) => (
@@ -393,74 +730,6 @@ export const Message: React.FC<MessageProps> = ({
             )}
           </div>
         )}
-        {isMine && !editing && !msg.inviteCommunityId && (
-          <div className="msg-actions">
-            {!msg.callStatus && (
-              <button
-                type="button"
-                className="icon-btn"
-                title="Edit"
-                onClick={onStartEdit}
-              >
-                <Icon name="edit" size={13} />
-              </button>
-            )}
-            <button
-              type="button"
-              className="icon-btn"
-              title="Delete"
-              onClick={onDelete}
-            >
-              <Icon name="trash" size={13} />
-            </button>
-          </div>
-        )}
-        {!isMine &&
-          !editing &&
-          !msg.inviteCommunityId &&
-          ((msg.content.length > 0 && !msg.callStatus) ||
-            (msg.attachments?.length ?? 0) > 0 ||
-            canModerate) && (
-            <div className="msg-actions">
-              {msg.content.length > 0 && !msg.callStatus && (
-                <button
-                  type="button"
-                  className="icon-btn"
-                  title={i18n.t("copyMessage", { ns: "chat" })}
-                  onClick={handleCopy}
-                >
-                  <Icon name={copied ? "check" : "copy"} size={13} />
-                </button>
-              )}
-              {!msg.callStatus && !msg.system && (
-                <button
-                  type="button"
-                  className="icon-btn"
-                  title={i18n.t("action", { ns: "report" })}
-                  onClick={() =>
-                    openReport({
-                      type: "user",
-                      id: msg.authorId,
-                      name: displayName,
-                      messageId: msg.id,
-                    })
-                  }
-                >
-                  <Icon name="flag" size={13} />
-                </button>
-              )}
-              {canModerate && (
-                <button
-                  type="button"
-                  className="icon-btn"
-                  title="Delete"
-                  onClick={onDelete}
-                >
-                  <Icon name="trash" size={13} />
-                </button>
-              )}
-            </div>
-          )}
       </div>
     </div>
   );
