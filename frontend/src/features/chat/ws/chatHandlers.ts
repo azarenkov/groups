@@ -9,6 +9,7 @@ import { useUnreadStore } from "../store/unreadStore";
 import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
 import { mentionsUser } from "../lib/mentions";
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
+import { notificationBody } from "../lib/notificationBody";
 import { asString, eventTs, getActiveChannelView, lastChannelBumpAt, scheduleUnreadRefetch, throttleMarkChannelRead, viewIsForeground } from "../../../shared/ws/context";
 
 export const chatHandlers: WsHandlers = {
@@ -62,7 +63,7 @@ export const chatHandlers: WsHandlers = {
       if (desktopNotifAllowed()) {
         showDesktopNotification(
           channelName ? `#${channelName}` : "Rift",
-          asString(d.content) ?? "",
+          notificationBody(asString(d.content), d.attachments),
         );
       }
       return;

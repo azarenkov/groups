@@ -10,16 +10,9 @@ import { useUnreadStore } from "../../chat/store/unreadStore";
 import { useUserNamesStore } from "../../social/store/userNamesStore";
 import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
+import { voiceDurationFromPayload } from "../../chat/lib/voice";
+import { notificationBody } from "../../chat/lib/notificationBody";
 import { asString, eventTs, getActiveDmView, lastDmBumpAt, scheduleUnreadRefetch, throttleMarkDmRead, viewIsForeground } from "../../../shared/ws/context";
-
-const voiceDurationFrom = (attachments: unknown): number | null => {
-  if (!Array.isArray(attachments)) return null;
-  for (const a of attachments) {
-    const ms = (a as { voice?: { durationMs?: unknown } } | null)?.voice?.durationMs;
-    if (typeof ms === "number") return ms;
-  }
-  return null;
-};
 
 export const dmHandlers: WsHandlers = {
   "dm_message.sent": (d) => {
@@ -42,7 +35,7 @@ export const dmHandlers: WsHandlers = {
         callStatus: asString(d.callStatus) ?? null,
         inviteCommunityId: asString(d.inviteCommunityId) ?? null,
         hasAttachments: Array.isArray(d.attachments) && d.attachments.length > 0,
-        voiceDurationMs: voiceDurationFrom(d.attachments),
+        voiceDurationMs: voiceDurationFromPayload(d.attachments),
         createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
       });
       if (!knownPeerName) refetchDmPreviews();
@@ -66,7 +59,7 @@ export const dmHandlers: WsHandlers = {
       useUnreadStore.getState().bumpDm(senderId);
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
-        showDesktopNotification(peerName ?? "Rift", asString(d.content) ?? "");
+        showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments));
       }
       return;
   },

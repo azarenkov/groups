@@ -56,3 +56,12 @@ export function voiceAttachmentOf(msg: Pick<ChannelMessage, "attachments">): Att
 export function isVoiceMessage(msg: Pick<ChannelMessage, "attachments">): boolean {
   return voiceAttachmentOf(msg) !== null;
 }
+
+export function voiceDurationFromPayload(attachments: unknown): number | null {
+  if (!Array.isArray(attachments)) return null;
+  for (const a of attachments) {
+    const ms = (a as { voice?: { durationMs?: unknown } } | null)?.voice?.durationMs;
+    if (typeof ms === "number") return ms;
+  }
+  return null;
+}

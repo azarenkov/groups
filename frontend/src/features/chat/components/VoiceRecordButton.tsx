@@ -137,6 +137,21 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
   }, [mode, finish, onError]);
 
   React.useEffect(() => {
+    if (mode !== "holding" && mode !== "locked") return;
+    const onHidden = () => {
+      if (document.visibilityState !== "hidden") return;
+      const recorder = recorderRef.current;
+      if (!recorder || recorder.isPaused()) return;
+      recorder.pause();
+      setPaused(true);
+      setElapsed(recorder.elapsedMs());
+      if (modeRef.current === "holding") setModeBoth("locked");
+    };
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, [mode]);
+
+  React.useEffect(() => {
     if (mode === "idle") return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
