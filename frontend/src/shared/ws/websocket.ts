@@ -31,6 +31,7 @@ export type WsEventType =
   | "message.sent"
   | "message.edited"
   | "message.deleted"
+  | "message.hidden"
   | "channel.created"
   | "channel.renamed"
   | "channel.deleted"

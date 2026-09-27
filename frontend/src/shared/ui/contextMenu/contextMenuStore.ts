@@ -1,0 +1,83 @@
+import type React from "react";
+import { create } from "zustand";
+
+import type { IconName } from "../Icon";
+
+export type MenuEntry =
+  | {
+      kind: "item";
+      id: string;
+      label: string;
+      icon?: IconName;
+      danger?: boolean;
+      disabled?: boolean;
+      onSelect: () => void;
+    }
+  | { kind: "separator"; id: string }
+  | { kind: "custom"; id: string; render: () => React.ReactNode };
+
+interface OpenMenu {
+  x: number;
+  y: number;
+  entries: MenuEntry[];
+  seq: number;
+  returnFocus: HTMLElement | null;
+}
+
+interface ContextMenuState {
+  menu: OpenMenu | null;
+  open: (x: number, y: number, entries: MenuEntry[], returnFocus?: HTMLElement | null) => void;
+  close: () => void;
+}
+
+let seq = 0;
+let lastOpener: HTMLElement | null = null;
+
+export function focusReturnTarget(): HTMLElement | null {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && active !== document.body) return active;
+  return lastOpener && lastOpener.isConnected ? lastOpener : null;
+}
+
+export const useContextMenuStore = create<ContextMenuState>()((set) => ({
+  menu: null,
+  open: (x, y, entries, returnFocus = null) => {
+    seq += 1;
+    lastOpener = returnFocus;
+    set({ menu: { x, y, entries, seq, returnFocus } });
+  },
+  close: () => set({ menu: null }),
+}));
+
+export function visibleEntries(entries: MenuEntry[]): MenuEntry[] {
+  const out: MenuEntry[] = [];
+  for (const entry of entries) {
+    if (entry.kind === "separator") {
+      if (out.length === 0 || out[out.length - 1].kind === "separator") continue;
+    }
+    out.push(entry);
+  }
+  while (out.length > 0 && out[out.length - 1].kind === "separator") out.pop();
+  return out;
+}
+
+export function openContextMenu(
+  e: { clientX: number; clientY: number; preventDefault?: () => void },
+  entries: MenuEntry[],
+  returnFocus: HTMLElement | null = null,
+): boolean {
+  const shown = visibleEntries(entries);
+  if (shown.length === 0) return false;
+  e.preventDefault?.();
+  useContextMenuStore.getState().open(e.clientX, e.clientY, shown, returnFocus);
+  return true;
+}
+
+export function openContextMenuAt(el: Element, entries: MenuEntry[]): void {
+  const rect = el.getBoundingClientRect();
+  openContextMenu(
+    { clientX: rect.left + 12, clientY: rect.top + rect.height / 2 },
+    entries,
+    el instanceof HTMLElement ? el : null,
+  );
+}

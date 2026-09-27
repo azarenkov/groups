@@ -2,6 +2,7 @@ pub mod abort_voice_connection;
 pub mod admit_voice_participant;
 pub mod create_channel;
 pub mod delete_channel;
+pub mod disconnect_voice_member;
 pub mod delete_channel_message;
 pub mod enforce_user_deactivation;
 pub mod enforce_voice_mute;

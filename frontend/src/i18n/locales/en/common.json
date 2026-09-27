@@ -34,5 +34,7 @@
   "imageUnreadable": "This picture could not be opened.",
   "cropAvatar": "Crop avatar",
   "cropBanner": "Crop banner",
-  "cropLogo": "Crop logo"
+  "cropLogo": "Crop logo",
+  "resizeSidebar": "Resize the sidebar",
+  "resizeMembers": "Resize the member list"
 }

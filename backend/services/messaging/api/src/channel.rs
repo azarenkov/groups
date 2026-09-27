@@ -21,6 +21,7 @@ use validator::Validate;
 use crate::state::AppState;
 use api_common::{context::request_context};
 use api_common::dto::{pagination::{PaginationMeta, PaginationQuery}, responses::ApiResponse};
+use crate::dto::responses::reply::{fill_replies, reply_ids};
 use crate::dto::{requests::channel::{ create_channel::CreateChannelRequestBody, edit_message::EditMessageRequestBody, join_text_channel::JoinTextChannelRequestBody, join_voice_channel::JoinVoiceChannelRequestBody, mute_channel::MuteRequestBody, search_messages::SearchMessagesQuery, send_message::SendMessageRequestBody, unmute_channel::UnmuteRequestBody, }, responses::channel::{ create_channel::CreateChannelResponse, join_voice_channel::JoinVoiceChannelResponse, list_channel_participants::ListChannelParticipantsResponse, message::{ ListChannelMessagesResponse, MessageResponse, SearchChannelMessagesResponse, }, }};
 use crate::http_errors::HttpError;
 
@@ -102,6 +103,26 @@ async fn mute_channel(
     app_state
         .mute_channel_usecase
         .execute(data, user_id)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[post("/{community_id}/channels/{channel_id}/disconnect")]
+async fn disconnect_voice_member(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+    body: web::Json<MuteRequestBody>,
+) -> Result<HttpResponse, HttpError> {
+    let (community_id, channel_id) = path.into_inner();
+    app_state
+        .disconnect_voice_member_usecase
+        .execute(
+            CommunityId::new(community_id),
+            ChannelId::new(channel_id),
+            UserId::new(body.target_user_id),
+            UserId::new(auth_token.id),
+        )
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }
@@ -284,6 +305,7 @@ async fn list_channel_messages(
             m.attachments.push(link.into());
         }
     }
+    fill_channel_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     let response = ListChannelMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
@@ -328,9 +350,69 @@ async fn search_channel_messages(
             m.attachments.push(link.into());
         }
     }
+    fill_channel_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     let response = SearchChannelMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
+}
+
+#[get("/{community_id}/channels/{channel_id}/messages/{message_id}")]
+async fn get_channel_message(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid, Uuid)>,
+) -> Result<impl Responder, HttpError> {
+    let (community_id, channel_id, message_id) = path.into_inner();
+    let dto = app_state
+        .list_channel_messages_usecase
+        .find_one(community_id, channel_id, message_id, UserId::new(auth_token.id))
+        .await?;
+    let mut items = vec![MessageResponse::from(dto)];
+    let attachments = app_state
+        .list_message_attachments_usecase
+        .for_messages(&[message_id])
+        .await?;
+    for (_, link) in attachments {
+        items[0].attachments.push(link.into());
+    }
+    fill_channel_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(items.remove(0))))
+}
+
+#[post("/{community_id}/channels/{channel_id}/messages/{message_id}/hide")]
+async fn hide_channel_message(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid, Uuid)>,
+) -> Result<impl Responder, HttpError> {
+    let (community_id, channel_id, message_id) = path.into_inner();
+    let user_id = UserId::new(auth_token.id);
+    app_state
+        .list_channel_messages_usecase
+        .find_one(community_id, channel_id, message_id, user_id)
+        .await?;
+    app_state
+        .hide_message_usecase
+        .execute(user_id, message_id)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+async fn fill_channel_replies(
+    app_state: &web::Data<AppState>,
+    items: &mut [MessageResponse],
+    viewer: UserId,
+) -> Result<(), HttpError> {
+    let ids = reply_ids(items);
+    if ids.is_empty() {
+        return Ok(());
+    }
+    let previews = app_state
+        .list_channel_messages_usecase
+        .reply_previews(&ids, viewer)
+        .await?;
+    fill_replies(items, previews);
+    Ok(())
 }
 
 #[post("/{community_id}/channels/{channel_id}/messages")]
@@ -352,6 +434,7 @@ async fn send_channel_message(
         channel_id,
         body.content,
         body.attachment_ids,
+        body.reply_to_message_id,
         request_context(&req),
     );
 

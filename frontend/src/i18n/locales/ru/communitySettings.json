@@ -89,6 +89,7 @@
   "permManageMessages": "Удаление чужих сообщений",
   "permMuteMembers": "Мьют участников",
   "permDeafenMembers": "Отключение звука участникам",
+  "permDisconnectMembers": "Отключение участников от канала",
   "permManageRoles": "Управление ролями",
   "permManageCommunity": "Управление сообществом",
   "roleMembers": "Участники с ролью",

@@ -14,7 +14,7 @@ interface MentionsOptions {
   nameOverrides: Record<string, string>;
   text: string;
   setText: (value: string) => void;
-  composerRef: React.RefObject<HTMLInputElement>;
+  composerRef: React.RefObject<HTMLTextAreaElement>;
 }
 
 export function useMentions({

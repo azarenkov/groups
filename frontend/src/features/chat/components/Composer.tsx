@@ -2,16 +2,18 @@ import React from "react";
 
 import i18n from "../../../i18n";
 import { bindingFor } from "../../settings/lib/hotkeys";
-import type { ChannelParticipant } from "../../../shared/types/channel";
+import type { ChannelParticipant, ReplyPreview } from "../../../shared/types/channel";
 import { colorForId } from "../../../shared/lib/avatar";
 import { eventMatches } from "../../settings/lib/hotkeyMatching";
 import { formatFileSize } from "../lib/messageFormat";
+import { enterAction, insertNewline } from "../lib/composerKeys";
+import { useAutoGrow } from "../hooks/useAutoGrow";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
 import type { PendingFile } from "../types";
 
 interface ComposerProps {
-  composerRef: React.RefObject<HTMLInputElement>;
+  composerRef: React.RefObject<HTMLTextAreaElement>;
   fileInputRef: React.RefObject<HTMLInputElement>;
   text: string;
   placeholder: string;
@@ -30,6 +32,8 @@ interface ComposerProps {
   onApplyMention: (name: string) => void;
   onCloseMentions: () => void;
   onEditLastMessage: () => boolean;
+  replyTarget?: ReplyPreview | null;
+  onCancelReply?: () => void;
 }
 
 const Composer: React.FC<ComposerProps> = ({
@@ -52,8 +56,35 @@ const Composer: React.FC<ComposerProps> = ({
   onApplyMention,
   onCloseMentions,
   onEditLastMessage,
-}) => (
+  replyTarget,
+  onCancelReply,
+}) => {
+  useAutoGrow(composerRef, text);
+  return (
     <form className="composer" onSubmit={onSubmit}>
+        {replyTarget && (
+          <div className="composer-reply">
+            <Icon name="reply" size={15} />
+            <div className="composer-reply-body">
+              <div className="composer-reply-who">
+                {i18n.t("replyingTo", { ns: "chat", name: replyTarget.authorName ?? "" })}
+              </div>
+              <div className="composer-reply-text">
+                {replyTarget.content ||
+                  (replyTarget.hasAttachments ? i18n.t("replyAttachment", { ns: "chat" }) : "")}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="composer-reply-close"
+              title={i18n.t("cancelReply", { ns: "chat" })}
+              aria-label={i18n.t("cancelReply", { ns: "chat" })}
+              onClick={onCancelReply}
+            >
+              <Icon name="x" size={14} />
+            </button>
+          </div>
+        )}
         {pendingFiles.length > 0 && (
           <div className="attach-chips">
             {pendingFiles.map((p) => (
@@ -144,12 +175,23 @@ const Composer: React.FC<ComposerProps> = ({
               ))}
             </div>
           )}
-          <input
+          <textarea
             ref={composerRef}
+            rows={1}
+            className="composer-input"
             placeholder={placeholder}
             value={text}
             onChange={(e) => onTextChange(e.target.value, e.target.selectionStart)}
             onKeyDown={(e) => {
+              if (
+                e.key === "Escape" &&
+                replyTarget &&
+                !(mentionQuery && mentionSuggestions.length > 0)
+              ) {
+                e.preventDefault();
+                onCancelReply?.();
+                return;
+              }
               if (
                 text === "" &&
                 !mentionQuery &&
@@ -160,25 +202,55 @@ const Composer: React.FC<ComposerProps> = ({
                 if (onEditLastMessage()) e.preventDefault();
                 return;
               }
-              if (!mentionQuery || mentionSuggestions.length === 0) return;
-              if (e.key === "ArrowDown") {
+              const action = enterAction({
+                key: e.key,
+                shiftKey: e.shiftKey,
+                ctrlKey: e.ctrlKey,
+                metaKey: e.metaKey,
+                altKey: e.altKey,
+                isComposing: e.nativeEvent.isComposing,
+              });
+              if (mentionQuery && mentionSuggestions.length > 0) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  onMentionIndexChange((i) => (i + 1) % mentionSuggestions.length);
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  onMentionIndexChange(
+                    (i) =>
+                      (i - 1 + mentionSuggestions.length) %
+                      mentionSuggestions.length,
+                  );
+                  return;
+                }
+                if (e.key === "Tab" || action === "send") {
+                  e.preventDefault();
+                  const pick =
+                    mentionSuggestions[mentionIndex] ?? mentionSuggestions[0];
+                  onApplyMention(pick.name);
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  onCloseMentions();
+                  return;
+                }
+              }
+              if (action === "send") {
                 e.preventDefault();
-                onMentionIndexChange((i) => (i + 1) % mentionSuggestions.length);
-              } else if (e.key === "ArrowUp") {
+                e.currentTarget.form?.requestSubmit();
+              } else if (action === "newline") {
                 e.preventDefault();
-                onMentionIndexChange(
-                  (i) =>
-                    (i - 1 + mentionSuggestions.length) %
-                    mentionSuggestions.length,
-                );
-              } else if (e.key === "Enter" || e.key === "Tab") {
-                e.preventDefault();
-                const pick =
-                  mentionSuggestions[mentionIndex] ?? mentionSuggestions[0];
-                onApplyMention(pick.name);
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                onCloseMentions();
+                const el = e.currentTarget;
+                const next = insertNewline(el.value, el.selectionStart, el.selectionEnd, el.maxLength);
+                if (!next) return;
+                onTextChange(next.value, next.caret);
+                requestAnimationFrame(() => {
+                  el.selectionStart = next.caret;
+                  el.selectionEnd = next.caret;
+                });
               }
             }}
             onBlur={onCloseMentions}
@@ -211,6 +283,7 @@ const Composer: React.FC<ComposerProps> = ({
         </div>
         {composerError && <div className="composer-error">{composerError}</div>}
       </form>
-);
+  );
+};
 
 export default Composer;

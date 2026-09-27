@@ -5,7 +5,14 @@ import { useCallStore } from "../store/callStore";
 import { useReadReceiptStore } from "../../chat/store/readReceiptStore";
 import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
+import { useVoiceSessionStore } from "../store/voiceSessionStore";
 import { asString } from "../../../shared/ws/context";
+
+const endSessionIfEmpty = (channelId: string) => {
+  if ((useVoicePresenceStore.getState().byChannel[channelId]?.length ?? 0) === 0) {
+    useVoiceSessionStore.getState().end(channelId);
+  }
+};
 
 export const voiceHandlers: WsHandlers = {
   "channel.participant.joined": (d) => {
@@ -13,6 +20,10 @@ export const voiceHandlers: WsHandlers = {
       const userId = asString(d.userId);
       if (!channelId || !userId) return;
       const userName = asString(d.userName) ?? userId;
+      const occurredAt = asString(d.occurredAt);
+      if (occurredAt && (useVoicePresenceStore.getState().byChannel[channelId]?.length ?? 0) === 0) {
+        useVoiceSessionStore.getState().begin(channelId, occurredAt);
+      }
       useVoicePresenceStore.getState().addMember(channelId, {
         id: userId,
         name: userName,
@@ -27,6 +38,7 @@ export const voiceHandlers: WsHandlers = {
       const userId = asString(d.userId);
       if (!channelId || !userId) return;
       useVoicePresenceStore.getState().removeMember(channelId, userId);
+      endSessionIfEmpty(channelId);
       return;
   },
   "channel.participant.connectionAborted": (d) => {
@@ -34,6 +46,7 @@ export const voiceHandlers: WsHandlers = {
       const userId = asString(d.userId);
       if (!channelId || !userId) return;
       useVoicePresenceStore.getState().removeMember(channelId, userId);
+      endSessionIfEmpty(channelId);
       return;
   },
   "channel.text.joined": (d) => {
