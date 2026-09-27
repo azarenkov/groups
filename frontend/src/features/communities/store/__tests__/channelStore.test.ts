@@ -1,4 +1,4 @@
-import { useChannelStore } from "../channelStore";
+import { channelsFullyLoaded, useChannelStore } from "../channelStore";
 import { channelAPI } from "../../api/channel";
 
 jest.mock("../../api/channel", () => ({
@@ -34,5 +34,22 @@ describe("channelStore.fetchChannels", () => {
       .mockResolvedValueOnce({ channels: [{ id: "x", name: "general" }], pagination: { totalPages: 2 } })
       .mockRejectedValueOnce(new Error("boom"));
     await expect(useChannelStore.getState().fetchChannels("c3")).resolves.toBe(false);
+  });
+
+  it("joins a request already in flight and marks the list complete only after the last page", async () => {
+    let resolveSecond: (value: unknown) => void = () => {};
+    listByCommunity
+      .mockResolvedValueOnce({ channels: [{ id: "a", name: "a" }], pagination: { totalPages: 2 } })
+      .mockReturnValueOnce(new Promise((r) => (resolveSecond = r)));
+    const first = useChannelStore.getState().fetchChannels("c4");
+    const joined = useChannelStore.getState().fetchChannels("c4");
+    expect(joined).toBe(first);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(channelsFullyLoaded("c4")).toBe(false);
+    resolveSecond({ channels: [{ id: "b", name: "b" }], pagination: { totalPages: 2 } });
+    await expect(first).resolves.toBe(true);
+    expect(channelsFullyLoaded("c4")).toBe(true);
+    expect(listByCommunity).toHaveBeenCalledTimes(2);
   });
 });

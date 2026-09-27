@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useCommunityStore } from "../store/communityStore";
-import { useChannelStore } from "../store/channelStore";
+import { channelsFullyLoaded, useChannelStore } from "../store/channelStore";
 import { communityAPI } from "../api/community";
 import { extractInviteToken } from "../../../shared/lib/inviteLinks";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
@@ -605,7 +605,7 @@ const CommunitiesPage: React.FC = () => {
           onInviteCommunity={(community) => setInviteModalCommunity(community)}
           onOpenCommunitySettings={(community) => {
             setCommunitySettings(community);
-            if (channelsByCommunity[community.id]) setSettingsChannels(null);
+            if (channelsFullyLoaded(community.id)) setSettingsChannels(null);
             else loadSettingsChannels(community.id);
           }}
           onLeaveCommunity={(community) =>
@@ -875,7 +875,7 @@ const CommunitiesPage: React.FC = () => {
             channelsState={
               settingsChannels?.communityId === communitySettings.id
                 ? settingsChannels.state
-                : channelsByCommunity[communitySettings.id]
+                : channelsFullyLoaded(communitySettings.id)
                   ? "ready"
                   : "loading"
             }

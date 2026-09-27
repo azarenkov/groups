@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { Channel, ChannelKind, ChannelVisibility } from "../../../shared/types/channel";
+import {
+  Channel,
+  ChannelKind,
+  ChannelVisibility,
+} from "../../../shared/types/channel";
 import { channelAPI } from "../api/channel";
 
 interface ChannelState {
@@ -31,82 +35,23 @@ interface ChannelState {
 
 const removedDuringFetch = new Map<string, Set<string>>();
 const clearGen = new Map<string, number>();
+const inFlight = new Map<string, Promise<boolean>>();
+const complete = new Set<string>();
+
+export const channelsFullyLoaded = (communityId: string): boolean =>
+  complete.has(communityId);
 const patchedDuringFetch = new Map<string, Set<string>>();
 
-export const useChannelStore = create<ChannelState>((set, get) => ({
-  channelsByCommunity: {},
-  selectedChannelId: null,
-  isLoading: false,
-  error: null,
-
-  setChannels: (communityId, channels) =>
-    set((state) => ({
-      channelsByCommunity: {
-        ...state.channelsByCommunity,
-        [communityId]: channels,
-      },
-    })),
-
-  setSelectedChannel: (channelId) => set({ selectedChannelId: channelId }),
-
-  addChannel: (communityId, channel) =>
-    set((state) => {
-      const existing = state.channelsByCommunity[communityId] || [];
-      if (existing.some((c) => c.id === channel.id)) return state;
-      return {
-        channelsByCommunity: {
-          ...state.channelsByCommunity,
-          [communityId]: [...existing, channel],
-        },
-      };
-    }),
-
-  removeChannel: (communityId, channelId) => {
-    removedDuringFetch.get(communityId)?.add(channelId);
-    set((state) => ({
-      channelsByCommunity: {
-        ...state.channelsByCommunity,
-        [communityId]: (state.channelsByCommunity[communityId] || []).filter(
-          (c) => c.id !== channelId,
-        ),
-      },
-    }));
-  },
-
-  renameChannel: (communityId, channelId, name) => {
-    patchedDuringFetch.get(communityId)?.add(channelId);
-    set((state) => ({
-      channelsByCommunity: {
-        ...state.channelsByCommunity,
-        [communityId]: (state.channelsByCommunity[communityId] || []).map((c) =>
-          c.id === channelId ? { ...c, name } : c,
-        ),
-      },
-    }));
-  },
-
-  setLoading: (loading) => set({ isLoading: loading }),
-
-  setError: (error) => set({ error }),
-
-  clearError: () => set({ error: null }),
-
-  clearChannels: (communityId) => {
-    clearGen.set(communityId, (clearGen.get(communityId) ?? 0) + 1);
-    set((state) => {
-      const next = { ...state.channelsByCommunity };
-      delete next[communityId];
-      return { channelsByCommunity: next };
-    });
-  },
-
-  fetchChannels: async (communityId: string) => {
+export const useChannelStore = create<ChannelState>((set, get) => {
+  const loadAllChannels = async (communityId: string): Promise<boolean> => {
     const gen = clearGen.get(communityId) ?? 0;
     const stale = () => (clearGen.get(communityId) ?? 0) !== gen;
     set({ isLoading: true, error: null });
     try {
       const loaded: Channel[] = [];
-      const before = new Set((get().channelsByCommunity[communityId] ?? []).map((c) => c.id));
+      const before = new Set(
+        (get().channelsByCommunity[communityId] ?? []).map((c) => c.id),
+      );
       const removed = new Set<string>();
       const patched = new Set<string>();
       removedDuringFetch.set(communityId, removed);
@@ -114,13 +59,17 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
       const alive = (current: Channel[]) =>
         loaded
           .filter((c) => !removed.has(c.id))
-          .map((c) => (patched.has(c.id) ? (current.find((x) => x.id === c.id) ?? c) : c));
+          .map((c) =>
+            patched.has(c.id) ? (current.find((x) => x.id === c.id) ?? c) : c,
+          );
       const mergeWithCached = () => {
         if (stale()) return;
         set((state) => {
           const fresh = alive(state.channelsByCommunity[communityId] ?? []);
           const seen = new Set(fresh.map((c) => c.id));
-          const cached = (state.channelsByCommunity[communityId] ?? []).filter((c) => !seen.has(c.id));
+          const cached = (state.channelsByCommunity[communityId] ?? []).filter(
+            (c) => !seen.has(c.id),
+          );
           return {
             channelsByCommunity: {
               ...state.channelsByCommunity,
@@ -146,16 +95,22 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
       set((state) => {
         const fresh = alive(state.channelsByCommunity[communityId] ?? []);
         const seen = new Set(fresh.map((c) => c.id));
-        const addedMeanwhile = (state.channelsByCommunity[communityId] ?? []).filter(
-          (c) => !seen.has(c.id) && !before.has(c.id),
-        );
+        const addedMeanwhile = (
+          state.channelsByCommunity[communityId] ?? []
+        ).filter((c) => !seen.has(c.id) && !before.has(c.id));
         return {
-          channelsByCommunity: { ...state.channelsByCommunity, [communityId]: [...addedMeanwhile, ...fresh] },
+          channelsByCommunity: {
+            ...state.channelsByCommunity,
+            [communityId]: [...addedMeanwhile, ...fresh],
+          },
           isLoading: false,
         };
       });
-      if (removedDuringFetch.get(communityId) === removed) removedDuringFetch.delete(communityId);
-      if (patchedDuringFetch.get(communityId) === patched) patchedDuringFetch.delete(communityId);
+      if (removedDuringFetch.get(communityId) === removed)
+        removedDuringFetch.delete(communityId);
+      if (patchedDuringFetch.get(communityId) === patched)
+        patchedDuringFetch.delete(communityId);
+      complete.add(communityId);
       return true;
     } catch (error) {
       set({
@@ -165,48 +120,129 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
       });
       return false;
     }
-  },
+  };
 
-  createChannel: async (
-    communityId: string,
-    name: string,
-    kind: ChannelKind,
-    visibility: ChannelVisibility,
-    password?: string,
-  ) => {
-    set({ isLoading: true, error: null });
-    try {
-      const channel = await channelAPI.create(communityId, {
-        name,
-        kind,
-        visibility,
-        password,
-      });
-      get().addChannel(communityId, channel);
-      set({ isLoading: false });
-    } catch (error) {
-      set({
-        error:
-          error instanceof Error ? error.message : "Failed to create channel",
-        isLoading: false,
-      });
-      throw error;
-    }
-  },
+  return {
+    channelsByCommunity: {},
+    selectedChannelId: null,
+    isLoading: false,
+    error: null,
 
-  deleteChannel: async (communityId: string, channelId: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      await channelAPI.delete(communityId, channelId);
-      get().removeChannel(communityId, channelId);
-      set({ isLoading: false });
-    } catch (error) {
-      set({
-        error:
-          error instanceof Error ? error.message : "Failed to delete channel",
-        isLoading: false,
+    setChannels: (communityId, channels) =>
+      set((state) => ({
+        channelsByCommunity: {
+          ...state.channelsByCommunity,
+          [communityId]: channels,
+        },
+      })),
+
+    setSelectedChannel: (channelId) => set({ selectedChannelId: channelId }),
+
+    addChannel: (communityId, channel) =>
+      set((state) => {
+        const existing = state.channelsByCommunity[communityId] || [];
+        if (existing.some((c) => c.id === channel.id)) return state;
+        return {
+          channelsByCommunity: {
+            ...state.channelsByCommunity,
+            [communityId]: [...existing, channel],
+          },
+        };
+      }),
+
+    removeChannel: (communityId, channelId) => {
+      removedDuringFetch.get(communityId)?.add(channelId);
+      set((state) => ({
+        channelsByCommunity: {
+          ...state.channelsByCommunity,
+          [communityId]: (state.channelsByCommunity[communityId] || []).filter(
+            (c) => c.id !== channelId,
+          ),
+        },
+      }));
+    },
+
+    renameChannel: (communityId, channelId, name) => {
+      patchedDuringFetch.get(communityId)?.add(channelId);
+      set((state) => ({
+        channelsByCommunity: {
+          ...state.channelsByCommunity,
+          [communityId]: (state.channelsByCommunity[communityId] || []).map(
+            (c) => (c.id === channelId ? { ...c, name } : c),
+          ),
+        },
+      }));
+    },
+
+    setLoading: (loading) => set({ isLoading: loading }),
+
+    setError: (error) => set({ error }),
+
+    clearError: () => set({ error: null }),
+
+    clearChannels: (communityId) => {
+      clearGen.set(communityId, (clearGen.get(communityId) ?? 0) + 1);
+      inFlight.delete(communityId);
+      complete.delete(communityId);
+      set((state) => {
+        const next = { ...state.channelsByCommunity };
+        delete next[communityId];
+        return { channelsByCommunity: next };
       });
-      throw error;
-    }
-  },
-}));
+    },
+
+    fetchChannels: (communityId: string) => {
+      const running = inFlight.get(communityId);
+      if (running) return running;
+      const request = loadAllChannels(communityId).then((ok) => {
+        if (inFlight.get(communityId) === request) inFlight.delete(communityId);
+        return ok;
+      });
+      inFlight.set(communityId, request);
+      return request;
+    },
+
+    createChannel: async (
+      communityId: string,
+      name: string,
+      kind: ChannelKind,
+      visibility: ChannelVisibility,
+      password?: string,
+    ) => {
+      set({ isLoading: true, error: null });
+      try {
+        const channel = await channelAPI.create(communityId, {
+          name,
+          kind,
+          visibility,
+          password,
+        });
+        get().addChannel(communityId, channel);
+        set({ isLoading: false });
+      } catch (error) {
+        set({
+          error:
+            error instanceof Error ? error.message : "Failed to create channel",
+          isLoading: false,
+        });
+        throw error;
+      }
+    },
+
+    deleteChannel: async (communityId: string, channelId: string) => {
+      set({ isLoading: true, error: null });
+      try {
+        await channelAPI.delete(communityId, channelId);
+        get().removeChannel(communityId, channelId);
+        set({ isLoading: false });
+      } catch (error) {
+        set({
+          error:
+            error instanceof Error ? error.message : "Failed to delete channel",
+          isLoading: false,
+        });
+        throw error;
+      }
+    },
+  };
+});
