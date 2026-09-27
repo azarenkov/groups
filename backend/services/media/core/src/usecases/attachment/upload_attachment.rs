@@ -13,6 +13,7 @@ use futures::StreamExt;
 use media_domain::banner::BannerRepository;
 
 use crate::ports::file_storage::{ByteStream, FileStorage, FileStorageError};
+use super::voice_probe::VoiceSpool;
 
 const MEGABYTE: u64 = 1024 * 1024;
 pub const MAX_UNLINKED_COUNT: i64 = 50;
@@ -174,15 +175,14 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
     async fn verify_voice_length(
         &self,
         voice: Option<&VoiceMeta>,
-        buffer: &Mutex<Vec<u8>>,
+        spool: Option<Arc<VoiceSpool>>,
         limits: &UploadLimits,
     ) -> Option<UploadAttachmentError> {
         let meta = voice?;
-        let bytes = std::mem::take(&mut *buffer.lock().unwrap_or_else(|e| e.into_inner()));
-        let probed = tokio::task::spawn_blocking(move || {
-            super::voice_probe::probe_voice_duration_ms(bytes)
-        })
-        .await;
+        let Some(spool) = spool else {
+            return Some(UploadAttachmentError::InvalidVoice);
+        };
+        let probed = tokio::task::spawn_blocking(move || spool.probe_duration_ms()).await;
         match probed {
             Ok(Some(actual)) => voice_length_matches(meta.duration_ms, actual, limits).err(),
             _ => Some(UploadAttachmentError::InvalidVoice),
@@ -230,6 +230,13 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
             voice: voice.clone(),
         };
 
+        let spool: Option<Arc<VoiceSpool>> = if voice.is_some() {
+            let spool = VoiceSpool::create().map_err(|e| FileStorageError::Internal(e.to_string()))?;
+            Some(Arc::new(spool))
+        } else {
+            None
+        };
+
         let reserved = self
             .repository
             .insert_reserving_quota(
@@ -246,14 +253,12 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
         let bad_voice = Arc::new(AtomicBool::new(false));
         let voice_checked = Arc::new(AtomicBool::new(voice.is_none()));
         let seen = Arc::new(AtomicU64::new(0));
-        let voice_bytes: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
         let voice_cap = voice
             .as_ref()
             .map(|_| (limits.max_voice_ms as u64).div_ceil(1000).saturating_add(2) * VOICE_MAX_BYTES_PER_SECOND)
             .unwrap_or(0);
         let limited: ByteStream = {
-            let voice_bytes = voice_bytes.clone();
-            let keep_voice = voice.is_some();
+            let spool = spool.clone();
             let too_large = too_large.clone();
             let bad_voice = bad_voice.clone();
             let voice_checked = voice_checked.clone();
@@ -268,15 +273,14 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
                     too_large.store(true, Ordering::Relaxed);
                     return Err(FileStorageError::Internal("file exceeds the plan limit".to_string()));
                 }
-                if keep_voice {
+                if let Some(spool) = &spool {
                     if total > voice_cap {
                         bad_voice.store(true, Ordering::Relaxed);
                         return Err(FileStorageError::Internal("voice file is too large".to_string()));
                     }
-                    voice_bytes
-                        .lock()
-                        .unwrap_or_else(|e| e.into_inner())
-                        .extend_from_slice(&chunk);
+                    spool
+                        .write(&chunk)
+                        .map_err(|e| FileStorageError::Internal(e.to_string()))?;
                 }
                 if !voice_checked.load(Ordering::Relaxed) {
                     let mut head = head.lock().unwrap_or_else(|e| e.into_inner());
@@ -308,7 +312,7 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
             {
                 Some(UploadAttachmentError::InvalidVoice)
             }
-            Ok(bytes) => match self.verify_voice_length(voice.as_ref(), &voice_bytes, &limits).await {
+            Ok(bytes) => match self.verify_voice_length(voice.as_ref(), spool.clone(), &limits).await {
                 Some(failure) => Some(failure),
                 None => match self.repository.set_size(attachment.id, bytes as i64).await {
                     Ok(()) => {

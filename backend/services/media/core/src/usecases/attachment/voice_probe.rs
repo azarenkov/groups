@@ -1,7 +1,10 @@
-use std::io::Cursor;
+use std::fs::File;
+use std::io::{BufWriter, Cursor, Write};
+use std::path::PathBuf;
+use std::sync::Mutex;
 
 use symphonia::core::formats::FormatOptions;
-use symphonia::core::io::MediaSourceStream;
+use symphonia::core::io::{MediaSource, MediaSourceStream};
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 use symphonia::core::codecs::{CODEC_TYPE_AAC, CODEC_TYPE_OPUS, CodecType};
@@ -38,8 +41,49 @@ fn codec_samples(codec: CodecType, packet: &[u8]) -> Option<u64> {
     }
 }
 
+pub struct VoiceSpool {
+    path: PathBuf,
+    writer: Mutex<Option<BufWriter<File>>>,
+}
+
+impl VoiceSpool {
+    pub fn create() -> std::io::Result<Self> {
+        let path = std::env::temp_dir().join(format!("rift-voice-{}", uuid::Uuid::new_v4()));
+        let file = File::create(&path)?;
+        Ok(Self {
+            path,
+            writer: Mutex::new(Some(BufWriter::new(file))),
+        })
+    }
+
+    pub fn write(&self, chunk: &[u8]) -> std::io::Result<()> {
+        let mut guard = self.writer.lock().unwrap_or_else(|e| e.into_inner());
+        match guard.as_mut() {
+            Some(writer) => writer.write_all(chunk),
+            None => Err(std::io::Error::other("voice spool is closed")),
+        }
+    }
+
+    pub fn probe_duration_ms(&self) -> Option<i64> {
+        let writer = self.writer.lock().unwrap_or_else(|e| e.into_inner()).take()?;
+        writer.into_inner().ok()?.sync_all().ok()?;
+        let file = File::open(&self.path).ok()?;
+        probe_source(Box::new(file))
+    }
+}
+
+impl Drop for VoiceSpool {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
 pub fn probe_voice_duration_ms(bytes: Vec<u8>) -> Option<i64> {
-    let source = MediaSourceStream::new(Box::new(Cursor::new(bytes)), Default::default());
+    probe_source(Box::new(Cursor::new(bytes)))
+}
+
+fn probe_source(media: Box<dyn MediaSource>) -> Option<i64> {
+    let source = MediaSourceStream::new(media, Default::default());
     let probed = symphonia::default::get_probe()
         .format(&Hint::new(), source, &FormatOptions::default(), &MetadataOptions::default())
         .ok()?;
@@ -106,6 +150,20 @@ mod tests {
         let bytes = include_bytes!("fixtures/voice-20s.mp4").to_vec();
         let ms = probe_voice_duration_ms(bytes).expect("duration");
         assert!((19_000..=20_500).contains(&ms), "{ms}");
+    }
+
+    #[test]
+    fn a_spooled_upload_is_probed_from_disk_and_removed() {
+        let spool = super::VoiceSpool::create().expect("spool");
+        let bytes = include_bytes!("fixtures/voice-4s.webm");
+        for chunk in bytes.chunks(1000) {
+            spool.write(chunk).expect("write");
+        }
+        let path = spool.path.clone();
+        let ms = spool.probe_duration_ms().expect("duration");
+        assert!((3500..=4300).contains(&ms), "{ms}");
+        drop(spool);
+        assert!(!path.exists());
     }
 
     #[test]
