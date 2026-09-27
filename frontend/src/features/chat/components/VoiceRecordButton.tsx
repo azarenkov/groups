@@ -147,6 +147,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
       setElapsed(recorder.elapsedMs());
       if (modeRef.current === "holding") setModeBoth("locked");
     };
+    onHidden();
     document.addEventListener("visibilitychange", onHidden);
     return () => document.removeEventListener("visibilitychange", onHidden);
   }, [mode]);
@@ -256,6 +257,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     const recorder = recorderRef.current;
     if (!recorder) return;
     const blob = await recorder.snapshot();
+    if (recorderRef.current !== recorder || !recorder.isPaused() || previewRef.current) return;
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     previewRef.current = { audio, url };

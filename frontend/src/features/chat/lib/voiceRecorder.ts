@@ -41,11 +41,17 @@ export class VoiceRecorder {
     if (deviceId) audio.deviceId = { ideal: deviceId };
     const stream = await navigator.mediaDevices.getUserMedia({ audio });
     this.stream = stream;
-    const mime = pickVoiceMimeType((t) => MediaRecorder.isTypeSupported(t));
-    if (!mime) {
+    try {
+      this.setUp(stream);
+    } catch (err) {
       this.release();
-      throw new Error("unsupported");
+      throw err;
     }
+  }
+
+  private setUp(stream: MediaStream): void {
+    const mime = pickVoiceMimeType((t) => MediaRecorder.isTypeSupported(t));
+    if (!mime) throw new Error("unsupported");
     const recorder = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: VOICE_BITRATE });
     this.recorder = recorder;
     this.mimeType = recorder.mimeType || mime;
