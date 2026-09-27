@@ -9,6 +9,8 @@ import type { Channel, ChannelKind, ChannelVisibility } from "../../../../shared
 interface ChannelsSectionProps {
   community: Community;
   channels: Channel[];
+  channelsState?: "loading" | "error" | "ready";
+  onRetryChannels?: () => void;
   canManageChannels: boolean;
   onCreateChannel: (
     name: string,
@@ -22,6 +24,8 @@ interface ChannelsSectionProps {
 export const ChannelsSection: React.FC<ChannelsSectionProps> = ({
   community,
   channels,
+  channelsState = "ready",
+  onRetryChannels,
   canManageChannels,
   onCreateChannel,
   onDeleteChannel,
@@ -71,7 +75,7 @@ export const ChannelsSection: React.FC<ChannelsSectionProps> = ({
               <p className="lead">
                 {t("channelsLead", { count: channels.length, community: community.name })}
               </p>
-              {canManageChannels && (
+              {canManageChannels && channelsState === "ready" && (
               <form
                 className="ssv-invite-card"
                 onSubmit={(e) => {
@@ -152,7 +156,20 @@ export const ChannelsSection: React.FC<ChannelsSectionProps> = ({
                 {t("channelList", { count: channels.length })}
               </div>
               <div className="ssv-card">
-                {channels.length === 0 && (
+                {channelsState === "loading" && (
+                  <div className="ssv-empty">{t("common:loading")}</div>
+                )}
+                {channelsState === "error" && (
+                  <div className="ssv-empty">
+                    {t("common:error")}{" "}
+                    {onRetryChannels && (
+                      <button type="button" className="link-btn" onClick={onRetryChannels}>
+                        {t("common:retry")}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {channelsState === "ready" && channels.length === 0 && (
                   <div className="ssv-empty">{t("noChannels")}</div>
                 )}
                 {channels.map((c, i) => (

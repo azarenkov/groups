@@ -121,6 +121,18 @@ const CommunitiesPage: React.FC = () => {
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalCommunity, setInviteModalCommunity] = useState<Community | null>(null);
   const [communitySettings, setCommunitySettings] = useState<Community | null>(null);
+  const [settingsChannelsFailed, setSettingsChannelsFailed] = useState<string | null>(null);
+  const loadSettingsChannels = (communityId: string) => {
+    setSettingsChannelsFailed(null);
+    fetchChannels(communityId).then(
+      () => {
+        if (!useChannelStore.getState().channelsByCommunity[communityId]) {
+          setSettingsChannelsFailed(communityId);
+        }
+      },
+      () => setSettingsChannelsFailed(communityId),
+    );
+  };
   const [channelModal, setChannelModal] = useState<{ communityId: string; kind: ChannelKind } | null>(null);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -595,8 +607,8 @@ const CommunitiesPage: React.FC = () => {
           onSelectDm={handleSelectDm}
           onInviteCommunity={(community) => setInviteModalCommunity(community)}
           onOpenCommunitySettings={(community) => {
-            if (!channelsByCommunity[community.id]) void fetchChannels(community.id);
             setCommunitySettings(community);
+            if (!channelsByCommunity[community.id]) loadSettingsChannels(community.id);
           }}
           onLeaveCommunity={(community) =>
             setDeleteConfirm({
@@ -862,6 +874,14 @@ const CommunitiesPage: React.FC = () => {
             }
             friends={friends}
             channels={channelsByCommunity[communitySettings.id] ?? []}
+            channelsState={
+              channelsByCommunity[communitySettings.id]
+                ? "ready"
+                : settingsChannelsFailed === communitySettings.id
+                  ? "error"
+                  : "loading"
+            }
+            onRetryChannels={() => loadSettingsChannels(communitySettings.id)}
             currentUserId={user?.id}
             onClose={() => setCommunitySettings(null)}
             onDeleteCommunity={(community) => {

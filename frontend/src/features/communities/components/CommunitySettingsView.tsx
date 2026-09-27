@@ -33,6 +33,8 @@ interface CommunitySettingsViewProps {
   community: Community;
   friends: Friendship[];
   channels: Channel[];
+  channelsState?: "loading" | "error" | "ready";
+  onRetryChannels?: () => void;
   currentUserId?: string;
   onClose: () => void;
   onDeleteCommunity: (community: Community) => void;
@@ -49,6 +51,8 @@ const CommunitySettingsView: React.FC<CommunitySettingsViewProps> = ({
   community,
   friends,
   channels,
+  channelsState,
+  onRetryChannels,
   currentUserId,
   onClose,
   onDeleteCommunity,
@@ -237,6 +241,8 @@ const CommunitySettingsView: React.FC<CommunitySettingsViewProps> = ({
             <ChannelsSection
               community={community}
               channels={channels}
+              channelsState={channelsState}
+              onRetryChannels={onRetryChannels}
               canManageChannels={canManageChannels}
               onCreateChannel={onCreateChannel}
               onDeleteChannel={onDeleteChannel}
