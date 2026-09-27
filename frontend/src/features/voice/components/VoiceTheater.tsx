@@ -220,6 +220,9 @@ export interface TheaterEntry {
 interface VoiceTheaterProps {
   roster: TheaterEntry[];
   screenTile: VideoTile | null;
+  screenTiles?: VideoTile[];
+  watched?: string[];
+  onSetWatched?: (identity: string, on: boolean) => void;
   liveName?: string | null;
   isMuted: boolean;
   muteLocked?: boolean;
@@ -252,9 +255,19 @@ interface VoiceTheaterProps {
 
 const STRIP_MAX = 6;
 
+const gridColumns = (count: number): number => {
+  if (count <= 2) return Math.max(1, count);
+  if (count <= 4) return 2;
+  if (count <= 9) return 3;
+  return 4;
+};
+
 const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   roster,
   screenTile,
+  screenTiles,
+  watched,
+  onSetWatched,
   liveName,
   isMuted,
   muteLocked,
@@ -328,6 +341,10 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   const sharingIds = new Set(available.map((share) => share.identity));
   const offered = watching === null || watching === undefined ? available : [];
   const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const [pinnedScreen, setPinnedScreen] = useState<string | null>(null);
+  const watchedTiles = screenTiles ?? (screenTile ? [screenTile] : []);
+  const watchedIds = watched ?? (watching ? [watching] : []);
+  const isWatched = (id: string) => watchedIds.includes(id);
   const [autoFocus, setAutoFocus] = useState(IDLE_AUTO_FOCUS);
   const [focusTick, setFocusTick] = useState(0);
   const candidates = roster.map((r) => ({
@@ -350,13 +367,44 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
     const timer = setTimeout(() => setFocusTick((n) => n + 1), wait + 10);
     return () => clearTimeout(timer);
   }, [autoFocus]);
-  const pinnedTile = pinnedId
+  const pinnedCamera = pinnedId
     ? (roster.find((r) => r.id === pinnedId)?.camera ?? null)
     : null;
+  const pinnedScreenTile = pinnedScreen
+    ? (watchedTiles.find((tile) => tile.identity === pinnedScreen) ?? null)
+    : null;
   useEffect(() => {
-    if (pinnedId && !pinnedTile) setPinnedId(null);
-  }, [pinnedId, pinnedTile]);
-  const togglePin = (id: string) => setPinnedId((prev) => (prev === id ? null : id));
+    if (pinnedId && !pinnedCamera) setPinnedId(null);
+  }, [pinnedId, pinnedCamera]);
+  useEffect(() => {
+    if (pinnedScreen && !pinnedScreenTile) setPinnedScreen(null);
+  }, [pinnedScreen, pinnedScreenTile]);
+  const pinnedTile = pinnedScreenTile ?? pinnedCamera;
+  const togglePin = (id: string) => {
+    setPinnedScreen(null);
+    setPinnedId((prev) => (prev === id ? null : id));
+  };
+  const toggleScreenPin = (id: string) => {
+    setPinnedId(null);
+    setPinnedScreen((prev) => (prev === id ? null : id));
+  };
+  const unpin = () => {
+    setPinnedId(null);
+    setPinnedScreen(null);
+  };
+  const cameraEntries = roster.filter((r) => r.camera);
+  const gridKind: "screens" | "cameras" | null = pinnedTile
+    ? null
+    : available.length >= 2
+      ? "screens"
+      : available.length === 0 && cameraEntries.length >= 2
+        ? "cameras"
+        : null;
+  const gridCount = gridKind === "screens" ? available.length : cameraEntries.length;
+  const watchShare = (id: string) => {
+    if (gridKind === "screens" && onSetWatched) onSetWatched(id, true);
+    else onWatch?.(id);
+  };
   const mainVideo =
     pinnedTile ??
     screenTile ??
@@ -365,20 +413,26 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
     roster.find((r) => r.camera)?.camera ??
     null;
   const videoSources = roster.filter((r) => r.camera).length + (screenTile ? 1 : 0);
-  const showFocus = !!mainVideo && (!!pinnedTile || videoSources > 1);
+  const showFocus = !gridKind && !!mainVideo && (!!pinnedTile || videoSources > 1);
+  const pinnedOwner = pinnedTile ? roster.find((r) => r.id === pinnedTile.identity) : undefined;
   const pinnedName = pinnedTile
-    ? (roster.find((r) => r.id === pinnedId)?.isSelf
+    ? pinnedScreenTile
+      ? pinnedScreenTile.isLocal
+        ? t("yourScreen")
+        : (pinnedOwner?.name ?? "")
+      : pinnedOwner?.isSelf
         ? t("you")
-        : (roster.find((r) => r.id === pinnedId)?.name ?? ""))
+        : (pinnedOwner?.name ?? "")
     : "";
-  const strip = roster.slice(0, STRIP_MAX);
-  const overflow = roster.slice(STRIP_MAX);
+  const stripSource = gridKind === "cameras" ? roster.filter((r) => !r.camera) : roster;
+  const strip = stripSource.slice(0, STRIP_MAX);
+  const overflow = stripSource.slice(STRIP_MAX);
   const overflowMenu: MenuEntry[] = overflow
     .filter((r) => r.camera)
     .map((r) => ({
       kind: "item" as const,
       id: `pin-${r.id}`,
-      label: `${pinnedId === r.id ? t("unpinFromStage") : t("pinToStage")}: ${r.isSelf ? t("you") : r.name}`,
+      label: `${pinnedId === r.id && pinnedTile ? t("unpinFromStage") : t("pinToStage")}: ${r.isSelf ? t("you") : r.name}`,
       icon: "pin" as const,
       onSelect: () => togglePin(r.id),
     }));
@@ -388,11 +442,34 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
       {
         kind: "item",
         id: "pin",
-        label: pinnedId === id ? t("unpinFromStage") : t("pinToStage"),
+        label: pinnedId === id && pinnedTile ? t("unpinFromStage") : t("pinToStage"),
         icon: "pin",
         onSelect: () => togglePin(id),
       },
     ]);
+  const screenMenu = (e: React.MouseEvent, id: string) =>
+    openContextMenu(e, [
+      {
+        kind: "item",
+        id: "pin",
+        label: pinnedScreen === id && pinnedTile ? t("unpinFromStage") : t("pinToStage"),
+        icon: "pin",
+        onSelect: () => toggleScreenPin(id),
+      },
+      ...(onSetWatched
+        ? [
+            {
+              kind: "item" as const,
+              id: "stop",
+              label: t("stopWatching"),
+              icon: "x" as const,
+              onSelect: () => onSetWatched(id, false),
+            },
+          ]
+        : []),
+    ]);
+  const stageScreenOwner =
+    mainVideo && mainVideo.source === "screen" ? mainVideo.identity : null;
   const mainName = mainVideo
     ? (roster.find((r) => r.id === mainVideo.identity)?.name ?? "")
     : "";
@@ -416,7 +493,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
             type="button"
             className={"call-focus" + (pinnedTile ? " pinned" : "")}
             title={pinnedTile ? t("unpinFromStage") : t("stageAutoHint")}
-            onClick={pinnedTile ? () => setPinnedId(null) : undefined}
+            onClick={pinnedTile ? unpin : undefined}
             disabled={!pinnedTile}
           >
             <Icon name={pinnedTile ? "pin" : "volume"} size={13} />
@@ -424,7 +501,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
           </button>
         )}
 
-        {offered.length > 0 && onWatch && (
+        {!gridKind && offered.length > 0 && onWatch && (
           <div className="call-offer">
             <div className="call-offer-title">{t("sharingNow")}</div>
             <div className="call-offer-list">
@@ -446,10 +523,110 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
           </div>
         )}
 
-        {mainVideo ? (
+        {gridKind ? (
+          <div
+            className={"call-grid" + (onMinimize ? " with-min" : "")}
+            style={
+              {
+                "--cg-cols": gridColumns(gridCount),
+                "--cg-rows": Math.ceil(gridCount / gridColumns(gridCount)),
+              } as React.CSSProperties
+            }
+          >
+            {gridKind === "screens"
+              ? available.map((share) => {
+                  const tile = watchedTiles.find((v) => v.identity === share.identity) ?? null;
+                  const owner = roster.find((r) => r.id === share.identity);
+                  const name = share.isLocal ? t("yourScreen") : share.name;
+                  if (!tile) {
+                    return (
+                      <div key={share.identity} className="cg-cell idle">
+                        <span className="cs-tile-live cg-live">
+                          <span className="call-live-dot" />
+                          LIVE
+                        </span>
+                        <UserAvatar
+                          userId={share.identity}
+                          name={share.name}
+                          className="cg-ava"
+                          style={{ background: owner?.color }}
+                        />
+                        <div className="cg-name">{name}</div>
+                        <button
+                          type="button"
+                          className="cg-watch"
+                          onClick={() => watchShare(share.identity)}
+                        >
+                          <Icon name="eye" size={14} />
+                          {t("watchStream")}
+                        </button>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div
+                      key={share.identity}
+                      className={"cg-cell" + (owner?.speaking ? " speaking" : "")}
+                      onClick={() => toggleScreenPin(share.identity)}
+                      onContextMenu={(e) => screenMenu(e, share.identity)}
+                      title={t("pinToStage")}
+                    >
+                      <VideoTileCell
+                        tile={tile}
+                        label={owner?.name ?? share.name}
+                        viewers={viewersFor ? viewersFor(share.identity) : undefined}
+                        onWatchChange={onWatchChange}
+                      />
+                      {onSetWatched && (
+                        <button
+                          type="button"
+                          className="cg-close"
+                          title={t("stopWatching")}
+                          aria-label={t("stopWatching")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSetWatched(share.identity, false);
+                          }}
+                        >
+                          <Icon name="x" size={13} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              : cameraEntries.map((r) =>
+                  r.camera ? (
+                    <div
+                      key={r.id}
+                      className={"cg-cell cam" + (r.speaking ? " speaking" : "")}
+                      onClick={() => togglePin(r.id)}
+                      onContextMenu={(e) => tileMenu(e, r.id)}
+                      title={t("pinToStage")}
+                    >
+                      <VideoTileCell
+                        tile={r.camera}
+                        label={r.isSelf ? t("you") : r.name}
+                      />
+                      {(r.muted || r.deafened) && (
+                        <span className="cg-muted">
+                          {r.muted && <Icon name="mic-off" size={12} />}
+                          {r.deafened && <Icon name="headphones-off" size={12} />}
+                        </span>
+                      )}
+                    </div>
+                  ) : null,
+                )}
+          </div>
+        ) : mainVideo ? (
           <div
             className="call-screen"
-            onContextMenu={stageOwner ? (e) => tileMenu(e, stageOwner) : undefined}
+            onContextMenu={
+              stageOwner
+                ? (e) => tileMenu(e, stageOwner)
+                : stageScreenOwner && available.length > 1
+                  ? (e) => screenMenu(e, stageScreenOwner)
+                  : undefined
+            }
           >
             <VideoTileCell
               key={`${mainVideo.identity}:${mainVideo.source}`}
@@ -462,58 +639,35 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
               }
               onWatchChange={onWatchChange}
             />
-            {available.length > 1 && onWatch ? (
-              <div className="call-live switch">
-                {available.map((share) => (
+            {stageScreenOwner && (
+              <div className="call-live">
+                <span className="call-live-badge">
+                  <span className="call-live-dot" />
+                  LIVE
+                </span>
+                <span className="call-live-name">
+                  {t("sharingScreen", { name: mainName || liveName || "" })}
+                </span>
+                {onWatch && watching && available.length <= 1 && (
                   <button
-                    key={share.identity}
                     type="button"
-                    className={
-                      "call-live-chip" +
-                      (share.identity === watching ? " on" : "")
-                    }
-                    onClick={() => onWatch(share.identity)}
+                    className="call-live-chip stop"
+                    onClick={() => onWatch(null)}
                   >
-                    <span className="call-live-dot" />
-                    {share.isLocal ? t("yourScreen") : share.name}
+                    {t("stopWatching")}
                   </button>
-                ))}
-                <button
-                  type="button"
-                  className="call-live-chip stop"
-                  onClick={() => onWatch(null)}
-                >
-                  {t("stopWatching")}
-                </button>
+                )}
               </div>
-            ) : (
-              liveName && (
-                <div className="call-live">
-                  <span className="call-live-badge">
-                    <span className="call-live-dot" />
-                    LIVE
-                  </span>
-                  <span className="call-live-name">
-                    {t("sharingScreen", { name: liveName })}
-                  </span>
-                  {onWatch && watching && (
-                    <button
-                      type="button"
-                      className="call-live-chip stop"
-                      onClick={() => onWatch(null)}
-                    >
-                      {t("stopWatching")}
-                    </button>
-                  )}
-                </div>
-              )
             )}
           </div>
         ) : (
           <div className="call-screen empty">
             <div className="call-empty-orbs">
               {roster.map((r) => (
-                <div key={r.id} className="call-empty-cell">
+                <div
+                  key={r.id}
+                  className={"call-empty-cell" + (r.speaking ? " speaking" : "")}
+                >
                   <UserAvatar
                     userId={r.id}
                     name={r.name}
@@ -689,7 +843,7 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
         </div>
       </div>
 
-      {mainVideo && (
+      {(mainVideo || gridKind) && stripSource.length > 0 && (
       <div className="call-strip">
         {strip.map((r) => (
             <div
@@ -698,20 +852,20 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                 "cs-tile" +
                 (r.speaking ? " speaking" : "") +
                 (sharingIds.has(r.id) ? " sharing" : "") +
-                (watching === r.id ? " watched" : "") +
+                (isWatched(r.id) ? " watched" : "") +
                 (pinnedId === r.id && pinnedTile ? " pinned" : "") +
                 (r.camera ? " pinnable" : "")
               }
               onClick={
-                onWatch && sharingIds.has(r.id) && watching !== r.id
-                  ? () => onWatch(r.id)
+                onWatch && sharingIds.has(r.id) && !isWatched(r.id)
+                  ? () => watchShare(r.id)
                   : r.camera
                     ? () => togglePin(r.id)
                     : undefined
               }
               onContextMenu={r.camera ? (e) => tileMenu(e, r.id) : undefined}
               title={
-                onWatch && sharingIds.has(r.id) && watching !== r.id
+                onWatch && sharingIds.has(r.id) && !isWatched(r.id)
                   ? t("watchStream")
                   : r.camera
                     ? pinnedId === r.id

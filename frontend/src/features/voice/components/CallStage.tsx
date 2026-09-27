@@ -72,7 +72,14 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
     for (const v of videoTiles) if (v.source === "camera") m.set(v.identity, v);
     return m;
   }, [videoTiles]);
-  const { shares, watching, watch } = useScreenShares();
+  const { shares, watching, watched, watch, setWatched } = useScreenShares();
+  const screenTiles = useMemo(
+    () =>
+      watched
+        .map((id) => videoTiles.find((v) => v.source === "screen" && v.identity === id))
+        .filter((v): v is (typeof videoTiles)[number] => !!v),
+    [videoTiles, watched],
+  );
   const screenTile = useMemo(
     () =>
       videoTiles.find((v) => v.source === "screen" && v.identity === watching) ??
@@ -134,6 +141,9 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
     <VoiceTheater
       roster={roster}
       screenTile={screenTile}
+      screenTiles={screenTiles}
+      watched={watched}
+      onSetWatched={setWatched}
       shares={shares}
       watching={watching}
       onWatch={watch}
