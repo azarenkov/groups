@@ -6,6 +6,7 @@ import type { DirectConversation } from "../../../dm/types";
 import { useActivityStore } from "../../../social/store/activityStore";
 import UserBadge from "../../../subscription/components/UserBadge";
 import { useProfileModalStore } from "../../../social/store/profileModalStore";
+import { isBlockedEitherWay } from "../../../social/store/blockStore";
 import {
   openContextMenu,
   openContextMenuAt,
@@ -44,7 +45,7 @@ const DmList: React.FC<DmListProps> = ({
   const activities = useActivityStore((s) => s.byUser);
   const dmMenu = (d: DirectConversation): MenuEntry[] => [
     { kind: "item", id: "message", label: t("memberMessage"), icon: "message", onSelect: () => onPick(d) },
-    ...(onCall
+    ...(onCall && !isBlockedEitherWay(d.id)
       ? [{ kind: "item" as const, id: "call", label: t("callFriend"), icon: "phone" as const, onSelect: () => onCall(d) }]
       : []),
     { kind: "separator", id: "s1" },
