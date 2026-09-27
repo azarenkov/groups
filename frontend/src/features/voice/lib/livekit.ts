@@ -1105,15 +1105,13 @@ export class LiveKitService {
     }
     const next = followWatched(
       state.shares,
-      this.watchedScreen,
+      this.watchedScreen === null ? [] : [this.watchedScreen, ...this.extraScreens],
       this.heldScreen,
       Date.now(),
     );
-    this.watchedScreen = next.watched;
+    this.watchedScreen = next.watched[0] ?? null;
+    this.extraScreens = next.watched.slice(1);
     this.heldScreen = next.held;
-    this.extraScreens = this.extraScreens.filter(
-      (id) => id !== next.watched && state.shares.some((share) => share.identity === id),
-    );
     this.applyScreenSubscriptions();
     this.notifyScreenShares();
   }

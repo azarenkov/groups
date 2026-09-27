@@ -1511,3 +1511,5 @@
   border-radius: 999px;
   background: rgba(255, 69, 58, 0.9); color: #fff;
 }
+.cg-cell.cam .voice-tile-vol { display: none; }
+.cg-menu { position: absolute; right: 8px; bottom: 8px; z-index: 4; }

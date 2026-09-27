@@ -607,6 +607,32 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                         tile={r.camera}
                         label={r.isSelf ? t("you") : r.name}
                       />
+                      {!r.isSelf && (
+                        <div className="cg-menu" onClick={(e) => e.stopPropagation()}>
+                          <TileVolumeMenu
+                            id={r.id}
+                            moderate={
+                              onModerateMute && !moderationExcluded?.includes(r.id)
+                                ? {
+                                    muted: r.muted,
+                                    onToggle: () => onModerateMute(r.id, r.muted),
+                                  }
+                                : undefined
+                            }
+                            deafen={
+                              onModerateDeafen &&
+                              !moderationExcluded?.includes(r.id) &&
+                              !deafenExcluded?.includes(r.id)
+                                ? {
+                                    deafened: r.moderatorDeafened,
+                                    onToggle: () =>
+                                      onModerateDeafen(r.id, r.moderatorDeafened),
+                                  }
+                                : undefined
+                            }
+                          />
+                        </div>
+                      )}
                       {(r.muted || r.deafened) && (
                         <span className="cg-muted">
                           {r.muted && <Icon name="mic-off" size={12} />}
