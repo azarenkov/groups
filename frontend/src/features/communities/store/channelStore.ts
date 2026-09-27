@@ -30,6 +30,7 @@ interface ChannelState {
 }
 
 const removedDuringFetch = new Map<string, Set<string>>();
+const clearGen = new Map<string, number>();
 const patchedDuringFetch = new Map<string, Set<string>>();
 
 export const useChannelStore = create<ChannelState>((set, get) => ({
@@ -90,14 +91,18 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
-  clearChannels: (communityId) =>
+  clearChannels: (communityId) => {
+    clearGen.set(communityId, (clearGen.get(communityId) ?? 0) + 1);
     set((state) => {
       const next = { ...state.channelsByCommunity };
       delete next[communityId];
       return { channelsByCommunity: next };
-    }),
+    });
+  },
 
   fetchChannels: async (communityId: string) => {
+    const gen = clearGen.get(communityId) ?? 0;
+    const stale = () => (clearGen.get(communityId) ?? 0) !== gen;
     set({ isLoading: true, error: null });
     try {
       const loaded: Channel[] = [];
@@ -110,7 +115,8 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
         loaded
           .filter((c) => !removed.has(c.id))
           .map((c) => (patched.has(c.id) ? (current.find((x) => x.id === c.id) ?? c) : c));
-      const mergeWithCached = () =>
+      const mergeWithCached = () => {
+        if (stale()) return;
         set((state) => {
           const fresh = alive(state.channelsByCommunity[communityId] ?? []);
           const seen = new Set(fresh.map((c) => c.id));
@@ -122,6 +128,7 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
             },
           };
         });
+      };
       const first = await channelAPI.listByCommunity(communityId);
       loaded.push(...first.channels);
       mergeWithCached();
@@ -131,6 +138,10 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
         const known = new Set(loaded.map((c) => c.id));
         loaded.push(...next.channels.filter((c) => !known.has(c.id)));
         mergeWithCached();
+      }
+      if (stale()) {
+        set({ isLoading: false });
+        return false;
       }
       set((state) => {
         const fresh = alive(state.channelsByCommunity[communityId] ?? []);
