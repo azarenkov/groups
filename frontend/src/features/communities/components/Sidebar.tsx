@@ -51,6 +51,8 @@ interface SidebarProps {
   unreadByDm?: Record<string, number>;
   channelToCommunity?: Record<string, string>;
   onSetStatus?: (status: "online" | "offline") => void;
+  onLeaveCommunity?: (community: Community) => void;
+  onCallDm?: (dm: DirectConversation) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -90,6 +92,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   unreadByDm = {},
   channelToCommunity = {},
   onSetStatus,
+  onLeaveCommunity,
+  onCallDm,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   const { tab, openCommunityId, navState, goHistory, setTab, setOpenCommunityId } =
@@ -193,6 +197,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       onAddFriend={onAddFriend}
       onOpenPending={onOpenPending}
       onPick={pickDm}
+      onCall={onCallDm}
     />
   );
 
@@ -219,6 +224,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         onJoinCommunity={onJoinCommunity}
         onPick={pickCommunity}
         renderChannel={renderChannel}
+        perms={perms}
+        currentUserId={currentUserId}
+        onInviteCommunity={onInviteCommunity}
+        onOpenCommunitySettings={onOpenCommunitySettings}
+        onLeaveCommunity={onLeaveCommunity}
       />
     );
 

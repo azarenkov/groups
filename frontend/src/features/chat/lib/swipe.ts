@@ -33,3 +33,8 @@ export function nextWheelSwipe(
   const fire = !base.fired && accum >= SWIPE_TRIGGER_PX;
   return { state: { accum, lastAt: now, fired: base.fired || fire }, fire };
 }
+
+export function wheelSwipeOffset(state: WheelSwipe): number {
+  if (state.fired) return 0;
+  return Math.min(state.accum, SWIPE_MAX_PX);
+}

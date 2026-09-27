@@ -54,5 +54,7 @@
   "memberVolume": "Volume",
   "muteForMe": "Mute for me",
   "unmuteForMe": "Unmute for me",
-  "disconnectMember": "Disconnect from channel"
+  "disconnectMember": "Disconnect from channel",
+  "callFriend": "Call",
+  "openCommunity": "Open"
 }

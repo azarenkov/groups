@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useCommunityStore } from "../store/communityStore";
-import { useChannelStore } from "../store/channelStore";
+import { channelsFullyLoaded, useChannelStore } from "../store/channelStore";
 import { communityAPI } from "../api/community";
 import { extractInviteToken } from "../../../shared/lib/inviteLinks";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
@@ -121,6 +121,19 @@ const CommunitiesPage: React.FC = () => {
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalCommunity, setInviteModalCommunity] = useState<Community | null>(null);
   const [communitySettings, setCommunitySettings] = useState<Community | null>(null);
+  const [settingsChannels, setSettingsChannels] = useState<{
+    communityId: string;
+    state: "loading" | "error" | "ready";
+  } | null>(null);
+  const loadSettingsChannels = (communityId: string) => {
+    setSettingsChannels({ communityId, state: "loading" });
+    const finish = (state: "error" | "ready") =>
+      setSettingsChannels((prev) => (prev?.communityId === communityId ? { communityId, state } : prev));
+    fetchChannels(communityId).then(
+      (ok) => finish(ok ? "ready" : "error"),
+      () => finish("error"),
+    );
+  };
   const [channelModal, setChannelModal] = useState<{ communityId: string; kind: ChannelKind } | null>(null);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -275,10 +288,8 @@ const CommunitiesPage: React.FC = () => {
     if (deleteConfirm?.type !== "community") return;
     try {
       await deleteCommunity(deleteConfirm.id);
-      if (selectedCommunityId === deleteConfirm.id) {
-        setSelectedCommunity(null);
-        clearChannels(deleteConfirm.id);
-      }
+      if (selectedCommunityId === deleteConfirm.id) setSelectedCommunity(null);
+      clearChannels(deleteConfirm.id);
       if (joinedChannel?.communityId === deleteConfirm.id) {
         setJoinedChannel(null);
         setVoiceJoinFailed(false);
@@ -295,10 +306,8 @@ const CommunitiesPage: React.FC = () => {
     if (deleteConfirm?.type !== "leave-community") return;
     try {
       await communityAPI.leave(deleteConfirm.id);
-      if (selectedCommunityId === deleteConfirm.id) {
-        setSelectedCommunity(null);
-        clearChannels(deleteConfirm.id);
-      }
+      if (selectedCommunityId === deleteConfirm.id) setSelectedCommunity(null);
+      clearChannels(deleteConfirm.id);
       if (joinedChannel?.communityId === deleteConfirm.id) {
         setJoinedChannel(null);
         setVoiceJoinFailed(false);
@@ -594,7 +603,19 @@ const CommunitiesPage: React.FC = () => {
           onSelectChannel={handleSelectChannel}
           onSelectDm={handleSelectDm}
           onInviteCommunity={(community) => setInviteModalCommunity(community)}
-          onOpenCommunitySettings={(community) => setCommunitySettings(community)}
+          onOpenCommunitySettings={(community) => {
+            setCommunitySettings(community);
+            if (channelsFullyLoaded(community.id)) setSettingsChannels(null);
+            else loadSettingsChannels(community.id);
+          }}
+          onLeaveCommunity={(community) =>
+            setDeleteConfirm({
+              type: community.ownerId === user?.id ? "community" : "leave-community",
+              id: community.id,
+              name: community.name,
+            })
+          }
+          onCallDm={(dm) => handleCallFromHome(dm.id)}
           onAddChannel={(community, kind) => setChannelModal({ communityId: community.id, kind })}
           onDeleteChannel={(community, channel) =>
             setDeleteConfirm({
@@ -851,8 +872,19 @@ const CommunitiesPage: React.FC = () => {
             }
             friends={friends}
             channels={channelsByCommunity[communitySettings.id] ?? []}
+            channelsState={
+              settingsChannels?.communityId === communitySettings.id
+                ? settingsChannels.state
+                : channelsFullyLoaded(communitySettings.id)
+                  ? "ready"
+                  : "loading"
+            }
+            onRetryChannels={() => loadSettingsChannels(communitySettings.id)}
             currentUserId={user?.id}
-            onClose={() => setCommunitySettings(null)}
+            onClose={() => {
+              setCommunitySettings(null);
+              setSettingsChannels(null);
+            }}
             onDeleteCommunity={(community) => {
               const isOwner = community.ownerId === user?.id;
               setDeleteConfirm({
