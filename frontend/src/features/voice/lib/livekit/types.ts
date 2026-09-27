@@ -25,6 +25,7 @@ export interface ScreenShareInfo {
 export interface ScreenShareState {
   shares: ScreenShareInfo[];
   watching: string | null;
+  watched: string[];
 }
 
 export interface VideoTile {

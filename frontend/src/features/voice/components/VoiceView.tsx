@@ -234,7 +234,14 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     for (const v of videoTiles) if (v.source === "camera") m.set(v.identity, v);
     return m;
   }, [videoTiles]);
-  const { shares, watching, watch } = useScreenShares(!!stageMount);
+  const { shares, watching, watched, watch, setWatched } = useScreenShares(!!stageMount);
+  const screenTiles = useMemo(
+    () =>
+      watched
+        .map((id) => videoTiles.find((v) => v.source === "screen" && v.identity === id))
+        .filter((v): v is (typeof videoTiles)[number] => !!v),
+    [videoTiles, watched],
+  );
   const screenTile = useMemo(
     () =>
       videoTiles.find((v) => v.source === "screen" && v.identity === watching) ??
@@ -374,6 +381,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           <VoiceTheater
             roster={roster}
             screenTile={screenTile}
+            screenTiles={screenTiles}
+            watched={watched}
+            onSetWatched={setWatched}
             liveName={sharerName}
             isMuted={isMuted}
             muteLocked={muteLocked}

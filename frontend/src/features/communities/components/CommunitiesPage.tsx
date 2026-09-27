@@ -26,6 +26,7 @@ import VoiceView from "../../voice/components/VoiceView";
 import CallStage from "../../voice/components/CallStage";
 import CallReturnBar, { CallErrorToast } from "../../voice/components/CallReturnBar";
 import VoiceChannelPreview from "../../voice/components/VoiceChannelPreview";
+import type { VoicePreviewParticipant } from "../../voice/components/VoiceChannelPreview";
 import MembersPanel from "./MembersPanel";
 import NoTextChannel from "./NoTextChannel";
 import SettingsView from "../../settings/components/SettingsView";
@@ -53,7 +54,7 @@ import type { OpenMessageLink } from "../../chat/lib/messageLink";
 import Icon from "../../../shared/ui/Icon";
 import { useLocalQuality } from "../../voice/hooks/useLocalQuality";
 import { qualityClass, qualityLabel } from "../../voice/lib/quality";
-import { Channel, ChannelKind, ChannelParticipant } from "../../../shared/types/channel";
+import { Channel, ChannelKind } from "../../../shared/types/channel";
 import { Community } from "../../../shared/types/community";
 import "../../../styles/rift.css";
 
@@ -235,11 +236,17 @@ const CommunitiesPage: React.FC = () => {
     fetchChannels,
   });
 
-  const previewParticipants: ChannelParticipant[] = React.useMemo(() => {
+  const previewParticipants: VoicePreviewParticipant[] = React.useMemo(() => {
     if (!selectedVoiceChannelNotJoined) return [];
     const members =
       voicePresenceByChannel[selectedVoiceChannelNotJoined.id] || [];
-    return members.map((m) => ({ id: m.id, name: m.name }));
+    return members.map((m) => ({
+      id: m.id,
+      name: m.name,
+      isMuted: m.isMuted,
+      cameraOn: m.cameraOn,
+      screenOn: m.screenOn,
+    }));
   }, [selectedVoiceChannelNotJoined, voicePresenceByChannel]);
 
   const showMembersForChannel =
@@ -748,6 +755,7 @@ const CommunitiesPage: React.FC = () => {
               </div>
             ) : selectedVoiceChannelNotJoined && selectedCommunity ? (
               <VoiceChannelPreview
+                channelId={selectedVoiceChannelNotJoined.id}
                 channelName={selectedVoiceChannelNotJoined.name}
                 participants={previewParticipants}
                 onConnect={() =>

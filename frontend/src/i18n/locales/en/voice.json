@@ -54,5 +54,6 @@
   "deafenMember": "Deafen member",
   "undeafenMember": "Undeafen member",
   "deafenedByModerator": "Deafened by a moderator",
-  "exitFullscreen": "Exit fullscreen"
+  "exitFullscreen": "Exit fullscreen",
+  "previewLive": "Call in progress"
 }

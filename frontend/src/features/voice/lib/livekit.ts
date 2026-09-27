@@ -135,6 +135,7 @@ export class LiveKitService {
     new Set();
   private localSpeaking: boolean = false;
   private watchedScreen: string | null = null;
+  private extraScreens: string[] = [];
   private heldScreen: HeldScreen | null = null;
   private activeScreenCodec: VideoCodec | null = null;
   private screenCodecFallback: VideoCodec | null = null;
@@ -394,6 +395,7 @@ export class LiveKitService {
       this.desiredMicMuted = false;
       this.micRebuildPending = false;
       this.watchedScreen = null;
+      this.extraScreens = [];
       this.heldScreen = null;
       this.screenSubscriptions.clear();
       this.stopEncoderWatchdog();
@@ -1041,7 +1043,11 @@ export class LiveKitService {
         isLocal: false,
       });
     });
-    return { shares, watching: this.watchedScreen };
+    return {
+      shares,
+      watching: this.watchedScreen,
+      watched: this.watchedScreen === null ? [] : [this.watchedScreen, ...this.extraScreens],
+    };
   }
 
   subscribeScreenShares(fn: (state: ScreenShareState) => void): () => void {
@@ -1065,8 +1071,26 @@ export class LiveKitService {
 
   watchScreen(identity: string | null): void {
     this.heldScreen = null;
-    if (this.watchedScreen === identity) return;
+    if (this.watchedScreen === identity && this.extraScreens.length === 0) return;
     this.watchedScreen = identity;
+    this.extraScreens = [];
+    this.applyScreenSubscriptions();
+    this.notifyScreenShares();
+  }
+
+  setScreenWatched(identity: string, on: boolean): void {
+    const watched = this.watchedScreen === identity || this.extraScreens.includes(identity);
+    if (watched === on) return;
+    if (on) {
+      if (this.watchedScreen === null) this.watchedScreen = identity;
+      else this.extraScreens = [...this.extraScreens, identity];
+    } else if (this.watchedScreen === identity) {
+      this.heldScreen = null;
+      this.watchedScreen = this.extraScreens[0] ?? null;
+      this.extraScreens = this.extraScreens.slice(1);
+    } else {
+      this.extraScreens = this.extraScreens.filter((id) => id !== identity);
+    }
     this.applyScreenSubscriptions();
     this.notifyScreenShares();
   }
@@ -1081,11 +1105,12 @@ export class LiveKitService {
     }
     const next = followWatched(
       state.shares,
-      this.watchedScreen,
+      this.watchedScreen === null ? [] : [this.watchedScreen, ...this.extraScreens],
       this.heldScreen,
       Date.now(),
     );
-    this.watchedScreen = next.watched;
+    this.watchedScreen = next.watched[0] ?? null;
+    this.extraScreens = next.watched.slice(1);
     this.heldScreen = next.held;
     this.applyScreenSubscriptions();
     this.notifyScreenShares();
@@ -1094,7 +1119,9 @@ export class LiveKitService {
   private applyScreenSubscriptions(): void {
     const live = new Set<string>();
     this.room?.remoteParticipants.forEach((participant) => {
-      const wanted = participant.identity === this.watchedScreen;
+      const wanted =
+        participant.identity === this.watchedScreen ||
+        this.extraScreens.includes(participant.identity);
       participant.trackPublications.forEach((publication) => {
         if (!isScreenSource(publication.source)) return;
         live.add(publication.trackSid);
@@ -1118,7 +1145,7 @@ export class LiveKitService {
     const state = this.getScreenShares();
     this.screenShareListeners.forEach((fn) => {
       try {
-        fn({ shares: [...state.shares], watching: state.watching });
+        fn({ shares: [...state.shares], watching: state.watching, watched: [...state.watched] });
       } catch (e) {
         console.warn("[LiveKitService] screen share listener failed:", e);
       }
@@ -1242,15 +1269,25 @@ export class LiveKitService {
         },
       );
       this.activeScreenCodec = codec;
-      this.watchedScreen = this.room.localParticipant.identity;
+      const localId = this.room.localParticipant.identity;
+      const previous = this.watchedScreen;
+      this.watchedScreen = localId;
+      this.extraScreens = [
+        ...(previous !== null && previous !== localId ? [previous] : []),
+        ...this.extraScreens.filter((id) => id !== localId && id !== previous),
+      ];
       this.startEncoderWatchdog();
     } else {
       this.stopEncoderWatchdog();
       this.activeScreenCodec = null;
       this.screenCodecFallback = null;
       await this.room.localParticipant.setScreenShareEnabled(false);
-      if (this.watchedScreen === this.room.localParticipant.identity) {
-        this.watchedScreen = null;
+      const localId = this.room.localParticipant.identity;
+      if (this.watchedScreen === localId) {
+        this.watchedScreen = this.extraScreens[0] ?? null;
+        this.extraScreens = this.extraScreens.slice(1);
+      } else {
+        this.extraScreens = this.extraScreens.filter((id) => id !== localId);
       }
     }
     this.applyScreenSubscriptions();

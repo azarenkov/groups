@@ -16,22 +16,32 @@ export const SCREEN_HOLD_MS = 5000;
 export interface HeldScreen {
   identity: string;
   until: number;
+  replacement: string | null;
 }
 
 export function followWatched(
   shares: ScreenShareInfo[],
-  current: string | null,
+  watched: string[],
   held: HeldScreen | null,
   now: number,
-): { watched: string | null; held: HeldScreen | null } {
+): { watched: string[]; held: HeldScreen | null } {
   const present = (identity: string) =>
     shares.some((share) => share.identity === identity);
-  let hold = held && held.until > now ? held : null;
-  if (current !== null && !present(current)) {
-    hold = { identity: current, until: now + SCREEN_HOLD_MS };
+  const kept = watched.filter(present);
+  const primary = watched[0] ?? null;
+  if (primary !== null && !present(primary)) {
+    const replacement = kept.length > 0 ? null : nextWatched(shares, primary);
+    return {
+      watched: replacement === null ? kept : [replacement],
+      held: { identity: primary, until: now + SCREEN_HOLD_MS, replacement },
+    };
   }
-  if (hold && present(hold.identity)) {
-    return { watched: hold.identity, held: null };
+  const hold = held && held.until > now ? held : null;
+  if (hold && present(hold.identity) && !kept.includes(hold.identity)) {
+    return {
+      watched: [hold.identity, ...kept.filter((id) => id !== hold.replacement)],
+      held: null,
+    };
   }
-  return { watched: nextWatched(shares, current), held: hold };
+  return { watched: kept, held: hold && !kept.includes(hold.identity) ? hold : null };
 }

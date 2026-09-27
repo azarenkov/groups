@@ -5,12 +5,14 @@ import type { ScreenShareState } from "../lib/livekit";
 
 export interface ScreenShares extends ScreenShareState {
   watch: (identity: string | null) => void;
+  setWatched: (identity: string, on: boolean) => void;
 }
 
 export function useScreenShares(visible: boolean = true): ScreenShares {
   const [state, setState] = useState<ScreenShareState>({
     shares: [],
     watching: null,
+    watched: [],
   });
 
   useEffect(() => getLiveKitService().subscribeScreenShares(setState), []);
@@ -24,5 +26,9 @@ export function useScreenShares(visible: boolean = true): ScreenShares {
     getLiveKitService().watchScreen(identity);
   }, []);
 
-  return { ...state, watch };
+  const setWatched = useCallback((identity: string, on: boolean) => {
+    getLiveKitService().setScreenWatched(identity, on);
+  }, []);
+
+  return { ...state, watch, setWatched };
 }
