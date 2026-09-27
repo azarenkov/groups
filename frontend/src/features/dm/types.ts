@@ -12,6 +12,7 @@ export interface DirectConversation {
   online: boolean;
   unread: number;
   lastMessage?: string;
+  lastAt?: string;
   isFriend?: boolean;
   friendship?: DirectFriendship;
 }

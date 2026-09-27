@@ -68,6 +68,7 @@ pub enum BadgeStyle {
     Ink,
     Etched,
     Numbered,
+    NumberOnly,
 }
 
 impl BadgeStyle {
@@ -81,6 +82,7 @@ impl BadgeStyle {
             Self::Ink => "ink",
             Self::Etched => "etched",
             Self::Numbered => "numbered",
+            Self::NumberOnly => "number_only",
         }
     }
 
@@ -94,6 +96,7 @@ impl BadgeStyle {
             "ink" => Some(Self::Ink),
             "etched" => Some(Self::Etched),
             "numbered" => Some(Self::Numbered),
+            "number_only" => Some(Self::NumberOnly),
             _ => None,
         }
     }
@@ -109,4 +112,33 @@ pub trait EntitlementsRepository: Send + Sync {
         &self,
         user_id: &domain::user::id::UserId,
     ) -> Result<Entitlements, ports::repository::RepositoryError>;
+}
+
+#[cfg(test)]
+mod badge_style_tests {
+    use super::BadgeStyle;
+
+    #[test]
+    fn every_style_round_trips_through_its_name() {
+        for style in [
+            BadgeStyle::Default,
+            BadgeStyle::Tint,
+            BadgeStyle::Solid,
+            BadgeStyle::Neutral,
+            BadgeStyle::Outline,
+            BadgeStyle::Ink,
+            BadgeStyle::Etched,
+            BadgeStyle::Numbered,
+            BadgeStyle::NumberOnly,
+        ] {
+            assert_eq!(BadgeStyle::parse(style.as_str()), Some(style));
+        }
+    }
+
+    #[test]
+    fn number_only_is_a_paid_style_and_unknown_names_are_rejected() {
+        assert_eq!(BadgeStyle::parse("number_only"), Some(BadgeStyle::NumberOnly));
+        assert!(BadgeStyle::NumberOnly.needs_paid_tier());
+        assert_eq!(BadgeStyle::parse("sparkly"), None);
+    }
 }

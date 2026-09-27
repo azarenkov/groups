@@ -26,6 +26,7 @@ export const BADGE_STYLES = [
   "ink",
   "etched",
   "numbered",
+  "number_only",
 ] as const;
 
 export type BadgeStyle = (typeof BADGE_STYLES)[number];

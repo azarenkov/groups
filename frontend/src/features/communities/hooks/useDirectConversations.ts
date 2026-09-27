@@ -8,6 +8,7 @@ import { useUserNamesStore } from "../../social/store/userNamesStore";
 import { useDmPreviewStore } from "../../dm/store/dmPreviewStore";
 import type { DmPreview } from "../../dm/store/dmPreviewStore";
 import type { DirectConversation } from "../../dm/types";
+import { sortDirects } from "../../dm/lib/directOrder";
 
 export function useDirectConversations(params: {
   currentUserId?: string;
@@ -51,6 +52,7 @@ export function useDirectConversations(params: {
         online: !!onlineUsers[f.friendId],
         unread: 0,
         lastMessage: previewText(dmPreviews[f.friendId]),
+        lastAt: dmPreviews[f.friendId]?.createdAt,
         isFriend: true,
         friendship: "accepted" as const,
       }));
@@ -82,6 +84,7 @@ export function useDirectConversations(params: {
         online: accepted && !!onlineUsers[peerId],
         unread: 0,
         lastMessage: previewText(p),
+        lastAt: p.createdAt,
         isFriend: accepted,
         friendship: accepted
           ? "accepted"
@@ -90,7 +93,7 @@ export function useDirectConversations(params: {
             : "none",
       });
     }
-    return items;
+    return sortDirects(items);
   }, [
     friends,
     friendStatuses,

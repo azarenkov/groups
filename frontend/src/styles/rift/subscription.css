@@ -56,6 +56,20 @@
   letter-spacing: 0.04em;
 }
 
+.pro-badge.pro-badge-number-only {
+  padding: 0 2px;
+  background: none;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 1.1em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.pro-badge-number-only.pro-badge-sm { font-size: 11px; }
+.pro-badge-number-only.pro-badge-md { font-size: 12.5px; }
+.pro-badge-number-only.pro-badge-lg { font-size: 15px; }
+
 .profile-banner-image {
   height: auto;
   aspect-ratio: 3 / 1;

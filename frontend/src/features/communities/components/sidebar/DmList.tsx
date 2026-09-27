@@ -5,6 +5,7 @@ import { UserAvatar } from "../../../../shared/ui/Avatar";
 import type { DirectConversation } from "../../../dm/types";
 import { useActivityStore } from "../../../social/store/activityStore";
 import UserBadge from "../../../subscription/components/UserBadge";
+import { formatListTime } from "../../../dm/lib/directOrder";
 import { useProfileModalStore } from "../../../social/store/profileModalStore";
 import { isBlockedEitherWay } from "../../../social/store/blockStore";
 import {
@@ -41,8 +42,9 @@ const DmList: React.FC<DmListProps> = ({
   onPick,
   onCall,
 }) => {
-  const { t } = useTranslation(["sidebar", "common"]);
+  const { t, i18n } = useTranslation(["sidebar", "common"]);
   const activities = useActivityStore((s) => s.byUser);
+  const now = new Date();
   const dmMenu = (d: DirectConversation): MenuEntry[] => [
     { kind: "item", id: "message", label: t("memberMessage"), icon: "message", onSelect: () => onPick(d) },
     ...(onCall && !isBlockedEitherWay(d.id)
@@ -142,12 +144,19 @@ const DmList: React.FC<DmListProps> = ({
                     {activity.name}
                   </span>
                 )}
+                {d.lastAt && (
+                  <time className="sb-dm-time" dateTime={d.lastAt}>
+                    {formatListTime(d.lastAt, now, i18n.language)}
+                  </time>
+                )}
               </div>
-              <div className={"sb-dm-sub" + (unread > 0 ? " unread" : "")}>
-                {sub}
+              <div className="sb-dm-subrow">
+                <div className={"sb-dm-sub" + (unread > 0 ? " unread" : "")}>
+                  {sub}
+                </div>
+                {unread > 0 && <span className="sb-dm-badge">{unread}</span>}
               </div>
             </div>
-            {unread > 0 && <span className="sb-dm-badge">{unread}</span>}
           </div>
         );
       })}

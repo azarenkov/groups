@@ -32,7 +32,8 @@
       "outline": "Outline",
       "ink": "Ink",
       "etched": "Etched mono",
-      "numbered": "Numbered"
+      "numbered": "Numbered",
+      "number_only": "Number only"
     }
   },
   "page": {
