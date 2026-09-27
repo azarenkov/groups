@@ -605,7 +605,8 @@ const CommunitiesPage: React.FC = () => {
           onInviteCommunity={(community) => setInviteModalCommunity(community)}
           onOpenCommunitySettings={(community) => {
             setCommunitySettings(community);
-            if (!channelsByCommunity[community.id]) loadSettingsChannels(community.id);
+            if (channelsByCommunity[community.id]) setSettingsChannels(null);
+            else loadSettingsChannels(community.id);
           }}
           onLeaveCommunity={(community) =>
             setDeleteConfirm({
@@ -880,7 +881,10 @@ const CommunitiesPage: React.FC = () => {
             }
             onRetryChannels={() => loadSettingsChannels(communitySettings.id)}
             currentUserId={user?.id}
-            onClose={() => setCommunitySettings(null)}
+            onClose={() => {
+              setCommunitySettings(null);
+              setSettingsChannels(null);
+            }}
             onDeleteCommunity={(community) => {
               const isOwner = community.ownerId === user?.id;
               setDeleteConfirm({
