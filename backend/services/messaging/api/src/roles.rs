@@ -8,6 +8,29 @@ use uuid::Uuid;
 use crate::state::AppState;
 use api_common::dto::responses::ApiResponse;
 use crate::http_errors::HttpError;
+use messaging_domain::community::role::{Permission, Permissions};
+
+fn parse_permission_list(names: &[String]) -> Result<Permissions, HttpError> {
+    names
+        .iter()
+        .map(|name| {
+            serde_json::from_value::<Permission>(serde_json::Value::String(name.clone())).map_err(|_| {
+                HttpError::new(
+                    format!("Unknown permission: {name}"),
+                    actix_web::http::StatusCode::BAD_REQUEST,
+                    "VALIDATION_FAILED",
+                )
+            })
+        })
+        .collect()
+}
+
+fn requested(list: Option<&[String]>, mask: i64) -> Result<Permissions, HttpError> {
+    match list {
+        Some(names) => parse_permission_list(names),
+        None => Ok(Permissions::from_bits_retain(mask).known()),
+    }
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -16,7 +39,21 @@ struct RoleItem {
     name: String,
     color: String,
     permissions: i64,
+    permission_list: Vec<Permission>,
     position: i32,
+}
+
+impl RoleItem {
+    fn from_role(role: messaging_domain::community::role::CommunityRole) -> Self {
+        Self {
+            id: role.id,
+            name: role.name,
+            color: role.color,
+            permissions: role.permissions.bits(),
+            permission_list: role.permissions.iter().collect(),
+            position: role.position,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -48,13 +85,7 @@ async fn list_roles(
         roles: overview
             .roles
             .into_iter()
-            .map(|r| RoleItem {
-                id: r.id,
-                name: r.name,
-                color: r.color,
-                permissions: r.permissions,
-                position: r.position,
-            })
+            .map(RoleItem::from_role)
             .collect(),
         assignments: overview
             .assignments
@@ -70,7 +101,9 @@ async fn list_roles(
 struct RoleBody {
     name: String,
     color: String,
+    #[serde(default)]
     permissions: i64,
+    permission_list: Option<Vec<String>>,
 }
 
 #[post("/{community_id}/roles")]
@@ -83,17 +116,12 @@ async fn create_role(
     let user_id = UserId::new(auth_token.id);
     let community_id = CommunityId::new(path.into_inner());
     let body = body.into_inner();
+    let permissions = requested(body.permission_list.as_deref(), body.permissions)?;
     let role = app_state
         .create_role_usecase
-        .execute(community_id, user_id, body.name, body.color, body.permissions)
+        .execute(community_id, user_id, body.name, body.color, permissions)
         .await?;
-    Ok(HttpResponse::Created().json(ApiResponse::success(RoleItem {
-        id: role.id,
-        name: role.name,
-        color: role.color,
-        permissions: role.permissions,
-        position: role.position,
-    })))
+    Ok(HttpResponse::Created().json(ApiResponse::success(RoleItem::from_role(role))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -105,6 +133,8 @@ struct UpdateRoleBody {
     permissions_add: i64,
     #[serde(default)]
     permissions_remove: i64,
+    add_permission_list: Option<Vec<String>>,
+    remove_permission_list: Option<Vec<String>>,
 }
 
 #[put("/{community_id}/roles/{role_id}")]
@@ -117,6 +147,9 @@ async fn update_role(
     let user_id = UserId::new(auth_token.id);
     let (community_id, role_id) = path.into_inner();
     let body = body.into_inner();
+    let add_permissions = requested(body.add_permission_list.as_deref(), body.permissions_add)?;
+    let remove_permissions =
+        requested(body.remove_permission_list.as_deref(), body.permissions_remove)?;
     app_state
         .update_role_usecase
         .execute(
@@ -126,8 +159,8 @@ async fn update_role(
             messaging_domain::community::role::RolePatch {
                 name: body.name,
                 color: body.color,
-                add_permissions: body.permissions_add,
-                remove_permissions: body.permissions_remove,
+                add_permissions,
+                remove_permissions,
             },
         )
         .await?;
@@ -212,4 +245,47 @@ pub fn role_routes(cfg: &mut web::ServiceConfig) {
         .service(assign_role)
         .service(revoke_role)
         .service(swap_roles);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_name_list_wins_over_the_old_mask() {
+        let names = vec!["muteMembers".to_string(), "kickMembers".to_string()];
+        let parsed = requested(Some(&names), 1).unwrap();
+        assert_eq!(
+            parsed.iter().collect::<Vec<_>>(),
+            vec![Permission::MuteMembers, Permission::KickMembers]
+        );
+    }
+
+    #[test]
+    fn old_clients_still_send_a_mask() {
+        let parsed = requested(None, Permission::ManageChannels.bit() | 4096).unwrap();
+        assert_eq!(parsed, Permissions::from(Permission::ManageChannels));
+    }
+
+    #[test]
+    fn an_unknown_name_is_rejected() {
+        let names = vec!["flyAround".to_string()];
+        assert!(requested(Some(&names), 0).is_err());
+    }
+
+    #[test]
+    fn a_role_is_sent_with_both_the_mask_and_the_names() {
+        let role = messaging_domain::community::role::CommunityRole {
+            id: Uuid::nil(),
+            community_id: Uuid::nil(),
+            name: "mods".into(),
+            color: "#000000".into(),
+            permissions: [Permission::MuteMembers, Permission::DeafenMembers].into_iter().collect(),
+            position: 1,
+            created_at: chrono::Utc::now(),
+        };
+        let json = serde_json::to_value(RoleItem::from_role(role)).unwrap();
+        assert_eq!(json["permissions"], 8 | 128);
+        assert_eq!(json["permissionList"], serde_json::json!(["muteMembers", "deafenMembers"]));
+    }
 }

@@ -1,5 +1,7 @@
 import { http } from "../../../shared/api/http";
 import { appendCrop } from "../../../shared/lib/imageCrop";
+import type { Permission } from "../lib/permissions";
+import { readPermissions } from "../lib/permissions";
 import {
   ListCommunitiesResponse,
   ListCommunityMembersResponse,
@@ -60,23 +62,43 @@ class CommunityAPI {
   }
 
   async listRoles(communityId: string): Promise<{
-    roles: { id: string; name: string; color: string; permissions: number; position: number }[];
+    roles: { id: string; name: string; color: string; permissions: Permission[]; position: number }[];
     assignments: { userId: string; roleId: string }[];
   }> {
     const response = await this.client.get(`/v1/communities/${communityId}/roles`);
-    return response.data.data;
+    const data = response.data.data as {
+      roles: {
+        id: string;
+        name: string;
+        color: string;
+        permissions?: number;
+        permissionList?: unknown;
+        position: number;
+      }[];
+      assignments: { userId: string; roleId: string }[];
+    };
+    return {
+      roles: data.roles.map((r) => ({
+        id: r.id,
+        name: r.name,
+        color: r.color,
+        permissions: readPermissions(r.permissionList, r.permissions),
+        position: r.position,
+      })),
+      assignments: data.assignments,
+    };
   }
 
   async createRole(
     communityId: string,
     name: string,
     color: string,
-    permissions: number,
+    permissions: Permission[],
   ): Promise<{ id: string }> {
     const response = await this.client.post(`/v1/communities/${communityId}/roles`, {
       name,
       color,
-      permissions,
+      permissionList: permissions,
     });
     return response.data.data;
   }
@@ -87,11 +109,16 @@ class CommunityAPI {
     patch: {
       name?: string;
       color?: string;
-      permissionsAdd?: number;
-      permissionsRemove?: number;
+      add?: Permission[];
+      remove?: Permission[];
     },
   ): Promise<void> {
-    await this.client.put(`/v1/communities/${communityId}/roles/${roleId}`, patch);
+    await this.client.put(`/v1/communities/${communityId}/roles/${roleId}`, {
+      name: patch.name,
+      color: patch.color,
+      addPermissionList: patch.add && patch.add.length > 0 ? patch.add : undefined,
+      removePermissionList: patch.remove && patch.remove.length > 0 ? patch.remove : undefined,
+    });
   }
 
   async deleteRole(communityId: string, roleId: string): Promise<void> {

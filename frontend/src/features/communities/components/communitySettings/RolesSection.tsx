@@ -5,7 +5,15 @@ import { communityAPI } from "../../api/community";
 import { ApiError } from "../../../../shared/lib/apiError";
 import { UserAvatar } from "../../../../shared/ui/Avatar";
 import { useUserNamesStore } from "../../../social/store/userNamesStore";
-import { PERM_MANAGE_CHANNELS, PERM_MANAGE_INVITES, PERM_MANAGE_MESSAGES, PERM_MANAGE_ROLES, PERM_KICK_MEMBERS, PERM_MANAGE_COMMUNITY, PERM_DEAFEN_MEMBERS, PERM_DISCONNECT_MEMBERS, PERM_MUTE_MEMBERS, topRoleFor, useRolesStore } from "../../store/rolesStore";
+import { topRoleFor, useRolesStore } from "../../store/rolesStore";
+import {
+  PERMISSIONS,
+  PERMISSION_LABEL_KEYS,
+  isSubset,
+  union,
+  without,
+} from "../../lib/permissions";
+import type { Permission } from "../../lib/permissions";
 import type { Community } from "../../../../shared/types/community";
 
 
@@ -13,7 +21,7 @@ interface RolesSectionProps {
   community: Community;
   members: { id: string; name: string }[];
   isOwner: boolean;
-  myPerms: number;
+  myPerms: Permission[];
   myTopPosition: number;
 }
 
@@ -28,24 +36,13 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
   const ROLE_COLORS = [
     "#5865f2", "#3ba55c", "#faa61a", "#ed4245", "#eb459e", "#9b59b6", "#00b0f4", "#8e8e93",
   ];
-  const PERMS: { bit: number; key: string }[] = [
-    { bit: PERM_MANAGE_CHANNELS, key: "permManageChannels" },
-    { bit: PERM_MANAGE_INVITES, key: "permManageInvites" },
-    { bit: PERM_MANAGE_MESSAGES, key: "permManageMessages" },
-    { bit: PERM_MUTE_MEMBERS, key: "permMuteMembers" },
-    { bit: PERM_DEAFEN_MEMBERS, key: "permDeafenMembers" },
-    { bit: PERM_DISCONNECT_MEMBERS, key: "permDisconnectMembers" },
-    { bit: PERM_MANAGE_ROLES, key: "permManageRoles" },
-    { bit: PERM_MANAGE_COMMUNITY, key: "permManageCommunity" },
-    { bit: PERM_KICK_MEMBERS, key: "permKickMembers" },
-  ];
   const [newRoleName, setNewRoleName] = React.useState("");
   const [newRoleColor, setNewRoleColor] = React.useState(ROLE_COLORS[0]);
-  const [newRolePerms, setNewRolePerms] = React.useState(0);
+  const [newRolePerms, setNewRolePerms] = React.useState<Permission[]>([]);
   const [roleBusy, setRoleBusy] = React.useState(false);
   const [roleError, setRoleError] = React.useState<string | null>(null);
   const [expandedRoleId, setExpandedRoleId] = React.useState<string | null>(null);
-  const [rolePermsDraft, setRolePermsDraft] = React.useState<Record<string, number>>({});
+  const [rolePermsDraft, setRolePermsDraft] = React.useState<Record<string, Permission[]>>({});
 
   const fetchRoles = useRolesStore((st) => st.fetch);
   const refreshRoles = () => void fetchRoles(community.id).catch(() => {});
@@ -61,7 +58,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
     try {
       await communityAPI.createRole(community.id, name, newRoleColor, newRolePerms);
       setNewRoleName("");
-      setNewRolePerms(0);
+      setNewRolePerms([]);
       refreshRoles();
     } catch (e) {
       setRoleError(e instanceof ApiError ? e.message : t("common:error"));
@@ -71,25 +68,25 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
   };
 
 
-  type RoleDraft = { name?: string; color?: string; add: number; remove: number };
+  type RoleDraft = { name?: string; color?: string; add: Permission[]; remove: Permission[] };
   const roleWriteChainsRef = React.useRef<Record<string, Promise<void>>>({});
   const roleLatestRef = React.useRef<Record<string, RoleDraft>>({});
 
   const enqueueRoleEdit = (
-    role: { id: string; name: string; color: string; permissions: number },
-    patch: { name?: string; color?: string; add?: number; remove?: number },
+    role: { id: string; name: string; color: string; permissions: Permission[] },
+    patch: { name?: string; color?: string; add?: Permission[]; remove?: Permission[] },
   ) => {
-    const base = roleLatestRef.current[role.id] ?? { add: 0, remove: 0 };
+    const base = roleLatestRef.current[role.id] ?? { add: [], remove: [] };
     const next: RoleDraft = {
       name: patch.name ?? base.name,
       color: patch.color ?? base.color,
-      add: (base.add | (patch.add ?? 0)) & ~(patch.remove ?? 0),
-      remove: (base.remove | (patch.remove ?? 0)) & ~(patch.add ?? 0),
+      add: without(union(base.add, patch.add ?? []), patch.remove ?? []),
+      remove: without(union(base.remove, patch.remove ?? []), patch.add ?? []),
     };
     roleLatestRef.current[role.id] = next;
     setRolePermsDraft((prev) => ({
       ...prev,
-      [role.id]: (role.permissions | next.add) & ~next.remove,
+      [role.id]: without(union(role.permissions, next.add), next.remove),
     }));
     const chain = roleWriteChainsRef.current[role.id] ?? Promise.resolve();
     roleWriteChainsRef.current[role.id] = chain.then(async () => {
@@ -98,8 +95,8 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
       const empty =
         target.name === undefined &&
         target.color === undefined &&
-        target.add === 0 &&
-        target.remove === 0;
+        target.add.length === 0 &&
+        target.remove.length === 0;
       if (empty) {
         delete roleLatestRef.current[role.id];
         return;
@@ -109,8 +106,8 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
         await communityAPI.updateRole(community.id, role.id, {
           name: target.name,
           color: target.color,
-          permissionsAdd: target.add || undefined,
-          permissionsRemove: target.remove || undefined,
+          add: target.add,
+          remove: target.remove,
         });
         if (!roleLatestRef.current[role.id]) {
           setRolePermsDraft((cur) => {
@@ -135,11 +132,11 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
   };
 
   const toggleRolePerm = (
-    role: { id: string; name: string; color: string; permissions: number },
-    bit: number,
+    role: { id: string; name: string; color: string; permissions: Permission[] },
+    permission: Permission,
     checked: boolean,
   ) => {
-    enqueueRoleEdit(role, checked ? { add: bit } : { remove: bit });
+    enqueueRoleEdit(role, checked ? { add: [permission] } : { remove: [permission] });
   };
 
   const swapRoles = async (
@@ -175,9 +172,9 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
   };
 
   const rolesData = useRolesStore((st) => st.byCommunity[community.id]);
-  const canManageRoles = isOwner || (myPerms & PERM_MANAGE_ROLES) !== 0;
+  const canManageRoles = isOwner || myPerms.includes("manageRoles");
   const canTouchRole = (position: number) => canManageRoles && position < myTopPosition;
-  const grantableBits = isOwner ? ~0 : myPerms;
+  const grantable: readonly Permission[] = isOwner ? PERMISSIONS : myPerms;
   const outranksMember = (memberId: string) => {
     if (isOwner) return true;
     if (memberId === community.ownerId) return false;
@@ -250,20 +247,19 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                     ))}
                   </div>
                   <div className="ssv-role-perms">
-                    {PERMS.map((perm) => {
-                      const on = (newRolePerms & perm.bit) !== 0;
-                      const locked =
-                        roleBusy || (!on && (grantableBits & perm.bit) === 0);
+                    {PERMISSIONS.map((perm) => {
+                      const on = newRolePerms.includes(perm);
+                      const locked = roleBusy || (!on && !grantable.includes(perm));
                       return (
-                      <div key={perm.bit} className="ssv-role-perm">
-                        <span>{t(perm.key)}</span>
+                      <div key={perm} className="ssv-role-perm">
+                        <span>{t(PERMISSION_LABEL_KEYS[perm])}</span>
                         <button
                           type="button"
                           className={"s-switch" + (on ? " on" : "")}
                           disabled={locked}
                           onClick={() =>
                             setNewRolePerms((prev) =>
-                              on ? prev & ~perm.bit : prev | perm.bit,
+                              on ? without(prev, [perm]) : union(prev, [perm]),
                             )
                           }
                         />
@@ -312,8 +308,8 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                         <div className="ssv-row-main">
                           <div className="ssv-row-name">{role.name}</div>
                           <div className="ssv-row-sub">
-                            {PERMS.filter((p2) => (role.permissions & p2.bit) !== 0)
-                              .map((p2) => t(p2.key))
+                            {role.permissions
+                              .map((p2) => t(PERMISSION_LABEL_KEYS[p2]))
                               .join(" · ") || "—"}
                           </div>
                         </div>
@@ -381,23 +377,20 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                             ))}
                           </div>
                           <div className="ssv-role-perms">
-                            {PERMS.map((perm) => {
-                              const on =
-                                ((rolePermsDraft[role.id] ?? role.permissions) &
-                                  perm.bit) !==
-                                0;
+                            {PERMISSIONS.map((perm) => {
+                              const on = (rolePermsDraft[role.id] ?? role.permissions).includes(perm);
                               const locked = on
                                 ? !outranksAllHolders(role.id)
-                                : (grantableBits & perm.bit) === 0;
+                                : !grantable.includes(perm);
                               return (
-                                <div key={perm.bit} className="ssv-role-perm">
-                                  <span>{t(perm.key)}</span>
+                                <div key={perm} className="ssv-role-perm">
+                                  <span>{t(PERMISSION_LABEL_KEYS[perm])}</span>
                                   <button
                                     type="button"
                                     className={"s-switch" + (on ? " on" : "")}
                                     disabled={locked}
                                     onClick={() =>
-                                      toggleRolePerm(role, perm.bit, !on)
+                                      toggleRolePerm(role, perm, !on)
                                     }
                                   />
                                 </div>
@@ -426,7 +419,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                                     disabled={
                                       !outranksMember(m.id) ||
                                       (!has &&
-                                        (role.permissions & ~grantableBits) !== 0)
+                                        !isSubset(role.permissions, grantable))
                                     }
                                     onClick={() =>
                                       void toggleAssignment(role.id, m.id, has)

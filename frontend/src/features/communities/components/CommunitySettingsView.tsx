@@ -8,7 +8,7 @@ import { ApiError } from "../../../shared/lib/apiError";
 import { colorForId } from "../../../shared/lib/avatar";
 import { CommunityLogo } from "../../../shared/ui/Avatar";
 import { useUserNamesStore } from "../../social/store/userNamesStore";
-import { PERM_MANAGE_CHANNELS, PERM_MANAGE_INVITES, PERM_KICK_MEMBERS, PERM_MANAGE_COMMUNITY, topRoleFor, useRolesStore, userPermissions } from "../store/rolesStore";
+import { topRoleFor, useRolesStore, userPermissions } from "../store/rolesStore";
 import type { Friendship } from "../../../shared/types/friendship";
 import DangerSection from "./communitySettings/DangerSection";
 import RolesSection from "./communitySettings/RolesSection";
@@ -71,18 +71,16 @@ const CommunitySettingsView: React.FC<CommunitySettingsViewProps> = ({
   React.useEffect(() => {
     void fetchRoles(community.id).catch(() => {});
   }, [community.id, fetchRoles]);
-  const myPerms = currentUserId
-    ? userPermissions(rolesData, currentUserId)
-    : 0;
+  const myPerms = currentUserId ? userPermissions(rolesData, currentUserId) : [];
   const myTopPosition = isOwner
     ? Number.POSITIVE_INFINITY
     : currentUserId
       ? (topRoleFor(rolesData, currentUserId)?.position ?? Number.NEGATIVE_INFINITY)
       : Number.NEGATIVE_INFINITY;
-  const canManageCommunity = isOwner || (myPerms & PERM_MANAGE_COMMUNITY) !== 0;
-  const canManageChannels = isOwner || (myPerms & PERM_MANAGE_CHANNELS) !== 0;
-  const canManageInvites = isOwner || (myPerms & PERM_MANAGE_INVITES) !== 0;
-  const canKickMembers = isOwner || (myPerms & PERM_KICK_MEMBERS) !== 0;
+  const canManageCommunity = isOwner || myPerms.includes("manageCommunity");
+  const canManageChannels = isOwner || myPerms.includes("manageChannels");
+  const canManageInvites = isOwner || myPerms.includes("manageInvites");
+  const canKickMembers = isOwner || myPerms.includes("kickMembers");
   const outranksMember = (memberId: string) => {
     if (isOwner) return true;
     if (memberId === community.ownerId) return false;

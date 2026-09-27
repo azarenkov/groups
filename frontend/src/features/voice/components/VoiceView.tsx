@@ -8,8 +8,6 @@ import VoiceTheater, { TheaterEntry } from "./VoiceTheater";
 import { channelAPI } from "../../communities/api/channel";
 import { useCommunityStore } from "../../communities/store/communityStore";
 import {
-  PERM_DEAFEN_MEMBERS,
-  PERM_MUTE_MEMBERS,
   topRoleFor,
   useRolesStore,
   userPermissions,
@@ -183,11 +181,11 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   const canModerateDeafen =
     !!currentUserId &&
     (communityOwnerId === currentUserId ||
-      (userPermissions(rolesData, currentUserId) & PERM_DEAFEN_MEMBERS) !== 0);
+      userPermissions(rolesData, currentUserId).includes("deafenMembers"));
   const canModerateMute =
     !!currentUserId &&
     (communityOwnerId === currentUserId ||
-      (userPermissions(rolesData, currentUserId) & PERM_MUTE_MEMBERS) !== 0);
+      userPermissions(rolesData, currentUserId).includes("muteMembers"));
   const presenceMembers = useVoicePresenceStore((s) => s.byChannel[channelId]);
   const moderationExcluded = React.useMemo(() => {
     if (!currentUserId) return undefined;

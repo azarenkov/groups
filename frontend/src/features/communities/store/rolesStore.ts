@@ -1,24 +1,16 @@
 import { create } from "zustand";
 
 import { communityAPI } from "../api/community";
+import type { Permission } from "../lib/permissions";
+import { union } from "../lib/permissions";
 
 export interface CommunityRole {
   id: string;
   name: string;
   color: string;
-  permissions: number;
+  permissions: Permission[];
   position: number;
 }
-
-export const PERM_MANAGE_CHANNELS = 1;
-export const PERM_MANAGE_INVITES = 2;
-export const PERM_MANAGE_MESSAGES = 4;
-export const PERM_MUTE_MEMBERS = 8;
-export const PERM_MANAGE_ROLES = 16;
-export const PERM_MANAGE_COMMUNITY = 32;
-export const PERM_KICK_MEMBERS = 64;
-export const PERM_DEAFEN_MEMBERS = 128;
-export const PERM_DISCONNECT_MEMBERS = 256;
 
 interface CommunityRolesData {
   roles: CommunityRole[];
@@ -112,13 +104,13 @@ export function topRoleFor(
 export function userPermissions(
   data: CommunityRolesData | undefined,
   userId: string,
-): number {
-  if (!data) return 0;
+): Permission[] {
+  if (!data) return [];
   const ids = data.memberRoles[userId];
-  if (!ids) return 0;
-  let perms = 0;
+  if (!ids) return [];
+  let perms: Permission[] = [];
   for (const role of data.roles) {
-    if (ids.includes(role.id)) perms |= role.permissions;
+    if (ids.includes(role.id)) perms = union(perms, role.permissions);
   }
   return perms;
 }

@@ -1,15 +1,6 @@
 import React from "react";
 import type { Community } from "../../../../shared/types/community";
-import {
-  PERM_MANAGE_CHANNELS,
-  PERM_MANAGE_INVITES,
-  PERM_DEAFEN_MEMBERS,
-  PERM_DISCONNECT_MEMBERS,
-  PERM_MUTE_MEMBERS,
-  topRoleFor,
-  useRolesStore,
-  userPermissions,
-} from "../../store/rolesStore";
+import { topRoleFor, useRolesStore, userPermissions } from "../../store/rolesStore";
 
 export interface SidebarPermissions {
   canInviteIn: (community: Community) => boolean;
@@ -40,15 +31,11 @@ export function useSidebarPermissions(
   const canInviteIn = (community: Community) =>
     !!currentUserId &&
     (community.ownerId === currentUserId ||
-      (userPermissions(rolesByCommunity[community.id], currentUserId) &
-        PERM_MANAGE_INVITES) !==
-        0);
+      userPermissions(rolesByCommunity[community.id], currentUserId).includes("manageInvites"));
   const canManageChannelsIn = (community: Community) =>
     !!currentUserId &&
     (community.ownerId === currentUserId ||
-      (userPermissions(rolesByCommunity[community.id], currentUserId) &
-        PERM_MANAGE_CHANNELS) !==
-        0);
+      userPermissions(rolesByCommunity[community.id], currentUserId).includes("manageChannels"));
   const outranksIn = (community: Community, memberId: string) => {
     if (!currentUserId) return false;
     if (community.ownerId === currentUserId) return true;
@@ -62,21 +49,15 @@ export function useSidebarPermissions(
   const canMuteIn = (community: Community) =>
     !!currentUserId &&
     (community.ownerId === currentUserId ||
-      (userPermissions(rolesByCommunity[community.id], currentUserId) &
-        PERM_MUTE_MEMBERS) !==
-        0);
+      userPermissions(rolesByCommunity[community.id], currentUserId).includes("muteMembers"));
   const canDeafenIn = (community: Community) =>
     !!currentUserId &&
     (community.ownerId === currentUserId ||
-      (userPermissions(rolesByCommunity[community.id], currentUserId) &
-        PERM_DEAFEN_MEMBERS) !==
-        0);
+      userPermissions(rolesByCommunity[community.id], currentUserId).includes("deafenMembers"));
   const canDisconnectIn = (community: Community) =>
     !!currentUserId &&
     (community.ownerId === currentUserId ||
-      (userPermissions(rolesByCommunity[community.id], currentUserId) &
-        PERM_DISCONNECT_MEMBERS) !==
-        0);
+      userPermissions(rolesByCommunity[community.id], currentUserId).includes("disconnectMembers"));
   const canLiftDeafenIn = (
     community: Community,
     m: { id: string; deafenedBy?: string },
