@@ -121,16 +121,17 @@ const CommunitiesPage: React.FC = () => {
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalCommunity, setInviteModalCommunity] = useState<Community | null>(null);
   const [communitySettings, setCommunitySettings] = useState<Community | null>(null);
-  const [settingsChannelsFailed, setSettingsChannelsFailed] = useState<string | null>(null);
+  const [settingsChannels, setSettingsChannels] = useState<{
+    communityId: string;
+    state: "loading" | "error" | "ready";
+  } | null>(null);
   const loadSettingsChannels = (communityId: string) => {
-    setSettingsChannelsFailed(null);
+    setSettingsChannels({ communityId, state: "loading" });
+    const finish = (state: "error" | "ready") =>
+      setSettingsChannels((prev) => (prev?.communityId === communityId ? { communityId, state } : prev));
     fetchChannels(communityId).then(
-      () => {
-        if (!useChannelStore.getState().channelsByCommunity[communityId]) {
-          setSettingsChannelsFailed(communityId);
-        }
-      },
-      () => setSettingsChannelsFailed(communityId),
+      (ok) => finish(ok ? "ready" : "error"),
+      () => finish("error"),
     );
   };
   const [channelModal, setChannelModal] = useState<{ communityId: string; kind: ChannelKind } | null>(null);
@@ -287,10 +288,8 @@ const CommunitiesPage: React.FC = () => {
     if (deleteConfirm?.type !== "community") return;
     try {
       await deleteCommunity(deleteConfirm.id);
-      if (selectedCommunityId === deleteConfirm.id) {
-        setSelectedCommunity(null);
-        clearChannels(deleteConfirm.id);
-      }
+      if (selectedCommunityId === deleteConfirm.id) setSelectedCommunity(null);
+      clearChannels(deleteConfirm.id);
       if (joinedChannel?.communityId === deleteConfirm.id) {
         setJoinedChannel(null);
         setVoiceJoinFailed(false);
@@ -307,10 +306,8 @@ const CommunitiesPage: React.FC = () => {
     if (deleteConfirm?.type !== "leave-community") return;
     try {
       await communityAPI.leave(deleteConfirm.id);
-      if (selectedCommunityId === deleteConfirm.id) {
-        setSelectedCommunity(null);
-        clearChannels(deleteConfirm.id);
-      }
+      if (selectedCommunityId === deleteConfirm.id) setSelectedCommunity(null);
+      clearChannels(deleteConfirm.id);
       if (joinedChannel?.communityId === deleteConfirm.id) {
         setJoinedChannel(null);
         setVoiceJoinFailed(false);
@@ -875,10 +872,10 @@ const CommunitiesPage: React.FC = () => {
             friends={friends}
             channels={channelsByCommunity[communitySettings.id] ?? []}
             channelsState={
-              channelsByCommunity[communitySettings.id]
-                ? "ready"
-                : settingsChannelsFailed === communitySettings.id
-                  ? "error"
+              settingsChannels?.communityId === communitySettings.id
+                ? settingsChannels.state
+                : channelsByCommunity[communitySettings.id]
+                  ? "ready"
                   : "loading"
             }
             onRetryChannels={() => loadSettingsChannels(communitySettings.id)}

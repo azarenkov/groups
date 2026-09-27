@@ -18,7 +18,7 @@ interface ChannelState {
   clearError: () => void;
   clearChannels: (communityId: string) => void;
 
-  fetchChannels: (communityId: string) => Promise<void>;
+  fetchChannels: (communityId: string) => Promise<boolean>;
   createChannel: (
     communityId: string,
     name: string,
@@ -145,12 +145,14 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
       });
       if (removedDuringFetch.get(communityId) === removed) removedDuringFetch.delete(communityId);
       if (patchedDuringFetch.get(communityId) === patched) patchedDuringFetch.delete(communityId);
+      return true;
     } catch (error) {
       set({
         error:
           error instanceof Error ? error.message : "Failed to fetch channels",
         isLoading: false,
       });
+      return false;
     }
   },
 
