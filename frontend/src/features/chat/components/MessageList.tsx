@@ -103,6 +103,9 @@ const MessageList: React.FC<MessageListProps> = ({
               const isMine = !!currentUserId && m.authorId === currentUserId;
               const subjectName = nameOverrides[m.authorId] ?? m.authorName ?? m.authorId;
               const displayName = m.system ? subjectName : isMine ? "You" : subjectName;
+              const next = messages[i + 1];
+              const sharedTime = sharesTimeWithNext(m, next);
+              const receipt = receiptFor(m, isMine);
               return (
                 <React.Fragment key={m.id}>
                   {newDay && (
@@ -122,10 +125,11 @@ const MessageList: React.FC<MessageListProps> = ({
                   msg={m}
                   displayName={displayName}
                   continued={cont}
-                  hideMeta={sharesTimeWithNext(m, messages[i + 1])}
+                  hideTime={sharedTime}
+                  hideMeta={sharedTime && !!next && receipt === receiptFor(next, isMine)}
                   isMine={isMine}
                   dmStyle={isDm}
-                  receipt={receiptFor(m, isMine)}
+                  receipt={receipt}
                   editing={editingId === m.id}
                   highlighted={highlightedMessageId === m.id}
                   editText={editText}
