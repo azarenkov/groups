@@ -161,7 +161,7 @@
 .msg.bubble .msg-meta {
   display: flex;
   justify-content: flex-start;
-  margin: 3px 12px 0;
+  margin: 3px 0 0;
   height: 14px;
 }
 .msg.bubble.mine .msg-meta { justify-content: flex-end; }
