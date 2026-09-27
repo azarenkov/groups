@@ -22,6 +22,13 @@ impl DmMessageDomainEvent {
         self
     }
 
+    pub fn with_hidden_for(mut self, users: &[UserId]) -> Self {
+        if let Self::Edited(e) = &mut self {
+            e.hidden_for = users.to_vec();
+        }
+        self
+    }
+
     pub fn event_type(&self) -> &'static str {
         match self {
             Self::Sent(_) => "sent",

@@ -7,9 +7,21 @@ import type { Community } from "../../../../shared/types/community";
 import type { Channel } from "../../../../shared/types/channel";
 import type { SidebarVoiceMember } from "./types";
 import { moderatorDeafened, type SidebarPermissions } from "./permissions";
-import { moderateDeafen, moderateMute } from "./moderation";
+import { moderateDeafen, moderateDisconnect, moderateMute } from "./moderation";
 import { useSpeakingStore } from "../../../voice/store/speakingStore";
 import { useProfileModalStore } from "../../../social/store/profileModalStore";
+import { useDmOpenerStore } from "../../../social/store/dmOpenerStore";
+import {
+  openContextMenu,
+  openContextMenuAt,
+} from "../../../../shared/ui/contextMenu/contextMenuStore";
+import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
+import MemberVolumeSlider from "../../../voice/components/MemberVolumeSlider";
+import { useLongPress } from "../../../../shared/ui/contextMenu/useLongPress";
+import MuteForMeItem from "../../../voice/components/MuteForMeItem";
+import { getLiveKitService } from "../../../voice/lib/livekit";
+import { useVoiceSessionStore } from "../../../voice/store/voiceSessionStore";
+import VoiceSessionTimer from "../../../voice/components/VoiceSessionTimer";
 
 interface ChannelRowProps {
   community: Community;
@@ -40,6 +52,99 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
 }) => {
   const speakingIds = useSpeakingStore((state) => state.ids);
   const { t } = useTranslation(["sidebar", "common"]);
+  const sessionStartedAt = useVoiceSessionStore((st) =>
+    channel.kind === "voice" ? st.startedAt[channel.id] : undefined,
+  );
+  const shownMembersRef = React.useRef(new Map<string, SidebarVoiceMember>());
+  const memberLongPress = useLongPress((point, el) => {
+    const member = el.dataset.memberId ? shownMembersRef.current.get(el.dataset.memberId) : undefined;
+    return !!member && openContextMenu(point, memberMenu(member));
+  });
+  const memberMenu = (m: SidebarVoiceMember): MenuEntry[] => {
+    const self = m.id === currentUserId;
+    const openDm = useDmOpenerStore.getState().open;
+    const inMyCall =
+      !self && getLiveKitService().getParticipants().some((p) => p.identity === m.id);
+    const entries: MenuEntry[] = [
+      {
+        kind: "item",
+        id: "profile",
+        label: t("memberProfile"),
+        icon: "user",
+        onSelect: () => useProfileModalStore.getState().open(m.id),
+      },
+    ];
+    if (!self && openDm) {
+      entries.push({
+        kind: "item",
+        id: "message",
+        label: t("memberMessage"),
+        icon: "message",
+        onSelect: () => openDm(m.id, m.name),
+      });
+    }
+    if (inMyCall) {
+      entries.push(
+        { kind: "separator", id: "s-volume" },
+        {
+          kind: "custom",
+          id: "volume",
+          render: () => <MemberVolumeSlider userId={m.id} label={t("memberVolume")} />,
+        },
+        {
+          kind: "custom",
+          id: "mute-for-me",
+          render: () => (
+            <MuteForMeItem userId={m.id} muteLabel={t("muteForMe")} unmuteLabel={t("unmuteForMe")} />
+          ),
+        },
+      );
+    }
+    const canMute = !self && perms.canMuteIn(community) && perms.outranksIn(community, m.id);
+    const canDeafen =
+      !self &&
+      perms.canDeafenIn(community) &&
+      perms.outranksIn(community, m.id) &&
+      perms.canLiftDeafenIn(community, m);
+    const canDisconnect =
+      !self && perms.canDisconnectIn(community) && perms.outranksIn(community, m.id);
+    if (canMute || canDeafen || canDisconnect) {
+      entries.push({ kind: "separator", id: "s-moderation" });
+    }
+    if (canMute) {
+      const moderatorMuted = !!m.isMuted && !!m.mutedBy && m.mutedBy !== m.id;
+      entries.push({
+        kind: "item",
+        id: "mute",
+        label: moderatorMuted ? t("unmuteMember") : t("muteMember"),
+        icon: moderatorMuted ? "mic" : "mic-off",
+        danger: !moderatorMuted,
+        onSelect: () => moderateMute(community, channel.id, m),
+      });
+    }
+    if (canDeafen) {
+      const deafened = moderatorDeafened(m);
+      entries.push({
+        kind: "item",
+        id: "deafen",
+        label: deafened ? t("undeafenMember") : t("deafenMember"),
+        icon: deafened ? "headphones" : "headphones-off",
+        danger: !deafened,
+        onSelect: () => moderateDeafen(community, channel.id, m),
+      });
+    }
+    if (canDisconnect) {
+      entries.push({
+        kind: "item",
+        id: "disconnect",
+        label: t("disconnectMember"),
+        icon: "logout",
+        danger: true,
+        onSelect: () => moderateDisconnect(community, channel.id, m),
+      });
+    }
+    return entries;
+  };
   return (
     <>
       <div
@@ -81,6 +186,12 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
         {channel.kind === "voice" &&
           (voiceMembersByChannel?.[channel.id]?.length ?? 0) > 0 && (
             <span className="meta">
+              {sessionStartedAt && (
+                <>
+                  <VoiceSessionTimer startedAt={sessionStartedAt} className="sb-voice-timer" />
+                  <span className="sb-voice-sep" aria-hidden="true">·</span>
+                </>
+              )}
               {voiceMembersByChannel?.[channel.id]?.length}
             </span>
           )}
@@ -104,6 +215,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
             membersForChannel = Array.from(merged.values());
           }
           if (membersForChannel.length === 0) return null;
+          shownMembersRef.current = new Map(membersForChannel.map((m) => [m.id, m]));
           return (
             <div className="sb-voice-members">
               {membersForChannel.map((m) => (
@@ -112,16 +224,28 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                   className="sb-voice-member"
                   role="button"
                   tabIndex={0}
+                  data-member-id={m.id}
+                  {...memberLongPress}
                   onClick={(e) => {
                     e.stopPropagation();
                     useProfileModalStore.getState().open(m.id);
                   }}
                   onKeyDown={(e) => {
                     if (e.target !== e.currentTarget) return;
+                    if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openContextMenuAt(e.currentTarget, memberMenu(m));
+                      return;
+                    }
                     if (e.key !== "Enter" && e.key !== " ") return;
                     e.preventDefault();
                     e.stopPropagation();
                     useProfileModalStore.getState().open(m.id);
+                  }}
+                  onContextMenu={(e) => {
+                    e.stopPropagation();
+                    openContextMenu(e, memberMenu(m));
                   }}
                 >
                   <UserAvatar
@@ -159,51 +283,6 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                     <span className="sb-voice-member-badge muted" title="Deafened">
                       <Icon name="headphones-off" size={11} />
                     </span>
-                  )}
-                  {m.id !== currentUserId &&
-                    perms.canMuteIn(community) &&
-                    perms.outranksIn(community, m.id) && (
-                    <button
-                      type="button"
-                      className="sb-voice-mute-btn"
-                      title={
-                        m.isMuted && m.mutedBy && m.mutedBy !== m.id
-                          ? t("unmuteMember")
-                          : t("muteMember")
-                      }
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moderateMute(community, channel.id, m);
-                      }}
-                    >
-                      <Icon
-                        name={
-                          m.isMuted && m.mutedBy && m.mutedBy !== m.id
-                            ? "mic"
-                            : "mic-off"
-                        }
-                        size={12}
-                      />
-                    </button>
-                  )}
-                  {m.id !== currentUserId &&
-                    perms.canDeafenIn(community) &&
-                    perms.outranksIn(community, m.id) &&
-                    perms.canLiftDeafenIn(community, m) && (
-                    <button
-                      type="button"
-                      className="sb-voice-mute-btn"
-                      title={moderatorDeafened(m) ? t("undeafenMember") : t("deafenMember")}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moderateDeafen(community, channel.id, m);
-                      }}
-                    >
-                      <Icon
-                        name={moderatorDeafened(m) ? "headphones" : "headphones-off"}
-                        size={12}
-                      />
-                    </button>
                   )}
                 </div>
               ))}

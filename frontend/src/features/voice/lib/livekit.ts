@@ -44,6 +44,7 @@ import type {
   ScreenShareInfo,
   ScreenShareState,
 } from "./livekit/types";
+import { rememberAudibleVolume } from "./audibleVolume";
 
 export type {
   NoiseSuppressionMode,
@@ -1597,7 +1598,9 @@ export class LiveKitService {
   }
 
   setRemoteVolume(identity: string, volume: number): void {
+    rememberAudibleVolume(identity, this.remoteAudio.getVolume(identity));
     this.remoteAudio.setVolume(identity, volume);
+    rememberAudibleVolume(identity, volume);
   }
 
   subscribeRemoteVolume(

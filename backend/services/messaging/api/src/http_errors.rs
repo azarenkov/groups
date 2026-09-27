@@ -144,6 +144,8 @@ use messaging::usecases::role::RoleError;
 use messaging::usecases::read_state::get_dm_read_receipt::GetDmReadReceiptError;
 use messaging::usecases::read_state::get_unread_counts::GetUnreadCountsError;
 use messaging::usecases::read_state::mark_channel_read::MarkChannelReadError;
+use messaging::usecases::hidden_message::hide_message::HideMessageError;
+use messaging::usecases::channel::disconnect_voice_member::DisconnectVoiceMemberError;
 use messaging::usecases::read_state::mark_dm_read::MarkDmReadError;
 use messaging::usecases::community::accept_community_invite::AcceptCommunityInviteError;
 use messaging::usecases::community::create_community::CreateCommunityError;
@@ -241,6 +243,43 @@ impl HttpMapping for DeleteChannelError {
             DeleteChannelError::Repository(e) => e.to_error_code(),
             DeleteChannelError::Domain(e) => e.to_error_code(),
             DeleteChannelError::VoiceService(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl HttpMapping for DisconnectVoiceMemberError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DisconnectVoiceMemberError::ChannelNotFound
+            | DisconnectVoiceMemberError::TargetNotMember => StatusCode::NOT_FOUND,
+            DisconnectVoiceMemberError::VoiceNotSupported => StatusCode::BAD_REQUEST,
+            DisconnectVoiceMemberError::Repository(e) => e.to_http_status(),
+            DisconnectVoiceMemberError::Domain(e) => e.to_http_status(),
+            DisconnectVoiceMemberError::VoiceService(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            DisconnectVoiceMemberError::ChannelNotFound => "Channel not found".to_string(),
+            DisconnectVoiceMemberError::TargetNotMember => "Target user not found".to_string(),
+            DisconnectVoiceMemberError::VoiceNotSupported => {
+                "Voice is not supported for this channel".to_string()
+            }
+            DisconnectVoiceMemberError::Repository(e) => e.to_user_message(),
+            DisconnectVoiceMemberError::Domain(e) => e.to_user_message(),
+            DisconnectVoiceMemberError::VoiceService(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DisconnectVoiceMemberError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            DisconnectVoiceMemberError::TargetNotMember => "TARGET_USER_NOT_FOUND",
+            DisconnectVoiceMemberError::VoiceNotSupported => "VOICE_NOT_SUPPORTED",
+            DisconnectVoiceMemberError::Repository(e) => e.to_error_code(),
+            DisconnectVoiceMemberError::Domain(e) => e.to_error_code(),
+            DisconnectVoiceMemberError::VoiceService(e) => e.to_error_code(),
         }
     }
 }
@@ -948,6 +987,7 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::NotTextChannel => StatusCode::BAD_REQUEST,
             SendChannelMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             SendChannelMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+            SendChannelMessageError::InvalidReply => StatusCode::BAD_REQUEST,
         }
     }
 
@@ -972,6 +1012,9 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::NotTextChannel => {
                 "Channel does not support text".to_string()
             }
+            SendChannelMessageError::InvalidReply => {
+                "The message you are replying to is not available.".to_string()
+            }
         }
     }
 
@@ -986,6 +1029,7 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
             SendChannelMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
             SendChannelMessageError::NotTextChannel => "CHANNEL_NOT_TEXT",
+            SendChannelMessageError::InvalidReply => "REPLY_INVALID",
         }
     }
 }
@@ -1072,6 +1116,7 @@ impl HttpMapping for ListChannelMessagesError {
             ListChannelMessagesError::NotTextChannel => StatusCode::BAD_REQUEST,
             ListChannelMessagesError::InvalidCursor => StatusCode::BAD_REQUEST,
             ListChannelMessagesError::ConflictingCursors => StatusCode::BAD_REQUEST,
+            ListChannelMessagesError::MessageNotFound => StatusCode::NOT_FOUND,
         }
     }
 
@@ -1092,6 +1137,7 @@ impl HttpMapping for ListChannelMessagesError {
             ListChannelMessagesError::ConflictingCursors => {
                 "Cannot specify both before and after cursors".to_string()
             }
+            ListChannelMessagesError::MessageNotFound => "Message not found".to_string(),
         }
     }
 
@@ -1104,6 +1150,7 @@ impl HttpMapping for ListChannelMessagesError {
             ListChannelMessagesError::NotTextChannel => "CHANNEL_NOT_TEXT",
             ListChannelMessagesError::InvalidCursor => "INVALID_CURSOR",
             ListChannelMessagesError::ConflictingCursors => "CONFLICTING_CURSORS",
+            ListChannelMessagesError::MessageNotFound => "MESSAGE_NOT_FOUND",
         }
     }
 }
@@ -1272,6 +1319,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::RecipientInactive => StatusCode::FORBIDDEN,
             SendDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
             SendDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+            SendDmMessageError::InvalidReply => StatusCode::BAD_REQUEST,
         }
     }
     fn to_user_message(&self) -> String {
@@ -1293,6 +1341,9 @@ impl HttpMapping for SendDmMessageError {
             }
             SendDmMessageError::SelfDm => "You cannot message yourself".to_string(),
             SendDmMessageError::RecipientInactive => "This user is unavailable".to_string(),
+            SendDmMessageError::InvalidReply => {
+                "The message you are replying to is not available.".to_string()
+            }
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -1306,6 +1357,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::DmsClosed => "DMS_CLOSED",
             SendDmMessageError::SelfDm => "SELF_DM",
             SendDmMessageError::RecipientInactive => "RECIPIENT_INACTIVE",
+            SendDmMessageError::InvalidReply => "REPLY_INVALID",
         }
     }
 }
@@ -1656,6 +1708,7 @@ impl HttpMapping for ListDmMessagesError {
             ListDmMessagesError::Repository(e) => e.to_http_status(),
             ListDmMessagesError::InvalidCursor
             | ListDmMessagesError::ConflictingCursors => StatusCode::BAD_REQUEST,
+            ListDmMessagesError::MessageNotFound => StatusCode::NOT_FOUND,
         }
     }
     fn to_user_message(&self) -> String {
@@ -1665,6 +1718,7 @@ impl HttpMapping for ListDmMessagesError {
             ListDmMessagesError::ConflictingCursors => {
                 "Cannot specify both before and after cursors".to_string()
             }
+            ListDmMessagesError::MessageNotFound => "Message not found".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -1672,6 +1726,7 @@ impl HttpMapping for ListDmMessagesError {
             ListDmMessagesError::Repository(e) => e.to_error_code(),
             ListDmMessagesError::InvalidCursor => "INVALID_CURSOR",
             ListDmMessagesError::ConflictingCursors => "CONFLICTING_CURSORS",
+            ListDmMessagesError::MessageNotFound => "MESSAGE_NOT_FOUND",
         }
     }
 }
@@ -1716,6 +1771,24 @@ impl HttpMapping for MarkChannelReadError {
         match self {
             MarkChannelReadError::Repository(e) => e.to_error_code(),
             MarkChannelReadError::NotMember => "CHANNEL_NOT_MEMBER",
+        }
+    }
+}
+
+impl HttpMapping for HideMessageError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            HideMessageError::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            HideMessageError::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            HideMessageError::Repository(e) => e.to_error_code(),
         }
     }
 }
@@ -2005,6 +2078,7 @@ impl HttpMapping for MessageError {
             | MessageError::ContentUnchanged => StatusCode::BAD_REQUEST,
             MessageError::NotAuthor => StatusCode::FORBIDDEN,
             MessageError::SystemMessage => StatusCode::CONFLICT,
+            MessageError::Forwarded => StatusCode::BAD_REQUEST,
         }
     }
 
@@ -2019,6 +2093,7 @@ impl HttpMapping for MessageError {
                 "Only the message author can perform this action".to_string()
             }
             MessageError::SystemMessage => "System messages cannot be edited or deleted".to_string(),
+            MessageError::Forwarded => "Forwarded messages cannot be edited".to_string(),
         }
     }
 
@@ -2029,6 +2104,7 @@ impl HttpMapping for MessageError {
             MessageError::ContentUnchanged => "MESSAGE_CONTENT_UNCHANGED",
             MessageError::NotAuthor => "MESSAGE_NOT_AUTHOR",
             MessageError::SystemMessage => "MESSAGE_IS_SYSTEM",
+            MessageError::Forwarded => "MESSAGE_FORWARDED",
         }
     }
 }
@@ -2068,6 +2144,7 @@ impl HttpMapping for DmMessageError {
             DmMessageError::NotSender => StatusCode::FORBIDDEN,
             DmMessageError::ContentUnchanged => StatusCode::BAD_REQUEST,
             DmMessageError::NotEditable => StatusCode::BAD_REQUEST,
+            DmMessageError::Forwarded => StatusCode::BAD_REQUEST,
         }
     }
     fn to_user_message(&self) -> String {
@@ -2078,6 +2155,7 @@ impl HttpMapping for DmMessageError {
             DmMessageError::NotSender => "DM_NOT_SENDER",
             DmMessageError::ContentUnchanged => "DM_CONTENT_UNCHANGED",
             DmMessageError::NotEditable => "DM_NOT_EDITABLE",
+            DmMessageError::Forwarded => "MESSAGE_FORWARDED",
         }
     }
 }

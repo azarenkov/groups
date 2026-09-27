@@ -2,6 +2,7 @@ use messaging::dto::responses::dm::{
     dm_message::DmMessageDto, send_dm_message::SendDmMessageResponse,
 };
 use chrono::{DateTime, Utc};
+use crate::dto::responses::reply::{RepliesTo, ReplyPreviewResponse};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -26,6 +27,21 @@ pub struct DmMessageResponse {
     pub edited_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub attachments: Vec<api_common::dto::responses::attachment::AttachmentResponse>,
+    #[serde(skip)]
+    pub reply_to_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply_to: Option<ReplyPreviewResponse>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub forwarded_from: Option<serde_json::Value>,
+}
+
+impl RepliesTo for DmMessageResponse {
+    fn reply_to_id(&self) -> Option<Uuid> {
+        self.reply_to_id
+    }
+    fn set_reply(&mut self, reply: ReplyPreviewResponse) {
+        self.reply_to = Some(reply);
+    }
 }
 
 impl From<SendDmMessageResponse> for DmMessageResponse {
@@ -47,6 +63,9 @@ impl From<SendDmMessageResponse> for DmMessageResponse {
                 .into_iter()
                 .map(api_common::dto::responses::attachment::AttachmentResponse::from)
                 .collect(),
+            reply_to_id: value.reply.as_ref().map(|r| r.id),
+            reply_to: value.reply.map(ReplyPreviewResponse::from),
+            forwarded_from: value.forwarded_from.as_ref().map(|f| f.to_json()),
         }
     }
 }
@@ -66,6 +85,9 @@ impl From<DmMessageDto> for DmMessageResponse {
             created_at: value.created_at,
             edited_at: value.edited_at,
             attachments: Vec::new(),
+            reply_to_id: value.reply_to_message_id,
+            reply_to: None,
+            forwarded_from: value.forwarded_from.as_ref().map(|f| f.to_json()),
         }
     }
 }

@@ -5,7 +5,7 @@ import { communityAPI } from "../../api/community";
 import { ApiError } from "../../../../shared/lib/apiError";
 import { UserAvatar } from "../../../../shared/ui/Avatar";
 import { useUserNamesStore } from "../../../social/store/userNamesStore";
-import { PERM_MANAGE_CHANNELS, PERM_MANAGE_INVITES, PERM_MANAGE_MESSAGES, PERM_MANAGE_ROLES, PERM_KICK_MEMBERS, PERM_MANAGE_COMMUNITY, PERM_DEAFEN_MEMBERS, PERM_MUTE_MEMBERS, topRoleFor, useRolesStore } from "../../store/rolesStore";
+import { PERM_MANAGE_CHANNELS, PERM_MANAGE_INVITES, PERM_MANAGE_MESSAGES, PERM_MANAGE_ROLES, PERM_KICK_MEMBERS, PERM_MANAGE_COMMUNITY, PERM_DEAFEN_MEMBERS, PERM_DISCONNECT_MEMBERS, PERM_MUTE_MEMBERS, topRoleFor, useRolesStore } from "../../store/rolesStore";
 import type { Community } from "../../../../shared/types/community";
 
 
@@ -34,6 +34,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
     { bit: PERM_MANAGE_MESSAGES, key: "permManageMessages" },
     { bit: PERM_MUTE_MEMBERS, key: "permMuteMembers" },
     { bit: PERM_DEAFEN_MEMBERS, key: "permDeafenMembers" },
+    { bit: PERM_DISCONNECT_MEMBERS, key: "permDisconnectMembers" },
     { bit: PERM_MANAGE_ROLES, key: "permManageRoles" },
     { bit: PERM_MANAGE_COMMUNITY, key: "permManageCommunity" },
     { bit: PERM_KICK_MEMBERS, key: "permKickMembers" },

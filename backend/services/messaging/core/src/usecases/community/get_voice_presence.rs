@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
-use messaging_domain::{channel::repository::ChannelRepository, channel::repository::StreamViewerCountRow, channel::repository::VoicePresenceRow, community::id::CommunityId, community::repository::CommunityRepository};
+use messaging_domain::{channel::repository::ChannelRepository, channel::repository::StreamViewerCountRow, channel::repository::VoicePresenceRow, channel::repository::VoiceSessionRow, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
 pub struct VoicePresenceSnapshot {
     pub presence: Vec<VoicePresenceRow>,
     pub stream_viewers: Vec<StreamViewerCountRow>,
+    pub sessions: Vec<VoiceSessionRow>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -60,9 +61,15 @@ where
             .list_stream_viewer_counts_for_community(&community_id)
             .await?;
 
+        let sessions = self
+            .channel_repository
+            .list_voice_sessions_for_community(&community_id)
+            .await?;
+
         Ok(VoicePresenceSnapshot {
             presence,
             stream_viewers,
+            sessions,
         })
     }
 }

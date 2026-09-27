@@ -103,7 +103,7 @@ where
 
         let result = self
             .message_repository
-            .search_messages_in_channel(&channel_id, &trimmed, request.pagination)
+            .search_messages_in_channel(&channel_id, &requester_id, &trimmed, request.pagination)
             .await?;
 
         let items = result

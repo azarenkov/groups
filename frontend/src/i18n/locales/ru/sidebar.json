@@ -48,5 +48,11 @@
   "deafenMember": "Отключить звук",
   "undeafenMember": "Включить звук",
   "backToCommunities": "Вернуться к списку сообществ",
-  "loadMore": "Показать ещё"
+  "loadMore": "Показать ещё",
+  "memberProfile": "Профиль",
+  "memberMessage": "Написать",
+  "memberVolume": "Громкость",
+  "muteForMe": "Заглушить для себя",
+  "unmuteForMe": "Включить для себя",
+  "disconnectMember": "Отключить от канала"
 }

@@ -45,6 +45,8 @@ use messaging::usecases::{
         get_dm_read_receipt::GetDmReadReceipt, get_unread_counts::GetUnreadCounts,
         mark_channel_read::MarkChannelRead, mark_dm_read::MarkDmRead,
     },
+    hidden_message::hide_message::HideMessage,
+    channel::disconnect_voice_member::DisconnectVoiceMember,
     community::{
         accept_community_invite::AcceptCommunityInvite, can_manage_community::CanManageCommunity,
         create_community::CreateCommunity,
@@ -74,6 +76,7 @@ use messaging_infrastructure::{
             friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
             notification_preference::PostgresNotificationPreferenceRepository,
             read_state::PostgresReadStateRepository, community::PostgresCommunityRepository,
+            hidden_message::PostgresHiddenMessageRepository,
             community_role::PostgresCommunityRoleRepository,
             channel_unit_of_work::PostgresChannelUnitOfWork,
             dm_unit_of_work::PostgresDmUnitOfWork,
@@ -227,6 +230,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             hasher.clone(),
             community_repository.clone(),
         ),
+        disconnect_voice_member_usecase: DisconnectVoiceMember::new(
+            channel_repository.clone(),
+            community_unit_of_work.clone(),
+            livekit_service.clone(),
+        ),
         mute_channel_usecase: MuteChannel::new(
             channel_repository.clone(),
             user_repository.clone(),
@@ -326,6 +334,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         block_user_usecase: BlockUser::new(friendship_unit_of_work.clone(), user_repository.clone()),
         unblock_user_usecase: UnblockUser::new(friendship_unit_of_work.clone()),
         list_blocked_users_usecase: ListBlockedUsers::new(friendship_repository.clone()),
+        hide_message_usecase: HideMessage::new(Arc::new(PostgresHiddenMessageRepository::new(
+            postgres_pool.clone(),
+        ))),
         mark_channel_read_usecase: MarkChannelRead::new(
             read_state_repository.clone(),
             channel_repository.clone(),

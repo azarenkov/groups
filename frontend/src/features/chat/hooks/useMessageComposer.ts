@@ -4,7 +4,7 @@ import { ApiError } from "../../../shared/lib/apiError";
 import { channelAPI } from "../../communities/api/channel";
 import { blockGeneration, useBlockStore } from "../../social/store/blockStore";
 import { friendshipAPI } from "../../social/api/friendship";
-import type { Attachment, ChannelMessage } from "../../../shared/types/channel";
+import type { Attachment, ChannelMessage, ReplyPreview } from "../../../shared/types/channel";
 import { MAX_CONTENT } from "../constants";
 import { splitForSend } from "../lib/messageFormat";
 import type { ChannelMeta, DmMeta } from "../types";
@@ -38,12 +38,14 @@ export function useMessageComposer(params: {
   const [text, setText] = React.useState("");
   const [sending, setSending] = React.useState(false);
   const [composerError, setComposerError] = React.useState<string | null>(null);
-  const composerRef = React.useRef<HTMLInputElement>(null);
+  const [replyTarget, setReplyTarget] = React.useState<ReplyPreview | null>(null);
+  const composerRef = React.useRef<HTMLTextAreaElement>(null);
   const wasSendingRef = React.useRef(false);
 
   React.useEffect(() => {
     setText("");
     setComposerError(null);
+    setReplyTarget(null);
   }, [convId]);
 
   React.useEffect(() => {
@@ -95,11 +97,16 @@ export function useMessageComposer(params: {
     const sentAttachments = sentFiles.map((p) => p.attachment as Attachment);
     let idsToAttach: string[] | undefined =
       readyIds.length > 0 ? readyIds : undefined;
+    let replyId: string | undefined = replyTarget?.id;
     if (idsToAttach) {
       for (const id of sentLocalIds) inFlightSendRef.current.add(id);
     }
     const sendChunk = async (chunk: string) => {
-      const msg = await messenger.sendMessage(chunk, idsToAttach);
+      const msg = await messenger.sendMessage(chunk, idsToAttach, replyId);
+      if (replyId) {
+        replyId = undefined;
+        if (stillHere()) setReplyTarget(null);
+      }
       if (idsToAttach) {
         msg.attachments = msg.attachments ?? sentAttachments;
         idsToAttach = undefined;
@@ -161,7 +168,10 @@ export function useMessageComposer(params: {
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
       const code = apiErr?.code;
-      if (code === "MESSAGE_CONTENT_EMPTY") {
+      if (code === "REPLY_INVALID") {
+        if (stillHere()) setReplyTarget(null);
+        reportComposerError(i18n.t("replyUnavailable", { ns: "chat" }));
+      } else if (code === "MESSAGE_CONTENT_EMPTY") {
         reportComposerError(i18n.t("messageCantBeEmpty", { ns: "chat" }));
       } else if (code === "MESSAGE_CONTENT_TOO_LONG") {
         reportComposerError(i18n.t("chunkTooLong", { ns: "chat" }));
@@ -208,5 +218,7 @@ export function useMessageComposer(params: {
     setComposerError,
     composerRef,
     handleSend,
+    replyTarget,
+    setReplyTarget,
   };
 }

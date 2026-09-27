@@ -89,6 +89,7 @@
   "permManageMessages": "Delete others' messages",
   "permMuteMembers": "Mute members",
   "permDeafenMembers": "Deafen members",
+  "permDisconnectMembers": "Disconnect members",
   "permManageRoles": "Manage roles",
   "permManageCommunity": "Manage community",
   "roleMembers": "Members with this role",
