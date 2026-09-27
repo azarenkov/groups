@@ -1,4 +1,4 @@
-import { formatListTime, sortDirects } from "../directOrder";
+import { formatListTime, msUntilNextDay, sortDirects } from "../directOrder";
 
 describe("sortDirects", () => {
   it("puts the most recent conversation first, sent or received", () => {
@@ -35,5 +35,12 @@ describe("formatListTime", () => {
 
   it("stays empty without a message", () => {
     expect(formatListTime(undefined, now)).toBe("");
+  });
+});
+
+describe("msUntilNextDay", () => {
+  it("waits until just after the next midnight", () => {
+    const now = new Date(2026, 8, 27, 23, 59, 0);
+    expect(msUntilNextDay(now)).toBe(61_000);
   });
 });

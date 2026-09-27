@@ -27,3 +27,8 @@ export function formatListTime(iso: string | undefined, now: Date, locale?: stri
   }
   return at.toLocaleDateString(locale, { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
+
+export function msUntilNextDay(now: Date): number {
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return Math.max(1000, next.getTime() - now.getTime() + 1000);
+}

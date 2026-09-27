@@ -5,7 +5,7 @@ import { UserAvatar } from "../../../../shared/ui/Avatar";
 import type { DirectConversation } from "../../../dm/types";
 import { useActivityStore } from "../../../social/store/activityStore";
 import UserBadge from "../../../subscription/components/UserBadge";
-import { formatListTime } from "../../../dm/lib/directOrder";
+import { formatListTime, msUntilNextDay } from "../../../dm/lib/directOrder";
 import { useProfileModalStore } from "../../../social/store/profileModalStore";
 import { isBlockedEitherWay } from "../../../social/store/blockStore";
 import {
@@ -44,7 +44,11 @@ const DmList: React.FC<DmListProps> = ({
 }) => {
   const { t, i18n } = useTranslation(["sidebar", "common"]);
   const activities = useActivityStore((s) => s.byUser);
-  const now = new Date();
+  const [now, setNow] = React.useState(() => new Date());
+  React.useEffect(() => {
+    const timer = setTimeout(() => setNow(new Date()), msUntilNextDay(now));
+    return () => clearTimeout(timer);
+  }, [now]);
   const dmMenu = (d: DirectConversation): MenuEntry[] => [
     { kind: "item", id: "message", label: t("memberMessage"), icon: "message", onSelect: () => onPick(d) },
     ...(onCall && !isBlockedEitherWay(d.id)
