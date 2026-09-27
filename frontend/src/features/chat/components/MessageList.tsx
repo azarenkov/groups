@@ -37,7 +37,7 @@ interface MessageListProps {
   onAcceptInvite: (message: ChannelMessage) => void;
   onDeclineInvite: (message: ChannelMessage) => void;
   onOpenInviteCommunity?: (communityId: string) => void;
-  onVoiceListened?: (message: ChannelMessage) => void;
+  onVoiceListened?: (message: ChannelMessage) => Promise<void>;
 }
 
 const MessageList: React.FC<MessageListProps> = ({

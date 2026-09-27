@@ -20,7 +20,7 @@ interface VoicePlayerProps {
   isMine: boolean;
   listened: boolean;
   showListenDot: boolean;
-  onListened?: () => void;
+  onListened?: () => Promise<void>;
 }
 
 const VoicePlayer: React.FC<VoicePlayerProps> = ({
@@ -143,9 +143,11 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
         }
         audio.playbackRate = useVoicePlaybackStore.getState().speed;
         return audio.play().then(() => {
-          if (!isMine && !reportedRef.current) {
+          if (!isMine && !reportedRef.current && onListened) {
             reportedRef.current = true;
-            onListened?.();
+            void onListened().catch(() => {
+              reportedRef.current = false;
+            });
           }
         });
       })

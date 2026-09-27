@@ -15,6 +15,7 @@ const LOCK_SWIPE_PX = 70;
 const MIN_HOLD_MS = 700;
 const LIVE_BARS = 48;
 const TICK_MS = 100;
+const LIMIT_MARGIN_MS = 500;
 
 interface VoiceRecordButtonProps {
   disabled: boolean;
@@ -93,7 +94,8 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     if (!recorder || finishingRef.current) return;
     finishingRef.current = true;
     stopPreview();
-    const recording = await recorder.stop();
+    const stopped = await recorder.stop();
+    const recording = { ...stopped, durationMs: Math.min(stopped.durationMs, maxVoiceMessageMs()) };
     reset();
     if (recording.durationMs < MIN_HOLD_MS || recording.blob.size === 0) {
       onError(i18n.t("voiceTooShort", { ns: "chat" }));
@@ -111,7 +113,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
       if (!recorder) return;
       const ms = recorder.elapsedMs();
       setElapsed(ms);
-      if (ms >= maxVoiceMessageMs()) {
+      if (ms >= maxVoiceMessageMs() - LIMIT_MARGIN_MS) {
         onError(i18n.t("voiceLimitReached", { ns: "chat" }));
         void finish();
       }

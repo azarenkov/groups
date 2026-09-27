@@ -72,7 +72,7 @@ export interface MessageProps {
   onCopyLink?: () => void;
   onForward?: () => void;
   onOpenForwardSource?: () => void;
-  onVoiceListened?: () => void;
+  onVoiceListened?: () => Promise<void>;
 }
 
 export const Message: React.FC<MessageProps> = ({
