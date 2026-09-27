@@ -5,7 +5,9 @@ import type { Attachment } from "../../../shared/types/channel";
 import {
   ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES_BY_TIER,
+  VOICE_MESSAGE_MAX_MS_BY_TIER,
 } from "../../subscription/lib/plans";
+import { voiceFileName } from "../lib/voice";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 
 const SLOWEST_UPLOAD_BYTES_PER_MS = 128;
@@ -16,6 +18,9 @@ export const transferTimeoutMs = (sizeBytes: number, bytesPerMs: number) =>
 
 export const maxAttachmentBytes = () =>
   MAX_ATTACHMENT_BYTES_BY_TIER[useEntitlementsStore.getState().tier];
+
+export const maxVoiceMessageMs = () =>
+  VOICE_MESSAGE_MAX_MS_BY_TIER[useEntitlementsStore.getState().tier];
 
 export const maxAttachmentsPerMessage = () =>
   ATTACHMENTS_PER_MESSAGE[useEntitlementsStore.getState().tier];
@@ -34,6 +39,21 @@ class AttachmentAPI {
       onUploadProgress: (e) => {
         if (onProgress && e.total) onProgress(e.loaded / e.total);
       },
+    });
+    return response.data.data;
+  }
+
+  async uploadVoice(
+    blob: Blob,
+    mimeType: string,
+    voice: { durationMs: number; waveform: number[] },
+  ): Promise<Attachment> {
+    const form = new FormData();
+    form.append("voiceDurationMs", String(Math.max(1, Math.round(voice.durationMs))));
+    form.append("voiceWaveform", voice.waveform.join(","));
+    form.append("file", new File([blob], voiceFileName(mimeType), { type: mimeType }));
+    const response = await this.client.post("/v1/attachments", form, {
+      timeout: transferTimeoutMs(blob.size, SLOWEST_UPLOAD_BYTES_PER_MS),
     });
     return response.data.data;
   }

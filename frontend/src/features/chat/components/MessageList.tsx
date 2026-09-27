@@ -37,6 +37,7 @@ interface MessageListProps {
   onAcceptInvite: (message: ChannelMessage) => void;
   onDeclineInvite: (message: ChannelMessage) => void;
   onOpenInviteCommunity?: (communityId: string) => void;
+  onVoiceListened?: (message: ChannelMessage) => void;
 }
 
 const MessageList: React.FC<MessageListProps> = ({
@@ -70,6 +71,7 @@ const MessageList: React.FC<MessageListProps> = ({
   onAcceptInvite,
   onDeclineInvite,
   onOpenInviteCommunity,
+  onVoiceListened,
 }) => {
   let lastBubbleIndex = -1;
   for (let k = messages.length - 1; k >= 0; k -= 1) {
@@ -157,6 +159,7 @@ const MessageList: React.FC<MessageListProps> = ({
                   onOpenInviteCommunity={() =>
                     m.inviteCommunityId && onOpenInviteCommunity?.(m.inviteCommunityId)
                   }
+                  onVoiceListened={onVoiceListened ? () => onVoiceListened(m) : undefined}
                 />
                 </React.Fragment>
               );

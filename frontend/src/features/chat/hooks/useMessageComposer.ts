@@ -10,6 +10,8 @@ import { splitForSend } from "../lib/messageFormat";
 import type { ChannelMeta, DmMeta } from "../types";
 import type { useAttachments } from "./useAttachments";
 import type { Messenger } from "./useMessenger";
+import { attachmentAPI } from "../api/attachment";
+import type { VoiceRecording } from "../lib/voiceRecorder";
 
 export function useMessageComposer(params: {
   messenger: Messenger | null;
@@ -210,10 +212,59 @@ export function useMessageComposer(params: {
     }
   };
 
+  const sendVoice = async (recording: VoiceRecording): Promise<boolean> => {
+    if (!messenger) return false;
+    const originConvId = currentChannelIdRef.current;
+    const stillHere = () => currentChannelIdRef.current === originConvId;
+    const reply = replyTarget;
+    setSending(true);
+    setComposerError(null);
+    let pending: Attachment | null = null;
+    try {
+      const uploaded = await attachmentAPI.uploadVoice(recording.blob, recording.mimeType, {
+        durationMs: recording.durationMs,
+        waveform: recording.waveform,
+      });
+      pending = uploaded;
+      const msg = await messenger.sendMessage("", [uploaded.id], reply?.id);
+      pending = null;
+      msg.attachments = msg.attachments?.length ? msg.attachments : [uploaded];
+      if (stillHere()) {
+        if (reply) setReplyTarget(null);
+        setMessages((prev) => (prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
+      }
+      return true;
+    } catch (err) {
+      if (pending) void attachmentAPI.delete(pending.id).catch(() => {});
+      const apiErr = err instanceof ApiError ? err : null;
+      const code = apiErr?.code;
+      const message =
+        code === "VOICE_TOO_LONG"
+          ? i18n.t("voiceTooLong", { ns: "chat" })
+          : code === "VOICE_INVALID" || code === "ATTACHMENTS_INVALID"
+            ? i18n.t("voiceInvalid", { ns: "chat" })
+            : code === "REPLY_INVALID"
+              ? i18n.t("replyUnavailable", { ns: "chat" })
+              : code === "NOT_FRIENDS"
+                ? i18n.t("notFriends", { ns: "chat" })
+                : code === "USER_BLOCKED"
+                  ? i18n.t("userBlocked", { ns: "chat" })
+                  : code === "DMS_CLOSED"
+                    ? i18n.t("dmsClosed", { ns: "chat" })
+                    : apiErr?.message || i18n.t("couldNotSend", { ns: "chat" });
+      if (code === "REPLY_INVALID" && stillHere()) setReplyTarget(null);
+      if (stillHere()) setComposerError(message);
+      return false;
+    } finally {
+      setSending(false);
+    }
+  };
+
   return {
     text,
     setText,
     sending,
+    sendVoice,
     composerError,
     setComposerError,
     composerRef,

@@ -61,9 +61,18 @@ export type IconName =
   | "inbox"
   | "message"
   | "github"
-  | "steam";
+  | "steam"
+  | "play"
+  | "pause";
 
 const PATHS: Record<IconName, React.ReactNode> = {
+  play: <path fill="currentColor" stroke="none" d="M7 4.5v15a1 1 0 0 0 1.52.85l12-7.5a1 1 0 0 0 0-1.7l-12-7.5A1 1 0 0 0 7 4.5z" />,
+  pause: (
+    <>
+      <rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none" />
+      <rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none" />
+    </>
+  ),
   github: (
     <path
       fill="currentColor"

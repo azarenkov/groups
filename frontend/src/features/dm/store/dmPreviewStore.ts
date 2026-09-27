@@ -10,6 +10,7 @@ export interface DmPreview {
   callStatus: string | null;
   inviteCommunityId: string | null;
   hasAttachments: boolean;
+  voiceDurationMs?: number | null;
   createdAt: string;
 }
 
@@ -91,6 +92,7 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
           callStatus: it.callStatus,
           inviteCommunityId: it.inviteCommunityId,
           hasAttachments: it.hasAttachments,
+          voiceDurationMs: it.voiceDurationMs ?? null,
           createdAt: it.createdAt,
         };
       }

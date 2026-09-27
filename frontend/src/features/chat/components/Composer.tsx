@@ -11,6 +11,9 @@ import { useAutoGrow } from "../hooks/useAutoGrow";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
 import type { PendingFile } from "../types";
+import { replyText } from "../lib/replyText";
+import VoiceRecordButton from "./VoiceRecordButton";
+import type { VoiceRecording } from "../lib/voiceRecorder";
 
 interface ComposerProps {
   composerRef: React.RefObject<HTMLTextAreaElement>;
@@ -34,6 +37,8 @@ interface ComposerProps {
   onEditLastMessage: () => boolean;
   replyTarget?: ReplyPreview | null;
   onCancelReply?: () => void;
+  onSendVoice?: (recording: VoiceRecording) => Promise<boolean>;
+  onVoiceError?: (message: string | null) => void;
 }
 
 const Composer: React.FC<ComposerProps> = ({
@@ -58,8 +63,13 @@ const Composer: React.FC<ComposerProps> = ({
   onEditLastMessage,
   replyTarget,
   onCancelReply,
+  onSendVoice,
+  onVoiceError,
 }) => {
   useAutoGrow(composerRef, text);
+  const [voiceActive, setVoiceActive] = React.useState(false);
+  const showVoice =
+    !!onSendVoice && (voiceActive || (!text.trim() && pendingFiles.length === 0));
   return (
     <form className="composer" onSubmit={onSubmit}>
         {replyTarget && (
@@ -70,8 +80,7 @@ const Composer: React.FC<ComposerProps> = ({
                 {i18n.t("replyingTo", { ns: "chat", name: replyTarget.authorName ?? "" })}
               </div>
               <div className="composer-reply-text">
-                {replyTarget.content ||
-                  (replyTarget.hasAttachments ? i18n.t("replyAttachment", { ns: "chat" }) : "")}
+                {replyText(replyTarget)}
               </div>
             </div>
             <button
@@ -119,7 +128,7 @@ const Composer: React.FC<ComposerProps> = ({
             ))}
           </div>
         )}
-        <div className="composer-wrap">
+        <div className={"composer-wrap" + (voiceActive ? " voice-recording" : "")}>
           <input
             ref={fileInputRef}
             type="file"
@@ -267,19 +276,28 @@ const Composer: React.FC<ComposerProps> = ({
             autoFocus
             disabled={sending}
           />
-          <button
-            type="submit"
-            className={
-              "send-btn" +
-              (text.trim() || pendingFiles.some((p) => p.attachment)
-                ? " enabled"
-                : "")
-            }
-            aria-label={i18n.t("send", { ns: "chat" })}
-            disabled={sending}
-          >
-            <Icon name="send" size={14} />
-          </button>
+          {showVoice && onSendVoice ? (
+            <VoiceRecordButton
+              disabled={sending}
+              onSend={onSendVoice}
+              onError={(message) => onVoiceError?.(message)}
+              onActiveChange={setVoiceActive}
+            />
+          ) : (
+            <button
+              type="submit"
+              className={
+                "send-btn" +
+                (text.trim() || pendingFiles.some((p) => p.attachment)
+                  ? " enabled"
+                  : "")
+              }
+              aria-label={i18n.t("send", { ns: "chat" })}
+              disabled={sending}
+            >
+              <Icon name="send" size={14} />
+            </button>
+          )}
         </div>
         {composerError && <div className="composer-error">{composerError}</div>}
       </form>

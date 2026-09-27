@@ -15,6 +15,7 @@ interface DmRow {
   attachments?: Attachment[];
   replyTo?: ReplyPreview;
   forwardedFrom?: ForwardInfo | null;
+  voiceListened?: boolean;
   createdAt: string;
   editedAt: string | null;
 }
@@ -32,6 +33,7 @@ const toChannelMessage = (r: DmRow): ChannelMessage => ({
   attachments: r.attachments,
   replyTo: r.replyTo,
   forwardedFrom: r.forwardedFrom,
+  voiceListened: r.voiceListened,
   createdAt: r.createdAt,
   editedAt: r.editedAt,
 });
@@ -66,6 +68,7 @@ class DmAPI {
       callStatus: string | null;
       inviteCommunityId: string | null;
       hasAttachments: boolean;
+      voiceDurationMs?: number | null;
       createdAt: string;
     }[];
     nextCursor: string | null;
@@ -135,6 +138,10 @@ class DmAPI {
 
   async deleteMessage(messageId: string): Promise<void> {
     await this.client.delete(`/v1/users/me/dms/messages/${messageId}`);
+  }
+
+  async markVoiceListened(friendId: string, messageId: string): Promise<void> {
+    await this.client.post(`/v1/users/me/dms/${friendId}/messages/${messageId}/listened`);
   }
 
   async hideMessage(friendId: string, messageId: string): Promise<void> {

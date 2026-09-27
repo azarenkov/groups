@@ -1,4 +1,5 @@
 import type { ChannelMessage, ReplyPreview } from "../../../shared/types/channel";
+import { voiceAttachmentOf } from "./voice";
 
 export const REPLY_SNIPPET_CHARS = 200;
 
@@ -16,6 +17,7 @@ export function previewOf(msg: ChannelMessage, authorName?: string): ReplyPrevie
     authorName: authorName ?? msg.authorName,
     content: replySnippet(msg.content),
     hasAttachments: (msg.attachments?.length ?? 0) > 0,
+    voiceDurationMs: voiceAttachmentOf(msg)?.voice?.durationMs ?? null,
     deleted: false,
   };
 }

@@ -513,6 +513,14 @@ const ChatView: React.FC<ChatViewProps> = ({
           </div>
         ) : (
           <MessageList
+            onVoiceListened={(message) => {
+              setMessages((prev) =>
+                prev.map((m) => (m.id === message.id ? { ...m, voiceListened: true } : m)),
+              );
+              void messenger
+                ?.markVoiceListened(message.id)
+                .catch((e) => console.warn("[ChatView] mark voice listened failed:", e));
+            }}
             messages={messages}
             loadingOlder={loadingOlder}
             currentUserId={currentUserId}
@@ -620,6 +628,8 @@ const ChatView: React.FC<ChatViewProps> = ({
           onEditLastMessage={editing.editLastOwnMessage}
           replyTarget={composer.replyTarget}
           onCancelReply={() => composer.setReplyTarget(null)}
+          onSendVoice={composer.sendVoice}
+          onVoiceError={composer.setComposerError}
         />
       )}
       {editing.deleteTarget &&

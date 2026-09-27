@@ -18,6 +18,14 @@ export const MAX_ATTACHMENT_BYTES_BY_TIER: Record<Tier, number> = {
   premium: 500 * MEGABYTE,
 };
 
+const MINUTE_MS = 60 * 1000;
+
+export const VOICE_MESSAGE_MAX_MS_BY_TIER: Record<Tier, number> = {
+  free: 5 * MINUTE_MS,
+  pro: 30 * MINUTE_MS,
+  premium: 30 * MINUTE_MS,
+};
+
 export const BADGE_STYLES = [
   "tint",
   "solid",

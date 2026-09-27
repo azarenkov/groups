@@ -24,6 +24,7 @@ export interface Messenger {
   ) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
   hideMessage: (messageId: string) => Promise<void>;
+  markVoiceListened: (messageId: string) => Promise<void>;
   searchMessages: (
     query: string,
     page: number,
@@ -54,6 +55,7 @@ export function useMessenger(params: {
           ),
         deleteMessage: (messageId) => dmAPI.deleteMessage(messageId),
         hideMessage: (messageId) => dmAPI.hideMessage(dm.friendId, messageId),
+        markVoiceListened: (messageId) => dmAPI.markVoiceListened(dm.friendId, messageId),
         searchMessages: (query, page, perPage) =>
           dmAPI.searchMessages(dm.friendId, query, page, perPage),
       };
@@ -79,6 +81,8 @@ export function useMessenger(params: {
           channelAPI.deleteMessage(communityId, channel.id, messageId),
         hideMessage: (messageId) =>
           channelAPI.hideMessage(communityId, channel.id, messageId),
+        markVoiceListened: (messageId) =>
+          channelAPI.markVoiceListened(communityId, channel.id, messageId),
         searchMessages: (query, page, perPage) =>
           channelAPI.searchMessages(communityId, channel.id, query, page, perPage),
       };

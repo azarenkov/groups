@@ -165,6 +165,21 @@ export function useChatWsMessages(params: {
   React.useEffect(
     () =>
       ws.on((env) => {
+        if (env.type !== "voice.listened") return;
+        const id = (env.data as { messageId?: unknown }).messageId;
+        if (typeof id !== "string") return;
+        setMessages((prev) =>
+          prev.some((m) => m.id === id && !m.voiceListened)
+            ? prev.map((m) => (m.id === id ? { ...m, voiceListened: true } : m))
+            : prev,
+        );
+      }),
+    [setMessages],
+  );
+
+  React.useEffect(
+    () =>
+      ws.on((env) => {
         if (env.type !== "message.hidden") return;
         const id = (env.data as { messageId?: unknown }).messageId;
         if (typeof id !== "string") return;

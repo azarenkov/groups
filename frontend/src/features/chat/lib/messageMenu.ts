@@ -1,4 +1,5 @@
 import type { ChannelMessage } from "../../../shared/types/channel";
+import { isVoiceMessage } from "./voice";
 
 export type MessageAction = "reply" | "forward" | "copy" | "link" | "edit" | "delete" | "report";
 
@@ -14,10 +15,11 @@ export function messageActions(ctx: MessageMenuContext): MessageAction[] {
   const actions: MessageAction[] = [];
   if (!card && !msg.system) actions.push("reply");
   if (!card && !msg.system) actions.push("forward");
-  const hasText = msg.content.length > 0 || (msg.attachments?.length ?? 0) > 0;
+  const voice = isVoiceMessage(msg);
+  const hasText = !voice && (msg.content.length > 0 || (msg.attachments?.length ?? 0) > 0);
   if (!card && (hasText || hasSelection)) actions.push("copy");
   if (!msg.system) actions.push("link");
-  if (isMine && !card && !msg.system && !msg.forwardedFrom) actions.push("edit");
+  if (isMine && !card && !voice && !msg.system && !msg.forwardedFrom) actions.push("edit");
   if (isMine || !msg.inviteCommunityId) actions.push("delete");
   if (!isMine && !card && !msg.system) actions.push("report");
   return actions;

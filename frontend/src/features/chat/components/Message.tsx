@@ -14,6 +14,7 @@ import { UserAvatar, CommunityLogo } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
 import { openReport } from "../../moderation/store/reportModalStore";
 import AttachmentItem from "./AttachmentItem";
+import VoicePlayer from "./VoicePlayer";
 import LinkPreview from "./LinkPreview";
 import ReadTicks from "./ReadTicks";
 import { renderWithLinks } from "./MessageText";
@@ -36,6 +37,7 @@ import {
 } from "../lib/swipe";
 import type { PendingFile } from "../types";
 import { MAX_CONTENT } from "../constants";
+import { replyText } from "../lib/replyText";
 
 export interface MessageProps {
   tabbable?: boolean;
@@ -70,6 +72,7 @@ export interface MessageProps {
   onCopyLink?: () => void;
   onForward?: () => void;
   onOpenForwardSource?: () => void;
+  onVoiceListened?: () => void;
 }
 
 export const Message: React.FC<MessageProps> = ({
@@ -105,6 +108,7 @@ export const Message: React.FC<MessageProps> = ({
   onCopyLink,
   onForward,
   onOpenForwardSource,
+  onVoiceListened,
 }) => {
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
@@ -687,8 +691,7 @@ export const Message: React.FC<MessageProps> = ({
                         {reply.authorName}
                       </span>
                       <span className="msg-reply-text">
-                        {reply.content ||
-                          (reply.hasAttachments ? i18n.t("replyAttachment", { ns: "chat" }) : "")}
+                        {replyText(reply)}
                       </span>
                     </>
                   )}
@@ -698,9 +701,21 @@ export const Message: React.FC<MessageProps> = ({
             <span className="msg-text">{renderWithLinks(msg.content)}</span>
             {(msg.attachments?.length ?? 0) > 0 && (
               <div className="msg-attachments">
-                {(msg.attachments ?? []).map((a) => (
-                  <AttachmentItem key={a.id} attachment={a} />
-                ))}
+                {(msg.attachments ?? []).map((a) =>
+                  a.voice ? (
+                    <VoicePlayer
+                      key={a.id}
+                      messageId={msg.id}
+                      attachment={a}
+                      isMine={isMine}
+                      listened={!!msg.voiceListened}
+                      showListenDot={!isMine || dmStyle}
+                      onListened={onVoiceListened}
+                    />
+                  ) : (
+                    <AttachmentItem key={a.id} attachment={a} />
+                  ),
+                )}
               </div>
             )}
             {msg.editedAt && <span className="msg-edited"> ({i18n.t("edited", { ns: "chat" })})</span>}

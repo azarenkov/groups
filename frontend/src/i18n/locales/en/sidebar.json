@@ -56,5 +56,6 @@
   "unmuteForMe": "Unmute for me",
   "disconnectMember": "Disconnect from channel",
   "callFriend": "Call",
-  "openCommunity": "Open"
+  "openCommunity": "Open",
+  "previewVoice": "🎤 Voice message, {{duration}}"
 }

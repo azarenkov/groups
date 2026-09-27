@@ -215,6 +215,12 @@ class ChannelAPI {
     );
   }
 
+  async markVoiceListened(communityId: string, channelId: string, messageId: string): Promise<void> {
+    await this.client.post(
+      `/v1/communities/${communityId}/channels/${channelId}/messages/${messageId}/listened`,
+    );
+  }
+
   async hideMessage(communityId: string, channelId: string, messageId: string): Promise<void> {
     await this.client.post(
       `/v1/communities/${communityId}/channels/${channelId}/messages/${messageId}/hide`,
