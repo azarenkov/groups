@@ -11,7 +11,7 @@ import type { ChannelMeta, DmMeta } from "../types";
 import type { useAttachments } from "./useAttachments";
 import type { Messenger } from "./useMessenger";
 import { attachmentAPI } from "../api/attachment";
-import type { VoiceRecording } from "../lib/voiceRecorder";
+import type { MediaRecording } from "../lib/recording";
 
 export function useMessageComposer(params: {
   messenger: Messenger | null;
@@ -212,7 +212,7 @@ export function useMessageComposer(params: {
     }
   };
 
-  const sendVoice = async (recording: VoiceRecording): Promise<boolean> => {
+  const sendVoice = async (recording: MediaRecording): Promise<boolean> => {
     if (!messenger) return false;
     const originConvId = currentChannelIdRef.current;
     const stillHere = () => currentChannelIdRef.current === originConvId;
@@ -221,10 +221,17 @@ export function useMessageComposer(params: {
     setComposerError(null);
     let pending: Attachment | null = null;
     try {
-      const uploaded = await attachmentAPI.uploadVoice(recording.blob, recording.mimeType, {
-        durationMs: recording.durationMs,
-        waveform: recording.waveform,
-      });
+      const uploaded =
+        recording.kind === "video"
+          ? await attachmentAPI.uploadVideoNote(recording.blob, recording.mimeType, {
+              durationMs: recording.durationMs,
+              size: recording.size,
+              poster: recording.poster,
+            })
+          : await attachmentAPI.uploadVoice(recording.blob, recording.mimeType, {
+              durationMs: recording.durationMs,
+              waveform: recording.waveform,
+            });
       pending = uploaded;
       const msg = await messenger.sendMessage("", [uploaded.id], reply?.id);
       pending = null;
@@ -241,6 +248,10 @@ export function useMessageComposer(params: {
       const message =
         code === "VOICE_TOO_LONG"
           ? i18n.t("voiceTooLong", { ns: "chat" })
+          : code === "VIDEO_NOTE_TOO_LONG"
+            ? i18n.t("videoNoteTooLong", { ns: "chat" })
+          : code === "VIDEO_NOTE_INVALID" || (recording.kind === "video" && code === "ATTACHMENTS_INVALID")
+            ? i18n.t("videoNoteInvalid", { ns: "chat" })
           : code === "VOICE_INVALID" || code === "ATTACHMENTS_INVALID"
             ? i18n.t("voiceInvalid", { ns: "chat" })
             : code === "REPLY_INVALID"

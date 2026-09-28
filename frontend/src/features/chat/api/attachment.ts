@@ -6,6 +6,7 @@ import {
   ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES_BY_TIER,
   VOICE_MESSAGE_MAX_MS_BY_TIER,
+  VIDEO_NOTE_SIZE_BY_TIER,
 } from "../../subscription/lib/plans";
 import { voiceFileName } from "../lib/voice";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
@@ -21,6 +22,8 @@ export const maxAttachmentBytes = () =>
 
 export const maxVoiceMessageMs = () =>
   VOICE_MESSAGE_MAX_MS_BY_TIER[useEntitlementsStore.getState().tier];
+
+export const videoNoteSize = () => VIDEO_NOTE_SIZE_BY_TIER[useEntitlementsStore.getState().tier];
 
 export const maxAttachmentsPerMessage = () =>
   ATTACHMENTS_PER_MESSAGE[useEntitlementsStore.getState().tier];
@@ -58,14 +61,32 @@ class AttachmentAPI {
     return response.data.data;
   }
 
+  async uploadVideoNote(
+    blob: Blob,
+    mimeType: string,
+    note: { durationMs: number; size: number; poster: string },
+  ): Promise<Attachment> {
+    const form = new FormData();
+    form.append("videoNoteDurationMs", String(Math.max(1, Math.round(note.durationMs))));
+    form.append("videoNoteSize", String(note.size));
+    form.append("videoNotePoster", note.poster);
+    const ext = mimeType.startsWith("video/mp4") ? "mp4" : "webm";
+    form.append("file", new File([blob], `video-note.${ext}`, { type: mimeType }));
+    const response = await this.client.post("/v1/attachments", form, {
+      timeout: transferTimeoutMs(blob.size, SLOWEST_UPLOAD_BYTES_PER_MS),
+    });
+    return response.data.data;
+  }
+
   async delete(attachmentId: string): Promise<void> {
     await this.client.delete(`/v1/attachments/${attachmentId}`);
   }
 
-  async download(attachmentId: string, sizeBytes = 0): Promise<Blob> {
+  async download(attachmentId: string, sizeBytes = 0, signal?: AbortSignal): Promise<Blob> {
     const response = await this.client.get(`/v1/attachments/${attachmentId}`, {
       responseType: "blob",
       timeout: transferTimeoutMs(sizeBytes, SLOWEST_DOWNLOAD_BYTES_PER_MS),
+      signal,
     });
     return response.data;
   }

@@ -1,4 +1,6 @@
 import {
+  pickVideoNoteMimeType,
+  videoNoteDurationFromPayload,
   downsampleWaveform,
   formatVoiceDuration,
   isVoiceMessage,
@@ -39,6 +41,28 @@ describe("voice helpers", () => {
       isVoiceMessage({
         attachments: [
           { id: "a", fileName: "voice.webm", contentType: "audio/webm", sizeBytes: 1, voice: { durationMs: 1, waveform: [] } },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("picks a video note format the browser can record", () => {
+    expect(pickVideoNoteMimeType((t) => t.startsWith("video/webm;codecs=vp8"))).toBe("video/webm;codecs=vp8,opus");
+    expect(pickVideoNoteMimeType((t) => t === "video/mp4")).toBe("video/mp4");
+    expect(pickVideoNoteMimeType(() => false)).toBeNull();
+  });
+
+  it("reads a video note length from an event payload", () => {
+    expect(videoNoteDurationFromPayload([{ videoNote: { durationMs: 17_000 } }])).toBe(17_000);
+    expect(videoNoteDurationFromPayload([{ voice: { durationMs: 1 } }])).toBeNull();
+    expect(videoNoteDurationFromPayload(null)).toBeNull();
+  });
+
+  it("treats a video note as a single-media message", () => {
+    expect(
+      isVoiceMessage({
+        attachments: [
+          { id: "v", fileName: "v.webm", contentType: "video/webm", sizeBytes: 1, videoNote: { durationMs: 1, size: 384, poster: "" } },
         ],
       }),
     ).toBe(true);

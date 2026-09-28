@@ -115,6 +115,8 @@ struct DmPreviewItem {
     has_attachments: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     voice_duration_ms: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    video_note_duration_ms: Option<i32>,
     created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -165,6 +167,7 @@ async fn list_dm_previews(
                 invite_community_id: p.invite_community_id,
                 has_attachments: p.has_attachments,
                 voice_duration_ms: p.voice_duration_ms,
+                video_note_duration_ms: p.video_note_duration_ms,
                 created_at: p.created_at,
             })
             .collect(),

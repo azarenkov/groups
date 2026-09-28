@@ -98,6 +98,8 @@ impl HttpMapping for UploadAttachmentError {
             UploadAttachmentError::QuotaExceeded => StatusCode::TOO_MANY_REQUESTS,
             UploadAttachmentError::InvalidVoice => StatusCode::BAD_REQUEST,
             UploadAttachmentError::VoiceTooLong => StatusCode::PAYLOAD_TOO_LARGE,
+            UploadAttachmentError::InvalidVideoNote => StatusCode::BAD_REQUEST,
+            UploadAttachmentError::VideoNoteTooLong => StatusCode::PAYLOAD_TOO_LARGE,
             UploadAttachmentError::Storage(e) => e.to_http_status(),
             UploadAttachmentError::Repository(e) => e.to_http_status(),
         }
@@ -116,6 +118,8 @@ impl HttpMapping for UploadAttachmentError {
             UploadAttachmentError::VoiceTooLong => {
                 "This voice message is too long for your plan.".to_string()
             }
+            UploadAttachmentError::InvalidVideoNote => "This video message can't be sent.".to_string(),
+            UploadAttachmentError::VideoNoteTooLong => "Video messages can be up to one minute long.".to_string(),
             UploadAttachmentError::Storage(e) => e.to_user_message(),
             UploadAttachmentError::Repository(e) => e.to_user_message(),
         }
@@ -128,6 +132,8 @@ impl HttpMapping for UploadAttachmentError {
             UploadAttachmentError::QuotaExceeded => "ATTACHMENT_QUOTA_EXCEEDED",
             UploadAttachmentError::InvalidVoice => "VOICE_INVALID",
             UploadAttachmentError::VoiceTooLong => "VOICE_TOO_LONG",
+            UploadAttachmentError::InvalidVideoNote => "VIDEO_NOTE_INVALID",
+            UploadAttachmentError::VideoNoteTooLong => "VIDEO_NOTE_TOO_LONG",
             UploadAttachmentError::Storage(e) => e.to_error_code(),
             UploadAttachmentError::Repository(e) => e.to_error_code(),
         }

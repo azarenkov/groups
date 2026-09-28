@@ -30,6 +30,12 @@ pub struct ClaimedAttachmentV1 {
     pub voice_duration_ms: Option<i32>,
     #[serde(default)]
     pub voice_waveform: Option<Vec<u8>>,
+    #[serde(default)]
+    pub video_duration_ms: Option<i32>,
+    #[serde(default)]
+    pub video_size: Option<i32>,
+    #[serde(default)]
+    pub video_poster: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

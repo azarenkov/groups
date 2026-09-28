@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT message_id, attachment_id, file_name, content_type, size_bytes,\n                   storage_key, created_at, voice_duration_ms, voice_waveform\n            FROM message_attachments\n            WHERE message_id = ANY($1)\n            ORDER BY created_at ASC\n            ",
+  "query": "\n            SELECT dm_message_id, attachment_id, file_name, content_type, size_bytes,\n                   storage_key, created_at, voice_duration_ms, voice_waveform,\n                   video_duration_ms, video_size, video_poster\n            FROM dm_message_attachments\n            WHERE dm_message_id = ANY($1)\n            ORDER BY created_at ASC\n            ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "message_id",
+        "name": "dm_message_id",
         "type_info": "Uuid"
       },
       {
@@ -47,6 +47,21 @@
         "ordinal": 8,
         "name": "voice_waveform",
         "type_info": "Bytea"
+      },
+      {
+        "ordinal": 9,
+        "name": "video_duration_ms",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "video_size",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 11,
+        "name": "video_poster",
+        "type_info": "Bytea"
       }
     ],
     "parameters": {
@@ -63,8 +78,11 @@
       false,
       false,
       true,
+      true,
+      true,
+      true,
       true
     ]
   },
-  "hash": "ea3e6608456c05729dad8b22f32d09041b99e9f8940242ff499591ed07764924"
+  "hash": "32d15ffd8c3f4c08fdb140f17c1f622870d03f1e68ad9ceb18896cb5e0003977"
 }

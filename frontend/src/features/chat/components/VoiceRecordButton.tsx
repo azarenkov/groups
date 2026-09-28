@@ -1,40 +1,50 @@
 import React from "react";
+import { createPortal } from "react-dom";
 
 import i18n from "../../../i18n";
 import Icon from "../../../shared/ui/Icon";
-import { maxVoiceMessageMs } from "../api/attachment";
+import { maxVoiceMessageMs, videoNoteSize } from "../api/attachment";
 import { formatVoiceDuration } from "../lib/voice";
 import { VoiceRecorder, voiceRecordingSupported } from "../lib/voiceRecorder";
-import type { VoiceRecording } from "../lib/voiceRecorder";
+import { VideoNoteRecorder, videoNoteRecordingSupported } from "../lib/videoNoteRecorder";
+import { readRecordKind, saveRecordKind } from "../lib/recording";
+import type { MediaRecording, RecordKind } from "../lib/recording";
+import { VIDEO_NOTE_MAX_MS } from "../../subscription/lib/plans";
 import { useVoiceSettingsStore } from "../../voice/store/voiceSettingsStore";
 import { useVoiceDraftStore } from "../store/voiceDraftStore";
 
 type Mode = "idle" | "starting" | "holding" | "locked" | "failed" | "retrying";
+type AnyRecorder = VoiceRecorder | VideoNoteRecorder;
 
 const CANCEL_SWIPE_PX = 90;
 const LOCK_SWIPE_PX = 70;
 const MIN_HOLD_MS = 700;
+const HOLD_START_MS = 250;
 const LIVE_BARS = 48;
 const TICK_MS = 100;
 const LIMIT_MARGIN_MS = 500;
+const RING_RADIUS = 47;
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
 interface VoiceRecordButtonProps {
   disabled: boolean;
-  onSend: (recording: VoiceRecording) => Promise<boolean>;
+  onSend: (recording: MediaRecording) => Promise<boolean>;
   onError: (message: string | null) => void;
   onActiveChange?: (active: boolean) => void;
   draftKey: string;
 }
 
-const errorMessage = (err: unknown): string => {
+const limitFor = (kind: RecordKind) => (kind === "video" ? VIDEO_NOTE_MAX_MS : maxVoiceMessageMs());
+
+const errorMessage = (err: unknown, kind: RecordKind): string => {
   const name = (err as { name?: string } | null)?.name;
-  if (name === "NotAllowedError" || name === "SecurityError" || name === "NotFoundError") {
-    return i18n.t("voiceNoMic", { ns: "chat" });
-  }
   if ((err as Error | null)?.message === "unsupported") {
-    return i18n.t("voiceUnsupported", { ns: "chat" });
+    return i18n.t(kind === "video" ? "videoNoteUnsupported" : "voiceUnsupported", { ns: "chat" });
   }
-  return i18n.t("voiceNoMic", { ns: "chat" });
+  if (kind === "video" && (name === "NotReadableError" || name === "AbortError")) {
+    return i18n.t("videoNoteCameraBusy", { ns: "chat" });
+  }
+  return i18n.t(kind === "video" ? "videoNoteNoCamera" : "voiceNoMic", { ns: "chat" });
 };
 
 const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
@@ -48,18 +58,28 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
   const [mode, setMode] = React.useState<Mode>(() =>
     useVoiceDraftStore.getState().failed[draftKey] ? "failed" : "idle",
   );
+  const [kind, setKind] = React.useState<RecordKind>(readRecordKind);
+  const [recordingKind, setRecordingKind] = React.useState<RecordKind>(kind);
   const [elapsed, setElapsed] = React.useState(0);
   const [levels, setLevels] = React.useState<number[]>([]);
   const [paused, setPaused] = React.useState(false);
   const [previewing, setPreviewing] = React.useState(false);
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [drag, setDrag] = React.useState({ x: 0, y: 0 });
-  const recorderRef = React.useRef<VoiceRecorder | null>(null);
+  const [canSwitch, setCanSwitch] = React.useState(false);
+  const [mirrored, setMirrored] = React.useState(true);
+  const [switching, setSwitching] = React.useState(false);
+  const recorderRef = React.useRef<AnyRecorder | null>(null);
+  const kindRef = React.useRef<RecordKind>(kind);
   const modeRef = React.useRef<Mode>(mode);
   const originRef = React.useRef({ x: 0, y: 0 });
   const releasedRef = React.useRef(false);
   const lockRequestedRef = React.useRef(false);
   const finishingRef = React.useRef(false);
-  const previewRef = React.useRef<{ audio: HTMLAudioElement; url: string } | null>(null);
+  const pressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewRef = React.useRef<{ media: HTMLMediaElement | null; url: string } | null>(null);
+  const liveRef = React.useRef<HTMLDivElement>(null);
+  const previewVideoRef = React.useRef<HTMLVideoElement>(null);
 
   const setModeBoth = (next: Mode) => {
     modeRef.current = next;
@@ -73,10 +93,11 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
   const stopPreview = React.useCallback(() => {
     const preview = previewRef.current;
     if (!preview) return;
-    preview.audio.pause();
+    preview.media?.pause();
     URL.revokeObjectURL(preview.url);
     previewRef.current = null;
     setPreviewing(false);
+    setPreviewUrl(null);
   }, []);
 
   const reset = React.useCallback(() => {
@@ -89,6 +110,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     setElapsed(0);
     setLevels([]);
     setDrag({ x: 0, y: 0 });
+    setCanSwitch(false);
     useVoiceDraftStore.getState().drop(draftKey);
     setModeBoth("idle");
   }, [draftKey, stopPreview]);
@@ -103,8 +125,20 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     if (!recorder || finishingRef.current) return;
     finishingRef.current = true;
     stopPreview();
-    const stopped = await recorder.stop();
-    const recording = { ...stopped, durationMs: Math.min(stopped.durationMs, maxVoiceMessageMs()) };
+    let stopped: MediaRecording;
+    try {
+      stopped = await recorder.stop();
+    } catch {
+      reset();
+      onError(
+        i18n.t(recorder instanceof VideoNoteRecorder ? "videoNoteInvalid" : "voiceInvalid", { ns: "chat" }),
+      );
+      return;
+    }
+    const recording: MediaRecording = {
+      ...stopped,
+      durationMs: Math.min(stopped.durationMs, limitFor(stopped.kind)),
+    };
     reset();
     if (recording.durationMs < MIN_HOLD_MS || recording.blob.size === 0) {
       onError(i18n.t("voiceTooShort", { ns: "chat" }));
@@ -129,11 +163,12 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
   onActiveChangeRef.current = onActiveChange;
   React.useEffect(
     () => () => {
+      if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
       recorderRef.current?.cancel();
       recorderRef.current = null;
       const preview = previewRef.current;
       if (preview) {
-        preview.audio.pause();
+        preview.media?.pause();
         URL.revokeObjectURL(preview.url);
         previewRef.current = null;
       }
@@ -149,13 +184,13 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
       if (!recorder) return;
       const ms = recorder.elapsedMs();
       setElapsed(ms);
-      if (ms >= maxVoiceMessageMs() - LIMIT_MARGIN_MS) {
+      if (ms >= limitFor(recordingKind) - LIMIT_MARGIN_MS) {
         onError(i18n.t("voiceLimitReached", { ns: "chat" }));
         void finish();
       }
     }, TICK_MS);
     return () => clearInterval(timer);
-  }, [mode, finish, onError]);
+  }, [mode, finish, onError, recordingKind]);
 
   React.useEffect(() => {
     if (mode !== "holding" && mode !== "locked") return;
@@ -186,33 +221,63 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [mode, cancel]);
 
+  const videoRecording =
+    recordingKind === "video" && (mode === "starting" || mode === "holding" || mode === "locked");
+
+  React.useEffect(() => {
+    const host = liveRef.current;
+    const recorder = recorderRef.current;
+    if (!videoRecording || previewing || !host || !(recorder instanceof VideoNoteRecorder)) return;
+    host.appendChild(recorder.canvas);
+    return () => {
+      if (recorder.canvas.parentElement === host) host.removeChild(recorder.canvas);
+    };
+  }, [videoRecording, previewing, mode]);
+
+  React.useEffect(() => {
+    const video = previewVideoRef.current;
+    if (!video || !previewUrl) return;
+    if (previewRef.current) previewRef.current.media = video;
+    void video.play().catch(stopPreview);
+  }, [previewUrl, stopPreview]);
+
   const begin = async (locked: boolean) => {
-    if (!voiceRecordingSupported()) {
-      onError(i18n.t("voiceUnsupported", { ns: "chat" }));
+    const current = kindRef.current;
+    const supported = current === "video" ? videoNoteRecordingSupported() : voiceRecordingSupported();
+    if (!supported) {
+      onError(i18n.t(current === "video" ? "videoNoteUnsupported" : "voiceUnsupported", { ns: "chat" }));
       return;
     }
     onError(null);
-    const recorder = new VoiceRecorder();
+    const recorder: AnyRecorder =
+      current === "video" ? new VideoNoteRecorder(videoNoteSize()) : new VoiceRecorder();
     recorderRef.current = recorder;
     releasedRef.current = false;
     lockRequestedRef.current = false;
+    setRecordingKind(current);
     setModeBoth("starting");
-    recorder.onLevel = (level) =>
-      setLevels((prev) => {
-        const next = prev.length >= LIVE_BARS ? prev.slice(prev.length - LIVE_BARS + 1) : prev.slice();
-        next.push(level);
-        return next;
-      });
+    if (recorder instanceof VoiceRecorder) {
+      recorder.onLevel = (level) =>
+        setLevels((prev) => {
+          const next = prev.length >= LIVE_BARS ? prev.slice(prev.length - LIVE_BARS + 1) : prev.slice();
+          next.push(level);
+          return next;
+        });
+    }
     try {
       await recorder.start(useVoiceSettingsStore.getState().micDeviceId || undefined);
     } catch (err) {
       if (recorderRef.current === recorder) reset();
-      onError(errorMessage(err));
+      onError(errorMessage(err, current));
       return;
     }
     if (recorderRef.current !== recorder) {
       recorder.cancel();
       return;
+    }
+    if (recorder instanceof VideoNoteRecorder) {
+      setCanSwitch(recorder.canSwitchCamera());
+      setMirrored(recorder.facingUser);
     }
     if (!locked && releasedRef.current && !lockRequestedRef.current) {
       cancel();
@@ -222,16 +287,29 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     if (lockRequestedRef.current) setDrag({ x: 0, y: 0 });
   };
 
+  const toggleKind = () => {
+    const next: RecordKind = kindRef.current === "voice" ? "video" : "voice";
+    kindRef.current = next;
+    setKind(next);
+    saveRecordKind(next);
+  };
+
+  const clearPress = () => {
+    if (!pressTimerRef.current) return false;
+    clearTimeout(pressTimerRef.current);
+    pressTimerRef.current = null;
+    return true;
+  };
+
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (disabled || modeRef.current !== "idle") return;
+    if (disabled || modeRef.current !== "idle" || pressTimerRef.current) return;
     e.preventDefault();
-    if (e.pointerType === "mouse") {
-      void begin(true);
-      return;
-    }
     e.currentTarget.setPointerCapture(e.pointerId);
     originRef.current = { x: e.clientX, y: e.clientY };
-    void begin(false);
+    pressTimerRef.current = setTimeout(() => {
+      pressTimerRef.current = null;
+      void begin(false);
+    }, HOLD_START_MS);
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -255,6 +333,10 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
   };
 
   const onPointerUp = () => {
+    if (clearPress()) {
+      toggleKind();
+      return;
+    }
     const current = modeRef.current;
     if (current === "starting") {
       releasedRef.current = true;
@@ -287,11 +369,31 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     const blob = await recorder.snapshot();
     if (recorderRef.current !== recorder || !recorder.isPaused() || previewRef.current) return;
     const url = URL.createObjectURL(blob);
+    if (recorder instanceof VideoNoteRecorder) {
+      previewRef.current = { media: null, url };
+      setPreviewUrl(url);
+      setPreviewing(true);
+      return;
+    }
     const audio = new Audio(url);
-    previewRef.current = { audio, url };
+    previewRef.current = { media: audio, url };
     audio.addEventListener("ended", stopPreview);
     setPreviewing(true);
     void audio.play().catch(stopPreview);
+  };
+
+  const switchCamera = async () => {
+    const recorder = recorderRef.current;
+    if (!(recorder instanceof VideoNoteRecorder) || switching) return;
+    setSwitching(true);
+    try {
+      await recorder.switchCamera();
+      setMirrored(recorder.facingUser);
+    } catch (err) {
+      onError(errorMessage(err, "video"));
+    } finally {
+      setSwitching(false);
+    }
   };
 
   const active = mode !== "idle";
@@ -311,7 +413,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
           >
             <Icon name="trash" size={16} />
           </button>
-          <span className="voice-rec-dot paused" />
+          <Icon name={failed.kind === "video" ? "camera" : "mic"} size={14} />
           <span className="voice-rec-time">{formatVoiceDuration(failed.durationMs)}</span>
           <span className="voice-rec-hint">{i18n.t("voiceNotSent", { ns: "chat" })}</span>
         </div>
@@ -329,8 +431,52 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     );
   }
 
+  const progress = Math.min(1, elapsed / VIDEO_NOTE_MAX_MS);
+
   return (
     <>
+      {videoRecording &&
+        createPortal(
+          <div className="vnote-rec" role="dialog" aria-label={i18n.t("videoNoteRecording", { ns: "chat" })}>
+            <div className="vnote-rec-circle">
+              {previewUrl ? (
+                <video
+                  ref={previewVideoRef}
+                  className="vnote-rec-preview"
+                  src={previewUrl}
+                  playsInline
+                  onEnded={stopPreview}
+                />
+              ) : (
+                <div ref={liveRef} className={"vnote-rec-live" + (mirrored ? " mirror" : "")} />
+              )}
+              <svg className="vnote-ring" viewBox="0 0 100 100" aria-hidden="true">
+                <circle className="vnote-ring-track" cx="50" cy="50" r={RING_RADIUS} />
+                <circle
+                  className="vnote-ring-fill"
+                  cx="50"
+                  cy="50"
+                  r={RING_RADIUS}
+                  strokeDasharray={RING_LENGTH}
+                  strokeDashoffset={RING_LENGTH * (1 - progress)}
+                />
+              </svg>
+            </div>
+            {canSwitch && !previewUrl && (
+              <button
+                type="button"
+                className="vnote-rec-switch"
+                title={i18n.t("videoNoteSwitchCamera", { ns: "chat" })}
+                aria-label={i18n.t("videoNoteSwitchCamera", { ns: "chat" })}
+                disabled={switching}
+                onClick={() => void switchCamera()}
+              >
+                <Icon name="refresh" size={16} />
+              </button>
+            )}
+          </div>,
+          document.body,
+        )}
       {active && (
         <div className={"voice-rec-bar" + (locked ? " locked" : "")}>
           {locked && (
@@ -371,7 +517,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
                 aria-label={paused ? i18n.t("voiceResume", { ns: "chat" }) : i18n.t("voicePause", { ns: "chat" })}
                 onClick={togglePause}
               >
-                <Icon name={paused ? "mic" : "pause"} size={14} />
+                <Icon name={paused ? (recordingKind === "video" ? "camera" : "mic") : "pause"} size={14} />
               </button>
             </>
           ) : (
@@ -400,14 +546,17 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
       ) : (
         <button
           type="button"
-          className={"send-btn enabled voice-rec-btn" + (active ? " recording" : "")}
-          title={i18n.t("voiceRecordHint", { ns: "chat" })}
-          aria-label={i18n.t("voiceRecord", { ns: "chat" })}
+          className={
+            "send-btn enabled voice-rec-btn" + (active ? " recording" : "") + (kind === "video" ? " video" : "")
+          }
+          title={i18n.t(kind === "video" ? "videoNoteRecordHint" : "voiceRecordHint", { ns: "chat" })}
+          aria-label={i18n.t(kind === "video" ? "videoNoteRecord" : "voiceRecord", { ns: "chat" })}
           disabled={disabled && !active}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={() => {
+            clearPress();
             if (modeRef.current === "holding" || modeRef.current === "starting") cancel();
           }}
           onClick={(e) => {
@@ -416,7 +565,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
           }}
           onContextMenu={(e) => e.preventDefault()}
         >
-          <Icon name="mic" size={16} />
+          <Icon name={kind === "video" ? "camera" : "mic"} size={16} />
         </button>
       )}
     </>

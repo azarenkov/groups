@@ -69,6 +69,7 @@ class DmAPI {
       inviteCommunityId: string | null;
       hasAttachments: boolean;
       voiceDurationMs?: number | null;
+      videoNoteDurationMs?: number | null;
       createdAt: string;
     }[];
     nextCursor: string | null;

@@ -9,6 +9,15 @@ pub struct ReplyPreviewDto {
     pub content: String,
     pub has_attachments: bool,
     pub voice_duration_ms: Option<i32>,
+    pub video_note_duration_ms: Option<i32>,
+    pub video_note_poster: Option<String>,
+}
+
+fn poster_base64(poster: &Option<Vec<u8>>) -> Option<String> {
+    use base64::Engine;
+    poster
+        .as_ref()
+        .map(|p| base64::engine::general_purpose::STANDARD.encode(p))
 }
 
 impl ReplyPreviewDto {
@@ -20,6 +29,8 @@ impl ReplyPreviewDto {
             content: preview.snippet.clone(),
             has_attachments: preview.has_attachments,
             voice_duration_ms: preview.voice_duration_ms,
+            video_note_duration_ms: preview.video_note_duration_ms,
+            video_note_poster: poster_base64(&preview.video_note_poster),
         }
     }
 }
@@ -33,6 +44,8 @@ impl From<ReplyPreviewView> for ReplyPreviewDto {
             content: snippet(&value.content),
             has_attachments: value.has_attachments,
             voice_duration_ms: value.voice_duration_ms,
+            video_note_duration_ms: value.video_note_duration_ms,
+            video_note_poster: poster_base64(&value.video_note_poster),
         }
     }
 }

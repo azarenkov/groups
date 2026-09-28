@@ -17,6 +17,7 @@ pub struct DmConversationPreview {
     pub invite_community_id: Option<Uuid>,
     pub has_attachments: bool,
     pub voice_duration_ms: Option<i32>,
+    pub video_note_duration_ms: Option<i32>,
     pub created_at: DateTime<Utc>,
 }
 

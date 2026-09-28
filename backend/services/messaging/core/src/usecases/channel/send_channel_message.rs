@@ -170,6 +170,7 @@ where
             message = message.with_reply(
                 ReplyPreview::new(reply_id, target.author_id, &target.content, has_attachments)
                     .with_voice(messaging_domain::message::voice::voice_duration_of(&reply_links))
+                    .with_video_note(messaging_domain::message::voice::video_note_of(&reply_links))
                     .hidden_for(hidden_for),
             );
         }

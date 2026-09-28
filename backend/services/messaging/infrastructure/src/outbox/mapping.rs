@@ -359,6 +359,11 @@ fn reply_json(reply: &messaging_domain::message::reply::ReplyPreview) -> Value {
         "content": reply.snippet,
         "hasAttachments": reply.has_attachments,
         "voiceDurationMs": reply.voice_duration_ms,
+        "videoNoteDurationMs": reply.video_note_duration_ms,
+        "videoNotePoster": reply.video_note_poster.as_ref().map(|p| {
+            use base64::Engine;
+            base64::engine::general_purpose::STANDARD.encode(p)
+        }),
         "hiddenFor": reply.hidden_for.iter().map(|u| u.uuid()).collect::<Vec<_>>(),
     })
 }

@@ -32,6 +32,75 @@ pub fn opus_packet_samples(packet: &[u8]) -> u64 {
     frame_tenths_ms * frames * OPUS_RATE / 10_000
 }
 
+const OPUS_MAX_FRAME_BYTES: usize = 1275;
+const OPUS_MAX_PACKET_SAMPLES: u64 = OPUS_RATE * 120 / 1000;
+
+fn opus_frame_size(data: &[u8], at: &mut usize) -> Option<usize> {
+    let first = *data.get(*at)? as usize;
+    if first < 252 {
+        *at += 1;
+        return Some(first);
+    }
+    let second = *data.get(*at + 1)? as usize;
+    *at += 2;
+    Some(second * 4 + first)
+}
+
+pub fn opus_packet_valid(packet: &[u8]) -> bool {
+    let check = || -> Option<bool> {
+        let toc = *packet.first()?;
+        let body = &packet[1..];
+        let frames_ok = |sizes: &[usize]| sizes.iter().all(|s| *s <= OPUS_MAX_FRAME_BYTES);
+        let ok = match toc & 0x03 {
+            0 => frames_ok(&[body.len()]),
+            1 => body.len().is_multiple_of(2) && frames_ok(&[body.len() / 2]),
+            2 => {
+                let mut at = 0;
+                let first = opus_frame_size(body, &mut at)?;
+                let rest = body.len().checked_sub(at)?.checked_sub(first)?;
+                frames_ok(&[first, rest])
+            }
+            _ => {
+                let count_byte = *body.first()?;
+                let count = (count_byte & 0x3F) as usize;
+                if count == 0 {
+                    return Some(false);
+                }
+                let mut at = 1;
+                let mut padding = 0usize;
+                if count_byte & 0x40 != 0 {
+                    loop {
+                        let byte = *body.get(at)? as usize;
+                        at += 1;
+                        if byte == 255 {
+                            padding += 254;
+                        } else {
+                            padding += byte;
+                            break;
+                        }
+                    }
+                }
+                let payload = body.len().checked_sub(at)?.checked_sub(padding)?;
+                if count_byte & 0x80 != 0 {
+                    let mut sizes = Vec::with_capacity(count);
+                    for _ in 0..count - 1 {
+                        sizes.push(opus_frame_size(body, &mut at)?);
+                    }
+                    let declared: usize = sizes.iter().sum();
+                    let payload = body.len().checked_sub(at)?.checked_sub(padding)?;
+                    let last = payload.checked_sub(declared)?;
+                    sizes.push(last);
+                    frames_ok(&sizes)
+                } else {
+                    payload.is_multiple_of(count) && frames_ok(&[payload / count])
+                }
+            }
+        };
+        Some(ok && opus_packet_samples(packet) <= OPUS_MAX_PACKET_SAMPLES && opus_packet_samples(packet) > 0)
+    };
+    check().unwrap_or(false)
+}
+
 fn codec_samples(codec: CodecType, packet: &[u8]) -> Option<u64> {
     if codec == CODEC_TYPE_OPUS {
         Some(opus_packet_samples(packet))
@@ -63,6 +132,13 @@ impl VoiceSpool {
             Some(writer) => writer.write_all(chunk),
             None => Err(std::io::Error::other("voice spool is closed")),
         }
+    }
+
+    pub fn probe_video_note(&self, content_type: &str) -> Option<super::video_probe::VideoProbe> {
+        let writer = self.writer.lock().unwrap_or_else(|e| e.into_inner()).take()?;
+        writer.into_inner().ok()?.sync_all().ok()?;
+        let file = File::open(&self.path).ok()?;
+        super::video_probe::probe_video_note(Box::new(file), content_type)
     }
 
     pub fn probe_duration_ms(&self) -> Option<i64> {
@@ -119,6 +195,9 @@ fn probe_source(media: Box<dyn MediaSource>) -> Option<i64> {
             return None;
         }
         packets += 1;
+        if codec == CODEC_TYPE_OPUS && !opus_packet_valid(&packet.data) {
+            return None;
+        }
         end = end.max(packet.ts.saturating_add(packet.dur));
         if let Some(n) = codec_samples(codec, &packet.data) {
             samples = samples.saturating_add(n);
@@ -182,6 +261,27 @@ mod tests {
     fn a_truncated_recording_is_rejected() {
         let bytes = include_bytes!("fixtures/voice-4s.webm");
         assert_eq!(probe_voice_duration_ms(bytes[..bytes.len() / 2].to_vec()), None);
+    }
+
+    #[test]
+    fn reads_a_safari_recording() {
+        let ms = probe_voice_duration_ms(include_bytes!("fixtures/voice-safari-3s.webm").to_vec()).expect("duration");
+        assert!((3300..=4000).contains(&ms), "{ms}");
+    }
+
+    #[test]
+    fn opus_packets_must_be_well_framed() {
+        use super::opus_packet_valid;
+        assert!(opus_packet_valid(&[0xF8, 1, 2, 3]));
+        assert!(opus_packet_valid(&[0xF9, 1, 2, 3, 4]));
+        assert!(!opus_packet_valid(&[0xF9, 1, 2, 3]));
+        assert!(opus_packet_valid(&[0xFA, 2, 1, 2, 3]));
+        assert!(!opus_packet_valid(&[0xFA, 9, 1, 2]));
+        assert!(opus_packet_valid(&[0xFB, 0x03, 1, 2, 3]));
+        assert!(!opus_packet_valid(&[0xFB, 0x03, 1, 2]));
+        assert!(!opus_packet_valid(&[0xFB, 0x00]));
+        assert!(!opus_packet_valid(&[0xFB, 0x3F, 0]));
+        assert!(!opus_packet_valid(&[]));
     }
 
     #[test]

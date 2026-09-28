@@ -14,6 +14,10 @@ pub struct ReplyPreviewResponse {
     pub has_attachments: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub voice_duration_ms: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_note_duration_ms: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_note_poster: Option<String>,
     pub deleted: bool,
 }
 
@@ -26,6 +30,8 @@ impl ReplyPreviewResponse {
             content: String::new(),
             has_attachments: false,
             voice_duration_ms: None,
+            video_note_duration_ms: None,
+            video_note_poster: None,
             deleted: true,
         }
     }
@@ -40,6 +46,8 @@ impl From<ReplyPreviewDto> for ReplyPreviewResponse {
             content: value.content,
             has_attachments: value.has_attachments,
             voice_duration_ms: value.voice_duration_ms,
+            video_note_duration_ms: value.video_note_duration_ms,
+            video_note_poster: value.video_note_poster,
             deleted: false,
         }
     }
@@ -110,6 +118,8 @@ mod tests {
                 content: "hi".into(),
                 has_attachments: false,
                 voice_duration_ms: None,
+                video_note_duration_ms: None,
+                video_note_poster: None,
             }],
         );
         let first = items[0].reply.as_ref().unwrap();

@@ -145,7 +145,7 @@ where
             .into_iter()
             .map(|(_, link)| link)
             .collect();
-        if current.iter().any(|a| a.voice.is_some()) {
+        if current.iter().any(messaging_domain::message::voice::is_rich_media) {
             return Err(EditDmMessageError::InvalidAttachments);
         }
         let current_ids: HashSet<Uuid> = current.iter().map(|a| a.id).collect();
@@ -205,7 +205,7 @@ where
             .collect();
         final_attachments.extend(added_attachments.clone());
         final_attachments.sort_by_key(|a| a.created_at);
-        if added_attachments.iter().any(|a| a.voice.is_some())
+        if added_attachments.iter().any(messaging_domain::message::voice::is_rich_media)
             || !messaging_domain::message::voice::voice_message_is_valid(
                 message.content().as_str(),
                 &final_attachments,

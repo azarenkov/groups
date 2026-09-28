@@ -1059,6 +1059,7 @@ name = "domain"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "rand 0.10.1",
  "serde",
@@ -2121,6 +2122,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "jpeg-decoder"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00810f1d8b74be64b13dbf3db89ac67740615d6c891f0e7b6179326533011a07"
+
+[[package]]
 name = "js-sys"
 version = "0.3.85"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2399,6 +2406,7 @@ dependencies = [
  "chrono",
  "domain",
  "futures",
+ "jpeg-decoder",
  "media-domain",
  "ports",
  "serde",
@@ -2458,6 +2466,7 @@ dependencies = [
  "actix-web",
  "api-common",
  "async-nats",
+ "base64 0.22.1",
  "chrono",
  "contracts",
  "domain",
@@ -2490,6 +2499,7 @@ name = "messaging"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "domain",
  "futures",
@@ -2525,6 +2535,7 @@ dependencies = [
  "api-common",
  "async-nats",
  "async-trait",
+ "base64 0.22.1",
  "bcrypt",
  "chrono",
  "contracts",

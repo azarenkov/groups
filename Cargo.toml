@@ -54,6 +54,8 @@ chrono-tz = "0.10"
 redis = { version = "0.32", features = ["tokio-comp", "connection-manager", "script"] }
 tokio = "1.50.0"
 tokio-util = { version = "0.7", features = ["io"] }
+base64 = "0.22"
+jpeg-decoder = { version = "0.3", default-features = false }
 symphonia = { version = "0.5", default-features = false, features = ["mkv", "ogg", "isomp4"] }
 async-nats = "0.46"
 rand = "0.10.1"

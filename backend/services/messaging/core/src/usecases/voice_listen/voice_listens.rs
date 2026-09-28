@@ -30,7 +30,7 @@ impl<R: VoiceListenRepository> VoiceListens<R> {
         attachments: &[AttachmentLink],
         notify: &[Uuid],
     ) -> Result<(), VoiceListenError> {
-        if !attachments.iter().any(|a| a.voice.is_some()) {
+        if !attachments.iter().any(messaging_domain::message::voice::is_rich_media) {
             return Err(VoiceListenError::NotVoice);
         }
         if author_id == listener.uuid() {

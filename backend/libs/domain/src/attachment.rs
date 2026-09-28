@@ -18,6 +18,33 @@ impl VoiceMeta {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoNoteMeta {
+    pub duration_ms: i32,
+    pub size: i32,
+    #[serde(serialize_with = "poster_base64")]
+    pub poster: Vec<u8>,
+}
+
+fn poster_base64<S: serde::Serializer>(poster: &[u8], serializer: S) -> Result<S::Ok, S::Error> {
+    use base64::Engine;
+    serializer.serialize_str(&base64::engine::general_purpose::STANDARD.encode(poster))
+}
+
+impl VideoNoteMeta {
+    pub fn from_columns(
+        duration_ms: Option<i32>,
+        size: Option<i32>,
+        poster: Option<Vec<u8>>,
+    ) -> Option<Self> {
+        match (duration_ms, size, poster) {
+            (Some(duration_ms), Some(size), Some(poster)) => Some(Self { duration_ms, size, poster }),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Attachment {
     pub id: Uuid,
@@ -28,6 +55,7 @@ pub struct Attachment {
     pub storage_key: String,
     pub created_at: DateTime<Utc>,
     pub voice: Option<VoiceMeta>,
+    pub video_note: Option<VideoNoteMeta>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +67,7 @@ pub struct AttachmentLink {
     pub storage_key: String,
     pub created_at: DateTime<Utc>,
     pub voice: Option<VoiceMeta>,
+    pub video_note: Option<VideoNoteMeta>,
 }
 
 impl From<&Attachment> for AttachmentLink {
@@ -51,6 +80,7 @@ impl From<&Attachment> for AttachmentLink {
             storage_key: a.storage_key.clone(),
             created_at: a.created_at,
             voice: a.voice.clone(),
+            video_note: a.video_note.clone(),
         }
     }
 }
@@ -64,6 +94,8 @@ pub struct AttachmentSnapshot {
     pub size_bytes: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub voice: Option<VoiceMeta>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_note: Option<VideoNoteMeta>,
 }
 
 impl From<&Attachment> for AttachmentSnapshot {
@@ -74,6 +106,7 @@ impl From<&Attachment> for AttachmentSnapshot {
             content_type: a.content_type.clone(),
             size_bytes: a.size_bytes,
             voice: a.voice.clone(),
+            video_note: a.video_note.clone(),
         }
     }
 }
@@ -86,6 +119,7 @@ impl From<&AttachmentLink> for AttachmentSnapshot {
             content_type: a.content_type.clone(),
             size_bytes: a.size_bytes,
             voice: a.voice.clone(),
+            video_note: a.video_note.clone(),
         }
     }
 }

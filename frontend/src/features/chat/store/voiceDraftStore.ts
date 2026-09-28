@@ -1,10 +1,10 @@
 import { create } from "zustand";
 
-import type { VoiceRecording } from "../lib/voiceRecorder";
+import type { MediaRecording } from "../lib/recording";
 
 interface VoiceDraftState {
-  failed: Record<string, VoiceRecording>;
-  keep: (key: string, recording: VoiceRecording) => void;
+  failed: Record<string, MediaRecording>;
+  keep: (key: string, recording: MediaRecording) => void;
   drop: (key: string) => void;
 }
 

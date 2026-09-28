@@ -14,4 +14,9 @@ describe("notificationBody", () => {
     expect(notificationBody("", [{ id: "a" }])).not.toBe("");
     expect(notificationBody(undefined, undefined)).toBe("");
   });
+
+  it("names a video message with its length", () => {
+    const body = notificationBody("", [{ videoNote: { durationMs: 17_000, size: 384, poster: "" } }]);
+    expect(body).toContain("0:17");
+  });
 });
