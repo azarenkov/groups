@@ -16,7 +16,6 @@ type SinkVideo = HTMLVideoElement & { setSinkId?: (id: string) => Promise<void> 
 const RING_RADIUS = 48.5;
 const PREVIEW_MAX_BYTES = 6 * 1024 * 1024;
 const PREVIEW_DWELL_MS = 800;
-const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
 interface VideoNotePlayerProps {
   messageId: string;
@@ -249,6 +248,7 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
     <div
       ref={rootRef}
       className={"vnote" + (active ? " active" : "") + (playing && active ? " playing" : "")}
+      style={{ "--vnote-progress": `${progress * 360}deg` } as React.CSSProperties}
     >
       <button
         type="button"
@@ -305,14 +305,6 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
               seekAt(e);
             }}
             onPointerCancel={() => setDragging(false)}
-          />
-          <circle
-            className="vnote-progress-fill"
-            cx="50"
-            cy="50"
-            r={RING_RADIUS}
-            strokeDasharray={RING_LENGTH}
-            strokeDashoffset={RING_LENGTH * (1 - progress)}
           />
         </svg>
       )}

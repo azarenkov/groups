@@ -877,7 +877,12 @@
   max-width: 70vw; max-height: 70vw;
   transition: width 0.22s var(--ease-spring, ease), height 0.22s var(--ease-spring, ease);
 }
-.vnote.active { --vnote-size: 260px; }
+.vnote.active {
+  --vnote-size: 260px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) var(--vnote-progress, 0deg), color-mix(in srgb, var(--fg-1) 14%, transparent) 0);
+}
+.vnote.active .vnote-face { inset: 3px; }
 @media (max-width: 600px) {
   .vnote { --vnote-size: 200px; }
   .vnote.active { --vnote-size: 250px; }
@@ -909,12 +914,6 @@
 }
 .vnote-progress circle { fill: none; }
 .vnote-progress-hit { stroke: transparent; stroke-width: 9; pointer-events: stroke; cursor: pointer; touch-action: none; }
-.vnote-progress-fill {
-  stroke: var(--accent); stroke-width: 1.1; stroke-linecap: round;
-  pointer-events: none;
-  transition: stroke-dashoffset 0.08s linear;
-}
-.vnote-progress.dragging .vnote-progress-fill { transition: none; }
 .vnote-meta {
   position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
   z-index: 3;
