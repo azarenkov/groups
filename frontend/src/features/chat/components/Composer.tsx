@@ -14,7 +14,7 @@ import type { PendingFile } from "../types";
 import { replyText } from "../lib/replyText";
 import VoiceRecordButton from "./VoiceRecordButton";
 import { useVoiceDraftStore } from "../store/voiceDraftStore";
-import type { VoiceRecording } from "../lib/voiceRecorder";
+import type { MediaRecording } from "../lib/recording";
 
 interface ComposerProps {
   composerRef: React.RefObject<HTMLTextAreaElement>;
@@ -38,7 +38,7 @@ interface ComposerProps {
   onEditLastMessage: () => boolean;
   replyTarget?: ReplyPreview | null;
   onCancelReply?: () => void;
-  onSendVoice?: (recording: VoiceRecording) => Promise<boolean>;
+  onSendVoice?: (recording: MediaRecording) => Promise<boolean>;
   onVoiceError?: (message: string | null) => void;
   conversationKey?: string;
 }
@@ -80,6 +80,13 @@ const Composer: React.FC<ComposerProps> = ({
         {replyTarget && (
           <div className="composer-reply">
             <Icon name="reply" size={15} />
+            {replyTarget.videoNotePoster && (
+              <img
+                className="msg-reply-thumb"
+                src={`data:image/jpeg;base64,${replyTarget.videoNotePoster}`}
+                alt=""
+              />
+            )}
             <div className="composer-reply-body">
               <div className="composer-reply-who">
                 {i18n.t("replyingTo", { ns: "chat", name: replyTarget.authorName ?? "" })}

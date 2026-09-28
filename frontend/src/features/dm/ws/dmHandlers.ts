@@ -10,7 +10,7 @@ import { useUnreadStore } from "../../chat/store/unreadStore";
 import { useUserNamesStore } from "../../social/store/userNamesStore";
 import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
-import { voiceDurationFromPayload } from "../../chat/lib/voice";
+import { videoNoteDurationFromPayload, voiceDurationFromPayload } from "../../chat/lib/voice";
 import { notificationBody } from "../../chat/lib/notificationBody";
 import { asString, eventTs, getActiveDmView, lastDmBumpAt, scheduleUnreadRefetch, throttleMarkDmRead, viewIsForeground } from "../../../shared/ws/context";
 
@@ -36,6 +36,7 @@ export const dmHandlers: WsHandlers = {
         inviteCommunityId: asString(d.inviteCommunityId) ?? null,
         hasAttachments: Array.isArray(d.attachments) && d.attachments.length > 0,
         voiceDurationMs: voiceDurationFromPayload(d.attachments),
+        videoNoteDurationMs: videoNoteDurationFromPayload(d.attachments),
         createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
       });
       if (!knownPeerName) refetchDmPreviews();

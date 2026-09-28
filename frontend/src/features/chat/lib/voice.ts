@@ -53,8 +53,32 @@ export function voiceAttachmentOf(msg: Pick<ChannelMessage, "attachments">): Att
   return msg.attachments?.find((a) => !!a.voice) ?? null;
 }
 
+export function videoNoteAttachmentOf(msg: Pick<ChannelMessage, "attachments">): Attachment | null {
+  return msg.attachments?.find((a) => !!a.videoNote) ?? null;
+}
+
 export function isVoiceMessage(msg: Pick<ChannelMessage, "attachments">): boolean {
-  return voiceAttachmentOf(msg) !== null;
+  return voiceAttachmentOf(msg) !== null || videoNoteAttachmentOf(msg) !== null;
+}
+
+const VIDEO_NOTE_MIME_CANDIDATES = [
+  "video/webm;codecs=vp9,opus",
+  "video/webm;codecs=vp8,opus",
+  "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+  "video/mp4",
+];
+
+export function pickVideoNoteMimeType(isTypeSupported: (type: string) => boolean): string | null {
+  return VIDEO_NOTE_MIME_CANDIDATES.find((type) => isTypeSupported(type)) ?? null;
+}
+
+export function videoNoteDurationFromPayload(attachments: unknown): number | null {
+  if (!Array.isArray(attachments)) return null;
+  for (const a of attachments) {
+    const ms = (a as { videoNote?: { durationMs?: unknown } } | null)?.videoNote?.durationMs;
+    if (typeof ms === "number") return ms;
+  }
+  return null;
 }
 
 export function voiceDurationFromPayload(attachments: unknown): number | null {

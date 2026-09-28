@@ -57,5 +57,6 @@
   "disconnectMember": "Отключить от канала",
   "callFriend": "Позвонить",
   "openCommunity": "Открыть",
-  "previewVoice": "🎤 Голосовое, {{duration}}"
+  "previewVoice": "🎤 Голосовое, {{duration}}",
+  "previewVideoNote": "📹 Видеосообщение, {{duration}}"
 }

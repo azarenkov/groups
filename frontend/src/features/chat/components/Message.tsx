@@ -15,6 +15,8 @@ import Icon from "../../../shared/ui/Icon";
 import { openReport } from "../../moderation/store/reportModalStore";
 import AttachmentItem from "./AttachmentItem";
 import VoicePlayer from "./VoicePlayer";
+import VideoNotePlayer from "./VideoNotePlayer";
+import { videoNoteAttachmentOf } from "../lib/voice";
 import LinkPreview from "./LinkPreview";
 import ReadTicks from "./ReadTicks";
 import { renderWithLinks } from "./MessageText";
@@ -610,7 +612,7 @@ export const Message: React.FC<MessageProps> = ({
             </div>
           </div>
         ) : (
-          <div className="txt">
+          <div className={"txt" + (videoNoteAttachmentOf(msg) ? " vnote-only" : "")}>
             {!dmStyle && !isMine && !continued && (
               <div className="msg-author">
                 <ProfileLink
@@ -688,6 +690,13 @@ export const Message: React.FC<MessageProps> = ({
                     <span className="msg-reply-text">{i18n.t("blockedMessage", { ns: "chat" })}</span>
                   ) : (
                     <>
+                      {reply.videoNotePoster && (
+                        <img
+                          className="msg-reply-thumb"
+                          src={`data:image/jpeg;base64,${reply.videoNotePoster}`}
+                          alt=""
+                        />
+                      )}
                       <span
                         className="msg-reply-author"
                         style={{ color: colorForId(reply.authorId ?? "") }}
@@ -706,7 +715,17 @@ export const Message: React.FC<MessageProps> = ({
             {(msg.attachments?.length ?? 0) > 0 && (
               <div className="msg-attachments">
                 {(msg.attachments ?? []).map((a) =>
-                  a.voice ? (
+                  a.videoNote ? (
+                    <VideoNotePlayer
+                      key={a.id}
+                      messageId={msg.id}
+                      attachment={a}
+                      isMine={isMine}
+                      listened={!!msg.voiceListened}
+                      showListenDot={!isMine || dmStyle}
+                      onListened={onVoiceListened}
+                    />
+                  ) : a.voice ? (
                     <VoicePlayer
                       key={a.id}
                       messageId={msg.id}

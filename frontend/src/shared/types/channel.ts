@@ -79,12 +79,19 @@ export interface VoiceMeta {
   waveform: number[];
 }
 
+export interface VideoNoteMeta {
+  durationMs: number;
+  size: number;
+  poster: string;
+}
+
 export interface Attachment {
   id: string;
   fileName: string;
   contentType: string;
   sizeBytes: number;
   voice?: VoiceMeta;
+  videoNote?: VideoNoteMeta;
 }
 
 export interface ReplyPreview {
@@ -94,6 +101,8 @@ export interface ReplyPreview {
   content: string;
   hasAttachments: boolean;
   voiceDurationMs?: number | null;
+  videoNoteDurationMs?: number | null;
+  videoNotePoster?: string | null;
   deleted: boolean;
 }
 

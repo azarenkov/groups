@@ -1,6 +1,7 @@
 import { downsampleWaveform, pickVoiceMimeType } from "./voice";
 
 export interface VoiceRecording {
+  kind: "voice";
   blob: Blob;
   mimeType: string;
   durationMs: number;
@@ -136,6 +137,7 @@ export class VoiceRecorder {
       });
     }
     const recording: VoiceRecording = {
+      kind: "voice",
       blob: new Blob(this.chunks, { type: this.mimeType }),
       mimeType: this.mimeType,
       durationMs,

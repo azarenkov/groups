@@ -838,3 +838,116 @@
   color: var(--fg-2);
   pointer-events: none;
 }
+
+.msg-reply:has(> .msg-reply-thumb) { position: relative; padding-left: 44px; min-height: 40px; justify-content: center; }
+.msg-reply > .msg-reply-thumb { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); }
+.msg-reply-thumb {
+  width: 30px; height: 30px; flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.msg.bubble .txt.vnote-only { background: transparent; padding: 0; }
+.vnote {
+  --vnote-size: 240px;
+  position: relative;
+  width: var(--vnote-size); height: var(--vnote-size);
+  max-width: 70vw; max-height: 70vw;
+  transition: width 0.22s var(--ease-spring, ease), height 0.22s var(--ease-spring, ease);
+}
+.vnote.active { --vnote-size: 300px; }
+@media (max-width: 600px) {
+  .vnote { --vnote-size: 200px; }
+  .vnote.active { --vnote-size: 250px; }
+}
+.vnote-face {
+  position: absolute; inset: 0;
+  padding: 0; border: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #000;
+  cursor: pointer;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.25);
+}
+.vnote-poster, .vnote-video {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.vnote-progress {
+  position: absolute; inset: -4px;
+  width: calc(100% + 8px); height: calc(100% + 8px);
+  transform: rotate(-90deg);
+  cursor: pointer;
+  touch-action: none;
+}
+.vnote-progress circle { fill: none; }
+.vnote-progress-hit { stroke: transparent; stroke-width: 8; pointer-events: stroke; }
+.vnote-progress-fill {
+  stroke: var(--accent); stroke-width: 2.6; stroke-linecap: round;
+  pointer-events: none;
+  transition: stroke-dashoffset 0.08s linear;
+}
+.vnote-progress.dragging .vnote-progress-fill { transition: none; }
+.vnote-meta {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 22px; padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 11.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.vnote-muted {
+  width: 10px; height: 10px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M11 5 6 9H2v6h4l5 4V5z'/%3E%3Cpath d='m23 9-6 6M17 9l6 6' stroke='black' stroke-width='2'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M11 5 6 9H2v6h4l5 4V5z'/%3E%3Cpath d='m23 9-6 6M17 9l6 6' stroke='black' stroke-width='2'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.vnote-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+.vnote-rec {
+  position: fixed; left: 50%; top: 45%;
+  transform: translate(-50%, -50%);
+  z-index: 1500;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  animation: popIn 0.18s ease;
+  pointer-events: none;
+}
+.vnote-rec-circle {
+  position: relative;
+  width: min(320px, 72vw); height: min(320px, 72vw);
+}
+.vnote-rec-live, .vnote-rec-preview {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 12px 44px rgba(0, 0, 0, 0.5);
+}
+.vnote-rec-live canvas { width: 100%; height: 100%; display: block; }
+.vnote-rec-live.mirror canvas { transform: scaleX(-1); }
+.vnote-rec-preview { width: 100%; height: 100%; object-fit: cover; }
+.vnote-ring {
+  position: absolute; inset: -6px;
+  width: calc(100% + 12px); height: calc(100% + 12px);
+  transform: rotate(-90deg);
+}
+.vnote-ring circle { fill: none; stroke-width: 2.4; }
+.vnote-ring-track { stroke: rgba(255, 255, 255, 0.18); }
+.vnote-ring-fill { stroke: var(--danger, #ff453a); stroke-linecap: round; transition: stroke-dashoffset 0.1s linear; }
+.vnote-rec-switch {
+  pointer-events: auto;
+  width: 40px; height: 40px;
+  border: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(20, 20, 24, 0.75);
+  backdrop-filter: blur(14px);
+  color: #fff;
+  cursor: pointer;
+}
+.composer .voice-rec-btn.video { background: var(--accent); }
