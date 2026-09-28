@@ -31,6 +31,8 @@ pub const VIDEO_NOTE_TYPES: &[&str] = &["video/webm", "video/mp4"];
 pub const VIDEO_NOTE_MAX_MS: i32 = 60 * 1000;
 pub const VIDEO_NOTE_SIZES: &[i32] = &[384, 640];
 pub const VIDEO_NOTE_POSTER_MAX_BYTES: usize = 16 * 1024;
+const VIDEO_NOTE_POSTER_MIN_SIDE: u32 = 32;
+const VIDEO_NOTE_POSTER_MAX_SIDE: u32 = 640;
 const VIDEO_NOTE_MAX_BYTES_PER_SECOND: u64 = 320 * 1024;
 
 #[derive(Debug, Clone)]
@@ -170,8 +172,12 @@ pub fn validate_video_note(
     if !VIDEO_NOTE_SIZES.contains(&note.size) || note.size > limits.max_video_note_size {
         return Err(UploadAttachmentError::InvalidVideoNote);
     }
-    if note.poster.len() > VIDEO_NOTE_POSTER_MAX_BYTES || !note.poster.starts_with(&[0xFF, 0xD8, 0xFF]) {
+    if note.poster.len() > VIDEO_NOTE_POSTER_MAX_BYTES {
         return Err(UploadAttachmentError::InvalidVideoNote);
+    }
+    match super::codec_dims::jpeg_dimensions(&note.poster) {
+        Some((w, h)) if w == h && (VIDEO_NOTE_POSTER_MIN_SIDE..=VIDEO_NOTE_POSTER_MAX_SIDE).contains(&w) => {}
+        _ => return Err(UploadAttachmentError::InvalidVideoNote),
     }
     Ok(())
 }
@@ -498,7 +504,11 @@ mod tests {
     fn a_video_note_is_short_square_and_has_a_jpeg_poster() {
         let free = UploadLimits::for_tier("free");
         let pro = UploadLimits::for_tier("pro");
-        let jpeg = [0xFF, 0xD8, 0xFF, 0xE0];
+        let jpeg: Vec<u8> = vec![
+            0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x11, 0x08, 0x00, 0xA0, 0x00, 0xA0, 0x03, 0x01, 0x22,
+            0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00,
+            0x00, 0x3F, 0x00, 0x12, 0x34, 0xFF, 0xD9,
+        ];
         assert!(validate_video_note("video/webm;codecs=vp9,opus", &note(60_000, 384, &jpeg), &free).is_ok());
         assert!(matches!(
             validate_video_note("video/webm", &note(60_001, 384, &jpeg), &free),

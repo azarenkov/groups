@@ -42,7 +42,16 @@ impl<'a> Bits<'a> {
 }
 
 pub fn vp8_frame_dims(frame: &[u8]) -> Option<Option<(u32, u32)>> {
-    let tag = *frame.first()?;
+    if frame.len() < 3 {
+        return None;
+    }
+    let tag = frame[0] as u32 | (frame[1] as u32) << 8 | (frame[2] as u32) << 16;
+    let version = (tag >> 1) & 0x07;
+    let first_partition = (tag >> 5) as usize;
+    let header = if tag & 0x01 == 0 { 10 } else { 3 };
+    if version > 3 || first_partition == 0 || header + first_partition > frame.len() {
+        return None;
+    }
     if tag & 0x01 != 0 {
         return Some(None);
     }
@@ -54,7 +63,35 @@ pub fn vp8_frame_dims(frame: &[u8]) -> Option<Option<(u32, u32)>> {
     Some(Some((width, height)))
 }
 
+fn vp9_superframe_ok(frame: &[u8]) -> bool {
+    let Some(&last) = frame.last() else {
+        return false;
+    };
+    if last & 0xE0 != 0xC0 {
+        return true;
+    }
+    let frames = (last & 0x07) as usize + 1;
+    let size_bytes = ((last >> 3) & 0x03) as usize + 1;
+    let index_len = 2 + frames * size_bytes;
+    if frame.len() < index_len || frame[frame.len() - index_len] != last {
+        return false;
+    }
+    let mut total = 0usize;
+    let sizes = &frame[frame.len() - index_len + 1..frame.len() - 1];
+    for chunk in sizes.chunks(size_bytes) {
+        let size = chunk.iter().rev().fold(0usize, |acc, b| (acc << 8) | *b as usize);
+        if size == 0 {
+            return false;
+        }
+        total += size;
+    }
+    total == frame.len() - index_len
+}
+
 pub fn vp9_frame_dims(frame: &[u8]) -> Option<Option<(u32, u32)>> {
+    if frame.len() < 2 || !vp9_superframe_ok(frame) {
+        return None;
+    }
     let mut b = Bits::new(frame);
     if b.bits(2)? != 2 {
         return None;
@@ -201,15 +238,72 @@ pub fn h264_sps_dims(sps: &[u8]) -> Option<(u32, u32)> {
     Some((u32::try_from(width).ok()?, u32::try_from(height).ok()?))
 }
 
+pub fn jpeg_dimensions(data: &[u8]) -> Option<(u32, u32)> {
+    if !data.starts_with(&[0xFF, 0xD8]) || !data.ends_with(&[0xFF, 0xD9]) {
+        return None;
+    }
+    let mut pos = 2;
+    let mut dims = None;
+    while pos + 4 <= data.len() {
+        if data[pos] != 0xFF {
+            return None;
+        }
+        let marker = data[pos + 1];
+        if marker == 0xFF {
+            pos += 1;
+            continue;
+        }
+        let len = u16::from_be_bytes([data[pos + 2], data[pos + 3]]) as usize;
+        if len < 2 || pos + 2 + len > data.len() {
+            return None;
+        }
+        let segment = &data[pos + 4..pos + 2 + len];
+        if matches!(marker, 0xC0..=0xC3 | 0xC5..=0xC7 | 0xC9..=0xCB | 0xCD..=0xCF) {
+            if segment.len() < 5 {
+                return None;
+            }
+            let height = u16::from_be_bytes([segment[1], segment[2]]) as u32;
+            let width = u16::from_be_bytes([segment[3], segment[4]]) as u32;
+            dims = Some((width, height));
+        }
+        if marker == 0xDA {
+            return dims.filter(|(w, h)| *w > 0 && *h > 0);
+        }
+        pos += 2 + len;
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn reads_a_vp8_keyframe_and_skips_inter_frames() {
-        let key = [0x10, 0x02, 0x00, 0x9D, 0x01, 0x2A, 0x80, 0x01, 0x80, 0x01];
+        let mut key = vec![0x10, 0x02, 0x00, 0x9D, 0x01, 0x2A, 0x80, 0x01, 0x80, 0x01];
+        key.extend_from_slice(&[0; 16]);
         assert_eq!(vp8_frame_dims(&key), Some(Some((384, 384))));
-        assert_eq!(vp8_frame_dims(&[0x11, 0, 0]), Some(None));
+        assert_eq!(vp8_frame_dims(&[0x31, 0x00, 0x00, 1]), Some(None));
+        assert_eq!(vp8_frame_dims(&[0x11, 0, 0]), None);
+        assert_eq!(vp8_frame_dims(&[0xF1, 0xFF, 0xFF, 1]), None);
         assert_eq!(vp8_frame_dims(&[0x10, 0, 0, 1, 2, 3, 0, 0, 0, 0]), None);
+    }
+
+    #[test]
+    fn a_broken_vp9_superframe_index_is_rejected() {
+        assert_eq!(vp9_frame_dims(&[0x80, 0x00, 0xC0]), None);
+        assert!(vp9_frame_dims(&[0x86, 0x00, 0x00]).is_some());
+    }
+
+    #[test]
+    fn a_jpeg_needs_a_frame_header_and_an_end() {
+        assert_eq!(jpeg_dimensions(&[0xFF, 0xD8, 0xFF]), None);
+        let jpeg = [
+            0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x11, 0x08, 0x00, 0xA0, 0x00, 0xA0, 0x03, 0x01, 0x22,
+            0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00,
+            0x00, 0x3F, 0x00, 0x12, 0x34, 0xFF, 0xD9,
+        ];
+        assert_eq!(jpeg_dimensions(&jpeg), Some((160, 160)));
+        assert_eq!(jpeg_dimensions(&jpeg[..jpeg.len() - 2]), None);
     }
 }
