@@ -197,6 +197,24 @@ fn poster_decodes(poster: &[u8]) -> bool {
     }
 }
 
+fn infer_rich_content_type(content_type: &str, file_name: &str, media: &RichMedia) -> String {
+    let base = base_content_type(content_type);
+    if !base.is_empty() && base != "application/octet-stream" {
+        return content_type.to_string();
+    }
+    let ext = file_name.rsplit('.').next().unwrap_or_default().to_ascii_lowercase();
+    let video = matches!(media, RichMedia::VideoNote(_));
+    match (ext.as_str(), video) {
+        ("webm", true) => "video/webm",
+        ("mp4" | "m4v", true) => "video/mp4",
+        ("webm", false) => "audio/webm",
+        ("mp4" | "m4a", false) => "audio/mp4",
+        ("ogg" | "oga", false) => "audio/ogg",
+        _ => content_type,
+    }
+    .to_string()
+}
+
 pub fn voice_signature_matches(content_type: &str, head: &[u8]) -> bool {
     match base_content_type(content_type).as_str() {
         "audio/webm" | "video/webm" => head.starts_with(&[0x1A, 0x45, 0xDF, 0xA3]),
@@ -345,6 +363,10 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
         if declared_bytes > limits.max_request_bytes() {
             return Err(UploadAttachmentError::TooLarge);
         }
+        let content_type = match &rich {
+            Some(media) => infer_rich_content_type(&content_type, &file_name, media),
+            None => content_type,
+        };
         let content_type = match &rich {
             Some(RichMedia::Voice(meta)) => {
                 validate_voice(&content_type, meta, &limits)?;
@@ -513,6 +535,24 @@ mod tests {
 
     fn note(duration_ms: i32, size: i32, poster: &[u8]) -> VideoNoteMeta {
         VideoNoteMeta { duration_ms, size, poster: poster.to_vec() }
+    }
+
+    #[test]
+    fn a_bare_octet_stream_takes_its_type_from_the_file_name() {
+        use super::{RichMedia, infer_rich_content_type};
+        let video = RichMedia::VideoNote(note(1000, 384, &[]));
+        let voice = RichMedia::Voice(voice(1000, 64));
+        assert_eq!(infer_rich_content_type("application/octet-stream", "video-note.mp4", &video), "video/mp4");
+        assert_eq!(infer_rich_content_type("", "video-note.webm", &video), "video/webm");
+        assert_eq!(infer_rich_content_type("application/octet-stream", "voice.m4a", &voice), "audio/mp4");
+        assert_eq!(infer_rich_content_type("video/webm", "x.mp4", &video), "video/webm");
+        assert_eq!(infer_rich_content_type("application/octet-stream", "x.exe", &video), "application/octet-stream");
+    }
+
+    #[test]
+    fn a_safari_poster_is_accepted() {
+        let poster = include_bytes!("fixtures/poster-safari.jpg");
+        assert!(validate_video_note("video/mp4", &note(4_000, 640, poster), &UploadLimits::for_tier("pro")).is_ok());
     }
 
     #[test]

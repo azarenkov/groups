@@ -124,7 +124,7 @@
   "deleteForMeConfirm": "The message will disappear only from your feed; everyone else will still see it.",
   "voiceMessageWithDuration": "Voice message, {{duration}}",
   "voiceRecord": "Record a voice message",
-  "voiceRecordHint": "Hold to record a voice message. Tap to switch to video",
+  "voiceRecordHint": "Hold to record a voice message. Click to record hands-free",
   "voiceSlideToCancel": "Slide left to cancel",
   "voiceCancel": "Cancel",
   "voiceSend": "Send",
@@ -147,7 +147,7 @@
   "voiceDiscard": "Discard recording",
   "videoNoteWithDuration": "Video message, {{duration}}",
   "videoNoteRecord": "Record a video message",
-  "videoNoteRecordHint": "Hold to record a video message. Tap to switch to voice",
+  "videoNoteRecordHint": "Hold to record a video message. Click to record hands-free",
   "videoNoteRecording": "Recording a video message",
   "videoNoteSwitchCamera": "Switch camera",
   "videoNotePlay": "Play video message",
@@ -155,5 +155,6 @@
   "videoNoteNoCamera": "No access to the camera or microphone. Allow them in your browser or system settings.",
   "videoNoteCameraBusy": "The camera is busy in another app or call.",
   "videoNoteTooLong": "Video messages can be up to one minute long.",
-  "videoNoteInvalid": "Couldn't send the video message."
+  "videoNoteInvalid": "Couldn't send the video message.",
+  "voiceSlideToLock": "Slide up to lock"
 }

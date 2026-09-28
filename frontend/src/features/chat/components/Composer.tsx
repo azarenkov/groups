@@ -309,7 +309,7 @@ const Composer: React.FC<ComposerProps> = ({
               aria-label={i18n.t("send", { ns: "chat" })}
               disabled={sending}
             >
-              <Icon name="send" size={14} />
+              <Icon name="send" size={15} />
             </button>
           )}
         </div>

@@ -126,7 +126,7 @@
   "deleteForMeConfirm": "Сообщение пропадёт только из вашей ленты, у остальных оно останется.",
   "voiceMessageWithDuration": "Голосовое сообщение, {{duration}}",
   "voiceRecord": "Записать голосовое",
-  "voiceRecordHint": "Удерживайте, чтобы записать голосовое. Нажмите — переключить на кружок",
+  "voiceRecordHint": "Удерживайте, чтобы записать голосовое. Клик — запись без удержания",
   "voiceSlideToCancel": "Влево — отмена",
   "voiceCancel": "Отменить",
   "voiceSend": "Отправить",
@@ -149,7 +149,7 @@
   "voiceDiscard": "Удалить запись",
   "videoNoteWithDuration": "Видеосообщение, {{duration}}",
   "videoNoteRecord": "Записать кружок",
-  "videoNoteRecordHint": "Удерживайте, чтобы записать кружок. Нажмите — переключить на голосовое",
+  "videoNoteRecordHint": "Удерживайте, чтобы записать кружок. Клик — запись без удержания",
   "videoNoteRecording": "Запись кружка",
   "videoNoteSwitchCamera": "Сменить камеру",
   "videoNotePlay": "Смотреть кружок",
@@ -157,5 +157,6 @@
   "videoNoteNoCamera": "Нет доступа к камере или микрофону. Разрешите их в настройках браузера или системы.",
   "videoNoteCameraBusy": "Камера занята другим приложением или звонком.",
   "videoNoteTooLong": "Кружок может быть не длиннее минуты.",
-  "videoNoteInvalid": "Не удалось отправить кружок."
+  "videoNoteInvalid": "Не удалось отправить кружок.",
+  "voiceSlideToLock": "Вверх — закрепить запись"
 }

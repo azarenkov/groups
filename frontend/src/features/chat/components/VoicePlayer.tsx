@@ -231,7 +231,7 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
         {loading ? (
           <span className="loading-spinner voice-msg-spinner" />
         ) : (
-          <Icon name={playing ? "pause" : "play"} size={16} />
+          <Icon name={playing ? "pause" : "play"} size={14} />
         )}
       </button>
       <div className="voice-msg-body">

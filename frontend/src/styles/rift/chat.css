@@ -149,6 +149,7 @@
 .msg.bubble.dm .ava { display: none; }
 .msg.bubble .head { display: none; }
 .msg.bubble.theirs .ava { align-self: flex-end; }
+.msg.bubble.theirs:has(> .body > .msg-meta) .ava { margin-bottom: 17px; }
 .msg.bubble.cont .ava { visibility: hidden; height: auto; }
 .msg.bubble .body { flex: 0 1 auto; min-width: 0; max-width: 74%; position: relative; }
 .msg.bubble .txt {
@@ -256,16 +257,21 @@
 }
 .composer .composer-input::placeholder { color: var(--fg-4); }
 .composer-wrap > .attach-btn { margin-bottom: 3px; }
-.composer-wrap > .send-btn { margin-bottom: 6px; }
+.composer-wrap > .send-btn { margin-bottom: 4px; }
 .composer .send-btn {
-  width: 28px; height: 28px; border-radius: 8px; border: 0;
-  background: var(--accent); color: #fff;
-  display:flex; align-items:center; justify-content:center;
+  width: 32px; height: 32px; flex-shrink: 0;
+  border-radius: 50%; border: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff), var(--accent));
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   opacity: 0.35; pointer-events: none;
-  transition: opacity var(--dur-fast);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 38%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 .composer .send-btn.enabled { opacity: 1; pointer-events: auto; }
+.composer .send-btn.enabled:hover { transform: scale(1.06); filter: brightness(1.06); }
+.composer .send-btn.enabled:active { transform: scale(0.94); }
+.composer .send-btn svg { flex-shrink: 0; }
 @keyframes popIn {
   from { transform: translateY(6px) scale(0.96); opacity: 0; }
   to   { transform: translateY(0)    scale(1);    opacity: 1; }
@@ -722,9 +728,9 @@
 .composer-reply-close:hover { background: var(--surface-hover); color: var(--fg-1); }
 
 .voice-msg {
-  display: flex; align-items: center; gap: 10px;
-  width: 280px; max-width: 100%;
-  padding: 8px 12px 8px 8px;
+  display: flex; align-items: flex-start; gap: 8px;
+  width: 230px; max-width: 100%;
+  padding: 6px 10px 6px 6px;
   border-radius: 14px;
   background: var(--surface-sunken);
   box-shadow: inset 0 0 0 1px var(--hairline);
@@ -737,7 +743,7 @@
   --voice-bar-played: #fff;
 }
 .voice-msg-play {
-  width: 38px; height: 38px; flex-shrink: 0;
+  width: 32px; height: 32px; flex-shrink: 0;
   border: 0; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--accent); color: #fff;
@@ -750,9 +756,9 @@
 .voice-msg.playing .voice-msg-play svg { margin-left: 0; }
 .msg.bubble.mine .voice-msg-play { background: #fff; color: var(--accent); }
 .voice-msg-spinner { width: 16px; height: 16px; border-width: 2px; }
-.voice-msg-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.voice-msg-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding-top: 6px; }
 .voice-msg-wave {
-  height: 26px;
+  height: 20px;
   display: flex; align-items: center; gap: 2px;
   cursor: pointer;
   touch-action: none;
@@ -769,7 +775,7 @@
 .voice-msg-bar.played { background: var(--voice-bar-played); }
 .voice-msg-meta {
   display: flex; align-items: center; gap: 6px;
-  font-size: 11.5px; line-height: 1;
+  font-size: 11px; line-height: 1;
   color: var(--fg-3);
   font-variant-numeric: tabular-nums;
 }
@@ -788,12 +794,13 @@
 .msg.bubble.mine .voice-msg-speed { background: rgba(255, 255, 255, 0.2); color: #fff; }
 
 .composer .voice-rec-btn { touch-action: none; user-select: none; -webkit-user-select: none; }
-.composer .voice-rec-btn.recording {
-  transform: scale(1.25);
+.composer .voice-rec-btn.recording,
+.composer .voice-rec-btn.recording:hover {
+  transform: scale(1.22);
   background: var(--danger, #ff453a);
   box-shadow: 0 0 0 6px color-mix(in srgb, var(--danger, #ff453a) 22%, transparent);
 }
-.composer .send-btn { transition: opacity var(--dur-fast), transform 0.16s ease, box-shadow 0.16s ease; }
+.composer .send-btn { transition: opacity var(--dur-fast), transform 0.16s var(--ease-spring, ease), box-shadow 0.16s ease, filter 0.16s ease, background 0.16s ease; }
 .voice-rec-bar {
   position: absolute; left: 0; top: 0; bottom: 0; right: 48px;
   z-index: 2;
@@ -840,15 +847,18 @@
 .voice-rec-icon:hover { background: var(--surface-hover); color: var(--fg-1); }
 .voice-rec-icon.danger { color: var(--danger, #ff453a); }
 .voice-rec-lock {
-  position: absolute; right: 12px; bottom: 52px; z-index: 3;
-  width: 28px; height: 40px; border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
+  position: absolute; right: 10px; bottom: 50px; z-index: 3;
+  width: 32px; height: 52px; border-radius: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  transition: background 0.12s ease, color 0.12s ease;
   background: var(--surface-panel);
   box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--hairline);
   color: var(--fg-2);
   pointer-events: none;
 }
 
+.voice-rec-lock svg:last-child { transform: rotate(-90deg); opacity: 0.7; }
+.voice-rec-lock.near { background: var(--accent); color: #fff; box-shadow: var(--shadow-sm); }
 .msg-reply:has(> .msg-reply-thumb) { position: relative; padding-left: 44px; min-height: 40px; justify-content: center; }
 .msg-reply > .msg-reply-thumb { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); }
 .msg-reply-thumb {
@@ -867,19 +877,26 @@
 .msg.bubble.mine .txt.vnote-only .msg-reply-author { color: var(--accent) !important; }
 .msg.bubble.mine .txt.vnote-only .msg-reply-text { color: var(--fg-2); }
 .vnote {
-  --vnote-size: 240px;
+  --vnote-size: 220px;
   position: relative;
+  isolation: isolate;
   width: var(--vnote-size); height: var(--vnote-size);
   max-width: 70vw; max-height: 70vw;
   transition: width 0.22s var(--ease-spring, ease), height 0.22s var(--ease-spring, ease);
 }
-.vnote.active { --vnote-size: 300px; }
+.vnote.active {
+  --vnote-size: 260px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) var(--vnote-progress, 0deg), color-mix(in srgb, var(--fg-1) 14%, transparent) 0);
+}
+.vnote.active .vnote-face { inset: 3px; }
 @media (max-width: 600px) {
   .vnote { --vnote-size: 200px; }
   .vnote.active { --vnote-size: 250px; }
 }
 .vnote-face {
   position: absolute; inset: 0;
+  z-index: 0;
   padding: 0; border: 0;
   border-radius: 50%;
   overflow: hidden;
@@ -894,22 +911,19 @@
   display: block;
 }
 .vnote-progress {
-  position: absolute; inset: -4px;
-  width: calc(100% + 8px); height: calc(100% + 8px);
+  position: absolute; inset: -3px;
+  z-index: 2;
+  will-change: transform;
+  width: calc(100% + 6px); height: calc(100% + 6px);
   transform: rotate(-90deg);
-  cursor: pointer;
-  touch-action: none;
+  pointer-events: none;
+  overflow: visible;
 }
 .vnote-progress circle { fill: none; }
-.vnote-progress-hit { stroke: transparent; stroke-width: 8; pointer-events: stroke; }
-.vnote-progress-fill {
-  stroke: var(--accent); stroke-width: 2.6; stroke-linecap: round;
-  pointer-events: none;
-  transition: stroke-dashoffset 0.08s linear;
-}
-.vnote-progress.dragging .vnote-progress-fill { transition: none; }
+.vnote-progress-hit { stroke: transparent; stroke-width: 9; pointer-events: stroke; cursor: pointer; touch-action: none; }
 .vnote-meta {
   position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  z-index: 3;
   display: inline-flex; align-items: center; gap: 5px;
   height: 22px; padding: 0 9px;
   border-radius: 999px;
@@ -929,8 +943,7 @@
 .vnote-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 
 .vnote-rec {
-  position: fixed; left: 50%; top: 45%;
-  transform: translate(-50%, -50%);
+  position: fixed; right: 64px; bottom: 96px;
   z-index: 1500;
   display: flex; flex-direction: column; align-items: center; gap: 14px;
   animation: popIn 0.18s ease;
@@ -938,7 +951,7 @@
 }
 .vnote-rec-circle {
   position: relative;
-  width: min(320px, 72vw); height: min(320px, 72vw);
+  width: min(240px, 56vw); height: min(240px, 56vw);
 }
 .vnote-rec-live, .vnote-rec-preview {
   position: absolute; inset: 0;
@@ -968,7 +981,16 @@
   color: #fff;
   cursor: pointer;
 }
-.composer .voice-rec-btn.video { background: var(--accent); }
+.composer .voice-rec-btn.video:not(.recording) {
+  background: transparent;
+  color: var(--fg-2);
+  box-shadow: none;
+}
+.composer .voice-rec-btn.video:not(.recording):hover {
+  background: var(--surface-hover);
+  color: var(--fg-1);
+  filter: none;
+}
 .vnote-play {
   position: absolute; left: 50%; top: 50%; z-index: 1;
   width: 56px; height: 56px;
@@ -983,4 +1005,7 @@
   border-left: 16px solid #fff;
   border-top: 11px solid transparent;
   border-bottom: 11px solid transparent;
+}
+@media (max-width: 600px) {
+  .vnote-rec { right: 50%; transform: translateX(50%); bottom: 110px; }
 }
