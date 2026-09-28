@@ -15,6 +15,7 @@ const OPUS_RATE: u64 = 48_000;
 const MAX_BOXES: usize = 100_000;
 const MAX_SAMPLES: u64 = 200_000;
 const WEBM_HEADER_BYTES: u64 = 256 * 1024;
+const MAX_NAL_UNITS: u64 = 100_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VideoProbe {
@@ -352,10 +353,14 @@ pub fn probe_mp4(mut media: Box<dyn MediaSource>) -> Option<VideoProbe> {
     if r.sample_bytes == 0 || r.sample_ranges.is_empty() {
         return None;
     }
+    let mut media = std::mem::take(&mut r.mdat_ranges);
+    media.sort_unstable();
     let inside = |(start, end): &(u64, u64)| {
-        r.mdat_ranges
-            .iter()
-            .any(|(from, to)| start >= from && end <= to && start <= end)
+        if start > end {
+            return false;
+        }
+        let at = media.partition_point(|(from, _)| from <= start);
+        at > 0 && *end <= media[at - 1].1
     };
     if !r.sample_ranges.iter().all(inside) {
         return None;
@@ -541,6 +546,7 @@ fn avc_samples_valid<R: Read + Seek>(r: &mut Reader<R>, samples: &[(u64, u64)], 
             return None;
         }
         let mut first = true;
+        let mut units: u64 = 0;
         for &(offset, size) in samples {
             let end = offset.checked_add(size)?;
             let mut pos = offset;
@@ -549,6 +555,10 @@ fn avc_samples_valid<R: Read + Seek>(r: &mut Reader<R>, samples: &[(u64, u64)], 
                 return None;
             }
             while pos < end {
+                units += 1;
+                if units > MAX_NAL_UNITS {
+                    return None;
+                }
                 r.seek(pos)?;
                 let mut len_bytes = [0u8; 4];
                 r.inner.read_exact(&mut len_bytes[4 - nal_length_size as usize..]).ok()?;
