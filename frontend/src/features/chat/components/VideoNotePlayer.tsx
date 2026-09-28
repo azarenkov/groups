@@ -14,6 +14,8 @@ import {
 type SinkVideo = HTMLVideoElement & { setSinkId?: (id: string) => Promise<void> };
 
 const RING_RADIUS = 48.5;
+const PREVIEW_MAX_BYTES = 6 * 1024 * 1024;
+const PREVIEW_DWELL_MS = 800;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
 interface VideoNotePlayerProps {
@@ -94,30 +96,48 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
     };
   }, [messageId]);
 
+  const previewAllowed = attachment.sizeBytes <= PREVIEW_MAX_BYTES;
+
   React.useEffect(() => {
-    const needed = visible || active;
+    const needed = active || (visible && previewAllowed);
     if (!needed) {
-      unload();
+      if (!active) unload();
       return;
     }
     if (urlRef.current || loadingRef.current) return;
-    loadingRef.current = true;
-    setFailed(false);
-    attachmentAPI
-      .download(attachment.id, attachment.sizeBytes)
-      .then((blob) => {
+    const controller = new AbortController();
+    let settled = false;
+    const start = () => {
+      loadingRef.current = true;
+      setFailed(false);
+      attachmentAPI
+        .download(attachment.id, attachment.sizeBytes, controller.signal)
+        .then((blob) => {
+          settled = true;
+          loadingRef.current = false;
+          if (disposedRef.current || !(visibleRef.current || activeRef.current)) return;
+          const next = URL.createObjectURL(blob);
+          urlRef.current = next;
+          setUrl(next);
+        })
+        .catch(() => {
+          settled = true;
+          loadingRef.current = false;
+          if (controller.signal.aborted) return;
+          setFailed(true);
+          if (activeRef.current) useVoicePlaybackStore.getState().release(messageId);
+        });
+    };
+    const timer = active ? null : setTimeout(start, PREVIEW_DWELL_MS);
+    if (active) start();
+    return () => {
+      if (timer) clearTimeout(timer);
+      if (!settled && loadingRef.current && !activeRef.current) {
+        controller.abort();
         loadingRef.current = false;
-        if (disposedRef.current || !(visibleRef.current || activeRef.current)) return;
-        const next = URL.createObjectURL(blob);
-        urlRef.current = next;
-        setUrl(next);
-      })
-      .catch(() => {
-        loadingRef.current = false;
-        setFailed(true);
-        if (activeRef.current) useVoicePlaybackStore.getState().release(messageId);
-      });
-  }, [visible, active, attachment.id, attachment.sizeBytes, messageId, unload]);
+      }
+    };
+  }, [visible, active, previewAllowed, attachment.id, attachment.sizeBytes, messageId, unload]);
 
   React.useEffect(() => {
     const video = videoRef.current;

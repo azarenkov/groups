@@ -848,6 +848,14 @@
 }
 
 .msg.bubble .txt.vnote-only { background: transparent; padding: 0; }
+.msg.bubble.mine .txt.vnote-only .msg-forwarded { color: var(--fg-3); }
+.msg.bubble.mine .txt.vnote-only .msg-reply {
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.msg.bubble.mine .txt.vnote-only .msg-reply:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.msg.bubble.mine .txt.vnote-only .msg-reply-author { color: var(--accent) !important; }
+.msg.bubble.mine .txt.vnote-only .msg-reply-text { color: var(--fg-2); }
 .vnote {
   --vnote-size: 240px;
   position: relative;

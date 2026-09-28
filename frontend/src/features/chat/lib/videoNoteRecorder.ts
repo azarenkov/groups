@@ -151,17 +151,32 @@ export class VideoNoteRecorder {
     return this.cameraIds.length > 1;
   }
 
+  private openCamera(index: number): Promise<MediaStream> {
+    return navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: this.cameraIds[index] }, width: { ideal: 720 }, height: { ideal: 720 } },
+    });
+  }
+
   async switchCamera(): Promise<void> {
     if (this.cameraIds.length < 2) return;
-    const next = (this.cameraIndex + 1) % this.cameraIds.length;
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { deviceId: { exact: this.cameraIds[next] }, width: { ideal: 720 }, height: { ideal: 720 } },
-    });
-    const old = this.camera;
-    this.cameraIndex = next;
-    this.camera = stream;
-    await this.attachCamera(stream);
-    old?.getTracks().forEach((t) => t.stop());
+    const previous = this.cameraIndex;
+    const next = (previous + 1) % this.cameraIds.length;
+    this.camera?.getTracks().forEach((t) => t.stop());
+    this.camera = null;
+    try {
+      const stream = await this.openCamera(next);
+      this.cameraIndex = next;
+      this.camera = stream;
+      await this.attachCamera(stream);
+    } catch (err) {
+      const restored = await this.openCamera(previous).catch(() => null);
+      if (restored) {
+        this.cameraIndex = previous;
+        this.camera = restored;
+        await this.attachCamera(restored).catch(() => {});
+      }
+      throw err;
+    }
   }
 
   elapsedMs(): number {
