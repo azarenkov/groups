@@ -8,7 +8,7 @@ import {
   VOICE_MESSAGE_MAX_MS_BY_TIER,
   VIDEO_NOTE_SIZE_BY_TIER,
 } from "../../subscription/lib/plans";
-import { voiceFileName } from "../lib/voice";
+import { voiceBaseType, voiceFileName } from "../lib/voice";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 
 const SLOWEST_UPLOAD_BYTES_PER_MS = 128;
@@ -54,7 +54,7 @@ class AttachmentAPI {
     const form = new FormData();
     form.append("voiceDurationMs", String(Math.max(1, Math.round(voice.durationMs))));
     form.append("voiceWaveform", voice.waveform.join(","));
-    form.append("file", new File([blob], voiceFileName(mimeType), { type: mimeType }));
+    form.append("file", new File([blob], voiceFileName(mimeType), { type: voiceBaseType(mimeType) }));
     const response = await this.client.post("/v1/attachments", form, {
       timeout: transferTimeoutMs(blob.size, SLOWEST_UPLOAD_BYTES_PER_MS),
     });
@@ -71,7 +71,7 @@ class AttachmentAPI {
     form.append("videoNoteSize", String(note.size));
     form.append("videoNotePoster", note.poster);
     const ext = mimeType.startsWith("video/mp4") ? "mp4" : "webm";
-    form.append("file", new File([blob], `video-note.${ext}`, { type: mimeType }));
+    form.append("file", new File([blob], `video-note.${ext}`, { type: voiceBaseType(mimeType) }));
     const response = await this.client.post("/v1/attachments", form, {
       timeout: transferTimeoutMs(blob.size, SLOWEST_UPLOAD_BYTES_PER_MS),
     });
