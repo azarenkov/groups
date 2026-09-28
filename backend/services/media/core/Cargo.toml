@@ -17,3 +17,4 @@ tracing = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["sync", "rt"] }
 symphonia = { workspace = true }
+jpeg-decoder = { workspace = true }

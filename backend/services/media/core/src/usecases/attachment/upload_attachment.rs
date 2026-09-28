@@ -179,7 +179,22 @@ pub fn validate_video_note(
         Some((w, h)) if w == h && (VIDEO_NOTE_POSTER_MIN_SIDE..=VIDEO_NOTE_POSTER_MAX_SIDE).contains(&w) => {}
         _ => return Err(UploadAttachmentError::InvalidVideoNote),
     }
+    if !poster_decodes(&note.poster) {
+        return Err(UploadAttachmentError::InvalidVideoNote);
+    }
     Ok(())
+}
+
+fn poster_decodes(poster: &[u8]) -> bool {
+    let mut decoder = jpeg_decoder::Decoder::new(std::io::Cursor::new(poster));
+    decoder.set_max_decoding_buffer_size(VIDEO_NOTE_POSTER_MAX_SIDE as usize * VIDEO_NOTE_POSTER_MAX_SIDE as usize * 4);
+    match decoder.decode() {
+        Ok(pixels) => decoder.info().is_some_and(|info| {
+            info.width == info.height
+                && pixels.len() >= info.width as usize * info.height as usize
+        }),
+        Err(_) => false,
+    }
 }
 
 pub fn voice_signature_matches(content_type: &str, head: &[u8]) -> bool {
@@ -504,11 +519,7 @@ mod tests {
     fn a_video_note_is_short_square_and_has_a_jpeg_poster() {
         let free = UploadLimits::for_tier("free");
         let pro = UploadLimits::for_tier("pro");
-        let jpeg: Vec<u8> = vec![
-            0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x11, 0x08, 0x00, 0xA0, 0x00, 0xA0, 0x03, 0x01, 0x22,
-            0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00,
-            0x00, 0x3F, 0x00, 0x12, 0x34, 0xFF, 0xD9,
-        ];
+        let jpeg: Vec<u8> = include_bytes!("fixtures/poster-160.jpg").to_vec();
         assert!(validate_video_note("video/webm;codecs=vp9,opus", &note(60_000, 384, &jpeg), &free).is_ok());
         assert!(matches!(
             validate_video_note("video/webm", &note(60_001, 384, &jpeg), &free),
@@ -525,6 +536,15 @@ mod tests {
         ));
         assert!(matches!(
             validate_video_note("video/mp4", &note(5_000, 384, b"<svg>"), &free),
+            Err(UploadAttachmentError::InvalidVideoNote)
+        ));
+        let mut scrambled = jpeg.clone();
+        let middle = scrambled.len() / 2;
+        for b in &mut scrambled[middle..middle + 40] {
+            *b = 0xFF;
+        }
+        assert!(matches!(
+            validate_video_note("video/mp4", &note(5_000, 384, &scrambled), &free),
             Err(UploadAttachmentError::InvalidVideoNote)
         ));
         assert!(matches!(
