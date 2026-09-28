@@ -125,21 +125,25 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
     if (video.setSinkId) void video.setSinkId(speakerDeviceId || "").catch(() => {});
   }, [url, speakerDeviceId]);
 
+  const onListenedRef = React.useRef(onListened);
+  onListenedRef.current = onListened;
+
   React.useEffect(() => {
     const video = videoRef.current;
     if (!video || !url) return;
     if (active) {
       video.muted = false;
       video.loop = false;
-      video.playbackRate = speed;
+      video.playbackRate = useVoicePlaybackStore.getState().speed;
       video.currentTime = 0;
       setProgress(0);
       void video
         .play()
         .then(() => {
-          if (!isMine && !reportedRef.current && onListened) {
+          const report = onListenedRef.current;
+          if (!isMine && !reportedRef.current && report) {
             reportedRef.current = true;
-            void onListened().catch(() => {
+            void report().catch(() => {
               reportedRef.current = false;
             });
           }
@@ -151,9 +155,19 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
     video.loop = true;
     video.playbackRate = 1;
     setProgress(0);
+  }, [active, url, isMine]);
+
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !url || active) return;
     if (visible) void video.play().catch(() => {});
     else video.pause();
-  }, [active, url, visible, isMine, onListened, speed]);
+  }, [active, url, visible]);
+
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (video && active) video.playbackRate = speed;
+  }, [active, speed]);
 
   React.useEffect(() => {
     if (!active || !playing) return;

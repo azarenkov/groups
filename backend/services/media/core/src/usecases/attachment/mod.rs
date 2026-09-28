@@ -3,3 +3,4 @@ pub mod delete_attachment;
 pub mod upload_attachment;
 pub mod voice_probe;
 pub mod video_probe;
+pub mod codec_dims;
