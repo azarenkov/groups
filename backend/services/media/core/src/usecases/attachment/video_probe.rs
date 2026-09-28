@@ -253,6 +253,7 @@ struct Mp4Track {
     timescale: u32,
     media_duration: u64,
     default_duration: u32,
+    default_size: u32,
     end: u64,
     width: u32,
     height: u32,
@@ -263,6 +264,8 @@ struct Reader<R: Read + Seek> {
     inner: R,
     boxes: usize,
     samples: u64,
+    sample_bytes: u64,
+    mdat_bytes: u64,
 }
 
 impl<R: Read + Seek> Reader<R> {
@@ -317,7 +320,7 @@ impl<R: Read + Seek> Reader<R> {
 pub fn probe_mp4(mut media: Box<dyn MediaSource>) -> Option<VideoProbe> {
     let len = media.byte_len().or_else(|| media.seek(SeekFrom::End(0)).ok())?;
     media.seek(SeekFrom::Start(0)).ok()?;
-    let mut r = Reader { inner: media, boxes: 0, samples: 0 };
+    let mut r = Reader { inner: media, boxes: 0, samples: 0, sample_bytes: 0, mdat_bytes: 0 };
     let mut tracks: HashMap<u32, Mp4Track> = HashMap::new();
     let mut first = true;
     while r.pos()? < len {
@@ -329,9 +332,13 @@ pub fn probe_mp4(mut media: Box<dyn MediaSource>) -> Option<VideoProbe> {
         match &kind {
             b"moov" => parse_moov(&mut r, end, &mut tracks)?,
             b"moof" => parse_moof(&mut r, end, &mut tracks)?,
+            b"mdat" => r.mdat_bytes = r.mdat_bytes.saturating_add(end.saturating_sub(r.pos()?)),
             _ => {}
         }
         r.seek(end)?;
+    }
+    if r.mdat_bytes == 0 || r.sample_bytes == 0 || r.mdat_bytes < r.sample_bytes {
+        return None;
     }
     let video = tracks.values().filter(|t| &t.handler == b"vide").count();
     let audio = tracks.values().filter(|t| &t.handler == b"soun").count();
@@ -372,8 +379,10 @@ fn parse_moov<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMa
                         let id = r.u32()?;
                         r.skip(4)?;
                         let duration = r.u32()?;
+                        let size = r.u32()?;
                         if let Some(track) = tracks.get_mut(&id) {
                             track.default_duration = duration;
+                            track.default_size = size;
                         }
                     }
                     r.seek(inner_end)?;
@@ -409,11 +418,13 @@ fn parse_trak<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<(u32, Mp4
                             if version == 1 {
                                 r.skip(16)?;
                                 track.timescale = r.u32()?;
-                                track.media_duration = r.u64()?;
+                                let duration = r.u64()?;
+                                track.media_duration = if duration == u64::MAX { 0 } else { duration };
                             } else {
                                 r.skip(8)?;
                                 track.timescale = r.u32()?;
-                                track.media_duration = r.u32()? as u64;
+                                let duration = r.u32()?;
+                                track.media_duration = if duration == u32::MAX { 0 } else { duration as u64 };
                             }
                         }
                         b"hdlr" => {
@@ -502,6 +513,7 @@ fn parse_moof<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMa
 fn parse_traf<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMap<u32, Mp4Track>) -> Option<()> {
     let mut id = None;
     let mut default_duration = None;
+    let mut default_size = None;
     let mut base: u64 = 0;
     let mut total: u64 = 0;
     while r.pos()? < limit {
@@ -519,6 +531,9 @@ fn parse_traf<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMa
                 if flags & 0x08 != 0 {
                     default_duration = Some(r.u32()?);
                 }
+                if flags & 0x10 != 0 {
+                    default_size = Some(r.u32()?);
+                }
             }
             b"tfdt" => {
                 let (version, _) = r.full_header()?;
@@ -535,6 +550,7 @@ fn parse_traf<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMa
                 }
                 let track = tracks.get(&id?)?;
                 let fallback = default_duration.unwrap_or(track.default_duration) as u64;
+                let fallback_size = default_size.unwrap_or(track.default_size) as u64;
                 let per_sample = [0x100u32, 0x200, 0x400, 0x800]
                     .iter()
                     .filter(|bit| flags & **bit != 0)
@@ -547,12 +563,21 @@ fn parse_traf<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMa
                 if count.checked_mul(per_sample)? > end.saturating_sub(r.pos()?) {
                     return None;
                 }
-                if flags & 0x100 == 0 {
+                if per_sample == 0 {
                     total = total.saturating_add(count.saturating_mul(fallback));
+                    r.sample_bytes = r.sample_bytes.saturating_add(count.saturating_mul(fallback_size));
                 } else {
                     for _ in 0..count {
-                        total = total.saturating_add(r.u32()? as u64);
-                        r.skip(per_sample - 4)?;
+                        let duration = if flags & 0x100 != 0 { r.u32()? as u64 } else { fallback };
+                        let size = if flags & 0x200 != 0 { r.u32()? as u64 } else { fallback_size };
+                        if flags & 0x400 != 0 {
+                            r.skip(4)?;
+                        }
+                        if flags & 0x800 != 0 {
+                            r.skip(4)?;
+                        }
+                        total = total.saturating_add(duration);
+                        r.sample_bytes = r.sample_bytes.saturating_add(size);
                     }
                 }
             }
@@ -630,6 +655,21 @@ mod tests {
         let at = webm.windows(3).position(|w| w == [0xB0, 0x82, 0x01]).expect("PixelWidth");
         webm[at + 2..at + 4].copy_from_slice(&640u16.to_be_bytes());
         assert_eq!(probe(&webm, "video/webm"), None);
+    }
+
+    #[test]
+    fn an_mp4_without_media_data_is_rejected() {
+        let mp4 = include_bytes!("fixtures/video-note-5s.mp4");
+        let mut stripped = Vec::new();
+        let mut pos = 0;
+        while pos + 8 <= mp4.len() {
+            let size = u32::from_be_bytes(mp4[pos..pos + 4].try_into().unwrap()) as usize;
+            if &mp4[pos + 4..pos + 8] != b"mdat" {
+                stripped.extend_from_slice(&mp4[pos..pos + size]);
+            }
+            pos += size;
+        }
+        assert_eq!(probe(&stripped, "video/mp4"), None);
     }
 
     #[test]
