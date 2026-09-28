@@ -8,6 +8,7 @@ use symphonia::core::io::{MediaSource, MediaSourceStream};
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 use symphonia::core::codecs::{CODEC_TYPE_AAC, CODEC_TYPE_OPUS, CodecType};
+use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::units::TimeBase;
 
 const OPUS_RATE: u64 = 48_000;
@@ -108,7 +109,12 @@ fn probe_source(media: Box<dyn MediaSource>) -> Option<i64> {
     let mut end: u64 = 0;
     let mut samples: u64 = 0;
     let mut packets = 0usize;
-    while let Ok(packet) = format.next_packet() {
+    loop {
+        let packet = match format.next_packet() {
+            Ok(packet) => packet,
+            Err(SymphoniaError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+            Err(_) => return None,
+        };
         if packet.track_id() != track.id {
             return None;
         }
@@ -170,6 +176,12 @@ mod tests {
         assert!((3500..=4300).contains(&ms), "{ms}");
         drop(spool);
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn a_truncated_recording_is_rejected() {
+        let bytes = include_bytes!("fixtures/voice-4s.webm");
+        assert_eq!(probe_voice_duration_ms(bytes[..bytes.len() / 2].to_vec()), None);
     }
 
     #[test]
