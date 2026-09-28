@@ -79,9 +79,24 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
     if (audio?.setSinkId) void audio.setSinkId(speakerDeviceId || "").catch(() => {});
   }, [speakerDeviceId]);
 
+  const unloadAudio = React.useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const at = durationMs > 0 ? (audio.currentTime * 1000) / durationMs : 0;
+    pendingSeekRef.current = at > 0 && at < 1 ? at : null;
+    audioRef.current = null;
+    loadingRef.current = null;
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    urlRef.current = null;
+    setPlaying(false);
+  }, [durationMs]);
+
   React.useEffect(() => {
-    if (currentId !== messageId && playing) audioRef.current?.pause();
-  }, [currentId, messageId, playing]);
+    if (currentId !== messageId) unloadAudio();
+  }, [currentId, messageId, unloadAudio]);
 
   React.useEffect(() => {
     disposedRef.current = false;
@@ -144,7 +159,10 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
     setFailed(false);
     void ensureAudio()
       .then((audio) => {
-        if (useVoicePlaybackStore.getState().currentId !== messageId) return;
+        if (useVoicePlaybackStore.getState().currentId !== messageId) {
+          unloadAudio();
+          return;
+        }
         if (pendingSeekRef.current !== null) {
           audio.currentTime = (pendingSeekRef.current * durationMs) / 1000;
           pendingSeekRef.current = null;
@@ -160,7 +178,7 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
         });
       })
       .catch(() => setFailed(true));
-  }, [durationMs, ensureAudio, isMine, messageId, onListened]);
+  }, [durationMs, ensureAudio, isMine, messageId, onListened, unloadAudio]);
 
   const autoplayableRef = React.useRef(false);
   autoplayableRef.current = !isMine && !listened && !reportedRef.current;
