@@ -124,7 +124,16 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     if (!recorder || finishingRef.current) return;
     finishingRef.current = true;
     stopPreview();
-    const stopped = await recorder.stop();
+    let stopped: MediaRecording;
+    try {
+      stopped = await recorder.stop();
+    } catch {
+      reset();
+      onError(
+        i18n.t(recorder instanceof VideoNoteRecorder ? "videoNoteInvalid" : "voiceInvalid", { ns: "chat" }),
+      );
+      return;
+    }
     const recording: MediaRecording = {
       ...stopped,
       durationMs: Math.min(stopped.durationMs, limitFor(stopped.kind)),

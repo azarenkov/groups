@@ -54,6 +54,7 @@ export class VideoNoteRecorder {
   private posterPromise: Promise<string> | null = null;
   private cameraIds: string[] = [];
   private cameraIndex = 0;
+  private released = false;
   mimeType = "";
 
   constructor(size: number) {
@@ -163,18 +164,22 @@ export class VideoNoteRecorder {
     const next = (previous + 1) % this.cameraIds.length;
     this.camera?.getTracks().forEach((t) => t.stop());
     this.camera = null;
-    try {
-      const stream = await this.openCamera(next);
-      this.cameraIndex = next;
+    const adopt = async (stream: MediaStream, index: number): Promise<boolean> => {
+      if (this.released) {
+        stream.getTracks().forEach((t) => t.stop());
+        return false;
+      }
+      this.cameraIndex = index;
       this.camera = stream;
       await this.attachCamera(stream);
+      return true;
+    };
+    try {
+      await adopt(await this.openCamera(next), next);
     } catch (err) {
+      if (this.released) return;
       const restored = await this.openCamera(previous).catch(() => null);
-      if (restored) {
-        this.cameraIndex = previous;
-        this.camera = restored;
-        await this.attachCamera(restored).catch(() => {});
-      }
+      if (restored) await adopt(restored, previous).catch(() => false);
       throw err;
     }
   }
@@ -219,23 +224,25 @@ export class VideoNoteRecorder {
   async stop(): Promise<VideoNoteRecording> {
     const durationMs = Math.round(this.elapsedMs());
     const recorder = this.recorder;
-    if (recorder && recorder.state !== "inactive") {
-      await new Promise<void>((resolve) => {
-        recorder.addEventListener("stop", () => resolve(), { once: true });
-        recorder.stop();
-      });
+    try {
+      if (recorder && recorder.state !== "inactive") {
+        await new Promise<void>((resolve) => {
+          recorder.addEventListener("stop", () => resolve(), { once: true });
+          recorder.stop();
+        });
+      }
+      const poster = await (this.posterPromise ?? this.makePoster()).catch(() => this.makePoster());
+      return {
+        kind: "video",
+        blob: new Blob(this.chunks, { type: this.mimeType }),
+        mimeType: this.mimeType,
+        durationMs,
+        size: this.size,
+        poster,
+      };
+    } finally {
+      this.release();
     }
-    const poster = await (this.posterPromise ?? this.makePoster()).catch(() => this.makePoster());
-    const recording: VideoNoteRecording = {
-      kind: "video",
-      blob: new Blob(this.chunks, { type: this.mimeType }),
-      mimeType: this.mimeType,
-      durationMs,
-      size: this.size,
-      poster,
-    };
-    this.release();
-    return recording;
   }
 
   cancel(): void {
@@ -250,6 +257,7 @@ export class VideoNoteRecorder {
   }
 
   private release(): void {
+    this.released = true;
     cancelAnimationFrame(this.frame);
     this.camera?.getTracks().forEach((t) => t.stop());
     this.mic?.getTracks().forEach((t) => t.stop());
