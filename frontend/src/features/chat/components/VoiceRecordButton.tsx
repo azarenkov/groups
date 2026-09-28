@@ -7,7 +7,6 @@ import { maxVoiceMessageMs, videoNoteSize } from "../api/attachment";
 import { formatVoiceDuration } from "../lib/voice";
 import { VoiceRecorder, voiceRecordingSupported } from "../lib/voiceRecorder";
 import { VideoNoteRecorder, videoNoteRecordingSupported } from "../lib/videoNoteRecorder";
-import { readRecordKind, saveRecordKind } from "../lib/recording";
 import type { MediaRecording, RecordKind } from "../lib/recording";
 import { VIDEO_NOTE_MAX_MS } from "../../subscription/lib/plans";
 import { useVoiceSettingsStore } from "../../voice/store/voiceSettingsStore";
@@ -58,7 +57,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
   const [mode, setMode] = React.useState<Mode>(() =>
     useVoiceDraftStore.getState().failed[draftKey] ? "failed" : "idle",
   );
-  const [kind, setKind] = React.useState<RecordKind>(readRecordKind);
+  const [kind, setKind] = React.useState<RecordKind>("voice");
   const [recordingKind, setRecordingKind] = React.useState<RecordKind>(kind);
   const [elapsed, setElapsed] = React.useState(0);
   const [levels, setLevels] = React.useState<number[]>([]);
@@ -287,11 +286,9 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     if (lockRequestedRef.current) setDrag({ x: 0, y: 0 });
   };
 
-  const toggleKind = () => {
-    const next: RecordKind = kindRef.current === "voice" ? "video" : "voice";
+  const pick = (next: RecordKind) => {
     kindRef.current = next;
     setKind(next);
-    saveRecordKind(next);
   };
 
   const clearPress = () => {
@@ -301,9 +298,10 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     return true;
   };
 
-  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const onPointerDown = (next: RecordKind, e: React.PointerEvent<HTMLButtonElement>) => {
     if (disabled || modeRef.current !== "idle" || pressTimerRef.current) return;
     e.preventDefault();
+    pick(next);
     e.currentTarget.setPointerCapture(e.pointerId);
     originRef.current = { x: e.clientX, y: e.clientY };
     pressTimerRef.current = setTimeout(() => {
@@ -334,7 +332,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
 
   const onPointerUp = () => {
     if (clearPress()) {
-      toggleKind();
+      void begin(true);
       return;
     }
     const current = modeRef.current;
@@ -544,29 +542,37 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
           <Icon name="send" size={14} />
         </button>
       ) : (
-        <button
-          type="button"
-          className={
-            "send-btn enabled voice-rec-btn" + (active ? " recording" : "") + (kind === "video" ? " video" : "")
-          }
-          title={i18n.t(kind === "video" ? "videoNoteRecordHint" : "voiceRecordHint", { ns: "chat" })}
-          aria-label={i18n.t(kind === "video" ? "videoNoteRecord" : "voiceRecord", { ns: "chat" })}
-          disabled={disabled && !active}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={() => {
-            clearPress();
-            if (modeRef.current === "holding" || modeRef.current === "starting") cancel();
-          }}
-          onClick={(e) => {
-            if (e.detail !== 0 || disabled || modeRef.current !== "idle") return;
-            void begin(true);
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          <Icon name={kind === "video" ? "camera" : "mic"} size={16} />
-        </button>
+        (["video", "voice"] as RecordKind[])
+          .filter((option) => !active || option === kind)
+          .map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={
+                "send-btn enabled voice-rec-btn" +
+                (active ? " recording" : "") +
+                (option === "video" ? " video" : "")
+              }
+              title={i18n.t(option === "video" ? "videoNoteRecordHint" : "voiceRecordHint", { ns: "chat" })}
+              aria-label={i18n.t(option === "video" ? "videoNoteRecord" : "voiceRecord", { ns: "chat" })}
+              disabled={disabled && !active}
+              onPointerDown={(e) => onPointerDown(option, e)}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={() => {
+                clearPress();
+                if (modeRef.current === "holding" || modeRef.current === "starting") cancel();
+              }}
+              onClick={(e) => {
+                if (e.detail !== 0 || disabled || modeRef.current !== "idle") return;
+                pick(option);
+                void begin(true);
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              <Icon name={option === "video" ? "camera" : "mic"} size={16} />
+            </button>
+          ))
       )}
     </>
   );

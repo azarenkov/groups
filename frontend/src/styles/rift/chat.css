@@ -968,7 +968,9 @@
   color: #fff;
   cursor: pointer;
 }
-.composer .voice-rec-btn.video { background: var(--accent); }
+.composer-wrap > .voice-rec-btn.video { margin-bottom: 6px; }
+.composer .voice-rec-btn.video:not(.recording) { background: transparent; color: var(--fg-2); }
+.composer .voice-rec-btn.video:not(.recording):hover { background: var(--surface-hover); color: var(--fg-1); }
 .vnote-play {
   position: absolute; left: 50%; top: 50%; z-index: 1;
   width: 56px; height: 56px;
