@@ -9,7 +9,7 @@ use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 
 use super::codec_dims::{h264_sps_dims, vp8_frame_dims, vp9_frame_dims};
-use super::voice_probe::opus_packet_samples;
+use super::voice_probe::{opus_packet_samples, opus_packet_valid};
 
 const OPUS_RATE: u64 = 48_000;
 const MAX_BOXES: usize = 100_000;
@@ -231,6 +231,9 @@ fn probe_webm(mut media: Box<dyn MediaSource>) -> Option<VideoProbe> {
         let end = ends.entry(track.id).or_insert(0);
         *end = (*end).max(packet.ts.saturating_add(packet.dur));
         if track.codec_params.codec == CODEC_TYPE_OPUS {
+            if !opus_packet_valid(&packet.data) {
+                return None;
+            }
             opus_samples = opus_samples.saturating_add(opus_packet_samples(&packet.data));
         }
     }
