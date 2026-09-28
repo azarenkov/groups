@@ -52,6 +52,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
   const modeRef = React.useRef<Mode>("idle");
   const originRef = React.useRef({ x: 0, y: 0 });
   const releasedRef = React.useRef(false);
+  const lockRequestedRef = React.useRef(false);
   const finishingRef = React.useRef(false);
   const previewRef = React.useRef<{ audio: HTMLAudioElement; url: string } | null>(null);
 
@@ -77,6 +78,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     stopPreview();
     recorderRef.current = null;
     releasedRef.current = false;
+    lockRequestedRef.current = false;
     finishingRef.current = false;
     setPaused(false);
     setElapsed(0);
@@ -172,6 +174,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
       if (e.key !== "Escape") return;
       e.preventDefault();
       e.stopPropagation();
+      if (modeRef.current === "retrying") return;
       cancel();
     };
     window.addEventListener("keydown", onKey, true);
@@ -187,6 +190,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     const recorder = new VoiceRecorder();
     recorderRef.current = recorder;
     releasedRef.current = false;
+    lockRequestedRef.current = false;
     setModeBoth("starting");
     recorder.onLevel = (level) =>
       setLevels((prev) => {
@@ -205,11 +209,12 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
       recorder.cancel();
       return;
     }
-    if (!locked && releasedRef.current) {
+    if (!locked && releasedRef.current && !lockRequestedRef.current) {
       cancel();
       return;
     }
-    setModeBoth(locked ? "locked" : "holding");
+    setModeBoth(locked || lockRequestedRef.current ? "locked" : "holding");
+    if (lockRequestedRef.current) setDrag({ x: 0, y: 0 });
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -234,7 +239,11 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
       cancel();
       return;
     }
-    if (dy < -LOCK_SWIPE_PX && current === "holding") {
+    if (dy < -LOCK_SWIPE_PX) {
+      if (current === "starting") {
+        lockRequestedRef.current = true;
+        return;
+      }
       setDrag({ x: 0, y: 0 });
       setModeBoth("locked");
     }
