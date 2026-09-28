@@ -12,8 +12,17 @@ use super::voice_probe::opus_packet_samples;
 
 const OPUS_RATE: u64 = 48_000;
 const MAX_BOXES: usize = 100_000;
+const MAX_SAMPLES: u64 = 2_000_000;
+const WEBM_HEADER_BYTES: u64 = 256 * 1024;
 
-pub fn probe_video_note_ms(media: Box<dyn MediaSource>, content_type: &str) -> Option<i64> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VideoProbe {
+    pub duration_ms: i64,
+    pub width: u32,
+    pub height: u32,
+}
+
+pub fn probe_video_note(media: Box<dyn MediaSource>, content_type: &str) -> Option<VideoProbe> {
     match content_type {
         "video/webm" => probe_webm(media),
         "video/mp4" => probe_mp4(media),
@@ -21,7 +30,104 @@ pub fn probe_video_note_ms(media: Box<dyn MediaSource>, content_type: &str) -> O
     }
 }
 
-fn probe_webm(media: Box<dyn MediaSource>) -> Option<i64> {
+pub fn probe_video_note_ms(media: Box<dyn MediaSource>, content_type: &str) -> Option<i64> {
+    probe_video_note(media, content_type).map(|p| p.duration_ms)
+}
+
+fn read_vint(buf: &[u8], pos: &mut usize, keep_marker: bool) -> Option<u64> {
+    let first = *buf.get(*pos)?;
+    let len = first.leading_zeros() as usize + 1;
+    if len > 8 || *pos + len > buf.len() {
+        return None;
+    }
+    let mut value = if keep_marker { first as u64 } else { (first as u64) & ((1u64 << (8 - len)) - 1) };
+    for i in 1..len {
+        value = (value << 8) | buf[*pos + i] as u64;
+    }
+    *pos += len;
+    Some(value)
+}
+
+fn read_element(buf: &[u8], pos: &mut usize) -> Option<(u64, usize, usize)> {
+    let start = *pos;
+    let id = read_vint(buf, pos, true)?;
+    let first = *buf.get(*pos)?;
+    let len = first.leading_zeros() as usize + 1;
+    let size = read_vint(buf, pos, false)?;
+    let unknown = size == (1u64 << (7 * len)) - 1;
+    let end = if unknown { buf.len() } else { (*pos).checked_add(size as usize)? };
+    if start >= *pos {
+        return None;
+    }
+    Some((id, *pos, end.min(buf.len()).max(*pos)))
+}
+
+fn read_uint(buf: &[u8]) -> Option<u32> {
+    if buf.is_empty() || buf.len() > 4 {
+        return None;
+    }
+    Some(buf.iter().fold(0u32, |acc, b| (acc << 8) | *b as u32))
+}
+
+pub fn webm_dimensions(buf: &[u8]) -> Option<(u32, u32)> {
+    let mut pos = 0;
+    let (id, _, end) = read_element(buf, &mut pos)?;
+    if id != 0x1A45_DFA3 {
+        return None;
+    }
+    pos = end;
+    let (id, body, _) = read_element(buf, &mut pos)?;
+    if id != 0x1853_8067 {
+        return None;
+    }
+    pos = body;
+    while pos < buf.len() {
+        let (id, body, end) = read_element(buf, &mut pos)?;
+        match id {
+            0x1654_AE6B => return tracks_dimensions(&buf[body..end]),
+            0x1F43_B675 => return None,
+            _ => pos = end,
+        }
+    }
+    None
+}
+
+fn tracks_dimensions(buf: &[u8]) -> Option<(u32, u32)> {
+    let mut pos = 0;
+    while pos < buf.len() {
+        let (id, body, end) = read_element(buf, &mut pos)?;
+        if id == 0xAE {
+            let mut inner = body;
+            while inner < end {
+                let (child, child_body, child_end) = read_element(&buf[..end], &mut inner)?;
+                if child == 0xE0 {
+                    let mut width = None;
+                    let mut height = None;
+                    let mut v = child_body;
+                    while v < child_end {
+                        let (field, field_body, field_end) = read_element(&buf[..child_end], &mut v)?;
+                        match field {
+                            0xB0 => width = read_uint(&buf[field_body..field_end]),
+                            0xBA => height = read_uint(&buf[field_body..field_end]),
+                            _ => {}
+                        }
+                        v = field_end;
+                    }
+                    return Some((width?, height?));
+                }
+                inner = child_end;
+            }
+        }
+        pos = end;
+    }
+    None
+}
+
+fn probe_webm(mut media: Box<dyn MediaSource>) -> Option<VideoProbe> {
+    let mut header = Vec::new();
+    (&mut media).take(WEBM_HEADER_BYTES).read_to_end(&mut header).ok()?;
+    let (width, height) = webm_dimensions(&header)?;
+    media.seek(SeekFrom::Start(0)).ok()?;
     let source = MediaSourceStream::new(media, Default::default());
     let probed = symphonia::default::get_probe()
         .format(&Hint::new(), source, &FormatOptions::default(), &MetadataOptions::default())
@@ -61,7 +167,7 @@ fn probe_webm(media: Box<dyn MediaSource>) -> Option<i64> {
         let time = time_base.calc_time(end);
         longest = longest.max((time.seconds as f64 * 1000.0 + time.frac * 1000.0).round() as i64);
     }
-    Some(longest)
+    Some(VideoProbe { duration_ms: longest, width, height })
 }
 
 #[derive(Default, Clone)]
@@ -71,11 +177,14 @@ struct Mp4Track {
     media_duration: u64,
     default_duration: u32,
     end: u64,
+    width: u32,
+    height: u32,
 }
 
 struct Reader<R: Read + Seek> {
     inner: R,
     boxes: usize,
+    samples: u64,
 }
 
 impl<R: Read + Seek> Reader<R> {
@@ -127,10 +236,10 @@ impl<R: Read + Seek> Reader<R> {
     }
 }
 
-pub fn probe_mp4(mut media: Box<dyn MediaSource>) -> Option<i64> {
+pub fn probe_mp4(mut media: Box<dyn MediaSource>) -> Option<VideoProbe> {
     let len = media.byte_len().or_else(|| media.seek(SeekFrom::End(0)).ok())?;
     media.seek(SeekFrom::Start(0)).ok()?;
-    let mut r = Reader { inner: media, boxes: 0 };
+    let mut r = Reader { inner: media, boxes: 0, samples: 0 };
     let mut tracks: HashMap<u32, Mp4Track> = HashMap::new();
     let mut first = true;
     while r.pos()? < len {
@@ -159,7 +268,12 @@ pub fn probe_mp4(mut media: Box<dyn MediaSource>) -> Option<i64> {
         let units = track.end.max(track.media_duration);
         longest = longest.max((units.saturating_mul(1000) / track.timescale as u64) as i64);
     }
-    Some(longest)
+    let video_track = tracks.values().find(|t| &t.handler == b"vide")?;
+    Some(VideoProbe {
+        duration_ms: longest,
+        width: video_track.width,
+        height: video_track.height,
+    })
 }
 
 fn parse_moov<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMap<u32, Mp4Track>) -> Option<()> {
@@ -204,6 +318,9 @@ fn parse_trak<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<(u32, Mp4
                 let (version, _) = r.full_header()?;
                 r.skip(if version == 1 { 16 } else { 8 })?;
                 id = Some(r.u32()?);
+                r.skip(if version == 1 { 64 } else { 60 })?;
+                track.width = r.u32()? >> 16;
+                track.height = r.u32()? >> 16;
             }
             b"mdia" => {
                 while r.pos()? < end {
@@ -290,13 +407,20 @@ fn parse_traf<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMa
                     .filter(|bit| flags & **bit != 0)
                     .count() as u64
                     * 4;
+                r.samples = r.samples.saturating_add(count);
+                if r.samples > MAX_SAMPLES {
+                    return None;
+                }
                 if count.checked_mul(per_sample)? > end.saturating_sub(r.pos()?) {
                     return None;
                 }
-                for _ in 0..count {
-                    let duration = if flags & 0x100 != 0 { r.u32()? as u64 } else { fallback };
-                    total = total.saturating_add(duration);
-                    r.skip(per_sample - if flags & 0x100 != 0 { 4 } else { 0 })?;
+                if flags & 0x100 == 0 {
+                    total = total.saturating_add(count.saturating_mul(fallback));
+                } else {
+                    for _ in 0..count {
+                        total = total.saturating_add(r.u32()? as u64);
+                        r.skip(per_sample - 4)?;
+                    }
                 }
             }
             _ => {}
@@ -328,6 +452,32 @@ mod tests {
     fn reads_a_fragmented_mp4_video_note() {
         let ms = probe(include_bytes!("fixtures/video-note-5s.mp4"), "video/mp4").expect("duration");
         assert!((4500..=5500).contains(&ms), "{ms}");
+    }
+
+    #[test]
+    fn reads_the_frame_size_of_both_containers() {
+        use super::probe_video_note;
+        let webm = probe_video_note(
+            Box::new(Cursor::new(include_bytes!("fixtures/video-note-5s.webm").to_vec())),
+            "video/webm",
+        )
+        .expect("webm");
+        assert_eq!((webm.width, webm.height), (384, 384));
+        let mp4 = probe_video_note(
+            Box::new(Cursor::new(include_bytes!("fixtures/video-note-5s.mp4").to_vec())),
+            "video/mp4",
+        )
+        .expect("mp4");
+        assert_eq!((mp4.width, mp4.height), (384, 384));
+    }
+
+    #[test]
+    fn a_huge_sample_count_is_rejected_without_iterating() {
+        let mut mp4 = include_bytes!("fixtures/video-note-5s.mp4").to_vec();
+        let at = mp4.windows(4).position(|w| w == b"trun").expect("trun");
+        mp4[at + 4..at + 8].copy_from_slice(&[0, 0, 0, 0]);
+        mp4[at + 8..at + 12].copy_from_slice(&u32::MAX.to_be_bytes());
+        assert_eq!(probe(&mp4, "video/mp4"), None);
     }
 
     #[test]

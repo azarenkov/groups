@@ -281,14 +281,17 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
         let Some(spool) = spool else {
             return Some(media.invalid());
         };
-        let video = matches!(media, RichMedia::VideoNote(_));
+        let expected_side = match media {
+            RichMedia::VideoNote(note) => Some(note.size),
+            RichMedia::Voice(_) => None,
+        };
         let content_type = content_type.to_string();
-        let probed = tokio::task::spawn_blocking(move || {
-            if video {
-                spool.probe_video_note_ms(&content_type)
-            } else {
-                spool.probe_duration_ms()
-            }
+        let probed = tokio::task::spawn_blocking(move || match expected_side {
+            Some(side) => spool.probe_video_note(&content_type).and_then(|probe| {
+                let square = probe.width == probe.height && probe.width as i64 == side as i64;
+                square.then_some(probe.duration_ms)
+            }),
+            None => spool.probe_duration_ms(),
         })
         .await;
         match probed {

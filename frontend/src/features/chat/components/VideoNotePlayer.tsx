@@ -115,8 +115,9 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
       .catch(() => {
         loadingRef.current = false;
         setFailed(true);
+        if (activeRef.current) useVoicePlaybackStore.getState().release(messageId);
       });
-  }, [visible, active, attachment.id, attachment.sizeBytes, unload]);
+  }, [visible, active, attachment.id, attachment.sizeBytes, messageId, unload]);
 
   React.useEffect(() => {
     const video = videoRef.current;
