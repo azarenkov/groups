@@ -142,6 +142,22 @@ async fn upload_attachment(
         let ((), attachment) = futures::join!(pump, upload);
         let attachment = attachment?;
 
+        while let Some(rest) = payload.next().await {
+            let late_voice = match &rest {
+                Ok(field) => matches!(field.name(), Some("voiceDurationMs") | Some("voiceWaveform")),
+                Err(_) => false,
+            };
+            if late_voice {
+                let _ = app_state
+                    .delete_attachment_usecase
+                    .execute(attachment.id, user_id)
+                    .await;
+                return Err(HttpError::bad_request(
+                    "voice metadata must come before the file".to_string(),
+                ));
+            }
+        }
+
         return Ok(HttpResponse::Created()
             .json(ApiResponse::success(AttachmentResponse::from(attachment))));
     }

@@ -99,7 +99,7 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
     setLoading(true);
     const promise = attachmentAPI
       .download(attachment.id, attachment.sizeBytes)
-      .then((blob) => {
+      .then(async (blob) => {
         if (disposedRef.current) throw new Error("disposed");
         const url = URL.createObjectURL(blob);
         urlRef.current = url;
@@ -107,7 +107,12 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
         audio.preload = "auto";
         audio.playbackRate = useVoicePlaybackStore.getState().speed;
         const sink = useVoiceSettingsStore.getState().speakerDeviceId;
-        if (sink && audio.setSinkId) void audio.setSinkId(sink).catch(() => {});
+        if (sink && audio.setSinkId) await audio.setSinkId(sink).catch(() => {});
+        if (disposedRef.current) {
+          URL.revokeObjectURL(url);
+          urlRef.current = null;
+          throw new Error("disposed");
+        }
         audio.addEventListener("play", () => setPlaying(true));
         audio.addEventListener("pause", () => {
           setPlaying(false);
