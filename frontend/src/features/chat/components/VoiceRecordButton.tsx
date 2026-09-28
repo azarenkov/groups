@@ -7,6 +7,7 @@ import { formatVoiceDuration } from "../lib/voice";
 import { VoiceRecorder, voiceRecordingSupported } from "../lib/voiceRecorder";
 import type { VoiceRecording } from "../lib/voiceRecorder";
 import { useVoiceSettingsStore } from "../../voice/store/voiceSettingsStore";
+import { useVoiceDraftStore } from "../store/voiceDraftStore";
 
 type Mode = "idle" | "starting" | "holding" | "locked" | "failed" | "retrying";
 
@@ -22,6 +23,7 @@ interface VoiceRecordButtonProps {
   onSend: (recording: VoiceRecording) => Promise<boolean>;
   onError: (message: string | null) => void;
   onActiveChange?: (active: boolean) => void;
+  draftKey: string;
 }
 
 const errorMessage = (err: unknown): string => {
@@ -40,16 +42,19 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
   onSend,
   onError,
   onActiveChange,
+  draftKey,
 }) => {
-  const [mode, setMode] = React.useState<Mode>("idle");
+  const failed = useVoiceDraftStore((s) => s.failed[draftKey] ?? null);
+  const [mode, setMode] = React.useState<Mode>(() =>
+    useVoiceDraftStore.getState().failed[draftKey] ? "failed" : "idle",
+  );
   const [elapsed, setElapsed] = React.useState(0);
   const [levels, setLevels] = React.useState<number[]>([]);
   const [paused, setPaused] = React.useState(false);
   const [previewing, setPreviewing] = React.useState(false);
   const [drag, setDrag] = React.useState({ x: 0, y: 0 });
-  const [failed, setFailed] = React.useState<VoiceRecording | null>(null);
   const recorderRef = React.useRef<VoiceRecorder | null>(null);
-  const modeRef = React.useRef<Mode>("idle");
+  const modeRef = React.useRef<Mode>(mode);
   const originRef = React.useRef({ x: 0, y: 0 });
   const releasedRef = React.useRef(false);
   const lockRequestedRef = React.useRef(false);
@@ -84,9 +89,9 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
     setElapsed(0);
     setLevels([]);
     setDrag({ x: 0, y: 0 });
-    setFailed(null);
+    useVoiceDraftStore.getState().drop(draftKey);
     setModeBoth("idle");
-  }, [stopPreview]);
+  }, [draftKey, stopPreview]);
 
   const cancel = React.useCallback(() => {
     recorderRef.current?.cancel();
@@ -106,9 +111,9 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
       return;
     }
     if (await onSend(recording)) return;
-    setFailed(recording);
+    useVoiceDraftStore.getState().keep(draftKey, recording);
     setModeBoth("failed");
-  }, [onError, onSend, reset, stopPreview]);
+  }, [draftKey, onError, onSend, reset, stopPreview]);
 
   const retry = async () => {
     if (!failed || modeRef.current !== "failed") return;

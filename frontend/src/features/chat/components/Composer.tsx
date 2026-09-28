@@ -13,6 +13,7 @@ import Icon from "../../../shared/ui/Icon";
 import type { PendingFile } from "../types";
 import { replyText } from "../lib/replyText";
 import VoiceRecordButton from "./VoiceRecordButton";
+import { useVoiceDraftStore } from "../store/voiceDraftStore";
 import type { VoiceRecording } from "../lib/voiceRecorder";
 
 interface ComposerProps {
@@ -70,8 +71,10 @@ const Composer: React.FC<ComposerProps> = ({
 }) => {
   useAutoGrow(composerRef, text);
   const [voiceActive, setVoiceActive] = React.useState(false);
+  const hasVoiceDraft = useVoiceDraftStore((s) => !!s.failed[conversationKey ?? ""]);
   const showVoice =
-    !!onSendVoice && (voiceActive || (!text.trim() && pendingFiles.length === 0));
+    !!onSendVoice &&
+    (voiceActive || hasVoiceDraft || (!text.trim() && pendingFiles.length === 0));
   return (
     <form className="composer" onSubmit={onSubmit}>
         {replyTarget && (
@@ -281,6 +284,7 @@ const Composer: React.FC<ComposerProps> = ({
           {showVoice && onSendVoice ? (
             <VoiceRecordButton
               key={conversationKey}
+              draftKey={conversationKey ?? ""}
               disabled={sending}
               onSend={onSendVoice}
               onError={(message) => onVoiceError?.(message)}
