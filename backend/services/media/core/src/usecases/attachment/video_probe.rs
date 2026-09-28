@@ -258,6 +258,7 @@ struct Mp4Track {
     width: u32,
     height: u32,
     coded: Option<(u32, u32)>,
+    nal_length_size: u8,
 }
 
 struct Reader<R: Read + Seek> {
@@ -267,6 +268,7 @@ struct Reader<R: Read + Seek> {
     sample_bytes: u64,
     mdat_ranges: Vec<(u64, u64)>,
     sample_ranges: Vec<(u64, u64)>,
+    video_samples: Vec<(u64, u64)>,
 }
 
 impl<R: Read + Seek> Reader<R> {
@@ -328,6 +330,7 @@ pub fn probe_mp4(mut media: Box<dyn MediaSource>) -> Option<VideoProbe> {
         sample_bytes: 0,
         mdat_ranges: Vec::new(),
         sample_ranges: Vec::new(),
+        video_samples: Vec::new(),
     };
     let mut tracks: HashMap<u32, Mp4Track> = HashMap::new();
     let mut first = true;
@@ -372,6 +375,10 @@ pub fn probe_mp4(mut media: Box<dyn MediaSource>) -> Option<VideoProbe> {
     }
     let video_track = tracks.values().find(|t| &t.handler == b"vide")?;
     let (width, height) = video_track.coded?;
+    let samples = std::mem::take(&mut r.video_samples);
+    if !avc_samples_valid(&mut r, &samples, video_track.nal_length_size) {
+        return None;
+    }
     if (width, height) != (video_track.width, video_track.height) {
         return None;
     }
@@ -450,8 +457,9 @@ fn parse_trak<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<(u32, Mp4
                             track.handler = r.bytes::<4>()?;
                         }
                         b"minf" => {
-                            if let Some(dims) = find_avc_dims(r, inner_end)? {
+                            if let Some((dims, nal_length_size)) = find_avc_dims(r, inner_end)? {
                                 track.coded = Some(dims);
+                                track.nal_length_size = nal_length_size;
                             }
                         }
                         _ => {}
@@ -466,7 +474,9 @@ fn parse_trak<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<(u32, Mp4
     Some((id?, track))
 }
 
-fn find_avc_dims<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<Option<(u32, u32)>> {
+type AvcConfig = ((u32, u32), u8);
+
+fn find_avc_dims<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<Option<AvcConfig>> {
     while r.pos()? < limit {
         let (kind, _, end) = r.header(limit)?;
         match &kind {
@@ -492,7 +502,8 @@ fn find_avc_dims<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<Option
                 while r.pos()? < entry_end {
                     let (child, _, child_end) = r.header(entry_end)?;
                     if &child == b"avcC" {
-                        r.skip(5)?;
+                        r.skip(4)?;
+                        let nal_length_size = (r.bytes::<1>()?[0] & 0x03) + 1;
                         let sps_count = r.bytes::<1>()?[0] & 0x1F;
                         if sps_count == 0 {
                             return None;
@@ -511,7 +522,7 @@ fn find_avc_dims<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<Option
                             }
                             dims = Some(next);
                         }
-                        return Some(dims);
+                        return Some(dims.map(|d| (d, nal_length_size)));
                     }
                     r.seek(child_end)?;
                 }
@@ -522,6 +533,46 @@ fn find_avc_dims<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<Option
         r.seek(end)?;
     }
     Some(None)
+}
+
+fn avc_samples_valid<R: Read + Seek>(r: &mut Reader<R>, samples: &[(u64, u64)], nal_length_size: u8) -> bool {
+    let check = |r: &mut Reader<R>| -> Option<bool> {
+        if !(1..=4).contains(&nal_length_size) || samples.is_empty() {
+            return None;
+        }
+        let mut first = true;
+        for &(offset, size) in samples {
+            let end = offset.checked_add(size)?;
+            let mut pos = offset;
+            let mut idr = false;
+            if size == 0 {
+                return None;
+            }
+            while pos < end {
+                r.seek(pos)?;
+                let mut len_bytes = [0u8; 4];
+                r.inner.read_exact(&mut len_bytes[4 - nal_length_size as usize..]).ok()?;
+                let len = u32::from_be_bytes(len_bytes) as u64;
+                let header = r.bytes::<1>()?[0];
+                let body_end = pos.checked_add(nal_length_size as u64)?.checked_add(len)?;
+                if len == 0 || body_end > end || header & 0x80 != 0 {
+                    return None;
+                }
+                let kind = header & 0x1F;
+                if !(1..=23).contains(&kind) {
+                    return None;
+                }
+                idr |= kind == 5;
+                pos = body_end;
+            }
+            if first && !idr {
+                return None;
+            }
+            first = false;
+        }
+        Some(true)
+    };
+    check(r).unwrap_or(false)
 }
 
 fn parse_moof<R: Read + Seek>(
@@ -592,6 +643,7 @@ fn parse_traf<R: Read + Seek>(
                 let track = tracks.get(&id?)?;
                 let fallback = default_duration.unwrap_or(track.default_duration) as u64;
                 let fallback_size = default_size.unwrap_or(track.default_size) as u64;
+                let is_video = &track.handler == b"vide";
                 let per_sample = [0x100u32, 0x200, 0x400, 0x800]
                     .iter()
                     .filter(|bit| flags & **bit != 0)
@@ -607,7 +659,13 @@ fn parse_traf<R: Read + Seek>(
                 if per_sample == 0 {
                     total = total.saturating_add(count.saturating_mul(fallback));
                     r.sample_bytes = r.sample_bytes.saturating_add(count.saturating_mul(fallback_size));
+                    if is_video {
+                        for i in 0..count {
+                            r.video_samples.push((run_start.checked_add(i.checked_mul(fallback_size)?)?, fallback_size));
+                        }
+                    }
                 } else {
+                    let mut sample_at = run_start;
                     for _ in 0..count {
                         let duration = if flags & 0x100 != 0 { r.u32()? as u64 } else { fallback };
                         let size = if flags & 0x200 != 0 { r.u32()? as u64 } else { fallback_size };
@@ -619,6 +677,10 @@ fn parse_traf<R: Read + Seek>(
                         }
                         total = total.saturating_add(duration);
                         r.sample_bytes = r.sample_bytes.saturating_add(size);
+                        if is_video {
+                            r.video_samples.push((sample_at, size));
+                        }
+                        sample_at = sample_at.checked_add(size)?;
                     }
                 }
                 let run_bytes = r.sample_bytes - bytes_before;
@@ -724,6 +786,22 @@ mod tests {
         let flags = u32::from_be_bytes(mp4[at + 4..at + 8].try_into().unwrap()) & 0x00FF_FFFF;
         assert!(flags & 0x01 != 0);
         mp4[at + 12..at + 16].copy_from_slice(&0x7000_0000u32.to_be_bytes());
+        assert_eq!(probe(&mp4, "video/mp4"), None);
+    }
+
+    #[test]
+    fn zeroed_media_data_is_rejected() {
+        let mut mp4 = include_bytes!("fixtures/video-note-5s.mp4").to_vec();
+        let mut pos = 0;
+        while pos + 8 <= mp4.len() {
+            let size = u32::from_be_bytes(mp4[pos..pos + 4].try_into().unwrap()) as usize;
+            if &mp4[pos + 4..pos + 8] == b"mdat" {
+                for b in &mut mp4[pos + 8..pos + size] {
+                    *b = 0;
+                }
+            }
+            pos += size;
+        }
         assert_eq!(probe(&mp4, "video/mp4"), None);
     }
 
