@@ -155,5 +155,6 @@
   "videoNoteNoCamera": "No access to the camera or microphone. Allow them in your browser or system settings.",
   "videoNoteCameraBusy": "The camera is busy in another app or call.",
   "videoNoteTooLong": "Video messages can be up to one minute long.",
-  "videoNoteInvalid": "Couldn't send the video message."
+  "videoNoteInvalid": "Couldn't send the video message.",
+  "voiceSlideToLock": "Slide up to lock"
 }

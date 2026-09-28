@@ -840,15 +840,18 @@
 .voice-rec-icon:hover { background: var(--surface-hover); color: var(--fg-1); }
 .voice-rec-icon.danger { color: var(--danger, #ff453a); }
 .voice-rec-lock {
-  position: absolute; right: 12px; bottom: 52px; z-index: 3;
-  width: 28px; height: 40px; border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
+  position: absolute; right: 10px; bottom: 50px; z-index: 3;
+  width: 32px; height: 52px; border-radius: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  transition: background 0.12s ease, color 0.12s ease;
   background: var(--surface-panel);
   box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--hairline);
   color: var(--fg-2);
   pointer-events: none;
 }
 
+.voice-rec-lock svg:last-child { transform: rotate(-90deg); opacity: 0.7; }
+.voice-rec-lock.near { background: var(--accent); color: #fff; box-shadow: var(--shadow-sm); }
 .msg-reply:has(> .msg-reply-thumb) { position: relative; padding-left: 44px; min-height: 40px; justify-content: center; }
 .msg-reply > .msg-reply-thumb { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); }
 .msg-reply-thumb {
@@ -929,8 +932,7 @@
 .vnote-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 
 .vnote-rec {
-  position: fixed; left: 50%; top: 45%;
-  transform: translate(-50%, -50%);
+  position: fixed; right: 64px; bottom: 96px;
   z-index: 1500;
   display: flex; flex-direction: column; align-items: center; gap: 14px;
   animation: popIn 0.18s ease;
@@ -938,7 +940,7 @@
 }
 .vnote-rec-circle {
   position: relative;
-  width: min(320px, 72vw); height: min(320px, 72vw);
+  width: min(240px, 56vw); height: min(240px, 56vw);
 }
 .vnote-rec-live, .vnote-rec-preview {
   position: absolute; inset: 0;
@@ -985,4 +987,7 @@
   border-left: 16px solid #fff;
   border-top: 11px solid transparent;
   border-bottom: 11px solid transparent;
+}
+@media (max-width: 600px) {
+  .vnote-rec { right: 50%; transform: translateX(50%); bottom: 110px; }
 }
