@@ -70,8 +70,8 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
       return;
     }
     const observer = new IntersectionObserver(
-      (entries) => setVisible(entries.some((e) => e.isIntersecting)),
-      { threshold: 0.4 },
+      (entries) => setVisible(entries.some((e) => e.isIntersecting && e.intersectionRatio >= 0.4)),
+      { threshold: [0, 0.4] },
     );
     observer.observe(node);
     return () => observer.disconnect();
