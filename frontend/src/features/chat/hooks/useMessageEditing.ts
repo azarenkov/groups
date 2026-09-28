@@ -4,6 +4,7 @@ import type { ChannelMessage } from "../../../shared/types/channel";
 import { MAX_CONTENT } from "../constants";
 import type { useAttachments } from "./useAttachments";
 import type { Messenger } from "./useMessenger";
+import { isVoiceMessage } from "../lib/voice";
 
 export function useMessageEditing(params: {
   messenger: Messenger | null;
@@ -54,7 +55,8 @@ export function useMessageEditing(params: {
           !m.callStatus &&
           !m.inviteCommunityId &&
           !m.forwardedFrom &&
-          !m.system,
+          !m.system &&
+          !isVoiceMessage(m),
       );
     if (!last) return false;
     startEdit(last);

@@ -7,6 +7,29 @@ use uuid::Uuid;
 
 const MAX_FILE_NAME_BYTES: usize = 255;
 const UPLOAD_CHANNEL_CHUNKS: usize = 16;
+const MAX_TEXT_FIELD_BYTES: usize = 2048;
+
+async fn read_text_field(field: &mut actix_multipart::Field) -> Result<String, HttpError> {
+    let mut bytes = Vec::new();
+    while let Some(chunk) = field.next().await {
+        let chunk = chunk.map_err(|e| HttpError::bad_request(e.to_string()))?;
+        if bytes.len() + chunk.len() > MAX_TEXT_FIELD_BYTES {
+            return Err(HttpError::bad_request("form field is too long".to_string()));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    String::from_utf8(bytes).map_err(|_| HttpError::bad_request("form field is not text".to_string()))
+}
+
+fn parse_waveform(raw: &str) -> Result<Vec<u8>, HttpError> {
+    raw.split(',')
+        .map(|part| {
+            part.trim()
+                .parse::<u8>()
+                .map_err(|_| HttpError::bad_request("invalid voice waveform".to_string()))
+        })
+        .collect()
+}
 
 use crate::state::AppState;
 use api_common::dto::responses::ApiResponse;
@@ -39,11 +62,35 @@ async fn upload_attachment(
         .await
         .map_err(|_| HttpError::bad_request("upload capacity unavailable".to_string()))?;
 
+    let mut voice_duration_ms: Option<i32> = None;
+    let mut voice_waveform: Option<Vec<u8>> = None;
     while let Some(field) = payload.next().await {
         let mut field = field.map_err(|e| HttpError::bad_request(e.to_string()))?;
-        if field.name() != Some("file") {
-            continue;
+        match field.name() {
+            Some("voiceDurationMs") => {
+                let raw = read_text_field(&mut field).await?;
+                voice_duration_ms = Some(
+                    raw.trim()
+                        .parse::<i32>()
+                        .map_err(|_| HttpError::bad_request("invalid voice duration".to_string()))?,
+                );
+                continue;
+            }
+            Some("voiceWaveform") => {
+                let raw = read_text_field(&mut field).await?;
+                voice_waveform = Some(parse_waveform(&raw)?);
+                continue;
+            }
+            Some("file") => {}
+            _ => continue,
         }
+        let voice = match (voice_duration_ms, voice_waveform.take()) {
+            (Some(duration_ms), Some(waveform)) => {
+                Some(domain::attachment::VoiceMeta { duration_ms, waveform })
+            }
+            (None, None) => None,
+            _ => return Err(HttpError::bad_request("incomplete voice metadata".to_string())),
+        };
         let raw_name = field
             .content_disposition()
             .and_then(|cd| cd.get_filename())
@@ -89,10 +136,27 @@ async fn upload_attachment(
             content_type,
             declared_bytes,
             limits,
+            voice,
             stream,
         );
         let ((), attachment) = futures::join!(pump, upload);
         let attachment = attachment?;
+
+        while let Some(rest) = payload.next().await {
+            let late_voice = match &rest {
+                Ok(field) => matches!(field.name(), Some("voiceDurationMs") | Some("voiceWaveform")),
+                Err(_) => false,
+            };
+            if late_voice {
+                let _ = app_state
+                    .delete_attachment_usecase
+                    .execute(attachment.id, user_id)
+                    .await;
+                return Err(HttpError::bad_request(
+                    "voice metadata must come before the file".to_string(),
+                ));
+            }
+        }
 
         return Ok(HttpResponse::Created()
             .json(ApiResponse::success(AttachmentResponse::from(attachment))));

@@ -20,6 +20,7 @@ use contracts::events::{
     message::{
         ChannelMessageDeletedV1 as ChannelMsgDeleted, ChannelMessageEditedV1 as ChannelMsgEdited,
         ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto, MessageHiddenV1 as MessageHiddenDto,
+        VoiceListenedV1 as VoiceListenedDto,
     },
     community::{
         CommunityCreatedV1 as CommunityCreatedDto, CommunityDeletedV1 as CommunityDeletedDto,
@@ -269,6 +270,22 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         );
         publisher
             .publish_to_users(unique(recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".voice.listened") {
+        let evt: VoiceListenedDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "voice.listened",
+            json!({
+                "messageId": evt.message_id,
+                "listenerId": evt.listener_id,
+                "listenedAt": evt.listened_at,
+            }),
+        );
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
             .await?;
         return Ok(());
     }

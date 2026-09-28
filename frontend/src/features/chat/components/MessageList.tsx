@@ -4,6 +4,7 @@ import type { ChannelMessage } from "../../../shared/types/channel";
 import { maxAttachmentsPerMessage } from "../api/attachment";
 import { formatDayDivider, sameDay } from "../lib/messageFormat";
 import Message from "./Message";
+import { sharesTimeWithNext } from "../lib/messageTime";
 import type { PendingFile } from "../types";
 
 interface MessageListProps {
@@ -37,6 +38,7 @@ interface MessageListProps {
   onAcceptInvite: (message: ChannelMessage) => void;
   onDeclineInvite: (message: ChannelMessage) => void;
   onOpenInviteCommunity?: (communityId: string) => void;
+  onVoiceListened?: (message: ChannelMessage) => Promise<void>;
 }
 
 const MessageList: React.FC<MessageListProps> = ({
@@ -70,6 +72,7 @@ const MessageList: React.FC<MessageListProps> = ({
   onAcceptInvite,
   onDeclineInvite,
   onOpenInviteCommunity,
+  onVoiceListened,
 }) => {
   let lastBubbleIndex = -1;
   for (let k = messages.length - 1; k >= 0; k -= 1) {
@@ -100,6 +103,9 @@ const MessageList: React.FC<MessageListProps> = ({
               const isMine = !!currentUserId && m.authorId === currentUserId;
               const subjectName = nameOverrides[m.authorId] ?? m.authorName ?? m.authorId;
               const displayName = m.system ? subjectName : isMine ? "You" : subjectName;
+              const next = messages[i + 1];
+              const sharedTime = sharesTimeWithNext(m, next);
+              const receipt = receiptFor(m, isMine);
               return (
                 <React.Fragment key={m.id}>
                   {newDay && (
@@ -119,9 +125,11 @@ const MessageList: React.FC<MessageListProps> = ({
                   msg={m}
                   displayName={displayName}
                   continued={cont}
+                  hideTime={sharedTime}
+                  hideMeta={sharedTime && !!next && receipt === receiptFor(next, isMine)}
                   isMine={isMine}
                   dmStyle={isDm}
-                  receipt={receiptFor(m, isMine)}
+                  receipt={receipt}
                   editing={editingId === m.id}
                   highlighted={highlightedMessageId === m.id}
                   editText={editText}
@@ -157,6 +165,7 @@ const MessageList: React.FC<MessageListProps> = ({
                   onOpenInviteCommunity={() =>
                     m.inviteCommunityId && onOpenInviteCommunity?.(m.inviteCommunityId)
                   }
+                  onVoiceListened={onVoiceListened ? () => onVoiceListened(m) : undefined}
                 />
                 </React.Fragment>
               );

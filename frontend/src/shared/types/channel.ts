@@ -74,11 +74,17 @@ export interface JoinVoiceChannelResponse {
   deafenedBy?: string | null;
 }
 
+export interface VoiceMeta {
+  durationMs: number;
+  waveform: number[];
+}
+
 export interface Attachment {
   id: string;
   fileName: string;
   contentType: string;
   sizeBytes: number;
+  voice?: VoiceMeta;
 }
 
 export interface ReplyPreview {
@@ -87,6 +93,7 @@ export interface ReplyPreview {
   authorName?: string;
   content: string;
   hasAttachments: boolean;
+  voiceDurationMs?: number | null;
   deleted: boolean;
 }
 
@@ -117,6 +124,7 @@ export interface ChannelMessage {
   system?: SystemMessageInfo;
   replyTo?: ReplyPreview;
   forwardedFrom?: ForwardInfo | null;
+  voiceListened?: boolean;
   createdAt: string;
   editedAt: string | null;
 }

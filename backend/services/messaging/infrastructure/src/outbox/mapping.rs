@@ -358,6 +358,7 @@ fn reply_json(reply: &messaging_domain::message::reply::ReplyPreview) -> Value {
         "authorId": reply.author_id.uuid(),
         "content": reply.snippet,
         "hasAttachments": reply.has_attachments,
+        "voiceDurationMs": reply.voice_duration_ms,
         "hiddenFor": reply.hidden_for.iter().map(|u| u.uuid()).collect::<Vec<_>>(),
     })
 }

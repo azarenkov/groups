@@ -306,6 +306,7 @@ async fn list_channel_messages(
         }
     }
     fill_channel_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
+    crate::voice::fill_channel_listens(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     let response = ListChannelMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
@@ -351,6 +352,7 @@ async fn search_channel_messages(
         }
     }
     fill_channel_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
+    crate::voice::fill_channel_listens(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     let response = SearchChannelMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))
@@ -376,6 +378,7 @@ async fn get_channel_message(
         items[0].attachments.push(link.into());
     }
     fill_channel_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
+    crate::voice::fill_channel_listens(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(items.remove(0))))
 }
 

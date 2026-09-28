@@ -6,6 +6,7 @@ pub mod reply;
 pub mod repository;
 pub mod system;
 pub mod view;
+pub mod voice;
 
 use chrono::{DateTime, Utc};
 

@@ -113,6 +113,8 @@ struct DmPreviewItem {
     call_status: Option<String>,
     invite_community_id: Option<Uuid>,
     has_attachments: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    voice_duration_ms: Option<i32>,
     created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -162,6 +164,7 @@ async fn list_dm_previews(
                 call_status: p.call_status,
                 invite_community_id: p.invite_community_id,
                 has_attachments: p.has_attachments,
+                voice_duration_ms: p.voice_duration_ms,
                 created_at: p.created_at,
             })
             .collect(),
@@ -206,6 +209,7 @@ async fn list_dm_messages(
         }
     }
     fill_dm_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
+    crate::voice::fill_dm_listens(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     let response = ListDmMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
@@ -231,6 +235,7 @@ async fn get_dm_message(
         items[0].attachments.push(link.into());
     }
     fill_dm_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
+    crate::voice::fill_dm_listens(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(items.remove(0))))
 }
 
@@ -363,6 +368,7 @@ async fn search_dm_messages(
         }
     }
     fill_dm_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
+    crate::voice::fill_dm_listens(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     let response = SearchDmMessagesResponse::new(items);
 
     Ok(HttpResponse::Ok().json(ApiResponse::with_pagination(response, pagination_meta)))

@@ -1,16 +1,16 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE attachments\n            SET claimed_at = now(), claim_token = $3\n            WHERE id = ANY($1) AND owner_id = $2\n              AND claimed_at IS NULL AND deleting_at IS NULL\n            RETURNING id, owner_id, file_name, content_type, size_bytes, storage_key, created_at\n            ",
+  "query": "\n            SELECT dm_message_id, attachment_id, file_name, content_type, size_bytes,\n                   storage_key, created_at, voice_duration_ms, voice_waveform\n            FROM dm_message_attachments\n            WHERE dm_message_id = ANY($1)\n            ORDER BY created_at ASC\n            ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "dm_message_id",
         "type_info": "Uuid"
       },
       {
         "ordinal": 1,
-        "name": "owner_id",
+        "name": "attachment_id",
         "type_info": "Uuid"
       },
       {
@@ -37,13 +37,21 @@
         "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "voice_duration_ms",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "voice_waveform",
+        "type_info": "Bytea"
       }
     ],
     "parameters": {
       "Left": [
-        "UuidArray",
-        "Uuid",
-        "Uuid"
+        "UuidArray"
       ]
     },
     "nullable": [
@@ -53,8 +61,10 @@
       false,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "56cff1e7ef4941a7301049de68daef63d233efa4bc052a67ed9ede941efff59c"
+  "hash": "1e818c88983a1cbd31edd05e29bce904e43c9b6053d263df187595cddb8a9139"
 }

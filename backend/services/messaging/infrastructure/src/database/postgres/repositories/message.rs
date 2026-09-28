@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use messaging_domain::message::system::SystemMessage;
-use domain::{attachment::AttachmentLink, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
+use domain::{attachment::AttachmentLink, attachment::VoiceMeta, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
 use messaging_domain::{channel::id::ChannelId, message::Message, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::view::MessageView, message::view::ReplyPreviewView, message::forward::ForwardInfo};
 use sqlx::{Pool, Postgres};
@@ -108,7 +108,7 @@ impl MessageRepository for PostgresMessageRepository {
         let rows = sqlx::query!(
             r#"
             SELECT message_id, attachment_id, file_name, content_type, size_bytes,
-                   storage_key, created_at
+                   storage_key, created_at, voice_duration_ms, voice_waveform
             FROM message_attachments
             WHERE message_id = ANY($1)
             ORDER BY created_at ASC
@@ -131,6 +131,7 @@ impl MessageRepository for PostgresMessageRepository {
                         size_bytes: r.size_bytes,
                         storage_key: r.storage_key,
                         created_at: r.created_at,
+                        voice: VoiceMeta::from_columns(r.voice_duration_ms, r.voice_waveform),
                     },
                 )
             })
@@ -194,6 +195,7 @@ impl MessageRepository for PostgresMessageRepository {
             size_bytes: r.size_bytes,
             storage_key: r.storage_key,
             created_at: r.created_at,
+            voice: None,
         }))
     }
 
@@ -254,7 +256,9 @@ impl MessageRepository for PostgresMessageRepository {
         let rows = sqlx::query!(
             r#"
             SELECT m.id, m.author_id, u.name AS author_name, m.content,
-                   EXISTS(SELECT 1 FROM message_attachments a WHERE a.message_id = m.id) AS "has_attachments!"
+                   EXISTS(SELECT 1 FROM message_attachments a WHERE a.message_id = m.id) AS "has_attachments!",
+                   (SELECT a.voice_duration_ms FROM message_attachments a
+                    WHERE a.message_id = m.id AND a.voice_duration_ms IS NOT NULL LIMIT 1) AS voice_duration_ms
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.id = ANY($1)
@@ -274,6 +278,7 @@ impl MessageRepository for PostgresMessageRepository {
                 author_name: r.author_name,
                 content: r.content,
                 has_attachments: r.has_attachments,
+                voice_duration_ms: r.voice_duration_ms,
             })
             .collect())
     }
@@ -475,8 +480,9 @@ pub(crate) async fn insert_message_links(
         sqlx::query!(
             r#"
             INSERT INTO message_attachments
-                (message_id, attachment_id, file_name, content_type, size_bytes, storage_key, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (message_id, attachment_id, file_name, content_type, size_bytes, storage_key, created_at,
+                 voice_duration_ms, voice_waveform)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             "#,
             message_id,
             link.id,
@@ -485,6 +491,8 @@ pub(crate) async fn insert_message_links(
             link.size_bytes,
             link.storage_key,
             link.created_at,
+            link.voice.as_ref().map(|v| v.duration_ms),
+            link.voice.as_ref().map(|v| v.waveform.as_slice()),
         )
         .execute(&mut **tx)
         .await

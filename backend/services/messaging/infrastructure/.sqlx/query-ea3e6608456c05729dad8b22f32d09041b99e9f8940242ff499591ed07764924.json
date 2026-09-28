@@ -1,16 +1,16 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, owner_id, file_name, content_type, size_bytes, storage_key, created_at\n            FROM attachments\n            WHERE id = $1\n            ",
+  "query": "\n            SELECT message_id, attachment_id, file_name, content_type, size_bytes,\n                   storage_key, created_at, voice_duration_ms, voice_waveform\n            FROM message_attachments\n            WHERE message_id = ANY($1)\n            ORDER BY created_at ASC\n            ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "message_id",
         "type_info": "Uuid"
       },
       {
         "ordinal": 1,
-        "name": "owner_id",
+        "name": "attachment_id",
         "type_info": "Uuid"
       },
       {
@@ -37,11 +37,21 @@
         "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "voice_duration_ms",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "voice_waveform",
+        "type_info": "Bytea"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "UuidArray"
       ]
     },
     "nullable": [
@@ -51,8 +61,10 @@
       false,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "6b568b21ee5b0b61ca8fdc754210e484e0057695df9e3320380cf6d857ef2cb9"
+  "hash": "ea3e6608456c05729dad8b22f32d09041b99e9f8940242ff499591ed07764924"
 }

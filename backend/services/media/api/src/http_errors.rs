@@ -96,6 +96,8 @@ impl HttpMapping for UploadAttachmentError {
             UploadAttachmentError::Empty => StatusCode::BAD_REQUEST,
             UploadAttachmentError::TypeNotAllowed => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             UploadAttachmentError::QuotaExceeded => StatusCode::TOO_MANY_REQUESTS,
+            UploadAttachmentError::InvalidVoice => StatusCode::BAD_REQUEST,
+            UploadAttachmentError::VoiceTooLong => StatusCode::PAYLOAD_TOO_LARGE,
             UploadAttachmentError::Storage(e) => e.to_http_status(),
             UploadAttachmentError::Repository(e) => e.to_http_status(),
         }
@@ -110,6 +112,10 @@ impl HttpMapping for UploadAttachmentError {
             UploadAttachmentError::QuotaExceeded => {
                 "Too many pending uploads. Send or remove existing files first.".to_string()
             }
+            UploadAttachmentError::InvalidVoice => "This voice message can't be sent.".to_string(),
+            UploadAttachmentError::VoiceTooLong => {
+                "This voice message is too long for your plan.".to_string()
+            }
             UploadAttachmentError::Storage(e) => e.to_user_message(),
             UploadAttachmentError::Repository(e) => e.to_user_message(),
         }
@@ -120,6 +126,8 @@ impl HttpMapping for UploadAttachmentError {
             UploadAttachmentError::Empty => "ATTACHMENT_EMPTY",
             UploadAttachmentError::TypeNotAllowed => "ATTACHMENT_TYPE_NOT_ALLOWED",
             UploadAttachmentError::QuotaExceeded => "ATTACHMENT_QUOTA_EXCEEDED",
+            UploadAttachmentError::InvalidVoice => "VOICE_INVALID",
+            UploadAttachmentError::VoiceTooLong => "VOICE_TOO_LONG",
             UploadAttachmentError::Storage(e) => e.to_error_code(),
             UploadAttachmentError::Repository(e) => e.to_error_code(),
         }

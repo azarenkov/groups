@@ -9,6 +9,7 @@ pub struct ReplyPreview {
     pub author_id: UserId,
     pub snippet: String,
     pub has_attachments: bool,
+    pub voice_duration_ms: Option<i32>,
     pub hidden_for: Vec<UserId>,
 }
 
@@ -19,8 +20,14 @@ impl ReplyPreview {
             author_id,
             snippet: snippet(content),
             has_attachments,
+            voice_duration_ms: None,
             hidden_for: Vec::new(),
         }
+    }
+
+    pub fn with_voice(mut self, voice_duration_ms: Option<i32>) -> Self {
+        self.voice_duration_ms = voice_duration_ms;
+        self
     }
 
     pub fn hidden_for(mut self, users: Vec<UserId>) -> Self {

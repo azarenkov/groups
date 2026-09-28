@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use domain::pagination::KeysetCursor;
 use async_trait::async_trait;
-use domain::{attachment::AttachmentLink, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
+use domain::{attachment::AttachmentLink, attachment::VoiceMeta, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
 use messaging_domain::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::repository::DmConversationPreview, dm_message::repository::DmMessageRepository, dm_message::view::DmMessageView, message::content::MessageContent, message::view::ReplyPreviewView, community::id::CommunityId};
 use sqlx::{Pool, Postgres};
@@ -120,7 +120,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         let rows = sqlx::query!(
             r#"
             SELECT dm_message_id, attachment_id, file_name, content_type, size_bytes,
-                   storage_key, created_at
+                   storage_key, created_at, voice_duration_ms, voice_waveform
             FROM dm_message_attachments
             WHERE dm_message_id = ANY($1)
             ORDER BY created_at ASC
@@ -143,6 +143,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                         size_bytes: r.size_bytes,
                         storage_key: r.storage_key,
                         created_at: r.created_at,
+                        voice: VoiceMeta::from_columns(r.voice_duration_ms, r.voice_waveform),
                     },
                 )
             })
@@ -241,7 +242,9 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         let rows = sqlx::query!(
             r#"
             SELECT m.id, m.sender_id, u.name AS sender_name, m.content,
-                   EXISTS(SELECT 1 FROM dm_message_attachments a WHERE a.dm_message_id = m.id) AS "has_attachments!"
+                   EXISTS(SELECT 1 FROM dm_message_attachments a WHERE a.dm_message_id = m.id) AS "has_attachments!",
+                   (SELECT a.voice_duration_ms FROM dm_message_attachments a
+                    WHERE a.dm_message_id = m.id AND a.voice_duration_ms IS NOT NULL LIMIT 1) AS voice_duration_ms
             FROM dm_messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
             WHERE m.id = ANY($1)
@@ -261,6 +264,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 author_name: r.sender_name,
                 content: r.content,
                 has_attachments: r.has_attachments,
+                voice_duration_ms: r.voice_duration_ms,
             })
             .collect())
     }
@@ -591,7 +595,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
     ) -> Result<Vec<DmConversationPreview>, RepositoryError> {
         let cursor_at = cursor.map(|c| c.at);
         let cursor_id = cursor.and_then(|c| Uuid::parse_str(&c.key).ok());
-        let rows: Vec<(Uuid, Uuid, String, Uuid, String, Option<String>, Option<Uuid>, bool, DateTime<Utc>)> =
+        #[allow(clippy::type_complexity)]
+        let rows: Vec<(Uuid, Uuid, String, Uuid, String, Option<String>, Option<Uuid>, bool, Option<i32>, DateTime<Utc>)> =
             sqlx::query_as(
                 r#"
                 SELECT e.message_id, c.peer_id, u.name AS peer_name, m.sender_id, m.content, m.call_status,
@@ -599,6 +604,11 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                        EXISTS(
                            SELECT 1 FROM dm_message_attachments att WHERE att.dm_message_id = m.id
                        ) AS has_attachments,
+                       (
+                           SELECT att.voice_duration_ms FROM dm_message_attachments att
+                           WHERE att.dm_message_id = m.id AND att.voice_duration_ms IS NOT NULL
+                           LIMIT 1
+                       ) AS voice_duration_ms,
                        e.created_at
                 FROM dm_conversations c
                 CROSS JOIN LATERAL (
@@ -649,7 +659,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         Ok(rows
             .into_iter()
             .map(
-                |(message_id, peer_id, peer_name, sender_id, content, call_status, invite_community_id, has_attachments, created_at)| {
+                |(message_id, peer_id, peer_name, sender_id, content, call_status, invite_community_id, has_attachments, voice_duration_ms, created_at)| {
                     DmConversationPreview {
                         message_id,
                         peer_id,
@@ -659,6 +669,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                         call_status,
                         invite_community_id,
                         has_attachments,
+                        voice_duration_ms,
                         created_at,
                     }
                 },
@@ -676,8 +687,9 @@ pub(crate) async fn insert_dm_links(
         sqlx::query!(
             r#"
             INSERT INTO dm_message_attachments
-                (dm_message_id, attachment_id, file_name, content_type, size_bytes, storage_key, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (dm_message_id, attachment_id, file_name, content_type, size_bytes, storage_key, created_at,
+                 voice_duration_ms, voice_waveform)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             "#,
             dm_message_id,
             link.id,
@@ -686,6 +698,8 @@ pub(crate) async fn insert_dm_links(
             link.size_bytes,
             link.storage_key,
             link.created_at,
+            link.voice.as_ref().map(|v| v.duration_ms),
+            link.voice.as_ref().map(|v| v.waveform.as_slice()),
         )
         .execute(&mut **tx)
         .await

@@ -57,6 +57,15 @@ spec:
             {{- include "rift.containerSecurityContext" $ | nindent 12 }}
           resources:
             {{- toYaml $svc.resources | nindent 12 }}
+          {{- if $svc.tmpSizeLimit }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ $svc.tmpSizeLimit }}
+          {{- end }}
 ---
 apiVersion: v1
 kind: Service

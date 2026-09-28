@@ -162,6 +162,7 @@ httpServices:
     resources:
       requests: { cpu: 100m, memory: 128Mi }
       limits: { memory: 512Mi }
+    tmpSizeLimit: 512Mi
   messaging-service:
     enabled: true
     replicas: 2

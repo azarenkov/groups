@@ -10,6 +10,8 @@ import { useUnreadStore } from "../../chat/store/unreadStore";
 import { useUserNamesStore } from "../../social/store/userNamesStore";
 import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
+import { voiceDurationFromPayload } from "../../chat/lib/voice";
+import { notificationBody } from "../../chat/lib/notificationBody";
 import { asString, eventTs, getActiveDmView, lastDmBumpAt, scheduleUnreadRefetch, throttleMarkDmRead, viewIsForeground } from "../../../shared/ws/context";
 
 export const dmHandlers: WsHandlers = {
@@ -33,6 +35,7 @@ export const dmHandlers: WsHandlers = {
         callStatus: asString(d.callStatus) ?? null,
         inviteCommunityId: asString(d.inviteCommunityId) ?? null,
         hasAttachments: Array.isArray(d.attachments) && d.attachments.length > 0,
+        voiceDurationMs: voiceDurationFromPayload(d.attachments),
         createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
       });
       if (!knownPeerName) refetchDmPreviews();
@@ -56,7 +59,7 @@ export const dmHandlers: WsHandlers = {
       useUnreadStore.getState().bumpDm(senderId);
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
-        showDesktopNotification(peerName ?? "Rift", asString(d.content) ?? "");
+        showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments));
       }
       return;
   },

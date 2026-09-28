@@ -8,6 +8,7 @@ pub struct ReplyPreviewDto {
     pub author_name: Option<String>,
     pub content: String,
     pub has_attachments: bool,
+    pub voice_duration_ms: Option<i32>,
 }
 
 impl ReplyPreviewDto {
@@ -18,6 +19,7 @@ impl ReplyPreviewDto {
             author_name,
             content: preview.snippet.clone(),
             has_attachments: preview.has_attachments,
+            voice_duration_ms: preview.voice_duration_ms,
         }
     }
 }
@@ -30,6 +32,7 @@ impl From<ReplyPreviewView> for ReplyPreviewDto {
             author_name: Some(value.author_name),
             content: snippet(&value.content),
             has_attachments: value.has_attachments,
+            voice_duration_ms: value.voice_duration_ms,
         }
     }
 }

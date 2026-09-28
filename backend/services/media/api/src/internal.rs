@@ -38,6 +38,8 @@ async fn claim_attachments(
                     size_bytes: a.size_bytes,
                     storage_key: a.storage_key,
                     created_at: a.created_at,
+                    voice_duration_ms: a.voice.as_ref().map(|v| v.duration_ms),
+                    voice_waveform: a.voice.map(|v| v.waveform),
                 })
                 .collect();
             Ok(HttpResponse::Ok().json(items))
@@ -95,6 +97,8 @@ async fn unclaimed_attachment(
             size_bytes: a.size_bytes,
             storage_key: a.storage_key,
             created_at: a.created_at,
+            voice_duration_ms: a.voice.as_ref().map(|v| v.duration_ms),
+            voice_waveform: a.voice.map(|v| v.waveform),
         })),
         None => Ok(HttpResponse::NotFound().finish()),
     }

@@ -9,6 +9,7 @@ import { useDmPreviewStore } from "../../dm/store/dmPreviewStore";
 import type { DmPreview } from "../../dm/store/dmPreviewStore";
 import type { DirectConversation } from "../../dm/types";
 import { sortDirects } from "../../dm/lib/directOrder";
+import { formatVoiceDuration } from "../../chat/lib/voice";
 
 export function useDirectConversations(params: {
   currentUserId?: string;
@@ -33,7 +34,11 @@ export function useDirectConversations(params: {
         : p.inviteCommunityId
           ? tSidebar("previewInvite")
           : p.content ||
-            (p.hasAttachments ? tSidebar("previewAttachment") : "");
+            (typeof p.voiceDurationMs === "number"
+              ? tSidebar("previewVoice", { duration: formatVoiceDuration(p.voiceDurationMs) })
+              : p.hasAttachments
+                ? tSidebar("previewAttachment")
+                : "");
       return p.senderId === currentUserId
         ? `${tSidebar("previewYou")} ${body}`
         : body;

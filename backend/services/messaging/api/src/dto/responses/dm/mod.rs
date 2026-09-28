@@ -33,6 +33,8 @@ pub struct DmMessageResponse {
     pub reply_to: Option<ReplyPreviewResponse>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub forwarded_from: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub voice_listened: bool,
 }
 
 impl RepliesTo for DmMessageResponse {
@@ -66,6 +68,7 @@ impl From<SendDmMessageResponse> for DmMessageResponse {
             reply_to_id: value.reply.as_ref().map(|r| r.id),
             reply_to: value.reply.map(ReplyPreviewResponse::from),
             forwarded_from: value.forwarded_from.as_ref().map(|f| f.to_json()),
+            voice_listened: false,
         }
     }
 }
@@ -88,6 +91,7 @@ impl From<DmMessageDto> for DmMessageResponse {
             reply_to_id: value.reply_to_message_id,
             reply_to: None,
             forwarded_from: value.forwarded_from.as_ref().map(|f| f.to_json()),
+            voice_listened: false,
         }
     }
 }

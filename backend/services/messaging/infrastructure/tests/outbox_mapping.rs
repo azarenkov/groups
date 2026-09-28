@@ -29,6 +29,7 @@ fn message_sent_carries_recipients_attachments_and_mentions() {
         file_name: "a.png".to_string(),
         content_type: "image/png".to_string(),
         size_bytes: 10,
+        voice: None,
     };
     let events: Vec<MessagingEvent> = message
         .pull_events()

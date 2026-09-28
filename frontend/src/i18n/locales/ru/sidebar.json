@@ -56,5 +56,6 @@
   "unmuteForMe": "Включить для себя",
   "disconnectMember": "Отключить от канала",
   "callFriend": "Позвонить",
-  "openCommunity": "Открыть"
+  "openCommunity": "Открыть",
+  "previewVoice": "🎤 Голосовое, {{duration}}"
 }
