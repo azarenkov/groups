@@ -256,16 +256,21 @@
 }
 .composer .composer-input::placeholder { color: var(--fg-4); }
 .composer-wrap > .attach-btn { margin-bottom: 3px; }
-.composer-wrap > .send-btn { margin-bottom: 6px; }
+.composer-wrap > .send-btn { margin-bottom: 4px; }
 .composer .send-btn {
-  width: 28px; height: 28px; border-radius: 8px; border: 0;
-  background: var(--accent); color: #fff;
-  display:flex; align-items:center; justify-content:center;
+  width: 32px; height: 32px; flex-shrink: 0;
+  border-radius: 50%; border: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff), var(--accent));
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   opacity: 0.35; pointer-events: none;
-  transition: opacity var(--dur-fast);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 38%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 .composer .send-btn.enabled { opacity: 1; pointer-events: auto; }
+.composer .send-btn.enabled:hover { transform: scale(1.06); filter: brightness(1.06); }
+.composer .send-btn.enabled:active { transform: scale(0.94); }
+.composer .send-btn svg { flex-shrink: 0; }
 @keyframes popIn {
   from { transform: translateY(6px) scale(0.96); opacity: 0; }
   to   { transform: translateY(0)    scale(1);    opacity: 1; }
@@ -788,12 +793,13 @@
 .msg.bubble.mine .voice-msg-speed { background: rgba(255, 255, 255, 0.2); color: #fff; }
 
 .composer .voice-rec-btn { touch-action: none; user-select: none; -webkit-user-select: none; }
-.composer .voice-rec-btn.recording {
-  transform: scale(1.25);
+.composer .voice-rec-btn.recording,
+.composer .voice-rec-btn.recording:hover {
+  transform: scale(1.22);
   background: var(--danger, #ff453a);
   box-shadow: 0 0 0 6px color-mix(in srgb, var(--danger, #ff453a) 22%, transparent);
 }
-.composer .send-btn { transition: opacity var(--dur-fast), transform 0.16s ease, box-shadow 0.16s ease; }
+.composer .send-btn { transition: opacity var(--dur-fast), transform 0.16s var(--ease-spring, ease), box-shadow 0.16s ease, filter 0.16s ease, background 0.16s ease; }
 .voice-rec-bar {
   position: absolute; left: 0; top: 0; bottom: 0; right: 48px;
   z-index: 2;
@@ -974,9 +980,16 @@
   color: #fff;
   cursor: pointer;
 }
-.composer-wrap > .voice-rec-btn.video { margin-bottom: 6px; }
-.composer .voice-rec-btn.video:not(.recording) { background: transparent; color: var(--fg-2); }
-.composer .voice-rec-btn.video:not(.recording):hover { background: var(--surface-hover); color: var(--fg-1); }
+.composer .voice-rec-btn.video:not(.recording) {
+  background: transparent;
+  color: var(--fg-2);
+  box-shadow: none;
+}
+.composer .voice-rec-btn.video:not(.recording):hover {
+  background: var(--surface-hover);
+  color: var(--fg-1);
+  filter: none;
+}
 .vnote-play {
   position: absolute; left: 50%; top: 50%; z-index: 1;
   width: 56px; height: 56px;

@@ -557,7 +557,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
           aria-label={i18n.t("voiceSend", { ns: "chat" })}
           onClick={() => void finish()}
         >
-          <Icon name="send" size={14} />
+          <Icon name="send" size={15} />
         </button>
       ) : (
         (["video", "voice"] as RecordKind[])
@@ -588,7 +588,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
               }}
               onContextMenu={(e) => e.preventDefault()}
             >
-              <Icon name={option === "video" ? "camera" : "mic"} size={16} />
+              <Icon name={option === "video" ? "camera" : "mic"} size={17} />
             </button>
           ))
       )}
