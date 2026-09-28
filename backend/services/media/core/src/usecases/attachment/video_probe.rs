@@ -263,6 +263,7 @@ struct Mp4Track {
     height: u32,
     coded: Option<(u32, u32)>,
     nal_length_size: u8,
+    audio_codec: Option<[u8; 4]>,
 }
 
 struct Reader<R: Read + Seek> {
@@ -273,6 +274,8 @@ struct Reader<R: Read + Seek> {
     mdat_ranges: Vec<(u64, u64)>,
     sample_ranges: Vec<(u64, u64)>,
     video_samples: Vec<(u64, u64)>,
+    audio_samples: Vec<(u64, u64)>,
+    audio_entry: Option<[u8; 4]>,
 }
 
 impl<R: Read + Seek> Reader<R> {
@@ -335,6 +338,8 @@ pub fn probe_mp4(mut media: Box<dyn MediaSource>) -> Option<VideoProbe> {
         mdat_ranges: Vec::new(),
         sample_ranges: Vec::new(),
         video_samples: Vec::new(),
+        audio_samples: Vec::new(),
+        audio_entry: None,
     };
     let mut tracks: HashMap<u32, Mp4Track> = HashMap::new();
     let mut first = true;
@@ -383,6 +388,13 @@ pub fn probe_mp4(mut media: Box<dyn MediaSource>) -> Option<VideoProbe> {
     }
     let video_track = tracks.values().find(|t| &t.handler == b"vide")?;
     let (width, height) = video_track.coded?;
+    if let Some(audio) = tracks.values().find(|t| &t.handler == b"soun") {
+        let codec = audio.audio_codec?;
+        let audio_samples = std::mem::take(&mut r.audio_samples);
+        if !audio_samples_valid(&mut r, &audio_samples, &codec) {
+            return None;
+        }
+    }
     let samples = std::mem::take(&mut r.video_samples);
     if !avc_samples_valid(&mut r, &samples, video_track.nal_length_size) {
         return None;
@@ -469,6 +481,7 @@ fn parse_trak<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<(u32, Mp4
                                 track.coded = Some(dims);
                                 track.nal_length_size = nal_length_size;
                             }
+                            track.audio_codec = r.audio_entry.take();
                         }
                         _ => {}
                     }
@@ -501,6 +514,7 @@ fn find_avc_dims<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<Option
                 }
                 let (entry, _, entry_end) = r.header(end)?;
                 if &entry == b"mp4a" || &entry == b"Opus" {
+                    r.audio_entry = Some(entry);
                     return Some(None);
                 }
                 if &entry != b"avc1" {
@@ -541,6 +555,41 @@ fn find_avc_dims<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<Option
         r.seek(end)?;
     }
     Some(None)
+}
+
+const MAX_AUDIO_FRAME_BYTES: u64 = 8192;
+
+fn audio_samples_valid<R: Read + Seek>(r: &mut Reader<R>, samples: &[(u64, u64)], codec: &[u8; 4]) -> bool {
+    let check = |r: &mut Reader<R>| -> Option<bool> {
+        if samples.is_empty() {
+            return None;
+        }
+        let mut buf = Vec::new();
+        for &(offset, size) in samples {
+            if size == 0 || size > MAX_AUDIO_FRAME_BYTES {
+                return None;
+            }
+            r.seek(offset)?;
+            match codec {
+                b"Opus" => {
+                    buf.resize(size as usize, 0);
+                    r.inner.read_exact(&mut buf).ok()?;
+                    if !opus_packet_valid(&buf) {
+                        return None;
+                    }
+                }
+                b"mp4a" => {
+                    let element = r.bytes::<1>()?[0] >> 5;
+                    if element == 7 {
+                        return None;
+                    }
+                }
+                _ => return None,
+            }
+        }
+        Some(true)
+    };
+    check(r).unwrap_or(false)
 }
 
 fn avc_samples_valid<R: Read + Seek>(r: &mut Reader<R>, samples: &[(u64, u64)], nal_length_size: u8) -> bool {
@@ -657,6 +706,7 @@ fn parse_traf<R: Read + Seek>(
                 let fallback = default_duration.unwrap_or(track.default_duration) as u64;
                 let fallback_size = default_size.unwrap_or(track.default_size) as u64;
                 let is_video = &track.handler == b"vide";
+                let is_audio = &track.handler == b"soun";
                 let per_sample = [0x100u32, 0x200, 0x400, 0x800]
                     .iter()
                     .filter(|bit| flags & **bit != 0)
@@ -672,9 +722,14 @@ fn parse_traf<R: Read + Seek>(
                 if per_sample == 0 {
                     total = total.saturating_add(count.saturating_mul(fallback));
                     r.sample_bytes = r.sample_bytes.saturating_add(count.saturating_mul(fallback_size));
-                    if is_video {
+                    if is_video || is_audio {
                         for i in 0..count {
-                            r.video_samples.push((run_start.checked_add(i.checked_mul(fallback_size)?)?, fallback_size));
+                            let sample = (run_start.checked_add(i.checked_mul(fallback_size)?)?, fallback_size);
+                            if is_video {
+                                r.video_samples.push(sample);
+                            } else {
+                                r.audio_samples.push(sample);
+                            }
                         }
                     }
                 } else {
@@ -692,6 +747,8 @@ fn parse_traf<R: Read + Seek>(
                         r.sample_bytes = r.sample_bytes.saturating_add(size);
                         if is_video {
                             r.video_samples.push((sample_at, size));
+                        } else if is_audio {
+                            r.audio_samples.push((sample_at, size));
                         }
                         sample_at = sample_at.checked_add(size)?;
                     }
