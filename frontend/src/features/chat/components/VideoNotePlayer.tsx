@@ -230,8 +230,8 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
     else video.pause();
   };
 
-  const seekAt = (e: React.PointerEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
+  const seekAt = (e: React.PointerEvent<SVGCircleElement>) => {
+    const rect = (e.currentTarget.ownerSVGElement ?? e.currentTarget).getBoundingClientRect();
     const dx = e.clientX - (rect.left + rect.width / 2);
     const dy = e.clientY - (rect.top + rect.height / 2);
     const angle = Math.atan2(dx, -dy);
@@ -283,26 +283,29 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
         )}
       </button>
       {active && (
-        <svg
-          className={"vnote-progress" + (dragging ? " dragging" : "")}
-          viewBox="0 0 100 100"
-          onPointerDown={(e) => {
-            e.preventDefault();
-            e.currentTarget.setPointerCapture(e.pointerId);
-            setDragging(true);
-            seekAt(e);
-          }}
-          onPointerMove={(e) => {
-            if (dragging) seekAt(e);
-          }}
-          onPointerUp={(e) => {
-            if (!dragging) return;
-            setDragging(false);
-            seekAt(e);
-          }}
-          onPointerCancel={() => setDragging(false)}
-        >
-          <circle className="vnote-progress-hit" cx="50" cy="50" r={RING_RADIUS} />
+        <svg className={"vnote-progress" + (dragging ? " dragging" : "")} viewBox="0 0 100 100">
+          <circle
+            className="vnote-progress-hit"
+            cx="50"
+            cy="50"
+            r={RING_RADIUS}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              setDragging(true);
+              seekAt(e);
+            }}
+            onPointerMove={(e) => {
+              if (dragging) seekAt(e);
+            }}
+            onPointerUp={(e) => {
+              if (!dragging) return;
+              setDragging(false);
+              seekAt(e);
+            }}
+            onPointerCancel={() => setDragging(false)}
+          />
           <circle
             className="vnote-progress-fill"
             cx="50"
