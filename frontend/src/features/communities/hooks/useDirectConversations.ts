@@ -9,7 +9,6 @@ import { useDmPreviewStore } from "../../dm/store/dmPreviewStore";
 import type { DmPreview } from "../../dm/store/dmPreviewStore";
 import type { DirectConversation } from "../../dm/types";
 import { sortDirects } from "../../dm/lib/directOrder";
-import { formatVoiceDuration } from "../../chat/lib/voice";
 
 export function useDirectConversations(params: {
   currentUserId?: string;
@@ -35,9 +34,9 @@ export function useDirectConversations(params: {
           ? tSidebar("previewInvite")
           : p.content ||
             (typeof p.videoNoteDurationMs === "number"
-              ? tSidebar("previewVideoNote", { duration: formatVoiceDuration(p.videoNoteDurationMs) })
+              ? tSidebar("previewVideoNote")
               : typeof p.voiceDurationMs === "number"
-              ? tSidebar("previewVoice", { duration: formatVoiceDuration(p.voiceDurationMs) })
+              ? tSidebar("previewVoice")
               : p.hasAttachments
                 ? tSidebar("previewAttachment")
                 : "");

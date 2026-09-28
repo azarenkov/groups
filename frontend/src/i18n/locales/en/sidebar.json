@@ -57,6 +57,6 @@
   "disconnectMember": "Disconnect from channel",
   "callFriend": "Call",
   "openCommunity": "Open",
-  "previewVoice": "🎤 Voice message, {{duration}}",
-  "previewVideoNote": "📹 Video message, {{duration}}"
+  "previewVoice": "🎤 Voice message",
+  "previewVideoNote": "📹 Video message"
 }
