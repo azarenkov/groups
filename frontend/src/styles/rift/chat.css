@@ -149,6 +149,7 @@
 .msg.bubble.dm .ava { display: none; }
 .msg.bubble .head { display: none; }
 .msg.bubble.theirs .ava { align-self: flex-end; }
+.msg.bubble.theirs:has(> .body > .msg-meta) .ava { margin-bottom: 17px; }
 .msg.bubble.cont .ava { visibility: hidden; height: auto; }
 .msg.bubble .body { flex: 0 1 auto; min-width: 0; max-width: 74%; position: relative; }
 .msg.bubble .txt {
