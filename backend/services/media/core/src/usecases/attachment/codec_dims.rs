@@ -88,10 +88,23 @@ fn vp9_superframe_ok(frame: &[u8]) -> bool {
     total == frame.len() - index_len
 }
 
-pub fn vp9_frame_dims(frame: &[u8]) -> Option<Option<(u32, u32)>> {
-    if frame.len() < 2 || !vp9_superframe_ok(frame) {
-        return None;
+fn vp9_color_config(b: &mut Bits, profile: u32) -> Option<()> {
+    if profile >= 2 {
+        b.bit()?;
     }
+    let color_space = b.bits(3)?;
+    if color_space != 7 {
+        b.bit()?;
+        if profile == 1 || profile == 3 {
+            b.bits(3)?;
+        }
+    } else if profile == 1 || profile == 3 {
+        b.bit()?;
+    }
+    Some(())
+}
+
+fn vp9_single_frame_dims(frame: &[u8]) -> Option<Option<(u32, u32)>> {
     let mut b = Bits::new(frame);
     if b.bits(2)? != 2 {
         return None;
@@ -106,29 +119,74 @@ pub fn vp9_frame_dims(frame: &[u8]) -> Option<Option<(u32, u32)>> {
         return Some(None);
     }
     let frame_type = b.bit()?;
-    b.bit()?;
-    b.bit()?;
-    if frame_type != 0 {
-        return Some(None);
-    }
-    if b.bits(24)? != 0x49_83_42 {
-        return None;
-    }
-    if profile >= 2 {
-        b.bit()?;
-    }
-    let color_space = b.bits(3)?;
-    if color_space != 7 {
-        b.bit()?;
-        if profile == 1 || profile == 3 {
-            b.bits(3)?;
+    let show_frame = b.bit()?;
+    let error_resilient = b.bit()?;
+    if frame_type == 0 {
+        if b.bits(24)? != 0x49_83_42 {
+            return None;
         }
-    } else if profile == 1 || profile == 3 {
-        b.bit()?;
+        vp9_color_config(&mut b, profile)?;
+    } else {
+        let intra_only = if show_frame == 1 { 0 } else { b.bit()? };
+        if error_resilient == 0 {
+            b.bits(2)?;
+        }
+        if intra_only == 1 {
+            if b.bits(24)? != 0x49_83_42 {
+                return None;
+            }
+            if profile > 0 {
+                vp9_color_config(&mut b, profile)?;
+            }
+            b.bits(8)?;
+        } else {
+            b.bits(8)?;
+            for _ in 0..3 {
+                b.bits(4)?;
+            }
+            for _ in 0..3 {
+                if b.bit()? == 1 {
+                    return Some(None);
+                }
+            }
+        }
     }
     let width = b.bits(16)? + 1;
     let height = b.bits(16)? + 1;
     Some(Some((width, height)))
+}
+
+pub fn vp9_frame_dims(packet: &[u8]) -> Option<Option<(u32, u32)>> {
+    if packet.len() < 2 || !vp9_superframe_ok(packet) {
+        return None;
+    }
+    let last = *packet.last()?;
+    let frames: Vec<&[u8]> = if last & 0xE0 == 0xC0 {
+        let count = (last & 0x07) as usize + 1;
+        let size_bytes = ((last >> 3) & 0x03) as usize + 1;
+        let index_len = 2 + count * size_bytes;
+        let sizes = &packet[packet.len() - index_len + 1..packet.len() - 1];
+        let mut out = Vec::with_capacity(count);
+        let mut at = 0usize;
+        for chunk in sizes.chunks(size_bytes) {
+            let size = chunk.iter().rev().fold(0usize, |acc, b| (acc << 8) | *b as usize);
+            out.push(&packet[at..at + size]);
+            at += size;
+        }
+        out
+    } else {
+        vec![packet]
+    };
+    let mut dims = None;
+    for frame in frames {
+        if let Some(next) = vp9_single_frame_dims(frame)? {
+            if dims.is_some_and(|d| d != next) {
+                return None;
+            }
+            dims = Some(next);
+        }
+    }
+    Some(dims)
 }
 
 fn unescape_nal(nal: &[u8]) -> Vec<u8> {
@@ -292,7 +350,7 @@ mod tests {
     #[test]
     fn a_broken_vp9_superframe_index_is_rejected() {
         assert_eq!(vp9_frame_dims(&[0x80, 0x00, 0xC0]), None);
-        assert!(vp9_frame_dims(&[0x86, 0x00, 0x00]).is_some());
+        assert_eq!(vp9_frame_dims(&[0x86, 0x00, 0x00, 0x02]), Some(None));
     }
 
     #[test]
@@ -305,5 +363,32 @@ mod tests {
         ];
         assert_eq!(jpeg_dimensions(&jpeg), Some((160, 160)));
         assert_eq!(jpeg_dimensions(&jpeg[..jpeg.len() - 2]), None);
+    }
+
+    #[test]
+    fn a_vp9_intra_only_frame_reports_its_size() {
+        let mut bits: Vec<u8> = Vec::new();
+        let mut push = |value: u32, n: u32| {
+            for i in (0..n).rev() {
+                bits.push(((value >> i) & 1) as u8);
+            }
+        };
+        push(2, 2);
+        push(0, 2);
+        push(0, 1);
+        push(1, 1);
+        push(0, 1);
+        push(0, 1);
+        push(1, 1);
+        push(0, 2);
+        push(0x49_83_42, 24);
+        push(0xFF, 8);
+        push(639, 16);
+        push(479, 16);
+        while !bits.len().is_multiple_of(8) {
+            bits.push(0);
+        }
+        let bytes: Vec<u8> = bits.chunks(8).map(|c| c.iter().fold(0u8, |a, b| (a << 1) | b)).collect();
+        assert_eq!(vp9_frame_dims(&bytes), Some(Some((640, 480))));
     }
 }
