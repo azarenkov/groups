@@ -68,6 +68,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
   const [drag, setDrag] = React.useState({ x: 0, y: 0 });
   const [canSwitch, setCanSwitch] = React.useState(false);
   const [mirrored, setMirrored] = React.useState(true);
+  const [switching, setSwitching] = React.useState(false);
   const recorderRef = React.useRef<AnyRecorder | null>(null);
   const kindRef = React.useRef<RecordKind>(kind);
   const modeRef = React.useRef<Mode>(mode);
@@ -383,12 +384,15 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
 
   const switchCamera = async () => {
     const recorder = recorderRef.current;
-    if (!(recorder instanceof VideoNoteRecorder)) return;
+    if (!(recorder instanceof VideoNoteRecorder) || switching) return;
+    setSwitching(true);
     try {
       await recorder.switchCamera();
       setMirrored(recorder.facingUser);
     } catch (err) {
       onError(errorMessage(err, "video"));
+    } finally {
+      setSwitching(false);
     }
   };
 
@@ -464,6 +468,7 @@ const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
                 className="vnote-rec-switch"
                 title={i18n.t("videoNoteSwitchCamera", { ns: "chat" })}
                 aria-label={i18n.t("videoNoteSwitchCamera", { ns: "chat" })}
+                disabled={switching}
                 onClick={() => void switchCamera()}
               >
                 <Icon name="refresh" size={16} />

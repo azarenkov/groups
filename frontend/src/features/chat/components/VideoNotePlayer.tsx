@@ -168,7 +168,9 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
             });
           }
         })
-        .catch(() => setFailed(true));
+        .catch((err: unknown) => {
+          if ((err as { name?: string } | null)?.name !== "NotAllowedError") setFailed(true);
+        });
       return;
     }
     video.muted = true;
@@ -258,6 +260,7 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
         title={failed ? i18n.t("videoNoteInvalid", { ns: "chat" }) : undefined}
       >
         <img className="vnote-poster" src={poster} alt="" draggable={false} />
+        {active && !playing && url && <span className="vnote-play" aria-hidden="true" />}
         {url && (
           <video
             ref={videoRef}

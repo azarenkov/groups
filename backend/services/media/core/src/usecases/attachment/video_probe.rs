@@ -265,7 +265,8 @@ struct Reader<R: Read + Seek> {
     boxes: usize,
     samples: u64,
     sample_bytes: u64,
-    mdat_bytes: u64,
+    mdat_ranges: Vec<(u64, u64)>,
+    sample_ranges: Vec<(u64, u64)>,
 }
 
 impl<R: Read + Seek> Reader<R> {
@@ -320,24 +321,40 @@ impl<R: Read + Seek> Reader<R> {
 pub fn probe_mp4(mut media: Box<dyn MediaSource>) -> Option<VideoProbe> {
     let len = media.byte_len().or_else(|| media.seek(SeekFrom::End(0)).ok())?;
     media.seek(SeekFrom::Start(0)).ok()?;
-    let mut r = Reader { inner: media, boxes: 0, samples: 0, sample_bytes: 0, mdat_bytes: 0 };
+    let mut r = Reader {
+        inner: media,
+        boxes: 0,
+        samples: 0,
+        sample_bytes: 0,
+        mdat_ranges: Vec::new(),
+        sample_ranges: Vec::new(),
+    };
     let mut tracks: HashMap<u32, Mp4Track> = HashMap::new();
     let mut first = true;
     while r.pos()? < len {
-        let (kind, _, end) = r.header(len)?;
+        let box_start = r.pos()?;
+        let (kind, body, end) = r.header(len)?;
         if first && &kind != b"ftyp" {
             return None;
         }
         first = false;
         match &kind {
             b"moov" => parse_moov(&mut r, end, &mut tracks)?,
-            b"moof" => parse_moof(&mut r, end, &mut tracks)?,
-            b"mdat" => r.mdat_bytes = r.mdat_bytes.saturating_add(end.saturating_sub(r.pos()?)),
+            b"moof" => parse_moof(&mut r, end, box_start, &mut tracks)?,
+            b"mdat" => r.mdat_ranges.push((body, end)),
             _ => {}
         }
         r.seek(end)?;
     }
-    if r.mdat_bytes == 0 || r.sample_bytes == 0 || r.mdat_bytes < r.sample_bytes {
+    if r.sample_bytes == 0 || r.sample_ranges.is_empty() {
+        return None;
+    }
+    let inside = |(start, end): &(u64, u64)| {
+        r.mdat_ranges
+            .iter()
+            .any(|(from, to)| start >= from && end <= to && start <= end)
+    };
+    if !r.sample_ranges.iter().all(inside) {
         return None;
     }
     let video = tracks.values().filter(|t| &t.handler == b"vide").count();
@@ -480,13 +497,21 @@ fn find_avc_dims<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<Option
                         if sps_count == 0 {
                             return None;
                         }
-                        let len = u16::from_be_bytes(r.bytes::<2>()?) as u64;
-                        if len == 0 || r.pos()? + len > child_end {
-                            return None;
+                        let mut dims = None;
+                        for _ in 0..sps_count {
+                            let len = u16::from_be_bytes(r.bytes::<2>()?) as u64;
+                            if len == 0 || r.pos()? + len > child_end {
+                                return None;
+                            }
+                            let mut sps = vec![0u8; len as usize];
+                            r.inner.read_exact(&mut sps).ok()?;
+                            let next = h264_sps_dims(&sps)?;
+                            if dims.is_some_and(|d| d != next) {
+                                return None;
+                            }
+                            dims = Some(next);
                         }
-                        let mut sps = vec![0u8; len as usize];
-                        r.inner.read_exact(&mut sps).ok()?;
-                        return Some(Some(h264_sps_dims(&sps)?));
+                        return Some(dims);
                     }
                     r.seek(child_end)?;
                 }
@@ -499,19 +524,31 @@ fn find_avc_dims<R: Read + Seek>(r: &mut Reader<R>, limit: u64) -> Option<Option
     Some(None)
 }
 
-fn parse_moof<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMap<u32, Mp4Track>) -> Option<()> {
+fn parse_moof<R: Read + Seek>(
+    r: &mut Reader<R>,
+    limit: u64,
+    moof_start: u64,
+    tracks: &mut HashMap<u32, Mp4Track>,
+) -> Option<()> {
     while r.pos()? < limit {
         let (kind, _, end) = r.header(limit)?;
         if &kind == b"traf" {
-            parse_traf(r, end, tracks)?;
+            parse_traf(r, end, moof_start, tracks)?;
         }
         r.seek(end)?;
     }
     Some(())
 }
 
-fn parse_traf<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMap<u32, Mp4Track>) -> Option<()> {
+fn parse_traf<R: Read + Seek>(
+    r: &mut Reader<R>,
+    limit: u64,
+    moof_start: u64,
+    tracks: &mut HashMap<u32, Mp4Track>,
+) -> Option<()> {
     let mut id = None;
+    let mut base_offset = moof_start;
+    let mut cursor: Option<u64> = None;
     let mut default_duration = None;
     let mut default_size = None;
     let mut base: u64 = 0;
@@ -523,7 +560,7 @@ fn parse_traf<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMa
                 let (_, flags) = r.full_header()?;
                 id = Some(r.u32()?);
                 if flags & 0x01 != 0 {
-                    r.skip(8)?;
+                    base_offset = r.u64()?;
                 }
                 if flags & 0x02 != 0 {
                     r.skip(4)?;
@@ -542,9 +579,13 @@ fn parse_traf<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMa
             b"trun" => {
                 let (_, flags) = r.full_header()?;
                 let count = r.u32()? as u64;
-                if flags & 0x01 != 0 {
-                    r.skip(4)?;
-                }
+                let run_start = if flags & 0x01 != 0 {
+                    let offset = r.u32()? as i32 as i64;
+                    u64::try_from(base_offset as i64 + offset).ok()?
+                } else {
+                    cursor.unwrap_or(base_offset)
+                };
+                let bytes_before = r.sample_bytes;
                 if flags & 0x04 != 0 {
                     r.skip(4)?;
                 }
@@ -580,6 +621,10 @@ fn parse_traf<R: Read + Seek>(r: &mut Reader<R>, limit: u64, tracks: &mut HashMa
                         r.sample_bytes = r.sample_bytes.saturating_add(size);
                     }
                 }
+                let run_bytes = r.sample_bytes - bytes_before;
+                let run_end = run_start.checked_add(run_bytes)?;
+                r.sample_ranges.push((run_start, run_end));
+                cursor = Some(run_end);
             }
             _ => {}
         }
@@ -670,6 +715,16 @@ mod tests {
             pos += size;
         }
         assert_eq!(probe(&stripped, "video/mp4"), None);
+    }
+
+    #[test]
+    fn samples_pointing_outside_the_media_data_are_rejected() {
+        let mut mp4 = include_bytes!("fixtures/video-note-5s.mp4").to_vec();
+        let at = mp4.windows(4).position(|w| w == b"trun").expect("trun");
+        let flags = u32::from_be_bytes(mp4[at + 4..at + 8].try_into().unwrap()) & 0x00FF_FFFF;
+        assert!(flags & 0x01 != 0);
+        mp4[at + 12..at + 16].copy_from_slice(&0x7000_0000u32.to_be_bytes());
+        assert_eq!(probe(&mp4, "video/mp4"), None);
     }
 
     #[test]

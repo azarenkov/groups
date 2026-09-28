@@ -55,6 +55,7 @@ export class VideoNoteRecorder {
   private cameraIds: string[] = [];
   private cameraIndex = 0;
   private released = false;
+  private switching = false;
   mimeType = "";
 
   constructor(size: number) {
@@ -159,7 +160,16 @@ export class VideoNoteRecorder {
   }
 
   async switchCamera(): Promise<void> {
-    if (this.cameraIds.length < 2) return;
+    if (this.cameraIds.length < 2 || this.switching || this.released) return;
+    this.switching = true;
+    try {
+      await this.switchCameraOnce();
+    } finally {
+      this.switching = false;
+    }
+  }
+
+  private async switchCameraOnce(): Promise<void> {
     const previous = this.cameraIndex;
     const next = (previous + 1) % this.cameraIds.length;
     this.camera?.getTracks().forEach((t) => t.stop());
@@ -169,8 +179,10 @@ export class VideoNoteRecorder {
         stream.getTracks().forEach((t) => t.stop());
         return false;
       }
+      const displaced = this.camera;
       this.cameraIndex = index;
       this.camera = stream;
+      if (displaced && displaced !== stream) displaced.getTracks().forEach((t) => t.stop());
       await this.attachCamera(stream);
       return true;
     };

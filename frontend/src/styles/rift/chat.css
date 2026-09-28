@@ -959,3 +959,18 @@
   cursor: pointer;
 }
 .composer .voice-rec-btn.video { background: var(--accent); }
+.vnote-play {
+  position: absolute; left: 50%; top: 50%; z-index: 1;
+  width: 56px; height: 56px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+}
+.vnote-play::after {
+  content: "";
+  position: absolute; left: 22px; top: 17px;
+  border-left: 16px solid #fff;
+  border-top: 11px solid transparent;
+  border-bottom: 11px solid transparent;
+}
