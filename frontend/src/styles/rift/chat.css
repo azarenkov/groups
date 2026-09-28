@@ -872,6 +872,7 @@
 .vnote {
   --vnote-size: 220px;
   position: relative;
+  isolation: isolate;
   width: var(--vnote-size); height: var(--vnote-size);
   max-width: 70vw; max-height: 70vw;
   transition: width 0.22s var(--ease-spring, ease), height 0.22s var(--ease-spring, ease);
@@ -883,6 +884,7 @@
 }
 .vnote-face {
   position: absolute; inset: 0;
+  z-index: 0;
   padding: 0; border: 0;
   border-radius: 50%;
   overflow: hidden;
@@ -898,6 +900,8 @@
 }
 .vnote-progress {
   position: absolute; inset: -3px;
+  z-index: 2;
+  will-change: transform;
   width: calc(100% + 6px); height: calc(100% + 6px);
   transform: rotate(-90deg);
   pointer-events: none;
@@ -913,6 +917,7 @@
 .vnote-progress.dragging .vnote-progress-fill { transition: none; }
 .vnote-meta {
   position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  z-index: 3;
   display: inline-flex; align-items: center; gap: 5px;
   height: 22px; padding: 0 9px;
   border-radius: 999px;
