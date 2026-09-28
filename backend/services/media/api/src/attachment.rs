@@ -140,6 +140,7 @@ async fn upload_attachment(
             stream,
         );
         let ((), attachment) = futures::join!(pump, upload);
+        drop(field);
         let attachment = attachment?;
 
         while let Some(rest) = payload.next().await {
