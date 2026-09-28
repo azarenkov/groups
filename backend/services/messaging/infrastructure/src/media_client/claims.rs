@@ -30,6 +30,7 @@ fn to_link(d: ClaimedAttachmentV1) -> AttachmentLink {
         storage_key: d.storage_key,
         created_at: d.created_at,
         voice: domain::attachment::VoiceMeta::from_columns(d.voice_duration_ms, d.voice_waveform),
+        video_note: domain::attachment::VideoNoteMeta::from_columns(d.video_duration_ms, d.video_size, d.video_poster),
     }
 }
 

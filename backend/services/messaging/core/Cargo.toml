@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+base64 = { workspace = true }
 domain = { workspace = true }
 ports = { workspace = true }
 messaging-domain = { workspace = true }

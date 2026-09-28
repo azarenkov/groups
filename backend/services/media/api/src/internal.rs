@@ -40,6 +40,9 @@ async fn claim_attachments(
                     created_at: a.created_at,
                     voice_duration_ms: a.voice.as_ref().map(|v| v.duration_ms),
                     voice_waveform: a.voice.map(|v| v.waveform),
+                    video_duration_ms: a.video_note.as_ref().map(|v| v.duration_ms),
+                    video_size: a.video_note.as_ref().map(|v| v.size),
+                    video_poster: a.video_note.map(|v| v.poster),
                 })
                 .collect();
             Ok(HttpResponse::Ok().json(items))
@@ -99,6 +102,9 @@ async fn unclaimed_attachment(
             created_at: a.created_at,
             voice_duration_ms: a.voice.as_ref().map(|v| v.duration_ms),
             voice_waveform: a.voice.map(|v| v.waveform),
+            video_duration_ms: a.video_note.as_ref().map(|v| v.duration_ms),
+            video_size: a.video_note.as_ref().map(|v| v.size),
+            video_poster: a.video_note.map(|v| v.poster),
         })),
         None => Ok(HttpResponse::NotFound().finish()),
     }

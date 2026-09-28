@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use messaging_domain::message::system::SystemMessage;
-use domain::{attachment::AttachmentLink, attachment::VoiceMeta, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
+use domain::{attachment::AttachmentLink, attachment::VideoNoteMeta, attachment::VoiceMeta, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
 use messaging_domain::{channel::id::ChannelId, message::Message, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::view::MessageView, message::view::ReplyPreviewView, message::forward::ForwardInfo};
 use sqlx::{Pool, Postgres};
@@ -108,7 +108,8 @@ impl MessageRepository for PostgresMessageRepository {
         let rows = sqlx::query!(
             r#"
             SELECT message_id, attachment_id, file_name, content_type, size_bytes,
-                   storage_key, created_at, voice_duration_ms, voice_waveform
+                   storage_key, created_at, voice_duration_ms, voice_waveform,
+                   video_duration_ms, video_size, video_poster
             FROM message_attachments
             WHERE message_id = ANY($1)
             ORDER BY created_at ASC
@@ -132,6 +133,7 @@ impl MessageRepository for PostgresMessageRepository {
                         storage_key: r.storage_key,
                         created_at: r.created_at,
                         voice: VoiceMeta::from_columns(r.voice_duration_ms, r.voice_waveform),
+                        video_note: VideoNoteMeta::from_columns(r.video_duration_ms, r.video_size, r.video_poster),
                     },
                 )
             })
@@ -196,6 +198,7 @@ impl MessageRepository for PostgresMessageRepository {
             storage_key: r.storage_key,
             created_at: r.created_at,
             voice: None,
+            video_note: None,
         }))
     }
 
@@ -258,7 +261,11 @@ impl MessageRepository for PostgresMessageRepository {
             SELECT m.id, m.author_id, u.name AS author_name, m.content,
                    EXISTS(SELECT 1 FROM message_attachments a WHERE a.message_id = m.id) AS "has_attachments!",
                    (SELECT a.voice_duration_ms FROM message_attachments a
-                    WHERE a.message_id = m.id AND a.voice_duration_ms IS NOT NULL LIMIT 1) AS voice_duration_ms
+                    WHERE a.message_id = m.id AND a.voice_duration_ms IS NOT NULL LIMIT 1) AS voice_duration_ms,
+                   (SELECT a.video_duration_ms FROM message_attachments a
+                    WHERE a.message_id = m.id AND a.video_duration_ms IS NOT NULL LIMIT 1) AS video_note_duration_ms,
+                   (SELECT a.video_poster FROM message_attachments a
+                    WHERE a.message_id = m.id AND a.video_poster IS NOT NULL LIMIT 1) AS video_note_poster
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.id = ANY($1)
@@ -279,6 +286,8 @@ impl MessageRepository for PostgresMessageRepository {
                 content: r.content,
                 has_attachments: r.has_attachments,
                 voice_duration_ms: r.voice_duration_ms,
+                video_note_duration_ms: r.video_note_duration_ms,
+                video_note_poster: r.video_note_poster,
             })
             .collect())
     }
@@ -481,8 +490,8 @@ pub(crate) async fn insert_message_links(
             r#"
             INSERT INTO message_attachments
                 (message_id, attachment_id, file_name, content_type, size_bytes, storage_key, created_at,
-                 voice_duration_ms, voice_waveform)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                 voice_duration_ms, voice_waveform, video_duration_ms, video_size, video_poster)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             "#,
             message_id,
             link.id,
@@ -493,6 +502,9 @@ pub(crate) async fn insert_message_links(
             link.created_at,
             link.voice.as_ref().map(|v| v.duration_ms),
             link.voice.as_ref().map(|v| v.waveform.as_slice()),
+            link.video_note.as_ref().map(|v| v.duration_ms),
+            link.video_note.as_ref().map(|v| v.size),
+            link.video_note.as_ref().map(|v| v.poster.as_slice()),
         )
         .execute(&mut **tx)
         .await

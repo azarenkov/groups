@@ -65,6 +65,13 @@ impl VoiceSpool {
         }
     }
 
+    pub fn probe_video_note_ms(&self, content_type: &str) -> Option<i64> {
+        let writer = self.writer.lock().unwrap_or_else(|e| e.into_inner()).take()?;
+        writer.into_inner().ok()?.sync_all().ok()?;
+        let file = File::open(&self.path).ok()?;
+        super::video_probe::probe_video_note_ms(Box::new(file), content_type)
+    }
+
     pub fn probe_duration_ms(&self) -> Option<i64> {
         let writer = self.writer.lock().unwrap_or_else(|e| e.into_inner()).take()?;
         writer.into_inner().ok()?.sync_all().ok()?;

@@ -10,6 +10,8 @@ pub struct ReplyPreview {
     pub snippet: String,
     pub has_attachments: bool,
     pub voice_duration_ms: Option<i32>,
+    pub video_note_duration_ms: Option<i32>,
+    pub video_note_poster: Option<Vec<u8>>,
     pub hidden_for: Vec<UserId>,
 }
 
@@ -21,12 +23,20 @@ impl ReplyPreview {
             snippet: snippet(content),
             has_attachments,
             voice_duration_ms: None,
+            video_note_duration_ms: None,
+            video_note_poster: None,
             hidden_for: Vec::new(),
         }
     }
 
     pub fn with_voice(mut self, voice_duration_ms: Option<i32>) -> Self {
         self.voice_duration_ms = voice_duration_ms;
+        self
+    }
+
+    pub fn with_video_note(mut self, note: Option<&domain::attachment::VideoNoteMeta>) -> Self {
+        self.video_note_duration_ms = note.map(|n| n.duration_ms);
+        self.video_note_poster = note.map(|n| n.poster.clone());
         self
     }
 

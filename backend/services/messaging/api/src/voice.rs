@@ -17,7 +17,7 @@ pub async fn fill_channel_listens(
     items: &mut [MessageResponse],
     viewer: UserId,
 ) -> Result<(), HttpError> {
-    let ids = voice_ids(items.iter().map(|m| (m.id, m.attachments.iter().any(|a| a.voice.is_some()))));
+    let ids = voice_ids(items.iter().map(|m| (m.id, m.attachments.iter().any(|a| a.voice.is_some() || a.video_note.is_some()))));
     let listened = app_state.voice_listens_usecase.in_channel(&ids, viewer).await?;
     for item in items.iter_mut() {
         item.voice_listened = listened.contains(&item.id);
@@ -30,7 +30,7 @@ pub async fn fill_dm_listens(
     items: &mut [DmMessageResponse],
     viewer: UserId,
 ) -> Result<(), HttpError> {
-    let ids = voice_ids(items.iter().map(|m| (m.id, m.attachments.iter().any(|a| a.voice.is_some()))));
+    let ids = voice_ids(items.iter().map(|m| (m.id, m.attachments.iter().any(|a| a.voice.is_some() || a.video_note.is_some()))));
     let listened = app_state.voice_listens_usecase.in_dm(&ids, viewer).await?;
     for item in items.iter_mut() {
         item.voice_listened = listened.contains(&item.id);

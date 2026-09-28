@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{attachment::Attachment, attachment::VoiceMeta, user::id::UserId};
+use domain::{attachment::Attachment, attachment::VideoNoteMeta, attachment::VoiceMeta, user::id::UserId};
 use ports::repository::RepositoryError;
 use media_domain::attachment::repository::AttachmentRepository;
 use uuid::Uuid;
@@ -27,12 +27,61 @@ pub const VOICE_WAVEFORM_MAX: usize = 128;
 const VOICE_MAX_BYTES_PER_SECOND: u64 = 24 * 1024;
 const VOICE_LENGTH_SLACK_MS: i64 = 1500;
 const VOICE_HEAD_BYTES: usize = 12;
+pub const VIDEO_NOTE_TYPES: &[&str] = &["video/webm", "video/mp4"];
+pub const VIDEO_NOTE_MAX_MS: i32 = 60 * 1000;
+pub const VIDEO_NOTE_SIZES: &[i32] = &[384, 640];
+pub const VIDEO_NOTE_POSTER_MAX_BYTES: usize = 16 * 1024;
+const VIDEO_NOTE_MAX_BYTES_PER_SECOND: u64 = 320 * 1024;
+
+#[derive(Debug, Clone)]
+pub enum RichMedia {
+    Voice(VoiceMeta),
+    VideoNote(VideoNoteMeta),
+}
+
+impl RichMedia {
+    fn duration_ms(&self) -> i32 {
+        match self {
+            RichMedia::Voice(meta) => meta.duration_ms,
+            RichMedia::VideoNote(meta) => meta.duration_ms,
+        }
+    }
+
+    fn max_ms(&self, limits: &UploadLimits) -> i32 {
+        match self {
+            RichMedia::Voice(_) => limits.max_voice_ms,
+            RichMedia::VideoNote(_) => VIDEO_NOTE_MAX_MS,
+        }
+    }
+
+    fn bytes_per_second(&self) -> u64 {
+        match self {
+            RichMedia::Voice(_) => VOICE_MAX_BYTES_PER_SECOND,
+            RichMedia::VideoNote(_) => VIDEO_NOTE_MAX_BYTES_PER_SECOND,
+        }
+    }
+
+    fn invalid(&self) -> UploadAttachmentError {
+        match self {
+            RichMedia::Voice(_) => UploadAttachmentError::InvalidVoice,
+            RichMedia::VideoNote(_) => UploadAttachmentError::InvalidVideoNote,
+        }
+    }
+
+    fn too_long(&self) -> UploadAttachmentError {
+        match self {
+            RichMedia::Voice(_) => UploadAttachmentError::VoiceTooLong,
+            RichMedia::VideoNote(_) => UploadAttachmentError::VideoNoteTooLong,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UploadLimits {
     pub max_file_bytes: u64,
     pub max_unlinked_bytes: u64,
     pub max_voice_ms: i32,
+    pub max_video_note_size: i32,
 }
 
 impl UploadLimits {
@@ -46,10 +95,15 @@ impl UploadLimits {
             "premium" | "pro" => 30 * MINUTE_MS,
             _ => 5 * MINUTE_MS,
         };
+        let max_video_note_size = match tier {
+            "premium" | "pro" => 640,
+            _ => 384,
+        };
         Self {
             max_file_bytes,
             max_unlinked_bytes: MIN_UNLINKED_BYTES.max(max_file_bytes * per_message),
             max_voice_ms,
+            max_video_note_size,
         }
     }
 
@@ -102,29 +156,69 @@ pub fn validate_voice(
     Ok(())
 }
 
-pub fn voice_signature_matches(content_type: &str, head: &[u8]) -> bool {
-    match base_content_type(content_type).as_str() {
-        "audio/webm" => head.starts_with(&[0x1A, 0x45, 0xDF, 0xA3]),
-        "audio/ogg" => head.starts_with(b"OggS"),
-        "audio/mp4" => head.len() >= 8 && &head[4..8] == b"ftyp",
-        _ => false,
+pub fn validate_video_note(
+    content_type: &str,
+    note: &VideoNoteMeta,
+    limits: &UploadLimits,
+) -> Result<(), UploadAttachmentError> {
+    if !VIDEO_NOTE_TYPES.contains(&base_content_type(content_type).as_str()) {
+        return Err(UploadAttachmentError::InvalidVideoNote);
     }
-}
-
-pub fn voice_length_matches(declared_ms: i32, actual_ms: i64, limits: &UploadLimits) -> Result<(), UploadAttachmentError> {
-    if actual_ms > limits.max_voice_ms as i64 + VOICE_LENGTH_SLACK_MS {
-        return Err(UploadAttachmentError::VoiceTooLong);
+    if note.duration_ms <= 0 || note.duration_ms > VIDEO_NOTE_MAX_MS {
+        return Err(UploadAttachmentError::VideoNoteTooLong);
     }
-    let slack = VOICE_LENGTH_SLACK_MS.max(declared_ms as i64 / 20);
-    if (actual_ms - declared_ms as i64).abs() > slack {
-        return Err(UploadAttachmentError::InvalidVoice);
+    if !VIDEO_NOTE_SIZES.contains(&note.size) || note.size > limits.max_video_note_size {
+        return Err(UploadAttachmentError::InvalidVideoNote);
+    }
+    if note.poster.len() > VIDEO_NOTE_POSTER_MAX_BYTES || !note.poster.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        return Err(UploadAttachmentError::InvalidVideoNote);
     }
     Ok(())
 }
 
-pub fn voice_size_plausible(bytes: u64, duration_ms: i32) -> bool {
+pub fn voice_signature_matches(content_type: &str, head: &[u8]) -> bool {
+    match base_content_type(content_type).as_str() {
+        "audio/webm" | "video/webm" => head.starts_with(&[0x1A, 0x45, 0xDF, 0xA3]),
+        "audio/ogg" => head.starts_with(b"OggS"),
+        "audio/mp4" | "video/mp4" => head.len() >= 8 && &head[4..8] == b"ftyp",
+        _ => false,
+    }
+}
+
+fn length_matches(
+    declared_ms: i32,
+    actual_ms: i64,
+    max_ms: i32,
+    too_long: UploadAttachmentError,
+    invalid: UploadAttachmentError,
+) -> Result<(), UploadAttachmentError> {
+    if actual_ms > max_ms as i64 + VOICE_LENGTH_SLACK_MS {
+        return Err(too_long);
+    }
+    let slack = VOICE_LENGTH_SLACK_MS.max(declared_ms as i64 / 20);
+    if (actual_ms - declared_ms as i64).abs() > slack {
+        return Err(invalid);
+    }
+    Ok(())
+}
+
+pub fn voice_length_matches(declared_ms: i32, actual_ms: i64, limits: &UploadLimits) -> Result<(), UploadAttachmentError> {
+    length_matches(
+        declared_ms,
+        actual_ms,
+        limits.max_voice_ms,
+        UploadAttachmentError::VoiceTooLong,
+        UploadAttachmentError::InvalidVoice,
+    )
+}
+
+fn media_size_plausible(bytes: u64, duration_ms: i32, bytes_per_second: u64) -> bool {
     let seconds = (duration_ms.max(0) as u64).div_ceil(1000) + 2;
-    bytes <= seconds * VOICE_MAX_BYTES_PER_SECOND
+    bytes <= seconds * bytes_per_second
+}
+
+pub fn voice_size_plausible(bytes: u64, duration_ms: i32) -> bool {
+    media_size_plausible(bytes, duration_ms, VOICE_MAX_BYTES_PER_SECOND)
 }
 
 fn content_type_allowed(content_type: &str) -> bool {
@@ -146,6 +240,10 @@ pub enum UploadAttachmentError {
     InvalidVoice,
     #[error("Voice message is too long")]
     VoiceTooLong,
+    #[error("Invalid video message")]
+    InvalidVideoNote,
+    #[error("Video message is too long")]
+    VideoNoteTooLong,
     #[error("Storage error: {0}")]
     Storage(#[from] FileStorageError),
     #[error("Repository error: {0}")]
@@ -172,20 +270,37 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
         Ok(UploadLimits::for_tier(&tier))
     }
 
-    async fn verify_voice_length(
+    async fn verify_media_length(
         &self,
-        voice: Option<&VoiceMeta>,
+        rich: Option<&RichMedia>,
         spool: Option<Arc<VoiceSpool>>,
+        content_type: &str,
         limits: &UploadLimits,
     ) -> Option<UploadAttachmentError> {
-        let meta = voice?;
+        let media = rich?;
         let Some(spool) = spool else {
-            return Some(UploadAttachmentError::InvalidVoice);
+            return Some(media.invalid());
         };
-        let probed = tokio::task::spawn_blocking(move || spool.probe_duration_ms()).await;
+        let video = matches!(media, RichMedia::VideoNote(_));
+        let content_type = content_type.to_string();
+        let probed = tokio::task::spawn_blocking(move || {
+            if video {
+                spool.probe_video_note_ms(&content_type)
+            } else {
+                spool.probe_duration_ms()
+            }
+        })
+        .await;
         match probed {
-            Ok(Some(actual)) => voice_length_matches(meta.duration_ms, actual, limits).err(),
-            _ => Some(UploadAttachmentError::InvalidVoice),
+            Ok(Some(actual)) => length_matches(
+                media.duration_ms(),
+                actual,
+                media.max_ms(limits),
+                media.too_long(),
+                media.invalid(),
+            )
+            .err(),
+            _ => Some(media.invalid()),
         }
     }
 
@@ -197,7 +312,7 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
         content_type: String,
         declared_bytes: u64,
         limits: UploadLimits,
-        voice: Option<VoiceMeta>,
+        rich: Option<RichMedia>,
         stream: ByteStream,
     ) -> Result<Attachment, UploadAttachmentError> {
         if declared_bytes == 0 {
@@ -206,9 +321,13 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
         if declared_bytes > limits.max_request_bytes() {
             return Err(UploadAttachmentError::TooLarge);
         }
-        let content_type = match &voice {
-            Some(meta) => {
+        let content_type = match &rich {
+            Some(RichMedia::Voice(meta)) => {
                 validate_voice(&content_type, meta, &limits)?;
+                base_content_type(&content_type)
+            }
+            Some(RichMedia::VideoNote(note)) => {
+                validate_video_note(&content_type, note, &limits)?;
                 base_content_type(&content_type)
             }
             None => content_type,
@@ -227,10 +346,17 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
             size_bytes: declared_bytes.min(limits.max_file_bytes) as i64,
             storage_key,
             created_at: Utc::now(),
-            voice: voice.clone(),
+            voice: match &rich {
+                Some(RichMedia::Voice(meta)) => Some(meta.clone()),
+                _ => None,
+            },
+            video_note: match &rich {
+                Some(RichMedia::VideoNote(note)) => Some(note.clone()),
+                _ => None,
+            },
         };
 
-        let spool: Option<Arc<VoiceSpool>> = if voice.is_some() {
+        let spool: Option<Arc<VoiceSpool>> = if rich.is_some() {
             let spool = VoiceSpool::create().map_err(|e| FileStorageError::Internal(e.to_string()))?;
             Some(Arc::new(spool))
         } else {
@@ -251,11 +377,11 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
 
         let too_large = Arc::new(AtomicBool::new(false));
         let bad_voice = Arc::new(AtomicBool::new(false));
-        let voice_checked = Arc::new(AtomicBool::new(voice.is_none()));
+        let voice_checked = Arc::new(AtomicBool::new(rich.is_none()));
         let seen = Arc::new(AtomicU64::new(0));
-        let voice_cap = voice
+        let voice_cap = rich
             .as_ref()
-            .map(|_| (limits.max_voice_ms as u64).div_ceil(1000).saturating_add(2) * VOICE_MAX_BYTES_PER_SECOND)
+            .map(|media| (media.max_ms(&limits) as u64).div_ceil(1000).saturating_add(2) * media.bytes_per_second())
             .unwrap_or(0);
         let limited: ByteStream = {
             let spool = spool.clone();
@@ -304,15 +430,20 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
             .await;
         let failure = match written {
             Ok(0) => Some(UploadAttachmentError::Empty),
-            Ok(_) if !voice_checked.load(Ordering::Relaxed) => Some(UploadAttachmentError::InvalidVoice),
-            Ok(bytes)
-                if voice
-                    .as_ref()
-                    .is_some_and(|meta| !voice_size_plausible(bytes, meta.duration_ms)) =>
-            {
-                Some(UploadAttachmentError::InvalidVoice)
+            Ok(_) if !voice_checked.load(Ordering::Relaxed) => {
+                Some(rich.as_ref().map(RichMedia::invalid).unwrap_or(UploadAttachmentError::InvalidVoice))
             }
-            Ok(bytes) => match self.verify_voice_length(voice.as_ref(), spool.clone(), &limits).await {
+            Ok(bytes)
+                if rich.as_ref().is_some_and(|media| {
+                    !media_size_plausible(bytes, media.duration_ms(), media.bytes_per_second())
+                }) =>
+            {
+                rich.as_ref().map(RichMedia::invalid)
+            }
+            Ok(bytes) => match self
+                .verify_media_length(rich.as_ref(), spool.clone(), &attachment.content_type, &limits)
+                .await
+            {
                 Some(failure) => Some(failure),
                 None => match self.repository.set_size(attachment.id, bytes as i64).await {
                     Ok(()) => {
@@ -323,7 +454,9 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
                 },
             },
             Err(_) if too_large.load(Ordering::Relaxed) => Some(UploadAttachmentError::TooLarge),
-            Err(_) if bad_voice.load(Ordering::Relaxed) => Some(UploadAttachmentError::InvalidVoice),
+            Err(_) if bad_voice.load(Ordering::Relaxed) => {
+                Some(rich.as_ref().map(RichMedia::invalid).unwrap_or(UploadAttachmentError::InvalidVoice))
+            }
             Err(e) => Some(e.into()),
         };
         let Some(failure) = failure else {
@@ -349,10 +482,43 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
 #[cfg(test)]
 mod tests {
     use super::{
-        UploadAttachmentError, UploadLimits, validate_voice, voice_length_matches,
-        voice_signature_matches, voice_size_plausible,
+        UploadAttachmentError, UploadLimits, validate_video_note, validate_voice,
+        voice_length_matches, voice_signature_matches, voice_size_plausible,
     };
-    use domain::attachment::VoiceMeta;
+    use domain::attachment::{VideoNoteMeta, VoiceMeta};
+
+    fn note(duration_ms: i32, size: i32, poster: &[u8]) -> VideoNoteMeta {
+        VideoNoteMeta { duration_ms, size, poster: poster.to_vec() }
+    }
+
+    #[test]
+    fn a_video_note_is_short_square_and_has_a_jpeg_poster() {
+        let free = UploadLimits::for_tier("free");
+        let pro = UploadLimits::for_tier("pro");
+        let jpeg = [0xFF, 0xD8, 0xFF, 0xE0];
+        assert!(validate_video_note("video/webm;codecs=vp9,opus", &note(60_000, 384, &jpeg), &free).is_ok());
+        assert!(matches!(
+            validate_video_note("video/webm", &note(60_001, 384, &jpeg), &free),
+            Err(UploadAttachmentError::VideoNoteTooLong)
+        ));
+        assert!(matches!(
+            validate_video_note("video/mp4", &note(5_000, 640, &jpeg), &free),
+            Err(UploadAttachmentError::InvalidVideoNote)
+        ));
+        assert!(validate_video_note("video/mp4", &note(5_000, 640, &jpeg), &pro).is_ok());
+        assert!(matches!(
+            validate_video_note("video/mp4", &note(5_000, 500, &jpeg), &pro),
+            Err(UploadAttachmentError::InvalidVideoNote)
+        ));
+        assert!(matches!(
+            validate_video_note("video/mp4", &note(5_000, 384, b"<svg>"), &free),
+            Err(UploadAttachmentError::InvalidVideoNote)
+        ));
+        assert!(matches!(
+            validate_video_note("video/quicktime", &note(5_000, 384, &jpeg), &free),
+            Err(UploadAttachmentError::InvalidVideoNote)
+        ));
+    }
 
     fn voice(duration_ms: i32, bars: usize) -> VoiceMeta {
         VoiceMeta { duration_ms, waveform: vec![10; bars] }

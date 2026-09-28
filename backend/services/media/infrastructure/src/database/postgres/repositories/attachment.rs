@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use domain::{attachment::Attachment, attachment::VoiceMeta, user::id::UserId};
+use domain::{attachment::Attachment, attachment::VideoNoteMeta, attachment::VoiceMeta, user::id::UserId};
 use ports::repository::RepositoryError;
 use media_domain::attachment::repository::AttachmentRepository;
 use sqlx::{Pool, Postgres};
@@ -27,6 +27,7 @@ fn row_to_attachment(
     storage_key: String,
     created_at: chrono::DateTime<chrono::Utc>,
     voice: Option<VoiceMeta>,
+    video_note: Option<VideoNoteMeta>,
 ) -> Attachment {
     Attachment {
         id,
@@ -37,6 +38,7 @@ fn row_to_attachment(
         storage_key,
         created_at,
         voice,
+        video_note,
     }
 }
 
@@ -83,8 +85,8 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             r#"
             INSERT INTO attachments
                 (id, owner_id, file_name, content_type, size_bytes, storage_key, created_at,
-                 voice_duration_ms, voice_waveform)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                 voice_duration_ms, voice_waveform, video_duration_ms, video_size, video_poster)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             "#,
             a.id,
             a.owner_id,
@@ -95,6 +97,9 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             a.created_at,
             a.voice.as_ref().map(|v| v.duration_ms),
             a.voice.as_ref().map(|v| v.waveform.as_slice()),
+            a.video_note.as_ref().map(|v| v.duration_ms),
+            a.video_note.as_ref().map(|v| v.size),
+            a.video_note.as_ref().map(|v| v.poster.as_slice()),
         )
         .execute(&mut *tx)
         .await
@@ -120,7 +125,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         let row = sqlx::query!(
             r#"
             SELECT id, owner_id, file_name, content_type, size_bytes, storage_key, created_at,
-                   voice_duration_ms, voice_waveform
+                   voice_duration_ms, voice_waveform, video_duration_ms, video_size, video_poster
             FROM attachments
             WHERE id = $1
             "#,
@@ -140,6 +145,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
                 r.storage_key,
                 r.created_at,
                 VoiceMeta::from_columns(r.voice_duration_ms, r.voice_waveform),
+                VideoNoteMeta::from_columns(r.video_duration_ms, r.video_size, r.video_poster),
             )
         }))
     }
@@ -152,7 +158,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
         let row = sqlx::query!(
             r#"
             SELECT id, owner_id, file_name, content_type, size_bytes, storage_key, created_at,
-                   voice_duration_ms, voice_waveform
+                   voice_duration_ms, voice_waveform, video_duration_ms, video_size, video_poster
             FROM attachments
             WHERE id = $1 AND owner_id = $2
               AND claimed_at IS NULL AND deleting_at IS NULL
@@ -174,6 +180,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
                 r.storage_key,
                 r.created_at,
                 VoiceMeta::from_columns(r.voice_duration_ms, r.voice_waveform),
+                VideoNoteMeta::from_columns(r.video_duration_ms, r.video_size, r.video_poster),
             )
         }))
     }
@@ -191,7 +198,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
             WHERE id = ANY($1) AND owner_id = $2
               AND claimed_at IS NULL AND deleting_at IS NULL
             RETURNING id, owner_id, file_name, content_type, size_bytes, storage_key, created_at,
-                      voice_duration_ms, voice_waveform
+                      voice_duration_ms, voice_waveform, video_duration_ms, video_size, video_poster
             "#,
             ids,
             owner_id.uuid(),
@@ -224,6 +231,7 @@ impl AttachmentRepository for PostgresAttachmentRepository {
                     r.storage_key,
                     r.created_at,
                     VoiceMeta::from_columns(r.voice_duration_ms, r.voice_waveform),
+                    VideoNoteMeta::from_columns(r.video_duration_ms, r.video_size, r.video_poster),
                 )
             })
             .collect();
