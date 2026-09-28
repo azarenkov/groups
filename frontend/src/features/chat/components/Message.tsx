@@ -48,6 +48,8 @@ export interface MessageProps {
   continued: boolean;
   hideMeta?: boolean;
   hideTime?: boolean;
+  groupPrev?: boolean;
+  groupNext?: boolean;
   isMine: boolean;
   dmStyle: boolean;
   receipt: "sent" | "read" | null;
@@ -86,6 +88,8 @@ export const Message: React.FC<MessageProps> = ({
   continued,
   hideMeta,
   hideTime,
+  groupPrev,
+  groupNext,
   isMine,
   dmStyle,
   receipt,
@@ -368,6 +372,8 @@ export const Message: React.FC<MessageProps> = ({
         (isMine ? "mine" : "theirs") +
         (dmStyle ? " dm" : "") +
         (continued ? " cont" : "") +
+        (groupPrev ? " grp-prev" : "") +
+        (groupNext ? " grp-next" : "") +
         (highlighted ? " highlight" : "") +
         (editing ? " editing" : "")
       }

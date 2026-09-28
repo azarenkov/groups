@@ -85,6 +85,13 @@ const MessageList: React.FC<MessageListProps> = ({
       break;
     }
   }
+  const metaHidden = (k: number): boolean => {
+    const a = messages[k];
+    const b = messages[k + 1];
+    if (!a || !b || !sharesTimeWithNext(a, b)) return false;
+    const mine = !!currentUserId && a.authorId === currentUserId;
+    return receiptFor(a, mine) === receiptFor(b, mine);
+  };
   return (
   <div className="inner">
             {loadingOlder && (
@@ -126,7 +133,9 @@ const MessageList: React.FC<MessageListProps> = ({
                   displayName={displayName}
                   continued={cont}
                   hideTime={sharedTime}
-                  hideMeta={sharedTime && !!next && receipt === receiptFor(next, isMine)}
+                  hideMeta={metaHidden(i)}
+                  groupPrev={metaHidden(i - 1)}
+                  groupNext={metaHidden(i)}
                   isMine={isMine}
                   dmStyle={isDm}
                   receipt={receipt}
