@@ -46,14 +46,13 @@
       "free": {
         "name": "Free",
         "price": "Free",
-        "noise": "Noise suppression: off or standard",
+        "noise": "Noise suppression: off, standard or high",
         "attachments": "Attachments up to 15 MB, 5 per message",
         "stream": "Screen share at 720p 60 fps"
       },
       "pro": {
         "name": "Rift Pro",
         "price": "199 ₽ a month",
-        "noise": "High noise suppression",
         "attachments": "Attachments up to 100 MB, 10 per message",
         "stream": "Screen share up to 1440p 60 fps",
         "badge": "A Pro badge in the style you pick",
@@ -63,7 +62,6 @@
       "premium": {
         "name": "Rift Premium",
         "price": "Price to be announced",
-        "noise": "High noise suppression",
         "attachments": "Attachments up to 500 MB, 20 per message",
         "stream": "Screen share up to 4K 60 fps",
         "badge": "A Premium badge in the style you pick",

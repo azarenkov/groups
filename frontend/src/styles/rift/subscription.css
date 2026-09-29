@@ -190,7 +190,6 @@
   color: var(--fg-3);
 }
 
-.noise-pro-tag { margin-left: 6px; }
 .s-seg button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .plan-grid {
