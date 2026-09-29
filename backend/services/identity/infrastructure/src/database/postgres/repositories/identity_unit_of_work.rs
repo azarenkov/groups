@@ -491,17 +491,27 @@ impl IdentityTransaction for PostgresIdentityTransaction {
     }
 
     async fn trial_history(&mut self, email: &Email, ip: Option<&str>, since: DateTime<Utc>) -> Result<TrialHistory, RepositoryError> {
+        let email_hash = trial_hash(&trial_email_key(email.as_str()));
+        let ip_hash = ip.map(trial_hash);
+        for key in std::iter::once(format!("trial:email:{email_hash}"))
+            .chain(ip_hash.as_ref().map(|hash| format!("trial:ip:{hash}")))
+        {
+            sqlx::query!("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", key)
+                .execute(&mut *self.tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+        }
         let email_used = sqlx::query_scalar!(
             r#"SELECT EXISTS(SELECT 1 FROM trial_grants WHERE email_hash = $1) AS "used!""#,
-            trial_hash(&trial_email_key(email.as_str())),
+            email_hash,
         )
         .fetch_one(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        let recent_from_ip = match ip {
-            Some(ip) => sqlx::query_scalar!(
+        let recent_from_ip = match ip_hash {
+            Some(ip_hash) => sqlx::query_scalar!(
                 r#"SELECT COUNT(*) AS "count!" FROM trial_grants WHERE ip_hash = $1 AND granted_at > $2"#,
-                trial_hash(ip),
+                ip_hash,
                 since,
             )
             .fetch_one(&mut *self.tx)
