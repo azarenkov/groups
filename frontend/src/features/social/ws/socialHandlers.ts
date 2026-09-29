@@ -1,6 +1,6 @@
 import type { WsHandlers } from "../../../shared/ws/types";
 import { bustAvatar } from "../../../shared/lib/avatarCache";
-import { parseBadgeStyle, parseMemberNumber, parseTier } from "../../subscription/lib/plans";
+import { parseBadgeStyle, parseMemberNumber, parseTier, parseValidUntil } from "../../subscription/lib/plans";
 import { useBadgeStore } from "../../subscription/store/badgeStore";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 import { loadActivitiesFor, loadFriendActivities, useActivityStore } from "../store/activityStore";
@@ -145,7 +145,10 @@ export const socialHandlers: WsHandlers = {
       const tier = parseTier(d.tier);
       const memberNumber = parseMemberNumber(d.memberNumber);
       if (useAuthStore.getState().user?.id === userId) {
-        useEntitlementsStore.getState().applyTier(tier, memberNumber);
+        useEntitlementsStore.getState().applyTier(tier, memberNumber, {
+          validUntil: parseValidUntil(d.validUntil),
+          trial: d.trial === true,
+        });
         if (tier === "free") {
           bustAvatar("banner", userId);
         }

@@ -48,6 +48,8 @@ pub struct UserEntitlementsChangedV1 {
     pub valid_until: Option<DateTime<Utc>>,
     #[serde(default)]
     pub member_number: Option<i64>,
+    #[serde(default)]
+    pub trial: bool,
     pub occurred_at: DateTime<Utc>,
 }
 

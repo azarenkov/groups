@@ -4,13 +4,22 @@ import { entitlementsAPI } from "../api/entitlements";
 import { DEFAULT_BADGE_STYLE } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
 
+export interface PlanWindow {
+  validUntil: string | null;
+  trial: boolean;
+}
+
 interface EntitlementsState {
   tier: Tier;
   badgeStyle: BadgeStyle;
   memberNumber: number | null;
+  validUntil: string | null;
+  trial: boolean;
+  trialAvailable: boolean;
   loaded: boolean;
   fetch: () => Promise<void>;
-  applyTier: (tier: Tier, memberNumber?: number | null) => void;
+  applyTier: (tier: Tier, memberNumber?: number | null, plan?: PlanWindow) => void;
+  startTrial: () => Promise<void>;
   applyBadgeStyle: (style: BadgeStyle) => void;
   setBadgeStyle: (style: BadgeStyle) => Promise<void>;
   clear: () => void;
@@ -27,6 +36,9 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   tier: "free",
   badgeStyle: DEFAULT_BADGE_STYLE,
   memberNumber: null,
+  validUntil: null,
+  trial: false,
+  trialAvailable: false,
   loaded: false,
 
   fetch: async () => {
@@ -40,7 +52,15 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
         return;
       }
       confirmedBadgeStyle = mine.badgeStyle;
-      set({ tier: mine.tier, badgeStyle: mine.badgeStyle, memberNumber: mine.memberNumber, loaded: true });
+      set({
+        tier: mine.tier,
+        badgeStyle: mine.badgeStyle,
+        memberNumber: mine.memberNumber,
+        validUntil: mine.validUntil,
+        trial: mine.trial,
+        trialAvailable: mine.trialAvailable,
+        loaded: true,
+      });
     } catch (err) {
       if (gen !== generation) return;
       console.warn("[entitlements] failed to load:", err);
@@ -48,9 +68,25 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
     }
   },
 
-  applyTier: (tier, memberNumber) => {
+  applyTier: (tier, memberNumber, plan) => {
     revision += 1;
-    set({ tier, memberNumber: memberNumber ?? get().memberNumber });
+    const free = tier === "free";
+    set({
+      tier,
+      memberNumber: memberNumber ?? get().memberNumber,
+      validUntil: free ? null : plan ? plan.validUntil : get().validUntil,
+      trial: free ? false : plan ? plan.trial : get().trial,
+      trialAvailable: plan?.trial || !free ? false : get().trialAvailable,
+    });
+    if (free) void get().fetch();
+  },
+
+  startTrial: async () => {
+    const gen = generation;
+    const started = await entitlementsAPI.startTrial();
+    if (gen !== generation) return;
+    revision += 1;
+    set({ tier: started.tier, validUntil: started.validUntil, trial: true, trialAvailable: false });
   },
   applyBadgeStyle: (badgeStyle) => {
     revision += 1;
@@ -107,6 +143,14 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
     badgeInFlight = null;
     desiredBadgeStyle = null;
     confirmedBadgeStyle = null;
-    set({ tier: "free", badgeStyle: DEFAULT_BADGE_STYLE, memberNumber: null, loaded: false });
+    set({
+      tier: "free",
+      badgeStyle: DEFAULT_BADGE_STYLE,
+      memberNumber: null,
+      validUntil: null,
+      trial: false,
+      trialAvailable: false,
+      loaded: false,
+    });
   },
 }));

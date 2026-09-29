@@ -7,6 +7,7 @@ use identity_domain::user::repository::UserRepository;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use api_common::client::extract_client_context;
 use api_common::context::request_context;
 use crate::http_errors::HttpError;
 use crate::state::AppState;
@@ -17,6 +18,9 @@ struct EntitlementsResponse {
     tier: &'static str,
     badge_style: &'static str,
     member_number: Option<i64>,
+    valid_until: Option<DateTime<Utc>>,
+    trial: bool,
+    trial_available: bool,
 }
 
 #[get("/me/entitlements")]
@@ -30,17 +34,51 @@ async fn get_my_entitlements(
         .execute(&user_id)
         .await
         .map_err(HttpError::from_error)?;
-    let badge_style = app_state
+    let user = app_state
         .user_repository
         .find_by_id(&user_id)
         .await
-        .map_err(HttpError::from_error)?
-        .map(|user| user.badge_style().as_str())
-        .unwrap_or("");
+        .map_err(HttpError::from_error)?;
+    let badge_style = user.as_ref().map(|u| u.badge_style().as_str()).unwrap_or("");
+    let verified = user.as_ref().is_some_and(|u| u.is_verified());
     Ok(HttpResponse::Ok().json(ApiResponse::success(EntitlementsResponse {
         tier: entitlements.tier.as_str(),
         badge_style,
         member_number: entitlements.member_number,
+        valid_until: entitlements.valid_until,
+        trial: entitlements.trial,
+        trial_available: entitlements.trial_available && verified,
+    })))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TrialResponse {
+    tier: &'static str,
+    valid_until: DateTime<Utc>,
+    trial: bool,
+}
+
+#[post("/me/trial")]
+async fn start_my_trial(
+    req: actix_web::HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+) -> Result<impl Responder, HttpError> {
+    let ctx = request_context(&req);
+    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let valid_until = app_state
+        .start_trial_usecase
+        .execute(
+            UserId::new(auth_token.id),
+            client.ip.as_deref(),
+            ctx.request_id.as_deref(),
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(TrialResponse {
+        tier: "pro",
+        valid_until,
+        trial: true,
     })))
 }
 
@@ -99,7 +137,9 @@ async fn grant_entitlements(
 }
 
 pub fn entitlement_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(get_my_entitlements).service(set_my_badge_style);
+    cfg.service(get_my_entitlements)
+        .service(set_my_badge_style)
+        .service(start_my_trial);
 }
 
 pub fn internal_entitlement_routes(cfg: &mut web::ServiceConfig) {

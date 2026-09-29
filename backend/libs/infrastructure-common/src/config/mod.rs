@@ -5,5 +5,6 @@ pub mod minio;
 pub mod nats;
 pub mod nsfw;
 pub mod postgres;
+pub mod trial;
 pub mod unverified_cleanup;
 pub mod username;

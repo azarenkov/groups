@@ -10,6 +10,7 @@ import {
   hasTier,
 } from "../lib/plans";
 import { useEntitlementsStore } from "../store/entitlementsStore";
+import TrialOffer from "./TrialOffer";
 
 const StreamQualityPicker: React.FC = () => {
   const { t } = useTranslation("subscription");
@@ -101,6 +102,7 @@ const StreamQualityPicker: React.FC = () => {
               </button>
             );
           })}
+          {tier === "free" && <TrialOffer compact reason={t("trial.streamReason")} />}
         </div>
       )}
     </div>

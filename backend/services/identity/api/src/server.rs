@@ -41,11 +41,12 @@ use domain::user::name::ReservedNames;
 use infrastructure_common::{
     config::{
         google::GoogleOAuthConfig, nsfw::NsfwConfig, postgres::PostgresConfig,
-        unverified_cleanup::UnverifiedCleanupConfig, username::UsernameConfig,
+        trial::TrialConfig, unverified_cleanup::UnverifiedCleanupConfig, username::UsernameConfig,
     },
     hasher::bcrypt_hasher::BcryptHasher,
 };
 use identity::usecases::auth::captcha::CaptchaGate;
+use identity::usecases::entitlements::{expire_entitlements::ExpireEntitlements, start_trial::StartTrial};
 use identity_infrastructure::auth::{altcha::{AltchaConfig, AltchaVerifier}, redis_captcha_store::RedisCaptchaStore};
 use identity_infrastructure::{
     auth::{github_connector::GithubOAuthConnector, google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker, steam_connector::SteamOpenIdConnector},
@@ -81,6 +82,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let nsfw_config = NsfwConfig::from_env()?;
     let username_config = UsernameConfig::from_env()?;
     let unverified_cleanup_config = UnverifiedCleanupConfig::from_env()?;
+    let trial_config = TrialConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
 
@@ -144,6 +146,23 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             }
         });
     }
+
+    let expire_entitlements = Arc::new(ExpireEntitlements::new(
+        unit_of_work.clone(),
+        trial_config.expiry_batch_size(),
+    ));
+    let expiry_interval = trial_config.expiry_interval();
+    actix_web::rt::spawn(async move {
+        let mut ticker = actix_web::rt::time::interval(expiry_interval);
+        loop {
+            ticker.tick().await;
+            match expire_entitlements.run_once().await {
+                Ok(0) => {}
+                Ok(expired) => tracing::info!(expired, "Moved lapsed plans back to Free"),
+                Err(e) => tracing::warn!(error = %e, "Plan expiry sweep failed"),
+            }
+        }
+    });
 
     let reauthenticator = Arc::new(Reauthenticator::new(
         user_repository.clone(),
@@ -238,6 +257,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         get_entitlements_usecase: GetEntitlements::new(entitlements_repository.clone()),
         grant_entitlements_usecase: GrantEntitlements::new(unit_of_work.clone()),
+        start_trial_usecase: StartTrial::new(
+            unit_of_work.clone(),
+            trial_config.ip_limit(),
+            trial_config.ip_window(),
+        ),
         set_badge_style_usecase: SetBadgeStyle::new(unit_of_work.clone()),
         get_appearance_usecase: GetAppearance::new(user_repository.clone()),
         update_appearance_usecase: UpdateAppearance::new(unit_of_work.clone()),

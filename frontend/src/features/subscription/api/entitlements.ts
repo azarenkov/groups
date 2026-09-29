@@ -1,11 +1,19 @@
 import { http } from "../../../shared/api/http";
-import { parseBadgeStyle, parseMemberNumber, parseTier } from "../lib/plans";
+import { parseBadgeStyle, parseMemberNumber, parseTier, parseValidUntil } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
 
 export interface MyEntitlements {
   tier: Tier;
   badgeStyle: BadgeStyle;
   memberNumber: number | null;
+  validUntil: string | null;
+  trial: boolean;
+  trialAvailable: boolean;
+}
+
+export interface StartedTrial {
+  tier: Tier;
+  validUntil: string | null;
 }
 
 export interface UserBadge {
@@ -25,7 +33,16 @@ class EntitlementsAPI {
       tier: parseTier(data.tier),
       badgeStyle: parseBadgeStyle(data.badgeStyle),
       memberNumber: parseMemberNumber(data.memberNumber),
+      validUntil: parseValidUntil(data.validUntil),
+      trial: data.trial === true,
+      trialAvailable: data.trialAvailable === true,
     };
+  }
+
+  async startTrial(): Promise<StartedTrial> {
+    const response = await this.client.post("/v1/users/me/trial");
+    const data = response.data.data;
+    return { tier: parseTier(data.tier), validUntil: parseValidUntil(data.validUntil) };
   }
 
   async setBadgeStyle(style: BadgeStyle): Promise<BadgeStyle> {

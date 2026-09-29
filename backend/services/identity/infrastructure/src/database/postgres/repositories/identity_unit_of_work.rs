@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use chrono::{DateTime, Utc};
-use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::Tier, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::Tier, user::tier::TrialHistory, user::tier::trial_email_key, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 use sqlx::{Pool, Postgres, Transaction};
 use std::collections::BTreeMap;
 use identity_domain::user::settings::{
@@ -430,7 +430,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
 
     async fn load_entitlements(&mut self, user_id: &UserId) -> Result<Entitlements, RepositoryError> {
         let row = sqlx::query!(
-            r#"SELECT tier, valid_until, member_number FROM user_entitlements WHERE user_id = $1"#,
+            r#"SELECT tier, valid_until, member_number, source, trial_used_at FROM user_entitlements WHERE user_id = $1"#,
             user_id.uuid(),
         )
         .fetch_optional(&mut *self.tx)
@@ -441,6 +441,8 @@ impl IdentityTransaction for PostgresIdentityTransaction {
                 tier: Tier::parse(&r.tier).unwrap_or_default(),
                 valid_until: r.valid_until,
                 member_number: r.member_number,
+                trial: r.source == "trial",
+                trial_used_at: r.trial_used_at,
             })
             .unwrap_or_default())
     }
@@ -471,7 +473,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         .fetch_one(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        if current.is_some() || tier == "free" {
+        if current.is_some() || tier == "free" || source == "trial" {
             return Ok(current);
         }
         sqlx::query_scalar!(
@@ -486,6 +488,78 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         .fetch_one(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)
+    }
+
+    async fn trial_history(&mut self, email: &Email, ip: Option<&str>, since: DateTime<Utc>) -> Result<TrialHistory, RepositoryError> {
+        let email_used = sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM trial_grants WHERE email_hash = $1) AS "used!""#,
+            trial_hash(&trial_email_key(email.as_str())),
+        )
+        .fetch_one(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let recent_from_ip = match ip {
+            Some(ip) => sqlx::query_scalar!(
+                r#"SELECT COUNT(*) AS "count!" FROM trial_grants WHERE ip_hash = $1 AND granted_at > $2"#,
+                trial_hash(ip),
+                since,
+            )
+            .fetch_one(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?,
+            None => 0,
+        };
+        Ok(TrialHistory { email_used, recent_from_ip })
+    }
+
+    async fn start_trial(&mut self, user_id: &UserId, email: &Email, ip: Option<&str>, valid_until: DateTime<Utc>, now: DateTime<Utc>) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+            INSERT INTO user_entitlements (user_id, tier, valid_until, source, trial_used_at, updated_at)
+            VALUES ($1, 'pro', $2, 'trial', $3, now())
+            ON CONFLICT (user_id) DO UPDATE
+                SET tier = 'pro',
+                    valid_until = EXCLUDED.valid_until,
+                    source = 'trial',
+                    trial_used_at = EXCLUDED.trial_used_at,
+                    updated_at = now()
+            "#,
+            user_id.uuid(),
+            valid_until,
+            now,
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            r#"INSERT INTO trial_grants (user_id, email_hash, ip_hash, granted_at) VALUES ($1, $2, $3, $4)"#,
+            user_id.uuid(),
+            trial_hash(&trial_email_key(email.as_str())),
+            ip.map(trial_hash),
+            now,
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn load_expired_entitlements_for_update(&mut self, now: DateTime<Utc>, limit: i64) -> Result<Vec<UserId>, RepositoryError> {
+        let ids = sqlx::query_scalar!(
+            r#"
+            SELECT user_id FROM user_entitlements
+            WHERE tier <> 'free' AND valid_until IS NOT NULL AND valid_until <= $1
+            ORDER BY valid_until
+            LIMIT $2
+            FOR UPDATE SKIP LOCKED
+            "#,
+            now,
+            limit,
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(ids.into_iter().map(UserId::new).collect())
     }
 
     async fn save_events(&mut self, events: &[IdentityEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {
@@ -699,4 +773,9 @@ impl PostgresIdentityTransaction {
             .map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
+}
+
+fn trial_hash(value: &str) -> String {
+    use sha2::{Digest, Sha256};
+    hex::encode(Sha256::digest(value.as_bytes()))
 }

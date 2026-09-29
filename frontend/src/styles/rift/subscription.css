@@ -223,3 +223,38 @@
   flex: 1;
 }
 .plan-tile-foot { font-size: 12px; font-weight: 600; color: var(--fg-2); min-height: 16px; }
+
+.trial-offer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 4px 0 18px;
+}
+.trial-offer.compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  width: 100%;
+}
+.trial-offer.compact .trial-offer-button { padding: 4px 10px; font-size: 12px; }
+.trial-offer-reason { font-size: 12px; color: var(--fg-2); }
+.trial-offer-hint { font-size: 12px; color: var(--fg-3); }
+.trial-offer-error { font-size: 12px; color: var(--danger); width: 100%; }
+.stream-quality-pop .trial-offer.compact {
+  padding: 8px 8px 4px;
+  border-top: 1px solid var(--hairline);
+  margin-top: 4px;
+}
+.plan-until { font-size: 12px; color: var(--fg-2); }
+.plan-until-lead { display: block; margin: -6px 0 12px; }
+.sb-status-menu-plan {
+  display: block;
+  padding: 6px 8px 4px;
+  margin-top: 4px;
+  border-top: 1px solid var(--hairline);
+  font-size: 11px;
+  white-space: nowrap;
+}

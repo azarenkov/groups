@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 
 import { SettingsRow } from "../controls";
 import ProBadge from "../../../subscription/components/ProBadge";
+import PlanUntil from "../../../subscription/components/PlanUntil";
+import TrialOffer from "../../../subscription/components/TrialOffer";
 import {
   VIDEO_NOTE_SIZE_BY_TIER,
   VOICE_MESSAGE_MAX_MS_BY_TIER,
@@ -22,6 +24,8 @@ export function SubscriptionSection() {
     <>
       <h1>{t("page.title")}</h1>
       <p className="lead">{t("page.lead")}</p>
+      <PlanUntil className="plan-until-lead" />
+      <TrialOffer />
 
       <div className="s-section">
         <div className="plan-grid">

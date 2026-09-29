@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
 import { UserAvatar } from "../../../../shared/ui/Avatar";
 import UserBadge from "../../../subscription/components/UserBadge";
+import PlanUntil from "../../../subscription/components/PlanUntil";
 
 interface SidebarFooterProps {
   currentUserId?: string;
@@ -114,6 +115,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({
                 <span className="sb-status-dot offline" />
                 <span>{t("statusOffline")}</span>
               </button>
+              <PlanUntil className="sb-status-menu-plan" />
             </div>
           )}
         </div>

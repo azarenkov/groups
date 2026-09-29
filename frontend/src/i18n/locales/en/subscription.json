@@ -85,5 +85,20 @@
       "historyHint": "Download past invoices.",
       "view": "View"
     }
+  },
+  "planUntil": "{{plan}} until {{date}}",
+  "trial": {
+    "cta": "Try Pro free for {{days}} days",
+    "hint": "No card needed. Afterwards the account goes back to Free and nothing is lost.",
+    "until": "Pro trial until {{date}}",
+    "attachmentsReason": "The file is over the Free limit. Pro allows attachments up to {{mb}} MB.",
+    "streamReason": "Higher stream quality comes with Pro.",
+    "errors": {
+      "used": "The free trial has already been used.",
+      "unverified": "Confirm your email to start the trial.",
+      "network": "A trial was already started from this network. Try again later.",
+      "paid": "You already have a paid plan.",
+      "generic": "Could not start the trial."
+    }
   }
 }

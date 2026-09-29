@@ -6,6 +6,7 @@ use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivi
 use identity_infrastructure::database::postgres::repositories::entitlements::PostgresEntitlementsRepository;
 use std::sync::Arc;
 use identity::usecases::auth::captcha::CaptchaGate;
+use identity::usecases::entitlements::start_trial::StartTrial;
 use identity_infrastructure::auth::{altcha::AltchaVerifier, redis_captcha_store::RedisCaptchaStore};
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
 use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
@@ -117,6 +118,7 @@ pub struct AppState {
     >,
     pub get_entitlements_usecase: GetEntitlements<PostgresEntitlementsRepository>,
     pub grant_entitlements_usecase: GrantEntitlements<PostgresIdentityUnitOfWork>,
+    pub start_trial_usecase: StartTrial<PostgresIdentityUnitOfWork>,
     pub set_badge_style_usecase: SetBadgeStyle<PostgresIdentityUnitOfWork>,
     pub get_appearance_usecase: GetAppearance<PostgresUserRepository>,
     pub update_appearance_usecase: UpdateAppearance<PostgresIdentityUnitOfWork>,
