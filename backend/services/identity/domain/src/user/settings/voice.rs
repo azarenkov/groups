@@ -298,14 +298,10 @@ impl VoiceSettings {
     }
 
     pub fn allowed_for(&self, tier: Tier) -> bool {
-        (self.noise_mode != NoiseMode::High || tier.is_paid())
-            && self.stream_quality <= StreamQuality::best_for(tier)
+        self.stream_quality <= StreamQuality::best_for(tier)
     }
 
     pub fn limited_to(mut self, tier: Tier) -> Self {
-        if self.noise_mode == NoiseMode::High && !tier.is_paid() {
-            self.noise_mode = NoiseMode::Standard;
-        }
         self.stream_quality = self.stream_quality.min(StreamQuality::best_for(tier));
         self
     }
