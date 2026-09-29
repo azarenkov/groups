@@ -5,6 +5,7 @@ import UserBadge from "../../../subscription/components/UserBadge";
 import { useImageCrop } from "../../../../shared/hooks/useImageCrop";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
+import VideoAvatarModal from "../../../../shared/ui/VideoAvatarModal";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { userAPI } from "../../../social/api/user";
 import { ApiError } from "../../../../shared/lib/apiError";
@@ -187,6 +188,7 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
   const pickFile = () => fileRef.current?.click();
   const { requestCrop, cropModal } = useImageCrop();
   const paid = useEntitlementsStore((state) => state.tier !== "free");
+  const [videoFile, setVideoFile] = React.useState<File | null>(null);
 
   const handleFile = async (file: File) => {
     if (!user) return;
@@ -233,12 +235,20 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
         <input
           ref={fileRef}
           type="file"
-          accept={paid ? "image/png,image/jpeg,image/webp,image/gif" : "image/png,image/jpeg,image/webp"}
+          accept={
+            paid
+              ? "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
+              : "image/png,image/jpeg,image/webp"
+          }
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
             e.target.value = "";
             if (!f) return;
+            if (paid && (f.type.startsWith("video/") || /\.(mp4|m4v|mov|webm)$/i.test(f.name))) {
+              setVideoFile(f);
+              return;
+            }
             void requestCrop(f, {
               aspect: 1,
               shape: "circle",
@@ -249,6 +259,16 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
           }}
         />
         {cropModal}
+        {videoFile && (
+          <VideoAvatarModal
+            file={videoFile}
+            onCancel={() => setVideoFile(null)}
+            onConfirm={(gif) => {
+              setVideoFile(null);
+              void handleFile(gif);
+            }}
+          />
+        )}
         <UserAvatar
           userId={user?.id}
           name={user?.name ?? "?"}

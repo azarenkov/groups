@@ -2,10 +2,9 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 
 import Icon from "./Icon";
-import { clampOffset, coverScale, cropFromView } from "../lib/imageCrop";
+import { cropFromView } from "../lib/imageCrop";
+import { MAX_CROP_ZOOM, useCropView } from "../hooks/useCropView";
 import type { CropRect } from "../lib/imageCrop";
-
-const MAX_ZOOM = 4;
 
 export interface ImageCropOptions {
   aspect: number;
@@ -31,11 +30,11 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
   const frameWidth = aspect >= 2 ? 480 : 300;
   const frameHeight = Math.round(frameWidth / aspect);
   const [url, setUrl] = React.useState<string | null>(null);
-  const [natural, setNatural] = React.useState<{ width: number; height: number } | null>(null);
-  const [zoom, setZoom] = React.useState(1);
-  const [offset, setOffset] = React.useState({ offsetX: 0, offsetY: 0 });
   const [failed, setFailed] = React.useState(false);
-  const dragRef = React.useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
+  const { view, zoom, setNatural, applyZoom, frameHandlers, mediaStyle } = useCropView(
+    frameWidth,
+    frameHeight,
+  );
 
   React.useEffect(() => {
     const objectUrl = URL.createObjectURL(file);
@@ -52,37 +51,6 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onCancel]);
-
-  const view = natural
-    ? {
-        frameWidth,
-        frameHeight,
-        naturalWidth: natural.width,
-        naturalHeight: natural.height,
-        zoom,
-        ...offset,
-      }
-    : null;
-
-  const applyZoom = (next: number) => {
-    if (!view) return;
-    const clamped = Math.min(MAX_ZOOM, Math.max(1, next));
-    const before = coverScale(view) * view.zoom;
-    const after = coverScale(view) * clamped;
-    const centerX = (frameWidth / 2 - view.offsetX) / before;
-    const centerY = (frameHeight / 2 - view.offsetY) / before;
-    setZoom(clamped);
-    setOffset(
-      clampOffset({
-        ...view,
-        zoom: clamped,
-        offsetX: frameWidth / 2 - centerX * after,
-        offsetY: frameHeight / 2 - centerY * after,
-      }),
-    );
-  };
-
-  const scale = view ? coverScale(view) * zoom : 1;
 
   return (
     <div className="modal-overlay image-crop-overlay" onMouseDown={onCancel}>
@@ -102,29 +70,7 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
           <div
             className={"image-crop-frame " + shape}
             style={{ width: frameWidth, height: frameHeight }}
-            onPointerDown={(e) => {
-              if (!view) return;
-              e.currentTarget.setPointerCapture(e.pointerId);
-              dragRef.current = { x: e.clientX, y: e.clientY, ...offset };
-            }}
-            onPointerMove={(e) => {
-              const drag = dragRef.current;
-              if (!drag || !view) return;
-              setOffset(
-                clampOffset({
-                  ...view,
-                  offsetX: drag.offsetX + (e.clientX - drag.x),
-                  offsetY: drag.offsetY + (e.clientY - drag.y),
-                }),
-              );
-            }}
-            onPointerUp={() => {
-              dragRef.current = null;
-            }}
-            onPointerCancel={() => {
-              dragRef.current = null;
-            }}
-            onWheel={(e) => applyZoom(zoom - e.deltaY * 0.0015)}
+            {...frameHandlers}
           >
             {url && !failed && (
               <img
@@ -132,25 +78,13 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
                 alt=""
                 draggable={false}
                 className="image-crop-picture"
-                style={
-                  natural
-                    ? {
-                        width: natural.width * scale,
-                        height: natural.height * scale,
-                        transform: `translate(${offset.offsetX}px, ${offset.offsetY}px)`,
-                      }
-                    : { visibility: "hidden" }
+                style={mediaStyle}
+                onLoad={(e) =>
+                  setNatural({
+                    width: e.currentTarget.naturalWidth,
+                    height: e.currentTarget.naturalHeight,
+                  })
                 }
-                onLoad={(e) => {
-                  const img = e.currentTarget;
-                  const size = { width: img.naturalWidth, height: img.naturalHeight };
-                  setNatural(size);
-                  const base = Math.max(frameWidth / size.width, frameHeight / size.height);
-                  setOffset({
-                    offsetX: (frameWidth - size.width * base) / 2,
-                    offsetY: (frameHeight - size.height * base) / 2,
-                  });
-                }}
                 onError={() => setFailed(true)}
               />
             )}
@@ -163,11 +97,15 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({
               type="range"
               className="s-range image-crop-zoom"
               min={1}
-              max={MAX_ZOOM}
+              max={MAX_CROP_ZOOM}
               step={0.01}
               value={zoom}
               aria-label={t("zoom")}
-              style={{ "--pct": `${((zoom - 1) / (MAX_ZOOM - 1)) * 100}%` } as React.CSSProperties}
+              style={
+                {
+                  "--pct": `${((zoom - 1) / (MAX_CROP_ZOOM - 1)) * 100}%`,
+                } as React.CSSProperties
+              }
               onChange={(e) => applyZoom(Number(e.target.value))}
             />
           )}
