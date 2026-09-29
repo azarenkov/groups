@@ -156,7 +156,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         let mut ticker = actix_web::rt::time::interval(expiry_interval);
         loop {
             ticker.tick().await;
-            match expire_entitlements.run_once().await {
+            match expire_entitlements.drain().await {
                 Ok(0) => {}
                 Ok(expired) => tracing::info!(expired, "Moved lapsed plans back to Free"),
                 Err(e) => tracing::warn!(error = %e, "Plan expiry sweep failed"),
