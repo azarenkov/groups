@@ -175,6 +175,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         get_user_avatar_usecase: GetUserAvatar::new(
             media_repository.clone(),
+            banner_repository.clone(),
             minio_storage.clone(),
         ),
         update_user_banner_usecase: media::usecases::user::banner::UpdateUserBanner::new(

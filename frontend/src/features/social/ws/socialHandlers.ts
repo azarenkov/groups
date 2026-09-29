@@ -156,11 +156,13 @@ export const socialHandlers: WsHandlers = {
         if (tier === "free") {
           bustAvatar("banner", userId);
         }
+        bustAvatar("user", userId);
         return;
       }
       useBadgeStore.getState().applyTier(userId, tier, memberNumber);
       useBadgeStore.getState().revalidateLater(userId);
       bustAvatar("banner", userId);
+      bustAvatar("user", userId);
   },
   "user.trialEnding": (d) => {
       const userId = asString(d.userId);

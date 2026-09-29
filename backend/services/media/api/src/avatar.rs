@@ -283,6 +283,7 @@ fn normalize_animated_avatar(upload: ImageUpload) -> Result<NormalizedImage, Htt
         bytes: out,
         extension: "gif",
         content_type: "image/gif",
+        still: samples.first().cloned(),
         moderation_samples: samples,
     })
 }
