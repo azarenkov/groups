@@ -2,10 +2,13 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 
 import { attachmentAPI } from "../../api/attachment";
 import { useAttachments } from "../useAttachments";
+import { useEntitlementsStore } from "../../../subscription/store/entitlementsStore";
+
+let mockLimit = 1024;
 
 jest.mock("../../api/attachment", () => ({
   maxAttachmentsPerMessage: () => 10,
-  maxAttachmentBytes: () => 1024,
+  maxAttachmentBytes: () => mockLimit,
   attachmentAPI: { upload: jest.fn(), delete: jest.fn() },
 }));
 
@@ -20,6 +23,8 @@ const file = (name: string, size = 10) => {
 
 describe("useAttachments", () => {
   beforeEach(() => {
+    mockLimit = 1024;
+    act(() => useEntitlementsStore.setState({ tier: "free" }));
     upload.mockReset();
     remove.mockReset();
     upload.mockResolvedValue({ id: "att-1" });
@@ -38,6 +43,17 @@ describe("useAttachments", () => {
     act(() => result.current.addFiles([file("big.png", 4096)]));
     expect(result.current.pendingFiles[0].error).toBe(true);
     expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("uploads a file that was over the limit once the plan allows it", async () => {
+    const { result } = renderHook(() => useAttachments());
+    act(() => result.current.addFiles([file("big.png", 4096), file("huge.png", 1 << 20)]));
+    expect(result.current.pendingFiles.map((p) => p.oversize)).toEqual([true, true]);
+    mockLimit = 8192;
+    act(() => useEntitlementsStore.setState({ tier: "pro" }));
+    await waitFor(() => expect(result.current.pendingFiles[0].attachment).toEqual({ id: "att-1" }));
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(result.current.pendingFiles[1]).toMatchObject({ error: true, oversize: true });
   });
 
   it("deletes the uploaded attachment when the file is removed", async () => {

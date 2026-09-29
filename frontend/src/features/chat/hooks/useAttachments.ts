@@ -6,6 +6,20 @@ import {
   attachmentAPI,
 } from "../api/attachment";
 import type { PendingFile } from "../types";
+import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
+
+type SetFiles = React.Dispatch<React.SetStateAction<PendingFile[]>>;
+
+const pendingFor = (file: File): PendingFile => {
+  const oversize = file.size > maxAttachmentBytes();
+  return {
+    localId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    file,
+    progress: 0,
+    error: oversize || file.size === 0,
+    oversize,
+  };
+};
 
 export function useAttachments() {
   const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
@@ -16,53 +30,50 @@ export function useAttachments() {
   pendingFilesRef.current = pendingFiles;
   const inFlightSendRef = React.useRef<Set<string>>(new Set());
 
+  const startUpload = React.useCallback((p: PendingFile, setFiles: SetFiles) => {
+    void attachmentAPI
+      .upload(p.file, (fraction) => {
+        setFiles((cur) =>
+          cur.map((x) =>
+            x.localId === p.localId ? { ...x, progress: fraction } : x,
+          ),
+        );
+      })
+      .then((attachment) => {
+        if (cancelledUploadsRef.current.delete(p.localId)) {
+          void attachmentAPI.delete(attachment.id).catch(() => {});
+          return;
+        }
+        setFiles((cur) =>
+          cur.map((x) =>
+            x.localId === p.localId
+              ? { ...x, attachment, progress: 1 }
+              : x,
+          ),
+        );
+      })
+      .catch(() => {
+        cancelledUploadsRef.current.delete(p.localId);
+        setFiles((cur) =>
+          cur.map((x) =>
+            x.localId === p.localId ? { ...x, error: true } : x,
+          ),
+        );
+      });
+  }, []);
+
   const addFiles = React.useCallback((incoming: File[] | FileList) => {
     const files = Array.from(incoming);
     if (files.length === 0) return;
     const room =
       maxAttachmentsPerMessage() - pendingFilesRef.current.length;
-    const accepted = files.slice(0, Math.max(0, room));
-    const additions: PendingFile[] = accepted.map((file) => ({
-      localId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      file,
-      progress: 0,
-      error: file.size > maxAttachmentBytes() || file.size === 0,
-    }));
+    const additions = files.slice(0, Math.max(0, room)).map(pendingFor);
     if (additions.length === 0) return;
     setPendingFiles((prev) => [...prev, ...additions]);
     for (const p of additions) {
-      if (p.error) continue;
-      void attachmentAPI
-        .upload(p.file, (fraction) => {
-          setPendingFiles((cur) =>
-            cur.map((x) =>
-              x.localId === p.localId ? { ...x, progress: fraction } : x,
-            ),
-          );
-        })
-        .then((attachment) => {
-          if (cancelledUploadsRef.current.delete(p.localId)) {
-            void attachmentAPI.delete(attachment.id).catch(() => {});
-            return;
-          }
-          setPendingFiles((cur) =>
-            cur.map((x) =>
-              x.localId === p.localId
-                ? { ...x, attachment, progress: 1 }
-                : x,
-            ),
-          );
-        })
-        .catch(() => {
-          cancelledUploadsRef.current.delete(p.localId);
-          setPendingFiles((cur) =>
-            cur.map((x) =>
-              x.localId === p.localId ? { ...x, error: true } : x,
-            ),
-          );
-        });
+      if (!p.error) startUpload(p, setPendingFiles);
     }
-  }, []);
+  }, [startUpload]);
 
   const discardPendingFile = React.useCallback((target: PendingFile) => {
     if (target.attachment) {
@@ -97,50 +108,33 @@ export function useAttachments() {
     (incoming: File[] | FileList, room: number) => {
       const files = Array.from(incoming);
       if (files.length === 0) return;
-      const accepted = files.slice(0, Math.max(0, room));
-      const additions: PendingFile[] = accepted.map((file) => ({
-        localId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        file,
-        progress: 0,
-        error: file.size > maxAttachmentBytes() || file.size === 0,
-      }));
+      const additions = files.slice(0, Math.max(0, room)).map(pendingFor);
       if (additions.length === 0) return;
       setEditFiles((prev) => [...prev, ...additions]);
       for (const p of additions) {
-        if (p.error) continue;
-        void attachmentAPI
-          .upload(p.file, (fraction) => {
-            setEditFiles((cur) =>
-              cur.map((x) =>
-                x.localId === p.localId ? { ...x, progress: fraction } : x,
-              ),
-            );
-          })
-          .then((attachment) => {
-            if (cancelledUploadsRef.current.delete(p.localId)) {
-              void attachmentAPI.delete(attachment.id).catch(() => {});
-              return;
-            }
-            setEditFiles((cur) =>
-              cur.map((x) =>
-                x.localId === p.localId
-                  ? { ...x, attachment, progress: 1 }
-                  : x,
-              ),
-            );
-          })
-          .catch(() => {
-            cancelledUploadsRef.current.delete(p.localId);
-            setEditFiles((cur) =>
-              cur.map((x) =>
-                x.localId === p.localId ? { ...x, error: true } : x,
-              ),
-            );
-          });
+        if (!p.error) startUpload(p, setEditFiles);
       }
     },
-    [],
+    [startUpload],
   );
+
+  const tier = useEntitlementsStore((s) => s.tier);
+  React.useEffect(() => {
+    const limit = maxAttachmentBytes();
+    const retry = (files: PendingFile[], setFiles: SetFiles) => {
+      const eligible = files.filter((p) => p.oversize && p.file.size <= limit);
+      if (eligible.length === 0) return;
+      const ids = new Set(eligible.map((p) => p.localId));
+      setFiles((cur) =>
+        cur.map((x) =>
+          ids.has(x.localId) ? { ...x, error: false, oversize: false, progress: 0 } : x,
+        ),
+      );
+      for (const p of eligible) startUpload(p, setFiles);
+    };
+    retry(pendingFilesRef.current, setPendingFiles);
+    retry(editFilesRef.current, setEditFiles);
+  }, [tier, startUpload]);
 
   const removeEditFile = React.useCallback(
     (localId: string) =>
