@@ -19,6 +19,9 @@ pub struct RegisterUserRequestBody {
     pub password: String,
     #[serde(default)]
     pub locale: Option<String>,
+    #[serde(default)]
+    #[validate(length(max = 2048))]
+    pub altcha: Option<String>,
 }
 
 impl RegisterUserRequestBody {

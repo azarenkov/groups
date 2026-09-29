@@ -14,6 +14,8 @@ import { validateUsername, UsernameIssue } from "../../../../shared/lib/username
 import { isAccessTokenVerified, decodeAccessToken } from "../../../../shared/lib/jwt";
 import Icon from "../../../../shared/ui/Icon";
 import GoogleSignInButton from "../GoogleSignInButton";
+import { CaptchaSolveError } from "../../lib/captcha";
+import { isCaptchaError, useCaptcha } from "../../lib/useCaptcha";
 
 
 interface SignInData {
@@ -129,6 +131,18 @@ export const SignInUp: React.FC<SignInUpProps> = ({
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const avatarInputRef = React.useRef<HTMLInputElement>(null);
   const [googleUsername, setGoogleUsername] = useState("");
+  const captcha = useCaptcha();
+  const { warmUp: warmUpCaptcha } = captcha;
+  const loginCaptchaRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (isSignup) warmUpCaptcha();
+  }, [isSignup, warmUpCaptcha]);
+
+  const captchaMessage = (err: unknown): string | null => {
+    if (err instanceof CaptchaSolveError || isCaptchaError(err)) return t("captchaFailed");
+    return null;
+  };
 
   const finishGoogleSession = async (response: TokenPair) => {
     const tokens = {
@@ -160,7 +174,18 @@ export const SignInUp: React.FC<SignInUpProps> = ({
     try {
       setLoading(true);
       setError(null);
-      const response = await authAPI.login(data.email, data.password);
+      let response: TokenPair;
+      try {
+        response = await authAPI.login(
+          data.email,
+          data.password,
+          loginCaptchaRef.current ? await captcha.take() : null,
+        );
+      } catch (err) {
+        if (!isCaptchaError(err)) throw err;
+        loginCaptchaRef.current = true;
+        response = await authAPI.login(data.email, data.password, await captcha.take());
+      }
         const tokens = {
         accessToken: response.accessToken,
         refreshToken: response.refreshToken,
@@ -194,7 +219,8 @@ export const SignInUp: React.FC<SignInUpProps> = ({
         onSignedIn();
       }
     } catch (err: any) {
-      setError(err.message || t("couldNotSignIn"));
+      if (loginCaptchaRef.current) captcha.warmUp();
+      setError(captchaMessage(err) || err.message || t("couldNotSignIn"));
     } finally {
       setLoading(false);
     }
@@ -205,12 +231,15 @@ export const SignInUp: React.FC<SignInUpProps> = ({
     try {
       setLoading(true);
       setError(null);
-      const response = await authAPI.register(
-        name,
-        data.email,
-        data.password,
-        locale,
-      );
+      const register = async () =>
+        authAPI.register(name, data.email, data.password, locale, await captcha.take());
+      let response: TokenPair;
+      try {
+        response = await register();
+      } catch (err) {
+        if (!isCaptchaError(err)) throw err;
+        response = await register();
+      }
         useAuthStore.getState().setTokens({
         accessToken: response.accessToken,
         refreshToken: response.refreshToken,
@@ -231,7 +260,10 @@ export const SignInUp: React.FC<SignInUpProps> = ({
       }
       goVerify();
     } catch (err: any) {
-      setError(usernameServerError(err) || err.message || t("couldNotRegister"));
+      captcha.warmUp();
+      setError(
+        usernameServerError(err) || captchaMessage(err) || err.message || t("couldNotRegister"),
+      );
     } finally {
       setLoading(false);
     }
@@ -532,7 +564,11 @@ export const SignInUp: React.FC<SignInUpProps> = ({
         )}
 
         <button type="submit" className="btn primary" disabled={isLoading}>
-          {isLoading ? (
+          {captcha.solving ? (
+            <>
+              <span className="loading-spinner" /> {t("captchaChecking")}
+            </>
+          ) : isLoading ? (
             <span className="loading-spinner" />
           ) : isSignup ? (
             t("createAccount")

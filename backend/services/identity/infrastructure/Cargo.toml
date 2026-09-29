@@ -25,3 +25,13 @@ sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "chron
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 jsonwebtoken = { workspace = true }
 bcrypt = "0.18"
+envy = { workspace = true }
+base64 = { workspace = true }
+rand = { workspace = true }
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+subtle = "2.6"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }

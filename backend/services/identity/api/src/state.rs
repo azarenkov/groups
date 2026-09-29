@@ -5,6 +5,8 @@ use identity::usecases::entitlements::{
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
 use identity_infrastructure::database::postgres::repositories::entitlements::PostgresEntitlementsRepository;
 use std::sync::Arc;
+use identity::usecases::auth::captcha::CaptchaGate;
+use identity_infrastructure::auth::{altcha::AltchaVerifier, redis_captcha_store::RedisCaptchaStore};
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
 use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
 use identity_infrastructure::media_client::block_lookup::MessagingBlockClient;
@@ -44,6 +46,7 @@ use identity_infrastructure::{
 };
 
 pub struct AppState {
+    pub captcha_gate: CaptchaGate<AltchaVerifier, RedisCaptchaStore>,
     pub register_user_usecase: RegisterUser<
         PostgresUserRepository,
         PostgresIdentityUnitOfWork,
