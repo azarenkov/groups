@@ -139,7 +139,7 @@ const CommunitiesPage: React.FC = () => {
   const [channelModal, setChannelModal] = useState<{ communityId: string; kind: ChannelKind } | null>(null);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<"account" | "subscription">("account");
+  const [settingsRequest, setSettingsRequest] = useState<{ id: "subscription"; seq: number } | undefined>();
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "community" | "leave-community" | "channel" | "friend" | "block";
     id: string;
@@ -872,10 +872,10 @@ const CommunitiesPage: React.FC = () => {
             open={settingsOpen}
             onClose={() => {
               setSettingsOpen(false);
-              setSettingsSection("account");
+              setSettingsRequest(undefined);
             }}
             onSignOut={handleLogout}
-            initialSection={settingsSection}
+            sectionRequest={settingsRequest}
           />
         )}
 
@@ -971,7 +971,7 @@ const CommunitiesPage: React.FC = () => {
       <ErrorToast message={error} onDismiss={clearError} />
       <TrialEndingNotice
         onOpenSubscription={() => {
-          setSettingsSection("subscription");
+          setSettingsRequest((prev) => ({ id: "subscription", seq: (prev?.seq ?? 0) + 1 }));
           setSettingsOpen(true);
         }}
       />

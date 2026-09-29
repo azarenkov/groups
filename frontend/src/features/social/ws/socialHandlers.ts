@@ -1,6 +1,7 @@
 import type { WsHandlers } from "../../../shared/ws/types";
 import i18n from "../../../i18n";
 import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
+import { desktopNotifAllowed } from "../../settings/store/notificationSettingsStore";
 import { formatPlanDate } from "../../subscription/components/PlanUntil";
 import { bustAvatar } from "../../../shared/lib/avatarCache";
 import { parseBadgeStyle, parseMemberNumber, parseTier, parseValidUntil } from "../../subscription/lib/plans";
@@ -166,6 +167,7 @@ export const socialHandlers: WsHandlers = {
       const endsAt = parseValidUntil(d.endsAt);
       if (!userId || !endsAt || useAuthStore.getState().user?.id !== userId) return;
       useEntitlementsStore.getState().applyTier("pro", null, { validUntil: endsAt, trial: true });
+      if (!desktopNotifAllowed()) return;
       const date = formatPlanDate(endsAt, i18n.language);
       showDesktopNotification(
         i18n.t("trial.endingSoonDesktopTitle", { ns: "subscription" }),
