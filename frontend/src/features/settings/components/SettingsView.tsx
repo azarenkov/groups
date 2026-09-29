@@ -19,6 +19,7 @@ interface SettingsViewProps {
   open: boolean;
   onClose: () => void;
   onSignOut: () => void;
+  initialSection?: SectionId;
 }
 
 interface TweaksPanelProps {
@@ -52,9 +53,9 @@ const SETTINGS_GROUPS: { groupKey: "userSettings" | "appSettings"; items: { id: 
 
 const ALL_RAIL_IDS: SectionId[] = SETTINGS_GROUPS.flatMap((g) => g.items.map((i) => i.id));
 
-function SettingsView({ open, onClose, onSignOut }: SettingsViewProps) {
+function SettingsView({ open, onClose, onSignOut, initialSection = "account" }: SettingsViewProps) {
   const { t } = useTranslation("settings");
-  const [activeId, setActiveId] = React.useState<SectionId>("account");
+  const [activeId, setActiveId] = React.useState<SectionId>(initialSection);
   const overlayRef = React.useRef<HTMLDivElement>(null);
   const railButtonRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
 

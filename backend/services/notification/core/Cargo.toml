@@ -6,3 +6,8 @@ edition = "2024"
 [dependencies]
 domain = { workspace = true }
 ports = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+async-trait = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }

@@ -310,3 +310,26 @@ impl UserEntitlementsChanged {
         self
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct UserTrialEnding {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub email: Email,
+    pub locale: String,
+    pub ends_at: DateTime<Utc>,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserTrialEnding {
+    pub fn record(user_id: UserId, email: Email, locale: String, ends_at: DateTime<Utc>, now: DateTime<Utc>) -> Self {
+        Self {
+            id: EventId::generate(),
+            user_id,
+            email,
+            locale,
+            ends_at,
+            occurred_at: now,
+        }
+    }
+}

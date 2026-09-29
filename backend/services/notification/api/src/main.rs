@@ -7,7 +7,9 @@ use infrastructure_common::{
     mailer::smtp_mailer::SmtpMailer,
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
+use notification_core::usecases::send_trial_ending_email::SendTrialEndingEmail;
 use notification_core::usecases::send_verification_email::SendVerificationEmail;
+use notification_infrastructure::consumers::trial;
 use notification_infrastructure::consumers::verification::{self, VerificationConsumerSpec};
 use tokio::sync::watch;
 
@@ -53,7 +55,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let mailer = Arc::new(SmtpMailer::from_config(mailer_config)?);
-    let send_verification_email = Arc::new(SendVerificationEmail::new(mailer));
+    let send_verification_email = Arc::new(SendVerificationEmail::new(mailer.clone()));
+    let send_trial_ending_email = Arc::new(SendTrialEndingEmail::new(mailer));
     let spec = VerificationConsumerSpec {
         stream: notification_config.notification_user_stream.clone(),
         consumer_name: notification_config.notification_verification_consumer.clone(),
@@ -61,15 +64,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
         max_deliver: notification_config.notification_max_deliver,
     };
 
+    let trial_spec = VerificationConsumerSpec {
+        consumer_name: notification_config.notification_trial_consumer.clone(),
+        ..spec.clone()
+    };
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
-    let consumer = actix_web::rt::spawn(verification::run(
-        jetstream,
+    let mut verification_consumer = actix_web::rt::spawn(verification::run(
+        jetstream.clone(),
         spec,
         send_verification_email,
+        shutdown_rx.clone(),
+        heartbeat.clone(),
+    ));
+    let mut trial_consumer = actix_web::rt::spawn(trial::run(
+        jetstream,
+        trial_spec,
+        send_trial_ending_email,
         shutdown_rx,
         heartbeat,
     ));
-    tokio::pin!(consumer);
+
 
     tracing::info!("Notification service started");
     readiness.mark_ready();
@@ -79,24 +93,36 @@ async fn main() -> Result<(), Box<dyn Error>> {
         _ = wait_for_signal() => {
             readiness.mark_not_ready();
             let _ = shutdown_tx.send(true);
-            let (finished, _) = tokio::join!(
-                &mut consumer,
+            let (verification, trial, _) = tokio::join!(
+                &mut verification_consumer,
+                &mut trial_consumer,
                 tokio::time::sleep(shutdown_config.drain_delay),
             );
-            match finished {
-                Ok(result) => result,
-                Err(e) => Err(Box::<dyn Error>::from(e)),
-            }
+            stopped(verification).and(stopped(trial))
         }
-        finished = &mut consumer => match finished {
-            Ok(Ok(())) => Err(Box::<dyn Error>::from("verification consumer ended unexpectedly")),
-            Ok(Err(e)) => Err(e),
-            Err(e) => Err(Box::<dyn Error>::from(e)),
-        },
+        finished = &mut verification_consumer => ended("verification", finished),
+        finished = &mut trial_consumer => ended("trial ending", finished),
     };
 
     readiness.mark_not_ready();
     health_server_handle.stop(false).await;
     let _ = health_handle.await;
     outcome
+}
+
+type ConsumerResult = Result<Result<(), Box<dyn Error>>, tokio::task::JoinError>;
+
+fn stopped(finished: ConsumerResult) -> Result<(), Box<dyn Error>> {
+    match finished {
+        Ok(result) => result,
+        Err(e) => Err(Box::<dyn Error>::from(e)),
+    }
+}
+
+fn ended(name: &str, finished: ConsumerResult) -> Result<(), Box<dyn Error>> {
+    match finished {
+        Ok(Ok(())) => Err(Box::<dyn Error>::from(format!("{name} consumer ended unexpectedly"))),
+        Ok(Err(e)) => Err(e),
+        Err(e) => Err(Box::<dyn Error>::from(e)),
+    }
 }

@@ -1,4 +1,7 @@
 import type { WsHandlers } from "../../../shared/ws/types";
+import i18n from "../../../i18n";
+import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
+import { formatPlanDate } from "../../subscription/components/PlanUntil";
 import { bustAvatar } from "../../../shared/lib/avatarCache";
 import { parseBadgeStyle, parseMemberNumber, parseTier, parseValidUntil } from "../../subscription/lib/plans";
 import { useBadgeStore } from "../../subscription/store/badgeStore";
@@ -157,6 +160,17 @@ export const socialHandlers: WsHandlers = {
       useBadgeStore.getState().applyTier(userId, tier, memberNumber);
       useBadgeStore.getState().revalidateLater(userId);
       bustAvatar("banner", userId);
+  },
+  "user.trialEnding": (d) => {
+      const userId = asString(d.userId);
+      const endsAt = parseValidUntil(d.endsAt);
+      if (!userId || !endsAt || useAuthStore.getState().user?.id !== userId) return;
+      useEntitlementsStore.getState().applyTier("pro", null, { validUntil: endsAt, trial: true });
+      const date = formatPlanDate(endsAt, i18n.language);
+      showDesktopNotification(
+        i18n.t("trial.endingSoonDesktopTitle", { ns: "subscription" }),
+        i18n.t("trial.endingSoonDesktopBody", { ns: "subscription", date }),
+      );
   },
   "user.profileChanged": (d) => {
       const userId = asString(d.userId);

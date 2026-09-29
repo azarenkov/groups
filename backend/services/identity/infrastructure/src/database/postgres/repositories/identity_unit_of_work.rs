@@ -562,6 +562,37 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         Ok(())
     }
 
+    async fn load_trials_ending_for_update(&mut self, before: DateTime<Utc>, limit: i64) -> Result<Vec<UserId>, RepositoryError> {
+        let ids = sqlx::query_scalar!(
+            r#"
+            SELECT user_id FROM user_entitlements
+            WHERE source = 'trial' AND tier <> 'free' AND trial_reminded_at IS NULL
+              AND valid_until IS NOT NULL AND valid_until > now() AND valid_until <= $1
+            ORDER BY valid_until
+            LIMIT $2
+            FOR UPDATE SKIP LOCKED
+            "#,
+            before,
+            limit,
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(ids.into_iter().map(UserId::new).collect())
+    }
+
+    async fn mark_trial_reminded(&mut self, user_id: &UserId, now: DateTime<Utc>) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"UPDATE user_entitlements SET trial_reminded_at = $2 WHERE user_id = $1"#,
+            user_id.uuid(),
+            now,
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
     async fn load_expired_entitlements_for_update(&mut self, now: DateTime<Utc>, limit: i64) -> Result<Vec<UserId>, RepositoryError> {
         let ids = sqlx::query_scalar!(
             r#"

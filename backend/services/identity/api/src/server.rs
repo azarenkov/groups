@@ -46,7 +46,7 @@ use infrastructure_common::{
     hasher::bcrypt_hasher::BcryptHasher,
 };
 use identity::usecases::auth::captcha::CaptchaGate;
-use identity::usecases::entitlements::{expire_entitlements::ExpireEntitlements, start_trial::StartTrial};
+use identity::usecases::entitlements::{expire_entitlements::ExpireEntitlements, remind_trial_ending::RemindTrialEnding, start_trial::StartTrial};
 use identity_infrastructure::auth::{altcha::{AltchaConfig, AltchaVerifier}, redis_captcha_store::RedisCaptchaStore};
 use identity_infrastructure::{
     auth::{github_connector::GithubOAuthConnector, google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker, steam_connector::SteamOpenIdConnector},
@@ -161,6 +161,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         unit_of_work.clone(),
         trial_config.expiry_batch_size(),
     ));
+    let remind_trial_ending = Arc::new(RemindTrialEnding::new(
+        unit_of_work.clone(),
+        trial_config.expiry_batch_size(),
+    ));
     let expiry_interval = trial_config.expiry_interval();
     actix_web::rt::spawn(async move {
         let mut ticker = actix_web::rt::time::interval(expiry_interval);
@@ -170,6 +174,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
                 Ok(0) => {}
                 Ok(expired) => tracing::info!(expired, "Moved lapsed plans back to Free"),
                 Err(e) => tracing::warn!(error = %e, "Plan expiry sweep failed"),
+            }
+            match remind_trial_ending.run_once().await {
+                Ok(0) => {}
+                Ok(reminded) => tracing::info!(reminded, "Sent trial ending reminders"),
+                Err(e) => tracing::warn!(error = %e, "Trial reminder sweep failed"),
             }
         }
     });

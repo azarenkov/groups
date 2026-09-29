@@ -46,6 +46,7 @@ import { useSpeakingTracking } from "../../voice/hooks/useSpeakingTracking";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 import { useStreamQualitySync } from "../../subscription/hooks/useStreamQualitySync";
 import ErrorToast from "../../../shared/ui/ErrorToast";
+import TrialEndingNotice from "../../subscription/components/TrialEndingNotice";
 import PanelResizer from "../../../shared/ui/PanelResizer";
 import ContextMenuHost from "../../../shared/ui/contextMenu/ContextMenuHost";
 import { useDmOpenerStore } from "../../social/store/dmOpenerStore";
@@ -138,6 +139,7 @@ const CommunitiesPage: React.FC = () => {
   const [channelModal, setChannelModal] = useState<{ communityId: string; kind: ChannelKind } | null>(null);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<"account" | "subscription">("account");
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "community" | "leave-community" | "channel" | "friend" | "block";
     id: string;
@@ -868,8 +870,12 @@ const CommunitiesPage: React.FC = () => {
         {settingsOpen && (
           <SettingsView
             open={settingsOpen}
-            onClose={() => setSettingsOpen(false)}
+            onClose={() => {
+              setSettingsOpen(false);
+              setSettingsSection("account");
+            }}
             onSignOut={handleLogout}
+            initialSection={settingsSection}
           />
         )}
 
@@ -963,6 +969,12 @@ const CommunitiesPage: React.FC = () => {
         }}
       />
       <ErrorToast message={error} onDismiss={clearError} />
+      <TrialEndingNotice
+        onOpenSubscription={() => {
+          setSettingsSection("subscription");
+          setSettingsOpen(true);
+        }}
+      />
       <ContextMenuHost />
     </div>
   );

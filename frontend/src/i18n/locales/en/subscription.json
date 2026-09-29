@@ -99,6 +99,11 @@
       "network": "A trial was already started from this network. Try again later.",
       "paid": "You already have a paid plan.",
       "generic": "Could not start the trial."
-    }
+    },
+    "endingSoon": "Your Pro trial ends on {{date}}. Then the account goes back to Free and nothing is lost.",
+    "endingSoonAction": "Subscription",
+    "dismiss": "Dismiss",
+    "endingSoonDesktopTitle": "Your Rift Pro trial is ending",
+    "endingSoonDesktopBody": "Your Pro trial ends on {{date}}."
   }
 }

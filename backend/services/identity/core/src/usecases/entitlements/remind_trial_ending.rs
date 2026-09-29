@@ -1,0 +1,57 @@
+use std::sync::Arc;
+
+use chrono::{Duration, Utc};
+use identity_domain::{
+    events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::events::UserEvent,
+    user::events::lifecycle::UserTrialEnding,
+};
+use ports::repository::RepositoryError;
+
+pub const TRIAL_REMINDER_LEAD_HOURS: i64 = 24;
+
+pub struct RemindTrialEnding<W: IdentityUnitOfWork> {
+    unit_of_work: Arc<W>,
+    batch_size: i64,
+}
+
+impl<W: IdentityUnitOfWork> RemindTrialEnding<W> {
+    pub fn new(unit_of_work: Arc<W>, batch_size: i64) -> Self {
+        Self {
+            unit_of_work,
+            batch_size,
+        }
+    }
+
+    pub async fn run_once(&self) -> Result<usize, RepositoryError> {
+        let now = Utc::now();
+        let mut tx = self.unit_of_work.begin().await?;
+        let ending = tx
+            .load_trials_ending_for_update(now + Duration::hours(TRIAL_REMINDER_LEAD_HOURS), self.batch_size)
+            .await?;
+        let mut events = Vec::with_capacity(ending.len());
+        for user_id in &ending {
+            tx.mark_trial_reminded(user_id, now).await?;
+            let Some(user) = tx.load_user_for_update(user_id).await? else {
+                continue;
+            };
+            if user.is_deleted() {
+                continue;
+            }
+            let Some(ends_at) = tx.load_entitlements(user_id).await?.valid_until else {
+                continue;
+            };
+            events.push(IdentityEvent::from(UserEvent::TrialEnding(UserTrialEnding::record(
+                *user_id,
+                user.email().clone(),
+                user.locale().as_str().to_string(),
+                ends_at,
+                now,
+            ))));
+        }
+        if !events.is_empty() {
+            tx.save_events(&events, None).await?;
+        }
+        tx.commit().await?;
+        Ok(ending.len())
+    }
+}
