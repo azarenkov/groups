@@ -39,13 +39,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         })
         .build();
-    let heartbeat = Heartbeat::new(Duration::from_secs(
-        notification_config.notification_liveness_stale_secs,
-    ));
+    let stale_after = Duration::from_secs(notification_config.notification_liveness_stale_secs);
+    let verification_heartbeat = Heartbeat::new(stale_after);
+    let trial_heartbeat = Heartbeat::new(stale_after);
     let health_server = health::bind(
         notification_config.health_port,
         readiness.clone(),
-        Liveness::default().watch(heartbeat.clone()),
+        Liveness::default()
+            .watch(verification_heartbeat.clone())
+            .watch(trial_heartbeat.clone()),
     )?;
     let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
@@ -74,14 +76,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         spec,
         send_verification_email,
         shutdown_rx.clone(),
-        heartbeat.clone(),
+        verification_heartbeat,
     ));
     let mut trial_consumer = actix_web::rt::spawn(trial::run(
         jetstream,
         trial_spec,
         send_trial_ending_email,
         shutdown_rx,
-        heartbeat,
+        trial_heartbeat,
     ));
 
 

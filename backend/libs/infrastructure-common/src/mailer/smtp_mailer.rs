@@ -19,6 +19,7 @@ struct Inner {
     mailer: Mutex<SmtpTransport>,
     from_mailbox: Mailbox,
     reset_base_url: String,
+    app_url: Option<String>,
 }
 
 impl SmtpMailer {
@@ -39,6 +40,10 @@ impl SmtpMailer {
                 mailer: Mutex::new(transport),
                 from_mailbox,
                 reset_base_url: config.password_reset_base_url,
+                app_url: config
+                    .app_url
+                    .map(|url| url.trim().trim_end_matches('/').to_string())
+                    .filter(|url| !url.is_empty()),
             }),
         })
     }
@@ -150,7 +155,12 @@ impl Mailer for SmtpMailer {
         ends_at: DateTime<Utc>,
         locale: Locale,
     ) -> Result<(), MailerError> {
-        let app_link = self.inner.reset_base_url.trim_end_matches('/').to_string();
+        let link = self
+            .inner
+            .app_url
+            .as_deref()
+            .map(|url| format!(r#"<p><a href="{url}">{url}</a></p>"#))
+            .unwrap_or_default();
         let date = trial_end_date(ends_at, locale);
         let (subject, html_body) = match locale {
             Locale::Ru => (
@@ -159,9 +169,9 @@ impl Mailer for SmtpMailer {
                     r#"<p>Здравствуйте,</p>
                     <p>Пробный период Rift Pro закончится {date}.</p>
                     <p>После этого аккаунт вернётся на Free. Баннер и анимированный аватар скроются, но не удалятся, а сообщения и вложения останутся на месте.</p>
-                    <p><a href="{link}">{link}</a></p>"#,
+                    {link}"#,
                     date = date,
-                    link = app_link
+                    link = link
                 ),
             ),
             Locale::En => (
@@ -170,9 +180,9 @@ impl Mailer for SmtpMailer {
                     r#"<p>Hello,</p>
                     <p>Your Rift Pro trial ends on {date}.</p>
                     <p>After that the account goes back to Free. Your banner and animated avatar are hidden but kept, and messages and attachments stay as they are.</p>
-                    <p><a href="{link}">{link}</a></p>"#,
+                    {link}"#,
                     date = date,
-                    link = app_link
+                    link = link
                 ),
             ),
         };

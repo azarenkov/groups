@@ -14,6 +14,8 @@ pub struct MailerConfig {
     pub from: String,
     #[serde(rename = "mailer_password_reset_base_url")]
     pub password_reset_base_url: String,
+    #[serde(rename = "public_app_url", default)]
+    pub app_url: Option<String>,
 }
 
 impl MailerConfig {
