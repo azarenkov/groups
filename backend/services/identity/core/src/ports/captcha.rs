@@ -39,7 +39,7 @@ pub enum CaptchaStoreError {
 #[async_trait]
 pub trait CaptchaStore: Send + Sync {
     async fn claim_solution(&self, signature: &str, expires_at: DateTime<Utc>) -> Result<bool, CaptchaStoreError>;
-    async fn login_failures(&self, keys: &[String]) -> Result<u32, CaptchaStoreError>;
-    async fn record_login_failure(&self, keys: &[String]) -> Result<(), CaptchaStoreError>;
-    async fn clear_login_failures(&self, keys: &[String]) -> Result<(), CaptchaStoreError>;
+    async fn register_login_attempt(&self, keys: &[String]) -> Result<u32, CaptchaStoreError>;
+    async fn release_login_attempt(&self, keys: &[String]) -> Result<(), CaptchaStoreError>;
+    async fn clear_login_attempts(&self, keys: &[String]) -> Result<(), CaptchaStoreError>;
 }

@@ -8,12 +8,28 @@ use redis::AsyncCommands;
 use sha2::{Digest, Sha256};
 use tokio::sync::Mutex;
 
-const INCREMENT_WITH_WINDOW: &str = r#"
-local count = redis.call('INCR', KEYS[1])
-if count == 1 then
-  redis.call('EXPIRE', KEYS[1], ARGV[1])
+const REGISTER_ATTEMPT: &str = r#"
+local max = 0
+for _, key in ipairs(KEYS) do
+  local count = redis.call('INCR', key)
+  if count == 1 then
+    redis.call('EXPIRE', key, ARGV[1])
+  end
+  if count > max then
+    max = count
+  end
 end
-return count
+return max
+"#;
+
+const RELEASE_ATTEMPT: &str = r#"
+for _, key in ipairs(KEYS) do
+  local count = tonumber(redis.call('GET', key))
+  if count ~= nil and count > 0 then
+    redis.call('DECR', key)
+  end
+end
+return 0
 "#;
 
 pub struct RedisCaptchaStore {
@@ -87,31 +103,41 @@ impl CaptchaStore for RedisCaptchaStore {
         Ok(claimed.is_some())
     }
 
-    async fn login_failures(&self, keys: &[String]) -> Result<u32, CaptchaStoreError> {
+    async fn register_login_attempt(&self, keys: &[String]) -> Result<u32, CaptchaStoreError> {
         if keys.is_empty() {
             return Ok(0);
         }
         let mut connection = self.connection().await?;
-        let redis_keys: Vec<String> = keys.iter().map(|k| Self::failure_key(k)).collect();
-        let counts: Vec<Option<u32>> = connection.mget(redis_keys).await.map_err(unavailable)?;
-        Ok(counts.into_iter().flatten().max().unwrap_or(0))
+        let script = redis::Script::new(REGISTER_ATTEMPT);
+        let mut invocation = script.prepare_invoke();
+        for key in keys {
+            invocation.key(Self::failure_key(key));
+        }
+        invocation
+            .arg(self.login_window.as_secs().max(1))
+            .invoke_async(&mut connection)
+            .await
+            .map_err(unavailable)
     }
 
-    async fn record_login_failure(&self, keys: &[String]) -> Result<(), CaptchaStoreError> {
-        let mut connection = self.connection().await?;
-        let script = redis::Script::new(INCREMENT_WITH_WINDOW);
-        for key in keys {
-            let _: u32 = script
-                .key(Self::failure_key(key))
-                .arg(self.login_window.as_secs().max(1))
-                .invoke_async(&mut connection)
-                .await
-                .map_err(unavailable)?;
+    async fn release_login_attempt(&self, keys: &[String]) -> Result<(), CaptchaStoreError> {
+        if keys.is_empty() {
+            return Ok(());
         }
+        let mut connection = self.connection().await?;
+        let script = redis::Script::new(RELEASE_ATTEMPT);
+        let mut invocation = script.prepare_invoke();
+        for key in keys {
+            invocation.key(Self::failure_key(key));
+        }
+        let _: u32 = invocation
+            .invoke_async(&mut connection)
+            .await
+            .map_err(unavailable)?;
         Ok(())
     }
 
-    async fn clear_login_failures(&self, keys: &[String]) -> Result<(), CaptchaStoreError> {
+    async fn clear_login_attempts(&self, keys: &[String]) -> Result<(), CaptchaStoreError> {
         if keys.is_empty() {
             return Ok(());
         }
@@ -145,17 +171,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn counts_and_clears_login_failures() {
+    async fn registers_releases_and_clears_login_attempts() {
         let Some(store) = store() else { return };
         let email = format!("email:{}", uuid::Uuid::new_v4());
         let ip = format!("ip:{}", uuid::Uuid::new_v4());
         let keys = vec![email.clone(), ip.clone()];
-        assert_eq!(store.login_failures(&keys).await.unwrap(), 0);
-        store.record_login_failure(&keys).await.unwrap();
-        store.record_login_failure(&[ip.clone()]).await.unwrap();
-        assert_eq!(store.login_failures(&keys).await.unwrap(), 2);
-        assert_eq!(store.login_failures(&[email.clone()]).await.unwrap(), 1);
-        store.clear_login_failures(&keys).await.unwrap();
-        assert_eq!(store.login_failures(&keys).await.unwrap(), 0);
+        assert_eq!(store.register_login_attempt(&keys).await.unwrap(), 1);
+        assert_eq!(store.register_login_attempt(std::slice::from_ref(&ip)).await.unwrap(), 2);
+        assert_eq!(store.register_login_attempt(&keys).await.unwrap(), 3);
+        store.release_login_attempt(std::slice::from_ref(&ip)).await.unwrap();
+        store.clear_login_attempts(std::slice::from_ref(&email)).await.unwrap();
+        assert_eq!(store.register_login_attempt(&keys).await.unwrap(), 3);
+        store.clear_login_attempts(&keys).await.unwrap();
+        store.release_login_attempt(&keys).await.unwrap();
+        assert_eq!(store.register_login_attempt(&keys).await.unwrap(), 1);
+        store.clear_login_attempts(&keys).await.unwrap();
     }
 }
