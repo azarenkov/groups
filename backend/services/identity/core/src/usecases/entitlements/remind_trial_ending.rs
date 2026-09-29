@@ -3,21 +3,23 @@ use std::sync::Arc;
 use chrono::{Duration, Utc};
 use identity_domain::{
     events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::events::UserEvent,
-    user::events::lifecycle::UserTrialEnding,
+    user::events::lifecycle::UserTrialEnding, user::repository::UserRepository,
 };
 use ports::repository::RepositoryError;
 
 pub const TRIAL_REMINDER_LEAD_HOURS: i64 = 24;
 
-pub struct RemindTrialEnding<W: IdentityUnitOfWork> {
+pub struct RemindTrialEnding<W: IdentityUnitOfWork, U: UserRepository> {
     unit_of_work: Arc<W>,
+    users: Arc<U>,
     batch_size: i64,
 }
 
-impl<W: IdentityUnitOfWork> RemindTrialEnding<W> {
-    pub fn new(unit_of_work: Arc<W>, batch_size: i64) -> Self {
+impl<W: IdentityUnitOfWork, U: UserRepository> RemindTrialEnding<W, U> {
+    pub fn new(unit_of_work: Arc<W>, users: Arc<U>, batch_size: i64) -> Self {
         Self {
             unit_of_work,
+            users,
             batch_size,
         }
     }
@@ -31,7 +33,7 @@ impl<W: IdentityUnitOfWork> RemindTrialEnding<W> {
         let mut events = Vec::with_capacity(ending.len());
         for user_id in &ending {
             tx.mark_trial_reminded(user_id, now).await?;
-            let Some(user) = tx.load_user_for_update(user_id).await? else {
+            let Some(user) = self.users.find_by_id(user_id).await? else {
                 continue;
             };
             if user.is_deleted() {

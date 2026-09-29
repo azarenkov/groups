@@ -163,6 +163,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     ));
     let remind_trial_ending = Arc::new(RemindTrialEnding::new(
         unit_of_work.clone(),
+        user_repository.clone(),
         trial_config.expiry_batch_size(),
     ));
     let expiry_interval = trial_config.expiry_interval();
