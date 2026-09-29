@@ -22,6 +22,13 @@ import { useVoicePresenceStore } from "../../voice/store/voicePresenceStore";
 import { renameMentionTarget } from "../../chat/lib/mentionTargets";
 import { asString } from "../../../shared/ws/context";
 
+const TIER_PROJECTION_SETTLE_MS = 5000;
+
+const bustAvatarAfterTierChange = (userId: string) => {
+  bustAvatar("user", userId);
+  setTimeout(() => bustAvatar("user", userId), TIER_PROJECTION_SETTLE_MS);
+};
+
 export const socialHandlers: WsHandlers = {
   "friendship.requestSent": () => {
       void useFriendshipStore
@@ -156,13 +163,13 @@ export const socialHandlers: WsHandlers = {
         if (tier === "free") {
           bustAvatar("banner", userId);
         }
-        bustAvatar("user", userId);
+        bustAvatarAfterTierChange(userId);
         return;
       }
       useBadgeStore.getState().applyTier(userId, tier, memberNumber);
       useBadgeStore.getState().revalidateLater(userId);
       bustAvatar("banner", userId);
-      bustAvatar("user", userId);
+      bustAvatarAfterTierChange(userId);
   },
   "user.trialEnding": (d) => {
       const userId = asString(d.userId);
