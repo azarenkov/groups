@@ -45,6 +45,8 @@ use infrastructure_common::{
     },
     hasher::bcrypt_hasher::BcryptHasher,
 };
+use identity::usecases::auth::captcha::CaptchaGate;
+use identity_infrastructure::auth::{altcha::{AltchaConfig, AltchaVerifier}, redis_captcha_store::RedisCaptchaStore};
 use identity_infrastructure::{
     auth::{github_connector::GithubOAuthConnector, google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker, steam_connector::SteamOpenIdConnector},
     database::postgres::{
@@ -75,6 +77,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_config = PostgresConfig::from_env_for(SCHEMA)?;
     let google_config = GoogleOAuthConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
+    let altcha_config = AltchaConfig::from_env()?;
     let nsfw_config = NsfwConfig::from_env()?;
     let username_config = UsernameConfig::from_env()?;
     let unverified_cleanup_config = UnverifiedCleanupConfig::from_env()?;
@@ -148,7 +151,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         google_token_verifier.clone(),
     ));
 
+    let captcha_gate = CaptchaGate::new(
+        Arc::new(AltchaVerifier::from_config(&altcha_config)),
+        Arc::new(RedisCaptchaStore::from_env(std::time::Duration::from_secs(
+            altcha_config.altcha_login_window_secs,
+        ))),
+        altcha_config.altcha_login_failures,
+    );
+
     let app_state = web::Data::new(AppState {
+        captcha_gate,
         register_user_usecase: RegisterUser::new(
             user_repository.clone(),
             unit_of_work.clone(),

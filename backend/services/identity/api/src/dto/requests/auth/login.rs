@@ -12,6 +12,9 @@ pub struct LoginUserRequestBody {
     pub email: String,
     #[validate(length(min = 4, max = 30))]
     pub password: String,
+    #[serde(default)]
+    #[validate(length(max = 2048))]
+    pub altcha: Option<String>,
 }
 
 impl LoginUserRequestBody {

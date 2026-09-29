@@ -1,6 +1,8 @@
-use actix_web::{HttpRequest, HttpResponse, Responder, post, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, get, post, web};
 use identity::dto::requests::auth::issue_verification_code::IssueVerificationCodeRequest;
+use identity::usecases::auth::captcha::login_keys;
 use identity::usecases::auth::google_login::GoogleLoginOutcome;
+use identity::usecases::auth::login::LoginError;
 use domain::user::id::UserId;
 use identity_domain::verification::purpose::VerificationPurpose;
 use api_common::middleware::auth::AuthToken;
@@ -9,8 +11,16 @@ use validator::Validate;
 use crate::state::AppState;
 use api_common::{client::extract_client_context, context::request_context};
 use api_common::dto::{responses::ApiResponse};
-use crate::dto::{requests::auth::{ confirm_registration::ConfirmRegistrationRequestBody, google_complete::GoogleCompleteRequestBody, google_login::GoogleLoginRequestBody, login::LoginUserRequestBody, logout::LogoutRequestBody, refresh_token::RefreshTokenRequestBody, registration::RegisterUserRequestBody, request_verification_code::RequestVerificationCodeRequestBody, }, responses::auth::{google::GoogleAuthResponse, token_pair::TokenPairResponse}};
+use crate::dto::{requests::auth::{ confirm_registration::ConfirmRegistrationRequestBody, google_complete::GoogleCompleteRequestBody, google_login::GoogleLoginRequestBody, login::LoginUserRequestBody, logout::LogoutRequestBody, refresh_token::RefreshTokenRequestBody, registration::RegisterUserRequestBody, request_verification_code::RequestVerificationCodeRequestBody, }, responses::auth::{captcha::CaptchaChallengeResponse, google::GoogleAuthResponse, token_pair::TokenPairResponse}};
 use crate::http_errors::HttpError;
+
+#[get("/challenge")]
+async fn captcha_challenge(app_state: web::Data<AppState>) -> impl Responder {
+    let response: CaptchaChallengeResponse = app_state.captcha_gate.challenge().into();
+    HttpResponse::Ok()
+        .insert_header(("Cache-Control", "no-store"))
+        .json(ApiResponse::success(response))
+}
 
 #[post("/register")]
 async fn register_user(
@@ -20,6 +30,7 @@ async fn register_user(
 ) -> Result<impl Responder, HttpError> {
     let body: RegisterUserRequestBody = body.into_inner();
     body.validate()?;
+    app_state.captcha_gate.require(body.altcha.as_deref()).await?;
 
     let client = extract_client_context(&req, app_state.trust_forwarded_headers);
     let ctx = request_context(&req);
@@ -89,11 +100,27 @@ async fn login_user(
     request.validate()?;
 
     let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let keys = login_keys(client.ip.as_deref(), &request.email);
+    app_state
+        .captcha_gate
+        .guard_login(&keys, request.altcha.as_deref())
+        .await?;
     let ctx = request_context(&req);
-    let tokens = app_state
+    let tokens = match app_state
         .login_user_usecase
         .execute(request.into_request(client, ctx))
-        .await?;
+        .await
+    {
+        Ok(tokens) => {
+            app_state.captcha_gate.login_succeeded(&keys).await;
+            tokens
+        }
+        Err(LoginError::InvalidCredentials) => {
+            app_state.captcha_gate.login_failed(&keys).await;
+            return Err(LoginError::InvalidCredentials.into());
+        }
+        Err(e) => return Err(e.into()),
+    };
 
     let response: TokenPairResponse = tokens.into();
 

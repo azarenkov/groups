@@ -82,6 +82,7 @@ impl<E: HttpMapping + std::fmt::Debug> From<E> for HttpError {
 
 use identity::ports::oauth_verifier::OAuthVerifyError;
 use identity::ports::token_issuer::TokenIssuerError;
+use identity::usecases::auth::captcha::CaptchaError;
 use identity::usecases::auth::confirm_registration::ConfirmRegistrationError;
 use identity::usecases::auth::google_login::GoogleLoginError;
 use identity::usecases::auth::issue_verification_code::IssueVerificationCodeError;
@@ -127,6 +128,35 @@ impl HttpMapping for TokenIssuerError {
             TokenIssuerError::Encoding(_) => "TOKEN_ENCODING_FAILED",
             TokenIssuerError::Decoding(_) => "TOKEN_DECODING_FAILED",
             TokenIssuerError::InvalidTokenType => "TOKEN_INVALID_TYPE",
+        }
+    }
+}
+
+impl HttpMapping for CaptchaError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            CaptchaError::Required | CaptchaError::Invalid | CaptchaError::Expired => {
+                StatusCode::BAD_REQUEST
+            }
+            CaptchaError::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            CaptchaError::Required => "Captcha is required".to_string(),
+            CaptchaError::Invalid => "Captcha is invalid".to_string(),
+            CaptchaError::Expired => "Captcha has expired".to_string(),
+            CaptchaError::Unavailable(_) => "Captcha check is temporarily unavailable".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            CaptchaError::Required => "CAPTCHA_REQUIRED",
+            CaptchaError::Invalid => "CAPTCHA_INVALID",
+            CaptchaError::Expired => "CAPTCHA_EXPIRED",
+            CaptchaError::Unavailable(_) => "CAPTCHA_UNAVAILABLE",
         }
     }
 }

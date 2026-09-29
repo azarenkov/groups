@@ -1,5 +1,6 @@
 import { http } from "../../../shared/api/http";
 import { useAuthStore } from "../store/authStore";
+import type { AltchaChallenge } from "../lib/captcha";
 
 export interface TokenPair {
   accessToken: string;
@@ -23,12 +24,14 @@ class AuthAPI {
     email: string,
     password: string,
     locale?: string,
+    altcha?: string | null,
   ): Promise<TokenPair> {
     const response = await this.client.post("/v1/auth/register", {
       name,
       email,
       password,
       ...(locale ? { locale } : {}),
+      ...(altcha ? { altcha } : {}),
     });
     return response.data.data;
   }
@@ -98,12 +101,19 @@ class AuthAPI {
     );
   }
 
-  async login(email: string, password: string): Promise<TokenPair> {
+  async login(email: string, password: string, altcha?: string | null): Promise<TokenPair> {
     const response = await this.client.post("/v1/auth/login", {
       email,
       password,
+      ...(altcha ? { altcha } : {}),
     });
     return response.data.data;
+  }
+
+  async captchaChallenge(): Promise<AltchaChallenge | null> {
+    const response = await this.client.get("/v1/auth/challenge");
+    const data = response.data.data as { enabled: boolean; challenge?: AltchaChallenge };
+    return data.enabled && data.challenge ? data.challenge : null;
   }
 
   async refresh(): Promise<TokenPair> {

@@ -1,7 +1,7 @@
 use actix_web::web;
 
 use crate::auth::{
-    confirm_registration, google_complete, google_login, login_user, logout, refresh_tokens,
+    captcha_challenge, confirm_registration, google_complete, google_login, login_user, logout, refresh_tokens,
     register_user, request_verification_code,
 };
 use crate::activity::{clear_me_activity, list_activities, set_me_activity};
@@ -31,6 +31,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             web::scope("/api")
                 .service(
                     web::scope("/v1/auth")
+                        .service(captcha_challenge)
                         .service(register_user)
                         .service(request_verification_code)
                         .service(login_user)
