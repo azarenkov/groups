@@ -30,4 +30,12 @@ describe("ProBadge", () => {
     expect(screen.getByText("PRO")).toBeInTheDocument();
     expect(document.querySelector(".pro-badge-tint")).not.toBeNull();
   });
+
+  it("shows gold only on a Premium badge", () => {
+    const { rerender } = render(<ProBadge tier="premium" badgeStyle="gold" />);
+    expect(document.querySelector(".pro-badge-gold")).toHaveTextContent("PREMIUM");
+    rerender(<ProBadge tier="pro" badgeStyle="gold" />);
+    expect(document.querySelector(".pro-badge-gold")).toBeNull();
+    expect(document.querySelector(".pro-badge-tint")).toHaveTextContent("PRO");
+  });
 });

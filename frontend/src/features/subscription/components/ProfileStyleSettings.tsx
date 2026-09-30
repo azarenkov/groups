@@ -8,7 +8,7 @@ import { ApiError } from "../../../shared/lib/apiError";
 import { bustAvatar, useAvatarUrl } from "../../../shared/lib/avatarCache";
 import { colorForId } from "../../../shared/lib/avatar";
 import Icon from "../../../shared/ui/Icon";
-import { BADGE_STYLES } from "../lib/plans";
+import { BADGE_STYLES, badgeStyleTier, hasTier } from "../lib/plans";
 import type { BadgeStyle } from "../lib/plans";
 import { useEntitlementsStore } from "../store/entitlementsStore";
 import ProBadge from "./ProBadge";
@@ -39,6 +39,8 @@ const ProfileStyleSettings: React.FC = () => {
     switch (apiErr?.code) {
       case "PRO_REQUIRED":
         return t("needs.pro");
+      case "PREMIUM_REQUIRED":
+        return t("needs.premium");
       case "BANNER_TOO_LARGE":
         return t("banner.tooLarge");
       case "BANNER_TOO_SMALL":
@@ -164,20 +166,30 @@ const ProfileStyleSettings: React.FC = () => {
       <div className="profile-style-block">
         <div className="profile-style-label">{t("badge.title")}</div>
         <div className="badge-style-grid" role="radiogroup" aria-label={t("badge.title")}>
-          {BADGE_STYLES.map((style) => (
-            <button
-              key={style}
-              type="button"
-              role="radio"
-              aria-checked={!locked && badgeStyle === style}
-              className={"badge-style-option" + (!locked && badgeStyle === style ? " on" : "")}
-              disabled={locked}
-              onClick={() => pickStyle(style)}
-            >
-              <ProBadge tier={shownTier} badgeStyle={style} size="md" memberNumber={locked ? 1 : memberNumber} />
-              <span className="badge-style-name">{t(`badge.styles.${style}`)}</span>
-            </button>
-          ))}
+          {BADGE_STYLES.map((style) => {
+            const required = badgeStyleTier(style);
+            const allowed = hasTier(tier, required);
+            const previewTier = hasTier(shownTier, required) ? shownTier : required;
+            return (
+              <button
+                key={style}
+                type="button"
+                role="radio"
+                aria-checked={allowed && badgeStyle === style}
+                className={
+                  "badge-style-option" +
+                  (allowed && badgeStyle === style ? " on" : "") +
+                  (allowed ? "" : " locked")
+                }
+                disabled={!allowed}
+                title={allowed ? undefined : t(`needs.${required}`)}
+                onClick={() => pickStyle(style)}
+              >
+                <ProBadge tier={previewTier} badgeStyle={style} size="md" memberNumber={locked ? 1 : memberNumber} />
+                <span className="badge-style-name">{t(`badge.styles.${style}`)}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

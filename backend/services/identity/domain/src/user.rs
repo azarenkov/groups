@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use domain::password_hash::PasswordHash;
-use crate::{user::email::Email, user::tier::BadgeStyle, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
+use crate::{user::email::Email, user::tier::BadgeStyle, user::tier::Tier, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
 
 pub const BIO_MAX_CHARS: usize = 190;
 
@@ -367,15 +367,30 @@ impl User {
         self.badge_style
     }
 
+    pub fn fit_badge_style_to(&mut self, tier: Tier, now: DateTime<Utc>) -> bool {
+        if tier.includes(self.badge_style.required_tier()) {
+            return false;
+        }
+        self.apply_badge_style(BadgeStyle::Default, now);
+        true
+    }
+
     pub fn set_badge_style(&mut self, style: BadgeStyle, now: DateTime<Utc>) -> Result<(), UserError> {
         if self.deleted_at.is_some() || self.disabled_at.is_some() {
             return Err(UserError::Deleted);
         }
-        if self.badge_style == style {
-            return Ok(());
+        if self.badge_style != style {
+            self.apply_badge_style(style, now);
         }
+        Ok(())
+    }
+
+    fn apply_badge_style(&mut self, style: BadgeStyle, now: DateTime<Utc>) {
         self.badge_style = style;
         self.updated_at = now;
+        if self.deleted_at.is_some() || self.disabled_at.is_some() {
+            return;
+        }
         self.record(UserEvent::ProfileChanged(UserProfileChanged::record(
             self.id,
             self.bio.clone(),
@@ -386,7 +401,6 @@ impl User {
             style.as_str().to_string(),
             now,
         )));
-        Ok(())
     }
 
     pub fn update_profile(&mut self, bio: String, show_activity: bool, show_game_activity: bool, timezone: String, now: DateTime<Utc>) -> Result<(), UserError> {

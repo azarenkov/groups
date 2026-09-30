@@ -53,7 +53,7 @@ impl<W: IdentityUnitOfWork> StartTrial<W> {
         let now = Utc::now();
         let ip = ip.and_then(normalize_ip);
         let mut tx = self.unit_of_work.begin().await?;
-        let user = tx
+        let mut user = tx
             .load_user_for_update(&user_id)
             .await?
             .filter(|user| !user.is_deleted())
@@ -80,19 +80,22 @@ impl<W: IdentityUnitOfWork> StartTrial<W> {
         let valid_until = Entitlements::trial_ends_at(now);
         tx.start_trial(&user_id, user.email(), ip.as_deref(), valid_until, now)
             .await?;
-        let event = UserEntitlementsChanged::record(
-            user_id,
-            Tier::Pro.as_str().to_string(),
-            Some(valid_until),
-            entitlements.member_number,
-            Utc::now(),
-        )
-        .trial();
-        tx.save_events(
-            &[IdentityEvent::from(UserEvent::EntitlementsChanged(event))],
-            request_id,
-        )
-        .await?;
+        let changed_at = Utc::now();
+        let mut events = vec![IdentityEvent::from(UserEvent::EntitlementsChanged(
+            UserEntitlementsChanged::record(
+                user_id,
+                Tier::Pro.as_str().to_string(),
+                Some(valid_until),
+                entitlements.member_number,
+                changed_at,
+            )
+            .trial(),
+        ))];
+        if user.fit_badge_style_to(Tier::Pro, changed_at) {
+            events.extend(user.pull_events().into_iter().map(IdentityEvent::from));
+            tx.save_user(&user).await?;
+        }
+        tx.save_events(&events, request_id).await?;
         tx.commit().await?;
         Ok(valid_until)
     }

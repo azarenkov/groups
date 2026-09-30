@@ -6,7 +6,7 @@ use identity_domain::{
     events::IdentityEvent,
     unit_of_work::IdentityUnitOfWork,
     user::UserError,
-    user::tier::BadgeStyle,
+    user::tier::{BadgeStyle, Tier},
 };
 use ports::repository::RepositoryError;
 
@@ -16,6 +16,8 @@ pub enum SetBadgeStyleError {
     UnknownStyle,
     #[error("A paid plan is required")]
     ProRequired,
+    #[error("Premium is required")]
+    PremiumRequired,
     #[error("User not found")]
     UserNotFound,
     #[error("Repository error: {0}")]
@@ -50,8 +52,13 @@ impl<W: IdentityUnitOfWork> SetBadgeStyle<W> {
             .await?
             .ok_or(SetBadgeStyleError::UserNotFound)?;
         let now = Utc::now();
-        if style.needs_paid_tier() && !tx.load_entitlements(&user_id).await?.active_at(now).is_paid() {
-            return Err(SetBadgeStyleError::ProRequired);
+        let tier = tx.load_entitlements(&user_id).await?.active_at(now);
+        if !tier.includes(style.required_tier()) {
+            return Err(if style.required_tier() == Tier::Premium {
+                SetBadgeStyleError::PremiumRequired
+            } else {
+                SetBadgeStyleError::ProRequired
+            });
         }
         user.set_badge_style(style, now)?;
         let events: Vec<IdentityEvent> =

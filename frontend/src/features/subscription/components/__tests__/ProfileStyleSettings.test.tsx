@@ -53,6 +53,23 @@ describe("ProfileStyleSettings", () => {
     expect(useEntitlementsStore.getState().badgeStyle).toBe("ink");
   });
 
+  it("keeps the gold badge for Premium", async () => {
+    act(() => useEntitlementsStore.getState().applyTier("pro"));
+    const { unmount } = render(<ProfileStyleSettings />);
+    const goldForPro = screen.getAllByRole("radio")[BADGE_STYLES.indexOf("gold")];
+    expect(goldForPro).toBeDisabled();
+    expect(goldForPro).toHaveAttribute("title", expect.stringContaining("Premium"));
+    expect(goldForPro.querySelector(".pro-badge-gold")).toHaveTextContent("PREMIUM");
+    unmount();
+
+    act(() => useEntitlementsStore.getState().applyTier("premium"));
+    render(<ProfileStyleSettings />);
+    const gold = screen.getAllByRole("radio")[BADGE_STYLES.indexOf("gold")];
+    expect(gold).not.toBeDisabled();
+    fireEvent.click(gold);
+    await waitFor(() => expect(mockedApi.setBadgeStyle).toHaveBeenCalledWith("gold"));
+  });
+
   it("puts the old style back when the community refuses", async () => {
     mockedApi.setBadgeStyle.mockRejectedValueOnce(new Error("nope"));
     act(() => useEntitlementsStore.getState().applyTier("pro"));

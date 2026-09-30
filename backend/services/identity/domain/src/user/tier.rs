@@ -31,6 +31,18 @@ impl Tier {
     pub fn is_paid(&self) -> bool {
         !matches!(self, Self::Free)
     }
+
+    fn rank(&self) -> u8 {
+        match self {
+            Self::Free => 0,
+            Self::Pro => 1,
+            Self::Premium => 2,
+        }
+    }
+
+    pub fn includes(&self, required: Tier) -> bool {
+        self.rank() >= required.rank()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -110,6 +122,7 @@ pub enum BadgeStyle {
     Etched,
     Numbered,
     NumberOnly,
+    Gold,
 }
 
 impl BadgeStyle {
@@ -124,6 +137,7 @@ impl BadgeStyle {
             Self::Etched => "etched",
             Self::Numbered => "numbered",
             Self::NumberOnly => "number_only",
+            Self::Gold => "gold",
         }
     }
 
@@ -138,12 +152,21 @@ impl BadgeStyle {
             "etched" => Some(Self::Etched),
             "numbered" => Some(Self::Numbered),
             "number_only" => Some(Self::NumberOnly),
+            "gold" => Some(Self::Gold),
             _ => None,
         }
     }
 
     pub fn needs_paid_tier(&self) -> bool {
         !matches!(self, Self::Default)
+    }
+
+    pub fn required_tier(&self) -> Tier {
+        match self {
+            Self::Default => Tier::Free,
+            Self::Gold => Tier::Premium,
+            _ => Tier::Pro,
+        }
     }
 }
 
@@ -171,9 +194,22 @@ mod badge_style_tests {
             BadgeStyle::Etched,
             BadgeStyle::Numbered,
             BadgeStyle::NumberOnly,
+            BadgeStyle::Gold,
         ] {
             assert_eq!(BadgeStyle::parse(style.as_str()), Some(style));
         }
+    }
+
+    #[test]
+    fn gold_is_reserved_for_premium() {
+        use super::Tier;
+        assert_eq!(BadgeStyle::parse("gold"), Some(BadgeStyle::Gold));
+        assert_eq!(BadgeStyle::Gold.required_tier(), Tier::Premium);
+        assert_eq!(BadgeStyle::Ink.required_tier(), Tier::Pro);
+        assert_eq!(BadgeStyle::Default.required_tier(), Tier::Free);
+        assert!(Tier::Premium.includes(Tier::Pro));
+        assert!(!Tier::Pro.includes(Tier::Premium));
+        assert!(Tier::Free.includes(Tier::Free));
     }
 
     #[test]

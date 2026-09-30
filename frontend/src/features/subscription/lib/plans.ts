@@ -39,11 +39,14 @@ export const BADGE_STYLES = [
   "etched",
   "numbered",
   "number_only",
+  "gold",
 ] as const;
 
 export type BadgeStyle = (typeof BADGE_STYLES)[number];
 
 export const DEFAULT_BADGE_STYLE: BadgeStyle = "tint";
+
+export const badgeStyleTier = (style: BadgeStyle): Tier => (style === "gold" ? "premium" : "pro");
 
 export const parseValidUntil = (value: unknown): string | null =>
   typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : null;

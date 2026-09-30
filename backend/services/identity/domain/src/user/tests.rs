@@ -210,6 +210,34 @@ fn trial_email_keys_fold_aliases_of_one_mailbox() {
 }
 
 #[test]
+fn a_badge_style_is_dropped_when_the_plan_no_longer_includes_it() {
+    use crate::user::tier::{BadgeStyle, Tier};
+    let mut user = fresh_user();
+    user.set_badge_style(BadgeStyle::Gold, Utc::now()).unwrap();
+    user.pull_events();
+    assert!(!user.fit_badge_style_to(Tier::Premium, Utc::now()));
+    assert!(user.fit_badge_style_to(Tier::Pro, Utc::now()));
+    assert_eq!(user.badge_style(), BadgeStyle::Default);
+    assert!(user.pull_events().iter().any(|e| matches!(e, UserEvent::ProfileChanged(_))));
+
+    user.set_badge_style(BadgeStyle::Ink, Utc::now()).unwrap();
+    assert!(!user.fit_badge_style_to(Tier::Pro, Utc::now()));
+    assert!(user.fit_badge_style_to(Tier::Free, Utc::now()));
+}
+
+#[test]
+fn a_disabled_account_still_loses_a_badge_its_plan_dropped() {
+    use crate::user::tier::{BadgeStyle, Tier};
+    let mut user = fresh_user();
+    user.set_badge_style(BadgeStyle::Gold, Utc::now()).unwrap();
+    user.disable(Utc::now()).unwrap();
+    user.pull_events();
+    assert!(user.fit_badge_style_to(Tier::Pro, Utc::now()));
+    assert_eq!(user.badge_style(), BadgeStyle::Default);
+    assert!(!user.pull_events().iter().any(|e| matches!(e, UserEvent::ProfileChanged(_))));
+}
+
+#[test]
 fn picking_a_badge_style_tells_the_other_services() {
     use crate::user::tier::BadgeStyle;
     let mut user = fresh_user();

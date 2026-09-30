@@ -33,7 +33,8 @@
       "ink": "Ink",
       "etched": "Etched mono",
       "numbered": "Numbered",
-      "number_only": "Number only"
+      "number_only": "Number only",
+      "gold": "Gold"
     }
   },
   "page": {
@@ -71,6 +72,7 @@
         "videoNote": "Higher quality video notes {{size}}×{{size}}",
         "stream": "Screen share up to 4K 60 fps",
         "badge": "A Premium badge in the style you pick",
+        "goldBadge": "Exclusive gold badge",
         "banner": "Your own profile banner",
         "support": "Priority support",
         "avatar": "Animated avatar"

@@ -14,7 +14,7 @@ import { useEntitlementsStore } from "../../../subscription/store/entitlementsSt
 const PLANS: { tier: Tier; features: string[] }[] = [
   { tier: "free", features: ["noise", "attachments", "voice", "videoNote", "stream"] },
   { tier: "pro", features: ["attachments", "voice", "videoNote", "stream", "badge", "banner", "avatar"] },
-  { tier: "premium", features: ["attachments", "voice", "videoNote", "stream", "badge", "banner", "avatar", "support"] },
+  { tier: "premium", features: ["attachments", "voice", "videoNote", "stream", "badge", "goldBadge", "banner", "avatar", "support"] },
 ];
 
 export function SubscriptionSection() {
@@ -34,8 +34,7 @@ export function SubscriptionSection() {
               key={tier}
               className={
                 "plan-tile" +
-                (tier === current ? " current" : "") +
-                (tier === "premium" ? " soon" : "")
+                (tier === current ? " current" : "")
               }
             >
               <div className="plan-tile-head">
@@ -56,11 +55,9 @@ export function SubscriptionSection() {
               <div className="plan-tile-foot">
                 {tier === current
                   ? t("page.current")
-                  : tier === "premium"
-                    ? t("page.soon")
-                    : tier === "pro"
-                      ? t("page.paymentLater")
-                      : ""}
+                  : tier === "free"
+                    ? ""
+                    : t("page.paymentLater")}
               </div>
             </div>
           ))}
