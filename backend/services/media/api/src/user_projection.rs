@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use media::usecases::user::update_avatar::still_avatar_key;
 use contracts::events::user::{UserEntitlementsChangedV1, UserLifecycleV1 as UserLifecycleDto};
 use domain::user::id::UserId;
 use futures::StreamExt;
@@ -185,6 +186,12 @@ where
             Err(e) => {
                 tracing::warn!(error = %e, %key, "Failed to delete avatar object of deleted user; cleanup queue will retry");
             }
+        }
+        if let Some(still_key) = still_avatar_key(&key)
+            && let Err(e) = storage.delete(&still_key).await
+            && !matches!(e, FileStorageError::NotFound)
+        {
+            tracing::warn!(error = %e, key = %still_key, "Failed to delete the still avatar frame of deleted user");
         }
     }
     Ok(())

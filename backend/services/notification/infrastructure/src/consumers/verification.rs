@@ -22,19 +22,39 @@ pub async fn run<M: Mailer>(
     jetstream: async_nats::jetstream::Context,
     spec: VerificationConsumerSpec,
     usecase: Arc<SendVerificationEmail<M>>,
-    mut shutdown: tokio::sync::watch::Receiver<bool>,
+    shutdown: tokio::sync::watch::Receiver<bool>,
     heartbeat: Heartbeat,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let filter_subject = format!("{}.user.verification.issued", spec.subject_prefix);
-    let partitioned_filter_subject = format!("{}.user.*.verification.issued", spec.subject_prefix);
-    let dlq_subject = format!("{}.dlq.user.verification.issued", spec.subject_prefix);
+    consume(jetstream, spec, "verification.issued", StartPosition::New, shutdown, heartbeat, |msg| {
+        let usecase = usecase.clone();
+        async move { handle(usecase.as_ref(), msg).await }
+    })
+    .await
+}
+
+pub async fn consume<H, Fut>(
+    jetstream: async_nats::jetstream::Context,
+    spec: VerificationConsumerSpec,
+    event: &str,
+    start_position: StartPosition,
+    mut shutdown: tokio::sync::watch::Receiver<bool>,
+    heartbeat: Heartbeat,
+    handler: H,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    H: Fn(ConsumedMessage) -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    let filter_subject = format!("{}.user.{event}", spec.subject_prefix);
+    let partitioned_filter_subject = format!("{}.user.*.{event}", spec.subject_prefix);
+    let dlq_subject = format!("{}.dlq.user.{event}", spec.subject_prefix);
 
     let consumer = NatsEventConsumer::new(jetstream, spec.stream.clone());
     let mut messages = consumer
         .subscribe(SubscribeOptions {
             consumer_name: spec.consumer_name.clone(),
             subject: filter_subject.clone(),
-            start_position: StartPosition::New,
+            start_position,
             max_deliver: Some(spec.max_deliver),
             dlq_subject: Some(dlq_subject.clone()),
             extra_subjects: vec![partitioned_filter_subject],
@@ -48,7 +68,7 @@ pub async fn run<M: Mailer>(
         subject = %filter_subject,
         dlq = %dlq_subject,
         max_deliver = spec.max_deliver,
-        "Verification consumer subscribed",
+        "Mail consumer subscribed",
     );
 
     let mut pulse = tokio::time::interval(heartbeat.pulse_interval());
@@ -63,7 +83,7 @@ pub async fn run<M: Mailer>(
                     Some(Ok(msg)) => {
                         let request_id = msg.request_id.clone();
                         let span = tracing::info_span!("nats_message", request_id = ?request_id);
-                        let fut = handle(usecase.as_ref(), msg).instrument(span);
+                        let fut = handler(msg).instrument(span);
                         match request_id {
                             Some(id) => REQUEST_ID.scope(id, fut).await,
                             None => fut.await,

@@ -35,7 +35,7 @@ pub struct AppState {
         PostgresAttachmentRepository,
         MinioStorage,
     >,
-    pub get_user_avatar_usecase: GetUserAvatar<PostgresMediaRepository, MinioStorage>,
+    pub get_user_avatar_usecase: GetUserAvatar<PostgresMediaRepository, PostgresBannerRepository, MinioStorage>,
     pub update_user_banner_usecase: media::usecases::user::banner::UpdateUserBanner<
         PostgresBannerRepository,
         PostgresAttachmentRepository,

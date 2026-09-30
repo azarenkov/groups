@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use identity_domain::user::id::UserId;
 use identity_domain::user::repository::UserRepository;
 use serde::{Deserialize, Serialize};
+use contracts::internal::users::TrialStateV1;
 use uuid::Uuid;
 
 use api_common::client::extract_client_context;
@@ -142,6 +143,32 @@ pub fn entitlement_routes(cfg: &mut web::ServiceConfig) {
         .service(start_my_trial);
 }
 
+#[get("/internal/users/{user_id}/trial")]
+async fn trial_state(
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, HttpError> {
+    let user_id = UserId::new(path.into_inner());
+    let entitlements = app_state
+        .get_entitlements_usecase
+        .execute(&user_id)
+        .await
+        .map_err(HttpError::from_error)?;
+    let user = app_state
+        .user_repository
+        .find_by_id(&user_id)
+        .await
+        .map_err(HttpError::from_error)?
+        .filter(|user| !user.is_deleted());
+    let on_trial = entitlements.trial && user.is_some();
+    Ok(HttpResponse::Ok().json(TrialStateV1 {
+        on_trial,
+        valid_until: entitlements.valid_until.filter(|_| on_trial),
+        email: user.as_ref().map(|u| u.email().as_str().to_string()),
+        locale: user.as_ref().map(|u| u.locale().as_str().to_string()),
+    }))
+}
+
 pub fn internal_entitlement_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(grant_entitlements);
+    cfg.service(grant_entitlements).service(trial_state);
 }

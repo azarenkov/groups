@@ -2,6 +2,7 @@ use crate::config::mailer::MailerConfig;
 use domain::{user::email::Email, user::locale::Locale};
 use ports::{mailer::Mailer, mailer::MailerError};
 use async_trait::async_trait;
+use chrono::{DateTime, Datelike, Utc};
 use lettre::message::{Mailbox, header::ContentType};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
@@ -18,6 +19,7 @@ struct Inner {
     mailer: Mutex<SmtpTransport>,
     from_mailbox: Mailbox,
     reset_base_url: String,
+    app_url: Option<String>,
 }
 
 impl SmtpMailer {
@@ -38,6 +40,10 @@ impl SmtpMailer {
                 mailer: Mutex::new(transport),
                 from_mailbox,
                 reset_base_url: config.password_reset_base_url,
+                app_url: config
+                    .app_url
+                    .map(|url| url.trim().trim_end_matches('/').to_string())
+                    .filter(|url| !url.is_empty()),
             }),
         })
     }
@@ -141,5 +147,71 @@ impl Mailer for SmtpMailer {
         };
 
         self.send_html(email, subject, html_body)
+    }
+
+    async fn send_trial_ending(
+        &self,
+        email: &Email,
+        ends_at: DateTime<Utc>,
+        locale: Locale,
+    ) -> Result<(), MailerError> {
+        let link = self
+            .inner
+            .app_url
+            .as_deref()
+            .map(|url| format!(r#"<p><a href="{url}">{url}</a></p>"#))
+            .unwrap_or_default();
+        let date = trial_end_date(ends_at, locale);
+        let (subject, html_body) = match locale {
+            Locale::Ru => (
+                "Пробный Rift Pro заканчивается завтра",
+                format!(
+                    r#"<p>Здравствуйте,</p>
+                    <p>Пробный период Rift Pro закончится {date}.</p>
+                    <p>После этого аккаунт вернётся на Free. Баннер и анимированный аватар скроются, но не удалятся, а сообщения и вложения останутся на месте.</p>
+                    {link}"#,
+                    date = date,
+                    link = link
+                ),
+            ),
+            Locale::En => (
+                "Your Rift Pro trial ends tomorrow",
+                format!(
+                    r#"<p>Hello,</p>
+                    <p>Your Rift Pro trial ends on {date}.</p>
+                    <p>After that the account goes back to Free. Your banner and animated avatar are hidden but kept, and messages and attachments stay as they are.</p>
+                    {link}"#,
+                    date = date,
+                    link = link
+                ),
+            ),
+        };
+
+        self.send_html(email, subject, html_body)
+    }
+}
+
+pub(crate) fn trial_end_date(ends_at: DateTime<Utc>, locale: Locale) -> String {
+    const RU_MONTHS: [&str; 12] = [
+        "января", "февраля", "марта", "апреля", "мая", "июня",
+        "июля", "августа", "сентября", "октября", "ноября", "декабря",
+    ];
+    let month = ends_at.month0() as usize;
+    match locale {
+        Locale::Ru => format!("{} {} в {} UTC", ends_at.day(), RU_MONTHS[month], ends_at.format("%H:%M")),
+        Locale::En => format!("{} at {} UTC", ends_at.format("%B %-d"), ends_at.format("%H:%M")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+
+    #[test]
+    fn trial_end_date_reads_naturally_in_both_languages() {
+        let at = Utc.with_ymd_and_hms(2026, 10, 6, 9, 5, 0).unwrap();
+        assert_eq!(trial_end_date(at, Locale::Ru), "6 октября в 09:05 UTC");
+        assert_eq!(trial_end_date(at, Locale::En), "October 6 at 09:05 UTC");
     }
 }
