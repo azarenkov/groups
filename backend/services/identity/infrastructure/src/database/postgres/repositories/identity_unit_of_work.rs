@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use chrono::{DateTime, Utc};
-use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::Tier, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::Tier, user::tier::TrialHistory, user::tier::trial_email_key, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 use sqlx::{Pool, Postgres, Transaction};
 use std::collections::BTreeMap;
 use identity_domain::user::settings::{
@@ -24,16 +24,21 @@ use crate::outbox::mapping::to_record;
 
 pub struct PostgresIdentityUnitOfWork {
     pool: Pool<Postgres>,
+    trial_key: std::sync::Arc<[u8]>,
 }
 
 impl PostgresIdentityUnitOfWork {
-    pub fn new(pool: Pool<Postgres>) -> Self {
-        Self { pool }
+    pub fn new(pool: Pool<Postgres>, trial_key: &[u8]) -> Self {
+        Self {
+            pool,
+            trial_key: trial_key.into(),
+        }
     }
 }
 
 pub struct PostgresIdentityTransaction {
     tx: Transaction<'static, Postgres>,
+    trial_key: std::sync::Arc<[u8]>,
 }
 
 #[async_trait]
@@ -44,7 +49,10 @@ impl IdentityUnitOfWork for PostgresIdentityUnitOfWork {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(Box::new(PostgresIdentityTransaction { tx }))
+        Ok(Box::new(PostgresIdentityTransaction {
+            tx,
+            trial_key: self.trial_key.clone(),
+        }))
     }
 }
 
@@ -430,7 +438,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
 
     async fn load_entitlements(&mut self, user_id: &UserId) -> Result<Entitlements, RepositoryError> {
         let row = sqlx::query!(
-            r#"SELECT tier, valid_until, member_number FROM user_entitlements WHERE user_id = $1"#,
+            r#"SELECT tier, valid_until, member_number, source, trial_used_at FROM user_entitlements WHERE user_id = $1"#,
             user_id.uuid(),
         )
         .fetch_optional(&mut *self.tx)
@@ -441,6 +449,8 @@ impl IdentityTransaction for PostgresIdentityTransaction {
                 tier: Tier::parse(&r.tier).unwrap_or_default(),
                 valid_until: r.valid_until,
                 member_number: r.member_number,
+                trial: r.source == "trial",
+                trial_used_at: r.trial_used_at,
             })
             .unwrap_or_default())
     }
@@ -471,7 +481,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         .fetch_one(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        if current.is_some() || tier == "free" {
+        if current.is_some() || tier == "free" || source == "trial" {
             return Ok(current);
         }
         sqlx::query_scalar!(
@@ -486,6 +496,119 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         .fetch_one(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)
+    }
+
+    async fn trial_history(&mut self, email: &Email, ip: Option<&str>, since: DateTime<Utc>) -> Result<TrialHistory, RepositoryError> {
+        let email_hash = trial_hash(&self.trial_key, &trial_email_key(email.as_str()));
+        let ip_hash = ip.map(|ip| trial_hash(&self.trial_key, ip));
+        for key in std::iter::once(format!("trial:email:{email_hash}"))
+            .chain(ip_hash.as_ref().map(|hash| format!("trial:ip:{hash}")))
+        {
+            sqlx::query!("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", key)
+                .execute(&mut *self.tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+        }
+        let email_used = sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM trial_grants WHERE email_hash = $1) AS "used!""#,
+            email_hash,
+        )
+        .fetch_one(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let recent_from_ip = match ip_hash {
+            Some(ip_hash) => sqlx::query_scalar!(
+                r#"SELECT COUNT(*) AS "count!" FROM trial_grants WHERE ip_hash = $1 AND granted_at > $2"#,
+                ip_hash,
+                since,
+            )
+            .fetch_one(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?,
+            None => 0,
+        };
+        Ok(TrialHistory { email_used, recent_from_ip })
+    }
+
+    async fn start_trial(&mut self, user_id: &UserId, email: &Email, ip: Option<&str>, valid_until: DateTime<Utc>, now: DateTime<Utc>) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"
+            INSERT INTO user_entitlements (user_id, tier, valid_until, source, trial_used_at, updated_at)
+            VALUES ($1, 'pro', $2, 'trial', $3, now())
+            ON CONFLICT (user_id) DO UPDATE
+                SET tier = 'pro',
+                    valid_until = EXCLUDED.valid_until,
+                    source = 'trial',
+                    trial_used_at = EXCLUDED.trial_used_at,
+                    updated_at = now()
+            "#,
+            user_id.uuid(),
+            valid_until,
+            now,
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            r#"INSERT INTO trial_grants (user_id, email_hash, ip_hash, granted_at) VALUES ($1, $2, $3, $4)"#,
+            user_id.uuid(),
+            trial_hash(&self.trial_key, &trial_email_key(email.as_str())),
+            ip.map(|ip| trial_hash(&self.trial_key, ip)),
+            now,
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn load_trials_ending_for_update(&mut self, before: DateTime<Utc>, limit: i64) -> Result<Vec<UserId>, RepositoryError> {
+        let ids = sqlx::query_scalar!(
+            r#"
+            SELECT user_id FROM user_entitlements
+            WHERE source = 'trial' AND tier <> 'free' AND trial_reminded_at IS NULL
+              AND valid_until IS NOT NULL AND valid_until > now() AND valid_until <= $1
+            ORDER BY valid_until
+            LIMIT $2
+            FOR UPDATE SKIP LOCKED
+            "#,
+            before,
+            limit,
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(ids.into_iter().map(UserId::new).collect())
+    }
+
+    async fn mark_trial_reminded(&mut self, user_id: &UserId, now: DateTime<Utc>) -> Result<(), RepositoryError> {
+        sqlx::query!(
+            r#"UPDATE user_entitlements SET trial_reminded_at = $2 WHERE user_id = $1"#,
+            user_id.uuid(),
+            now,
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn load_expired_entitlements_for_update(&mut self, now: DateTime<Utc>, limit: i64) -> Result<Vec<UserId>, RepositoryError> {
+        let ids = sqlx::query_scalar!(
+            r#"
+            SELECT user_id FROM user_entitlements
+            WHERE tier <> 'free' AND valid_until IS NOT NULL AND valid_until <= $1
+            ORDER BY valid_until
+            LIMIT $2
+            FOR UPDATE SKIP LOCKED
+            "#,
+            now,
+            limit,
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(ids.into_iter().map(UserId::new).collect())
     }
 
     async fn save_events(&mut self, events: &[IdentityEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {
@@ -699,4 +822,12 @@ impl PostgresIdentityTransaction {
             .map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
+}
+
+fn trial_hash(key: &[u8], value: &str) -> String {
+    use hmac::{Hmac, Mac};
+    let mut mac = <Hmac<sha2::Sha256> as Mac>::new_from_slice(key).expect("HMAC accepts keys of any length");
+    mac.update(b"rift-trial-grant:");
+    mac.update(value.as_bytes());
+    hex::encode(mac.finalize().into_bytes())
 }

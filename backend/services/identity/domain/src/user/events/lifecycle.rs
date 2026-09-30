@@ -282,6 +282,7 @@ pub struct UserEntitlementsChanged {
     pub tier: String,
     pub valid_until: Option<DateTime<Utc>>,
     pub member_number: Option<i64>,
+    pub trial: bool,
     pub occurred_at: DateTime<Utc>,
 }
 
@@ -299,6 +300,35 @@ impl UserEntitlementsChanged {
             tier,
             valid_until,
             member_number,
+            trial: false,
+            occurred_at: now,
+        }
+    }
+
+    pub fn trial(mut self) -> Self {
+        self.trial = true;
+        self
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UserTrialEnding {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub email: Email,
+    pub locale: String,
+    pub ends_at: DateTime<Utc>,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserTrialEnding {
+    pub fn record(user_id: UserId, email: Email, locale: String, ends_at: DateTime<Utc>, now: DateTime<Utc>) -> Self {
+        Self {
+            id: EventId::generate(),
+            user_id,
+            email,
+            locale,
+            ends_at,
             occurred_at: now,
         }
     }

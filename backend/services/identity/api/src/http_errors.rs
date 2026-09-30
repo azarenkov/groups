@@ -83,6 +83,7 @@ impl<E: HttpMapping + std::fmt::Debug> From<E> for HttpError {
 use identity::ports::oauth_verifier::OAuthVerifyError;
 use identity::ports::token_issuer::TokenIssuerError;
 use identity::usecases::auth::captcha::CaptchaError;
+use identity::usecases::entitlements::start_trial::StartTrialError;
 use identity::usecases::auth::confirm_registration::ConfirmRegistrationError;
 use identity::usecases::auth::google_login::GoogleLoginError;
 use identity::usecases::auth::issue_verification_code::IssueVerificationCodeError;
@@ -128,6 +129,40 @@ impl HttpMapping for TokenIssuerError {
             TokenIssuerError::Encoding(_) => "TOKEN_ENCODING_FAILED",
             TokenIssuerError::Decoding(_) => "TOKEN_DECODING_FAILED",
             TokenIssuerError::InvalidTokenType => "TOKEN_INVALID_TYPE",
+        }
+    }
+}
+
+impl HttpMapping for StartTrialError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            StartTrialError::UserNotFound => StatusCode::NOT_FOUND,
+            StartTrialError::EmailNotVerified => StatusCode::FORBIDDEN,
+            StartTrialError::AlreadyUsed | StartTrialError::AlreadyPaid => StatusCode::CONFLICT,
+            StartTrialError::TooManyFromNetwork => StatusCode::TOO_MANY_REQUESTS,
+            StartTrialError::Repository(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            StartTrialError::UserNotFound => "User not found".to_string(),
+            StartTrialError::EmailNotVerified => "Confirm your email to start the trial".to_string(),
+            StartTrialError::AlreadyUsed => "The free trial has already been used".to_string(),
+            StartTrialError::AlreadyPaid => "You already have a paid plan".to_string(),
+            StartTrialError::TooManyFromNetwork => "Too many trials from this network".to_string(),
+            StartTrialError::Repository(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            StartTrialError::UserNotFound => "USER_NOT_FOUND",
+            StartTrialError::EmailNotVerified => "EMAIL_NOT_VERIFIED",
+            StartTrialError::AlreadyUsed => "TRIAL_ALREADY_USED",
+            StartTrialError::AlreadyPaid => "ALREADY_PAID",
+            StartTrialError::TooManyFromNetwork => "TRIAL_LIMIT_REACHED",
+            StartTrialError::Repository(e) => e.to_error_code(),
         }
     }
 }

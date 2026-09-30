@@ -1,4 +1,6 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
+
+pub const TRIAL_DAYS: i64 = 7;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Tier {
@@ -31,11 +33,36 @@ impl Tier {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct TrialHistory {
+    pub email_used: bool,
+    pub recent_from_ip: i64,
+}
+
+pub fn trial_email_key(email: &str) -> String {
+    let email = email.trim().to_lowercase();
+    match email.split_once('@') {
+        Some((local, domain)) => {
+            let local = local.split('+').next().unwrap_or(local);
+            let local = if matches!(domain, "gmail.com" | "googlemail.com") {
+                local.replace('.', "")
+            } else {
+                local.to_string()
+            };
+            let domain = if domain == "googlemail.com" { "gmail.com" } else { domain };
+            format!("{local}@{domain}")
+        }
+        None => email,
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Entitlements {
     pub tier: Tier,
     pub valid_until: Option<DateTime<Utc>>,
     pub member_number: Option<i64>,
+    pub trial: bool,
+    pub trial_used_at: Option<DateTime<Utc>>,
 }
 
 impl Default for Entitlements {
@@ -44,6 +71,8 @@ impl Default for Entitlements {
             tier: Tier::Free,
             valid_until: None,
             member_number: None,
+            trial: false,
+            trial_used_at: None,
         }
     }
 }
@@ -54,6 +83,18 @@ impl Entitlements {
             Some(until) if until <= now => Tier::Free,
             _ => self.tier,
         }
+    }
+
+    pub fn on_trial_at(&self, now: DateTime<Utc>) -> bool {
+        self.trial && self.active_at(now).is_paid()
+    }
+
+    pub fn trial_available_at(&self, now: DateTime<Utc>) -> bool {
+        self.trial_used_at.is_none() && !self.active_at(now).is_paid()
+    }
+
+    pub fn trial_ends_at(now: DateTime<Utc>) -> DateTime<Utc> {
+        now + Duration::days(TRIAL_DAYS)
     }
 }
 

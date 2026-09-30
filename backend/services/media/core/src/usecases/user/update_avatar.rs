@@ -24,6 +24,11 @@ pub struct NormalizedImage {
     pub extension: &'static str,
     pub content_type: &'static str,
     pub moderation_samples: Vec<Vec<u8>>,
+    pub still: Option<Vec<u8>>,
+}
+
+pub fn still_avatar_key(key: &str) -> Option<String> {
+    key.strip_suffix(".gif").map(|stem| format!("{stem}.still.png"))
 }
 
 impl NormalizedImage {
@@ -33,6 +38,7 @@ impl NormalizedImage {
             extension: "png",
             content_type: "image/png",
             moderation_samples: Vec::new(),
+            still: None,
         }
     }
 }
@@ -89,6 +95,19 @@ where
             image.extension
         );
         self.storage.put(&key, image.content_type, image.bytes).await?;
+        if let (Some(still), Some(still_key)) = (image.still, still_avatar_key(&key))
+            && let Err(e) = self.storage.put(&still_key, "image/png", still).await
+        {
+            if let Err(qe) = self
+                .attachment_repository
+                .enqueue_cleanup(std::slice::from_ref(&key))
+                .await
+            {
+                tracing::warn!(error = %qe, %key, "Failed to enqueue the avatar whose still frame failed");
+            }
+            cleanup_object(&*self.storage, &*self.attachment_repository, &key).await;
+            return Err(e.into());
+        }
 
         let old = match self.media_repository.set_user_avatar_key(&user_id, Some(&key)).await {
             Ok(old) => old,
@@ -117,6 +136,21 @@ pub(crate) async fn cleanup_object<FS: FileStorage + ?Sized, A: AttachmentReposi
     attachment_repository: &A,
     key: &str,
 ) {
+    if let Some(still_key) = still_avatar_key(key) {
+        match storage.delete(&still_key).await {
+            Ok(()) | Err(FileStorageError::NotFound) => {}
+            Err(e) => {
+                tracing::warn!(error = %e, key = %still_key, "Failed to delete the still avatar frame; the queue will retry the pair");
+                if let Err(qe) = attachment_repository
+                    .enqueue_cleanup(&[key.to_string()])
+                    .await
+                {
+                    tracing::warn!(error = %qe, %key, "Failed to enqueue the animated avatar for cleanup");
+                }
+                return;
+            }
+        }
+    }
     match storage.delete(key).await {
         Ok(()) | Err(FileStorageError::NotFound) => {
             if let Err(e) = attachment_repository.dequeue_cleanup(key).await {
@@ -126,5 +160,19 @@ pub(crate) async fn cleanup_object<FS: FileStorage + ?Sized, A: AttachmentReposi
         Err(e) => {
             tracing::warn!(error = %e, %key, "Failed to delete object; cleanup queue will retry");
         }
+    }
+}
+
+#[cfg(test)]
+mod still_key_tests {
+    use super::still_avatar_key;
+
+    #[test]
+    fn only_animated_avatars_have_a_still_frame() {
+        assert_eq!(
+            still_avatar_key("avatars/u/1.gif").as_deref(),
+            Some("avatars/u/1.still.png")
+        );
+        assert_eq!(still_avatar_key("avatars/u/1.png"), None);
     }
 }

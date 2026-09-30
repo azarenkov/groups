@@ -1,6 +1,10 @@
 import type { WsHandlers } from "../../../shared/ws/types";
+import i18n from "../../../i18n";
+import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
+import { desktopNotifAllowed } from "../../settings/store/notificationSettingsStore";
+import { formatPlanDate } from "../../subscription/components/PlanUntil";
 import { bustAvatar } from "../../../shared/lib/avatarCache";
-import { parseBadgeStyle, parseMemberNumber, parseTier } from "../../subscription/lib/plans";
+import { parseBadgeStyle, parseMemberNumber, parseTier, parseValidUntil } from "../../subscription/lib/plans";
 import { useBadgeStore } from "../../subscription/store/badgeStore";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 import { loadActivitiesFor, loadFriendActivities, useActivityStore } from "../store/activityStore";
@@ -17,6 +21,15 @@ import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
 import { useVoicePresenceStore } from "../../voice/store/voicePresenceStore";
 import { renameMentionTarget } from "../../chat/lib/mentionTargets";
 import { asString } from "../../../shared/ws/context";
+
+const TIER_PROJECTION_SETTLE_MS = [5000, 15000, 45000, 120000];
+
+const bustAvatarAfterTierChange = (userId: string) => {
+  bustAvatar("user", userId);
+  for (const delay of TIER_PROJECTION_SETTLE_MS) {
+    setTimeout(() => bustAvatar("user", userId), delay);
+  }
+};
 
 export const socialHandlers: WsHandlers = {
   "friendship.requestSent": () => {
@@ -145,15 +158,38 @@ export const socialHandlers: WsHandlers = {
       const tier = parseTier(d.tier);
       const memberNumber = parseMemberNumber(d.memberNumber);
       if (useAuthStore.getState().user?.id === userId) {
-        useEntitlementsStore.getState().applyTier(tier, memberNumber);
+        useEntitlementsStore.getState().applyTier(tier, memberNumber, {
+          validUntil: parseValidUntil(d.validUntil),
+          trial: d.trial === true,
+        });
         if (tier === "free") {
           bustAvatar("banner", userId);
         }
+        bustAvatarAfterTierChange(userId);
         return;
       }
       useBadgeStore.getState().applyTier(userId, tier, memberNumber);
       useBadgeStore.getState().revalidateLater(userId);
       bustAvatar("banner", userId);
+      bustAvatarAfterTierChange(userId);
+  },
+  "user.trialEnding": (d) => {
+      const userId = asString(d.userId);
+      const endsAt = parseValidUntil(d.endsAt);
+      if (!userId || !endsAt || useAuthStore.getState().user?.id !== userId) return;
+      if (Date.parse(endsAt) <= Date.now()) return;
+      void useEntitlementsStore
+        .getState()
+        .fetch()
+        .then((fresh) => {
+          const { trial, validUntil } = useEntitlementsStore.getState();
+          if (!fresh || !trial || validUntil !== endsAt || !desktopNotifAllowed()) return;
+          const date = formatPlanDate(endsAt, i18n.language);
+          showDesktopNotification(
+            i18n.t("trial.endingSoonDesktopTitle", { ns: "subscription" }),
+            i18n.t("trial.endingSoonDesktopBody", { ns: "subscription", date }),
+          );
+        });
   },
   "user.profileChanged": (d) => {
       const userId = asString(d.userId);

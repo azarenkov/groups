@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT user_id FROM user_entitlements\n            WHERE tier <> 'free' AND valid_until IS NOT NULL AND valid_until <= $1\n            ORDER BY valid_until\n            LIMIT $2\n            FOR UPDATE SKIP LOCKED\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "66ff247843ac0af66da00418f5143ccd954e8b502bb5b50ffdfb8bc7ceb7a1ae"
+}

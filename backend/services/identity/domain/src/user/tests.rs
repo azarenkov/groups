@@ -168,12 +168,45 @@ fn a_deleted_account_cannot_ask_for_another_code() {
 fn an_expired_plan_counts_as_free() {
     use crate::user::tier::{Entitlements, Tier};
     let now = Utc::now();
-    let lapsed = Entitlements { tier: Tier::Pro, valid_until: Some(now - Duration::hours(1)), member_number: Some(1) };
-    let running = Entitlements { tier: Tier::Pro, valid_until: Some(now + Duration::hours(1)), member_number: Some(2) };
-    let open_ended = Entitlements { tier: Tier::Premium, valid_until: None, member_number: Some(3) };
+    let lapsed = Entitlements { tier: Tier::Pro, valid_until: Some(now - Duration::hours(1)), member_number: Some(1), ..Default::default() };
+    let running = Entitlements { tier: Tier::Pro, valid_until: Some(now + Duration::hours(1)), member_number: Some(2), ..Default::default() };
+    let open_ended = Entitlements { tier: Tier::Premium, valid_until: None, member_number: Some(3), ..Default::default() };
     assert_eq!(lapsed.active_at(now), Tier::Free);
     assert_eq!(running.active_at(now), Tier::Pro);
     assert_eq!(open_ended.active_at(now), Tier::Premium);
+}
+
+#[test]
+fn a_trial_is_offered_once_and_only_to_free_accounts() {
+    use crate::user::tier::{Entitlements, Tier, TRIAL_DAYS};
+    let now = Utc::now();
+    assert!(Entitlements::default().trial_available_at(now));
+
+    let on_trial = Entitlements {
+        tier: Tier::Pro,
+        valid_until: Some(Entitlements::trial_ends_at(now)),
+        trial: true,
+        trial_used_at: Some(now),
+        ..Default::default()
+    };
+    assert!(on_trial.on_trial_at(now));
+    assert!(!on_trial.trial_available_at(now));
+    let after = now + Duration::days(TRIAL_DAYS) + Duration::seconds(1);
+    assert!(!on_trial.on_trial_at(after));
+    assert!(!on_trial.trial_available_at(after));
+
+    let paid = Entitlements { tier: Tier::Pro, valid_until: None, ..Default::default() };
+    assert!(!paid.trial_available_at(now));
+    assert!(!paid.on_trial_at(now));
+}
+
+#[test]
+fn trial_email_keys_fold_aliases_of_one_mailbox() {
+    use crate::user::tier::trial_email_key;
+    assert_eq!(trial_email_key(" Some.One+rift@GMail.com "), "someone@gmail.com");
+    assert_eq!(trial_email_key("some.one@googlemail.com"), "someone@gmail.com");
+    assert_eq!(trial_email_key("first.last+x@example.com"), "first.last@example.com");
+    assert_eq!(trial_email_key("broken"), "broken");
 }
 
 #[test]

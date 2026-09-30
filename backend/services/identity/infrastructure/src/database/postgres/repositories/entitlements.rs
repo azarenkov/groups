@@ -20,7 +20,7 @@ impl PostgresEntitlementsRepository {
 impl EntitlementsRepository for PostgresEntitlementsRepository {
     async fn get(&self, user_id: &UserId) -> Result<Entitlements, RepositoryError> {
         let row = sqlx::query!(
-            r#"SELECT tier, valid_until, member_number FROM user_entitlements WHERE user_id = $1"#,
+            r#"SELECT tier, valid_until, member_number, source, trial_used_at FROM user_entitlements WHERE user_id = $1"#,
             user_id.uuid(),
         )
         .fetch_optional(&self.pool)
@@ -31,6 +31,8 @@ impl EntitlementsRepository for PostgresEntitlementsRepository {
                 tier: Tier::parse(&r.tier).unwrap_or_default(),
                 valid_until: r.valid_until,
                 member_number: r.member_number,
+                trial: r.source == "trial",
+                trial_used_at: r.trial_used_at,
             })
             .unwrap_or_default())
     }

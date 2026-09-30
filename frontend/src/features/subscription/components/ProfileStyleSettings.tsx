@@ -12,6 +12,8 @@ import { BADGE_STYLES } from "../lib/plans";
 import type { BadgeStyle } from "../lib/plans";
 import { useEntitlementsStore } from "../store/entitlementsStore";
 import ProBadge from "./ProBadge";
+import TrialOffer from "./TrialOffer";
+import { whilePlanSyncs } from "../lib/planSync";
 
 const MAX_BANNER_BYTES = 8 * 1024 * 1024;
 const BANNER_TYPES = ["image/png", "image/jpeg", "image/webp"];
@@ -71,7 +73,7 @@ const ProfileStyleSettings: React.FC = () => {
     }
     setBusy(true);
     try {
-      await userAPI.uploadBanner(file);
+      await whilePlanSyncs(() => userAPI.uploadBanner(file));
       bustAvatar("banner", userId);
     } catch (err) {
       setError(describe(err));
@@ -107,6 +109,7 @@ const ProfileStyleSettings: React.FC = () => {
           {t("profileStyle.locked")}
         </p>
       )}
+      {locked && <TrialOffer compact />}
 
       <div className="profile-style-block">
         <div className="profile-style-label">{t("banner.title")}</div>
