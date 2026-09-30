@@ -56,6 +56,30 @@ describe("useAttachments", () => {
     expect(result.current.pendingFiles[1]).toMatchObject({ error: true, oversize: true });
   });
 
+  it("keeps retrying while media still applies the old plan", async () => {
+    jest.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useAttachments());
+      act(() => result.current.addFiles([file("big.png", 4096)]));
+      upload.mockRejectedValueOnce(new Error("too large")).mockResolvedValueOnce({ id: "att-2" });
+      mockLimit = 8192;
+      act(() => useEntitlementsStore.setState({ tier: "pro" }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(result.current.pendingFiles[0]).toMatchObject({ error: false, oversize: true });
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(result.current.pendingFiles[0].attachment).toEqual({ id: "att-2" }));
+      expect(upload).toHaveBeenCalledTimes(2);
+      expect(result.current.pendingFiles[0].oversize).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("deletes the uploaded attachment when the file is removed", async () => {
     const { result } = renderHook(() => useAttachments());
     act(() => result.current.addFiles([file("a.png")]));

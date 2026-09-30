@@ -10,6 +10,8 @@ import { useEntitlementsStore } from "../../subscription/store/entitlementsStore
 
 type SetFiles = React.Dispatch<React.SetStateAction<PendingFile[]>>;
 
+const UPGRADE_RETRY_DELAYS_MS = [2000, 5000, 10000];
+
 const pendingFor = (file: File): PendingFile => {
   const oversize = file.size > maxAttachmentBytes();
   return {
@@ -30,7 +32,7 @@ export function useAttachments() {
   pendingFilesRef.current = pendingFiles;
   const inFlightSendRef = React.useRef<Set<string>>(new Set());
 
-  const startUpload = React.useCallback((p: PendingFile, setFiles: SetFiles) => {
+  const startUpload = React.useCallback((p: PendingFile, setFiles: SetFiles, attempt = -1) => {
     void attachmentAPI
       .upload(p.file, (fraction) => {
         setFiles((cur) =>
@@ -47,12 +49,23 @@ export function useAttachments() {
         setFiles((cur) =>
           cur.map((x) =>
             x.localId === p.localId
-              ? { ...x, attachment, progress: 1 }
+              ? { ...x, attachment, progress: 1, oversize: false }
               : x,
           ),
         );
       })
       .catch(() => {
+        const delay = attempt >= 0 ? UPGRADE_RETRY_DELAYS_MS[attempt] : undefined;
+        if (delay !== undefined && !cancelledUploadsRef.current.has(p.localId)) {
+          setFiles((cur) =>
+            cur.map((x) => (x.localId === p.localId ? { ...x, progress: 0 } : x)),
+          );
+          setTimeout(() => {
+            if (cancelledUploadsRef.current.delete(p.localId)) return;
+            startUploadRef.current(p, setFiles, attempt + 1);
+          }, delay);
+          return;
+        }
         cancelledUploadsRef.current.delete(p.localId);
         setFiles((cur) =>
           cur.map((x) =>
@@ -61,6 +74,8 @@ export function useAttachments() {
         );
       });
   }, []);
+  const startUploadRef = React.useRef(startUpload);
+  startUploadRef.current = startUpload;
 
   const addFiles = React.useCallback((incoming: File[] | FileList) => {
     const files = Array.from(incoming);
@@ -122,15 +137,15 @@ export function useAttachments() {
   React.useEffect(() => {
     const limit = maxAttachmentBytes();
     const retry = (files: PendingFile[], setFiles: SetFiles) => {
-      const eligible = files.filter((p) => p.oversize && p.file.size <= limit);
+      const eligible = files.filter((p) => p.oversize && p.error && p.file.size <= limit);
       if (eligible.length === 0) return;
       const ids = new Set(eligible.map((p) => p.localId));
       setFiles((cur) =>
         cur.map((x) =>
-          ids.has(x.localId) ? { ...x, error: false, oversize: false, progress: 0 } : x,
+          ids.has(x.localId) ? { ...x, error: false, progress: 0 } : x,
         ),
       );
-      for (const p of eligible) startUpload(p, setFiles);
+      for (const p of eligible) startUpload(p, setFiles, 0);
     };
     retry(pendingFilesRef.current, setPendingFiles);
     retry(editFilesRef.current, setEditFiles);
