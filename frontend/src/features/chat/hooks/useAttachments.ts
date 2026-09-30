@@ -6,6 +6,7 @@ import {
   attachmentAPI,
 } from "../api/attachment";
 import type { PendingFile } from "../types";
+import { ApiError } from "../../../shared/lib/apiError";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 
 type SetFiles = React.Dispatch<React.SetStateAction<PendingFile[]>>;
@@ -54,8 +55,9 @@ export function useAttachments() {
           ),
         );
       })
-      .catch(() => {
-        const delay = attempt >= 0 ? UPGRADE_RETRY_DELAYS_MS[attempt] : undefined;
+      .catch((err: unknown) => {
+        const staleTier = err instanceof ApiError && err.code === "ATTACHMENT_TOO_LARGE";
+        const delay = attempt >= 0 && staleTier ? UPGRADE_RETRY_DELAYS_MS[attempt] : undefined;
         if (delay !== undefined && !cancelledUploadsRef.current.has(p.localId)) {
           setFiles((cur) =>
             cur.map((x) => (x.localId === p.localId ? { ...x, progress: 0 } : x)),

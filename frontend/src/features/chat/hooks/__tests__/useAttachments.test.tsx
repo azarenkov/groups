@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { attachmentAPI } from "../../api/attachment";
 import { useAttachments } from "../useAttachments";
 import { useEntitlementsStore } from "../../../subscription/store/entitlementsStore";
+import { ApiError } from "../../../../shared/lib/apiError";
 
 let mockLimit = 1024;
 
@@ -61,7 +62,7 @@ describe("useAttachments", () => {
     try {
       const { result } = renderHook(() => useAttachments());
       act(() => result.current.addFiles([file("big.png", 4096)]));
-      upload.mockRejectedValueOnce(new Error("too large")).mockResolvedValueOnce({ id: "att-2" });
+      upload.mockRejectedValueOnce(new ApiError("too large", 413, "ATTACHMENT_TOO_LARGE")).mockResolvedValueOnce({ id: "att-2" });
       mockLimit = 8192;
       act(() => useEntitlementsStore.getState().applyTier("pro"));
       await act(async () => {
@@ -85,7 +86,7 @@ describe("useAttachments", () => {
     try {
       const { result } = renderHook(() => useAttachments());
       act(() => result.current.addFiles([file("big.png", 4096)]));
-      upload.mockRejectedValue(new Error("too large"));
+      upload.mockRejectedValue(new ApiError("too large", 413, "ATTACHMENT_TOO_LARGE"));
       mockLimit = 8192;
       act(() => useEntitlementsStore.getState().applyTier("pro"));
       for (let round = 0; round < 5; round += 1) {
@@ -104,6 +105,16 @@ describe("useAttachments", () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it("does not retry an upgraded upload that failed for another reason", async () => {
+    const { result } = renderHook(() => useAttachments());
+    act(() => result.current.addFiles([file("big.png", 4096)]));
+    upload.mockRejectedValue(new ApiError("bad type", 415, "UNSUPPORTED_MEDIA_TYPE"));
+    mockLimit = 8192;
+    act(() => useEntitlementsStore.getState().applyTier("pro"));
+    await waitFor(() => expect(result.current.pendingFiles[0].error).toBe(true));
+    expect(upload).toHaveBeenCalledTimes(1);
   });
 
   it("deletes the uploaded attachment when the file is removed", async () => {

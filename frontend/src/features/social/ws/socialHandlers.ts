@@ -22,11 +22,13 @@ import { useVoicePresenceStore } from "../../voice/store/voicePresenceStore";
 import { renameMentionTarget } from "../../chat/lib/mentionTargets";
 import { asString } from "../../../shared/ws/context";
 
-const TIER_PROJECTION_SETTLE_MS = 5000;
+const TIER_PROJECTION_SETTLE_MS = [5000, 15000, 45000, 120000];
 
 const bustAvatarAfterTierChange = (userId: string) => {
   bustAvatar("user", userId);
-  setTimeout(() => bustAvatar("user", userId), TIER_PROJECTION_SETTLE_MS);
+  for (const delay of TIER_PROJECTION_SETTLE_MS) {
+    setTimeout(() => bustAvatar("user", userId), delay);
+  }
 };
 
 export const socialHandlers: WsHandlers = {
