@@ -2691,7 +2691,9 @@ dependencies = [
  "chrono",
  "domain",
  "ports",
+ "thiserror 2.0.18",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -2700,6 +2702,7 @@ version = "0.1.0"
 dependencies = [
  "api-common",
  "async-nats",
+ "async-trait",
  "chrono",
  "contracts",
  "domain",
@@ -2707,6 +2710,7 @@ dependencies = [
  "infrastructure-common",
  "notification-core",
  "ports",
+ "reqwest",
  "serde_json",
  "tokio",
  "tracing",

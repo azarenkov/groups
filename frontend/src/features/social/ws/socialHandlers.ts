@@ -166,13 +166,19 @@ export const socialHandlers: WsHandlers = {
       const userId = asString(d.userId);
       const endsAt = parseValidUntil(d.endsAt);
       if (!userId || !endsAt || useAuthStore.getState().user?.id !== userId) return;
-      useEntitlementsStore.getState().applyTier("pro", null, { validUntil: endsAt, trial: true });
-      if (!desktopNotifAllowed()) return;
-      const date = formatPlanDate(endsAt, i18n.language);
-      showDesktopNotification(
-        i18n.t("trial.endingSoonDesktopTitle", { ns: "subscription" }),
-        i18n.t("trial.endingSoonDesktopBody", { ns: "subscription", date }),
-      );
+      if (Date.parse(endsAt) <= Date.now()) return;
+      void useEntitlementsStore
+        .getState()
+        .fetch()
+        .then(() => {
+          const { trial, validUntil } = useEntitlementsStore.getState();
+          if (!trial || validUntil !== endsAt || !desktopNotifAllowed()) return;
+          const date = formatPlanDate(endsAt, i18n.language);
+          showDesktopNotification(
+            i18n.t("trial.endingSoonDesktopTitle", { ns: "subscription" }),
+            i18n.t("trial.endingSoonDesktopBody", { ns: "subscription", date }),
+          );
+        });
   },
   "user.profileChanged": (d) => {
       const userId = asString(d.userId);

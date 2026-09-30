@@ -1,32 +1,53 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use domain::user::{email::Email, locale::Locale};
+use domain::user::{email::Email, id::UserId, locale::Locale};
 use ports::mailer::{Mailer, MailerError};
+
+use crate::ports::trial_state::TrialState;
 
 #[derive(Debug, Clone)]
 pub struct TrialEnding {
+    pub user_id: UserId,
     pub email: Email,
     pub ends_at: DateTime<Utc>,
     pub locale: Locale,
 }
 
-pub struct SendTrialEndingEmail<M: Mailer> {
-    mailer: Arc<M>,
+#[derive(Debug, thiserror::Error)]
+pub enum SendTrialEndingError {
+    #[error("Mailer error: {0}")]
+    Mailer(#[from] MailerError),
+    #[error("Trial state lookup failed: {0}")]
+    Lookup(String),
 }
 
-impl<M: Mailer> SendTrialEndingEmail<M> {
-    pub fn new(mailer: Arc<M>) -> Self {
-        Self { mailer }
+pub struct SendTrialEndingEmail<M: Mailer, T: TrialState> {
+    mailer: Arc<M>,
+    trials: Arc<T>,
+}
+
+impl<M: Mailer, T: TrialState> SendTrialEndingEmail<M, T> {
+    pub fn new(mailer: Arc<M>, trials: Arc<T>) -> Self {
+        Self { mailer, trials }
     }
 
-    pub async fn execute(&self, ending: TrialEnding, now: DateTime<Utc>) -> Result<(), MailerError> {
+    pub async fn execute(&self, ending: TrialEnding, now: DateTime<Utc>) -> Result<bool, SendTrialEndingError> {
         if ending.ends_at <= now {
-            return Ok(());
+            return Ok(false);
+        }
+        let current = self
+            .trials
+            .active_trial_end(&ending.user_id)
+            .await
+            .map_err(SendTrialEndingError::Lookup)?;
+        if current != Some(ending.ends_at) {
+            return Ok(false);
         }
         self.mailer
             .send_trial_ending(&ending.email, ending.ends_at, ending.locale)
-            .await
+            .await?;
+        Ok(true)
     }
 }
 
@@ -61,20 +82,36 @@ mod tests {
         }
     }
 
+    struct FakeTrials(Result<Option<DateTime<Utc>>, String>);
+
+    #[async_trait]
+    impl TrialState for FakeTrials {
+        async fn active_trial_end(&self, _: &UserId) -> Result<Option<DateTime<Utc>>, String> {
+            self.0.clone()
+        }
+    }
+
     fn ending(ends_at: DateTime<Utc>) -> TrialEnding {
         TrialEnding {
+            user_id: UserId::new(uuid::Uuid::nil()),
             email: Email::new("a@b.c".to_string()),
             ends_at,
             locale: Locale::Ru,
         }
     }
 
-    #[tokio::test]
-    async fn mails_a_reminder_for_a_trial_that_is_still_running() {
+    fn usecase(state: Result<Option<DateTime<Utc>>, String>) -> (Arc<FakeMailer>, SendTrialEndingEmail<FakeMailer, FakeTrials>) {
         let mailer = Arc::new(FakeMailer::default());
-        let usecase = SendTrialEndingEmail::new(mailer.clone());
+        let usecase = SendTrialEndingEmail::new(mailer.clone(), Arc::new(FakeTrials(state)));
+        (mailer, usecase)
+    }
+
+    #[tokio::test]
+    async fn mails_a_reminder_for_the_running_trial() {
         let now = Utc::now();
-        usecase.execute(ending(now + Duration::hours(20)), now).await.unwrap();
+        let ends_at = now + Duration::hours(20);
+        let (mailer, usecase) = usecase(Ok(Some(ends_at)));
+        assert!(usecase.execute(ending(ends_at), now).await.unwrap());
         let sent = mailer.sent.lock().unwrap();
         assert_eq!(sent.len(), 1);
         assert_eq!(sent[0].0, "a@b.c");
@@ -82,11 +119,34 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn skips_a_late_reminder_for_a_trial_that_already_ended() {
-        let mailer = Arc::new(FakeMailer::default());
-        let usecase = SendTrialEndingEmail::new(mailer.clone());
+    async fn skips_a_trial_that_already_ended() {
         let now = Utc::now();
-        usecase.execute(ending(now - Duration::minutes(1)), now).await.unwrap();
+        let (mailer, usecase) = usecase(Ok(None));
+        assert!(!usecase.execute(ending(now - Duration::minutes(1)), now).await.unwrap());
+        assert!(mailer.sent.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn skips_a_reminder_after_the_user_upgraded() {
+        let now = Utc::now();
+        let (mailer, usecase) = usecase(Ok(None));
+        assert!(!usecase.execute(ending(now + Duration::hours(20)), now).await.unwrap());
+        assert!(mailer.sent.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn skips_a_reminder_for_an_older_trial_window() {
+        let now = Utc::now();
+        let (mailer, usecase) = usecase(Ok(Some(now + Duration::days(3))));
+        assert!(!usecase.execute(ending(now + Duration::hours(20)), now).await.unwrap());
+        assert!(mailer.sent.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn retries_when_the_trial_state_is_unknown() {
+        let now = Utc::now();
+        let (mailer, usecase) = usecase(Err("down".to_string()));
+        assert!(usecase.execute(ending(now + Duration::hours(20)), now).await.is_err());
         assert!(mailer.sent.lock().unwrap().is_empty());
     }
 }

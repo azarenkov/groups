@@ -43,3 +43,10 @@ pub struct DmPeersRequestV1 {
 pub struct DmPeersResponseV1 {
     pub ids: Vec<Uuid>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrialStateV1 {
+    pub on_trial: bool,
+    pub valid_until: Option<chrono::DateTime<chrono::Utc>>,
+}

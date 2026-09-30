@@ -25,7 +25,7 @@ pub async fn run<M: Mailer>(
     shutdown: tokio::sync::watch::Receiver<bool>,
     heartbeat: Heartbeat,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    consume(jetstream, spec, "verification.issued", shutdown, heartbeat, |msg| {
+    consume(jetstream, spec, "verification.issued", StartPosition::New, shutdown, heartbeat, |msg| {
         let usecase = usecase.clone();
         async move { handle(usecase.as_ref(), msg).await }
     })
@@ -36,6 +36,7 @@ pub async fn consume<H, Fut>(
     jetstream: async_nats::jetstream::Context,
     spec: VerificationConsumerSpec,
     event: &str,
+    start_position: StartPosition,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
     heartbeat: Heartbeat,
     handler: H,
@@ -53,7 +54,7 @@ where
         .subscribe(SubscribeOptions {
             consumer_name: spec.consumer_name.clone(),
             subject: filter_subject.clone(),
-            start_position: StartPosition::New,
+            start_position,
             max_deliver: Some(spec.max_deliver),
             dlq_subject: Some(dlq_subject.clone()),
             extra_subjects: vec![partitioned_filter_subject],

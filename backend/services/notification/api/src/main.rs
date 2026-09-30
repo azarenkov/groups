@@ -10,6 +10,7 @@ use infrastructure_common::{
 use notification_core::usecases::send_trial_ending_email::SendTrialEndingEmail;
 use notification_core::usecases::send_verification_email::SendVerificationEmail;
 use notification_infrastructure::consumers::trial;
+use notification_infrastructure::identity_trials::IdentityTrialClient;
 use notification_infrastructure::consumers::verification::{self, VerificationConsumerSpec};
 use tokio::sync::watch;
 
@@ -58,7 +59,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mailer = Arc::new(SmtpMailer::from_config(mailer_config)?);
     let send_verification_email = Arc::new(SendVerificationEmail::new(mailer.clone()));
-    let send_trial_ending_email = Arc::new(SendTrialEndingEmail::new(mailer));
+    let identity_internal_url = std::env::var("IDENTITY_INTERNAL_URL")
+        .unwrap_or_else(|_| "http://identity-service:8080".to_string());
+    let send_trial_ending_email = Arc::new(SendTrialEndingEmail::new(
+        mailer,
+        Arc::new(IdentityTrialClient::new(&identity_internal_url)),
+    ));
     let spec = VerificationConsumerSpec {
         stream: notification_config.notification_user_stream.clone(),
         consumer_name: notification_config.notification_verification_consumer.clone(),
