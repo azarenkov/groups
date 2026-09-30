@@ -40,7 +40,7 @@ async fn get_my_entitlements(
         .await
         .map_err(HttpError::from_error)?;
     let badge_style = user.as_ref().map(|u| u.badge_style().as_str()).unwrap_or("");
-    let verified = user.as_ref().is_some_and(|u| u.is_verified());
+    let verified = user.as_ref().is_some_and(|u| u.is_email_verified());
     Ok(HttpResponse::Ok().json(ApiResponse::success(EntitlementsResponse {
         tier: entitlements.tier.as_str(),
         badge_style,

@@ -58,7 +58,7 @@ impl<W: IdentityUnitOfWork> StartTrial<W> {
             .await?
             .filter(|user| !user.is_deleted())
             .ok_or(StartTrialError::UserNotFound)?;
-        if !user.is_verified() {
+        if !user.is_email_verified() {
             return Err(StartTrialError::EmailNotVerified);
         }
         let entitlements = tx.load_entitlements(&user_id).await?;

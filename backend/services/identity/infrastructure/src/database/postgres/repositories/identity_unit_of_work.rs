@@ -24,16 +24,21 @@ use crate::outbox::mapping::to_record;
 
 pub struct PostgresIdentityUnitOfWork {
     pool: Pool<Postgres>,
+    trial_key: std::sync::Arc<[u8]>,
 }
 
 impl PostgresIdentityUnitOfWork {
-    pub fn new(pool: Pool<Postgres>) -> Self {
-        Self { pool }
+    pub fn new(pool: Pool<Postgres>, trial_key: &[u8]) -> Self {
+        Self {
+            pool,
+            trial_key: trial_key.into(),
+        }
     }
 }
 
 pub struct PostgresIdentityTransaction {
     tx: Transaction<'static, Postgres>,
+    trial_key: std::sync::Arc<[u8]>,
 }
 
 #[async_trait]
@@ -44,7 +49,10 @@ impl IdentityUnitOfWork for PostgresIdentityUnitOfWork {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(Box::new(PostgresIdentityTransaction { tx }))
+        Ok(Box::new(PostgresIdentityTransaction {
+            tx,
+            trial_key: self.trial_key.clone(),
+        }))
     }
 }
 
@@ -491,8 +499,8 @@ impl IdentityTransaction for PostgresIdentityTransaction {
     }
 
     async fn trial_history(&mut self, email: &Email, ip: Option<&str>, since: DateTime<Utc>) -> Result<TrialHistory, RepositoryError> {
-        let email_hash = trial_hash(&trial_email_key(email.as_str()));
-        let ip_hash = ip.map(trial_hash);
+        let email_hash = trial_hash(&self.trial_key, &trial_email_key(email.as_str()));
+        let ip_hash = ip.map(|ip| trial_hash(&self.trial_key, ip));
         for key in std::iter::once(format!("trial:email:{email_hash}"))
             .chain(ip_hash.as_ref().map(|hash| format!("trial:ip:{hash}")))
         {
@@ -544,8 +552,8 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         sqlx::query!(
             r#"INSERT INTO trial_grants (user_id, email_hash, ip_hash, granted_at) VALUES ($1, $2, $3, $4)"#,
             user_id.uuid(),
-            trial_hash(&trial_email_key(email.as_str())),
-            ip.map(trial_hash),
+            trial_hash(&self.trial_key, &trial_email_key(email.as_str())),
+            ip.map(|ip| trial_hash(&self.trial_key, ip)),
             now,
         )
         .execute(&mut *self.tx)
@@ -785,7 +793,10 @@ impl PostgresIdentityTransaction {
     }
 }
 
-fn trial_hash(value: &str) -> String {
-    use sha2::{Digest, Sha256};
-    hex::encode(Sha256::digest(value.as_bytes()))
+fn trial_hash(key: &[u8], value: &str) -> String {
+    use hmac::{Hmac, Mac};
+    let mut mac = <Hmac<sha2::Sha256> as Mac>::new_from_slice(key).expect("HMAC accepts keys of any length");
+    mac.update(b"rift-trial-grant:");
+    mac.update(value.as_bytes());
+    hex::encode(mac.finalize().into_bytes())
 }

@@ -87,7 +87,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
 
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
-    let unit_of_work = Arc::new(PostgresIdentityUnitOfWork::new(postgres_pool.clone()));
+    let unit_of_work = Arc::new(PostgresIdentityUnitOfWork::new(
+        postgres_pool.clone(),
+        server_config.jwt_secret.as_bytes(),
+    ));
     let entitlements_repository =
         Arc::new(PostgresEntitlementsRepository::new(postgres_pool.clone()));
 
