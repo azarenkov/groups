@@ -85,7 +85,7 @@ impl<W: IdentityUnitOfWork> StartTrial<W> {
             Tier::Pro.as_str().to_string(),
             Some(valid_until),
             entitlements.member_number,
-            now,
+            Utc::now(),
         )
         .trial();
         tx.save_events(

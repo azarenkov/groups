@@ -133,7 +133,7 @@ export function useAttachments() {
     [startUpload],
   );
 
-  const tier = useEntitlementsStore((s) => s.tier);
+  const planVersion = useEntitlementsStore((s) => s.planVersion);
   React.useEffect(() => {
     const limit = maxAttachmentBytes();
     const retry = (files: PendingFile[], setFiles: SetFiles) => {
@@ -149,7 +149,7 @@ export function useAttachments() {
     };
     retry(pendingFilesRef.current, setPendingFiles);
     retry(editFilesRef.current, setEditFiles);
-  }, [tier, startUpload]);
+  }, [planVersion, startUpload]);
 
   const removeEditFile = React.useCallback(
     (localId: string) =>

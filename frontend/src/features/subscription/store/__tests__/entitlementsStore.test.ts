@@ -147,3 +147,48 @@ describe("entitlementsStore remote badge events", () => {
     expect(mockedApi.setBadgeStyle).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("entitlementsStore plan expiry", () => {
+  beforeEach(() => {
+    useEntitlementsStore.getState().clear();
+    mockedApi.getMine.mockReset();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("refetches when the plan window passes even without a realtime event", async () => {
+    jest.useFakeTimers();
+    const now = Date.now();
+    mockedApi.getMine.mockResolvedValue({
+      tier: "free",
+      badgeStyle: "tint",
+      memberNumber: null,
+      validUntil: null,
+      trial: false,
+      trialAvailable: false,
+    });
+    useEntitlementsStore
+      .getState()
+      .applyTier("pro", null, { validUntil: new Date(now + 60_000).toISOString(), trial: true });
+    expect(mockedApi.getMine).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(62_500);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mockedApi.getMine).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to Free locally when the refresh fails after the end", async () => {
+    jest.useFakeTimers();
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockedApi.getMine.mockRejectedValue(new Error("offline"));
+    useEntitlementsStore
+      .getState()
+      .applyTier("pro", null, { validUntil: new Date(Date.now() + 1000).toISOString(), trial: true });
+    jest.advanceTimersByTime(3500);
+    for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    expect(useEntitlementsStore.getState().tier).toBe("free");
+    warn.mockRestore();
+  });
+});

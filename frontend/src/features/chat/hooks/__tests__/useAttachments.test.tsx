@@ -24,7 +24,7 @@ const file = (name: string, size = 10) => {
 describe("useAttachments", () => {
   beforeEach(() => {
     mockLimit = 1024;
-    act(() => useEntitlementsStore.setState({ tier: "free" }));
+    act(() => useEntitlementsStore.setState({ tier: "free", planVersion: 0 }));
     upload.mockReset();
     remove.mockReset();
     upload.mockResolvedValue({ id: "att-1" });
@@ -50,7 +50,7 @@ describe("useAttachments", () => {
     act(() => result.current.addFiles([file("big.png", 4096), file("huge.png", 1 << 20)]));
     expect(result.current.pendingFiles.map((p) => p.oversize)).toEqual([true, true]);
     mockLimit = 8192;
-    act(() => useEntitlementsStore.setState({ tier: "pro" }));
+    act(() => useEntitlementsStore.getState().applyTier("pro"));
     await waitFor(() => expect(result.current.pendingFiles[0].attachment).toEqual({ id: "att-1" }));
     expect(upload).toHaveBeenCalledTimes(1);
     expect(result.current.pendingFiles[1]).toMatchObject({ error: true, oversize: true });
@@ -63,7 +63,7 @@ describe("useAttachments", () => {
       act(() => result.current.addFiles([file("big.png", 4096)]));
       upload.mockRejectedValueOnce(new Error("too large")).mockResolvedValueOnce({ id: "att-2" });
       mockLimit = 8192;
-      act(() => useEntitlementsStore.setState({ tier: "pro" }));
+      act(() => useEntitlementsStore.getState().applyTier("pro"));
       await act(async () => {
         await Promise.resolve();
       });
@@ -75,6 +75,32 @@ describe("useAttachments", () => {
       await waitFor(() => expect(result.current.pendingFiles[0].attachment).toEqual({ id: "att-2" }));
       expect(upload).toHaveBeenCalledTimes(2);
       expect(result.current.pendingFiles[0].oversize).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("tries again when the plan is confirmed after the retries ran out", async () => {
+    jest.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useAttachments());
+      act(() => result.current.addFiles([file("big.png", 4096)]));
+      upload.mockRejectedValue(new Error("too large"));
+      mockLimit = 8192;
+      act(() => useEntitlementsStore.getState().applyTier("pro"));
+      for (let round = 0; round < 5; round += 1) {
+        await act(async () => {
+          for (let i = 0; i < 10; i += 1) await Promise.resolve();
+          jest.advanceTimersByTime(10000);
+          for (let i = 0; i < 10; i += 1) await Promise.resolve();
+        });
+      }
+      await waitFor(() => expect(result.current.pendingFiles[0].error).toBe(true));
+      expect(result.current.pendingFiles[0].oversize).toBe(true);
+      upload.mockReset();
+      upload.mockResolvedValue({ id: "att-3" });
+      act(() => useEntitlementsStore.getState().applyTier("pro"));
+      await waitFor(() => expect(result.current.pendingFiles[0].attachment).toEqual({ id: "att-3" }));
     } finally {
       jest.useRealTimers();
     }

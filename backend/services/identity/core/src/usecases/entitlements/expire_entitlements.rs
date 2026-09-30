@@ -48,7 +48,7 @@ impl<W: IdentityUnitOfWork> ExpireEntitlements<W> {
                     Tier::Free.as_str().to_string(),
                     None,
                     member_number,
-                    now,
+                    Utc::now(),
                 ),
             )));
         }

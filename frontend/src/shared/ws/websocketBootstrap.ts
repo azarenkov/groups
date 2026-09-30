@@ -1,4 +1,5 @@
 import { ws, WsEnvelope } from "./websocket";
+import { useEntitlementsStore } from "../../features/subscription/store/entitlementsStore";
 import { chatHandlers } from "../../features/chat/ws/chatHandlers";
 import { dmHandlers } from "../../features/dm/ws/dmHandlers";
 import { communityHandlers } from "../../features/communities/ws/communityHandlers";
@@ -70,6 +71,7 @@ export function installWsBootstrap() {
     const reconnectUserId = useAuthStore.getState().user?.id;
     if (reconnectUserId) {
       void useNotificationSettingsStore.getState().syncFromServer(reconnectUserId);
+      void useEntitlementsStore.getState().fetch();
     }
     void (async () => {
       let delayMs = 1000;

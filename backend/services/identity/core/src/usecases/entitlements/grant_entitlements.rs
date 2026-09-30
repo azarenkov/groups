@@ -40,10 +40,10 @@ impl<W: IdentityUnitOfWork> GrantEntitlements<W> {
             .load_user_for_update(&user_id)
             .await?
             .ok_or(GrantEntitlementsError::UserNotFound)?;
-        let now = Utc::now();
         let member_number = tx
             .save_entitlements(&user_id, tier.as_str(), valid_until, source)
             .await?;
+        let now = Utc::now();
         let mut events = vec![IdentityEvent::from(UserEvent::EntitlementsChanged(
             UserEntitlementsChanged::record(user_id, tier.as_str().to_string(), valid_until, member_number, now),
         ))];
