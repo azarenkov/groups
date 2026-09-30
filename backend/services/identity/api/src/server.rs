@@ -87,9 +87,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
 
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
+    let trial_hash_key = std::env::var("TRIAL_HASH_KEY")
+        .ok()
+        .filter(|key| !key.trim().is_empty())
+        .unwrap_or_else(|| {
+            tracing::warn!("TRIAL_HASH_KEY is not set; trial grant hashes fall back to JWT_SECRET and reset when it rotates");
+            server_config.jwt_secret.clone()
+        });
     let unit_of_work = Arc::new(PostgresIdentityUnitOfWork::new(
         postgres_pool.clone(),
-        server_config.jwt_secret.as_bytes(),
+        trial_hash_key.as_bytes(),
     ));
     let entitlements_repository =
         Arc::new(PostgresEntitlementsRepository::new(postgres_pool.clone()));

@@ -17,6 +17,11 @@ resource "random_password" "altcha" {
   special = false
 }
 
+resource "random_password" "trial_hash" {
+  length  = 64
+  special = false
+}
+
 resource "random_password" "database" {
   for_each = toset(local.database_services)
 
@@ -49,6 +54,7 @@ locals {
     REDIS_URL            = var.redis_url
     JWT_SECRET           = random_password.jwt.result
     ALTCHA_HMAC_KEY      = random_password.altcha.result
+    TRIAL_HASH_KEY       = random_password.trial_hash.result
     LIVEKIT_API_SECRET   = var.livekit.api_secret
     MINIO_ROOT_USER      = var.minio.user
     MINIO_ROOT_PASSWORD  = var.minio.password

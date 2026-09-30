@@ -193,7 +193,10 @@ function scheduleExpiry(validUntil: string | null) {
   clearExpiryTimer();
   if (!validUntil) return;
   const wait = Date.parse(validUntil) - Date.now() + EXPIRY_GRACE_MS;
-  if (wait > MAX_TIMER_MS) return;
+  if (wait > MAX_TIMER_MS) {
+    expiryTimer = setTimeout(() => scheduleExpiry(validUntil), MAX_TIMER_MS);
+    return;
+  }
   expiryTimer = setTimeout(() => void lapseLocally(), Math.max(0, wait));
 }
 
