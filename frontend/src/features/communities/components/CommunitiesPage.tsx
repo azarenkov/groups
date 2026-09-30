@@ -140,6 +140,9 @@ const CommunitiesPage: React.FC = () => {
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsRequest, setSettingsRequest] = useState<{ id: "subscription"; seq: number } | undefined>();
+  useEffect(() => {
+    if (!settingsOpen) setSettingsRequest(undefined);
+  }, [settingsOpen]);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "community" | "leave-community" | "channel" | "friend" | "block";
     id: string;
@@ -870,10 +873,7 @@ const CommunitiesPage: React.FC = () => {
         {settingsOpen && (
           <SettingsView
             open={settingsOpen}
-            onClose={() => {
-              setSettingsOpen(false);
-              setSettingsRequest(undefined);
-            }}
+            onClose={() => setSettingsOpen(false)}
             onSignOut={handleLogout}
             sectionRequest={settingsRequest}
           />
@@ -971,6 +971,7 @@ const CommunitiesPage: React.FC = () => {
       <ErrorToast message={error} onDismiss={clearError} />
       <TrialEndingNotice
         onOpenSubscription={() => {
+          setCommunitySettings(null);
           setSettingsRequest((prev) => ({ id: "subscription", seq: (prev?.seq ?? 0) + 1 }));
           setSettingsOpen(true);
         }}

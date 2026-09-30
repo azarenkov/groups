@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use domain::user::{email::Email, id::UserId, locale::Locale};
+use domain::user::id::UserId;
 use ports::mailer::{Mailer, MailerError};
 
 use crate::ports::trial_state::TrialState;
@@ -9,9 +9,7 @@ use crate::ports::trial_state::TrialState;
 #[derive(Debug, Clone)]
 pub struct TrialEnding {
     pub user_id: UserId,
-    pub email: Email,
     pub ends_at: DateTime<Utc>,
-    pub locale: Locale,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -36,16 +34,19 @@ impl<M: Mailer, T: TrialState> SendTrialEndingEmail<M, T> {
         if ending.ends_at <= now {
             return Ok(false);
         }
-        let current = self
+        let Some(current) = self
             .trials
-            .active_trial_end(&ending.user_id)
+            .active_trial(&ending.user_id)
             .await
-            .map_err(SendTrialEndingError::Lookup)?;
-        if current != Some(ending.ends_at) {
+            .map_err(SendTrialEndingError::Lookup)?
+        else {
+            return Ok(false);
+        };
+        if current.ends_at != ending.ends_at {
             return Ok(false);
         }
         self.mailer
-            .send_trial_ending(&ending.email, ending.ends_at, ending.locale)
+            .send_trial_ending(&current.email, current.ends_at, current.locale)
             .await?;
         Ok(true)
     }
@@ -55,7 +56,9 @@ impl<M: Mailer, T: TrialState> SendTrialEndingEmail<M, T> {
 mod tests {
     use super::*;
     use async_trait::async_trait;
+    use crate::ports::trial_state::ActiveTrial;
     use chrono::Duration;
+    use domain::user::{email::Email, locale::Locale};
     use std::sync::Mutex;
 
     #[derive(Default)]
@@ -86,17 +89,21 @@ mod tests {
 
     #[async_trait]
     impl TrialState for FakeTrials {
-        async fn active_trial_end(&self, _: &UserId) -> Result<Option<DateTime<Utc>>, String> {
-            self.0.clone()
+        async fn active_trial(&self, _: &UserId) -> Result<Option<ActiveTrial>, String> {
+            self.0.clone().map(|end| {
+                end.map(|ends_at| ActiveTrial {
+                    ends_at,
+                    email: Email::new("now@b.c".to_string()),
+                    locale: Locale::Ru,
+                })
+            })
         }
     }
 
     fn ending(ends_at: DateTime<Utc>) -> TrialEnding {
         TrialEnding {
             user_id: UserId::new(uuid::Uuid::nil()),
-            email: Email::new("a@b.c".to_string()),
             ends_at,
-            locale: Locale::Ru,
         }
     }
 
@@ -107,14 +114,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn mails_a_reminder_for_the_running_trial() {
+    async fn mails_the_current_address_for_the_running_trial() {
         let now = Utc::now();
         let ends_at = now + Duration::hours(20);
         let (mailer, usecase) = usecase(Ok(Some(ends_at)));
         assert!(usecase.execute(ending(ends_at), now).await.unwrap());
         let sent = mailer.sent.lock().unwrap();
         assert_eq!(sent.len(), 1);
-        assert_eq!(sent[0].0, "a@b.c");
+        assert_eq!(sent[0].0, "now@b.c");
         assert_eq!(sent[0].2, Locale::Ru);
     }
 

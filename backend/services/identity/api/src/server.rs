@@ -176,7 +176,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
                 Ok(expired) => tracing::info!(expired, "Moved lapsed plans back to Free"),
                 Err(e) => tracing::warn!(error = %e, "Plan expiry sweep failed"),
             }
-            match remind_trial_ending.run_once().await {
+            match remind_trial_ending.drain().await {
                 Ok(0) => {}
                 Ok(reminded) => tracing::info!(reminded, "Sent trial ending reminders"),
                 Err(e) => tracing::warn!(error = %e, "Trial reminder sweep failed"),

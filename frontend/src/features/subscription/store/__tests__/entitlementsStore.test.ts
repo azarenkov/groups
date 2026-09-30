@@ -101,6 +101,23 @@ describe("entitlementsStore startup fetch", () => {
     expect(useEntitlementsStore.getState().badgeStyle).toBe("ink");
     expect(useEntitlementsStore.getState().memberNumber).toBe(12);
   });
+
+  it("reports whether the refresh actually reached the server", async () => {
+    mockedApi.getMine.mockResolvedValueOnce({
+      tier: "pro",
+      badgeStyle: "tint",
+      memberNumber: null,
+      validUntil: "2026-10-06T12:00:00Z",
+      trial: true,
+      trialAvailable: false,
+    });
+    await expect(useEntitlementsStore.getState().fetch()).resolves.toBe(true);
+    mockedApi.getMine.mockRejectedValueOnce(new Error("offline"));
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(useEntitlementsStore.getState().fetch()).resolves.toBe(false);
+    warn.mockRestore();
+    expect(useEntitlementsStore.getState().trial).toBe(true);
+  });
 });
 
 describe("entitlementsStore session reset", () => {

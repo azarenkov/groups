@@ -170,9 +170,9 @@ export const socialHandlers: WsHandlers = {
       void useEntitlementsStore
         .getState()
         .fetch()
-        .then(() => {
+        .then((fresh) => {
           const { trial, validUntil } = useEntitlementsStore.getState();
-          if (!trial || validUntil !== endsAt || !desktopNotifAllowed()) return;
+          if (!fresh || !trial || validUntil !== endsAt || !desktopNotifAllowed()) return;
           const date = formatPlanDate(endsAt, i18n.language);
           showDesktopNotification(
             i18n.t("trial.endingSoonDesktopTitle", { ns: "subscription" }),

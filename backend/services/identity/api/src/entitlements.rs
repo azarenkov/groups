@@ -148,14 +148,24 @@ async fn trial_state(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
+    let user_id = UserId::new(path.into_inner());
     let entitlements = app_state
         .get_entitlements_usecase
-        .execute(&UserId::new(path.into_inner()))
+        .execute(&user_id)
         .await
         .map_err(HttpError::from_error)?;
+    let user = app_state
+        .user_repository
+        .find_by_id(&user_id)
+        .await
+        .map_err(HttpError::from_error)?
+        .filter(|user| !user.is_deleted());
+    let on_trial = entitlements.trial && user.is_some();
     Ok(HttpResponse::Ok().json(TrialStateV1 {
-        on_trial: entitlements.trial,
-        valid_until: entitlements.valid_until.filter(|_| entitlements.trial),
+        on_trial,
+        valid_until: entitlements.valid_until.filter(|_| on_trial),
+        email: user.as_ref().map(|u| u.email().as_str().to_string()),
+        locale: user.as_ref().map(|u| u.locale().as_str().to_string()),
     }))
 }
 

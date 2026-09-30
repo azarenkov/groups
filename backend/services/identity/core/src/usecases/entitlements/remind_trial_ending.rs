@@ -24,6 +24,17 @@ impl<W: IdentityUnitOfWork, U: UserRepository> RemindTrialEnding<W, U> {
         }
     }
 
+    pub async fn drain(&self) -> Result<usize, RepositoryError> {
+        let mut total = 0;
+        loop {
+            let reminded = self.run_once().await?;
+            total += reminded;
+            if (reminded as i64) < self.batch_size {
+                return Ok(total);
+            }
+        }
+    }
+
     pub async fn run_once(&self) -> Result<usize, RepositoryError> {
         let now = Utc::now();
         let mut tx = self.unit_of_work.begin().await?;
