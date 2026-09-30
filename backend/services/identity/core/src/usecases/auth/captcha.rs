@@ -135,7 +135,7 @@ impl LoginKeys {
     }
 }
 
-fn normalize_ip(raw: &str) -> Option<String> {
+pub fn normalize_ip(raw: &str) -> Option<String> {
     let raw = raw.trim();
     let ip = raw
         .parse::<SocketAddr>()

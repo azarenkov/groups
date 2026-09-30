@@ -2,13 +2,19 @@ import { useTranslation } from "react-i18next";
 
 import { SettingsRow } from "../controls";
 import ProBadge from "../../../subscription/components/ProBadge";
-import type { Tier } from "../../../subscription/lib/plans";
+import PlanUntil from "../../../subscription/components/PlanUntil";
+import TrialOffer from "../../../subscription/components/TrialOffer";
+import {
+  VIDEO_NOTE_SIZE_BY_TIER,
+  VOICE_MESSAGE_MAX_MS_BY_TIER,
+  type Tier,
+} from "../../../subscription/lib/plans";
 import { useEntitlementsStore } from "../../../subscription/store/entitlementsStore";
 
 const PLANS: { tier: Tier; features: string[] }[] = [
-  { tier: "free", features: ["noise", "attachments", "stream"] },
-  { tier: "pro", features: ["noise", "attachments", "stream", "badge", "banner", "avatar"] },
-  { tier: "premium", features: ["noise", "attachments", "stream", "badge", "banner", "avatar", "support"] },
+  { tier: "free", features: ["noise", "attachments", "voice", "videoNote", "stream"] },
+  { tier: "pro", features: ["attachments", "voice", "videoNote", "stream", "badge", "banner", "avatar"] },
+  { tier: "premium", features: ["attachments", "voice", "videoNote", "stream", "badge", "banner", "avatar", "support"] },
 ];
 
 export function SubscriptionSection() {
@@ -18,6 +24,8 @@ export function SubscriptionSection() {
     <>
       <h1>{t("page.title")}</h1>
       <p className="lead">{t("page.lead")}</p>
+      <PlanUntil className="plan-until-lead" />
+      <TrialOffer />
 
       <div className="s-section">
         <div className="plan-grid">
@@ -37,7 +45,12 @@ export function SubscriptionSection() {
               <div className="plan-tile-price">{t(`page.plans.${tier}.price`)}</div>
               <ul className="plan-tile-features">
                 {features.map((feature) => (
-                  <li key={feature}>{t(`page.plans.${tier}.${feature}`)}</li>
+                  <li key={feature}>
+                    {t(`page.plans.${tier}.${feature}`, {
+                      minutes: VOICE_MESSAGE_MAX_MS_BY_TIER[tier] / 60000,
+                      size: VIDEO_NOTE_SIZE_BY_TIER[tier],
+                    })}
+                  </li>
                 ))}
               </ul>
               <div className="plan-tile-foot">

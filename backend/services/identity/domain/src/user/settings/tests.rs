@@ -277,7 +277,7 @@ fn appearance_settings_validate_theme_accent_and_font_size() {
 }
 
 #[test]
-fn a_plan_decides_which_stream_quality_and_noise_mode_are_open() {
+fn a_plan_decides_which_stream_quality_is_open() {
     use crate::user::settings::voice::{StreamQuality, VoiceSettingsPatch};
     use crate::user::tier::Tier;
 
@@ -295,7 +295,7 @@ fn a_plan_decides_which_stream_quality_and_noise_mode_are_open() {
 
     let as_free = wants_4k.clone().limited_to(Tier::Free);
     assert_eq!(as_free.stream_quality(), StreamQuality::P720);
-    assert_eq!(as_free.noise_mode(), NoiseMode::Standard);
+    assert_eq!(as_free.noise_mode(), NoiseMode::High);
 
     let as_pro = wants_4k.clone().limited_to(Tier::Pro);
     assert_eq!(as_pro.stream_quality(), StreamQuality::P1440);
@@ -303,6 +303,21 @@ fn a_plan_decides_which_stream_quality_and_noise_mode_are_open() {
 
     assert_eq!(wants_4k.limited_to(Tier::Premium).stream_quality(), StreamQuality::P2160);
     assert_eq!(StreamQuality::parse("8k"), None);
+}
+
+#[test]
+fn high_noise_suppression_is_open_to_every_plan() {
+    use crate::user::settings::voice::VoiceSettingsPatch;
+    use crate::user::tier::Tier;
+
+    let high = VoiceSettings::default()
+        .apply(&VoiceSettingsPatch {
+            noise_mode: Some("high".to_string()),
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(high.allowed_for(Tier::Free));
+    assert_eq!(high.limited_to(Tier::Free).noise_mode(), NoiseMode::High);
 }
 
 #[test]

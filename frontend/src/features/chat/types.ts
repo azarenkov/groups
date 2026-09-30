@@ -23,4 +23,5 @@ export interface PendingFile {
   progress: number;
   attachment?: Attachment;
   error?: boolean;
+  oversize?: boolean;
 }

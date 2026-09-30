@@ -46,15 +46,18 @@
       "free": {
         "name": "Free",
         "price": "Free",
-        "noise": "Noise suppression: off or standard",
+        "noise": "Noise suppression: off, standard or high",
         "attachments": "Attachments up to 15 MB, 5 per message",
+        "voice": "Voice messages up to {{minutes}} min",
+        "videoNote": "Video notes {{size}}×{{size}}",
         "stream": "Screen share at 720p 60 fps"
       },
       "pro": {
         "name": "Rift Pro",
         "price": "199 ₽ a month",
-        "noise": "High noise suppression",
         "attachments": "Attachments up to 100 MB, 10 per message",
+        "voice": "Voice messages up to {{minutes}} min",
+        "videoNote": "Higher quality video notes {{size}}×{{size}}",
         "stream": "Screen share up to 1440p 60 fps",
         "badge": "A Pro badge in the style you pick",
         "banner": "Your own profile banner",
@@ -63,8 +66,9 @@
       "premium": {
         "name": "Rift Premium",
         "price": "Price to be announced",
-        "noise": "High noise suppression",
         "attachments": "Attachments up to 500 MB, 20 per message",
+        "voice": "Voice messages up to {{minutes}} min",
+        "videoNote": "Higher quality video notes {{size}}×{{size}}",
         "stream": "Screen share up to 4K 60 fps",
         "badge": "A Premium badge in the style you pick",
         "banner": "Your own profile banner",
@@ -81,5 +85,25 @@
       "historyHint": "Download past invoices.",
       "view": "View"
     }
+  },
+  "planUntil": "{{plan}} until {{date}}",
+  "trial": {
+    "cta": "Try Pro free for {{days}} days",
+    "hint": "No card needed. Afterwards the account goes back to Free and nothing is lost.",
+    "until": "Pro trial until {{date}}",
+    "attachmentsReason": "The file is over the Free limit. Pro allows attachments up to {{mb}} MB.",
+    "streamReason": "Higher stream quality comes with Pro.",
+    "errors": {
+      "used": "The free trial has already been used.",
+      "unverified": "Confirm your email to start the trial.",
+      "network": "A trial was already started from this network. Try again later.",
+      "paid": "You already have a paid plan.",
+      "generic": "Could not start the trial."
+    },
+    "endingSoon": "Your Pro trial ends on {{date}}. Then the account goes back to Free and nothing is lost.",
+    "endingSoonAction": "Subscription",
+    "dismiss": "Dismiss",
+    "endingSoonDesktopTitle": "Your Rift Pro trial is ending",
+    "endingSoonDesktopBody": "Your Pro trial ends on {{date}}."
   }
 }

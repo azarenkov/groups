@@ -31,6 +31,7 @@ use contracts::events::{
         NotificationPreferenceUpdatedV1 as NotificationPrefUpdated,
         UserActivityChangedV1 as UserActivityChangedDto, UserLifecycleV1 as UserLifecycleDto,
         UserEntitlementsChangedV1 as UserEntitlementsChangedDto,
+        UserTrialEndingV1 as UserTrialEndingDto,
         UserProfileChangedV1 as UserProfileChangedDto,
         UserRenamedV1 as UserRenamedDto,
     },
@@ -956,6 +957,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "tier": evt.tier,
                 "validUntil": evt.valid_until,
                 "memberNumber": evt.member_number,
+                "trial": evt.trial,
                 "occurredAt": evt.occurred_at,
             }),
         );
@@ -965,6 +967,20 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         recipients.retain(|r| !relations.blocking.contains(r));
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".user.trial_ending") {
+        let evt: UserTrialEndingDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "user.trialEnding",
+            json!({
+                "userId": evt.user_id,
+                "endsAt": evt.ends_at,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
         return Ok(());
     }
 

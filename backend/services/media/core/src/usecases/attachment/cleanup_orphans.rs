@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use media_domain::attachment::repository::AttachmentRepository;
 
+use crate::usecases::user::update_avatar::still_avatar_key;
+
 use crate::ports::{
     attachment_links_lookup::AttachmentLinksLookup,
     file_storage::{FileStorage, FileStorageError},
@@ -152,6 +154,15 @@ impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
         match self.repository.list_cleanup_queue(1000).await {
             Ok(keys) => {
                 for key in keys {
+                    if let Some(still_key) = still_avatar_key(&key) {
+                        match self.storage.delete(&still_key).await {
+                            Ok(()) | Err(FileStorageError::NotFound) => {}
+                            Err(e) => {
+                                tracing::warn!(error = %e, key = %still_key, "Failed to delete queued still avatar frame; will retry");
+                                continue;
+                            }
+                        }
+                    }
                     match self.storage.delete(&key).await {
                         Ok(()) | Err(FileStorageError::NotFound) => {
                             match self

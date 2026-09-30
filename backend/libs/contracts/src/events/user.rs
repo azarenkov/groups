@@ -48,6 +48,19 @@ pub struct UserEntitlementsChangedV1 {
     pub valid_until: Option<DateTime<Utc>>,
     #[serde(default)]
     pub member_number: Option<i64>,
+    #[serde(default)]
+    pub trial: bool,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserTrialEndingV1 {
+    pub user_id: Uuid,
+    pub email: String,
+    #[serde(default)]
+    pub locale: Option<String>,
+    pub ends_at: DateTime<Utc>,
     pub occurred_at: DateTime<Utc>,
 }
 

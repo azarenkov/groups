@@ -45,6 +45,11 @@ export type BadgeStyle = (typeof BADGE_STYLES)[number];
 
 export const DEFAULT_BADGE_STYLE: BadgeStyle = "tint";
 
+export const parseValidUntil = (value: unknown): string | null =>
+  typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : null;
+
+export const TRIAL_DAYS = 7;
+
 export const parseMemberNumber = (value: unknown): number | null =>
   typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
 

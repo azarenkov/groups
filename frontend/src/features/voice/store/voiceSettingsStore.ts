@@ -6,6 +6,9 @@ import type { ScreenContent } from "../lib/videoCodec";
 import { ApiError } from "../../../shared/lib/apiError";
 
 export type NoiseMode = "off" | "standard" | "high";
+
+export const parseNoiseMode = (value: unknown): NoiseMode =>
+  value === "off" || value === "high" ? value : "standard";
 export type StreamQualityId =
   | "auto"
   | "720p60"
@@ -358,10 +361,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>()(
           const next = preserveRecentEdits({
             micVolume: saved.micVolume,
             outputVolume: saved.outputVolume,
-            noiseMode:
-              saved.noiseMode === "off" || saved.noiseMode === "high"
-                ? saved.noiseMode
-                : "standard",
+            noiseMode: parseNoiseMode(saved.noiseMode),
             autoSensitivity: saved.autoSensitivity,
             sensitivity: saved.sensitivity,
             pushToTalk: saved.pushToTalk,

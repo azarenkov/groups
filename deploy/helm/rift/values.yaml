@@ -56,6 +56,7 @@ secrets:
   existingSecret: ""
   JWT_SECRET: ""
   ALTCHA_HMAC_KEY: ""
+  TRIAL_HASH_KEY: ""
   LIVEKIT_API_SECRET: ""
   MINIO_ROOT_USER: ""
   MINIO_ROOT_PASSWORD: ""

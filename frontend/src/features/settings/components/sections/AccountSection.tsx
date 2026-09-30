@@ -6,6 +6,7 @@ import { useImageCrop } from "../../../../shared/hooks/useImageCrop";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
 import VideoAvatarModal from "../../../../shared/ui/VideoAvatarModal";
+import { whilePlanSyncs } from "../../../subscription/lib/planSync";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { userAPI } from "../../../social/api/user";
 import { ApiError } from "../../../../shared/lib/apiError";
@@ -195,7 +196,7 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
     setBusy(true);
     setError(null);
     try {
-      await userAPI.uploadAvatar(file);
+      await whilePlanSyncs(() => userAPI.uploadAvatar(file));
       bustAvatar("user", user.id);
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
