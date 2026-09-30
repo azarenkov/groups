@@ -371,18 +371,26 @@ impl User {
         if tier.includes(self.badge_style.required_tier()) {
             return false;
         }
-        self.set_badge_style(BadgeStyle::Default, now).is_ok()
+        self.apply_badge_style(BadgeStyle::Default, now);
+        true
     }
 
     pub fn set_badge_style(&mut self, style: BadgeStyle, now: DateTime<Utc>) -> Result<(), UserError> {
         if self.deleted_at.is_some() || self.disabled_at.is_some() {
             return Err(UserError::Deleted);
         }
-        if self.badge_style == style {
-            return Ok(());
+        if self.badge_style != style {
+            self.apply_badge_style(style, now);
         }
+        Ok(())
+    }
+
+    fn apply_badge_style(&mut self, style: BadgeStyle, now: DateTime<Utc>) {
         self.badge_style = style;
         self.updated_at = now;
+        if self.deleted_at.is_some() || self.disabled_at.is_some() {
+            return;
+        }
         self.record(UserEvent::ProfileChanged(UserProfileChanged::record(
             self.id,
             self.bio.clone(),
@@ -393,7 +401,6 @@ impl User {
             style.as_str().to_string(),
             now,
         )));
-        Ok(())
     }
 
     pub fn update_profile(&mut self, bio: String, show_activity: bool, show_game_activity: bool, timezone: String, now: DateTime<Utc>) -> Result<(), UserError> {
