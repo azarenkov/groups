@@ -181,17 +181,18 @@ where
         }
     }
     if let Some(key) = media_repository.mark_user_deleted(&user_id, evt.occurred_at).await? {
+        if let Some(still_key) = still_avatar_key(&key)
+            && let Err(e) = storage.delete(&still_key).await
+            && !matches!(e, FileStorageError::NotFound)
+        {
+            tracing::warn!(error = %e, key = %still_key, "Failed to delete the still avatar frame of deleted user; the queued avatar key retries the pair");
+            return Ok(());
+        }
         match storage.delete(&key).await {
             Ok(()) | Err(FileStorageError::NotFound) => {}
             Err(e) => {
                 tracing::warn!(error = %e, %key, "Failed to delete avatar object of deleted user; cleanup queue will retry");
             }
-        }
-        if let Some(still_key) = still_avatar_key(&key)
-            && let Err(e) = storage.delete(&still_key).await
-            && !matches!(e, FileStorageError::NotFound)
-        {
-            tracing::warn!(error = %e, key = %still_key, "Failed to delete the still avatar frame of deleted user");
         }
     }
     Ok(())
