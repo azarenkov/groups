@@ -136,6 +136,21 @@ pub(crate) async fn cleanup_object<FS: FileStorage + ?Sized, A: AttachmentReposi
     attachment_repository: &A,
     key: &str,
 ) {
+    if let Some(still_key) = still_avatar_key(key) {
+        match storage.delete(&still_key).await {
+            Ok(()) | Err(FileStorageError::NotFound) => {}
+            Err(e) => {
+                tracing::warn!(error = %e, key = %still_key, "Failed to delete the still avatar frame; the queue will retry the pair");
+                if let Err(qe) = attachment_repository
+                    .enqueue_cleanup(&[key.to_string()])
+                    .await
+                {
+                    tracing::warn!(error = %qe, %key, "Failed to enqueue the animated avatar for cleanup");
+                }
+                return;
+            }
+        }
+    }
     match storage.delete(key).await {
         Ok(()) | Err(FileStorageError::NotFound) => {
             if let Err(e) = attachment_repository.dequeue_cleanup(key).await {
@@ -144,20 +159,6 @@ pub(crate) async fn cleanup_object<FS: FileStorage + ?Sized, A: AttachmentReposi
         }
         Err(e) => {
             tracing::warn!(error = %e, %key, "Failed to delete object; cleanup queue will retry");
-        }
-    }
-    if let Some(still_key) = still_avatar_key(key) {
-        match storage.delete(&still_key).await {
-            Ok(()) | Err(FileStorageError::NotFound) => {}
-            Err(e) => {
-                tracing::warn!(error = %e, key = %still_key, "Failed to delete the still avatar frame; queueing it");
-                if let Err(qe) = attachment_repository
-                    .enqueue_cleanup(std::slice::from_ref(&still_key))
-                    .await
-                {
-                    tracing::warn!(error = %qe, key = %still_key, "Failed to enqueue the still avatar frame");
-                }
-            }
         }
     }
 }
