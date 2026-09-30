@@ -47,7 +47,7 @@ impl<W: IdentityUnitOfWork> GrantEntitlements<W> {
         let mut events = vec![IdentityEvent::from(UserEvent::EntitlementsChanged(
             UserEntitlementsChanged::record(user_id, tier.as_str().to_string(), valid_until, member_number, now),
         ))];
-        if !tier.is_paid() && user.badge_style().needs_paid_tier() {
+        if !tier.includes(user.badge_style().required_tier()) {
             let _ = user.set_badge_style(Default::default(), now);
             events.extend(user.pull_events().into_iter().map(IdentityEvent::from));
             tx.save_user(&user).await?;

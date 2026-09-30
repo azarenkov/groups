@@ -380,7 +380,7 @@ impl HttpMapping for identity::usecases::entitlements::set_badge_style::SetBadge
         use identity::usecases::entitlements::set_badge_style::SetBadgeStyleError as E;
         match self {
             E::UnknownStyle => StatusCode::BAD_REQUEST,
-            E::ProRequired => StatusCode::FORBIDDEN,
+            E::ProRequired | E::PremiumRequired => StatusCode::FORBIDDEN,
             E::UserNotFound => StatusCode::NOT_FOUND,
             E::Repository(e) => e.to_http_status(),
         }
@@ -390,6 +390,7 @@ impl HttpMapping for identity::usecases::entitlements::set_badge_style::SetBadge
         match self {
             E::UnknownStyle => "Unknown badge style.".to_string(),
             E::ProRequired => "This needs a Rift Pro subscription.".to_string(),
+            E::PremiumRequired => "This needs a Rift Premium subscription.".to_string(),
             E::UserNotFound => "User not found".to_string(),
             E::Repository(e) => e.to_user_message(),
         }
@@ -399,6 +400,7 @@ impl HttpMapping for identity::usecases::entitlements::set_badge_style::SetBadge
         match self {
             E::UnknownStyle => "BADGE_STYLE_UNKNOWN",
             E::ProRequired => "PRO_REQUIRED",
+            E::PremiumRequired => "PREMIUM_REQUIRED",
             E::UserNotFound => "USER_NOT_FOUND",
             E::Repository(e) => e.to_error_code(),
         }

@@ -1,6 +1,6 @@
 import React from "react";
 
-import { DEFAULT_BADGE_STYLE, formatMemberNumber } from "../lib/plans";
+import { DEFAULT_BADGE_STYLE, badgeStyleTier, formatMemberNumber, hasTier } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
 
 interface ProBadgeProps {
@@ -28,7 +28,10 @@ const ProBadge: React.FC<ProBadgeProps> = ({ tier, badgeStyle, size = "md", clas
       </span>
     );
   }
-  const shownStyle = badgeStyle === "number_only" ? DEFAULT_BADGE_STYLE : badgeStyle;
+  const shownStyle =
+    badgeStyle === "number_only" || !hasTier(tier, badgeStyleTier(badgeStyle))
+      ? DEFAULT_BADGE_STYLE
+      : badgeStyle;
   return (
     <span
       className={
