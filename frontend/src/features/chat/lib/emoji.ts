@@ -1,16 +1,36 @@
 const MODIFIED = "\\p{Emoji_Modifier_Base}\\uFE0F?\\p{Emoji_Modifier}";
 const PICTOGRAPH = "(?:\\p{Emoji_Presentation}(?!\\uFE0E)|\\p{Extended_Pictographic}\\uFE0F)";
 const ELEMENT = `(?:${MODIFIED}|${PICTOGRAPH})`;
-const PEOPLE = "\\u{1F466}-\\u{1F469}\\u{1F9D1}\\u{1F9D2}\\u{1FAF2}";
-const COMPONENTS = [
-  PEOPLE,
-  "\\u{1F48B}\\u2764\\u{1F91D}\\u2640\\u2642\\u26A7\\u{1F9B0}-\\u{1F9B3}",
-  "\\u2695\\u2696\\u2708\\u{1F33E}\\u{1F373}\\u{1F37C}\\u{1F384}\\u{1F393}\\u{1F3A4}\\u{1F3A8}\\u{1F3EB}\\u{1F3ED}",
-  "\\u{1F4BB}\\u{1F4BC}\\u{1F527}\\u{1F52C}\\u{1F680}\\u{1F692}\\u{1F9AF}\\u{1F9BC}\\u{1F9BD}\\u{1FA70}",
-  "\\u27A1\\u2194\\u2195\\u{1F308}\\u2620\\u{1F5E8}\\u{1F32B}\\u{1F4A8}\\u{1F4AB}\\u{1F525}\\u{1FA79}\\u2744\\u2B1B\\u{1F7E9}\\u{1F7EB}\\u{1F4A5}",
-].join("");
-const JOINED = `(?:[${PEOPLE}]\\p{Emoji_Modifier}|[${COMPONENTS}]\\uFE0F?)`;
-const SEQUENCE = `${ELEMENT}(?:\\u200D${JOINED})*`;
+const TONE = "\\p{Emoji_Modifier}";
+const VS = "\\uFE0F?";
+const ZWJ = "\\u200D";
+const PERSON = `[\\u{1F466}-\\u{1F469}\\u{1F9D1}\\u{1F9D2}]${TONE}?`;
+const ROLE = "[\\u2695\\u2696\\u2708\\u{1F33E}\\u{1F373}\\u{1F37C}\\u{1F384}\\u{1F393}\\u{1F3A4}\\u{1F3A8}\\u{1F3EB}\\u{1F3ED}\\u{1F4BB}\\u{1F4BC}\\u{1F527}\\u{1F52C}\\u{1F680}\\u{1F692}\\u{1F9AF}\\u{1F9B0}-\\u{1F9B3}\\u{1F9BC}\\u{1F9BD}\\u{1FA70}]";
+const FACING = `(?:${ZWJ}\\u27A1${VS})?`;
+const GENDERED = `(?:\\p{Emoji_Modifier_Base}|[\\u{1F46F}\\u{1F93C}\\u{1F9DE}\\u{1F9DF}])${VS}${TONE}?${ZWJ}[\\u2640\\u2642]${VS}${FACING}`;
+const WITH_ROLE = `${PERSON}${ZWJ}${ROLE}${VS}${FACING}`;
+const FAMILY = `${PERSON}(?:${ZWJ}${PERSON}){1,3}`;
+const COUPLE = `${PERSON}${ZWJ}(?:\\u2764${VS}(?:${ZWJ}\\u{1F48B})?|\\u{1F91D})${ZWJ}${PERSON}`;
+const HANDSHAKE = `\\u{1FAF1}${TONE}${ZWJ}\\u{1FAF2}${TONE}`;
+const SPECIAL = [
+  "\\u{1F3F3}\\uFE0F?\\u200D(?:\\u{1F308}|\\u26A7\\uFE0F?)",
+  "\\u{1F3F4}\\u200D\\u2620\\uFE0F?",
+  "\\u{1F441}\\uFE0F?\\u200D\\u{1F5E8}\\uFE0F?",
+  "\\u{1F636}\\u200D\\u{1F32B}\\uFE0F?",
+  "\\u{1F62E}\\u200D\\u{1F4A8}",
+  "\\u{1F635}\\u200D\\u{1F4AB}",
+  "\\u2764\\uFE0F?\\u200D(?:\\u{1F525}|\\u{1FA79})",
+  "\\u{1F43B}\\u200D\\u2744\\uFE0F?",
+  "(?:\\u{1F408}|\\u{1F426})\\u200D\\u2B1B",
+  "\\u{1F426}\\u200D\\u{1F525}",
+  "\\u{1F415}\\u200D\\u{1F9BA}",
+  "\\u{1F34B}\\u200D\\u{1F7E9}",
+  "\\u{1F344}\\u200D\\u{1F7EB}",
+  "\\u{1F642}\\u200D[\\u2194\\u2195]\\uFE0F?",
+  "\\u26D3\\uFE0F?\\u200D\\u{1F4A5}",
+].join("|");
+const ZWJ_SEQUENCE = `(?:${GENDERED}|${WITH_ROLE}|${COUPLE}|${FAMILY}|${HANDSHAKE}|${SPECIAL})`;
+const SEQUENCE = `(?:${ZWJ_SEQUENCE}|${ELEMENT})`;
 const FLAG = "\\p{Regional_Indicator}{2}";
 const KEYCAP = "[#*0-9]\\uFE0F?\\u20E3";
 const TAG_FLAG = "\\u{1F3F4}[\\u{E0020}-\\u{E007E}]+\\u{E007F}";
