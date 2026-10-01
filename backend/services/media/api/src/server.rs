@@ -183,6 +183,17 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             minio_storage.clone(),
             nsfw_detector.clone(),
         ),
+        sticker_packs: media::usecases::sticker::StickerPacks::new(
+            std::sync::Arc::new(
+                media_infrastructure::database::postgres::repositories::sticker::PostgresStickerRepository::new(
+                    postgres_pool.clone(),
+                ),
+            ),
+            banner_repository.clone(),
+            attachment_repository.clone(),
+            minio_storage.clone(),
+            nsfw_detector.clone(),
+        ),
         get_user_banner_usecase: media::usecases::user::banner::GetUserBanner::new(
             banner_repository.clone(),
             minio_storage.clone(),

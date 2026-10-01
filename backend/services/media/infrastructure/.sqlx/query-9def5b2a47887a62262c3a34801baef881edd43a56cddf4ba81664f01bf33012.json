@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM media_sticker_installs WHERE user_id = $1 AND pack_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9def5b2a47887a62262c3a34801baef881edd43a56cddf4ba81664f01bf33012"
+}

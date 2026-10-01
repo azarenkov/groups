@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE media_sticker_packs SET deleted_at = now(), updated_at = now(), install_count = 0\n            WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "89b69c5539ee709d8e7687e3b23e9a20f7836d5dc256007dd4e74afdaed505b4"
+}
