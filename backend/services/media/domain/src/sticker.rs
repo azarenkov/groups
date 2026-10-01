@@ -8,6 +8,7 @@ pub const MAX_STICKERS_PER_PACK: i64 = 120;
 pub const MIN_PACK_NAME_CHARS: usize = 3;
 pub const MAX_PACK_NAME_CHARS: usize = 64;
 pub const MAX_STICKER_EMOJI_BYTES: usize = 32;
+pub const MAX_INSTALLED_PACKS: i64 = 200;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sticker {
@@ -52,6 +53,13 @@ pub struct NewSticker {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstallOutcome {
+    Installed,
+    PackNotFound,
+    LimitReached,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AddStickerOutcome {
     Added,
     PackNotFound,
@@ -70,9 +78,10 @@ pub trait StickerRepository: Send + Sync {
     async fn reorder_stickers(&self, pack_id: Uuid, owner_id: &UserId, order: &[Uuid]) -> Result<bool, RepositoryError>;
     async fn search_packs(&self, query: &str, limit: i64, offset: i64) -> Result<Vec<StickerPack>, RepositoryError>;
     async fn packs_of(&self, user_id: &UserId) -> Result<Vec<StickerPack>, RepositoryError>;
-    async fn install(&self, user_id: &UserId, pack_id: Uuid) -> Result<bool, RepositoryError>;
+    async fn install(&self, user_id: &UserId, pack_id: Uuid) -> Result<InstallOutcome, RepositoryError>;
     async fn uninstall(&self, user_id: &UserId, pack_id: Uuid) -> Result<bool, RepositoryError>;
     async fn find_sticker(&self, sticker_id: Uuid) -> Result<Option<StickerRef>, RepositoryError>;
+    async fn forget_user(&self, user_id: &UserId) -> Result<(), RepositoryError>;
 }
 
 pub fn valid_pack_name(name: &str) -> bool {

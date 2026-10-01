@@ -6,7 +6,7 @@ use media_domain::{
     attachment::repository::AttachmentRepository,
     banner::BannerRepository,
     sticker::{
-        AddStickerOutcome, NewSticker, StickerPack, StickerRef, StickerRepository, max_owned_packs,
+        AddStickerOutcome, InstallOutcome, NewSticker, StickerPack, StickerRef, StickerRepository, max_owned_packs,
         valid_pack_name, valid_pack_slug, valid_sticker_emoji,
     },
 };
@@ -42,6 +42,8 @@ pub enum StickerError {
     StickerNotFound,
     #[error("The new order must list every sticker of the pack once")]
     InvalidOrder,
+    #[error("Too many installed packs")]
+    InstallLimit,
     #[error("Repository error: {0}")]
     Repository(RepositoryError),
     #[error("Storage error: {0}")]
@@ -286,10 +288,11 @@ where
     }
 
     pub async fn install(&self, user_id: UserId, pack_id: Uuid) -> Result<(), StickerError> {
-        if !self.stickers.install(&user_id, pack_id).await? {
-            return Err(StickerError::PackNotFound);
+        match self.stickers.install(&user_id, pack_id).await? {
+            InstallOutcome::Installed => Ok(()),
+            InstallOutcome::PackNotFound => Err(StickerError::PackNotFound),
+            InstallOutcome::LimitReached => Err(StickerError::InstallLimit),
         }
-        Ok(())
     }
 
     pub async fn uninstall(&self, user_id: UserId, pack_id: Uuid) -> Result<(), StickerError> {

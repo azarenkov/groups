@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
 use media_domain::sticker::{
-    AddStickerOutcome, MAX_STICKERS_PER_PACK, NewSticker, Sticker, StickerPack, StickerRef,
-    StickerRepository, escape_like,
+    AddStickerOutcome, InstallOutcome, MAX_INSTALLED_PACKS, MAX_STICKERS_PER_PACK, NewSticker, Sticker,
+    StickerPack, StickerRef, StickerRepository, escape_like,
 };
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
@@ -14,6 +14,7 @@ use uuid::Uuid;
 use crate::database::postgres::error::map_sqlx_error_to_domain_error;
 
 const SEARCH_PREVIEW: i64 = 5;
+const MAX_OWNED_PACKS_CAP: i64 = 50;
 
 pub struct PostgresStickerRepository {
     pool: Pool<Postgres>,
@@ -364,8 +365,10 @@ impl StickerRepository for PostgresStickerRepository {
             LEFT JOIN media_sticker_installs i ON i.pack_id = p.id AND i.user_id = $1
             WHERE p.deleted_at IS NULL AND (i.user_id IS NOT NULL OR p.owner_id = $1)
             ORDER BY COALESCE(i.installed_at, p.created_at), p.id
+            LIMIT $2
             "#,
             user_id.uuid(),
+            MAX_INSTALLED_PACKS + MAX_OWNED_PACKS_CAP,
         )
         .fetch_all(&self.pool)
         .await
@@ -373,8 +376,15 @@ impl StickerRepository for PostgresStickerRepository {
         self.with_stickers(rows, None).await
     }
 
-    async fn install(&self, user_id: &UserId, pack_id: Uuid) -> Result<bool, RepositoryError> {
+    async fn install(&self, user_id: &UserId, pack_id: Uuid) -> Result<InstallOutcome, RepositoryError> {
         let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 47))",
+            user_id.uuid().to_string()
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
         let exists = sqlx::query_scalar!(
             r#"SELECT id FROM media_sticker_packs WHERE id = $1 AND deleted_at IS NULL FOR UPDATE"#,
             pack_id,
@@ -383,17 +393,40 @@ impl StickerRepository for PostgresStickerRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         if exists.is_none() {
-            return Ok(false);
+            return Ok(InstallOutcome::PackNotFound);
         }
-        let inserted = sqlx::query!(
-            r#"INSERT INTO media_sticker_installs (user_id, pack_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"#,
+        let installed = sqlx::query_scalar!(
+            r#"SELECT COUNT(*) AS "count!" FROM media_sticker_installs WHERE user_id = $1"#,
             user_id.uuid(),
-            pack_id,
         )
-        .execute(&mut *tx)
+        .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        if inserted.rows_affected() > 0 {
+        let inserted = if installed >= MAX_INSTALLED_PACKS {
+            let already = sqlx::query_scalar!(
+                r#"SELECT EXISTS(SELECT 1 FROM media_sticker_installs WHERE user_id = $1 AND pack_id = $2) AS "exists!""#,
+                user_id.uuid(),
+                pack_id,
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            if !already {
+                return Ok(InstallOutcome::LimitReached);
+            }
+            0
+        } else {
+            sqlx::query!(
+                r#"INSERT INTO media_sticker_installs (user_id, pack_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"#,
+                user_id.uuid(),
+                pack_id,
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?
+            .rows_affected()
+        };
+        if inserted > 0 {
             sqlx::query!(
                 r#"UPDATE media_sticker_packs SET install_count = install_count + 1 WHERE id = $1"#,
                 pack_id,
@@ -403,7 +436,7 @@ impl StickerRepository for PostgresStickerRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
         }
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(true)
+        Ok(InstallOutcome::Installed)
     }
 
     async fn uninstall(&self, user_id: &UserId, pack_id: Uuid) -> Result<bool, RepositoryError> {
@@ -459,5 +492,46 @@ impl StickerRepository for PostgresStickerRepository {
             pack_slug: r.pack_slug,
             deleted: r.deleted,
         }))
+    }
+
+    async fn forget_user(&self, user_id: &UserId) -> Result<(), RepositoryError> {
+        let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            r#"
+            UPDATE media_sticker_packs p SET install_count = GREATEST(p.install_count - 1, 0)
+            FROM media_sticker_installs i
+            WHERE i.user_id = $1 AND i.pack_id = p.id
+            "#,
+            user_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(r#"DELETE FROM media_sticker_installs WHERE user_id = $1"#, user_id.uuid())
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            r#"
+            DELETE FROM media_sticker_installs
+            WHERE pack_id IN (SELECT id FROM media_sticker_packs WHERE owner_id = $1 AND deleted_at IS NULL)
+            "#,
+            user_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            r#"
+            UPDATE media_sticker_packs SET deleted_at = now(), updated_at = now(), install_count = 0
+            WHERE owner_id = $1 AND deleted_at IS NULL
+            "#,
+            user_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
     }
 }

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE media_sticker_packs p SET install_count = GREATEST(p.install_count - 1, 0)\n            FROM media_sticker_installs i\n            WHERE i.user_id = $1 AND i.pack_id = p.id\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cca8faf3df3f3123ffa5bf75e5f69b3abd08a949d4a9136a9de1fe2999d3a55f"
+}
