@@ -288,8 +288,12 @@ export function useMessageComposer(params: {
     return true;
   };
 
+  const stickerInFlightRef = React.useRef(false);
+
   const sendSticker = async (sticker: PackSticker): Promise<boolean> => {
-    if (!messenger) return false;
+    if (!messenger || sending || stickerInFlightRef.current) return false;
+    stickerInFlightRef.current = true;
+    setSending(true);
     const originConvId = currentChannelIdRef.current;
     const stillHere = () => currentChannelIdRef.current === originConvId;
     const reply = replyTarget;
@@ -324,6 +328,9 @@ export function useMessageComposer(params: {
       if (apiErr?.code === "REPLY_INVALID" && stillHere()) setReplyTarget(null);
       if (stillHere()) setComposerError(message);
       return false;
+    } finally {
+      stickerInFlightRef.current = false;
+      setSending(false);
     }
   };
 

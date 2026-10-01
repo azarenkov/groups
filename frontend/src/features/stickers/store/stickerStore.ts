@@ -41,6 +41,7 @@ interface StickerState {
 }
 
 let generation = 0;
+let revision = 0;
 
 export const useStickerStore = create<StickerState>()((set, get) => ({
   userId: null,
@@ -59,24 +60,29 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
 
   refresh: async () => {
     const gen = generation;
+    const rev = revision;
     try {
       const packs = await stickersAPI.mine();
       if (gen !== generation) return;
+      if (rev !== revision) return get().refresh();
       set({ packs, loaded: true, failed: false });
     } catch {
       if (gen === generation) set({ failed: true });
     }
   },
 
-  upsertPack: (pack) =>
+  upsertPack: (pack) => {
+    revision += 1;
     set((state) => {
       const exists = state.packs.some((p) => p.id === pack.id);
       return {
         packs: exists ? state.packs.map((p) => (p.id === pack.id ? pack : p)) : [...state.packs, pack],
       };
-    }),
+    });
+  },
 
   dropPack: (packId) => {
+    revision += 1;
     const recent = get().recent.filter((s) => s.packId !== packId);
     set((state) => ({ packs: state.packs.filter((p) => p.id !== packId), recent }));
     writeRecent(get().userId, recent);
@@ -100,6 +106,7 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
   },
 
   forgetSticker: (stickerId) => {
+    revision += 1;
     const recent = get().recent.filter((s) => s.id !== stickerId);
     set((state) => ({
       recent,

@@ -69,6 +69,22 @@ describe("stickerStore recovery", () => {
     useStickerStore.getState().clear();
   });
 
+  it("does not let a refresh started before a removal bring the pack back", async () => {
+    const mine = stickersAPI.mine as jest.Mock;
+    const installed = pack("1", [sticker("a", "1", "😺")]);
+    mine.mockResolvedValueOnce([installed]);
+    await useStickerStore.getState().load("u1");
+    let resolveStale: (packs: StickerPack[]) => void = () => undefined;
+    mine.mockReturnValueOnce(new Promise<StickerPack[]>((resolve) => (resolveStale = resolve)));
+    mine.mockResolvedValueOnce([]);
+    const refreshing = useStickerStore.getState().refresh();
+    useStickerStore.getState().dropPack("1");
+    resolveStale([installed]);
+    await refreshing;
+    expect(useStickerStore.getState().packs).toEqual([]);
+    expect(mine).toHaveBeenCalledTimes(3);
+  });
+
   it("tries again after a failed load", async () => {
     const mine = stickersAPI.mine as jest.Mock;
     mine.mockRejectedValueOnce(new Error("offline"));
