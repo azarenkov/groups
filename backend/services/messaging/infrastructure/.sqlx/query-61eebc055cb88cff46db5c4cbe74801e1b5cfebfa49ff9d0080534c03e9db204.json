@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO reports (\n                id, reporter_id, target_type, target_id, target_name, reason, details,\n                context_channel_id, context_message_id, context_message_content,\n                context_attachment_ids, context_attachment_keys, status, created_at, context_sticker\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, ($15::text)::jsonb)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Varchar",
+        "Uuid",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "UuidArray",
+        "TextArray",
+        "Varchar",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "61eebc055cb88cff46db5c4cbe74801e1b5cfebfa49ff9d0080534c03e9db204"
+}
