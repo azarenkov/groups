@@ -64,6 +64,7 @@ describe("stickerStore", () => {
 
 describe("stickerStore recovery", () => {
   beforeEach(() => {
+    (stickersAPI.mine as jest.Mock).mockResolvedValue([]);
     localStorage.clear();
     useStickerStore.getState().clear();
   });
