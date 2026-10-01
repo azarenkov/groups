@@ -8,7 +8,7 @@ describe("isJumboEmoji", () => {
   });
 
   it("keeps text, mixed messages and several emoji at normal size", () => {
-    for (const text of ["", "ок", "👍 ок", "👍👍", "©", "123", "❤", "☕\uFE0E", "A\u20E3", "7"]) {
+    for (const text of ["", "ок", "👍 ок", "👍👍", "©", "123", "❤", "☕\uFE0E", "A\u20E3", "7", "😀🏽", "🐟🏽"]) {
       expect(isJumboEmoji(text)).toBe(false);
     }
   });

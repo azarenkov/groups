@@ -1,7 +1,7 @@
-const PICTOGRAPH =
-  "(?:\\p{Emoji_Presentation}(?!\\uFE0E)|\\p{Extended_Pictographic}\\uFE0F|\\p{Extended_Pictographic}(?=\\p{Emoji_Modifier}))";
-const ELEMENT = `${PICTOGRAPH}\\p{Emoji_Modifier}?`;
-const JOINED = `(?:\\p{Emoji_Presentation}|\\p{Extended_Pictographic})\\uFE0F?\\p{Emoji_Modifier}?`;
+const MODIFIED = "\\p{Emoji_Modifier_Base}\\uFE0F?\\p{Emoji_Modifier}";
+const PICTOGRAPH = "(?:\\p{Emoji_Presentation}(?!\\uFE0E)|\\p{Extended_Pictographic}\\uFE0F)";
+const ELEMENT = `(?:${MODIFIED}|${PICTOGRAPH})`;
+const JOINED = `(?:${MODIFIED}|(?:\\p{Emoji_Presentation}|\\p{Extended_Pictographic})\\uFE0F?)`;
 const SEQUENCE = `${ELEMENT}(?:\\u200D${JOINED})*`;
 const FLAG = "\\p{Regional_Indicator}{2}";
 const KEYCAP = "[#*0-9]\\uFE0F?\\u20E3";
