@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
+use futures::{StreamExt, TryStreamExt};
 use domain::user::id::UserId;
 use media_domain::{
     attachment::repository::AttachmentRepository,
@@ -21,6 +22,7 @@ use crate::usecases::user::update_avatar::cleanup_object;
 
 pub const SEARCH_PAGE_SIZE: i64 = 20;
 const MAX_SEARCH_OFFSET: i64 = 2000;
+const MODERATION_CONCURRENCY: usize = 4;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StickerError {
@@ -190,9 +192,11 @@ where
         if file.moderation_samples.is_empty() {
             self.moderation.ensure_allowed(&file.bytes).await?;
         }
-        for sample in &file.moderation_samples {
-            self.moderation.ensure_allowed(sample).await?;
-        }
+        futures::stream::iter(file.moderation_samples.iter())
+            .map(|sample| self.moderation.ensure_allowed(sample))
+            .buffer_unordered(MODERATION_CONCURRENCY)
+            .try_collect::<Vec<()>>()
+            .await?;
         let id = Uuid::new_v4();
         let key = format!("stickers/{}/{}.{}", pack_id, id, file.extension());
         self.storage
@@ -303,6 +307,13 @@ where
     pub async fn sticker(&self, sticker_id: Uuid) -> Result<StickerRef, StickerError> {
         self.stickers
             .find_sticker(sticker_id)
+            .await?
+            .ok_or(StickerError::StickerNotFound)
+    }
+
+    pub async fn claim_for_message(&self, sticker_id: Uuid) -> Result<StickerRef, StickerError> {
+        self.stickers
+            .claim_sticker(sticker_id)
             .await?
             .ok_or(StickerError::StickerNotFound)
     }

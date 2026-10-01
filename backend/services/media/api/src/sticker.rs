@@ -24,6 +24,8 @@ const MIN_STICKER_SIDE: u32 = 64;
 const MAX_STATIC_STICKER_BYTES: usize = 512 * 1024;
 const MAX_ANIMATED_STICKER_BYTES: usize = 2 * 1024 * 1024;
 const MAX_STICKER_FRAMES: usize = 240;
+const SHEET_COLUMNS: usize = 2;
+const SHEET_TILES: usize = 4;
 const MAX_DECODE_DIMENSION: u32 = 4096;
 const MAX_DECODE_ALLOC: u64 = 64 * 1024 * 1024;
 
@@ -319,7 +321,7 @@ async fn internal_sticker(
     app_state: web::Data<AppState>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, HttpError> {
-    match app_state.sticker_packs.sticker(path.into_inner()).await {
+    match app_state.sticker_packs.claim_for_message(path.into_inner()).await {
         Ok(sticker) => Ok(HttpResponse::Ok().json(StickerInfoResponse::from(sticker))),
         Err(media::usecases::sticker::StickerError::StickerNotFound) => {
             Ok(HttpResponse::NotFound().finish())
@@ -432,6 +434,30 @@ fn normalize_sticker(bytes: &[u8]) -> Result<StickerFile, HttpError> {
     })
 }
 
+fn moderation_sheets(frames: &[image::Frame]) -> Vec<image::RgbaImage> {
+    let mut distinct: Vec<&image::RgbaImage> = Vec::new();
+    for frame in frames {
+        if distinct.last().is_none_or(|last| *last != frame.buffer()) {
+            distinct.push(frame.buffer());
+        }
+    }
+    distinct
+        .chunks(SHEET_TILES)
+        .map(|tiles| {
+            let (w, h) = tiles[0].dimensions();
+            let columns = tiles.len().min(SHEET_COLUMNS) as u32;
+            let rows = tiles.len().div_ceil(SHEET_COLUMNS) as u32;
+            let mut sheet = image::RgbaImage::new(w * columns, h * rows);
+            for (index, tile) in tiles.iter().enumerate() {
+                let x = (index % SHEET_COLUMNS) as i64 * i64::from(w);
+                let y = (index / SHEET_COLUMNS) as i64 * i64::from(h);
+                image::imageops::overlay(&mut sheet, *tile, x, y);
+            }
+            sheet
+        })
+        .collect()
+}
+
 fn normalize_animated_sticker(bytes: &[u8]) -> Result<StickerFile, HttpError> {
     use image::codecs::gif::{GifDecoder, GifEncoder, Repeat};
     use image::{AnimationDecoder, ImageDecoder};
@@ -466,11 +492,10 @@ fn normalize_animated_sticker(bytes: &[u8]) -> Result<StickerFile, HttpError> {
     if frames.is_empty() {
         return Err(invalid_image(codes.invalid, "Invalid sticker."));
     }
-    let mut samples = Vec::new();
-    for index in [0, frames.len() / 2] {
-        let still = image::DynamicImage::ImageRgba8(frames[index].buffer().clone());
-        samples.push(encode_png(&still, codes)?);
-    }
+    let samples = moderation_sheets(&frames)
+        .iter()
+        .map(|sheet| encode_png(&image::DynamicImage::ImageRgba8(sheet.clone()), codes))
+        .collect::<Result<Vec<_>, _>>()?;
     let mut out = Vec::new();
     {
         let mut encoder = GifEncoder::new_with_speed(&mut out, 10);
@@ -547,8 +572,20 @@ mod tests {
         let file = normalize_sticker(&gif(400, 200, 3)).unwrap();
         assert!(file.animated);
         assert_eq!((file.width, file.height), (320, 160));
-        assert_eq!(file.moderation_samples.len(), 2);
+        assert_eq!(file.moderation_samples.len(), 1);
         assert!(is_gif(&file.bytes));
+    }
+
+    #[test]
+    fn every_distinct_frame_lands_on_a_moderation_sheet() {
+        let frame = |shade: u8| image::Frame::new(image::RgbaImage::from_pixel(10, 10, image::Rgba([shade, 0, 0, 255])));
+        let frames: Vec<image::Frame> = [1, 1, 2, 3, 4, 5, 6].into_iter().map(frame).collect();
+        let sheets = moderation_sheets(&frames);
+        assert_eq!(sheets.len(), 2);
+        assert_eq!(sheets[0].dimensions(), (20, 20));
+        assert_eq!(sheets[0].get_pixel(15, 15)[0], 4);
+        assert_eq!(sheets[1].dimensions(), (20, 10));
+        assert_eq!(sheets[1].get_pixel(15, 5)[0], 6);
     }
 
     #[test]

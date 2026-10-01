@@ -81,6 +81,7 @@ pub trait StickerRepository: Send + Sync {
     async fn install(&self, user_id: &UserId, pack_id: Uuid) -> Result<InstallOutcome, RepositoryError>;
     async fn uninstall(&self, user_id: &UserId, pack_id: Uuid) -> Result<bool, RepositoryError>;
     async fn find_sticker(&self, sticker_id: Uuid) -> Result<Option<StickerRef>, RepositoryError>;
+    async fn claim_sticker(&self, sticker_id: Uuid) -> Result<Option<StickerRef>, RepositoryError>;
     async fn forget_user(&self, user_id: &UserId) -> Result<(), RepositoryError>;
 }
 

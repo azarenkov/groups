@@ -229,6 +229,22 @@ impl StickerRepository for PostgresStickerRepository {
         if result.rows_affected() == 0 {
             return Ok(false);
         }
+        sqlx::query!(
+            r#"
+            WITH gone AS (
+                UPDATE media_stickers SET deleted_at = now()
+                WHERE pack_id = $1 AND deleted_at IS NULL
+                RETURNING storage_key, used_at
+            )
+            INSERT INTO storage_cleanup_queue (storage_key)
+            SELECT storage_key FROM gone WHERE used_at IS NULL
+            ON CONFLICT (storage_key) DO NOTHING
+            "#,
+            pack_id,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
         sqlx::query!(r#"DELETE FROM media_sticker_installs WHERE pack_id = $1"#, pack_id)
             .execute(&mut *tx)
             .await
@@ -298,21 +314,29 @@ impl StickerRepository for PostgresStickerRepository {
     }
 
     async fn delete_sticker(&self, pack_id: Uuid, sticker_id: Uuid, owner_id: &UserId) -> Result<bool, RepositoryError> {
-        let result = sqlx::query!(
+        let removed = sqlx::query_scalar!(
             r#"
-            UPDATE media_stickers s SET deleted_at = now()
-            FROM media_sticker_packs p
-            WHERE s.id = $1 AND s.pack_id = $2 AND s.deleted_at IS NULL
-              AND p.id = s.pack_id AND p.owner_id = $3 AND p.deleted_at IS NULL
+            WITH gone AS (
+                UPDATE media_stickers s SET deleted_at = now()
+                FROM media_sticker_packs p
+                WHERE s.id = $1 AND s.pack_id = $2 AND s.deleted_at IS NULL
+                  AND p.id = s.pack_id AND p.owner_id = $3 AND p.deleted_at IS NULL
+                RETURNING s.storage_key, s.used_at
+            ), queued AS (
+                INSERT INTO storage_cleanup_queue (storage_key)
+                SELECT storage_key FROM gone WHERE used_at IS NULL
+                ON CONFLICT (storage_key) DO NOTHING
+            )
+            SELECT COUNT(*) AS "count!" FROM gone
             "#,
             sticker_id,
             pack_id,
             owner_id.uuid(),
         )
-        .execute(&self.pool)
+        .fetch_one(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(result.rows_affected() > 0)
+        Ok(removed > 0)
     }
 
     async fn reorder_stickers(&self, pack_id: Uuid, owner_id: &UserId, order: &[Uuid]) -> Result<bool, RepositoryError> {
@@ -484,6 +508,22 @@ impl StickerRepository for PostgresStickerRepository {
         Ok(removed.rows_affected() > 0)
     }
 
+    async fn claim_sticker(&self, sticker_id: Uuid) -> Result<Option<StickerRef>, RepositoryError> {
+        sqlx::query!(
+            r#"
+            UPDATE media_stickers s SET used_at = now()
+            FROM media_sticker_packs p
+            WHERE s.id = $1 AND s.used_at IS NULL AND s.deleted_at IS NULL
+              AND p.id = s.pack_id AND p.deleted_at IS NULL
+            "#,
+            sticker_id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        self.find_sticker(sticker_id).await
+    }
+
     async fn find_sticker(&self, sticker_id: Uuid) -> Result<Option<StickerRef>, RepositoryError> {
         let row = sqlx::query!(
             r#"
@@ -522,6 +562,23 @@ impl StickerRepository for PostgresStickerRepository {
             r#"
             UPDATE media_sticker_packs SET deleted_at = now(), updated_at = now(), install_count = 0
             WHERE owner_id = $1 AND deleted_at IS NULL
+            "#,
+            user_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            r#"
+            WITH gone AS (
+                UPDATE media_stickers SET deleted_at = now()
+                WHERE deleted_at IS NULL
+                  AND pack_id IN (SELECT id FROM media_sticker_packs WHERE owner_id = $1)
+                RETURNING storage_key, used_at
+            )
+            INSERT INTO storage_cleanup_queue (storage_key)
+            SELECT storage_key FROM gone WHERE used_at IS NULL
+            ON CONFLICT (storage_key) DO NOTHING
             "#,
             user_id.uuid(),
         )

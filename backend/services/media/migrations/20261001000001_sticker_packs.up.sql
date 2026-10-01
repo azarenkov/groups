@@ -28,6 +28,7 @@ CREATE TABLE media.media_stickers (
     emoji character varying(32) NOT NULL,
     position integer NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    used_at timestamp with time zone,
     deleted_at timestamp with time zone,
     CONSTRAINT media_stickers_pkey PRIMARY KEY (id),
     CONSTRAINT media_stickers_pack_id_fkey FOREIGN KEY (pack_id) REFERENCES media.media_sticker_packs(id) ON DELETE CASCADE,
