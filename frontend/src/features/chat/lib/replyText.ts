@@ -4,6 +4,9 @@ import { formatVoiceDuration } from "./voice";
 
 export function replyText(reply: ReplyPreview): string {
   if (reply.content) return reply.content;
+  if (reply.sticker) {
+    return `${reply.sticker.emoji} ${i18n.t("replySticker", { ns: "chat" })}`;
+  }
   if (typeof reply.videoNoteDurationMs === "number") {
     return i18n.t("videoNoteWithDuration", {
       ns: "chat",

@@ -1,0 +1,136 @@
+import { create } from "zustand";
+
+import { stickersAPI, type PackSticker, type StickerPack } from "../api/stickers";
+
+const RECENT_LIMIT = 24;
+const recentKey = (userId: string) => `rift.recentStickers.${userId}`;
+
+const readRecent = (userId: string | null): PackSticker[] => {
+  if (!userId) return [];
+  try {
+    const raw = localStorage.getItem(recentKey(userId));
+    const parsed = raw ? (JSON.parse(raw) as PackSticker[]) : [];
+    return Array.isArray(parsed) ? parsed.slice(0, RECENT_LIMIT) : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeRecent = (userId: string | null, recent: PackSticker[]) => {
+  if (!userId) return;
+  try {
+    localStorage.setItem(recentKey(userId), JSON.stringify(recent));
+  } catch {}
+};
+
+interface StickerState {
+  userId: string | null;
+  packs: StickerPack[];
+  recent: PackSticker[];
+  loaded: boolean;
+  failed: boolean;
+  load: (userId: string) => Promise<void>;
+  refresh: () => Promise<void>;
+  upsertPack: (pack: StickerPack) => void;
+  dropPack: (packId: string) => void;
+  install: (pack: StickerPack) => Promise<void>;
+  uninstall: (packId: string) => Promise<void>;
+  rememberUsed: (sticker: PackSticker) => void;
+  forgetSticker: (stickerId: string) => void;
+  clear: () => void;
+}
+
+let generation = 0;
+let revision = 0;
+
+export const useStickerStore = create<StickerState>()((set, get) => ({
+  userId: null,
+  packs: [],
+  recent: [],
+  loaded: false,
+  failed: false,
+
+  load: async (userId) => {
+    if (get().userId !== userId) {
+      generation += 1;
+      set({ userId, packs: [], recent: readRecent(userId), loaded: false, failed: false });
+    }
+    await get().refresh();
+  },
+
+  refresh: async () => {
+    const gen = generation;
+    const rev = revision;
+    try {
+      const packs = await stickersAPI.mine();
+      if (gen !== generation) return;
+      if (rev !== revision) return get().refresh();
+      set({ packs, loaded: true, failed: false });
+    } catch {
+      if (gen === generation) set({ failed: true });
+    }
+  },
+
+  upsertPack: (pack) => {
+    revision += 1;
+    set((state) => {
+      const exists = state.packs.some((p) => p.id === pack.id);
+      return {
+        packs: exists ? state.packs.map((p) => (p.id === pack.id ? pack : p)) : [...state.packs, pack],
+      };
+    });
+  },
+
+  dropPack: (packId) => {
+    revision += 1;
+    const recent = get().recent.filter((s) => s.packId !== packId);
+    set((state) => ({ packs: state.packs.filter((p) => p.id !== packId), recent }));
+    writeRecent(get().userId, recent);
+  },
+
+  install: async (pack) => {
+    await stickersAPI.install(pack.id);
+    const full = pack.stickers.length >= pack.stickerCount ? pack : await stickersAPI.pack(pack.id);
+    get().upsertPack(full);
+  },
+
+  uninstall: async (packId) => {
+    await stickersAPI.uninstall(packId);
+    get().dropPack(packId);
+  },
+
+  rememberUsed: (sticker) => {
+    const recent = [sticker, ...get().recent.filter((s) => s.id !== sticker.id)].slice(0, RECENT_LIMIT);
+    set({ recent });
+    writeRecent(get().userId, recent);
+  },
+
+  forgetSticker: (stickerId) => {
+    revision += 1;
+    const recent = get().recent.filter((s) => s.id !== stickerId);
+    set((state) => ({
+      recent,
+      packs: state.packs.map((p) =>
+        p.stickers.some((s) => s.id === stickerId)
+          ? {
+              ...p,
+              stickers: p.stickers.filter((s) => s.id !== stickerId),
+              stickerCount: Math.max(0, p.stickerCount - 1),
+            }
+          : p,
+      ),
+    }));
+    writeRecent(get().userId, recent);
+  },
+
+  clear: () => {
+    generation += 1;
+    set({ userId: null, packs: [], recent: [], loaded: false, failed: false });
+  },
+}));
+
+export const searchMyStickers = (packs: StickerPack[], emoji: string): PackSticker[] => {
+  const needle = emoji.trim();
+  if (!needle) return [];
+  return packs.flatMap((pack) => pack.stickers.filter((s) => s.emoji.includes(needle)));
+};

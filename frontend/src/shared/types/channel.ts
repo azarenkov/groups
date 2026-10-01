@@ -94,6 +94,15 @@ export interface Attachment {
   videoNote?: VideoNoteMeta;
 }
 
+export interface StickerSnapshot {
+  id: string;
+  packId: string;
+  emoji: string;
+  animated: boolean;
+  width: number;
+  height: number;
+}
+
 export interface ReplyPreview {
   id: string;
   authorId?: string;
@@ -103,6 +112,7 @@ export interface ReplyPreview {
   voiceDurationMs?: number | null;
   videoNoteDurationMs?: number | null;
   videoNotePoster?: string | null;
+  sticker?: StickerSnapshot | null;
   deleted: boolean;
 }
 
@@ -133,6 +143,7 @@ export interface ChannelMessage {
   system?: SystemMessageInfo;
   replyTo?: ReplyPreview;
   forwardedFrom?: ForwardInfo | null;
+  sticker?: StickerSnapshot | null;
   voiceListened?: boolean;
   createdAt: string;
   editedAt: string | null;

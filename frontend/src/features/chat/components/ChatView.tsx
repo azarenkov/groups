@@ -636,6 +636,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           replyTarget={composer.replyTarget}
           onCancelReply={() => composer.setReplyTarget(null)}
           onSendVoice={composer.sendVoice}
+          onSendSticker={(sticker) => void composer.sendSticker(sticker)}
           onVoiceError={composer.setComposerError}
           conversationKey={convId}
         />
