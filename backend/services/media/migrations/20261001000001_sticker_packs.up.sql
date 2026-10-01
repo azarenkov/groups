@@ -13,7 +13,7 @@ CREATE TABLE media.media_sticker_packs (
     CONSTRAINT media_sticker_packs_install_count_check CHECK (install_count >= 0)
 );
 
-CREATE UNIQUE INDEX media_sticker_packs_slug_idx ON media.media_sticker_packs (slug) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX media_sticker_packs_slug_unique_idx ON media.media_sticker_packs (slug) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX media_sticker_packs_name_idx ON media.media_sticker_packs (lower(name)) WHERE deleted_at IS NULL;
 CREATE INDEX media_sticker_packs_owner_idx ON media.media_sticker_packs (owner_id) WHERE deleted_at IS NULL;
 CREATE INDEX media_sticker_packs_search_idx ON media.media_sticker_packs (install_count DESC, id) WHERE deleted_at IS NULL AND NOT hidden;
