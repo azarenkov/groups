@@ -502,7 +502,10 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         let purpose = VerificationPurposeDto::from(&purpose);
         let row = sqlx::query!(
             r#"
-            SELECT MAX(created_at) AS last_issued_at, COUNT(*) FILTER (WHERE created_at > $3) AS "issued_last_hour!"
+            SELECT
+                MAX(created_at) AS last_issued_at,
+                MIN(created_at) FILTER (WHERE created_at > $3) AS oldest_in_window,
+                COUNT(*) FILTER (WHERE created_at > $3) AS "issued_last_hour!"
             FROM verification_codes
             WHERE user_id = $1 AND purpose = $2
             "#,
@@ -515,6 +518,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(IssuedCodes {
             last_issued_at: row.last_issued_at,
+            oldest_in_window: row.oldest_in_window,
             issued_last_hour: row.issued_last_hour,
         })
     }

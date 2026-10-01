@@ -6,12 +6,17 @@ pub const HOURLY_CODE_LIMIT: i64 = 5;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct IssuedCodes {
     pub last_issued_at: Option<DateTime<Utc>>,
+    pub oldest_in_window: Option<DateTime<Utc>>,
     pub issued_last_hour: i64,
 }
 
 impl IssuedCodes {
     pub fn window_start(now: DateTime<Utc>) -> DateTime<Utc> {
-        now - Duration::hours(1)
+        now - Self::window()
+    }
+
+    fn window() -> Duration {
+        Duration::hours(1)
     }
 
     pub fn retry_after(&self, now: DateTime<Utc>) -> Option<Duration> {
@@ -22,7 +27,11 @@ impl IssuedCodes {
             }
         }
         if self.issued_last_hour >= HOURLY_CODE_LIMIT {
-            return Some(Duration::minutes(10));
+            let frees_at = self
+                .oldest_in_window
+                .map(|oldest| oldest + Self::window())
+                .unwrap_or(now + Self::window());
+            return Some((frees_at - now).max(Duration::seconds(1)));
         }
         None
     }
@@ -42,6 +51,7 @@ mod tests {
         let now = Utc::now();
         let codes = IssuedCodes {
             last_issued_at: Some(now - Duration::seconds(20)),
+            oldest_in_window: Some(now - Duration::seconds(20)),
             issued_last_hour: 1,
         };
         assert_eq!(codes.retry_after(now), Some(Duration::seconds(40)));
@@ -53,8 +63,14 @@ mod tests {
         let now = Utc::now();
         let codes = IssuedCodes {
             last_issued_at: Some(now - Duration::minutes(5)),
+            oldest_in_window: Some(now - Duration::minutes(50)),
             issued_last_hour: HOURLY_CODE_LIMIT,
         };
-        assert!(codes.retry_after(now).is_some());
+        assert_eq!(codes.retry_after(now), Some(Duration::minutes(10)));
+        let early = IssuedCodes {
+            oldest_in_window: Some(now - Duration::minutes(5)),
+            ..codes
+        };
+        assert_eq!(early.retry_after(now), Some(Duration::minutes(55)));
     }
 }

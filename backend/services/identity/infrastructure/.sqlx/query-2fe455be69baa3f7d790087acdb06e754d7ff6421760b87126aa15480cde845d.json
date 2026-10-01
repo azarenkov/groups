@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT MAX(created_at) AS last_issued_at, COUNT(*) FILTER (WHERE created_at > $3) AS \"issued_last_hour!\"\n            FROM verification_codes\n            WHERE user_id = $1 AND purpose = $2\n            ",
+  "query": "\n            SELECT\n                MAX(created_at) AS last_issued_at,\n                MIN(created_at) FILTER (WHERE created_at > $3) AS oldest_in_window,\n                COUNT(*) FILTER (WHERE created_at > $3) AS \"issued_last_hour!\"\n            FROM verification_codes\n            WHERE user_id = $1 AND purpose = $2\n            ",
   "describe": {
     "columns": [
       {
@@ -10,6 +10,11 @@
       },
       {
         "ordinal": 1,
+        "name": "oldest_in_window",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
         "name": "issued_last_hour!",
         "type_info": "Int8"
       }
@@ -35,8 +40,9 @@
     },
     "nullable": [
       null,
+      null,
       null
     ]
   },
-  "hash": "696e0aee515ae491e0119a7f8444c79e24b11629e07c5ac22e1ae1423cd31a37"
+  "hash": "2fe455be69baa3f7d790087acdb06e754d7ff6421760b87126aa15480cde845d"
 }
