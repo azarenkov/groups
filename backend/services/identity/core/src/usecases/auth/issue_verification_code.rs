@@ -75,9 +75,6 @@ where
             .ok_or(RepositoryError::NotFound)?
             .ensure_can_request_verification(request.purpose)?;
 
-        let plain_code = VerificationCode::generate();
-        let code_hash = CodeHash::new(self.hasher.hash(&plain_code)?);
-
         let mut tx = self.unit_of_work.begin().await?;
         let user = tx
             .load_user_for_update(&user_id)
@@ -90,6 +87,8 @@ where
         if let Some(wait) = issued.retry_after(now) {
             return Err(IssueVerificationCodeError::TooSoon(wait.num_seconds().max(1)));
         }
+        let plain_code = VerificationCode::generate();
+        let code_hash = CodeHash::new(self.hasher.hash(&plain_code)?);
 
         let mut verification_code =
             user.issue_verification(request.channel, request.purpose, plain_code, code_hash)?;

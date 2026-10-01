@@ -86,9 +86,6 @@ where
             return Err(RequestEmailChangeError::EmailTaken);
         }
 
-        let plain_code = VerificationCode::generate();
-        let code_hash = CodeHash::new(self.hasher.hash(&plain_code)?);
-
         let snapshot = user;
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
@@ -107,6 +104,8 @@ where
         if let Some(wait) = issued.retry_after(now) {
             return Err(RequestEmailChangeError::TooSoon(wait.num_seconds().max(1)));
         }
+        let plain_code = VerificationCode::generate();
+        let code_hash = CodeHash::new(self.hasher.hash(&plain_code)?);
         let mut code = user
             .request_email_change(new_email, plain_code, code_hash, Utc::now())
             .map_err(|e| match e {
