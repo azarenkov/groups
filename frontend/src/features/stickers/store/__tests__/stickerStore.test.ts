@@ -1,6 +1,6 @@
 import { searchMyStickers, useStickerStore } from "../stickerStore";
 import { slugFromName } from "../../components/StickerPacksModal";
-import type { PackSticker, StickerPack } from "../../api/stickers";
+import { stickersAPI, type PackSticker, type StickerPack } from "../../api/stickers";
 
 jest.mock("../../api/stickers", () => ({
   stickersAPI: {
@@ -59,6 +59,35 @@ describe("stickerStore", () => {
     useStickerStore.getState().dropPack("1");
     expect(useStickerStore.getState().packs).toEqual([]);
     expect(useStickerStore.getState().recent).toEqual([]);
+  });
+});
+
+describe("stickerStore recovery", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useStickerStore.getState().clear();
+  });
+
+  it("tries again after a failed load", async () => {
+    const mine = stickersAPI.mine as jest.Mock;
+    mine.mockRejectedValueOnce(new Error("offline"));
+    await useStickerStore.getState().load("u1");
+    expect(useStickerStore.getState()).toMatchObject({ loaded: false, failed: true });
+    mine.mockResolvedValueOnce([pack("1", [sticker("a", "1", "😺")])]);
+    await useStickerStore.getState().load("u1");
+    expect(useStickerStore.getState()).toMatchObject({ loaded: true, failed: false });
+    expect(useStickerStore.getState().packs).toHaveLength(1);
+  });
+
+  it("forgets a removed sticker everywhere", async () => {
+    await useStickerStore.getState().load("u1");
+    const a = sticker("a", "1", "😺");
+    useStickerStore.getState().upsertPack(pack("1", [a, sticker("b", "1", "🐶")]));
+    useStickerStore.getState().rememberUsed(a);
+    useStickerStore.getState().forgetSticker("a");
+    expect(useStickerStore.getState().recent).toEqual([]);
+    expect(useStickerStore.getState().packs[0].stickers.map((s) => s.id)).toEqual(["b"]);
+    expect(localStorage.getItem("rift.recentStickers.u1")).toBe("[]");
   });
 });
 

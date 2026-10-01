@@ -32,5 +32,6 @@
   "addHint": "PNG, WebP or GIF, at least 64 px, up to 4 MB",
   "loadFailed": "Could not load stickers",
   "actionFailed": "That did not work, try again",
-  "sticker": "Sticker"
+  "sticker": "Sticker",
+  "manageOwn": "Manage"
 }

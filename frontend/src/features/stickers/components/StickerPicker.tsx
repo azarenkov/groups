@@ -21,6 +21,7 @@ const StickerPicker: React.FC<StickerPickerProps> = ({ disabled, onPick }) => {
   const packs = useStickerStore((s) => s.packs);
   const recent = useStickerStore((s) => s.recent);
   const loaded = useStickerStore((s) => s.loaded);
+  const failed = useStickerStore((s) => s.failed);
   const [open, setOpen] = React.useState(false);
   const [tab, setTab] = React.useState<string>(RECENT_TAB);
   const [query, setQuery] = React.useState("");
@@ -28,10 +29,10 @@ const StickerPicker: React.FC<StickerPickerProps> = ({ disabled, onPick }) => {
   const rootRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (open && userId && (!loaded || useStickerStore.getState().userId !== userId)) {
+    if (open && userId && (!loaded || failed || useStickerStore.getState().userId !== userId)) {
       void useStickerStore.getState().load(userId);
     }
-  }, [open, userId, loaded]);
+  }, [open, userId, loaded, failed]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -93,7 +94,7 @@ const StickerPicker: React.FC<StickerPickerProps> = ({ disabled, onPick }) => {
           <div className="sticker-pop-grid">
             {shown.length === 0 ? (
               <div className="sticker-pop-empty">
-                {!loaded ? t("loading") : searching ? t("nothingFound") : tab === RECENT_TAB ? t("noRecent") : t("emptyPack")}
+                {failed && !loaded ? t("loadFailed") : !loaded ? t("loading") : searching ? t("nothingFound") : tab === RECENT_TAB ? t("noRecent") : t("emptyPack")}
               </div>
             ) : (
               shown.map((sticker) => (

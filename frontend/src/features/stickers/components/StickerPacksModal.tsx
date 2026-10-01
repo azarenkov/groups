@@ -31,10 +31,11 @@ export const slugFromName = (name: string): string =>
 const PackRow: React.FC<{
   pack: StickerPack;
   installed: boolean;
+  owned: boolean;
   onOpen: () => void;
   onToggle: () => void;
   busy: boolean;
-}> = ({ pack, installed, onOpen, onToggle, busy }) => {
+}> = ({ pack, installed, owned, onOpen, onToggle, busy }) => {
   const { t } = useTranslation("stickers");
   return (
     <div className="sticker-pack-row">
@@ -47,14 +48,20 @@ const PackRow: React.FC<{
           ))}
         </span>
       </button>
-      <button
-        type="button"
-        className={"s-btn " + (installed ? "secondary" : "primary")}
-        disabled={busy}
-        onClick={onToggle}
-      >
-        {installed ? t("remove") : t("add")}
-      </button>
+      {owned ? (
+        <button type="button" className="s-btn secondary" onClick={onOpen}>
+          {t("manageOwn")}
+        </button>
+      ) : (
+        <button
+          type="button"
+          className={"s-btn " + (installed ? "secondary" : "primary")}
+          disabled={busy}
+          onClick={onToggle}
+        >
+          {installed ? t("remove") : t("add")}
+        </button>
+      )}
     </div>
   );
 };
@@ -79,9 +86,9 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
   const installedIds = React.useMemo(() => new Set(myPacks.map((p) => p.id)), [myPacks]);
 
   React.useEffect(() => {
-    if (userId && useStickerStore.getState().userId !== userId) {
-      void useStickerStore.getState().load(userId);
-    }
+    if (!userId) return;
+    if (useStickerStore.getState().userId !== userId) void useStickerStore.getState().load(userId);
+    else void useStickerStore.getState().refresh();
   }, [userId]);
 
   React.useEffect(() => {
@@ -174,13 +181,12 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
     run(async () => {
       if (!pack) return;
       await stickersAPI.removeSticker(pack.id, stickerId);
-      const updated = {
+      setPack({
         ...pack,
         stickers: pack.stickers.filter((s) => s.id !== stickerId),
         stickerCount: Math.max(0, pack.stickerCount - 1),
-      };
-      setPack(updated);
-      useStickerStore.getState().upsertPack(updated);
+      });
+      useStickerStore.getState().forgetSticker(stickerId);
     });
 
   const deletePack = () =>
@@ -238,6 +244,7 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                     key={p.id}
                     pack={p}
                     installed={installedIds.has(p.id)}
+                    owned={p.ownerId === userId}
                     busy={busy}
                     onOpen={() => setView({ kind: "pack", id: p.id })}
                     onToggle={() => void toggleInstall(p)}
@@ -255,6 +262,7 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                   key={p.id}
                   pack={p}
                   installed
+                  owned={p.ownerId === userId}
                   busy={busy}
                   onOpen={() => setView({ kind: "pack", id: p.id })}
                   onToggle={() => void toggleInstall(p)}

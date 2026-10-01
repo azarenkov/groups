@@ -28,6 +28,7 @@ interface StickerState {
   packs: StickerPack[];
   recent: PackSticker[];
   loaded: boolean;
+  failed: boolean;
   load: (userId: string) => Promise<void>;
   refresh: () => Promise<void>;
   upsertPack: (pack: StickerPack) => void;
@@ -35,6 +36,7 @@ interface StickerState {
   install: (pack: StickerPack) => Promise<void>;
   uninstall: (packId: string) => Promise<void>;
   rememberUsed: (sticker: PackSticker) => void;
+  forgetSticker: (stickerId: string) => void;
   clear: () => void;
 }
 
@@ -45,11 +47,12 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
   packs: [],
   recent: [],
   loaded: false,
+  failed: false,
 
   load: async (userId) => {
     if (get().userId !== userId) {
       generation += 1;
-      set({ userId, packs: [], recent: readRecent(userId), loaded: false });
+      set({ userId, packs: [], recent: readRecent(userId), loaded: false, failed: false });
     }
     await get().refresh();
   },
@@ -59,9 +62,9 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
     try {
       const packs = await stickersAPI.mine();
       if (gen !== generation) return;
-      set({ packs, loaded: true });
+      set({ packs, loaded: true, failed: false });
     } catch {
-      if (gen === generation) set({ loaded: true });
+      if (gen === generation) set({ failed: true });
     }
   },
 
@@ -73,11 +76,11 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
       };
     }),
 
-  dropPack: (packId) =>
-    set((state) => ({
-      packs: state.packs.filter((p) => p.id !== packId),
-      recent: state.recent.filter((s) => s.packId !== packId),
-    })),
+  dropPack: (packId) => {
+    const recent = get().recent.filter((s) => s.packId !== packId);
+    set((state) => ({ packs: state.packs.filter((p) => p.id !== packId), recent }));
+    writeRecent(get().userId, recent);
+  },
 
   install: async (pack) => {
     await stickersAPI.install(pack.id);
@@ -88,7 +91,6 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
   uninstall: async (packId) => {
     await stickersAPI.uninstall(packId);
     get().dropPack(packId);
-    writeRecent(get().userId, get().recent);
   },
 
   rememberUsed: (sticker) => {
@@ -97,9 +99,26 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
     writeRecent(get().userId, recent);
   },
 
+  forgetSticker: (stickerId) => {
+    const recent = get().recent.filter((s) => s.id !== stickerId);
+    set((state) => ({
+      recent,
+      packs: state.packs.map((p) =>
+        p.stickers.some((s) => s.id === stickerId)
+          ? {
+              ...p,
+              stickers: p.stickers.filter((s) => s.id !== stickerId),
+              stickerCount: Math.max(0, p.stickerCount - 1),
+            }
+          : p,
+      ),
+    }));
+    writeRecent(get().userId, recent);
+  },
+
   clear: () => {
     generation += 1;
-    set({ userId: null, packs: [], recent: [], loaded: false });
+    set({ userId: null, packs: [], recent: [], loaded: false, failed: false });
   },
 }));
 

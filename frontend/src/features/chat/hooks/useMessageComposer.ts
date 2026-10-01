@@ -279,8 +279,18 @@ export function useMessageComposer(params: {
     const stillHere = () => currentChannelIdRef.current === originConvId;
     const reply = replyTarget;
     setComposerError(null);
+    const send = () => messenger.sendMessage("", undefined, reply?.id, sticker.id);
     try {
-      const msg = await messenger.sendMessage("", undefined, reply?.id, sticker.id);
+      let msg;
+      try {
+        msg = await send();
+      } catch (err) {
+        const code = err instanceof ApiError ? err.code : undefined;
+        if (!(isText && channel && communityId && code === "CHANNEL_NOT_MEMBER")) throw err;
+        await channelAPI.joinText(communityId, channel.id);
+        await refreshHistory();
+        msg = await send();
+      }
       msg.sticker = msg.sticker ?? sticker;
       useStickerStore.getState().rememberUsed(sticker);
       if (stillHere()) {
