@@ -1,5 +1,7 @@
 import axios, { AxiosError } from "axios";
 
+import i18n from "../../i18n";
+
 export interface ApiFieldError {
   field: string;
   code: string;
@@ -14,39 +16,69 @@ interface ErrorEnvelope {
   error?: string;
 }
 
-const STATUS_FALLBACK: Record<number, string> = {
-  400: "Some of the details look wrong. Please check and try again.",
-  401: "Your session has expired. Please sign in again.",
-  403: "You don't have access to this.",
-  404: "We couldn't find what you were looking for.",
-  408: "The request took too long. Try again.",
-  409: "That conflicts with the current state. Refresh and retry.",
-  422: "Some of the details look wrong. Please check and try again.",
-  423: "This is locked. Try again later.",
-  429: "Too many requests. Please slow down.",
-  500: "Something went wrong on our side. Please try again.",
-  502: "We're having trouble reaching the community. Try again shortly.",
-  503: "Service is temporarily unavailable. Try again shortly.",
-  504: "The community is taking too long to respond. Try again.",
-};
+const NS = "errors";
+const SECONDS_PATTERN = /(\d+)\s*seconds?\b/i;
 
-const CODE_FALLBACK: Record<string, string> = {
-  EMAIL_ALREADY_TAKEN: "An account with this email already exists.",
-  INVALID_CREDENTIALS: "Wrong email or password.",
-  EMAIL_NOT_VERIFIED: "Please verify your email to continue.",
-  VERIFICATION_CODE_EXPIRED:
-    "The verification code has expired. Request a new one.",
-  VERIFICATION_CODE_INVALID: "That verification code is invalid.",
-  REFRESH_TOKEN_REVOKED: "Your session has been revoked. Please sign in again.",
-  SESSION_EXPIRED: "Your session has expired. Please sign in again.",
-  RESOURCE_NOT_FOUND: "We couldn't find what you were looking for.",
-  RESOURCE_ALREADY_EXISTS: "That already exists.",
-  CHANNEL_NOT_OWNER: "Only the channel owner can do that.",
-  COMMUNITY_NOT_OWNER: "Only the community owner can do that.",
-  INVALID_CHANNEL_PASSWORD: "Wrong channel password.",
-  VALIDATION_FAILED: "Some of the details look wrong. Please check and try again.",
-  SERVICE_UNAVAILABLE: "Service is temporarily unavailable. Try again shortly.",
-};
+function translate(key: string, options?: Record<string, unknown>): string | undefined {
+  if (!i18n.exists(key, { ns: NS })) return undefined;
+  const value = i18n.t(key, { ns: NS, ...options });
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function nonEmpty(value: string | undefined): string | undefined {
+  return value && value.trim().length > 0 ? value : undefined;
+}
+
+export interface ApiErrorDetails {
+  code?: string;
+  status?: number;
+  message?: string;
+  fields?: ApiFieldError[];
+  retryAfterSeconds?: number;
+}
+
+function secondsFrom(details: ApiErrorDetails): number | undefined {
+  if (details.retryAfterSeconds && details.retryAfterSeconds > 0) {
+    return Math.ceil(details.retryAfterSeconds);
+  }
+  const match = details.message?.match(SECONDS_PATTERN);
+  return match ? Number(match[1]) : undefined;
+}
+
+function translateCode(details: ApiErrorDetails): string | undefined {
+  const { code } = details;
+  if (!code) return undefined;
+  if (code === "VALIDATION_FAILED") {
+    for (const field of details.fields ?? []) {
+      const text = translate(`fields.${field.code}`);
+      if (text) return text;
+    }
+  }
+  const seconds = secondsFrom(details);
+  if (seconds !== undefined) {
+    const timed = translate(`codes.${code}_seconds`, { seconds });
+    if (timed) return timed;
+  }
+  return translate(`codes.${code}`);
+}
+
+export function translateApiError(details: ApiErrorDetails): string {
+  return (
+    translateCode(details) ??
+    (details.status ? translate(`status.${details.status}`) : undefined) ??
+    nonEmpty(details.message) ??
+    translate("unknown") ??
+    "Something went wrong. Please try again."
+  );
+}
+
+export function networkErrorMessage(): string {
+  return translate("network") ?? "Can't reach the server. Check your internet connection.";
+}
+
+export function timeoutErrorMessage(): string {
+  return translate("timeout") ?? "The request took too long. Please try again.";
+}
 
 function envelope(error: unknown): ErrorEnvelope | undefined {
   if (!axios.isAxiosError(error)) return undefined;
@@ -55,42 +87,46 @@ function envelope(error: unknown): ErrorEnvelope | undefined {
   return undefined;
 }
 
+function retryAfter(error: AxiosError): number | undefined {
+  const raw = (error.response?.headers as Record<string, unknown> | undefined)?.["retry-after"];
+  const value = Number(Array.isArray(raw) ? raw[0] : raw);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
 export function getApiErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.message;
+
   if (axios.isAxiosError(error)) {
     const ax = error as AxiosError<ErrorEnvelope>;
 
-    if (ax.code === "ERR_NETWORK" || ax.message === "Network Error") {
-      return "Can't reach the community. Check your internet connection.";
+    if (!ax.response && (ax.code === "ERR_NETWORK" || ax.message === "Network Error")) {
+      return networkErrorMessage();
     }
-    if (ax.code === "ECONNABORTED") {
-      return "The request took too long. Try again.";
+    if (ax.code === "ECONNABORTED" || ax.code === "ETIMEDOUT") {
+      return timeoutErrorMessage();
     }
 
     const body = envelope(error);
-    if (body?.code && CODE_FALLBACK[body.code]) {
-      return CODE_FALLBACK[body.code];
-    }
-    if (body?.message && body.message.trim().length > 0) {
-      return body.message;
-    }
-    if (body?.error && body.error.trim().length > 0) {
-      return body.error;
-    }
-
-    const status = ax.response?.status;
-    if (status && STATUS_FALLBACK[status]) {
-      return STATUS_FALLBACK[status];
+    const serverMessage = nonEmpty(body?.message) ?? nonEmpty(body?.error);
+    if (body?.code || ax.response?.status || serverMessage) {
+      return translateApiError({
+        code: body?.code,
+        status: ax.response?.status,
+        message: serverMessage,
+        fields: body?.fields,
+        retryAfterSeconds: retryAfter(ax),
+      });
     }
   }
 
   if (error instanceof Error && error.message) {
     if (/^Request failed with status/i.test(error.message)) {
-      return "Something went wrong. Please try again.";
+      return translateApiError({});
     }
     return error.message;
   }
 
-  return "Something went wrong. Please try again.";
+  return translateApiError({});
 }
 
 export class ApiError extends Error {
