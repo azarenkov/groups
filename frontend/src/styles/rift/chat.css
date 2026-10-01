@@ -870,14 +870,14 @@
 .msg.bubble .txt.vnote-only { background: transparent; padding: 0; }
 .msg.bubble .txt.jumbo-only { background: transparent; padding: 0; box-shadow: none; }
 .msg-text.jumbo { font-size: 48px; line-height: 1.15; letter-spacing: 0; }
-.msg.bubble.mine .txt.vnote-only .msg-forwarded { color: var(--fg-3); }
-.msg.bubble.mine .txt.vnote-only .msg-reply {
+.msg.bubble.mine .txt:is(.vnote-only, .sticker-only, .jumbo-only) .msg-forwarded { color: var(--fg-3); }
+.msg.bubble.mine .txt:is(.vnote-only, .sticker-only, .jumbo-only) .msg-reply {
   border-left-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
-.msg.bubble.mine .txt.vnote-only .msg-reply:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
-.msg.bubble.mine .txt.vnote-only .msg-reply-author { color: var(--accent) !important; }
-.msg.bubble.mine .txt.vnote-only .msg-reply-text { color: var(--fg-2); }
+.msg.bubble.mine .txt:is(.vnote-only, .sticker-only, .jumbo-only) .msg-reply:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.msg.bubble.mine .txt:is(.vnote-only, .sticker-only, .jumbo-only) .msg-reply-author { color: var(--accent) !important; }
+.msg.bubble.mine .txt:is(.vnote-only, .sticker-only, .jumbo-only) .msg-reply-text { color: var(--fg-2); }
 .vnote {
   --vnote-size: 220px;
   position: relative;

@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import Icon from "../../../shared/ui/Icon";
@@ -199,8 +200,8 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
 
   const own = !!pack && pack.ownerId === userId;
 
-  return (
-    <div className="modal-overlay sticker-modal-overlay" onMouseDown={onClose}>
+  return createPortal(
+    <div className="modal-overlay sticker-modal-overlay" onMouseDown={onClose} onSubmit={(e) => e.stopPropagation()}>
       <div className="modal sticker-modal" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
         <div className="m-head">
           <h3>{t("title")}</h3>
@@ -394,7 +395,8 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
