@@ -273,6 +273,21 @@ export function useMessageComposer(params: {
     }
   };
 
+  const joinCurrentChannel = async (): Promise<boolean> => {
+    if (!channel || !communityId) return false;
+    try {
+      await channelAPI.joinText(communityId, channel.id);
+    } catch (joinErr) {
+      const jc = joinErr instanceof ApiError ? joinErr.code : undefined;
+      if (jc !== "CHANNEL_PASSWORD_REQUIRED" && jc !== "INVALID_CHANNEL_PASSWORD") throw joinErr;
+      const pw = window.prompt(`Enter password for #${channel.name}`);
+      if (pw === null) return false;
+      await channelAPI.joinText(communityId, channel.id, pw);
+    }
+    await refreshHistory();
+    return true;
+  };
+
   const sendSticker = async (sticker: PackSticker): Promise<boolean> => {
     if (!messenger) return false;
     const originConvId = currentChannelIdRef.current;
@@ -287,8 +302,7 @@ export function useMessageComposer(params: {
       } catch (err) {
         const code = err instanceof ApiError ? err.code : undefined;
         if (!(isText && channel && communityId && code === "CHANNEL_NOT_MEMBER")) throw err;
-        await channelAPI.joinText(communityId, channel.id);
-        await refreshHistory();
+        if (!(await joinCurrentChannel())) return false;
         msg = await send();
       }
       msg.sticker = msg.sticker ?? sticker;
@@ -306,6 +320,7 @@ export function useMessageComposer(params: {
           : apiErr?.code === "REPLY_INVALID"
             ? i18n.t("replyUnavailable", { ns: "chat" })
             : apiErr?.message || i18n.t("couldNotSend", { ns: "chat" });
+      if (apiErr?.code === "REPLY_INVALID" && stillHere()) setReplyTarget(null);
       if (stillHere()) setComposerError(message);
       return false;
     }

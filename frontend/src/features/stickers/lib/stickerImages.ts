@@ -4,7 +4,11 @@ import { stickersAPI } from "../api/stickers";
 
 const CACHE_LIMIT = 300;
 
+const RETRY_DELAYS_MS = [2000, 5000, 15000, 30000, 60000];
+
 const urls = new Map<string, string>();
+const failures = new Map<string, number>();
+const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const pending = new Map<string, Promise<string | null>>();
 const listeners = new Map<string, Set<() => void>>();
 
@@ -22,6 +26,34 @@ const evict = () => {
   }
 };
 
+const scheduleRetry = (id: string) => {
+  const attempt = failures.get(id) ?? 0;
+  failures.set(id, attempt + 1);
+  const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
+  if (retryTimers.has(id)) return;
+  retryTimers.set(
+    id,
+    setTimeout(() => {
+      retryTimers.delete(id);
+      if (listeners.get(id)?.size) void loadSticker(id);
+    }, delay),
+  );
+};
+
+export const retryFailedStickers = () => {
+  for (const id of Array.from(failures.keys())) {
+    if (!listeners.get(id)?.size) continue;
+    const timer = retryTimers.get(id);
+    if (timer) clearTimeout(timer);
+    retryTimers.delete(id);
+    void loadSticker(id);
+  }
+};
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", retryFailedStickers);
+}
+
 export const loadSticker = (id: string): Promise<string | null> => {
   const cached = urls.get(id);
   if (cached) return Promise.resolve(cached);
@@ -31,12 +63,16 @@ export const loadSticker = (id: string): Promise<string | null> => {
     .download(id)
     .then((blob) => {
       const url = URL.createObjectURL(blob);
+      failures.delete(id);
       urls.set(id, url);
       evict();
       notify(id);
       return url;
     })
-    .catch(() => null)
+    .catch(() => {
+      scheduleRetry(id);
+      return null;
+    })
     .finally(() => {
       pending.delete(id);
     });
