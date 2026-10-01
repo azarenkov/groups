@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT MAX(created_at) AS last_issued_at, COUNT(*) FILTER (WHERE created_at > $3) AS \"issued_last_hour!\"\n            FROM verification_codes\n            WHERE user_id = $1 AND purpose = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "last_issued_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 1,
+        "name": "issued_last_hour!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "verification_purpose",
+            "kind": {
+              "Enum": [
+                "registration",
+                "password_reset",
+                "email_change",
+                "phone_change"
+              ]
+            }
+          }
+        },
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "696e0aee515ae491e0119a7f8444c79e24b11629e07c5ac22e1ae1423cd31a37"
+}

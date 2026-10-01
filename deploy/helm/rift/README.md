@@ -45,7 +45,7 @@ Images come from `image.registry/<service>:image.tag` (defaults to `ghcr.io/rift
 
 ## Secrets
 
-`secrets.*` are rendered into `<release>-secrets` unless `secrets.existingSecret` names a Secret you manage yourself; keys must match the environment variable names (`JWT_SECRET`, `ALTCHA_HMAC_KEY`, `TRIAL_HASH_KEY`, `LIVEKIT_API_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MAILER_USERNAME`, `MAILER_PASSWORD`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `STEAM_API_KEY`).
+`secrets.*` are rendered into `<release>-secrets` unless `secrets.existingSecret` names a Secret you manage yourself; keys must match the environment variable names (`JWT_SECRET`, `ALTCHA_HMAC_KEY`, `TRIAL_HASH_KEY`, `INTERNAL_API_TOKEN`, `LIVEKIT_API_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MAILER_USERNAME`, `MAILER_PASSWORD`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `STEAM_API_KEY`).
 
 Keys present in both the ConfigMap and the Secret resolve to the Secret, because `envFrom` lists it last; `NATS_URL` and `REDIS_URL` belong in the Secret whenever they carry credentials, which is what `deploy/terraform` does.
 

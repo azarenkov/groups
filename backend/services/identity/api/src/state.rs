@@ -99,7 +99,7 @@ pub struct AppState {
         BcryptHasher,
         GoogleIdTokenVerifier,
     >,
-    pub confirm_email_change_usecase: ConfirmEmailChange<PostgresIdentityUnitOfWork, BcryptHasher>,
+    pub confirm_email_change_usecase: ConfirmEmailChange<PostgresIdentityUnitOfWork, BcryptHasher, JwtTokenIssuer, RedisAccessRevoker>,
     pub disable_account_usecase: DisableAccount<
         PostgresUserRepository,
         PostgresIdentityUnitOfWork,

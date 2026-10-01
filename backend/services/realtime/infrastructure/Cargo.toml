@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+api-common = { workspace = true }
 realtime-core = { workspace = true }
 realtime-domain = { workspace = true }
 contracts = { workspace = true }

@@ -24,10 +24,11 @@ impl IdentityTrialClient {
 #[async_trait]
 impl TrialState for IdentityTrialClient {
     async fn active_trial(&self, user_id: &UserId) -> Result<Option<ActiveTrial>, String> {
-        let response = self
-            .client
-            .get(format!("{}/internal/users/{}/trial", self.base_url, user_id.uuid()))
-            .send()
+        let response = api_common::middleware::internal::with_internal_token(
+            self.client
+                .get(format!("{}/internal/users/{}/trial", self.base_url, user_id.uuid())),
+        )
+        .send()
             .await
             .map_err(|e| e.to_string())?;
         if !response.status().is_success() {

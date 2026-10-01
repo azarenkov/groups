@@ -4,6 +4,7 @@ use ports::repository::RepositoryError;
 use chrono::{DateTime, Utc};
 
 use crate::{events::IdentityEvent, user::tier::Entitlements, user::tier::TrialHistory, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, user::User, verification::code::VerificationCode, verification::purpose::VerificationPurpose};
+use crate::verification::throttle::IssuedCodes;
 use crate::user::settings::{
     appearance::AppearanceSettings, hotkeys::HotkeyBindings,
     notification::NotificationSettings, voice::VoiceSettings,
@@ -34,6 +35,7 @@ pub trait IdentityTransaction: Send {
     async fn load_entitlements(&mut self, user_id: &UserId) -> Result<Entitlements, RepositoryError>;
     async fn save_entitlements(&mut self, user_id: &UserId, tier: &str, valid_until: Option<DateTime<Utc>>, source: &str) -> Result<Option<i64>, RepositoryError>;
     async fn save_events(&mut self, events: &[IdentityEvent], request_id: Option<&str>) -> Result<(), RepositoryError>;
+    async fn issued_verification_codes(&mut self, user_id: &UserId, purpose: VerificationPurpose, since: DateTime<Utc>) -> Result<IssuedCodes, RepositoryError>;
     async fn trial_history(&mut self, email: &Email, ip: Option<&str>, since: DateTime<Utc>) -> Result<TrialHistory, RepositoryError>;
     async fn start_trial(&mut self, user_id: &UserId, email: &Email, ip: Option<&str>, valid_until: DateTime<Utc>, now: DateTime<Utc>) -> Result<(), RepositoryError>;
     async fn load_trials_ending_for_update(&mut self, before: DateTime<Utc>, limit: i64) -> Result<Vec<UserId>, RepositoryError>;

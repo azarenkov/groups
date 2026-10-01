@@ -1,6 +1,5 @@
 use std::error::Error;
 
-use actix_cors::Cors;
 use actix_web::{App, HttpServer, web};
 use infrastructure_common::{
     config::{nats::NatsConfig, postgres::PostgresConfig},
@@ -94,11 +93,7 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let bind_address = cfg.bind_address.clone();
     let shutdown_config = ShutdownConfig::from_env();
     let server = HttpServer::new(move || {
-        let cors = Cors::default()
-            .allow_any_origin()
-            .allow_any_method()
-            .allow_any_header()
-            .max_age(3600);
+        let cors = api_common::cors::cors();
         App::new()
             .wrap(cors)
             .app_data(ws_state.clone())

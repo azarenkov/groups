@@ -2,7 +2,6 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import { userAPI, type Reauth } from "../../social/api/user";
-import { authAPI } from "../../auth/api/auth";
 import GoogleSignInButton from "../../auth/components/GoogleSignInButton";
 import { useAuthStore } from "../../auth/store/authStore";
 import { ApiError } from "../../../shared/lib/apiError";
@@ -250,7 +249,9 @@ export function ChangeEmailDialog({ onClose }: { onClose: () => void }) {
             ? t("account.emailTaken")
             : apiErr?.code === "SAME_EMAIL"
               ? t("account.sameEmail")
-              : messageOf(err, t("account.genericError")),
+              : apiErr?.code === "VERIFICATION_RESEND_TOO_SOON"
+                ? t("account.resendTooSoon")
+                : messageOf(err, t("account.genericError")),
       );
     } finally {
       setBusy(false);
@@ -262,14 +263,9 @@ export function ChangeEmailDialog({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       const saved = await userAPI.confirmEmailChange(code.trim());
-      try {
-        const fresh = await authAPI.refresh();
-        useAuthStore.getState().setTokens(fresh);
-      } catch (refreshErr) {
-        console.warn("[account] token refresh after email change failed:", refreshErr);
-      }
+      useAuthStore.getState().setTokens(saved.tokens);
       const user = useAuthStore.getState().user;
-      if (user) useAuthStore.getState().setUser({ ...user, email: saved, emailVerified: true });
+      if (user) useAuthStore.getState().setUser({ ...user, email: saved.email, emailVerified: true });
       onClose();
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;

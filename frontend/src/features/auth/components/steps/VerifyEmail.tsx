@@ -19,7 +19,7 @@ export const VerifyEmail: React.FC<{
 }> = ({ email, onVerified, onBack, onEmailChanged, pendingAvatar }) => {
   const { t } = useTranslation("auth");
   const [code, setCode] = useState("");
-  const [secondsLeft, setSecondsLeft] = useState(30);
+  const [secondsLeft, setSecondsLeft] = useState(60);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export const VerifyEmail: React.FC<{
       setEditingEmail(false);
       setCode("");
       setError("");
-      setSecondsLeft(30);
+      setSecondsLeft(60);
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
       setChangeError(
@@ -71,12 +71,13 @@ export const VerifyEmail: React.FC<{
       setIsSubmitting(true);
       setError("");
       try {
+        let fresh;
         if (pendingNewEmail) {
-          await userAPI.confirmEmailChange(value);
+          fresh = (await userAPI.confirmEmailChange(value)).tokens;
         } else {
           await authAPI.confirmRegistration(value);
+          fresh = await authAPI.refresh();
         }
-        const fresh = await authAPI.refresh();
         if (!isAccessTokenVerified(fresh.accessToken)) {
           throw new Error(t("verifyTookNoEffect"));
         }
@@ -271,7 +272,8 @@ export const VerifyEmail: React.FC<{
             type="button"
             className="auth-link muted"
             onClick={async () => {
-              setSecondsLeft(30);
+              setSecondsLeft(60);
+              setError("");
               try {
                 if (pendingNewEmail) {
                   await userAPI.requestEmailChange({ password: pendingChangePassword }, pendingNewEmail);
@@ -280,6 +282,9 @@ export const VerifyEmail: React.FC<{
                 }
               } catch (err) {
                 console.error("[VerifyEmail] resend failed:", err);
+                if (err instanceof ApiError && err.code === "VERIFICATION_RESEND_TOO_SOON") {
+                  setError(t("resendTooSoon"));
+                }
               }
             }}
           >

@@ -191,8 +191,10 @@ function createSplash() {
     backgroundColor: '#0d0d0f',
     icon: appIcon,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      preload: path.join(__dirname, 'splash-preload.js'),
     },
   });
   splashWindow.loadFile(path.join(__dirname, 'splash.html'));

@@ -71,6 +71,7 @@ http {
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Rift-Internal-Token "";
         proxy_set_header Upgrade           $http_upgrade;
         proxy_set_header Connection        $connection_upgrade;
         proxy_read_timeout 75s;
@@ -103,6 +104,7 @@ http {
             proxy_set_header X-Real-IP         $remote_addr;
             proxy_set_header X-Forwarded-For   $remote_addr;
             proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Rift-Internal-Token "";
             proxy_set_header Upgrade           $http_upgrade;
             proxy_set_header Connection        $connection_upgrade;
             proxy_read_timeout 86400s;
@@ -123,7 +125,7 @@ http {
             proxy_pass $upstream_ws;
         }
 
-        location ~ ^/api/v1/auth/(login|register|refresh|google(/complete)?)$ {
+        location ~ ^/api/v1/auth/(login|register|refresh|request_verification_code|google(/complete)?)$ {
             limit_req zone=api burst=60 nodelay;
             limit_req zone=auth burst=5 nodelay;
             set $upstream_identity http://identity-service.${NGINX_NAMESPACE}.svc.${NGINX_CLUSTER_DOMAIN}:8080;
@@ -178,6 +180,12 @@ http {
         }
         location = /api/v1/users/me/profile {
             limit_req zone=api burst=60 nodelay;
+            set $upstream_identity http://identity-service.${NGINX_NAMESPACE}.svc.${NGINX_CLUSTER_DOMAIN}:8080;
+            proxy_pass $upstream_identity;
+        }
+        location = /api/v1/users/me/email/change {
+            limit_req zone=api burst=60 nodelay;
+            limit_req zone=auth burst=5 nodelay;
             set $upstream_identity http://identity-service.${NGINX_NAMESPACE}.svc.${NGINX_CLUSTER_DOMAIN}:8080;
             proxy_pass $upstream_identity;
         }
@@ -331,6 +339,7 @@ http {
             proxy_set_header X-Real-IP         $remote_addr;
             proxy_set_header X-Forwarded-For   $remote_addr;
             proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Rift-Internal-Token "";
             proxy_set_header Upgrade           $http_upgrade;
             proxy_set_header Connection        $connection_upgrade;
             proxy_read_timeout 86400s;

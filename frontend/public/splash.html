@@ -67,15 +67,14 @@
       <div class="status" id="status">Checking for updates…</div>
     </div>
     <script>
-      const { ipcRenderer } = require('electron');
       const fill = document.getElementById('fill');
       const status = document.getElementById('status');
       const bar = document.querySelector('.bar');
 
-      ipcRenderer.on('updater:status', (_, text) => {
+      window.riftSplash.onStatus((text) => {
         status.textContent = text;
       });
-      ipcRenderer.on('updater:progress', (_, percent) => {
+      window.riftSplash.onProgress((percent) => {
         bar.classList.remove('indeterminate');
         fill.style.width = Math.max(0, Math.min(100, percent)) + '%';
       });

@@ -2,6 +2,7 @@ pub mod api_error;
 pub mod client;
 pub mod config;
 pub mod context;
+pub mod cors;
 pub mod dto;
 pub mod health;
 pub mod shutdown;
