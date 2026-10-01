@@ -13,6 +13,7 @@ pub struct ReplyPreviewView {
     pub voice_duration_ms: Option<i32>,
     pub video_note_duration_ms: Option<i32>,
     pub video_note_poster: Option<Vec<u8>>,
+    pub sticker: Option<domain::sticker::StickerSnapshot>,
 }
 
 #[derive(Debug, Clone)]
@@ -27,4 +28,5 @@ pub struct MessageView {
     pub system: Option<SystemMessage>,
     pub reply_to: Option<uuid::Uuid>,
     pub forwarded_from: Option<crate::message::forward::ForwardInfo>,
+    pub sticker: Option<domain::sticker::StickerSnapshot>,
 }

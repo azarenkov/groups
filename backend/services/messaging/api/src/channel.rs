@@ -439,7 +439,8 @@ async fn send_channel_message(
         body.attachment_ids,
         body.reply_to_message_id,
         request_context(&req),
-    );
+    )
+    .with_sticker(body.sticker_id);
 
     let response = app_state
         .send_channel_message_usecase

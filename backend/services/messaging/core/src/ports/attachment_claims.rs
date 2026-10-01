@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use domain::{attachment::AttachmentLink, user::id::UserId};
+use domain::{attachment::AttachmentLink, sticker::StickerSnapshot, user::id::UserId};
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
@@ -26,4 +26,6 @@ pub trait AttachmentClaims {
         id: Uuid,
         owner_id: &UserId,
     ) -> Result<Option<AttachmentLink>, AttachmentClaimError>;
+
+    async fn lookup_sticker(&self, id: Uuid) -> Result<Option<StickerSnapshot>, AttachmentClaimError>;
 }

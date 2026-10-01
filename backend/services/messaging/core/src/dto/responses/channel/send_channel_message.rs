@@ -12,6 +12,7 @@ pub struct SendChannelMessageResponse {
     pub created_at: DateTime<Utc>,
     pub reply: Option<crate::dto::responses::reply::ReplyPreviewDto>,
     pub forwarded_from: Option<messaging_domain::message::forward::ForwardInfo>,
+    pub sticker: Option<domain::sticker::StickerSnapshot>,
 }
 
 impl From<&Message> for SendChannelMessageResponse {
@@ -27,6 +28,7 @@ impl From<&Message> for SendChannelMessageResponse {
                 .reply()
                 .map(|r| crate::dto::responses::reply::ReplyPreviewDto::from_preview(r, None)),
             forwarded_from: value.forward().cloned(),
+            sticker: value.sticker().cloned(),
         }
     }
 }

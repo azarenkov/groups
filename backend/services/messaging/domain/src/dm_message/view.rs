@@ -18,4 +18,5 @@ pub struct DmMessageView {
     pub edited_at: Option<DateTime<Utc>>,
     pub reply_to: Option<uuid::Uuid>,
     pub forwarded_from: Option<crate::message::forward::ForwardInfo>,
+    pub sticker: Option<domain::sticker::StickerSnapshot>,
 }

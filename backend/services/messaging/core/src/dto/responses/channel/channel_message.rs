@@ -30,6 +30,7 @@ pub struct ChannelMessageDto {
     pub system: Option<SystemMessageDto>,
     pub reply_to_message_id: Option<Uuid>,
     pub forwarded_from: Option<messaging_domain::message::forward::ForwardInfo>,
+    pub sticker: Option<domain::sticker::StickerSnapshot>,
 }
 
 impl From<Message> for ChannelMessageDto {
@@ -46,6 +47,7 @@ impl From<Message> for ChannelMessageDto {
             system: value.system().map(SystemMessageDto::from),
             reply_to_message_id: value.reply().map(|r| r.message_id),
             forwarded_from: value.forward().cloned(),
+            sticker: value.sticker().cloned(),
         }
     }
 }
@@ -64,6 +66,7 @@ impl From<MessageView> for ChannelMessageDto {
             system: value.system.as_ref().map(SystemMessageDto::from),
             reply_to_message_id: value.reply_to,
             forwarded_from: value.forwarded_from,
+            sticker: value.sticker,
         }
     }
 }

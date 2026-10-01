@@ -987,6 +987,7 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::ChannelNotFound => StatusCode::NOT_FOUND,
             SendChannelMessageError::NotTextChannel => StatusCode::BAD_REQUEST,
             SendChannelMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
+            SendChannelMessageError::InvalidSticker => StatusCode::BAD_REQUEST,
             SendChannelMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             SendChannelMessageError::InvalidReply => StatusCode::BAD_REQUEST,
         }
@@ -1007,6 +1008,7 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::InvalidAttachments => {
                 "One or more attachments are invalid.".to_string()
             }
+            SendChannelMessageError::InvalidSticker => "This sticker is unavailable.".to_string(),
             SendChannelMessageError::AttachmentsUnavailable(_) => {
                 "Attachment service is temporarily unavailable. Try again later.".to_string()
             }
@@ -1028,6 +1030,7 @@ impl HttpMapping for SendChannelMessageError {
             SendChannelMessageError::NotChannelMember => "CHANNEL_NOT_MEMBER",
             SendChannelMessageError::ChannelNotFound => "CHANNEL_NOT_FOUND",
             SendChannelMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
+            SendChannelMessageError::InvalidSticker => "STICKER_INVALID",
             SendChannelMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
             SendChannelMessageError::NotTextChannel => "CHANNEL_NOT_TEXT",
             SendChannelMessageError::InvalidReply => "REPLY_INVALID",
@@ -1319,6 +1322,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::SelfDm => StatusCode::BAD_REQUEST,
             SendDmMessageError::RecipientInactive => StatusCode::FORBIDDEN,
             SendDmMessageError::InvalidAttachments => StatusCode::BAD_REQUEST,
+            SendDmMessageError::InvalidSticker => StatusCode::BAD_REQUEST,
             SendDmMessageError::AttachmentsUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             SendDmMessageError::InvalidReply => StatusCode::BAD_REQUEST,
         }
@@ -1330,6 +1334,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::InvalidAttachments => {
                 "One or more attachments are invalid.".to_string()
             }
+            SendDmMessageError::InvalidSticker => "This sticker is unavailable.".to_string(),
             SendDmMessageError::AttachmentsUnavailable(_) => {
                 "Attachment service is temporarily unavailable. Try again later.".to_string()
             }
@@ -1352,6 +1357,7 @@ impl HttpMapping for SendDmMessageError {
             SendDmMessageError::Repository(e) => e.to_error_code(),
             SendDmMessageError::Domain(e) => e.to_error_code(),
             SendDmMessageError::InvalidAttachments => "ATTACHMENTS_INVALID",
+            SendDmMessageError::InvalidSticker => "STICKER_INVALID",
             SendDmMessageError::AttachmentsUnavailable(_) => "ATTACHMENTS_UNAVAILABLE",
             SendDmMessageError::NotFriends => "NOT_FRIENDS",
             SendDmMessageError::Blocked => "USER_BLOCKED",
@@ -2101,6 +2107,7 @@ impl HttpMapping for MessageError {
             MessageError::NotAuthor => StatusCode::FORBIDDEN,
             MessageError::SystemMessage => StatusCode::CONFLICT,
             MessageError::Forwarded => StatusCode::BAD_REQUEST,
+            MessageError::Sticker => StatusCode::BAD_REQUEST,
         }
     }
 
@@ -2116,6 +2123,7 @@ impl HttpMapping for MessageError {
             }
             MessageError::SystemMessage => "System messages cannot be edited or deleted".to_string(),
             MessageError::Forwarded => "Forwarded messages cannot be edited".to_string(),
+            MessageError::Sticker => "Sticker messages cannot be edited".to_string(),
         }
     }
 
@@ -2127,6 +2135,7 @@ impl HttpMapping for MessageError {
             MessageError::NotAuthor => "MESSAGE_NOT_AUTHOR",
             MessageError::SystemMessage => "MESSAGE_IS_SYSTEM",
             MessageError::Forwarded => "MESSAGE_FORWARDED",
+            MessageError::Sticker => "MESSAGE_STICKER",
         }
     }
 }
@@ -2167,6 +2176,7 @@ impl HttpMapping for DmMessageError {
             DmMessageError::ContentUnchanged => StatusCode::BAD_REQUEST,
             DmMessageError::NotEditable => StatusCode::BAD_REQUEST,
             DmMessageError::Forwarded => StatusCode::BAD_REQUEST,
+            DmMessageError::Sticker => StatusCode::BAD_REQUEST,
         }
     }
     fn to_user_message(&self) -> String {
@@ -2178,6 +2188,7 @@ impl HttpMapping for DmMessageError {
             DmMessageError::ContentUnchanged => "DM_CONTENT_UNCHANGED",
             DmMessageError::NotEditable => "DM_NOT_EDITABLE",
             DmMessageError::Forwarded => "MESSAGE_FORWARDED",
+            DmMessageError::Sticker => "MESSAGE_STICKER",
         }
     }
 }
