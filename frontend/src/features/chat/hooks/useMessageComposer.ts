@@ -320,6 +320,7 @@ export function useMessageComposer(params: {
           : apiErr?.code === "REPLY_INVALID"
             ? i18n.t("replyUnavailable", { ns: "chat" })
             : apiErr?.message || i18n.t("couldNotSend", { ns: "chat" });
+      if (apiErr?.code === "STICKER_INVALID") useStickerStore.getState().forgetSticker(sticker.id);
       if (apiErr?.code === "REPLY_INVALID" && stillHere()) setReplyTarget(null);
       if (stillHere()) setComposerError(message);
       return false;
