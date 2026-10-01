@@ -4,6 +4,7 @@ import type {
   ChannelMessage,
   ForwardInfo,
   ReplyPreview,
+  StickerSnapshot,
   SystemMessageInfo,
 } from "../../../shared/types/channel";
 import { markReplyDeleted, refreshReplySnippet } from "../lib/replies";
@@ -32,6 +33,7 @@ export function useChatWsMessages(params: {
         system?: SystemMessageInfo;
         replyTo?: Omit<ReplyPreview, "deleted"> & { deleted?: boolean };
         forwardedFrom?: ForwardInfo | null;
+        sticker?: StickerSnapshot | null;
       }) => {
         setMessages((prev) =>
           prev.some((x) => x.id === m.id)
@@ -49,6 +51,7 @@ export function useChatWsMessages(params: {
                   system: m.system,
                   replyTo: m.replyTo ? { ...m.replyTo, deleted: m.replyTo.deleted ?? false } : undefined,
                   forwardedFrom: m.forwardedFrom,
+                  sticker: m.sticker ?? null,
                   createdAt: m.occurredAt,
                   editedAt: null,
                 },
@@ -104,6 +107,7 @@ export function useChatWsMessages(params: {
         attachments?: Attachment[];
         replyTo?: (Omit<ReplyPreview, "deleted"> & { deleted?: boolean }) | null;
         forwardedFrom?: ForwardInfo | null;
+        sticker?: StickerSnapshot | null;
       }) => {
         setMessages((prev) =>
           prev.some((x) => x.id === m.id)
@@ -123,6 +127,7 @@ export function useChatWsMessages(params: {
                   attachments: m.attachments,
                   replyTo: m.replyTo ? { ...m.replyTo, deleted: m.replyTo.deleted ?? false } : undefined,
                   forwardedFrom: m.forwardedFrom,
+                  sticker: m.sticker ?? null,
                   createdAt: m.occurredAt,
                   editedAt: null,
                 },

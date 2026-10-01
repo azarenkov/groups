@@ -1,4 +1,6 @@
 import React from "react";
+import type { PackSticker } from "../../stickers/api/stickers";
+import { useStickerStore } from "../../stickers/store/stickerStore";
 import i18n from "../../../i18n";
 import { ApiError } from "../../../shared/lib/apiError";
 import { channelAPI } from "../../communities/api/channel";
@@ -271,11 +273,40 @@ export function useMessageComposer(params: {
     }
   };
 
+  const sendSticker = async (sticker: PackSticker): Promise<boolean> => {
+    if (!messenger) return false;
+    const originConvId = currentChannelIdRef.current;
+    const stillHere = () => currentChannelIdRef.current === originConvId;
+    const reply = replyTarget;
+    setComposerError(null);
+    try {
+      const msg = await messenger.sendMessage("", undefined, reply?.id, sticker.id);
+      msg.sticker = msg.sticker ?? sticker;
+      useStickerStore.getState().rememberUsed(sticker);
+      if (stillHere()) {
+        if (reply) setReplyTarget(null);
+        setMessages((prev) => (prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
+      }
+      return true;
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      const message =
+        apiErr?.code === "STICKER_INVALID"
+          ? i18n.t("stickerUnavailable", { ns: "chat" })
+          : apiErr?.code === "REPLY_INVALID"
+            ? i18n.t("replyUnavailable", { ns: "chat" })
+            : apiErr?.message || i18n.t("couldNotSend", { ns: "chat" });
+      if (stillHere()) setComposerError(message);
+      return false;
+    }
+  };
+
   return {
     text,
     setText,
     sending,
     sendVoice,
+    sendSticker,
     composerError,
     setComposerError,
     composerRef,

@@ -158,5 +158,7 @@
   "videoNoteCameraBusy": "Камера занята другим приложением или звонком.",
   "videoNoteTooLong": "Кружок может быть не длиннее минуты.",
   "videoNoteInvalid": "Не удалось отправить кружок.",
-  "voiceSlideToLock": "Вверх — закрепить запись"
+  "voiceSlideToLock": "Вверх — закрепить запись",
+  "stickerUnavailable": "Этот стикер больше недоступен",
+  "replySticker": "Стикер"
 }

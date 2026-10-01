@@ -1,6 +1,6 @@
 import { http } from "../../../shared/api/http";
 
-import { Attachment, ChannelMessage, ForwardInfo, ReplyPreview } from "../../../shared/types/channel";
+import { Attachment, ChannelMessage, ForwardInfo, ReplyPreview, StickerSnapshot } from "../../../shared/types/channel";
 
 interface DmRow {
   id: string;
@@ -15,6 +15,7 @@ interface DmRow {
   attachments?: Attachment[];
   replyTo?: ReplyPreview;
   forwardedFrom?: ForwardInfo | null;
+  sticker?: StickerSnapshot | null;
   voiceListened?: boolean;
   createdAt: string;
   editedAt: string | null;
@@ -33,6 +34,7 @@ const toChannelMessage = (r: DmRow): ChannelMessage => ({
   attachments: r.attachments,
   replyTo: r.replyTo,
   forwardedFrom: r.forwardedFrom,
+  sticker: r.sticker,
   voiceListened: r.voiceListened,
   createdAt: r.createdAt,
   editedAt: r.editedAt,
@@ -70,6 +72,7 @@ class DmAPI {
       hasAttachments: boolean;
       voiceDurationMs?: number | null;
       videoNoteDurationMs?: number | null;
+      stickerEmoji?: string | null;
       createdAt: string;
     }[];
     nextCursor: string | null;
@@ -85,10 +88,11 @@ class DmAPI {
     content: string,
     attachmentIds?: string[],
     replyToMessageId?: string,
+    stickerId?: string,
   ): Promise<ChannelMessage> {
     const response = await this.client.post(
       `/v1/users/me/dms/${friendId}/messages`,
-      { content, attachmentIds, replyToMessageId },
+      { content, attachmentIds, replyToMessageId, stickerId },
     );
     return toChannelMessage(response.data.data);
   }

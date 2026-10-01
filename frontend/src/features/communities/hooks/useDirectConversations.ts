@@ -33,7 +33,9 @@ export function useDirectConversations(params: {
         : p.inviteCommunityId
           ? tSidebar("previewInvite")
           : p.content ||
-            (typeof p.videoNoteDurationMs === "number"
+            (p.stickerEmoji
+              ? tSidebar("previewSticker", { emoji: p.stickerEmoji })
+              : typeof p.videoNoteDurationMs === "number"
               ? tSidebar("previewVideoNote")
               : typeof p.voiceDurationMs === "number"
               ? tSidebar("previewVoice")

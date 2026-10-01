@@ -37,6 +37,7 @@ export const dmHandlers: WsHandlers = {
         hasAttachments: Array.isArray(d.attachments) && d.attachments.length > 0,
         voiceDurationMs: voiceDurationFromPayload(d.attachments),
         videoNoteDurationMs: videoNoteDurationFromPayload(d.attachments),
+        stickerEmoji: asString((d.sticker as { emoji?: unknown } | null | undefined)?.emoji) ?? null,
         createdAt: asString(d.occurredAt) ?? new Date().toISOString(),
       });
       if (!knownPeerName) refetchDmPreviews();
@@ -60,7 +61,7 @@ export const dmHandlers: WsHandlers = {
       useUnreadStore.getState().bumpDm(senderId);
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
-        showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments));
+        showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments, d.sticker));
       }
       return;
   },

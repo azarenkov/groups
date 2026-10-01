@@ -15,7 +15,7 @@ export function messageActions(ctx: MessageMenuContext): MessageAction[] {
   const actions: MessageAction[] = [];
   if (!card && !msg.system) actions.push("reply");
   if (!card && !msg.system) actions.push("forward");
-  const voice = isVoiceMessage(msg);
+  const voice = isVoiceMessage(msg) || !!msg.sticker;
   const hasText = !voice && (msg.content.length > 0 || (msg.attachments?.length ?? 0) > 0);
   if (!card && (hasText || hasSelection)) actions.push("copy");
   if (!msg.system) actions.push("link");
