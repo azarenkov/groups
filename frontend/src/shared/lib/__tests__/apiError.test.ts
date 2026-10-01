@@ -72,6 +72,16 @@ describe("apiError translations", () => {
     );
   });
 
+  it("keeps the size limit from the server", async () => {
+    await i18n.changeLanguage("ru");
+    const error = httpError(413, {
+      code: "AVATAR_TOO_LARGE",
+      message: "Image is too large (max 8 MB).",
+    });
+
+    expect(getApiErrorMessage(error)).toBe("Изображение слишком большое: максимум 8 МБ.");
+  });
+
   it("uses field codes for validation failures", () => {
     const error = httpError(400, {
       code: "VALIDATION_FAILED",

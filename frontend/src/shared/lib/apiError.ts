@@ -18,6 +18,7 @@ interface ErrorEnvelope {
 
 const NS = "errors";
 const SECONDS_PATTERN = /(\d+)\s*seconds?\b/i;
+const SIZE_LIMIT_PATTERN = /max\s+(\d+)\s*MB/i;
 
 function translate(key: string, options?: Record<string, unknown>): string | undefined {
   if (!i18n.exists(key, { ns: NS })) return undefined;
@@ -58,6 +59,11 @@ function translateCode(details: ApiErrorDetails): string | undefined {
   if (seconds !== undefined) {
     const timed = translate(`codes.${code}_seconds`, { seconds });
     if (timed) return timed;
+  }
+  const limit = details.message?.match(SIZE_LIMIT_PATTERN)?.[1];
+  if (limit !== undefined) {
+    const limited = translate(`codes.${code}_limit`, { limit: Number(limit) });
+    if (limited) return limited;
   }
   return translate(`codes.${code}`);
 }
