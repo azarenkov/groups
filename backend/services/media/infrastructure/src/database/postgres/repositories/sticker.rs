@@ -136,23 +136,41 @@ impl StickerRepository for PostgresStickerRepository {
             return Ok(false);
         }
         sqlx::query!(
-            r#"INSERT INTO media_sticker_packs (id, owner_id, name, slug, install_count) VALUES ($1, $2, $3, $4, 1)"#,
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 47))",
+            owner_id.uuid().to_string()
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let installed = sqlx::query_scalar!(
+            r#"SELECT COUNT(*) AS "count!" FROM media_sticker_installs WHERE user_id = $1"#,
+            owner_id.uuid(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let install = installed < MAX_INSTALLED_PACKS;
+        sqlx::query!(
+            r#"INSERT INTO media_sticker_packs (id, owner_id, name, slug, install_count) VALUES ($1, $2, $3, $4, $5)"#,
             id,
             owner_id.uuid(),
             name,
             slug,
+            i32::from(install),
         )
         .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query!(
-            r#"INSERT INTO media_sticker_installs (user_id, pack_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"#,
-            owner_id.uuid(),
-            id,
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        if install {
+            sqlx::query!(
+                r#"INSERT INTO media_sticker_installs (user_id, pack_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"#,
+                owner_id.uuid(),
+                id,
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        }
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(true)
     }
