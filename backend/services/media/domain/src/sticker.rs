@@ -98,11 +98,51 @@ pub fn valid_pack_slug(slug: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
 }
 
+fn is_pictograph(c: char) -> bool {
+    matches!(
+        c as u32,
+        0x00A9
+            | 0x00AE
+            | 0x203C
+            | 0x2049
+            | 0x2122
+            | 0x2139
+            | 0x2194..=0x2199
+            | 0x21A9..=0x21AA
+            | 0x231A..=0x231B
+            | 0x2328
+            | 0x23CF
+            | 0x23E9..=0x23F3
+            | 0x23F8..=0x23FA
+            | 0x24C2
+            | 0x25AA..=0x25AB
+            | 0x25B6
+            | 0x25C0
+            | 0x25FB..=0x25FE
+            | 0x2600..=0x27BF
+            | 0x2934..=0x2935
+            | 0x2B05..=0x2B07
+            | 0x2B1B..=0x2B1C
+            | 0x2B50
+            | 0x2B55
+            | 0x3030
+            | 0x303D
+            | 0x3297
+            | 0x3299
+            | 0x1F000..=0x1FAFF
+    )
+}
+
+fn is_emoji_joiner(c: char) -> bool {
+    matches!(c as u32, 0x20 | 0x200D | 0xFE0F | 0x20E3 | 0xE0020..=0xE007F)
+}
+
 pub fn valid_sticker_emoji(emoji: &str) -> bool {
     let trimmed = emoji.trim();
     !trimmed.is_empty()
         && trimmed.len() <= MAX_STICKER_EMOJI_BYTES
-        && !trimmed.chars().any(|c| c.is_ascii_alphanumeric() || c.is_control())
+        && trimmed.chars().any(is_pictograph)
+        && trimmed.chars().all(|c| is_pictograph(c) || is_emoji_joiner(c))
 }
 
 pub fn max_owned_packs(tier: &str) -> i64 {
@@ -153,6 +193,11 @@ mod tests {
         assert!(!valid_sticker_emoji(""));
         assert!(!valid_sticker_emoji("cat"));
         assert!(!valid_sticker_emoji(&"😺".repeat(9)));
+        assert!(valid_sticker_emoji("🇷🇺"));
+        assert!(valid_sticker_emoji("👍🏽"));
+        for text in ["!!!", "---", "()", "😺a", "ок", "\u{200D}"] {
+            assert!(!valid_sticker_emoji(text), "{text}");
+        }
     }
 
     #[test]

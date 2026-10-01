@@ -459,6 +459,10 @@ impl StickerRepository for PostgresStickerRepository {
 
     async fn uninstall(&self, user_id: &UserId, pack_id: Uuid) -> Result<bool, RepositoryError> {
         let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(r#"SELECT id FROM media_sticker_packs WHERE id = $1 FOR UPDATE"#, pack_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
         let removed = sqlx::query!(
             r#"DELETE FROM media_sticker_installs WHERE user_id = $1 AND pack_id = $2"#,
             user_id.uuid(),
@@ -516,6 +520,16 @@ impl StickerRepository for PostgresStickerRepository {
         let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
         sqlx::query!(
             r#"
+            UPDATE media_sticker_packs SET deleted_at = now(), updated_at = now(), install_count = 0
+            WHERE owner_id = $1 AND deleted_at IS NULL
+            "#,
+            user_id.uuid(),
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!(
+            r#"
             UPDATE media_sticker_packs p SET install_count = GREATEST(p.install_count - 1, 0)
             FROM media_sticker_installs i
             WHERE i.user_id = $1 AND i.pack_id = p.id
@@ -532,17 +546,7 @@ impl StickerRepository for PostgresStickerRepository {
         sqlx::query!(
             r#"
             DELETE FROM media_sticker_installs
-            WHERE pack_id IN (SELECT id FROM media_sticker_packs WHERE owner_id = $1 AND deleted_at IS NULL)
-            "#,
-            user_id.uuid(),
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query!(
-            r#"
-            UPDATE media_sticker_packs SET deleted_at = now(), updated_at = now(), install_count = 0
-            WHERE owner_id = $1 AND deleted_at IS NULL
+            WHERE pack_id IN (SELECT id FROM media_sticker_packs WHERE owner_id = $1)
             "#,
             user_id.uuid(),
         )
