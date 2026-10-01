@@ -868,6 +868,8 @@
 }
 
 .msg.bubble .txt.vnote-only { background: transparent; padding: 0; }
+.msg.bubble .txt.jumbo-only { background: transparent; padding: 0; box-shadow: none; }
+.msg-text.jumbo { font-size: 48px; line-height: 1.15; letter-spacing: 0; }
 .msg.bubble.mine .txt.vnote-only .msg-forwarded { color: var(--fg-3); }
 .msg.bubble.mine .txt.vnote-only .msg-reply {
   border-left-color: var(--accent);

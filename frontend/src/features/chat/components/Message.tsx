@@ -17,6 +17,7 @@ import AttachmentItem from "./AttachmentItem";
 import VoicePlayer from "./VoicePlayer";
 import VideoNotePlayer from "./VideoNotePlayer";
 import { videoNoteAttachmentOf } from "../lib/voice";
+import { isJumboEmoji } from "../lib/emoji";
 import LinkPreview from "./LinkPreview";
 import ReadTicks from "./ReadTicks";
 import { renderWithLinks } from "./MessageText";
@@ -120,6 +121,7 @@ export const Message: React.FC<MessageProps> = ({
   onOpenForwardSource,
   onVoiceListened,
 }) => {
+  const jumbo = !(msg.attachments?.length ?? 0) && isJumboEmoji(msg.content);
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
     rememberMentionTarget(displayName, msg.authorId);
@@ -618,7 +620,13 @@ export const Message: React.FC<MessageProps> = ({
             </div>
           </div>
         ) : (
-          <div className={"txt" + (videoNoteAttachmentOf(msg) ? " vnote-only" : "")}>
+          <div
+            className={
+              "txt" +
+              (videoNoteAttachmentOf(msg) ? " vnote-only" : "") +
+              (jumbo && !msg.replyTo && !msg.forwardedFrom ? " jumbo-only" : "")
+            }
+          >
             {!dmStyle && !isMine && !continued && (
               <div className="msg-author">
                 <ProfileLink
@@ -717,7 +725,7 @@ export const Message: React.FC<MessageProps> = ({
                 </div>
               );
             })()}
-            <span className="msg-text">{renderWithLinks(msg.content)}</span>
+            <span className={"msg-text" + (jumbo ? " jumbo" : "")}>{renderWithLinks(msg.content)}</span>
             {(msg.attachments?.length ?? 0) > 0 && (
               <div className="msg-attachments">
                 {(msg.attachments ?? []).map((a) =>
