@@ -322,6 +322,7 @@ dependencies = [
  "jsonwebtoken 10.3.0",
  "ports",
  "redis",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -3483,6 +3484,7 @@ name = "realtime-infrastructure"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "api-common",
  "async-nats",
  "async-trait",
  "chrono",

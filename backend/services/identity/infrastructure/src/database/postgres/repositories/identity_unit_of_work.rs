@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use chrono::{DateTime, Utc};
-use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::Tier, user::tier::TrialHistory, user::tier::trial_email_key, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::Tier, user::tier::TrialHistory, user::tier::trial_email_key, verification::throttle::IssuedCodes, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 use sqlx::{Pool, Postgres, Transaction};
 use std::collections::BTreeMap;
 use identity_domain::user::settings::{
@@ -496,6 +496,31 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         .fetch_one(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)
+    }
+
+    async fn issued_verification_codes(&mut self, user_id: &UserId, purpose: VerificationPurpose, since: DateTime<Utc>) -> Result<IssuedCodes, RepositoryError> {
+        let purpose = VerificationPurposeDto::from(&purpose);
+        let row = sqlx::query!(
+            r#"
+            SELECT
+                MAX(created_at) AS last_issued_at,
+                MIN(created_at) FILTER (WHERE created_at > $3) AS oldest_in_window,
+                COUNT(*) FILTER (WHERE created_at > $3) AS "issued_last_hour!"
+            FROM verification_codes
+            WHERE user_id = $1 AND purpose = $2
+            "#,
+            user_id.uuid(),
+            purpose as VerificationPurposeDto,
+            since,
+        )
+        .fetch_one(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(IssuedCodes {
+            last_issued_at: row.last_issued_at,
+            oldest_in_window: row.oldest_in_window,
+            issued_last_hour: row.issued_last_hour,
+        })
     }
 
     async fn trial_history(&mut self, email: &Email, ip: Option<&str>, since: DateTime<Utc>) -> Result<TrialHistory, RepositoryError> {

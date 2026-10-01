@@ -69,6 +69,7 @@
       "node_modules/**/*",
       "public/electron.js",
       "public/preload.js",
+      "public/splash-preload.js",
       "public/splash.html",
       "public/icons/**/*",
       "public/worklets/**/*",

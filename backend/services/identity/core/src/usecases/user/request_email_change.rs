@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::user::id::UserId;
-use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError, user::email::Email, user::repository::UserRepository, verification::code::VerificationCode, verification::code_hash::CodeHash};
+use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError, user::email::Email, user::repository::UserRepository, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose, verification::throttle::IssuedCodes};
 use ports::repository::RepositoryError;
 
 use crate::{
@@ -24,6 +24,8 @@ pub enum RequestEmailChangeError {
     SameEmail,
     #[error("User not found")]
     UserNotFound,
+    #[error("Try again in {0} seconds")]
+    TooSoon(i64),
 }
 
 pub struct RequestEmailChangeRequest {
@@ -84,9 +86,6 @@ where
             return Err(RequestEmailChangeError::EmailTaken);
         }
 
-        let plain_code = VerificationCode::generate();
-        let code_hash = CodeHash::new(self.hasher.hash(&plain_code)?);
-
         let snapshot = user;
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
@@ -98,6 +97,15 @@ where
         {
             self.reauthenticator.verify(&user, &request.reauth).await?;
         }
+        let now = Utc::now();
+        let issued = tx
+            .issued_verification_codes(&user_id, VerificationPurpose::EmailChange, IssuedCodes::window_start(now))
+            .await?;
+        if let Some(wait) = issued.retry_after(now) {
+            return Err(RequestEmailChangeError::TooSoon(wait.num_seconds().max(1)));
+        }
+        let plain_code = VerificationCode::generate();
+        let code_hash = CodeHash::new(self.hasher.hash(&plain_code)?);
         let mut code = user
             .request_email_change(new_email, plain_code, code_hash, Utc::now())
             .map_err(|e| match e {

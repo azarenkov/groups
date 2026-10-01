@@ -260,9 +260,21 @@ class UserAPI {
     await this.client.post("/v1/users/me/email/change", { ...reauth, newEmail });
   }
 
-  async confirmEmailChange(verificationCode: string): Promise<string> {
+  async confirmEmailChange(verificationCode: string): Promise<{
+    email: string;
+    tokens: { accessToken: string; refreshToken: string; tokenType: string; expiresIn: number };
+  }> {
     const response = await this.client.post("/v1/users/me/email/confirm", { verificationCode });
-    return response.data.data.email as string;
+    const data = response.data.data;
+    return {
+      email: data.email as string,
+      tokens: {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        tokenType: data.tokenType,
+        expiresIn: data.expiresIn,
+      },
+    };
   }
 
   async disableAccount(reauth: Reauth): Promise<void> {

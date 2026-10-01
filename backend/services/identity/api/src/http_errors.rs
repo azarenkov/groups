@@ -539,6 +539,7 @@ impl HttpMapping for IssueVerificationCodeError {
             IssueVerificationCodeError::UnsupportedChannel => StatusCode::BAD_REQUEST,
             IssueVerificationCodeError::UserAlreadyVerified => StatusCode::CONFLICT,
             IssueVerificationCodeError::UserNotFound => StatusCode::NOT_FOUND,
+            IssueVerificationCodeError::TooSoon(_) => StatusCode::TOO_MANY_REQUESTS,
         }
     }
 
@@ -551,6 +552,7 @@ impl HttpMapping for IssueVerificationCodeError {
             }
             IssueVerificationCodeError::UserAlreadyVerified => "User already verified".to_string(),
             IssueVerificationCodeError::UserNotFound => "User not found".to_string(),
+            IssueVerificationCodeError::TooSoon(secs) => format!("Too many codes requested. Try again in {secs} seconds."),
         }
     }
 
@@ -561,6 +563,7 @@ impl HttpMapping for IssueVerificationCodeError {
             IssueVerificationCodeError::UnsupportedChannel => "VERIFICATION_CHANNEL_UNSUPPORTED",
             IssueVerificationCodeError::UserAlreadyVerified => "USER_ALREADY_VERIFIED",
             IssueVerificationCodeError::UserNotFound => "USER_NOT_FOUND",
+            IssueVerificationCodeError::TooSoon(_) => "VERIFICATION_RESEND_TOO_SOON",
         }
     }
 }
@@ -791,6 +794,7 @@ impl HttpMapping for RequestEmailChangeError {
             RequestEmailChangeError::EmailTaken => StatusCode::CONFLICT,
             RequestEmailChangeError::SameEmail => StatusCode::BAD_REQUEST,
             RequestEmailChangeError::UserNotFound => StatusCode::NOT_FOUND,
+            RequestEmailChangeError::TooSoon(_) => StatusCode::TOO_MANY_REQUESTS,
         }
     }
     fn to_user_message(&self) -> String {
@@ -801,6 +805,7 @@ impl HttpMapping for RequestEmailChangeError {
             RequestEmailChangeError::EmailTaken => "This email is already in use".to_string(),
             RequestEmailChangeError::SameEmail => "This is already your email".to_string(),
             RequestEmailChangeError::UserNotFound => "User not found".to_string(),
+            RequestEmailChangeError::TooSoon(secs) => format!("Too many codes requested. Try again in {secs} seconds."),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -811,6 +816,7 @@ impl HttpMapping for RequestEmailChangeError {
             RequestEmailChangeError::EmailTaken => "EMAIL_TAKEN",
             RequestEmailChangeError::SameEmail => "SAME_EMAIL",
             RequestEmailChangeError::UserNotFound => "USER_NOT_FOUND",
+            RequestEmailChangeError::TooSoon(_) => "VERIFICATION_RESEND_TOO_SOON",
         }
     }
 }
@@ -826,6 +832,8 @@ impl HttpMapping for ConfirmEmailChangeError {
             ConfirmEmailChangeError::CodeExpired => StatusCode::GONE,
             ConfirmEmailChangeError::BadCode => StatusCode::BAD_REQUEST,
             ConfirmEmailChangeError::UserNotFound => StatusCode::NOT_FOUND,
+            ConfirmEmailChangeError::TokenIssuer(e) => e.to_http_status(),
+            ConfirmEmailChangeError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -838,6 +846,8 @@ impl HttpMapping for ConfirmEmailChangeError {
             ConfirmEmailChangeError::CodeExpired => "Verification code has expired".to_string(),
             ConfirmEmailChangeError::BadCode => "Incorrect verification code".to_string(),
             ConfirmEmailChangeError::UserNotFound => "User not found".to_string(),
+            ConfirmEmailChangeError::TokenIssuer(e) => e.to_user_message(),
+            ConfirmEmailChangeError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -850,6 +860,8 @@ impl HttpMapping for ConfirmEmailChangeError {
             ConfirmEmailChangeError::CodeExpired => "CODE_EXPIRED",
             ConfirmEmailChangeError::BadCode => "BAD_CODE",
             ConfirmEmailChangeError::UserNotFound => "USER_NOT_FOUND",
+            ConfirmEmailChangeError::TokenIssuer(e) => e.to_error_code(),
+            ConfirmEmailChangeError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
         }
     }
 }

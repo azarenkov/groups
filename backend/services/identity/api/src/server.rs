@@ -10,7 +10,6 @@ use identity_infrastructure::media_client::activity_audience::MessagingAudienceC
 use identity_infrastructure::media_client::block_lookup::MessagingBlockClient;
 use std::{error::Error, sync::Arc};
 
-use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use identity::usecases::{
     connections::{
@@ -260,7 +259,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             hasher.clone(),
             reauthenticator.clone(),
         ),
-        confirm_email_change_usecase: ConfirmEmailChange::new(unit_of_work.clone(), hasher.clone()),
+        confirm_email_change_usecase: ConfirmEmailChange::new(
+            unit_of_work.clone(),
+            hasher.clone(),
+            token_issuer.clone(),
+            access_revoker.clone(),
+        ),
         disable_account_usecase: DisableAccount::new(
             user_repository.clone(),
             unit_of_work.clone(),
@@ -338,14 +342,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let shutdown_config = ShutdownConfig::from_env();
 
     let server = HttpServer::new(move || {
-        let cors = Cors::default()
-            .allow_any_origin()
-            .allow_any_method()
-            .allow_any_header()
-            .expose_headers(["x-request-id"])
-            .max_age(3600);
+        let cors = api_common::cors::cors();
 
         App::new()
+            .wrap(actix_web::middleware::from_fn(
+                api_common::middleware::internal::guard_internal_routes,
+            ))
             .app_data(app_state.clone())
             .app_data(readiness_data.clone())
             .app_data(rate_limiter_data.clone())

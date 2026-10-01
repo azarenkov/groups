@@ -2,10 +2,17 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::user::id::UserId;
-use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::UserError, verification::purpose::VerificationPurpose};
 use ports::repository::RepositoryError;
 
-use crate::ports::hasher::{HashError, Hasher};
+use crate::{
+    ports::{
+        access_revoker::{AccessRevoker, AccessRevokerError},
+        hasher::{HashError, Hasher},
+        token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
+    },
+    usecases::auth::reactivation::wait_past_cutoff,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConfirmEmailChangeError {
@@ -25,6 +32,15 @@ pub enum ConfirmEmailChangeError {
     BadCode,
     #[error("User not found")]
     UserNotFound,
+    #[error("Token issuer error: {0}")]
+    TokenIssuer(#[from] TokenIssuerError),
+    #[error("Access revocation error: {0}")]
+    AccessRevoker(#[from] AccessRevokerError),
+}
+
+pub struct ConfirmedEmailChange {
+    pub email: String,
+    pub tokens: IssuedTokens,
 }
 
 impl From<UserError> for ConfirmEmailChangeError {
@@ -47,28 +63,41 @@ impl From<UserError> for ConfirmEmailChangeError {
 
 pub struct ConfirmEmailChangeRequest {
     pub verification_code: String,
+    pub ip: Option<String>,
+    pub user_agent: Option<String>,
     pub request_id: Option<String>,
 }
 
-pub struct ConfirmEmailChange<W, H>
+pub struct ConfirmEmailChange<W, H, I, R>
 where
     W: IdentityUnitOfWork,
     H: Hasher,
+    I: TokenIssuer,
+    R: AccessRevoker,
 {
     unit_of_work: Arc<W>,
     hasher: Arc<H>,
+    token_issuer: Arc<I>,
+    access_revoker: Arc<R>,
 }
 
-impl<W, H> ConfirmEmailChange<W, H>
+impl<W, H, I, R> ConfirmEmailChange<W, H, I, R>
 where
     W: IdentityUnitOfWork,
     H: Hasher,
+    I: TokenIssuer,
+    R: AccessRevoker,
 {
-    pub fn new(unit_of_work: Arc<W>, hasher: Arc<H>) -> Self {
-        Self { unit_of_work, hasher }
+    pub fn new(unit_of_work: Arc<W>, hasher: Arc<H>, token_issuer: Arc<I>, access_revoker: Arc<R>) -> Self {
+        Self {
+            unit_of_work,
+            hasher,
+            token_issuer,
+            access_revoker,
+        }
     }
 
-    pub async fn execute(&self, user_id: UserId, request: ConfirmEmailChangeRequest) -> Result<String, ConfirmEmailChangeError> {
+    pub async fn execute(&self, user_id: UserId, request: ConfirmEmailChangeRequest) -> Result<ConfirmedEmailChange, ConfirmEmailChangeError> {
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
             .load_user_for_update(&user_id)
@@ -94,9 +123,25 @@ where
                     Err(RepositoryError::AlreadyExists) => return Err(ConfirmEmailChangeError::EmailTaken),
                     Err(e) => return Err(e.into()),
                 }
+                let cutoff = Utc::now();
+                tx.revoke_refresh_tokens_for_user(&user_id, None, cutoff).await?;
+                wait_past_cutoff(cutoff).await;
+                let tokens = self.token_issuer.issue(&user_id, user.is_verified()).await?;
+                let refresh_token = RefreshToken::issue(
+                    tokens.refresh_token_id,
+                    user_id,
+                    tokens.refresh_token_expires_at,
+                    request.ip,
+                    request.user_agent,
+                );
+                tx.insert_refresh_token(&refresh_token).await?;
                 tx.save_events(&events, request.request_id.as_deref()).await?;
+                self.access_revoker.revoke_access_issued_before(&user_id, cutoff).await?;
                 tx.commit().await?;
-                Ok(user.email().as_str().to_string())
+                Ok(ConfirmedEmailChange {
+                    email: user.email().as_str().to_string(),
+                    tokens,
+                })
             }
             Err(err @ (UserError::BadCode | UserError::TooManyAttempts)) => {
                 tx.commit().await?;

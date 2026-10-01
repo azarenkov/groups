@@ -252,6 +252,8 @@ pub struct ConfirmEmailBody {
 #[serde(rename_all = "camelCase")]
 pub struct ConfirmEmailResponse {
     pub email: String,
+    #[serde(flatten)]
+    pub tokens: TokenPairResponse,
 }
 
 #[post("/me/email/confirm")]
@@ -265,17 +267,23 @@ async fn confirm_me_email(
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
     let ctx = request_context(&req);
-    let email = app_state
+    let client = extract_client_context(&req, app_state.trust_forwarded_headers);
+    let confirmed = app_state
         .confirm_email_change_usecase
         .execute(
             user_id,
             ConfirmEmailChangeRequest {
                 verification_code: body.verification_code,
+                ip: client.ip,
+                user_agent: client.user_agent,
                 request_id: ctx.request_id,
             },
         )
         .await?;
-    Ok(HttpResponse::Ok().json(ApiResponse::success(ConfirmEmailResponse { email })))
+    Ok(HttpResponse::Ok().json(ApiResponse::success(ConfirmEmailResponse {
+        email: confirmed.email,
+        tokens: confirmed.tokens.into(),
+    })))
 }
 
 #[derive(Debug, Deserialize, Validate)]
