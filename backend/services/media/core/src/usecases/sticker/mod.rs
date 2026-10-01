@@ -40,6 +40,8 @@ pub enum StickerError {
     PackNotFound,
     #[error("Sticker not found")]
     StickerNotFound,
+    #[error("The new order must list every sticker of the pack once")]
+    InvalidOrder,
     #[error("Repository error: {0}")]
     Repository(RepositoryError),
     #[error("Storage error: {0}")]
@@ -73,6 +75,15 @@ impl StickerFile {
     pub fn content_type(&self) -> &'static str {
         if self.animated { "image/gif" } else { "image/png" }
     }
+}
+
+pub fn is_complete_order(pack: &StickerPack, order: &[Uuid]) -> bool {
+    let mut wanted: Vec<Uuid> = order.to_vec();
+    wanted.sort();
+    wanted.dedup();
+    let mut live: Vec<Uuid> = pack.stickers.iter().map(|s| s.id).collect();
+    live.sort();
+    wanted.len() == order.len() && wanted == live
 }
 
 pub fn sticker_content_type(storage_key: &str) -> &'static str {
@@ -240,6 +251,15 @@ where
     }
 
     pub async fn reorder(&self, owner_id: UserId, pack_id: Uuid, order: &[Uuid]) -> Result<(), StickerError> {
+        let pack = self
+            .stickers
+            .find_pack(&pack_id.to_string())
+            .await?
+            .filter(|pack| pack.owner_id == owner_id)
+            .ok_or(StickerError::PackNotFound)?;
+        if !is_complete_order(&pack, order) {
+            return Err(StickerError::InvalidOrder);
+        }
         if !self.stickers.reorder_stickers(pack_id, &owner_id, order).await? {
             return Err(StickerError::PackNotFound);
         }
@@ -247,7 +267,7 @@ where
     }
 
     pub async fn search(&self, query: &str, page: i64) -> Result<Vec<StickerPack>, StickerError> {
-        let offset = (page.max(0) * SEARCH_PAGE_SIZE).min(MAX_SEARCH_OFFSET);
+        let offset = page.clamp(0, MAX_SEARCH_OFFSET / SEARCH_PAGE_SIZE) * SEARCH_PAGE_SIZE;
         Ok(self
             .stickers
             .search_packs(query, SEARCH_PAGE_SIZE, offset)
@@ -295,5 +315,48 @@ where
                 other => StickerError::Storage(other),
             })?;
         Ok((stream, sticker_content_type(&sticker.storage_key)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use media_domain::sticker::Sticker;
+
+    fn pack_with(ids: &[Uuid]) -> StickerPack {
+        StickerPack {
+            id: Uuid::nil(),
+            owner_id: UserId::new(Uuid::nil()),
+            name: "Pack".to_string(),
+            slug: "pack".to_string(),
+            install_count: 1,
+            sticker_count: ids.len() as i64,
+            created_at: Utc::now(),
+            stickers: ids
+                .iter()
+                .enumerate()
+                .map(|(i, id)| Sticker {
+                    id: *id,
+                    pack_id: Uuid::nil(),
+                    storage_key: String::new(),
+                    animated: false,
+                    width: 512,
+                    height: 512,
+                    emoji: "😺".to_string(),
+                    position: i as i32,
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn an_order_must_list_every_sticker_once() {
+        let (a, b, c) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
+        let pack = pack_with(&[a, b]);
+        assert!(is_complete_order(&pack, &[b, a]));
+        assert!(!is_complete_order(&pack, &[b]));
+        assert!(!is_complete_order(&pack, &[a, a]));
+        assert!(!is_complete_order(&pack, &[a, b, a]));
+        assert!(!is_complete_order(&pack, &[a, c]));
     }
 }

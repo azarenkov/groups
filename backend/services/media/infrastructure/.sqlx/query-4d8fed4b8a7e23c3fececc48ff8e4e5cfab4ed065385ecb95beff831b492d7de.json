@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,\n                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS \"sticker_count!\"\n            FROM media_sticker_installs i\n            JOIN media_sticker_packs p ON p.id = i.pack_id\n            WHERE i.user_id = $1 AND p.deleted_at IS NULL\n            ORDER BY i.installed_at, p.id\n            ",
+  "query": "\n            SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,\n                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS \"sticker_count!\"\n            FROM media_sticker_packs p\n            LEFT JOIN media_sticker_installs i ON i.pack_id = p.id AND i.user_id = $1\n            WHERE p.deleted_at IS NULL AND (i.user_id IS NOT NULL OR p.owner_id = $1)\n            ORDER BY COALESCE(i.installed_at, p.created_at), p.id\n            ",
   "describe": {
     "columns": [
       {
@@ -54,5 +54,5 @@
       null
     ]
   },
-  "hash": "05bae7a4debce184bf44d7f131d677fbf7a280c76d4ccfc1806d6bd25df5748d"
+  "hash": "4d8fed4b8a7e23c3fececc48ff8e4e5cfab4ed065385ecb95beff831b492d7de"
 }

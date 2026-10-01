@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,\n                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS \"sticker_count!\"\n            FROM media_sticker_packs p\n            WHERE p.deleted_at IS NULL AND NOT p.hidden\n              AND EXISTS (SELECT 1 FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL)\n              AND ($1 = '' OR lower(p.name) LIKE '%' || $1 || '%' ESCAPE '\\' OR p.slug LIKE '%' || $1 || '%' ESCAPE '\\')\n            ORDER BY (lower(p.name) LIKE $1 || '%' ESCAPE '\\') DESC, p.install_count DESC, p.created_at DESC, p.id\n            LIMIT $2 OFFSET $3\n            ",
+  "query": "\n            SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,\n                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS \"sticker_count!\"\n            FROM media_sticker_packs p\n            WHERE p.deleted_at IS NULL AND NOT p.hidden\n              AND EXISTS (SELECT 1 FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL)\n              AND ($1 = '' OR lower(p.name) LIKE '%' || $1 || '%' ESCAPE '\\' OR p.slug LIKE '%' || $1 || '%' ESCAPE '\\')\n            ORDER BY (lower(p.name) LIKE $1 || '%' ESCAPE '\\' OR p.slug LIKE $1 || '%' ESCAPE '\\') DESC,\n                     p.install_count DESC, p.created_at DESC, p.id\n            LIMIT $2 OFFSET $3\n            ",
   "describe": {
     "columns": [
       {
@@ -56,5 +56,5 @@
       null
     ]
   },
-  "hash": "212d5eb27974c28f7e9146aa0dd624bd34a220a700a39e4a60a2ff1da64577e3"
+  "hash": "0577e92362f5ac49ba36235d6ef2c38c9e05227fdb3811ccca3821dd9625d2d4"
 }

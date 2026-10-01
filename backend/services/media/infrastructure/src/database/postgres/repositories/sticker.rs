@@ -135,7 +135,7 @@ impl StickerRepository for PostgresStickerRepository {
             return Ok(false);
         }
         sqlx::query!(
-            r#"INSERT INTO media_sticker_packs (id, owner_id, name, slug) VALUES ($1, $2, $3, $4)"#,
+            r#"INSERT INTO media_sticker_packs (id, owner_id, name, slug, install_count) VALUES ($1, $2, $3, $4, 1)"#,
             id,
             owner_id.uuid(),
             name,
@@ -340,7 +340,8 @@ impl StickerRepository for PostgresStickerRepository {
             WHERE p.deleted_at IS NULL AND NOT p.hidden
               AND EXISTS (SELECT 1 FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL)
               AND ($1 = '' OR lower(p.name) LIKE '%' || $1 || '%' ESCAPE '\' OR p.slug LIKE '%' || $1 || '%' ESCAPE '\')
-            ORDER BY (lower(p.name) LIKE $1 || '%' ESCAPE '\') DESC, p.install_count DESC, p.created_at DESC, p.id
+            ORDER BY (lower(p.name) LIKE $1 || '%' ESCAPE '\' OR p.slug LIKE $1 || '%' ESCAPE '\') DESC,
+                     p.install_count DESC, p.created_at DESC, p.id
             LIMIT $2 OFFSET $3
             "#,
             pattern,
@@ -359,10 +360,10 @@ impl StickerRepository for PostgresStickerRepository {
             r#"
             SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,
                    (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS "sticker_count!"
-            FROM media_sticker_installs i
-            JOIN media_sticker_packs p ON p.id = i.pack_id
-            WHERE i.user_id = $1 AND p.deleted_at IS NULL
-            ORDER BY i.installed_at, p.id
+            FROM media_sticker_packs p
+            LEFT JOIN media_sticker_installs i ON i.pack_id = p.id AND i.user_id = $1
+            WHERE p.deleted_at IS NULL AND (i.user_id IS NOT NULL OR p.owner_id = $1)
+            ORDER BY COALESCE(i.installed_at, p.created_at), p.id
             "#,
             user_id.uuid(),
         )
