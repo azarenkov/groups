@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use messaging::ports::attachment_claims::{AttachmentClaimError, AttachmentClaims};
 use contracts::internal::attachments::{ClaimRequestV1, ClaimedAttachmentV1, ReleaseRequestV1};
-use domain::{attachment::AttachmentLink, user::id::UserId};
+use contracts::internal::stickers::StickerInfoV1;
+use domain::{attachment::AttachmentLink, sticker::StickerSnapshot, user::id::UserId};
 use uuid::Uuid;
 
 pub struct MediaClaimsClient {
@@ -118,5 +119,38 @@ impl AttachmentClaims for MediaClaimsClient {
             )));
         }
         Ok(())
+    }
+
+    async fn lookup_sticker(&self, id: Uuid) -> Result<Option<StickerSnapshot>, AttachmentClaimError> {
+        let response = super::with_request_id(
+            self.client
+                .get(format!("{}/internal/stickers/{}", self.base_url, id)),
+        )
+        .send()
+        .await
+        .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;
+        match response.status().as_u16() {
+            200 => {
+                let info: StickerInfoV1 = response
+                    .json()
+                    .await
+                    .map_err(|e| AttachmentClaimError::Unavailable(e.to_string()))?;
+                if info.deleted {
+                    return Ok(None);
+                }
+                Ok(Some(StickerSnapshot {
+                    id: info.id,
+                    pack_id: info.pack_id,
+                    emoji: info.emoji,
+                    animated: info.animated,
+                    width: info.width,
+                    height: info.height,
+                }))
+            }
+            404 => Ok(None),
+            status => Err(AttachmentClaimError::Unavailable(format!(
+                "sticker lookup returned status {status}"
+            ))),
+        }
     }
 }

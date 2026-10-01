@@ -176,6 +176,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             "callDurationSeconds": evt.call_duration_seconds,
             "attachments": evt.attachments.unwrap_or_else(|| json!([])),
             "forwardedFrom": evt.forwarded_from,
+            "sticker": evt.sticker,
         });
         publish_with_reply(
             publisher,
@@ -345,6 +346,9 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         let reply_to = named_reply(resolver, reply_to.as_ref()).await?;
         if let Some(forwarded) = &evt.forwarded_from {
             data["forwardedFrom"] = forwarded.clone();
+        }
+        if let Some(sticker) = &evt.sticker {
+            data["sticker"] = sticker.clone();
         }
         publish_with_reply(publisher, "message.sent", data, reply_to, &hidden_for, unique(recipients))
             .await?;

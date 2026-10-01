@@ -18,6 +18,7 @@ pub struct DmConversationPreview {
     pub has_attachments: bool,
     pub voice_duration_ms: Option<i32>,
     pub video_note_duration_ms: Option<i32>,
+    pub sticker_emoji: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 

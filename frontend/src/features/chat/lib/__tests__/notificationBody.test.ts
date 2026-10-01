@@ -19,4 +19,8 @@ describe("notificationBody", () => {
     const body = notificationBody("", [{ videoNote: { durationMs: 17_000, size: 384, poster: "" } }]);
     expect(body).toContain("0:17");
   });
+
+  it("names a sticker by its emoji", () => {
+    expect(notificationBody("", [], { emoji: "😺" })).toMatch(/^😺 /);
+  });
 });

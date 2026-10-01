@@ -168,10 +168,11 @@ class ChannelAPI {
     content: string,
     attachmentIds?: string[],
     replyToMessageId?: string,
+    stickerId?: string,
   ): Promise<ChannelMessage> {
     const response = await this.client.post(
       `/v1/communities/${communityId}/channels/${channelId}/messages`,
-      { content, attachmentIds, replyToMessageId },
+      { content, attachmentIds, replyToMessageId, stickerId },
     );
     return response.data.data;
   }

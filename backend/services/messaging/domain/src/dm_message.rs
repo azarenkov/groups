@@ -6,7 +6,7 @@ pub mod view;
 use chrono::{DateTime, Utc};
 
 use crate::{message::forward::ForwardInfo, message::reply::ReplyPreview, dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent, community::id::CommunityId};
-use domain::user::id::UserId;
+use domain::{sticker::StickerSnapshot, user::id::UserId};
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
@@ -19,6 +19,8 @@ pub enum DmMessageError {
     NotEditable,
     #[error("Forwarded messages cannot be edited")]
     Forwarded,
+    #[error("Sticker messages cannot be edited")]
+    Sticker,
 }
 
 #[derive(Debug)]
@@ -35,6 +37,7 @@ pub struct DmMessage {
     edited_at: Option<DateTime<Utc>>,
     reply: Option<ReplyPreview>,
     forward: Option<ForwardInfo>,
+    sticker: Option<StickerSnapshot>,
     events: Vec<DmMessageDomainEvent>,
 }
 
@@ -59,6 +62,7 @@ impl DmMessage {
             edited_at: None,
             reply: None,
             forward: None,
+            sticker: None,
             events: Vec::new(),
         };
         message.events.push(DmMessageDomainEvent::Sent(
@@ -90,6 +94,7 @@ impl DmMessage {
             edited_at: None,
             reply: None,
             forward: None,
+            sticker: None,
             events: Vec::new(),
         };
         message.events.push(DmMessageDomainEvent::Sent(
@@ -120,6 +125,7 @@ impl DmMessage {
             edited_at: None,
             reply: None,
             forward: None,
+            sticker: None,
             events: Vec::new(),
         };
         let community_name = content.as_str().to_string();
@@ -159,6 +165,20 @@ impl DmMessage {
         self.forward.as_ref()
     }
 
+    pub fn with_sticker(mut self, sticker: Option<StickerSnapshot>) -> Self {
+        for event in &mut self.events {
+            if let DmMessageDomainEvent::Sent(sent) = event {
+                sent.sticker = sticker.clone();
+            }
+        }
+        self.sticker = sticker;
+        self
+    }
+
+    pub fn sticker(&self) -> Option<&StickerSnapshot> {
+        self.sticker.as_ref()
+    }
+
     pub fn restore(
         id: DmMessageId,
         sender_id: UserId,
@@ -183,6 +203,7 @@ impl DmMessage {
             edited_at,
             reply: None,
             forward: None,
+            sticker: None,
             events: Vec::new(),
         }
     }
@@ -211,6 +232,9 @@ impl DmMessage {
         }
         if self.forward.is_some() {
             return Err(DmMessageError::Forwarded);
+        }
+        if self.sticker.is_some() {
+            return Err(DmMessageError::Sticker);
         }
         if !allow_unchanged && self.content == new_content {
             return Err(DmMessageError::ContentUnchanged);

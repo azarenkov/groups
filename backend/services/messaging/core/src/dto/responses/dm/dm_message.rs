@@ -17,6 +17,7 @@ pub struct DmMessageDto {
     pub edited_at: Option<DateTime<Utc>>,
     pub reply_to_message_id: Option<Uuid>,
     pub forwarded_from: Option<messaging_domain::message::forward::ForwardInfo>,
+    pub sticker: Option<domain::sticker::StickerSnapshot>,
 }
 
 impl From<DmMessageView> for DmMessageDto {
@@ -35,6 +36,7 @@ impl From<DmMessageView> for DmMessageDto {
             edited_at: value.edited_at,
             reply_to_message_id: value.reply_to,
             forwarded_from: value.forwarded_from,
+            sticker: value.sticker,
         }
     }
 }
