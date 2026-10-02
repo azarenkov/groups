@@ -12,6 +12,7 @@ pub const DUPLICATE_WINDOW_HOURS: i64 = 24;
 pub enum ReportTarget {
     User,
     Community,
+    StickerPack,
 }
 
 impl ReportTarget {
@@ -19,6 +20,7 @@ impl ReportTarget {
         match self {
             Self::User => "user",
             Self::Community => "community",
+            Self::StickerPack => "sticker_pack",
         }
     }
 
@@ -26,6 +28,7 @@ impl ReportTarget {
         match value {
             "user" => Some(Self::User),
             "community" => Some(Self::Community),
+            "sticker_pack" => Some(Self::StickerPack),
             _ => None,
         }
     }
@@ -113,6 +116,19 @@ impl ReportReason {
                     | Self::Csam
                     | Self::Illegal
                     | Self::Raid
+                    | Self::Other
+            ),
+            ReportTarget::StickerPack => matches!(
+                self,
+                Self::Spam
+                    | Self::Harassment
+                    | Self::Hate
+                    | Self::Violence
+                    | Self::Scam
+                    | Self::Nsfw
+                    | Self::Csam
+                    | Self::Impersonation
+                    | Self::Illegal
                     | Self::Other
             ),
         }

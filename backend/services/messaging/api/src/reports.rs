@@ -61,6 +61,27 @@ async fn report_community(
     Ok(HttpResponse::Accepted().finish())
 }
 
+#[post("/{pack_id}/report")]
+async fn report_sticker_pack(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+    body: web::Json<CreateReportBody>,
+) -> Result<impl Responder, HttpError> {
+    let request = body
+        .into_inner()
+        .into_request(ReportTarget::StickerPack, path.into_inner());
+    app_state
+        .create_report_usecase
+        .execute(UserId::new(auth_token.id), request)
+        .await?;
+    Ok(HttpResponse::Accepted().finish())
+}
+
+pub fn sticker_pack_report_routes(cfg: &mut web::ServiceConfig) {
+    cfg.service(web::scope("/v1/sticker-packs").service(report_sticker_pack));
+}
+
 pub fn user_report_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(report_user);
 }

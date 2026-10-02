@@ -15,6 +15,8 @@ use messaging_domain::report::{
 };
 use messaging_domain::community::repository::CommunityRepository;
 use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
+
+use crate::ports::sticker_packs::StickerPackDirectory;
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
@@ -29,6 +31,8 @@ pub enum CreateReportError {
     AlreadyReported,
     #[error("Too many reports")]
     TooManyReports,
+    #[error("Report target lookup unavailable: {0}")]
+    Unavailable(String),
     #[error("Report error: {0}")]
     Domain(#[from] ReportError),
     #[error("Repository error: {0}")]
@@ -43,7 +47,7 @@ pub struct CreateReportRequest {
     pub message_id: Option<Uuid>,
 }
 
-pub struct CreateReport<R, U, S, M, D, C>
+pub struct CreateReport<R, U, S, M, D, C, P>
 where
     R: ReportRepository,
     U: UserProfileRepository,
@@ -51,6 +55,7 @@ where
     M: MessageRepository,
     D: DmMessageRepository,
     C: ChannelRepository,
+    P: StickerPackDirectory,
 {
     report_repository: Arc<R>,
     user_repository: Arc<U>,
@@ -58,9 +63,10 @@ where
     message_repository: Arc<M>,
     dm_repository: Arc<D>,
     channel_repository: Arc<C>,
+    sticker_packs: Arc<P>,
 }
 
-impl<R, U, S, M, D, C> CreateReport<R, U, S, M, D, C>
+impl<R, U, S, M, D, C, P> CreateReport<R, U, S, M, D, C, P>
 where
     R: ReportRepository,
     U: UserProfileRepository,
@@ -68,6 +74,7 @@ where
     M: MessageRepository,
     D: DmMessageRepository,
     C: ChannelRepository,
+    P: StickerPackDirectory,
 {
     pub fn new(
         report_repository: Arc<R>,
@@ -76,6 +83,7 @@ where
         message_repository: Arc<M>,
         dm_repository: Arc<D>,
         channel_repository: Arc<C>,
+        sticker_packs: Arc<P>,
     ) -> Self {
         Self {
             report_repository,
@@ -84,6 +92,7 @@ where
             message_repository,
             dm_repository,
             channel_repository,
+            sticker_packs,
         }
     }
 
@@ -94,7 +103,9 @@ where
     ) -> Result<(), CreateReportError> {
         let reason =
             ReportReason::parse(&request.reason).ok_or(CreateReportError::UnknownReason)?;
-        let target_name = self.target_name(request.target, request.target_id).await?;
+        let target_name = self
+            .target_name(&reporter_id, request.target, request.target_id)
+            .await?;
         let context = self
             .resolve_context(&reporter_id, request.target, request.target_id, request.message_id)
             .await?;
@@ -126,6 +137,7 @@ where
 
     async fn target_name(
         &self,
+        reporter_id: &UserId,
         target: ReportTarget,
         target_id: Uuid,
     ) -> Result<String, CreateReportError> {
@@ -141,6 +153,18 @@ where
                 .await?
                 .map(|community| community.name().as_str().to_string())
                 .ok_or(CreateReportError::TargetNotFound),
+            ReportTarget::StickerPack => {
+                let pack = self
+                    .sticker_packs
+                    .find_pack(target_id)
+                    .await
+                    .map_err(|e| CreateReportError::Unavailable(e.0))?
+                    .ok_or(CreateReportError::TargetNotFound)?;
+                if &pack.owner_id == reporter_id {
+                    return Err(ReportError::SelfReport.into());
+                }
+                Ok(pack.name)
+            }
         }
     }
 
@@ -172,6 +196,7 @@ where
                 let belongs = match target {
                     ReportTarget::User => message.author_id().uuid() == target_id,
                     ReportTarget::Community => channel.community_id().uuid() == target_id,
+                    ReportTarget::StickerPack => message.sticker().is_some_and(|sticker| sticker.pack_id == target_id),
                 };
                 if !belongs {
                     return Err(CreateReportError::ContextMismatch);
@@ -206,10 +231,17 @@ where
             .await
         {
             Ok(message) => {
-                if target != ReportTarget::User
-                    || message.sender_id().uuid() != target_id
-                    || message.recipient_id() != reporter_id
-                {
+                let belongs = match target {
+                    ReportTarget::User => {
+                        message.sender_id().uuid() == target_id && message.recipient_id() == reporter_id
+                    }
+                    ReportTarget::StickerPack => {
+                        message.sticker().is_some_and(|sticker| sticker.pack_id == target_id)
+                            && (message.recipient_id() == reporter_id || message.sender_id() == reporter_id)
+                    }
+                    ReportTarget::Community => false,
+                };
+                if !belongs {
                     return Err(CreateReportError::ContextMismatch);
                 }
                 Ok(ReportContext {

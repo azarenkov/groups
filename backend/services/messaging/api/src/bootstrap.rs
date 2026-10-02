@@ -331,6 +331,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             message_repository.clone(),
             dm_repository.clone(),
             channel_repository.clone(),
+            attachment_claims.clone(),
         ),
         block_user_usecase: BlockUser::new(friendship_unit_of_work.clone(), user_repository.clone()),
         unblock_user_usecase: UnblockUser::new(friendship_unit_of_work.clone()),

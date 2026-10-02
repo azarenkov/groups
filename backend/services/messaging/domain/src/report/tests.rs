@@ -61,6 +61,17 @@ fn a_community_cannot_be_reported_for_a_personal_reason() {
 }
 
 #[test]
+fn sticker_packs_accept_content_reasons_only() {
+    assert_eq!(ReportTarget::parse("sticker_pack"), Some(ReportTarget::StickerPack));
+    assert_eq!(ReportTarget::StickerPack.as_str(), "sticker_pack");
+    assert!(ReportReason::Nsfw.allowed_for(ReportTarget::StickerPack));
+    assert!(ReportReason::Hate.allowed_for(ReportTarget::StickerPack));
+    assert!(!ReportReason::Raid.allowed_for(ReportTarget::StickerPack));
+    assert!(!ReportReason::SelfHarm.allowed_for(ReportTarget::StickerPack));
+    assert!(!ReportReason::Threats.allowed_for(ReportTarget::StickerPack));
+}
+
+#[test]
 fn other_needs_an_explanation() {
     assert!(matches!(
         report_user(ReportReason::Other, None),

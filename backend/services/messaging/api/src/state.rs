@@ -181,6 +181,7 @@ pub struct AppState {
         PostgresMessageRepository,
         PostgresDmMessageRepository,
         PostgresChannelRepository,
+        MediaClaimsClient,
     >,
     pub get_privacy_usecase: GetPrivacy<PostgresPrivacyRepository>,
     pub update_privacy_usecase: UpdatePrivacy<PostgresPrivacyRepository>,

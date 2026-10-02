@@ -2315,6 +2315,7 @@ impl HttpMapping for CreateReportError {
             CreateReportError::ContextMismatch => StatusCode::BAD_REQUEST,
             CreateReportError::AlreadyReported => StatusCode::CONFLICT,
             CreateReportError::TooManyReports => StatusCode::TOO_MANY_REQUESTS,
+            CreateReportError::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             CreateReportError::Domain(ReportError::SelfReport) => StatusCode::BAD_REQUEST,
             CreateReportError::Domain(_) => StatusCode::BAD_REQUEST,
             CreateReportError::Repository(e) => e.to_http_status(),
@@ -2333,6 +2334,9 @@ impl HttpMapping for CreateReportError {
             CreateReportError::TooManyReports => {
                 "Too many reports sent today; try again later.".to_string()
             }
+            CreateReportError::Unavailable(_) => {
+                "Reports are temporarily unavailable; try again later.".to_string()
+            }
             CreateReportError::Domain(e) => e.to_string(),
             CreateReportError::Repository(e) => e.to_user_message(),
         }
@@ -2344,6 +2348,7 @@ impl HttpMapping for CreateReportError {
             CreateReportError::ContextMismatch => "REPORT_CONTEXT_MISMATCH",
             CreateReportError::AlreadyReported => "REPORT_ALREADY_SENT",
             CreateReportError::TooManyReports => "REPORT_LIMIT_REACHED",
+            CreateReportError::Unavailable(_) => "REPORT_UNAVAILABLE",
             CreateReportError::Domain(ReportError::SelfReport) => "REPORT_SELF",
             CreateReportError::Domain(ReportError::ReasonNotAllowed) => "REPORT_REASON_NOT_ALLOWED",
             CreateReportError::Domain(ReportError::DetailsRequired) => "REPORT_DETAILS_REQUIRED",

@@ -22,7 +22,7 @@ use crate::friendship::{
 use crate::notifications::notification_routes;
 use crate::presence::presence_routes;
 use crate::read_state::read_state_routes;
-use crate::reports::{community_report_routes, user_report_routes};
+use crate::reports::{community_report_routes, sticker_pack_report_routes, user_report_routes};
 use crate::roles::role_routes;
 use crate::invites::invite_routes;
 use crate::server::{
@@ -40,6 +40,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         .service(
             web::scope("/api")
                 .configure(call_log_routes)
+                .configure(sticker_pack_report_routes)
                 .configure(attachment_routes)
                 .configure(invite_routes)
                 .service(
