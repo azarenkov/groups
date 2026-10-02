@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 
 import { stickersAPI } from "../../api/stickers";
-import { useStickerUrl } from "../stickerImages";
+import { clearStickerImages, useStickerUrl } from "../stickerImages";
 
 jest.mock("../../api/stickers", () => ({
   stickersAPI: { download: jest.fn() },
@@ -70,5 +70,17 @@ describe("useStickerUrl", () => {
       for (let i = 0; i < 10; i += 1) await Promise.resolve();
     });
     await waitFor(() => expect(hooks.every((hook) => hook.result.current === "blob:sticker")).toBe(true));
+  });
+
+  it("revokes cached stickers when the session is cleared", async () => {
+    const revoke = jest.fn();
+    URL.revokeObjectURL = revoke;
+    (stickersAPI.download as jest.Mock).mockResolvedValue(new Blob(["x"]));
+    const { result } = renderHook(() => useStickerUrl("sticker-session"));
+    await waitFor(() => expect(result.current).toBe("blob:sticker"));
+    act(() => clearStickerImages());
+    expect(revoke).toHaveBeenCalledWith("blob:sticker");
+    expect(result.current).toBeNull();
+    URL.revokeObjectURL = () => undefined;
   });
 });

@@ -14,6 +14,7 @@ const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const pending = new Map<string, Promise<string | null>>();
 const listeners = new Map<string, Set<() => void>>();
 
+let cacheGeneration = 0;
 let activeDownloads = 0;
 const waitingDownloads: Array<() => void> = [];
 
@@ -82,9 +83,11 @@ export const loadSticker = (id: string): Promise<string | null> => {
   if (inFlight) return inFlight;
   const promise = acquireSlot()
     .then(async () => {
+      const generation = cacheGeneration;
       try {
         if (!wanted(id)) return null;
         const blob = await stickersAPI.download(id);
+        if (generation !== cacheGeneration) return null;
         const url = URL.createObjectURL(blob);
         failures.delete(id);
         urls.set(id, url);
@@ -92,6 +95,7 @@ export const loadSticker = (id: string): Promise<string | null> => {
         notify(id);
         return url;
       } catch {
+        if (generation !== cacheGeneration) return null;
         scheduleRetry(id);
         return null;
       } finally {
@@ -99,7 +103,7 @@ export const loadSticker = (id: string): Promise<string | null> => {
       }
     })
     .finally(() => {
-      pending.delete(id);
+      if (pending.get(id) === promise) pending.delete(id);
     });
   pending.set(id, promise);
   return promise;
@@ -127,4 +131,15 @@ export const useStickerUrl = (id: string | null | undefined, enabled = true): st
     };
   }, [id, enabled]);
   return url;
+};
+
+export const clearStickerImages = () => {
+  cacheGeneration += 1;
+  retryTimers.forEach((timer) => clearTimeout(timer));
+  retryTimers.clear();
+  failures.clear();
+  pending.clear();
+  urls.forEach((url) => URL.revokeObjectURL(url));
+  urls.clear();
+  listeners.forEach((_, id) => notify(id));
 };
