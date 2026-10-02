@@ -18,6 +18,8 @@ import VoicePlayer from "./VoicePlayer";
 import VideoNotePlayer from "./VideoNotePlayer";
 import { videoNoteAttachmentOf } from "../lib/voice";
 import { isJumboEmoji } from "../lib/emoji";
+import StickerImage from "../../stickers/components/StickerImage";
+import StickerPacksModal from "../../stickers/components/StickerPacksModal";
 import LinkPreview from "./LinkPreview";
 import ReadTicks from "./ReadTicks";
 import { renderWithLinks } from "./MessageText";
@@ -121,7 +123,8 @@ export const Message: React.FC<MessageProps> = ({
   onOpenForwardSource,
   onVoiceListened,
 }) => {
-  const jumbo = !(msg.attachments?.length ?? 0) && isJumboEmoji(msg.content);
+  const jumbo = !msg.sticker && !(msg.attachments?.length ?? 0) && isJumboEmoji(msg.content);
+  const [stickerPackOpen, setStickerPackOpen] = React.useState<string | null>(null);
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
     rememberMentionTarget(displayName, msg.authorId);
@@ -624,7 +627,8 @@ export const Message: React.FC<MessageProps> = ({
             className={
               "txt" +
               (videoNoteAttachmentOf(msg) ? " vnote-only" : "") +
-              (jumbo && !msg.replyTo && !msg.forwardedFrom ? " jumbo-only" : "")
+              (jumbo && !msg.replyTo && !msg.forwardedFrom ? " jumbo-only" : "") +
+              (msg.sticker ? " sticker-only" : "")
             }
           >
             {!dmStyle && !isMine && !continued && (
@@ -704,6 +708,14 @@ export const Message: React.FC<MessageProps> = ({
                     <span className="msg-reply-text">{i18n.t("blockedMessage", { ns: "chat" })}</span>
                   ) : (
                     <>
+                      {reply.sticker && (
+                        <StickerImage
+                          id={reply.sticker.id}
+                          emoji={reply.sticker.emoji}
+                          size={28}
+                          className="msg-reply-thumb"
+                        />
+                      )}
                       {reply.videoNotePoster && (
                         <img
                           className="msg-reply-thumb"
@@ -725,7 +737,31 @@ export const Message: React.FC<MessageProps> = ({
                 </div>
               );
             })()}
-            <span className={"msg-text" + (jumbo ? " jumbo" : "")}>{renderWithLinks(msg.content)}</span>
+            {msg.sticker ? (
+              <button
+                type="button"
+                className="msg-sticker"
+                title={msg.sticker.emoji}
+                aria-label={`${msg.sticker.emoji} ${i18n.t("replySticker", { ns: "chat" })}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setStickerPackOpen(msg.sticker?.packId ?? null);
+                }}
+              >
+                <StickerImage
+                  id={msg.sticker.id}
+                  emoji={msg.sticker.emoji}
+                  size={160}
+                  width={msg.sticker.width}
+                  height={msg.sticker.height}
+                />
+              </button>
+            ) : (
+              <span className={"msg-text" + (jumbo ? " jumbo" : "")}>{renderWithLinks(msg.content)}</span>
+            )}
+            {stickerPackOpen && (
+              <StickerPacksModal packId={stickerPackOpen} onClose={() => setStickerPackOpen(null)} />
+            )}
             {(msg.attachments?.length ?? 0) > 0 && (
               <div className="msg-attachments">
                 {(msg.attachments ?? []).map((a) =>

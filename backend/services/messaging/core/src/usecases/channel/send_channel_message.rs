@@ -30,6 +30,8 @@ pub enum SendChannelMessageError {
     NotTextChannel,
     #[error("Invalid attachments")]
     InvalidAttachments,
+    #[error("Invalid sticker")]
+    InvalidSticker,
     #[error("Attachment service unavailable: {0}")]
     AttachmentsUnavailable(String),
     #[error("The message being replied to is not in this channel")]
@@ -129,11 +131,31 @@ where
             return Err(SendChannelMessageError::InvalidAttachments);
         }
         let forward = request.forward.clone();
+        let sticker = if let Some(forward) = &forward {
+            forward.sticker.clone()
+        } else if let Some(sticker_id) = request.sticker_id {
+            if !request.content.trim().is_empty() || !request.attachment_ids.is_empty() {
+                return Err(SendChannelMessageError::InvalidSticker);
+            }
+            match self.attachment_claims.lookup_sticker(sticker_id).await {
+                Ok(Some(sticker)) => Some(sticker),
+                Ok(None) | Err(crate::ports::attachment_claims::AttachmentClaimError::Invalid) => {
+                    return Err(SendChannelMessageError::InvalidSticker);
+                }
+                Err(crate::ports::attachment_claims::AttachmentClaimError::Unavailable(e)) => {
+                    return Err(SendChannelMessageError::AttachmentsUnavailable(e));
+                }
+            }
+        } else {
+            None
+        };
         let content = if let Some(forward) = &forward {
-            if forward.content.trim().is_empty() && forward.attachments.is_empty() {
+            if forward.content.trim().is_empty() && forward.attachments.is_empty() && forward.sticker.is_none() {
                 return Err(MessageError::ContentEmpty.into());
             }
             MessageContent::new_allow_empty(forward.content.clone())?
+        } else if sticker.is_some() {
+            MessageContent::new_allow_empty(String::new())?
         } else if request.attachment_ids.is_empty() {
             MessageContent::new(request.content)?
         } else {
@@ -141,6 +163,7 @@ where
         };
         let now = Utc::now();
         let mut message = Message::create(channel_id, author_id, content, now);
+        message = message.with_sticker(sticker.clone());
         if let Some(forward) = &forward {
             message = message.with_forward(forward.info.clone());
         }
@@ -171,6 +194,7 @@ where
                 ReplyPreview::new(reply_id, target.author_id, &target.content, has_attachments)
                     .with_voice(messaging_domain::message::voice::voice_duration_of(&reply_links))
                     .with_video_note(messaging_domain::message::voice::video_note_of(&reply_links))
+                    .with_sticker(target.sticker.clone())
                     .hidden_for(hidden_for),
             );
         }

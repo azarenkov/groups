@@ -20,6 +20,7 @@ export function previewOf(msg: ChannelMessage, authorName?: string): ReplyPrevie
     voiceDurationMs: voiceAttachmentOf(msg)?.voice?.durationMs ?? null,
     videoNoteDurationMs: videoNoteAttachmentOf(msg)?.videoNote?.durationMs ?? null,
     videoNotePoster: videoNoteAttachmentOf(msg)?.videoNote?.poster ?? null,
+    sticker: msg.sticker ?? null,
     deleted: false,
   };
 }

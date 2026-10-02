@@ -17,6 +17,7 @@ pub struct MessageSent {
     pub system: Option<SystemMessage>,
     pub reply: Option<crate::message::reply::ReplyPreview>,
     pub forward: Option<crate::message::forward::ForwardInfo>,
+    pub sticker: Option<domain::sticker::StickerSnapshot>,
 }
 
 impl MessageSent {
@@ -40,6 +41,7 @@ impl MessageSent {
             system: None,
             reply: None,
             forward: None,
+            sticker: None,
         }
     }
 }

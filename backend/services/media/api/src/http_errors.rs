@@ -198,6 +198,60 @@ impl HttpMapping for media::usecases::user::banner::BannerError {
     }
 }
 
+impl HttpMapping for media::usecases::sticker::StickerError {
+    fn to_http_status(&self) -> StatusCode {
+        use media::usecases::sticker::StickerError as E;
+        match self {
+            E::InvalidName | E::InvalidSlug | E::InvalidEmoji => StatusCode::BAD_REQUEST,
+            E::Taken => StatusCode::CONFLICT,
+            E::PackLimit => StatusCode::FORBIDDEN,
+            E::PackFull => StatusCode::CONFLICT,
+            E::PackNotFound | E::StickerNotFound => StatusCode::NOT_FOUND,
+            E::InvalidOrder => StatusCode::BAD_REQUEST,
+            E::InstallLimit => StatusCode::CONFLICT,
+            E::Repository(e) => e.to_http_status(),
+            E::Storage(e) => e.to_http_status(),
+            E::Moderation(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        use media::usecases::sticker::StickerError as E;
+        match self {
+            E::InvalidName => "Pack names need 3 to 64 characters.".to_string(),
+            E::InvalidSlug => "Pack links use 3 to 32 lowercase Latin letters, digits or underscores.".to_string(),
+            E::InvalidEmoji => "Pick an emoji for the sticker.".to_string(),
+            E::Taken => "This pack name or link is already taken.".to_string(),
+            E::PackLimit => "You have reached the pack limit of your plan.".to_string(),
+            E::PackFull => "A pack holds up to 120 stickers.".to_string(),
+            E::PackNotFound => "Sticker pack not found".to_string(),
+            E::StickerNotFound => "Sticker not found".to_string(),
+            E::InvalidOrder => "The new order must list every sticker of the pack once.".to_string(),
+            E::InstallLimit => "You can keep up to 200 sticker packs. Remove one first.".to_string(),
+            E::Repository(e) => e.to_user_message(),
+            E::Storage(e) => e.to_user_message(),
+            E::Moderation(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        use media::usecases::sticker::StickerError as E;
+        match self {
+            E::InvalidName => "STICKER_PACK_NAME_INVALID",
+            E::InvalidSlug => "STICKER_PACK_SLUG_INVALID",
+            E::InvalidEmoji => "STICKER_EMOJI_INVALID",
+            E::Taken => "STICKER_PACK_TAKEN",
+            E::PackLimit => "STICKER_PACK_LIMIT",
+            E::PackFull => "STICKER_PACK_FULL",
+            E::PackNotFound => "STICKER_PACK_NOT_FOUND",
+            E::StickerNotFound => "STICKER_NOT_FOUND",
+            E::InvalidOrder => "STICKER_ORDER_INVALID",
+            E::InstallLimit => "STICKER_INSTALL_LIMIT",
+            E::Repository(e) => e.to_error_code(),
+            E::Storage(e) => e.to_error_code(),
+            E::Moderation(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl HttpMapping for UpdateUserAvatarError {
     fn to_http_status(&self) -> StatusCode {
         match self {

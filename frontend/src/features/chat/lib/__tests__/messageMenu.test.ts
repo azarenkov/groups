@@ -19,6 +19,16 @@ const ctx = (over: Partial<Parameters<typeof messageActions>[0]> = {}) => ({
 });
 
 describe("messageActions", () => {
+  it("offers no copy or edit for a sticker", () => {
+    const sticker = { id: "s", packId: "p", emoji: "😺", animated: false, width: 512, height: 512 };
+    expect(messageActions(ctx({ isMine: true, msg: msg({ content: "", sticker }) }))).toEqual([
+      "reply",
+      "forward",
+      "link",
+      "delete",
+    ]);
+  });
+
   it("lets you copy, edit and delete your own message", () => {
     expect(messageActions(ctx({ isMine: true }))).toEqual(["reply", "forward", "copy", "link", "edit", "delete"]);
   });

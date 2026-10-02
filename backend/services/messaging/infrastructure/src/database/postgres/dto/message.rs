@@ -12,6 +12,7 @@ pub struct MessageDto {
     pub kind: String,
     pub system_payload: Option<String>,
     pub forwarded_from: Option<String>,
+    pub sticker: Option<String>,
 }
 
 #[derive(Debug, FromRow)]
@@ -27,4 +28,5 @@ pub struct MessageViewDto {
     pub system_payload: Option<String>,
     pub reply_to_message_id: Option<Uuid>,
     pub forwarded_from: Option<String>,
+    pub sticker: Option<String>,
 }

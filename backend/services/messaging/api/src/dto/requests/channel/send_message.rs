@@ -11,4 +11,6 @@ pub struct SendMessageRequestBody {
     pub attachment_ids: Vec<Uuid>,
     #[serde(default)]
     pub reply_to_message_id: Option<Uuid>,
+    #[serde(default)]
+    pub sticker_id: Option<Uuid>,
 }

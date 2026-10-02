@@ -56,6 +56,7 @@ export function useMessageEditing(params: {
           !m.inviteCommunityId &&
           !m.forwardedFrom &&
           !m.system &&
+          !m.sticker &&
           !isVoiceMessage(m),
       );
     if (!last) return false;

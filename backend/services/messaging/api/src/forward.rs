@@ -142,7 +142,7 @@ async fn resolve_source(
                 sent_at: dto.created_at,
                 source: ForwardSource::Channel { community_id, channel_id },
             });
-            Ok(ForwardedContent { info, content: dto.content, attachments })
+            Ok(ForwardedContent { info, content: dto.content, attachments, sticker: dto.sticker })
         }
         ForwardSourceBody::Dm { friend_id, message_id } => {
             let dto = app_state
@@ -166,7 +166,7 @@ async fn resolve_source(
                 sent_at: dto.created_at,
                 source: ForwardSource::Dm,
             });
-            Ok(ForwardedContent { info, content: dto.content, attachments })
+            Ok(ForwardedContent { info, content: dto.content, attachments, sticker: dto.sticker })
         }
     }
 }

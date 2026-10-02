@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH gone AS (\n                UPDATE media_stickers s SET deleted_at = now()\n                FROM media_sticker_packs p\n                WHERE s.id = $1 AND s.pack_id = $2 AND s.deleted_at IS NULL\n                  AND p.id = s.pack_id AND p.owner_id = $3 AND p.deleted_at IS NULL\n                RETURNING s.storage_key, s.used_at\n            ), queued AS (\n                INSERT INTO storage_cleanup_queue (storage_key)\n                SELECT storage_key FROM gone WHERE used_at IS NULL\n                ON CONFLICT (storage_key) DO NOTHING\n            )\n            SELECT COUNT(*) AS \"count!\" FROM gone\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "6bf2bd66c976ebcf8ecdbea56e4691ae05076f8133737c8e7642620a36517cd1"
+}

@@ -49,8 +49,8 @@ impl MessageTransaction for PostgresMessageTransaction {
     ) -> Result<(), RepositoryError> {
         sqlx::query!(
             r#"
-            INSERT INTO messages (id, channel_id, author_id, content, created_at, edited_at, mentions, kind, system_payload, reply_to_message_id, forwarded_from)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ($9::text)::jsonb, $10, ($11::text)::jsonb)
+            INSERT INTO messages (id, channel_id, author_id, content, created_at, edited_at, mentions, kind, system_payload, reply_to_message_id, forwarded_from, sticker)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ($9::text)::jsonb, $10, ($11::text)::jsonb, ($12::text)::jsonb)
             "#,
             message.id().uuid(),
             message.channel_id().uuid(),
@@ -63,6 +63,7 @@ impl MessageTransaction for PostgresMessageTransaction {
             message.system().map(|s| s.to_json().to_string()),
             message.reply().map(|r| r.message_id),
             message.forward().map(|f| f.to_json().to_string()),
+            message.sticker().map(|s| s.to_json().to_string()),
         )
         .execute(&mut *self.tx)
         .await

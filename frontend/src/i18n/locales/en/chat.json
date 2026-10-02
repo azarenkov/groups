@@ -156,5 +156,7 @@
   "videoNoteCameraBusy": "The camera is busy in another app or call.",
   "videoNoteTooLong": "Video messages can be up to one minute long.",
   "videoNoteInvalid": "Couldn't send the video message.",
-  "voiceSlideToLock": "Slide up to lock"
+  "voiceSlideToLock": "Slide up to lock",
+  "stickerUnavailable": "This sticker is no longer available",
+  "replySticker": "Sticker"
 }
