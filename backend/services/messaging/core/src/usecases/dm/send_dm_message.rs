@@ -34,6 +34,8 @@ pub enum SendDmMessageError {
     RecipientInactive,
     #[error("Invalid attachments")]
     InvalidAttachments,
+    #[error("Invalid sticker")]
+    InvalidSticker,
     #[error("Attachment service unavailable: {0}")]
     AttachmentsUnavailable(String),
     #[error("The message being replied to is not in this conversation")]
@@ -125,11 +127,22 @@ where
             return Err(SendDmMessageError::InvalidAttachments);
         }
         let forward = request.forward.clone();
+        let sticker_id = if forward.is_some() {
+            None
+        } else {
+            request.sticker_id
+        };
+        if sticker_id.is_some() && (!request.content.trim().is_empty() || !request.attachment_ids.is_empty()) {
+            return Err(SendDmMessageError::InvalidSticker);
+        }
+        let sticker = forward.as_ref().and_then(|forward| forward.sticker.clone());
         let content = if let Some(forward) = &forward {
-            if forward.content.trim().is_empty() && forward.attachments.is_empty() {
+            if forward.content.trim().is_empty() && forward.attachments.is_empty() && forward.sticker.is_none() {
                 return Err(MessageError::ContentEmpty.into());
             }
             MessageContent::new_allow_empty(forward.content.clone())?
+        } else if sticker_id.is_some() {
+            MessageContent::new_allow_empty(String::new())?
         } else if request.attachment_ids.is_empty() {
             MessageContent::new(request.content)?
         } else {
@@ -137,6 +150,7 @@ where
         };
         let now = Utc::now();
         let mut message = DmMessage::create(sender_id, recipient_id, content, now);
+        message = message.with_sticker(sticker.clone());
         if let Some(forward) = &forward {
             message = message.with_forward(forward.info.clone());
         }
@@ -167,10 +181,23 @@ where
                 ReplyPreview::new(reply_id, target.sender_id, &target.content, has_attachments)
                     .with_voice(messaging_domain::message::voice::voice_duration_of(&reply_links))
                     .with_video_note(messaging_domain::message::voice::video_note_of(&reply_links))
+                    .with_sticker(target.sticker.clone())
                     .hidden_for(hidden_for),
             );
         }
         let request_id = request.ctx.request_id.clone();
+        if let Some(sticker_id) = sticker_id {
+            let claimed = match self.attachment_claims.lookup_sticker(sticker_id).await {
+                Ok(Some(sticker)) => sticker,
+                Ok(None) | Err(crate::ports::attachment_claims::AttachmentClaimError::Invalid) => {
+                    return Err(SendDmMessageError::InvalidSticker);
+                }
+                Err(crate::ports::attachment_claims::AttachmentClaimError::Unavailable(e)) => {
+                    return Err(SendDmMessageError::AttachmentsUnavailable(e));
+                }
+            };
+            message = message.with_sticker(Some(claimed));
+        }
         let events = message.pull_events();
 
         let claim_token = uuid::Uuid::new_v4();

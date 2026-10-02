@@ -63,7 +63,7 @@ export const chatHandlers: WsHandlers = {
       if (desktopNotifAllowed()) {
         showDesktopNotification(
           channelName ? `#${channelName}` : "Rift",
-          notificationBody(asString(d.content), d.attachments),
+          notificationBody(asString(d.content), d.attachments, d.sticker),
         );
       }
       return;

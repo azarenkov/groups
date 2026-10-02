@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE media_stickers s SET position = (o.ord - 1)::integer\n            FROM unnest($2::uuid[]) WITH ORDINALITY AS o(id, ord)\n            WHERE s.id = o.id AND s.pack_id = $1 AND s.deleted_at IS NULL\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "10369fae28ab91276867d6b1234611227eef978203fef1214a481aa5467104d5"
+}

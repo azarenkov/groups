@@ -11,7 +11,7 @@ pub mod voice;
 use chrono::{DateTime, Utc};
 
 use crate::{channel::id::ChannelId, message::forward::ForwardInfo, message::reply::ReplyPreview, message::content::MessageContent, message::events::MessageDomainEvent, message::events::lifecycle::MessageDeleted, message::events::lifecycle::MessageEdited, message::events::lifecycle::MessageSent, message::id::MessageId, message::system::MessageKind, message::system::SystemMessage, message::system::SystemMessageKind};
-use domain::user::id::UserId;
+use domain::{sticker::StickerSnapshot, user::id::UserId};
 
 #[derive(Debug, thiserror::Error)]
 pub enum MessageError {
@@ -27,6 +27,8 @@ pub enum MessageError {
     SystemMessage,
     #[error("Forwarded messages cannot be edited")]
     Forwarded,
+    #[error("Sticker messages cannot be edited")]
+    Sticker,
 }
 
 #[derive(Debug)]
@@ -40,6 +42,7 @@ pub struct Message {
     system: Option<SystemMessage>,
     reply: Option<ReplyPreview>,
     forward: Option<ForwardInfo>,
+    sticker: Option<StickerSnapshot>,
     events: Vec<MessageDomainEvent>,
 }
 
@@ -61,6 +64,7 @@ impl Message {
             system: None,
             reply: None,
             forward: None,
+            sticker: None,
             events: Vec::new(),
         };
         message
@@ -95,6 +99,7 @@ impl Message {
             system: Some(system),
             reply: None,
             forward: None,
+            sticker: None,
             events: vec![MessageDomainEvent::Sent(sent)],
         }
     }
@@ -119,6 +124,7 @@ impl Message {
             system,
             reply: None,
             forward: None,
+            sticker: None,
             events: Vec::new(),
         }
     }
@@ -151,6 +157,20 @@ impl Message {
         self.forward.as_ref()
     }
 
+    pub fn with_sticker(mut self, sticker: Option<StickerSnapshot>) -> Self {
+        for event in &mut self.events {
+            if let MessageDomainEvent::Sent(sent) = event {
+                sent.sticker = sticker.clone();
+            }
+        }
+        self.sticker = sticker;
+        self
+    }
+
+    pub fn sticker(&self) -> Option<&StickerSnapshot> {
+        self.sticker.as_ref()
+    }
+
     pub fn edit(
         &mut self,
         new_content: MessageContent,
@@ -175,6 +195,9 @@ impl Message {
         }
         if self.forward.is_some() {
             return Err(MessageError::Forwarded);
+        }
+        if self.sticker.is_some() {
+            return Err(MessageError::Sticker);
         }
         if !allow_unchanged && self.content == new_content {
             return Err(MessageError::ContentUnchanged);
@@ -283,6 +306,27 @@ mod tests {
         let message = Message::create(channel, author, MessageContent::new("hi".to_string()).unwrap(), Utc::now());
         assert_eq!(message.kind(), MessageKind::User);
         assert!(message.system().is_none());
+    }
+
+    #[test]
+    fn sticker_messages_carry_the_sticker_and_cannot_be_edited() {
+        let channel = ChannelId::new(Uuid::new_v4());
+        let author = UserId::new(Uuid::new_v4());
+        let sticker = domain::sticker::StickerSnapshot {
+            id: Uuid::new_v4(),
+            pack_id: Uuid::new_v4(),
+            emoji: "😺".to_string(),
+            animated: false,
+            width: 512,
+            height: 512,
+        };
+        let mut message = Message::create(channel, author, MessageContent::new_allow_empty(String::new()).unwrap(), Utc::now())
+            .with_sticker(Some(sticker.clone()));
+        assert_eq!(message.sticker(), Some(&sticker));
+        let events = message.pull_events();
+        assert!(matches!(events.as_slice(), [MessageDomainEvent::Sent(sent)] if sent.sticker.as_ref() == Some(&sticker)));
+        let content = MessageContent::new("hi".to_string()).unwrap();
+        assert!(matches!(message.edit(content, author, Utc::now()), Err(MessageError::Sticker)));
     }
 
     #[test]

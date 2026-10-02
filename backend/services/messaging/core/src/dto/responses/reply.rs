@@ -11,6 +11,7 @@ pub struct ReplyPreviewDto {
     pub voice_duration_ms: Option<i32>,
     pub video_note_duration_ms: Option<i32>,
     pub video_note_poster: Option<String>,
+    pub sticker: Option<domain::sticker::StickerSnapshot>,
 }
 
 fn poster_base64(poster: &Option<Vec<u8>>) -> Option<String> {
@@ -31,6 +32,7 @@ impl ReplyPreviewDto {
             voice_duration_ms: preview.voice_duration_ms,
             video_note_duration_ms: preview.video_note_duration_ms,
             video_note_poster: poster_base64(&preview.video_note_poster),
+            sticker: preview.sticker.clone(),
         }
     }
 }
@@ -46,6 +48,7 @@ impl From<ReplyPreviewView> for ReplyPreviewDto {
             voice_duration_ms: value.voice_duration_ms,
             video_note_duration_ms: value.video_note_duration_ms,
             video_note_poster: poster_base64(&value.video_note_poster),
+            sticker: value.sticker,
         }
     }
 }

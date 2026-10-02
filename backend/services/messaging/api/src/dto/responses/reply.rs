@@ -18,6 +18,8 @@ pub struct ReplyPreviewResponse {
     pub video_note_duration_ms: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub video_note_poster: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sticker: Option<serde_json::Value>,
     pub deleted: bool,
 }
 
@@ -32,6 +34,7 @@ impl ReplyPreviewResponse {
             voice_duration_ms: None,
             video_note_duration_ms: None,
             video_note_poster: None,
+            sticker: None,
             deleted: true,
         }
     }
@@ -48,6 +51,7 @@ impl From<ReplyPreviewDto> for ReplyPreviewResponse {
             voice_duration_ms: value.voice_duration_ms,
             video_note_duration_ms: value.video_note_duration_ms,
             video_note_poster: value.video_note_poster,
+            sticker: value.sticker.as_ref().map(|s| s.to_json()),
             deleted: false,
         }
     }
@@ -120,6 +124,7 @@ mod tests {
                 voice_duration_ms: None,
                 video_note_duration_ms: None,
                 video_note_poster: None,
+            sticker: None,
             }],
         );
         let first = items[0].reply.as_ref().unwrap();

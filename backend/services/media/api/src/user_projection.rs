@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use media::usecases::user::update_avatar::still_avatar_key;
+use media_domain::sticker::StickerRepository;
 use contracts::events::user::{UserEntitlementsChangedV1, UserLifecycleV1 as UserLifecycleDto};
 use domain::user::id::UserId;
 use futures::StreamExt;
@@ -13,16 +14,18 @@ use media_domain::banner::BannerRepository;
 use media_domain::media::repository::MediaRepository;
 use tracing::Instrument;
 
-pub fn spawn<M, B, FS>(
+pub fn spawn<M, B, S, FS>(
     jetstream: async_nats::jetstream::Context,
     subject_prefix: String,
     stream: String,
     media_repository: Arc<M>,
     banners: Arc<B>,
+    stickers: Arc<S>,
     storage: Arc<FS>,
 ) where
     M: MediaRepository + Send + Sync + 'static,
     B: BannerRepository + 'static,
+    S: StickerRepository + 'static,
     FS: FileStorage + Send + Sync + 'static,
 {
     actix_web::rt::spawn(async move {
@@ -54,7 +57,7 @@ pub fn spawn<M, B, FS>(
                                     subject = %m.subject,
                                 );
                                 async {
-                                    match handle_deleted(&m.payload, &*media_repository, &*banners, &*storage).await {
+                                    match handle_deleted(&m.payload, &*media_repository, &*banners, &*stickers, &*storage).await {
                                         Ok(()) => {
                                             if let Err(e) = m.ack().await {
                                                 tracing::warn!(error = %e, "Media user projection ack failed");
@@ -153,15 +156,17 @@ async fn apply_tier<B: BannerRepository + ?Sized>(
     Ok(())
 }
 
-async fn handle_deleted<M, B, FS>(
+async fn handle_deleted<M, B, S, FS>(
     payload: &[u8],
     media_repository: &M,
     banners: &B,
+    stickers: &S,
     storage: &FS,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     M: MediaRepository + Send + Sync,
     B: BannerRepository + ?Sized,
+    S: StickerRepository + ?Sized,
     FS: FileStorage + Send + Sync,
 {
     let evt: UserLifecycleDto = match serde_json::from_slice(payload) {
@@ -172,6 +177,7 @@ where
         }
     };
     let user_id = UserId::new(evt.user_id);
+    stickers.forget_user(&user_id).await?;
     if let Some(key) = banners.set_banner_key(&user_id, None).await? {
         match storage.delete(&key).await {
             Ok(()) | Err(FileStorageError::NotFound) => {}

@@ -201,6 +201,7 @@ fn message_record(event: &MessageDomainEvent) -> Result<OutboxRecord, Repository
             system: e.system.as_ref().map(|s| s.to_json()),
             reply_to: e.reply.as_ref().map(reply_json),
             forwarded_from: e.forward.as_ref().map(|f| f.to_json()),
+            sticker: e.sticker.as_ref().map(|s| s.to_json()),
         })?,
         MessageDomainEvent::Edited(e) => encode(&ChannelMessageEditedV1 {
             message_id: e.message_id.uuid(),
@@ -243,6 +244,7 @@ fn dm_record(event: &DmMessageDomainEvent) -> Result<OutboxRecord, RepositoryErr
             attachments: Some(value(&e.attachments)?),
             reply_to: e.reply.as_ref().map(reply_json),
             forwarded_from: e.forward.as_ref().map(|f| f.to_json()),
+            sticker: e.sticker.as_ref().map(|s| s.to_json()),
         })?,
         DmMessageDomainEvent::Edited(e) => encode(&DmMessageEditedV1 {
             message_id: e.message_id.uuid(),
@@ -364,6 +366,7 @@ fn reply_json(reply: &messaging_domain::message::reply::ReplyPreview) -> Value {
             use base64::Engine;
             base64::engine::general_purpose::STANDARD.encode(p)
         }),
+        "sticker": reply.sticker.as_ref().map(|s| s.to_json()),
         "hiddenFor": reply.hidden_for.iter().map(|u| u.uuid()).collect::<Vec<_>>(),
     })
 }

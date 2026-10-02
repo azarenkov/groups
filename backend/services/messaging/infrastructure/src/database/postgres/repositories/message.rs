@@ -209,7 +209,7 @@ impl MessageRepository for PostgresMessageRepository {
         let dto = sqlx::query_as!(
             MessageDto,
             r#"
-            SELECT id, channel_id, author_id, content, created_at, edited_at, kind, system_payload::text AS "system_payload", forwarded_from::text AS "forwarded_from"
+            SELECT id, channel_id, author_id, content, created_at, edited_at, kind, system_payload::text AS "system_payload", forwarded_from::text AS "forwarded_from", sticker::text AS "sticker"
             FROM messages
             WHERE id = $1
             "#,
@@ -232,7 +232,7 @@ impl MessageRepository for PostgresMessageRepository {
             MessageViewDto,
             r#"
             SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
+                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from", m.sticker::text AS "sticker"
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.id = $1
@@ -265,7 +265,8 @@ impl MessageRepository for PostgresMessageRepository {
                    (SELECT a.video_duration_ms FROM message_attachments a
                     WHERE a.message_id = m.id AND a.video_duration_ms IS NOT NULL LIMIT 1) AS video_note_duration_ms,
                    (SELECT a.video_poster FROM message_attachments a
-                    WHERE a.message_id = m.id AND a.video_poster IS NOT NULL LIMIT 1) AS video_note_poster
+                    WHERE a.message_id = m.id AND a.video_poster IS NOT NULL LIMIT 1) AS video_note_poster,
+                   m.sticker::text AS "sticker?"
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.id = ANY($1)
@@ -288,6 +289,7 @@ impl MessageRepository for PostgresMessageRepository {
                 voice_duration_ms: r.voice_duration_ms,
                 video_note_duration_ms: r.video_note_duration_ms,
                 video_note_poster: r.video_note_poster,
+                sticker: parse_sticker(r.sticker.as_deref()),
             })
             .collect())
     }
@@ -307,7 +309,7 @@ impl MessageRepository for PostgresMessageRepository {
                     MessageViewDto,
                     r#"
                     SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
+                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from", m.sticker::text AS "sticker"
                     FROM messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
@@ -332,7 +334,7 @@ impl MessageRepository for PostgresMessageRepository {
                     MessageViewDto,
                     r#"
                     SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
+                           m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from", m.sticker::text AS "sticker"
                     FROM messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     WHERE m.channel_id = $1
@@ -357,7 +359,7 @@ impl MessageRepository for PostgresMessageRepository {
                 MessageViewDto,
                 r#"
                 SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                       m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
+                       m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from", m.sticker::text AS "sticker"
                 FROM messages m
                 INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
                 WHERE m.channel_id = $1
@@ -405,7 +407,7 @@ impl MessageRepository for PostgresMessageRepository {
             MessageViewDto,
             r#"
             SELECT m.id, m.channel_id, m.author_id, u.name AS author_name,
-                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from"
+                   m.content, m.created_at, m.edited_at, m.kind, m.system_payload::text AS "system_payload", m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from", m.sticker::text AS "sticker"
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.channel_id = $1
@@ -447,10 +449,16 @@ fn dto_to_message(dto: MessageDto) -> Result<Message, RepositoryError> {
         .as_deref()
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
         .and_then(|value| ForwardInfo::from_json(&value));
-    Ok(match forward {
+    let message = match forward {
         Some(forward) => message.with_forward(forward),
         None => message,
-    })
+    };
+    Ok(message.with_sticker(parse_sticker(dto.sticker.as_deref())))
+}
+
+pub(crate) fn parse_sticker(raw: Option<&str>) -> Option<domain::sticker::StickerSnapshot> {
+    let value: serde_json::Value = serde_json::from_str(raw?).ok()?;
+    domain::sticker::StickerSnapshot::from_json(&value)
 }
 
 fn system_from_row(kind: &str, payload: Option<&str>) -> Option<SystemMessage> {
@@ -477,6 +485,7 @@ fn view_dto_to_view(dto: MessageViewDto) -> MessageView {
             .as_deref()
             .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
             .and_then(|value| ForwardInfo::from_json(&value)),
+        sticker: parse_sticker(dto.sticker.as_deref()),
     }
 }
 

@@ -1,6 +1,7 @@
 import React from "react";
 
 export type IconName =
+  | "sticker"
   | "reply"
   | "forward"
   | "hash"
@@ -432,6 +433,14 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   "chev-left": <path d="m15 18-6-6 6-6" />,
+  sticker: (
+    <>
+      <path d="M15.5 3H7a4 4 0 0 0-4 4v10a4 4 0 0 0 4 4h6.5L21 13.5V7a4 4 0 0 0-4-4h-1.5" />
+      <path d="M13.5 21v-3.5a4 4 0 0 1 4-4H21" />
+      <path d="M8.5 13.5a4 4 0 0 0 5.5 1" />
+      <path d="M9 9h.01M15 9h.01" />
+    </>
+  ),
   paperclip: (
     <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
   ),

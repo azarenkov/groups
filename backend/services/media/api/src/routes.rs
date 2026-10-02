@@ -2,6 +2,7 @@ use actix_web::web;
 
 use crate::attachment::attachment_routes;
 use crate::internal::internal_routes;
+use crate::sticker::sticker_routes;
 use crate::banner::{delete_my_banner, get_user_banner, upload_my_banner};
 use crate::avatar::{
     delete_my_avatar, delete_community_logo, get_community_logo, get_user_avatar, upload_my_avatar,
@@ -16,6 +17,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         .service(
             web::scope("/api")
                 .configure(attachment_routes)
+                .configure(sticker_routes)
                 .service(
                     web::scope("/v1/users")
                         .service(upload_my_avatar)

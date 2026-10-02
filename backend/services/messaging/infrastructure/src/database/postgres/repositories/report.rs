@@ -67,19 +67,21 @@ impl ReportRepository for PostgresReportRepository {
 
         let context = report.context();
         let mut message_content: Option<String> = None;
+        let mut message_sticker: Option<String> = None;
         let mut attachment_ids: Vec<uuid::Uuid> = Vec::new();
         let mut attachment_keys: Vec<String> = Vec::new();
         if let Some(message_id) = context.message_id {
-            let channel_message = sqlx::query_scalar!(
-                r#"SELECT content FROM messages WHERE id = $1 FOR SHARE"#,
+            let channel_message = sqlx::query!(
+                r#"SELECT content, sticker::text AS "sticker?" FROM messages WHERE id = $1 FOR SHARE"#,
                 message_id,
             )
             .fetch_optional(&mut *tx)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
             let links = match channel_message {
-                Some(content) => {
-                    message_content = Some(content);
+                Some(row) => {
+                    message_content = Some(row.content);
+                    message_sticker = row.sticker;
                     sqlx::query!(
                         r#"SELECT attachment_id, storage_key FROM message_attachments WHERE message_id = $1"#,
                         message_id,
@@ -92,17 +94,18 @@ impl ReportRepository for PostgresReportRepository {
                     .collect::<Vec<_>>()
                 }
                 None => {
-                    let dm_message = sqlx::query_scalar!(
-                        r#"SELECT content FROM dm_messages WHERE id = $1 FOR SHARE"#,
+                    let dm_message = sqlx::query!(
+                        r#"SELECT content, sticker::text AS "sticker?" FROM dm_messages WHERE id = $1 FOR SHARE"#,
                         message_id,
                     )
                     .fetch_optional(&mut *tx)
                     .await
                     .map_err(map_sqlx_error_to_domain_error)?;
-                    let Some(content) = dm_message else {
+                    let Some(row) = dm_message else {
                         return Ok(ReportOutcome::EvidenceGone);
                     };
-                    message_content = Some(content);
+                    message_content = Some(row.content);
+                    message_sticker = row.sticker;
                     sqlx::query!(
                         r#"SELECT attachment_id, storage_key FROM dm_message_attachments WHERE dm_message_id = $1"#,
                         message_id,
@@ -125,9 +128,9 @@ impl ReportRepository for PostgresReportRepository {
             INSERT INTO reports (
                 id, reporter_id, target_type, target_id, target_name, reason, details,
                 context_channel_id, context_message_id, context_message_content,
-                context_attachment_ids, context_attachment_keys, status, created_at
+                context_attachment_ids, context_attachment_keys, status, created_at, context_sticker
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, ($15::text)::jsonb)
             "#,
             report.id(),
             reporter_id,
@@ -143,6 +146,7 @@ impl ReportRepository for PostgresReportRepository {
             &attachment_keys,
             report.status().as_str(),
             report.created_at(),
+            message_sticker,
         )
         .execute(&mut *tx)
         .await

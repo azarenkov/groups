@@ -14,6 +14,7 @@ pub struct SendDmMessageResponse {
     pub created_at: DateTime<Utc>,
     pub reply: Option<crate::dto::responses::reply::ReplyPreviewDto>,
     pub forwarded_from: Option<messaging_domain::message::forward::ForwardInfo>,
+    pub sticker: Option<domain::sticker::StickerSnapshot>,
 }
 
 impl SendDmMessageResponse {
@@ -31,6 +32,7 @@ impl SendDmMessageResponse {
                 .reply()
                 .map(|r| crate::dto::responses::reply::ReplyPreviewDto::from_preview(r, None)),
             forwarded_from: value.forward().cloned(),
+            sticker: value.sticker().cloned(),
         }
     }
 }
@@ -50,6 +52,7 @@ impl From<&DmMessage> for SendDmMessageResponse {
                 .reply()
                 .map(|r| crate::dto::responses::reply::ReplyPreviewDto::from_preview(r, None)),
             forwarded_from: value.forward().cloned(),
+            sticker: value.sticker().cloned(),
         }
     }
 }

@@ -24,6 +24,8 @@ pub struct DmMessageSentV1 {
     pub reply_to: Option<Value>,
     #[serde(default)]
     pub forwarded_from: Option<Value>,
+    #[serde(default)]
+    pub sticker: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
