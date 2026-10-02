@@ -102,11 +102,16 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
 
   React.useEffect(() => {
     if (view.kind !== "search") return;
+    if (!query.trim()) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
     let cancelled = false;
     setSearching(true);
     const timer = window.setTimeout(() => {
       stickersAPI
-        .search(query)
+        .search(query.trim())
         .then((packs) => {
           if (!cancelled) setResults(packs);
         })
@@ -238,7 +243,9 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                 onChange={(e) => setQuery(e.target.value)}
               />
               {results.length === 0 ? (
-                <div className="sticker-modal-empty">{searching ? t("loading") : t("nothingFound")}</div>
+                <div className="sticker-modal-empty">
+                  {!query.trim() ? t("searchHint") : searching ? t("loading") : t("nothingFound")}
+                </div>
               ) : (
                 results.map((p) => (
                   <PackRow

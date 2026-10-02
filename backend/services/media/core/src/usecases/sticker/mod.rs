@@ -291,6 +291,10 @@ where
     }
 
     pub async fn search(&self, query: &str, page: i64) -> Result<Vec<StickerPack>, StickerError> {
+        let query = query.trim();
+        if query.is_empty() {
+            return Ok(Vec::new());
+        }
         let offset = page.clamp(0, MAX_SEARCH_OFFSET / SEARCH_PAGE_SIZE) * SEARCH_PAGE_SIZE;
         Ok(self
             .stickers
