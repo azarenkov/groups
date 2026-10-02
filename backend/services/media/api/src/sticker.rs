@@ -437,28 +437,39 @@ fn normalize_sticker(bytes: &[u8]) -> Result<StickerFile, HttpError> {
     })
 }
 
-fn moderation_sheets(frames: &[image::Frame]) -> Vec<image::RgbaImage> {
-    let mut distinct: Vec<&image::RgbaImage> = Vec::new();
-    for frame in frames {
-        if distinct.last().is_none_or(|last| *last != frame.buffer()) {
-            distinct.push(frame.buffer());
+#[derive(Default)]
+struct SheetBuilder {
+    last: Option<image::RgbaImage>,
+    tiles: Vec<image::RgbaImage>,
+}
+
+impl SheetBuilder {
+    fn push(&mut self, frame: &image::RgbaImage) -> Option<image::RgbaImage> {
+        if self.last.as_ref() == Some(frame) {
+            return None;
         }
+        self.last = Some(frame.clone());
+        self.tiles.push(frame.clone());
+        if self.tiles.len() < SHEET_TILES {
+            return None;
+        }
+        self.flush()
     }
-    distinct
-        .chunks(SHEET_TILES)
-        .map(|tiles| {
-            let (w, h) = tiles[0].dimensions();
-            let columns = tiles.len().min(SHEET_COLUMNS) as u32;
-            let rows = tiles.len().div_ceil(SHEET_COLUMNS) as u32;
-            let mut sheet = image::RgbaImage::new(w * columns, h * rows);
-            for (index, tile) in tiles.iter().enumerate() {
-                let x = (index % SHEET_COLUMNS) as i64 * i64::from(w);
-                let y = (index / SHEET_COLUMNS) as i64 * i64::from(h);
-                image::imageops::overlay(&mut sheet, *tile, x, y);
-            }
-            sheet
-        })
-        .collect()
+
+    fn flush(&mut self) -> Option<image::RgbaImage> {
+        let first = self.tiles.first()?;
+        let (w, h) = first.dimensions();
+        let columns = self.tiles.len().min(SHEET_COLUMNS) as u32;
+        let rows = self.tiles.len().div_ceil(SHEET_COLUMNS) as u32;
+        let mut sheet = image::RgbaImage::new(w * columns, h * rows);
+        for (index, tile) in self.tiles.iter().enumerate() {
+            let x = (index % SHEET_COLUMNS) as i64 * i64::from(w);
+            let y = (index / SHEET_COLUMNS) as i64 * i64::from(h);
+            image::imageops::overlay(&mut sheet, tile, x, y);
+        }
+        self.tiles.clear();
+        Some(sheet)
+    }
 }
 
 fn normalize_animated_sticker(bytes: &[u8]) -> Result<StickerFile, HttpError> {
@@ -480,34 +491,38 @@ fn normalize_animated_sticker(bytes: &[u8]) -> Result<StickerFile, HttpError> {
         return Err(invalid_image(codes.too_small, "Stickers must be at least 64×64 pixels."));
     }
     let (w, h) = fit_within(width, height, ANIMATED_STICKER_SIZE);
-    let mut frames = Vec::new();
-    for frame in decoder.into_frames() {
-        let frame = frame.map_err(|_| invalid_image(codes.invalid, "Invalid sticker."))?;
-        if frames.len() >= MAX_STICKER_FRAMES {
-            return Err(invalid_image("STICKER_TOO_MANY_FRAMES", "The animation has too many frames."));
-        }
-        let delay = frame.delay();
-        let resized = image::DynamicImage::ImageRgba8(frame.into_buffer())
-            .resize_exact(w, h, FilterType::Triangle)
-            .into_rgba8();
-        frames.push(image::Frame::from_parts(resized, 0, 0, delay));
-    }
-    if frames.is_empty() {
-        return Err(invalid_image(codes.invalid, "Invalid sticker."));
-    }
-    let samples = moderation_sheets(&frames)
-        .iter()
-        .map(|sheet| encode_png(&image::DynamicImage::ImageRgba8(sheet.clone()), codes))
-        .collect::<Result<Vec<_>, _>>()?;
+    let failed = || invalid_image(codes.invalid, "Failed to process sticker.");
+    let sample = |sheet: image::RgbaImage| encode_png(&image::DynamicImage::ImageRgba8(sheet), codes);
+    let mut sheets = SheetBuilder::default();
+    let mut samples = Vec::new();
+    let mut count = 0usize;
     let mut out = Vec::new();
     {
         let mut encoder = GifEncoder::new_with_speed(&mut out, 10);
-        encoder
-            .set_repeat(Repeat::Infinite)
-            .map_err(|_| invalid_image(codes.invalid, "Failed to process sticker."))?;
-        encoder
-            .encode_frames(frames)
-            .map_err(|_| invalid_image(codes.invalid, "Failed to process sticker."))?;
+        encoder.set_repeat(Repeat::Infinite).map_err(|_| failed())?;
+        for frame in decoder.into_frames() {
+            let frame = frame.map_err(|_| invalid_image(codes.invalid, "Invalid sticker."))?;
+            if count >= MAX_STICKER_FRAMES {
+                return Err(invalid_image("STICKER_TOO_MANY_FRAMES", "The animation has too many frames."));
+            }
+            count += 1;
+            let delay = frame.delay();
+            let resized = image::DynamicImage::ImageRgba8(frame.into_buffer())
+                .resize_exact(w, h, FilterType::Triangle)
+                .into_rgba8();
+            if let Some(sheet) = sheets.push(&resized) {
+                samples.push(sample(sheet)?);
+            }
+            encoder
+                .encode_frame(image::Frame::from_parts(resized, 0, 0, delay))
+                .map_err(|_| failed())?;
+        }
+    }
+    if count == 0 {
+        return Err(invalid_image(codes.invalid, "Invalid sticker."));
+    }
+    if let Some(sheet) = sheets.flush() {
+        samples.push(sample(sheet)?);
     }
     if out.len() > MAX_ANIMATED_STICKER_BYTES {
         return Err(HttpError::new(
@@ -615,7 +630,9 @@ mod tests {
     fn every_distinct_frame_lands_on_a_moderation_sheet() {
         let frame = |shade: u8| image::Frame::new(image::RgbaImage::from_pixel(10, 10, image::Rgba([shade, 0, 0, 255])));
         let frames: Vec<image::Frame> = [1, 1, 2, 3, 4, 5, 6].into_iter().map(frame).collect();
-        let sheets = moderation_sheets(&frames);
+        let mut builder = SheetBuilder::default();
+        let mut sheets: Vec<image::RgbaImage> = frames.iter().filter_map(|f| builder.push(f.buffer())).collect();
+        sheets.extend(builder.flush());
         assert_eq!(sheets.len(), 2);
         assert_eq!(sheets[0].dimensions(), (20, 20));
         assert_eq!(sheets[0].get_pixel(15, 15)[0], 4);

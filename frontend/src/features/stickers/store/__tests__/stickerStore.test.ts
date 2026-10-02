@@ -115,6 +115,17 @@ describe("stickerStore recovery", () => {
     }
   });
 
+  it("ignores an install that finishes after the account switched", async () => {
+    await useStickerStore.getState().load("u1");
+    let finishInstall: () => void = () => undefined;
+    (stickersAPI.install as jest.Mock).mockReturnValueOnce(new Promise<void>((resolve) => (finishInstall = resolve)));
+    const installing = useStickerStore.getState().install(pack("1", [sticker("a", "1", "😺")]));
+    await useStickerStore.getState().load("u2");
+    finishInstall();
+    await installing;
+    expect(useStickerStore.getState().packs).toEqual([]);
+  });
+
   it("tries again after a failed load", async () => {
     const mine = stickersAPI.mine as jest.Mock;
     mine.mockRejectedValueOnce(new Error("offline"));

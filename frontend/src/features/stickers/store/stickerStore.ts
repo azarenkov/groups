@@ -98,13 +98,17 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
   },
 
   install: async (pack) => {
+    const gen = generation;
     await stickersAPI.install(pack.id);
     const full = pack.stickers.length >= pack.stickerCount ? pack : await stickersAPI.pack(pack.id);
+    if (gen !== generation) return;
     get().upsertPack({ ...full, installed: true });
   },
 
   uninstall: async (packId) => {
+    const gen = generation;
     await stickersAPI.uninstall(packId);
+    if (gen !== generation) return;
     get().dropPack(packId);
   },
 
