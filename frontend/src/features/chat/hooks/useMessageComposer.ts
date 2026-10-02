@@ -302,7 +302,7 @@ export function useMessageComposer(params: {
     setComposerError(null);
     const send = () => messenger.sendMessage("", undefined, reply?.id, sticker.id);
     try {
-      let msg;
+      let msg: ChannelMessage;
       try {
         msg = await send();
       } catch (err) {
