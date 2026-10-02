@@ -6,7 +6,7 @@ import Icon from "../../../shared/ui/Icon";
 import { ApiError } from "../../../shared/lib/apiError";
 import { useAuthStore } from "../../auth/store/authStore";
 import { stickersAPI, type StickerPack } from "../api/stickers";
-import { useStickerStore } from "../store/stickerStore";
+import { isInstalled, useStickerStore } from "../store/stickerStore";
 import StickerImage from "./StickerImage";
 
 type View = { kind: "search" } | { kind: "mine" } | { kind: "create" } | { kind: "pack"; id: string };
@@ -49,9 +49,13 @@ const PackRow: React.FC<{
           ))}
         </span>
       </button>
-      {owned ? (
+      {owned && installed ? (
         <button type="button" className="s-btn secondary" onClick={onOpen}>
           {t("manageOwn")}
+        </button>
+      ) : owned ? (
+        <button type="button" className="s-btn primary" disabled={busy} onClick={onToggle}>
+          {t("add")}
         </button>
       ) : (
         <button
@@ -84,7 +88,7 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
   const [emoji, setEmoji] = React.useState("🙂");
   const fileRef = React.useRef<HTMLInputElement>(null);
 
-  const installedIds = React.useMemo(() => new Set(myPacks.map((p) => p.id)), [myPacks]);
+  const installedIds = React.useMemo(() => new Set(myPacks.filter(isInstalled).map((p) => p.id)), [myPacks]);
 
   React.useEffect(() => {
     if (!userId) return;
@@ -262,7 +266,7 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                 <PackRow
                   key={p.id}
                   pack={p}
-                  installed
+                  installed={isInstalled(p)}
                   owned={p.ownerId === userId}
                   busy={busy}
                   onOpen={() => setView({ kind: "pack", id: p.id })}
@@ -321,9 +325,16 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                     </div>
                   </div>
                   {own ? (
-                    <button type="button" className="s-btn danger" disabled={busy} onClick={() => void deletePack()}>
-                      {t("deletePack")}
-                    </button>
+                    <>
+                      {!installedIds.has(pack.id) && (
+                        <button type="button" className="s-btn primary" disabled={busy} onClick={() => void toggleInstall(pack)}>
+                          {t("add")}
+                        </button>
+                      )}
+                      <button type="button" className="s-btn danger" disabled={busy} onClick={() => void deletePack()}>
+                        {t("deletePack")}
+                      </button>
+                    </>
                   ) : (
                     <button
                       type="button"

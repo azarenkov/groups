@@ -31,6 +31,7 @@ pub struct StickerPack {
     pub install_count: i32,
     pub sticker_count: i64,
     pub created_at: DateTime<Utc>,
+    pub installed: Option<bool>,
     pub stickers: Vec<Sticker>,
 }
 
@@ -69,7 +70,7 @@ pub enum AddStickerOutcome {
 #[async_trait]
 pub trait StickerRepository: Send + Sync {
     async fn count_owned_packs(&self, owner_id: &UserId) -> Result<i64, RepositoryError>;
-    async fn create_pack(&self, id: Uuid, owner_id: &UserId, name: &str, slug: &str, max_owned: i64) -> Result<bool, RepositoryError>;
+    async fn create_pack(&self, id: Uuid, owner_id: &UserId, name: &str, slug: &str, max_owned: i64) -> Result<Option<bool>, RepositoryError>;
     async fn find_pack(&self, id_or_slug: &str) -> Result<Option<StickerPack>, RepositoryError>;
     async fn rename_pack(&self, pack_id: Uuid, owner_id: &UserId, name: &str) -> Result<bool, RepositoryError>;
     async fn delete_pack(&self, pack_id: Uuid, owner_id: &UserId) -> Result<bool, RepositoryError>;

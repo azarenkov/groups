@@ -82,6 +82,7 @@ impl PostgresStickerRepository {
                 install_count: p.install_count,
                 sticker_count: p.sticker_count,
                 created_at: p.created_at,
+                installed: p.installed,
             })
             .collect())
     }
@@ -95,6 +96,7 @@ struct PackRow {
     install_count: i32,
     sticker_count: i64,
     created_at: DateTime<Utc>,
+    installed: Option<bool>,
 }
 
 #[async_trait]
@@ -116,7 +118,7 @@ impl StickerRepository for PostgresStickerRepository {
         name: &str,
         slug: &str,
         max_owned: i64,
-    ) -> Result<bool, RepositoryError> {
+    ) -> Result<Option<bool>, RepositoryError> {
         let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
         sqlx::query!(
             "SELECT pg_advisory_xact_lock(hashtextextended($1, 46))",
@@ -133,7 +135,7 @@ impl StickerRepository for PostgresStickerRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         if owned >= max_owned {
-            return Ok(false);
+            return Ok(None);
         }
         sqlx::query!(
             "SELECT pg_advisory_xact_lock(hashtextextended($1, 47))",
@@ -172,7 +174,7 @@ impl StickerRepository for PostgresStickerRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
         }
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(true)
+        Ok(Some(install))
     }
 
     async fn find_pack(&self, id_or_slug: &str) -> Result<Option<StickerPack>, RepositoryError> {
@@ -181,7 +183,8 @@ impl StickerRepository for PostgresStickerRepository {
             PackRow,
             r#"
             SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,
-                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS "sticker_count!"
+                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS "sticker_count!",
+                   NULL::boolean AS installed
             FROM media_sticker_packs p
             WHERE p.deleted_at IS NULL AND (p.id = $1 OR p.slug = $2)
             "#,
@@ -378,7 +381,8 @@ impl StickerRepository for PostgresStickerRepository {
             PackRow,
             r#"
             SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,
-                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS "sticker_count!"
+                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS "sticker_count!",
+                   NULL::boolean AS installed
             FROM media_sticker_packs p
             WHERE p.deleted_at IS NULL AND NOT p.hidden
               AND EXISTS (SELECT 1 FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL)
@@ -402,7 +406,8 @@ impl StickerRepository for PostgresStickerRepository {
             PackRow,
             r#"
             SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,
-                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS "sticker_count!"
+                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS "sticker_count!",
+                   (i.user_id IS NOT NULL) AS installed
             FROM media_sticker_packs p
             LEFT JOIN media_sticker_installs i ON i.pack_id = p.id AND i.user_id = $1
             WHERE p.deleted_at IS NULL AND (i.user_id IS NOT NULL OR p.owner_id = $1)

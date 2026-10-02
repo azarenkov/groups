@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import { useAuthStore } from "../../auth/store/authStore";
 import type { PackSticker } from "../api/stickers";
-import { searchMyStickers, useStickerStore } from "../store/stickerStore";
+import { installedPacks, searchMyStickers, useStickerStore } from "../store/stickerStore";
 import StickerImage from "./StickerImage";
 import StickerPacksModal from "./StickerPacksModal";
 
@@ -18,7 +18,8 @@ const RECENT_TAB = "recent";
 const StickerPicker: React.FC<StickerPickerProps> = ({ disabled, onPick }) => {
   const { t } = useTranslation("stickers");
   const userId = useAuthStore((s) => s.user?.id ?? null);
-  const packs = useStickerStore((s) => s.packs);
+  const allPacks = useStickerStore((s) => s.packs);
+  const packs = React.useMemo(() => installedPacks(allPacks), [allPacks]);
   const recent = useStickerStore((s) => s.recent);
   const loaded = useStickerStore((s) => s.loaded);
   const failed = useStickerStore((s) => s.failed);

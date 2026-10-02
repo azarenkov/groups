@@ -58,6 +58,8 @@ struct PackResponse {
     slug: String,
     install_count: i32,
     sticker_count: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    installed: Option<bool>,
     stickers: Vec<StickerResponse>,
 }
 
@@ -70,6 +72,7 @@ impl From<StickerPack> for PackResponse {
             slug: pack.slug,
             install_count: pack.install_count,
             sticker_count: pack.sticker_count,
+            installed: pack.installed,
             stickers: pack
                 .stickers
                 .into_iter()

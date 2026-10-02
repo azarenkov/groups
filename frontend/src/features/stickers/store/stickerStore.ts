@@ -74,9 +74,10 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
   upsertPack: (pack) => {
     revision += 1;
     set((state) => {
-      const exists = state.packs.some((p) => p.id === pack.id);
+      const existing = state.packs.find((p) => p.id === pack.id);
+      const next = { ...pack, installed: pack.installed ?? existing?.installed };
       return {
-        packs: exists ? state.packs.map((p) => (p.id === pack.id ? pack : p)) : [...state.packs, pack],
+        packs: existing ? state.packs.map((p) => (p.id === pack.id ? next : p)) : [...state.packs, next],
       };
     });
   },
@@ -91,7 +92,7 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
   install: async (pack) => {
     await stickersAPI.install(pack.id);
     const full = pack.stickers.length >= pack.stickerCount ? pack : await stickersAPI.pack(pack.id);
-    get().upsertPack(full);
+    get().upsertPack({ ...full, installed: true });
   },
 
   uninstall: async (packId) => {
@@ -128,6 +129,10 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
     set({ userId: null, packs: [], recent: [], loaded: false, failed: false });
   },
 }));
+
+export const isInstalled = (pack: StickerPack): boolean => pack.installed !== false;
+
+export const installedPacks = (packs: StickerPack[]): StickerPack[] => packs.filter(isInstalled);
 
 export const searchMyStickers = (packs: StickerPack[], emoji: string): PackSticker[] => {
   const needle = emoji.trim();

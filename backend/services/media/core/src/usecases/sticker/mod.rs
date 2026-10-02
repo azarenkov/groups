@@ -138,16 +138,18 @@ where
         }
         let tier = self.tiers.tier_of(&owner_id, Utc::now()).await?;
         let id = Uuid::new_v4();
-        if !self
+        let installed = self
             .stickers
             .create_pack(id, &owner_id, name, &slug, max_owned_packs(&tier))
             .await?
-        {
-            return Err(StickerError::PackLimit);
-        }
+            .ok_or(StickerError::PackLimit)?;
         self.stickers
             .find_pack(&id.to_string())
             .await?
+            .map(|pack| StickerPack {
+                installed: Some(installed),
+                ..pack
+            })
             .ok_or(StickerError::PackNotFound)
     }
 
@@ -346,6 +348,7 @@ mod tests {
             install_count: 1,
             sticker_count: ids.len() as i64,
             created_at: Utc::now(),
+            installed: None,
             stickers: ids
                 .iter()
                 .enumerate()

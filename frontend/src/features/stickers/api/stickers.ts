@@ -16,6 +16,7 @@ export interface StickerPack {
   slug: string;
   installCount: number;
   stickerCount: number;
+  installed?: boolean;
   stickers: PackSticker[];
 }
 

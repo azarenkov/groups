@@ -1,4 +1,4 @@
-import { searchMyStickers, useStickerStore } from "../stickerStore";
+import { installedPacks, searchMyStickers, useStickerStore } from "../stickerStore";
 import { slugFromName } from "../../components/StickerPacksModal";
 import { stickersAPI, type PackSticker, type StickerPack } from "../../api/stickers";
 
@@ -83,6 +83,18 @@ describe("stickerStore recovery", () => {
     await refreshing;
     expect(useStickerStore.getState().packs).toEqual([]);
     expect(mine).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps an owned pack the server left uninstalled out of the picker until it is installed", async () => {
+    const owned = { ...pack("1", [sticker("a", "1", "😺")]), installed: false };
+    (stickersAPI.mine as jest.Mock).mockResolvedValueOnce([owned]);
+    await useStickerStore.getState().load("u1");
+    expect(installedPacks(useStickerStore.getState().packs)).toEqual([]);
+    useStickerStore.getState().upsertPack({ ...owned, installed: undefined, name: "Renamed" });
+    expect(installedPacks(useStickerStore.getState().packs)).toEqual([]);
+    (stickersAPI.install as jest.Mock).mockResolvedValueOnce(undefined);
+    await useStickerStore.getState().install(owned);
+    expect(installedPacks(useStickerStore.getState().packs).map((p) => p.id)).toEqual(["1"]);
   });
 
   it("tries again after a failed load", async () => {
