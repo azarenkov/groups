@@ -32,6 +32,8 @@ import enReport from "./locales/en/report.json";
 import ruReport from "./locales/ru/report.json";
 import enStickers from "./locales/en/stickers.json";
 import ruStickers from "./locales/ru/stickers.json";
+import enErrors from "./locales/en/errors.json";
+import ruErrors from "./locales/ru/errors.json";
 
 export const SUPPORTED_LOCALES = ["en", "ru"] as const;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
@@ -52,6 +54,7 @@ export const NAMESPACES = [
   "subscription",
   "report",
   "stickers",
+  "errors",
 ] as const;
 
 const resources = {
@@ -71,6 +74,7 @@ const resources = {
     subscription: enSubscription,
     report: enReport,
     stickers: enStickers,
+    errors: enErrors,
   },
   ru: {
     common: ruCommon,
@@ -88,6 +92,7 @@ const resources = {
     subscription: ruSubscription,
     report: ruReport,
     stickers: ruStickers,
+    errors: ruErrors,
   },
 } as const;
 
