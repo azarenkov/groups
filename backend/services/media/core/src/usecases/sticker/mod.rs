@@ -8,7 +8,7 @@ use media_domain::{
     banner::BannerRepository,
     sticker::{
         AddStickerOutcome, InstallOutcome, NewSticker, StickerPack, StickerRef, StickerRepository, max_owned_packs,
-        valid_pack_name, valid_pack_slug, valid_sticker_emoji,
+        slug_from_name, slug_with_suffix, valid_pack_name, valid_pack_slug, valid_sticker_emoji,
     },
 };
 use ports::repository::RepositoryError;
@@ -23,6 +23,7 @@ use crate::usecases::user::update_avatar::cleanup_object;
 pub const SEARCH_PAGE_SIZE: i64 = 20;
 const MAX_SEARCH_OFFSET: i64 = 2000;
 const MODERATION_CONCURRENCY: usize = 4;
+const SLUG_ATTEMPTS: usize = 5;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StickerError {
@@ -127,22 +128,37 @@ where
         }
     }
 
-    pub async fn create_pack(&self, owner_id: UserId, name: &str, slug: &str) -> Result<StickerPack, StickerError> {
+    pub async fn create_pack(&self, owner_id: UserId, name: &str, slug: Option<&str>) -> Result<StickerPack, StickerError> {
         let name = name.trim();
-        let slug = slug.trim().to_lowercase();
         if !valid_pack_name(name) {
             return Err(StickerError::InvalidName);
         }
-        if !valid_pack_slug(&slug) {
+        let requested = slug.map(|slug| slug.trim().to_lowercase()).filter(|slug| !slug.is_empty());
+        if requested.as_deref().is_some_and(|slug| !valid_pack_slug(slug)) {
             return Err(StickerError::InvalidSlug);
         }
         let tier = self.tiers.tier_of(&owner_id, Utc::now()).await?;
         let id = Uuid::new_v4();
-        let installed = self
-            .stickers
-            .create_pack(id, &owner_id, name, &slug, max_owned_packs(&tier))
-            .await?
-            .ok_or(StickerError::PackLimit)?;
+        let base = requested.clone().unwrap_or_else(|| slug_from_name(name));
+        let attempts = if requested.is_some() { 1 } else { SLUG_ATTEMPTS };
+        let mut attempt = 0;
+        let installed = loop {
+            let slug = if attempt == 0 {
+                base.clone()
+            } else {
+                slug_with_suffix(&base, &Uuid::new_v4().simple().to_string()[..5])
+            };
+            attempt += 1;
+            match self
+                .stickers
+                .create_pack(id, &owner_id, name, &slug, max_owned_packs(&tier))
+                .await
+            {
+                Ok(created) => break created.ok_or(StickerError::PackLimit)?,
+                Err(RepositoryError::AlreadyExists) if attempt < attempts => continue,
+                Err(e) => return Err(e.into()),
+            }
+        };
         self.stickers
             .find_pack(&id.to_string())
             .await?

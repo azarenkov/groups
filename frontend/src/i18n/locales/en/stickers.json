@@ -21,8 +21,6 @@
   "add": "Add",
   "remove": "Remove",
   "name": "Name",
-  "slug": "Link",
-  "slugHint": "3–32 characters: Latin letters, digits and _",
   "create": "Create pack",
   "deletePack": "Delete pack",
   "deleteConfirm": "Delete the pack “{{name}}”? Stickers already sent stay in chats.",

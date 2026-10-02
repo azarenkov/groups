@@ -168,7 +168,8 @@ async fn get_pack(
 #[derive(Debug, Deserialize)]
 struct CreatePackBody {
     name: String,
-    slug: String,
+    #[serde(default)]
+    slug: Option<String>,
 }
 
 #[post("")]
@@ -180,7 +181,7 @@ async fn create_pack(
     let body = body.into_inner();
     let pack = app_state
         .sticker_packs
-        .create_pack(UserId::new(auth.id), &body.name, &body.slug)
+        .create_pack(UserId::new(auth.id), &body.name, body.slug.as_deref())
         .await?;
     Ok(HttpResponse::Created().json(ApiResponse::success(PackResponse::from(pack))))
 }
