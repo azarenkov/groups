@@ -336,7 +336,7 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                       aria-pressed={selectedSticker === s.id}
                       onClick={() => setSelectedSticker((current) => (current === s.id ? null : s.id))}
                       onKeyDown={(e) => {
-                        if (e.key !== "Enter" && e.key !== " ") return;
+                        if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
                         e.preventDefault();
                         setSelectedSticker((current) => (current === s.id ? null : s.id));
                       }}
