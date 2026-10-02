@@ -6,11 +6,32 @@ const CACHE_LIMIT = 300;
 
 const RETRY_DELAYS_MS = [2000, 5000, 15000, 30000, 60000];
 
+const MAX_CONCURRENT_DOWNLOADS = 6;
+
 const urls = new Map<string, string>();
 const failures = new Map<string, number>();
 const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const pending = new Map<string, Promise<string | null>>();
 const listeners = new Map<string, Set<() => void>>();
+
+let activeDownloads = 0;
+const waitingDownloads: Array<() => void> = [];
+
+const acquireSlot = (): Promise<void> => {
+  if (activeDownloads < MAX_CONCURRENT_DOWNLOADS) {
+    activeDownloads += 1;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => waitingDownloads.push(resolve));
+};
+
+const releaseSlot = () => {
+  const next = waitingDownloads.shift();
+  if (next) next();
+  else activeDownloads -= 1;
+};
+
+const wanted = (id: string) => Boolean(listeners.get(id)?.size);
 
 const notify = (id: string) => {
   listeners.get(id)?.forEach((fn) => fn());
@@ -35,14 +56,14 @@ const scheduleRetry = (id: string) => {
     id,
     setTimeout(() => {
       retryTimers.delete(id);
-      if (listeners.get(id)?.size) void loadSticker(id);
+      if (wanted(id)) void loadSticker(id);
     }, delay),
   );
 };
 
 export const retryFailedStickers = () => {
   for (const id of Array.from(failures.keys())) {
-    if (!listeners.get(id)?.size) continue;
+    if (!wanted(id)) continue;
     const timer = retryTimers.get(id);
     if (timer) clearTimeout(timer);
     retryTimers.delete(id);
@@ -59,19 +80,23 @@ export const loadSticker = (id: string): Promise<string | null> => {
   if (cached) return Promise.resolve(cached);
   const inFlight = pending.get(id);
   if (inFlight) return inFlight;
-  const promise = stickersAPI
-    .download(id)
-    .then((blob) => {
-      const url = URL.createObjectURL(blob);
-      failures.delete(id);
-      urls.set(id, url);
-      evict();
-      notify(id);
-      return url;
-    })
-    .catch(() => {
-      scheduleRetry(id);
-      return null;
+  const promise = acquireSlot()
+    .then(async () => {
+      try {
+        if (!wanted(id)) return null;
+        const blob = await stickersAPI.download(id);
+        const url = URL.createObjectURL(blob);
+        failures.delete(id);
+        urls.set(id, url);
+        evict();
+        notify(id);
+        return url;
+      } catch {
+        scheduleRetry(id);
+        return null;
+      } finally {
+        releaseSlot();
+      }
     })
     .finally(() => {
       pending.delete(id);
@@ -80,7 +105,7 @@ export const loadSticker = (id: string): Promise<string | null> => {
   return promise;
 };
 
-export const useStickerUrl = (id: string | null | undefined): string | null => {
+export const useStickerUrl = (id: string | null | undefined, enabled = true): string | null => {
   const [url, setUrl] = React.useState<string | null>(() => (id ? urls.get(id) ?? null : null));
   React.useEffect(() => {
     if (!id) {
@@ -88,17 +113,18 @@ export const useStickerUrl = (id: string | null | undefined): string | null => {
       return;
     }
     const update = () => setUrl(urls.get(id) ?? null);
+    update();
+    if (!enabled) return;
     let set = listeners.get(id);
     if (!set) {
       set = new Set();
       listeners.set(id, set);
     }
     set.add(update);
-    update();
     void loadSticker(id);
     return () => {
       set?.delete(update);
     };
-  }, [id]);
+  }, [id, enabled]);
   return url;
 };

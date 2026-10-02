@@ -33,4 +33,42 @@ describe("useStickerUrl", () => {
       jest.useRealTimers();
     }
   });
+
+  it("waits until the sticker is visible before downloading it", async () => {
+    const download = stickersAPI.download as jest.Mock;
+    download.mockResolvedValue(new Blob(["x"]));
+    const { result, rerender } = renderHook(({ enabled }) => useStickerUrl("sticker-lazy", enabled), {
+      initialProps: { enabled: false },
+    });
+    await act(async () => {
+      for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    });
+    expect(download).not.toHaveBeenCalled();
+    rerender({ enabled: true });
+    await waitFor(() => expect(result.current).toBe("blob:sticker"));
+    expect(download).toHaveBeenCalledTimes(1);
+  });
+
+  it("downloads at most six stickers at once", async () => {
+    const download = stickersAPI.download as jest.Mock;
+    const finish: Array<() => void> = [];
+    download.mockImplementation(
+      () => new Promise<Blob>((resolve) => finish.push(() => resolve(new Blob(["x"])))),
+    );
+    const hooks = Array.from({ length: 10 }, (_, i) => renderHook(() => useStickerUrl(`sticker-many-${i}`)));
+    await act(async () => {
+      for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    });
+    expect(download).toHaveBeenCalledTimes(6);
+    await act(async () => {
+      finish.splice(0).forEach((done) => done());
+      for (let i = 0; i < 10; i += 1) await Promise.resolve();
+    });
+    expect(download).toHaveBeenCalledTimes(10);
+    await act(async () => {
+      finish.splice(0).forEach((done) => done());
+      for (let i = 0; i < 10; i += 1) await Promise.resolve();
+    });
+    await waitFor(() => expect(hooks.every((hook) => hook.result.current === "blob:sticker")).toBe(true));
+  });
 });
