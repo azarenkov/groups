@@ -106,4 +106,27 @@ describe("useStickerUrl", () => {
       jest.useRealTimers();
     }
   });
+
+  it("does not plan a retry for a download that fails after the sticker left the screen", async () => {
+    jest.useFakeTimers();
+    try {
+      const download = stickersAPI.download as jest.Mock;
+      download.mockReset();
+      let fail: (error: Error) => void = () => undefined;
+      download.mockReturnValueOnce(new Promise<Blob>((_, reject) => (fail = reject)));
+      const { unmount } = renderHook(() => useStickerUrl("sticker-left"));
+      await act(async () => {
+        for (let i = 0; i < 5; i += 1) await Promise.resolve();
+      });
+      expect(download).toHaveBeenCalledTimes(1);
+      unmount();
+      await act(async () => {
+        fail(new Error("offline"));
+        for (let i = 0; i < 5; i += 1) await Promise.resolve();
+      });
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });

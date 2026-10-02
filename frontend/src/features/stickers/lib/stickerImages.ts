@@ -95,7 +95,7 @@ export const loadSticker = (id: string): Promise<string | null> => {
         notify(id);
         return url;
       } catch {
-        if (generation !== cacheGeneration) return null;
+        if (generation !== cacheGeneration || !wanted(id)) return null;
         scheduleRetry(id);
         return null;
       } finally {
