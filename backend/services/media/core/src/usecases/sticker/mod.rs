@@ -133,7 +133,7 @@ where
         if !valid_pack_name(name) {
             return Err(StickerError::InvalidName);
         }
-        let requested = slug.map(|slug| slug.trim().to_lowercase()).filter(|slug| !slug.is_empty());
+        let requested = slug.map(|slug| slug.trim().to_lowercase());
         if requested.as_deref().is_some_and(|slug| !valid_pack_slug(slug)) {
             return Err(StickerError::InvalidSlug);
         }
