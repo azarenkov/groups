@@ -38,8 +38,8 @@ class StickersAPI {
     return response.data.data;
   }
 
-  async create(name: string, slug: string): Promise<StickerPack> {
-    const response = await this.client.post("/v1/sticker-packs", { name, slug });
+  async create(name: string): Promise<StickerPack> {
+    const response = await this.client.post("/v1/sticker-packs", { name });
     return response.data.data;
   }
 

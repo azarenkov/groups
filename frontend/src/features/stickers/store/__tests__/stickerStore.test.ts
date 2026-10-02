@@ -1,5 +1,4 @@
 import { installedPacks, searchMyStickers, useStickerStore } from "../stickerStore";
-import { slugFromName } from "../../components/StickerPacksModal";
 import { stickersAPI, type PackSticker, type StickerPack } from "../../api/stickers";
 
 jest.mock("../../api/stickers", () => ({
@@ -154,13 +153,5 @@ describe("searchMyStickers", () => {
     const packs = [pack("1", [sticker("a", "1", "😺 ❤️"), sticker("b", "1", "🐶")]), pack("2", [sticker("c", "2", "😺")])];
     expect(searchMyStickers(packs, "😺").map((s) => s.id)).toEqual(["a", "c"]);
     expect(searchMyStickers(packs, "  ")).toEqual([]);
-  });
-});
-
-describe("slugFromName", () => {
-  it("turns a pack name into a valid link", () => {
-    expect(slugFromName("Cats & Dogs 2026")).toBe("cats_dogs_2026");
-    expect(slugFromName("Котики")).toBe("");
-    expect(slugFromName("x".repeat(40))).toHaveLength(32);
   });
 });

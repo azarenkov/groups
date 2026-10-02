@@ -22,13 +22,6 @@ const STICKER_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
 const errorText = (err: unknown, fallback: string) =>
   err instanceof ApiError && err.message ? err.message : fallback;
 
-export const slugFromName = (name: string): string =>
-  name
-    .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 32);
-
 const PackRow: React.FC<{
   pack: StickerPack;
   installed: boolean;
@@ -83,8 +76,9 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
   const [error, setError] = React.useState<string | null>(null);
   const [pack, setPack] = React.useState<StickerPack | null>(null);
   const [name, setName] = React.useState("");
-  const [slug, setSlug] = React.useState("");
-  const [slugTouched, setSlugTouched] = React.useState(false);
+  const [selectedSticker, setSelectedSticker] = React.useState<string | null>(null);
+
+  React.useEffect(() => setSelectedSticker(null), [view]);
   const [emoji, setEmoji] = React.useState("🙂");
   const fileRef = React.useRef<HTMLInputElement>(null);
 
@@ -166,12 +160,10 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
 
   const createPack = () =>
     run(async (sameSession) => {
-      const created = await stickersAPI.create(name.trim(), slug.trim());
+      const created = await stickersAPI.create(name.trim());
       if (!sameSession()) return;
       useStickerStore.getState().upsertPack(created);
       setName("");
-      setSlug("");
-      setSlugTouched(false);
       setView({ kind: "pack", id: created.id });
     });
 
@@ -292,26 +284,10 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                   className="s-input"
                   value={name}
                   maxLength={64}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (!slugTouched) setSlug(slugFromName(e.target.value));
-                  }}
+                  onChange={(e) => setName(e.target.value)}
                 />
               </label>
-              <label className="sticker-field">
-                <span>{t("slug")}</span>
-                <input
-                  className="s-input"
-                  value={slug}
-                  maxLength={32}
-                  onChange={(e) => {
-                    setSlugTouched(true);
-                    setSlug(e.target.value.toLowerCase());
-                  }}
-                />
-                <small>{t("slugHint")}</small>
-              </label>
-              <button type="submit" className="s-btn primary" disabled={busy || !name.trim() || !slug.trim()}>
+              <button type="submit" className="s-btn primary" disabled={busy || !name.trim()}>
                 {t("create")}
               </button>
             </form>
@@ -352,8 +328,19 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                 </div>
                 <div className="sticker-pack-grid">
                   {pack.stickers.map((s) => (
-                    <div key={s.id} className="sticker-pack-cell">
-                      <StickerImage id={s.id} emoji={s.emoji} size={88} width={s.width} height={s.height} />
+                    <div key={s.id} className={"sticker-pack-cell" + (selectedSticker === s.id ? " selected" : "")}>
+                      <button
+                        type="button"
+                        className="sticker-pack-select"
+                        aria-pressed={selectedSticker === s.id}
+                        aria-label={s.emoji}
+                        onClick={() => setSelectedSticker((current) => (current === s.id ? null : s.id))}
+                      >
+                        <StickerImage id={s.id} emoji={s.emoji} size={88} width={s.width} height={s.height} />
+                        <span className="sticker-pack-emoji" aria-hidden="true">
+                          {s.emoji}
+                        </span>
+                      </button>
                       {own && (
                         <button
                           type="button"

@@ -256,7 +256,8 @@
   display: block;
 }
 .composer .composer-input::placeholder { color: var(--fg-4); }
-.composer-wrap > .attach-btn { margin-bottom: 3px; }
+.composer-wrap > .attach-btn,
+.composer-wrap > .sticker-picker { margin-bottom: 3px; }
 .composer-wrap > .send-btn { margin-bottom: 4px; }
 .composer .send-btn {
   width: 32px; height: 32px; flex-shrink: 0;
@@ -1115,7 +1116,7 @@
 .msg-sticker .sticker-img-placeholder { font-size: 64px; }
 .msg-reply-thumb.sticker-img { border-radius: 4px; }
 .sticker-modal { width: 520px; }
-.sticker-modal-tabs { display: flex; gap: 4px; padding: 0 20px 8px; }
+.sticker-modal-tabs { display: flex; gap: 4px; padding: 12px 20px 0; }
 .sticker-modal-tab {
   padding: 6px 12px;
   border: 0;
@@ -1128,16 +1129,18 @@
 }
 .sticker-modal-tab.on { background: var(--accent-tint); color: var(--accent); font-weight: 600; }
 .sticker-modal-body { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
+.modal .sticker-modal-body { padding-top: 16px; }
 .sticker-modal-search { width: 100%; }
 .sticker-modal-empty { padding: 28px 8px; text-align: center; color: var(--fg-3); font-size: 13px; }
 .sticker-modal-error { color: var(--danger); font-size: 12px; }
-.sticker-pack-row { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 12px; background: var(--surface-panel); }
+.sticker-pack-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-panel); }
 .sticker-pack-row-main {
   flex: 1;
   min-width: 0;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1146,9 +1149,9 @@
   text-align: left;
   cursor: pointer;
 }
-.sticker-pack-row-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sticker-pack-row-name { max-width: 100%; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sticker-pack-row-meta { font-size: 12px; color: var(--fg-3); }
-.sticker-pack-row-preview { grid-column: 1 / -1; display: flex; gap: 4px; margin-top: 4px; }
+.sticker-pack-row-preview { display: flex; align-items: center; gap: 6px; margin-top: 6px; min-height: 40px; }
 .sticker-create { display: flex; flex-direction: column; gap: 12px; }
 .sticker-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--fg-2); }
 .sticker-field small { color: var(--fg-3); }
@@ -1165,9 +1168,46 @@
   aspect-ratio: 1;
   border-radius: 12px;
   background: var(--surface-panel);
+  transition: background var(--dur-fast);
+}
+.sticker-pack-cell:hover { background: var(--surface-hover); }
+.sticker-pack-select {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  cursor: pointer;
+  transition: outline-color var(--dur-fast);
+}
+.sticker-pack-cell.selected .sticker-pack-select,
+.sticker-pack-select:focus-visible { outline-color: var(--accent); }
+.sticker-pack-emoji {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+  border-radius: 12px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-xs);
+  font-size: 14px;
+  line-height: 1;
 }
 .sticker-pack-remove {
   position: absolute;
+  z-index: 1;
   top: 4px;
   right: 4px;
   display: inline-flex;
@@ -1185,6 +1225,7 @@
   transition: opacity var(--dur-fast);
 }
 .sticker-pack-cell:hover .sticker-pack-remove,
+.sticker-pack-cell.selected .sticker-pack-remove,
 .sticker-pack-remove:focus-visible { opacity: 1; }
 .sticker-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .sticker-add-emoji { width: 72px; text-align: center; font-size: 18px; }

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import StickerPacksModal from "../StickerPacksModal";
 import { stickersAPI } from "../../api/stickers";
 import { useStickerStore } from "../../store/stickerStore";
+import { useAuthStore } from "../../../auth/store/authStore";
 
 jest.mock("../../api/stickers", () => ({
   stickersAPI: {
@@ -10,6 +11,7 @@ jest.mock("../../api/stickers", () => ({
     search: jest.fn(),
     create: jest.fn(),
     pack: jest.fn(),
+    removeSticker: jest.fn(),
   },
 }));
 
@@ -56,4 +58,25 @@ it("keeps a pack created before an account switch out of the next account's stic
   finishCreate({ id: "p1", ownerId: "u1", name: "Cats", slug: "cats", installCount: 1, stickerCount: 0, stickers: [] });
   await waitFor(() => expect(document.querySelector(".sticker-create button[type=submit]:disabled")).toBeNull());
   expect(useStickerStore.getState().packs).toEqual([]);
+});
+
+it("keeps selecting and removing a sticker as separate buttons", async () => {
+  useAuthStore.setState({ user: { id: "u1" } } as never);
+  (stickersAPI.pack as jest.Mock).mockResolvedValueOnce({
+    id: "p1",
+    ownerId: "u1",
+    name: "Cats",
+    slug: "cats",
+    installCount: 1,
+    stickerCount: 1,
+    stickers: [{ id: "s1", packId: "p1", emoji: "😺", animated: false, width: 512, height: 512 }],
+  });
+  render(<StickerPacksModal onClose={() => undefined} packId="p1" />);
+  const remove = await screen.findByRole("button", { name: "Remove sticker" });
+  const select = screen.getByRole("button", { name: "😺" });
+  expect(select.contains(remove)).toBe(false);
+  expect(remove.closest("[role=button]")).toBeNull();
+  fireEvent.click(select);
+  expect(select).toHaveAttribute("aria-pressed", "true");
+  expect(document.querySelector(".sticker-pack-cell.selected")).not.toBeNull();
 });

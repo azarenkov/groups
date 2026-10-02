@@ -93,8 +93,11 @@ pub fn valid_pack_name(name: &str) -> bool {
         && !trimmed.chars().any(|c| c.is_control())
 }
 
+const RESERVED_SLUGS: [&str; 1] = ["mine"];
+
 pub fn valid_pack_slug(slug: &str) -> bool {
-    (3..=32).contains(&slug.len())
+    !RESERVED_SLUGS.contains(&slug)
+        && (3..=32).contains(&slug.len())
         && slug
             .bytes()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
@@ -137,6 +140,50 @@ fn is_pictograph(c: char) -> bool {
 
 fn is_emoji_joiner(c: char) -> bool {
     matches!(c as u32, 0x20 | 0x200D | 0xFE0F | 0x20E3 | 0xE0020..=0xE007F)
+}
+
+const SLUG_BASE_CHARS: usize = 26;
+
+fn transliterate(c: char) -> &'static str {
+    match c {
+        'а' => "a", 'б' => "b", 'в' => "v", 'г' => "g", 'д' => "d", 'е' | 'ё' | 'э' => "e",
+        'ж' => "zh", 'з' => "z", 'и' | 'й' | 'ы' => "i", 'к' => "k", 'л' => "l", 'м' => "m",
+        'н' => "n", 'о' => "o", 'п' => "p", 'р' => "r", 'с' => "s", 'т' => "t", 'у' => "u",
+        'ф' => "f", 'х' => "h", 'ц' => "ts", 'ч' => "ch", 'ш' => "sh", 'щ' => "sch",
+        'ю' => "yu", 'я' => "ya", 'ъ' | 'ь' => "",
+        _ => "_",
+    }
+}
+
+pub fn slug_from_name(name: &str) -> String {
+    let mut raw = String::new();
+    for c in name.trim().to_lowercase().chars() {
+        if c.is_ascii_lowercase() || c.is_ascii_digit() {
+            raw.push(c);
+        } else {
+            raw.push_str(transliterate(c));
+        }
+    }
+    let mut slug = String::new();
+    for part in raw.split('_').filter(|part| !part.is_empty()) {
+        if !slug.is_empty() {
+            slug.push('_');
+        }
+        slug.push_str(part);
+    }
+    let slug: String = slug.chars().take(SLUG_BASE_CHARS).collect();
+    let slug = slug.trim_end_matches('_').to_string();
+    if slug.len() < 3 {
+        "pack".to_string()
+    } else if RESERVED_SLUGS.contains(&slug.as_str()) {
+        format!("{slug}_pack")
+    } else {
+        slug
+    }
+}
+
+pub fn slug_with_suffix(base: &str, suffix: &str) -> String {
+    format!("{}_{}", base.chars().take(SLUG_BASE_CHARS).collect::<String>(), suffix)
 }
 
 pub fn valid_sticker_emoji(emoji: &str) -> bool {
@@ -199,6 +246,22 @@ mod tests {
         assert!(valid_sticker_emoji("👍🏽"));
         for text in ["!!!", "---", "()", "😺a", "ок", "\u{200D}"] {
             assert!(!valid_sticker_emoji(text), "{text}");
+        }
+    }
+
+    #[test]
+    fn slugs_are_generated_from_names() {
+        assert_eq!(slug_from_name("Котики и пёсики"), "kotiki_i_pesiki");
+        assert_eq!(slug_from_name("  Cats & Dogs 2026! "), "cats_dogs_2026");
+        assert_eq!(slug_from_name("✨"), "pack");
+        assert_eq!(slug_from_name("Щука"), "schuka");
+        assert_eq!(slug_from_name("Mine"), "mine_pack");
+        assert!(!valid_pack_slug("mine"));
+        let long = slug_from_name(&"очень длинное название пака ".repeat(4));
+        assert!(valid_pack_slug(&long), "{long}");
+        assert!(valid_pack_slug(&slug_with_suffix(&long, "a1b2c")));
+        for name in ["Котики", "test", "✨✨✨", "a b c d e f g h i j k l m n o p q r s t u v w x y z"] {
+            assert!(valid_pack_slug(&slug_from_name(name)), "{name}");
         }
     }
 
