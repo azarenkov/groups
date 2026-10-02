@@ -13,6 +13,8 @@ import Icon from "../../../shared/ui/Icon";
 import type { PendingFile } from "../types";
 import { replyText } from "../lib/replyText";
 import VoiceRecordButton from "./VoiceRecordButton";
+import StickerPicker from "../../stickers/components/StickerPicker";
+import type { PackSticker } from "../../stickers/api/stickers";
 import { useVoiceDraftStore } from "../store/voiceDraftStore";
 import type { MediaRecording } from "../lib/recording";
 import TrialOffer from "../../subscription/components/TrialOffer";
@@ -42,6 +44,7 @@ interface ComposerProps {
   replyTarget?: ReplyPreview | null;
   onCancelReply?: () => void;
   onSendVoice?: (recording: MediaRecording) => Promise<boolean>;
+  onSendSticker?: (sticker: PackSticker) => void;
   onVoiceError?: (message: string | null) => void;
   conversationKey?: string;
 }
@@ -69,6 +72,7 @@ const Composer: React.FC<ComposerProps> = ({
   replyTarget,
   onCancelReply,
   onSendVoice,
+  onSendSticker,
   onVoiceError,
   conversationKey,
 }) => {
@@ -304,6 +308,9 @@ const Composer: React.FC<ComposerProps> = ({
             autoFocus
             disabled={sending}
           />
+          {onSendSticker && (
+            <StickerPicker disabled={sending} onPick={onSendSticker} />
+          )}
           {showVoice && onSendVoice ? (
             <VoiceRecordButton
               key={conversationKey}

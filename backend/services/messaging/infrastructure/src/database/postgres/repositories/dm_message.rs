@@ -58,8 +58,8 @@ pub(crate) async fn insert_dm_message(
 ) -> Result<(), RepositoryError> {
     sqlx::query!(
         r#"
-        INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, call_id, created_at, edited_at, reply_to_message_id, forwarded_from)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, ($12::text)::jsonb)
+        INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, call_id, created_at, edited_at, reply_to_message_id, forwarded_from, sticker)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, ($12::text)::jsonb, ($13::text)::jsonb)
         "#,
         message.id().uuid(),
         message.sender_id().uuid(),
@@ -73,6 +73,7 @@ pub(crate) async fn insert_dm_message(
         message.edited_at(),
         message.reply().map(|r| r.message_id),
         message.forward().map(|f| f.to_json().to_string()),
+        message.sticker().map(|s| s.to_json().to_string()),
     )
     .execute(&mut **tx)
     .await
@@ -155,7 +156,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
     async fn find_by_id(&self, id: &DmMessageId) -> Result<DmMessage, RepositoryError> {
         let row = sqlx::query!(
             r#"
-            SELECT id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, created_at, edited_at, forwarded_from::text AS "forwarded_from?"
+            SELECT id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, created_at, edited_at, forwarded_from::text AS "forwarded_from?", sticker::text AS "sticker?"
             FROM dm_messages
             WHERE id = $1
             "#,
@@ -180,10 +181,11 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             row.created_at,
             row.edited_at,
         );
-        Ok(match parse_forward(row.forwarded_from.as_deref()) {
+        let message = match parse_forward(row.forwarded_from.as_deref()) {
             Some(forward) => message.with_forward(forward),
             None => message,
-        })
+        };
+        Ok(message.with_sticker(parse_sticker(row.sticker.as_deref())))
     }
 
     async fn find_view_between(
@@ -199,7 +201,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                    m.content, m.invite_community_id,
                    s.name AS "invite_community_name?",
                    m.call_status, m.call_duration_seconds,
-                   m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?"
+                   m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?", m.sticker::text AS "sticker?"
             FROM dm_messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
             LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -230,6 +232,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             edited_at: r.edited_at,
             reply_to: r.reply_to_message_id,
             forwarded_from: parse_forward(r.forwarded_from.as_deref()),
+                sticker: parse_sticker(r.sticker.as_deref()),
         })
     }
 
@@ -250,7 +253,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                    (SELECT a.video_duration_ms FROM dm_message_attachments a
                     WHERE a.dm_message_id = m.id AND a.video_duration_ms IS NOT NULL LIMIT 1) AS video_note_duration_ms,
                    (SELECT a.video_poster FROM dm_message_attachments a
-                    WHERE a.dm_message_id = m.id AND a.video_poster IS NOT NULL LIMIT 1) AS video_note_poster
+                    WHERE a.dm_message_id = m.id AND a.video_poster IS NOT NULL LIMIT 1) AS video_note_poster,
+                   m.sticker::text AS "sticker?"
             FROM dm_messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
             WHERE m.id = ANY($1)
@@ -273,6 +277,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 voice_duration_ms: r.voice_duration_ms,
                 video_note_duration_ms: r.video_note_duration_ms,
                 video_note_poster: r.video_note_poster,
+                sticker: parse_sticker(r.sticker.as_deref()),
             })
             .collect())
     }
@@ -295,7 +300,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            m.content, m.invite_community_id,
                            s.name AS "invite_community_name?",
                            m.call_status, m.call_duration_seconds,
-                           m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?"
+                           m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?", m.sticker::text AS "sticker?"
                     FROM dm_messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                     LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -330,6 +335,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     edited_at: r.edited_at,
                     reply_to: r.reply_to_message_id,
                     forwarded_from: parse_forward(r.forwarded_from.as_deref()),
+                sticker: parse_sticker(r.sticker.as_deref()),
                 })
                 .collect()
             }
@@ -342,7 +348,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            m.content, m.invite_community_id,
                            s.name AS "invite_community_name?",
                            m.call_status, m.call_duration_seconds,
-                           m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?"
+                           m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?", m.sticker::text AS "sticker?"
                     FROM dm_messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                     LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -377,6 +383,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     edited_at: r.edited_at,
                     reply_to: r.reply_to_message_id,
                     forwarded_from: parse_forward(r.forwarded_from.as_deref()),
+                sticker: parse_sticker(r.sticker.as_deref()),
                 })
                 .collect();
                 rows.reverse();
@@ -389,7 +396,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                        m.content, m.invite_community_id,
                        s.name AS "invite_community_name?",
                        m.call_status, m.call_duration_seconds,
-                       m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?"
+                       m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?", m.sticker::text AS "sticker?"
                 FROM dm_messages m
                 INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                 LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -421,6 +428,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 edited_at: r.edited_at,
                 reply_to: r.reply_to_message_id,
                 forwarded_from: parse_forward(r.forwarded_from.as_deref()),
+                sticker: parse_sticker(r.sticker.as_deref()),
             })
             .collect(),
         };
@@ -460,7 +468,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                    m.content, m.invite_community_id,
                    s.name AS "invite_community_name?",
                    m.call_status, m.call_duration_seconds,
-                   m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?"
+                   m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?", m.sticker::text AS "sticker?"
             FROM dm_messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
             LEFT JOIN communities s ON s.id = m.invite_community_id
@@ -498,6 +506,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 edited_at: r.edited_at,
                 reply_to: r.reply_to_message_id,
                 forwarded_from: parse_forward(r.forwarded_from.as_deref()),
+                sticker: parse_sticker(r.sticker.as_deref()),
             })
             .collect();
         Ok(PaginatedResult::new(items, total, pagination))
@@ -604,7 +613,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         let cursor_at = cursor.map(|c| c.at);
         let cursor_id = cursor.and_then(|c| Uuid::parse_str(&c.key).ok());
         #[allow(clippy::type_complexity)]
-        let rows: Vec<(Uuid, Uuid, String, Uuid, String, Option<String>, Option<Uuid>, bool, Option<i32>, Option<i32>, DateTime<Utc>)> =
+        let rows: Vec<(Uuid, Uuid, String, Uuid, String, Option<String>, Option<Uuid>, bool, Option<i32>, Option<i32>, Option<String>, DateTime<Utc>)> =
             sqlx::query_as(
                 r#"
                 SELECT e.message_id, c.peer_id, u.name AS peer_name, m.sender_id, m.content, m.call_status,
@@ -622,6 +631,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                            WHERE att.dm_message_id = m.id AND att.video_duration_ms IS NOT NULL
                            LIMIT 1
                        ) AS video_note_duration_ms,
+                       m.sticker->>'emoji' AS sticker_emoji,
                        e.created_at
                 FROM dm_conversations c
                 CROSS JOIN LATERAL (
@@ -672,7 +682,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         Ok(rows
             .into_iter()
             .map(
-                |(message_id, peer_id, peer_name, sender_id, content, call_status, invite_community_id, has_attachments, voice_duration_ms, video_note_duration_ms, created_at)| {
+                |(message_id, peer_id, peer_name, sender_id, content, call_status, invite_community_id, has_attachments, voice_duration_ms, video_note_duration_ms, sticker_emoji, created_at)| {
                     DmConversationPreview {
                         message_id,
                         peer_id,
@@ -684,6 +694,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                         has_attachments,
                         voice_duration_ms,
                         video_note_duration_ms,
+                        sticker_emoji,
                         created_at,
                     }
                 },
@@ -723,6 +734,10 @@ pub(crate) async fn insert_dm_links(
         .map_err(map_sqlx_error_to_domain_error)?;
     }
     Ok(())
+}
+
+fn parse_sticker(raw: Option<&str>) -> Option<domain::sticker::StickerSnapshot> {
+    super::message::parse_sticker(raw)
 }
 
 fn parse_forward(raw: Option<&str>) -> Option<messaging_domain::message::forward::ForwardInfo> {

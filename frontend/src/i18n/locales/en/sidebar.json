@@ -58,5 +58,6 @@
   "callFriend": "Call",
   "openCommunity": "Open",
   "previewVoice": "🎤 Voice message",
-  "previewVideoNote": "📹 Video message"
+  "previewVideoNote": "📹 Video message",
+  "previewSticker": "Sticker {{emoji}}"
 }

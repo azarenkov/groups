@@ -36,7 +36,8 @@ async fn send_dm_message(
         body.attachment_ids,
         body.reply_to_message_id,
         request_context(&req),
-    );
+    )
+    .with_sticker(body.sticker_id);
 
     let response = app_state
         .send_dm_message_usecase
@@ -117,6 +118,8 @@ struct DmPreviewItem {
     voice_duration_ms: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     video_note_duration_ms: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sticker_emoji: Option<String>,
     created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -168,6 +171,7 @@ async fn list_dm_previews(
                 has_attachments: p.has_attachments,
                 voice_duration_ms: p.voice_duration_ms,
                 video_note_duration_ms: p.video_note_duration_ms,
+                sticker_emoji: p.sticker_emoji,
                 created_at: p.created_at,
             })
             .collect(),

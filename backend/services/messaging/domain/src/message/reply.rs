@@ -12,6 +12,7 @@ pub struct ReplyPreview {
     pub voice_duration_ms: Option<i32>,
     pub video_note_duration_ms: Option<i32>,
     pub video_note_poster: Option<Vec<u8>>,
+    pub sticker: Option<domain::sticker::StickerSnapshot>,
     pub hidden_for: Vec<UserId>,
 }
 
@@ -25,6 +26,7 @@ impl ReplyPreview {
             voice_duration_ms: None,
             video_note_duration_ms: None,
             video_note_poster: None,
+            sticker: None,
             hidden_for: Vec::new(),
         }
     }
@@ -37,6 +39,11 @@ impl ReplyPreview {
     pub fn with_video_note(mut self, note: Option<&domain::attachment::VideoNoteMeta>) -> Self {
         self.video_note_duration_ms = note.map(|n| n.duration_ms);
         self.video_note_poster = note.map(|n| n.poster.clone());
+        self
+    }
+
+    pub fn with_sticker(mut self, sticker: Option<domain::sticker::StickerSnapshot>) -> Self {
+        self.sticker = sticker;
         self
     }
 

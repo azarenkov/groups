@@ -1,4 +1,6 @@
 import React from "react";
+import type { PackSticker } from "../../stickers/api/stickers";
+import { useStickerStore } from "../../stickers/store/stickerStore";
 import i18n from "../../../i18n";
 import { ApiError } from "../../../shared/lib/apiError";
 import { channelAPI } from "../../communities/api/channel";
@@ -271,11 +273,75 @@ export function useMessageComposer(params: {
     }
   };
 
+  const joinCurrentChannel = async (): Promise<boolean> => {
+    if (!channel || !communityId) return false;
+    try {
+      await channelAPI.joinText(communityId, channel.id);
+    } catch (joinErr) {
+      const jc = joinErr instanceof ApiError ? joinErr.code : undefined;
+      if (jc !== "CHANNEL_PASSWORD_REQUIRED" && jc !== "INVALID_CHANNEL_PASSWORD") throw joinErr;
+      const pw = window.prompt(`Enter password for #${channel.name}`);
+      if (pw === null) return false;
+      await channelAPI.joinText(communityId, channel.id, pw);
+    }
+    await refreshHistory();
+    return true;
+  };
+
+  const stickerInFlightRef = React.useRef(false);
+
+  const sendSticker = async (sticker: PackSticker): Promise<boolean> => {
+    if (!messenger || sending || stickerInFlightRef.current) return false;
+    stickerInFlightRef.current = true;
+    setSending(true);
+    const originConvId = currentChannelIdRef.current;
+    const stillHere = () => currentChannelIdRef.current === originConvId;
+    const reply = replyTarget;
+    const stickerOwner = useStickerStore.getState().userId;
+    const sameStickerSession = () => useStickerStore.getState().userId === stickerOwner;
+    setComposerError(null);
+    const send = () => messenger.sendMessage("", undefined, reply?.id, sticker.id);
+    try {
+      let msg;
+      try {
+        msg = await send();
+      } catch (err) {
+        const code = err instanceof ApiError ? err.code : undefined;
+        if (!(isText && channel && communityId && code === "CHANNEL_NOT_MEMBER")) throw err;
+        if (!(await joinCurrentChannel())) return false;
+        msg = await send();
+      }
+      msg.sticker = msg.sticker ?? sticker;
+      if (sameStickerSession()) useStickerStore.getState().rememberUsed(sticker);
+      if (stillHere()) {
+        if (reply) setReplyTarget(null);
+        setMessages((prev) => (prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
+      }
+      return true;
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : null;
+      const message =
+        apiErr?.code === "STICKER_INVALID"
+          ? i18n.t("stickerUnavailable", { ns: "chat" })
+          : apiErr?.code === "REPLY_INVALID"
+            ? i18n.t("replyUnavailable", { ns: "chat" })
+            : apiErr?.message || i18n.t("couldNotSend", { ns: "chat" });
+      if (apiErr?.code === "STICKER_INVALID" && sameStickerSession()) useStickerStore.getState().forgetSticker(sticker.id);
+      if (apiErr?.code === "REPLY_INVALID" && stillHere()) setReplyTarget(null);
+      if (stillHere()) setComposerError(message);
+      return false;
+    } finally {
+      stickerInFlightRef.current = false;
+      setSending(false);
+    }
+  };
+
   return {
     text,
     setText,
     sending,
     sendVoice,
+    sendSticker,
     composerError,
     setComposerError,
     composerRef,

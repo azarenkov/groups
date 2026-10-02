@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id AS \"id!\", pack_id AS \"pack_id!\", storage_key AS \"storage_key!\", animated AS \"animated!\",\n                   width AS \"width!\", height AS \"height!\", emoji AS \"emoji!\", position AS \"position!\"\n            FROM (\n                SELECT s.*, row_number() OVER (PARTITION BY s.pack_id ORDER BY s.position, s.created_at) AS rank\n                FROM media_stickers s\n                WHERE s.pack_id = ANY($1) AND s.deleted_at IS NULL\n            ) ranked\n            WHERE $2::bigint IS NULL OR rank <= $2\n            ORDER BY pack_id, position, created_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "pack_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "storage_key!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "animated!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "width!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "height!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "emoji!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "position!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "72c3634f2f68b10a5c8e1e66483aad3c09412b5055e223d6f92ab7debff51384"
+}

@@ -115,6 +115,7 @@ pub fn internal_routes(cfg: &mut actix_web::web::ServiceConfig) {
         web::scope("/internal")
             .service(claim_attachments)
             .service(release_attachments)
-            .service(unclaimed_attachment),
+            .service(unclaimed_attachment)
+            .configure(crate::sticker::internal_sticker_routes),
     );
 }

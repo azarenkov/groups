@@ -42,6 +42,13 @@ pub struct AppState {
         MinioStorage,
         NsfwDetector,
     >,
+    pub sticker_packs: media::usecases::sticker::StickerPacks<
+        media_infrastructure::database::postgres::repositories::sticker::PostgresStickerRepository,
+        PostgresBannerRepository,
+        PostgresAttachmentRepository,
+        MinioStorage,
+        NsfwDetector,
+    >,
     pub get_user_banner_usecase:
         media::usecases::user::banner::GetUserBanner<PostgresBannerRepository, MinioStorage>,
     pub update_community_logo_usecase: UpdateCommunityLogo<

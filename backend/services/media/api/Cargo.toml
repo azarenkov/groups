@@ -33,3 +33,6 @@ dotenv = { workspace = true }
 envy = { workspace = true }
 actix-multipart = { workspace = true }
 image = { workspace = true }
+
+[dev-dependencies]
+gif = { workspace = true }

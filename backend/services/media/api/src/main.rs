@@ -3,6 +3,7 @@ mod http_errors;
 mod internal;
 mod avatar;
 mod banner;
+mod sticker;
 mod projection;
 mod storage_release;
 mod user_projection;

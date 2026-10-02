@@ -64,6 +64,7 @@ anyhow = "1.0.102"
 rust-s3 = { version = "0.35", default-features = false, features = ["tokio-rustls-tls"] }
 actix-multipart = "0.7"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
+gif = "0.14"
 
 contracts = { path = "backend/libs/contracts" }
 infrastructure-common = { path = "backend/libs/infrastructure-common" }

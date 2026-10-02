@@ -12,6 +12,7 @@ export interface DmPreview {
   hasAttachments: boolean;
   voiceDurationMs?: number | null;
   videoNoteDurationMs?: number | null;
+  stickerEmoji?: string | null;
   createdAt: string;
 }
 
@@ -95,6 +96,7 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
           hasAttachments: it.hasAttachments,
           voiceDurationMs: it.voiceDurationMs ?? null,
           videoNoteDurationMs: it.videoNoteDurationMs ?? null,
+          stickerEmoji: it.stickerEmoji ?? null,
           createdAt: it.createdAt,
         };
       }

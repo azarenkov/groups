@@ -50,6 +50,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let postgres_pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
 
     let media_repository = Arc::new(PostgresMediaRepository::new(postgres_pool.clone()));
+    let sticker_repository = Arc::new(
+        media_infrastructure::database::postgres::repositories::sticker::PostgresStickerRepository::new(
+            postgres_pool.clone(),
+        ),
+    );
     let banner_repository = Arc::new(
         media_infrastructure::database::postgres::repositories::banner::PostgresBannerRepository::new(
             postgres_pool.clone(),
@@ -138,6 +143,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         user_stream,
         media_repository.clone(),
         banner_repository.clone(),
+        sticker_repository.clone(),
         minio_storage.clone(),
     );
 
@@ -178,6 +184,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             minio_storage.clone(),
         ),
         update_user_banner_usecase: media::usecases::user::banner::UpdateUserBanner::new(
+            banner_repository.clone(),
+            attachment_repository.clone(),
+            minio_storage.clone(),
+            nsfw_detector.clone(),
+        ),
+        sticker_packs: media::usecases::sticker::StickerPacks::new(
+            sticker_repository.clone(),
             banner_repository.clone(),
             attachment_repository.clone(),
             minio_storage.clone(),

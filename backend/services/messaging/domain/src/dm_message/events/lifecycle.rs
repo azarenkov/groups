@@ -19,6 +19,7 @@ pub struct DmMessageSent {
     pub attachments: Vec<AttachmentSnapshot>,
     pub reply: Option<crate::message::reply::ReplyPreview>,
     pub forward: Option<crate::message::forward::ForwardInfo>,
+    pub sticker: Option<domain::sticker::StickerSnapshot>,
 }
 
 impl DmMessageSent {
@@ -43,6 +44,7 @@ impl DmMessageSent {
             attachments: Vec::new(),
             reply: None,
             forward: None,
+            sticker: None,
         }
     }
 
