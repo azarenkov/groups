@@ -328,23 +328,19 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                 </div>
                 <div className="sticker-pack-grid">
                   {pack.stickers.map((s) => (
-                    <div
-                      key={s.id}
-                      className={"sticker-pack-cell" + (selectedSticker === s.id ? " selected" : "")}
-                      role="button"
-                      tabIndex={0}
-                      aria-pressed={selectedSticker === s.id}
-                      onClick={() => setSelectedSticker((current) => (current === s.id ? null : s.id))}
-                      onKeyDown={(e) => {
-                        if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
-                        e.preventDefault();
-                        setSelectedSticker((current) => (current === s.id ? null : s.id));
-                      }}
-                    >
-                      <StickerImage id={s.id} emoji={s.emoji} size={88} width={s.width} height={s.height} />
-                      <span className="sticker-pack-emoji" aria-hidden="true">
-                        {s.emoji}
-                      </span>
+                    <div key={s.id} className={"sticker-pack-cell" + (selectedSticker === s.id ? " selected" : "")}>
+                      <button
+                        type="button"
+                        className="sticker-pack-select"
+                        aria-pressed={selectedSticker === s.id}
+                        aria-label={s.emoji}
+                        onClick={() => setSelectedSticker((current) => (current === s.id ? null : s.id))}
+                      >
+                        <StickerImage id={s.id} emoji={s.emoji} size={88} width={s.width} height={s.height} />
+                        <span className="sticker-pack-emoji" aria-hidden="true">
+                          {s.emoji}
+                        </span>
+                      </button>
                       {own && (
                         <button
                           type="button"
@@ -352,10 +348,7 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                           title={t("removeSticker")}
                           aria-label={t("removeSticker")}
                           disabled={busy}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void removeSticker(s.id);
-                          }}
+                          onClick={() => void removeSticker(s.id)}
                         >
                           <Icon name="x" size={11} />
                         </button>

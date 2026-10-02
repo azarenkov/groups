@@ -60,7 +60,7 @@ it("keeps a pack created before an account switch out of the next account's stic
   expect(useStickerStore.getState().packs).toEqual([]);
 });
 
-it("removes a sticker from the keyboard without toggling the selection", async () => {
+it("keeps selecting and removing a sticker as separate buttons", async () => {
   useAuthStore.setState({ user: { id: "u1" } } as never);
   (stickersAPI.pack as jest.Mock).mockResolvedValueOnce({
     id: "p1",
@@ -71,10 +71,12 @@ it("removes a sticker from the keyboard without toggling the selection", async (
     stickerCount: 1,
     stickers: [{ id: "s1", packId: "p1", emoji: "😺", animated: false, width: 512, height: 512 }],
   });
-  (stickersAPI.removeSticker as jest.Mock).mockResolvedValueOnce(undefined);
   render(<StickerPacksModal onClose={() => undefined} packId="p1" />);
   const remove = await screen.findByRole("button", { name: "Remove sticker" });
-  const keydown = fireEvent.keyDown(remove, { key: "Enter" });
-  expect(keydown).toBe(true);
-  expect(document.querySelector(".sticker-pack-cell.selected")).toBeNull();
+  const select = screen.getByRole("button", { name: "😺" });
+  expect(select.contains(remove)).toBe(false);
+  expect(remove.closest("[role=button]")).toBeNull();
+  fireEvent.click(select);
+  expect(select).toHaveAttribute("aria-pressed", "true");
+  expect(document.querySelector(".sticker-pack-cell.selected")).not.toBeNull();
 });
