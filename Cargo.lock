@@ -2481,6 +2481,7 @@ dependencies = [
  "dotenv",
  "envy",
  "futures",
+ "gif",
  "image",
  "infrastructure-common",
  "media",

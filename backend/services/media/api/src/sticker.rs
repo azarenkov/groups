@@ -577,6 +577,38 @@ mod tests {
     }
 
     #[test]
+    fn partial_gif_frames_are_composited_before_resizing() {
+        use image::AnimationDecoder;
+        let mut bytes = Vec::new();
+        {
+            let palette = [255, 0, 0, 0, 0, 255];
+            let mut encoder = gif::Encoder::new(&mut bytes, 160, 160, &palette).unwrap();
+            encoder.set_repeat(gif::Repeat::Infinite).unwrap();
+            let mut full = gif::Frame::from_indexed_pixels(160, 160, vec![0; 160 * 160], None);
+            full.delay = 10;
+            encoder.write_frame(&full).unwrap();
+            let mut patch = gif::Frame::from_indexed_pixels(16, 16, vec![1; 16 * 16], None);
+            patch.left = 80;
+            patch.top = 80;
+            patch.delay = 10;
+            encoder.write_frame(&patch).unwrap();
+        }
+        let file = normalize_sticker(&bytes).unwrap();
+        let frames = image::codecs::gif::GifDecoder::new(std::io::Cursor::new(file.bytes))
+            .unwrap()
+            .into_frames()
+            .collect_frames()
+            .unwrap();
+        assert_eq!(frames.len(), 2);
+        let second = frames[1].buffer();
+        assert_eq!(second.dimensions(), (320, 320));
+        let corner = second.get_pixel(10, 10);
+        assert!(corner[0] > 200 && corner[2] < 60, "{corner:?}");
+        let patch = second.get_pixel(176, 176);
+        assert!(patch[2] > 200 && patch[0] < 60, "{patch:?}");
+    }
+
+    #[test]
     fn every_distinct_frame_lands_on_a_moderation_sheet() {
         let frame = |shade: u8| image::Frame::new(image::RgbaImage::from_pixel(10, 10, image::Rgba([shade, 0, 0, 255])));
         let frames: Vec<image::Frame> = [1, 1, 2, 3, 4, 5, 6].into_iter().map(frame).collect();

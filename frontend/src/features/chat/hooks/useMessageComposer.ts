@@ -297,6 +297,8 @@ export function useMessageComposer(params: {
     const originConvId = currentChannelIdRef.current;
     const stillHere = () => currentChannelIdRef.current === originConvId;
     const reply = replyTarget;
+    const stickerOwner = useStickerStore.getState().userId;
+    const sameStickerSession = () => useStickerStore.getState().userId === stickerOwner;
     setComposerError(null);
     const send = () => messenger.sendMessage("", undefined, reply?.id, sticker.id);
     try {
@@ -310,7 +312,7 @@ export function useMessageComposer(params: {
         msg = await send();
       }
       msg.sticker = msg.sticker ?? sticker;
-      useStickerStore.getState().rememberUsed(sticker);
+      if (sameStickerSession()) useStickerStore.getState().rememberUsed(sticker);
       if (stillHere()) {
         if (reply) setReplyTarget(null);
         setMessages((prev) => (prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
@@ -324,7 +326,7 @@ export function useMessageComposer(params: {
           : apiErr?.code === "REPLY_INVALID"
             ? i18n.t("replyUnavailable", { ns: "chat" })
             : apiErr?.message || i18n.t("couldNotSend", { ns: "chat" });
-      if (apiErr?.code === "STICKER_INVALID") useStickerStore.getState().forgetSticker(sticker.id);
+      if (apiErr?.code === "STICKER_INVALID" && sameStickerSession()) useStickerStore.getState().forgetSticker(sticker.id);
       if (apiErr?.code === "REPLY_INVALID" && stillHere()) setReplyTarget(null);
       if (stillHere()) setComposerError(message);
       return false;
