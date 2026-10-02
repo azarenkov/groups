@@ -127,30 +127,21 @@ where
             return Err(SendDmMessageError::InvalidAttachments);
         }
         let forward = request.forward.clone();
-        let sticker = if let Some(forward) = &forward {
-            forward.sticker.clone()
-        } else if let Some(sticker_id) = request.sticker_id {
-            if !request.content.trim().is_empty() || !request.attachment_ids.is_empty() {
-                return Err(SendDmMessageError::InvalidSticker);
-            }
-            match self.attachment_claims.lookup_sticker(sticker_id).await {
-                Ok(Some(sticker)) => Some(sticker),
-                Ok(None) | Err(crate::ports::attachment_claims::AttachmentClaimError::Invalid) => {
-                    return Err(SendDmMessageError::InvalidSticker);
-                }
-                Err(crate::ports::attachment_claims::AttachmentClaimError::Unavailable(e)) => {
-                    return Err(SendDmMessageError::AttachmentsUnavailable(e));
-                }
-            }
-        } else {
+        let sticker_id = if forward.is_some() {
             None
+        } else {
+            request.sticker_id
         };
+        if sticker_id.is_some() && (!request.content.trim().is_empty() || !request.attachment_ids.is_empty()) {
+            return Err(SendDmMessageError::InvalidSticker);
+        }
+        let sticker = forward.as_ref().and_then(|forward| forward.sticker.clone());
         let content = if let Some(forward) = &forward {
             if forward.content.trim().is_empty() && forward.attachments.is_empty() && forward.sticker.is_none() {
                 return Err(MessageError::ContentEmpty.into());
             }
             MessageContent::new_allow_empty(forward.content.clone())?
-        } else if sticker.is_some() {
+        } else if sticker_id.is_some() {
             MessageContent::new_allow_empty(String::new())?
         } else if request.attachment_ids.is_empty() {
             MessageContent::new(request.content)?
@@ -195,6 +186,18 @@ where
             );
         }
         let request_id = request.ctx.request_id.clone();
+        if let Some(sticker_id) = sticker_id {
+            let claimed = match self.attachment_claims.lookup_sticker(sticker_id).await {
+                Ok(Some(sticker)) => sticker,
+                Ok(None) | Err(crate::ports::attachment_claims::AttachmentClaimError::Invalid) => {
+                    return Err(SendDmMessageError::InvalidSticker);
+                }
+                Err(crate::ports::attachment_claims::AttachmentClaimError::Unavailable(e)) => {
+                    return Err(SendDmMessageError::AttachmentsUnavailable(e));
+                }
+            };
+            message = message.with_sticker(Some(claimed));
+        }
         let events = message.pull_events();
 
         let claim_token = uuid::Uuid::new_v4();
