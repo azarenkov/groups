@@ -83,4 +83,27 @@ describe("useStickerUrl", () => {
     expect(result.current).toBeNull();
     URL.revokeObjectURL = () => undefined;
   });
+
+  it("forgets retries for stickers that are no longer shown", async () => {
+    jest.useFakeTimers();
+    try {
+      const download = stickersAPI.download as jest.Mock;
+      download.mockReset();
+      download.mockRejectedValue(new Error("offline"));
+      const { unmount } = renderHook(() => useStickerUrl("sticker-gone"));
+      await act(async () => {
+        for (let i = 0; i < 5; i += 1) await Promise.resolve();
+      });
+      expect(download).toHaveBeenCalledTimes(1);
+      unmount();
+      await act(async () => {
+        jest.advanceTimersByTime(60000);
+        for (let i = 0; i < 5; i += 1) await Promise.resolve();
+      });
+      expect(download).toHaveBeenCalledTimes(1);
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });

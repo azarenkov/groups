@@ -128,6 +128,12 @@ export const useStickerUrl = (id: string | null | undefined, enabled = true): st
     void loadSticker(id);
     return () => {
       set?.delete(update);
+      if (set?.size || listeners.get(id) !== set) return;
+      listeners.delete(id);
+      const timer = retryTimers.get(id);
+      if (timer) clearTimeout(timer);
+      retryTimers.delete(id);
+      failures.delete(id);
     };
   }, [id, enabled]);
   return url;
