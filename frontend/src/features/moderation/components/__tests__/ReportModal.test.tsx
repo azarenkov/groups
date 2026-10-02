@@ -7,6 +7,7 @@ import { reportAPI } from "../../api/report";
 import {
   MAX_REPORT_DETAILS,
   COMMUNITY_REPORT_REASONS,
+  STICKER_PACK_REPORT_REASONS,
   USER_REPORT_REASONS,
 } from "../../lib/reasons";
 import { useReportModalStore } from "../../store/reportModalStore";
@@ -15,6 +16,7 @@ jest.mock("../../api/report", () => ({
   reportAPI: {
     reportUser: jest.fn().mockResolvedValue(undefined),
     reportCommunity: jest.fn().mockResolvedValue(undefined),
+    reportStickerPack: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -44,6 +46,23 @@ describe("ReportModal", () => {
     });
     rerender(<ReportModal />);
     expect(screen.getAllByRole("radio")).toHaveLength(COMMUNITY_REPORT_REASONS.length);
+  });
+
+  it("reports a sticker pack with the pack reasons", async () => {
+    useReportModalStore.getState().open({ type: "stickerPack", id: "p1", name: "Cats" });
+    render(<ReportModal />);
+    expect(screen.getAllByRole("radio")).toHaveLength(STICKER_PACK_REPORT_REASONS.length);
+    expect(screen.getByText("Report sticker pack")).toBeInTheDocument();
+    fireEvent.click(screen.getByDisplayValue("nsfw"));
+    fireEvent.click(submitButton());
+    await waitFor(() =>
+      expect(mockedApi.reportStickerPack).toHaveBeenCalledWith("p1", {
+        reason: "nsfw",
+        details: undefined,
+        messageId: undefined,
+      }),
+    );
+    expect(mockedApi.reportUser).not.toHaveBeenCalled();
   });
 
   it("sends the picked reason for the reported user", async () => {

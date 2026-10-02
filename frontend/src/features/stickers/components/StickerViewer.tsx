@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import Icon from "../../../shared/ui/Icon";
 import { useAuthStore } from "../../auth/store/authStore";
+import { openReport } from "../../moderation/store/reportModalStore";
 import { stickersAPI, type StickerPack } from "../api/stickers";
 import { isInstalled, stickerSession, useStickerStore } from "../store/stickerStore";
 import StickerImage from "./StickerImage";
@@ -113,6 +114,18 @@ const StickerViewer: React.FC<StickerViewerProps> = ({ sticker, onClose, onOpenP
             <button type="button" className="s-btn secondary" onClick={() => onOpenPack(pack.id)}>
               {own ? t("manageOwn") : t("openPack")}
             </button>
+            {!own && (
+              <button
+                type="button"
+                className="s-btn secondary"
+                onClick={() => {
+                  onClose();
+                  openReport({ type: "stickerPack", id: pack.id, name: pack.name });
+                }}
+              >
+                {t("report")}
+              </button>
+            )}
           </div>
         )}
         {error && (

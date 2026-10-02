@@ -1156,7 +1156,8 @@
 .sticker-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--fg-2); }
 .sticker-field small { color: var(--fg-3); }
 .sticker-pack-view { display: flex; flex-direction: column; gap: 12px; }
-.sticker-pack-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sticker-pack-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.sticker-pack-head > div:first-child { flex: 1; min-width: 0; }
 .sticker-pack-name { font-size: 16px; font-weight: 600; }
 .sticker-pack-meta { font-size: 12px; color: var(--fg-3); }
 .sticker-pack-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }

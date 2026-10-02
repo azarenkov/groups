@@ -35,5 +35,6 @@
   "manageOwn": "Manage",
   "addPack": "Add pack",
   "openPack": "Open pack",
-  "packGone": "Pack deleted"
+  "packGone": "Pack deleted",
+  "report": "Report"
 }

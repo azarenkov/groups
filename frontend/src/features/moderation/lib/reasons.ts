@@ -39,6 +39,20 @@ export const COMMUNITY_REPORT_REASONS = [
   "other",
 ] as const;
 
+export const STICKER_PACK_REPORT_REASONS = [
+  "nsfw",
+  "csam",
+  "hate",
+  "violence",
+  "harassment",
+  "impersonation",
+  "scam",
+  "spam",
+  "illegal",
+  "other",
+] as const;
+
 export type ReportReason =
   | (typeof USER_REPORT_REASONS)[number]
-  | (typeof COMMUNITY_REPORT_REASONS)[number];
+  | (typeof COMMUNITY_REPORT_REASONS)[number]
+  | (typeof STICKER_PACK_REPORT_REASONS)[number];

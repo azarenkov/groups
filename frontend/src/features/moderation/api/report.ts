@@ -16,6 +16,10 @@ class ReportAPI {
   async reportCommunity(communityId: string, payload: ReportPayload): Promise<void> {
     await this.client.post(`/v1/communities/${communityId}/report`, payload);
   }
+
+  async reportStickerPack(packId: string, payload: ReportPayload): Promise<void> {
+    await this.client.post(`/v1/sticker-packs/${packId}/report`, payload);
+  }
 }
 
 export const reportAPI = new ReportAPI();
