@@ -31,6 +31,7 @@ interface StickerState {
   failed: boolean;
   load: (userId: string) => Promise<void>;
   refresh: () => Promise<void>;
+  refreshIfStale: (maxAgeMs: number) => Promise<void>;
   upsertPack: (pack: StickerPack) => void;
   dropPack: (packId: string) => void;
   install: (pack: StickerPack) => Promise<void>;
@@ -42,6 +43,7 @@ interface StickerState {
 
 let generation = 0;
 let revision = 0;
+let refreshedAt = 0;
 
 export const useStickerStore = create<StickerState>()((set, get) => ({
   userId: null,
@@ -65,10 +67,16 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
       const packs = await stickersAPI.mine();
       if (gen !== generation) return;
       if (rev !== revision) return get().refresh();
+      refreshedAt = Date.now();
       set({ packs, loaded: true, failed: false });
     } catch {
       if (gen === generation) set({ failed: true });
     }
+  },
+
+  refreshIfStale: async (maxAgeMs) => {
+    if (Date.now() - refreshedAt < maxAgeMs) return;
+    await get().refresh();
   },
 
   upsertPack: (pack) => {
@@ -126,6 +134,7 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
 
   clear: () => {
     generation += 1;
+    refreshedAt = 0;
     set({ userId: null, packs: [], recent: [], loaded: false, failed: false });
   },
 }));

@@ -97,6 +97,24 @@ describe("stickerStore recovery", () => {
     expect(installedPacks(useStickerStore.getState().packs).map((p) => p.id)).toEqual(["1"]);
   });
 
+  it("refreshes packs again only once they are stale", async () => {
+    const mine = stickersAPI.mine as jest.Mock;
+    const now = jest.spyOn(Date, "now").mockReturnValue(1_000_000);
+    try {
+      await useStickerStore.getState().load("u1");
+      expect(mine).toHaveBeenCalledTimes(1);
+      await useStickerStore.getState().refreshIfStale(60_000);
+      expect(mine).toHaveBeenCalledTimes(1);
+      now.mockReturnValue(1_060_000);
+      mine.mockResolvedValueOnce([pack("1", [sticker("a", "1", "😺")])]);
+      await useStickerStore.getState().refreshIfStale(60_000);
+      expect(mine).toHaveBeenCalledTimes(2);
+      expect(useStickerStore.getState().packs).toHaveLength(1);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
   it("tries again after a failed load", async () => {
     const mine = stickersAPI.mine as jest.Mock;
     mine.mockRejectedValueOnce(new Error("offline"));

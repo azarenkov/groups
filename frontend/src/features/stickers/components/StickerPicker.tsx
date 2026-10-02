@@ -8,6 +8,8 @@ import { installedPacks, searchMyStickers, useStickerStore } from "../store/stic
 import StickerImage from "./StickerImage";
 import StickerPacksModal from "./StickerPacksModal";
 
+const PACKS_MAX_AGE_MS = 60_000;
+
 interface StickerPickerProps {
   disabled?: boolean;
   onPick: (sticker: PackSticker) => void;
@@ -30,9 +32,10 @@ const StickerPicker: React.FC<StickerPickerProps> = ({ disabled, onPick }) => {
   const rootRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (open && userId && (!loaded || failed || useStickerStore.getState().userId !== userId)) {
-      void useStickerStore.getState().load(userId);
-    }
+    if (!open || !userId) return;
+    const store = useStickerStore.getState();
+    if (!loaded || failed || store.userId !== userId) void store.load(userId);
+    else void store.refreshIfStale(PACKS_MAX_AGE_MS);
   }, [open, userId, loaded, failed]);
 
   React.useEffect(() => {
