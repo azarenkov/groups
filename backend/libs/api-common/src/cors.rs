@@ -23,9 +23,8 @@ pub fn allowed_origins() -> Option<Vec<String>> {
 
 pub fn cors() -> Cors {
     let base = match allowed_origins() {
-        Some(origins) => origins
-            .into_iter()
-            .fold(Cors::default(), |cors, origin| cors.allowed_origin(&origin)),
+        Some(origins) => Cors::default()
+            .allowed_origin_fn(move |origin, _| origins.iter().any(|allowed| origin.as_bytes() == allowed.as_bytes())),
         None => Cors::default().allow_any_origin(),
     };
     base.allow_any_method()
@@ -36,7 +35,36 @@ pub fn cors() -> Cors {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_origins;
+    use super::{cors, parse_origins};
+    use actix_web::{App, HttpResponse, http::header, test as actix_test, web};
+
+    #[actix_web::test]
+    async fn scheme_only_and_null_origins_start_and_are_allowed() {
+        unsafe { std::env::set_var("CORS_ALLOWED_ORIGINS", "https://app.rift.example.com/,file://,null") };
+        let app = actix_test::init_service(
+            App::new()
+                .wrap(cors())
+                .route("/", web::get().to(HttpResponse::Ok)),
+        )
+        .await;
+        for (origin, allowed) in [
+            ("https://app.rift.example.com", true),
+            ("file://", true),
+            ("null", true),
+            ("https://evil.example.com", false),
+        ] {
+            let request = actix_test::TestRequest::get()
+                .uri("/")
+                .insert_header((header::ORIGIN, origin))
+                .to_request();
+            let response = actix_test::call_service(&app, request).await;
+            assert_eq!(
+                response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN).is_some(),
+                allowed,
+                "{origin}"
+            );
+        }
+    }
 
     #[test]
     fn keeps_scheme_only_origins_and_trims_paths() {
