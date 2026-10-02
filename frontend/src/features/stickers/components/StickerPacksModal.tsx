@@ -6,7 +6,7 @@ import Icon from "../../../shared/ui/Icon";
 import { ApiError } from "../../../shared/lib/apiError";
 import { useAuthStore } from "../../auth/store/authStore";
 import { stickersAPI, type StickerPack } from "../api/stickers";
-import { isInstalled, useStickerStore } from "../store/stickerStore";
+import { isInstalled, stickerSession, useStickerStore } from "../store/stickerStore";
 import StickerImage from "./StickerImage";
 
 type View = { kind: "search" } | { kind: "mine" } | { kind: "create" } | { kind: "pack"; id: string };
@@ -146,11 +146,11 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
     };
   }, [view, t]);
 
-  const run = async (action: () => Promise<void>) => {
+  const run = async (action: (sameSession: () => boolean) => Promise<void>) => {
     setBusy(true);
     setError(null);
     try {
-      await action();
+      await action(stickerSession());
     } catch (err) {
       setError(errorText(err, t("actionFailed")));
     } finally {
@@ -165,8 +165,9 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
     });
 
   const createPack = () =>
-    run(async () => {
+    run(async (sameSession) => {
       const created = await stickersAPI.create(name.trim(), slug.trim());
+      if (!sameSession()) return;
       useStickerStore.getState().upsertPack(created);
       setName("");
       setSlug("");
@@ -175,17 +176,19 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
     });
 
   const addSticker = (file: File) =>
-    run(async () => {
+    run(async (sameSession) => {
       if (!pack) return;
       const updated = await stickersAPI.addSticker(pack.id, file, emoji.trim());
+      if (!sameSession()) return;
       setPack(updated);
       useStickerStore.getState().upsertPack(updated);
     });
 
   const removeSticker = (stickerId: string) =>
-    run(async () => {
+    run(async (sameSession) => {
       if (!pack) return;
       await stickersAPI.removeSticker(pack.id, stickerId);
+      if (!sameSession()) return;
       setPack({
         ...pack,
         stickers: pack.stickers.filter((s) => s.id !== stickerId),
@@ -195,9 +198,10 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
     });
 
   const deletePack = () =>
-    run(async () => {
+    run(async (sameSession) => {
       if (!pack || !window.confirm(t("deleteConfirm", { name: pack.name }))) return;
       await stickersAPI.remove(pack.id);
+      if (!sameSession()) return;
       useStickerStore.getState().dropPack(pack.id);
       setView({ kind: "mine" });
     });

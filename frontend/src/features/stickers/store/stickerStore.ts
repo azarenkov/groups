@@ -143,6 +143,11 @@ export const useStickerStore = create<StickerState>()((set, get) => ({
   },
 }));
 
+export const stickerSession = (): (() => boolean) => {
+  const gen = generation;
+  return () => gen === generation;
+};
+
 export const isInstalled = (pack: StickerPack): boolean => pack.installed !== false;
 
 export const installedPacks = (packs: StickerPack[]): StickerPack[] => packs.filter(isInstalled);
