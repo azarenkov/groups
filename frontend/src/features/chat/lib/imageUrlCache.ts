@@ -54,7 +54,7 @@ export const thumbnailKey = (id: string) => `thumb:${id}`;
 
 export const downloadThumbnailUrl = (id: string, sizeBytes: number, originalMaxBytes: number): Promise<string> =>
   downloadCachedUrl(thumbnailKey(id), () =>
-    attachmentAPI.thumbnail(id).catch((err) => {
+    attachmentAPI.thumbnail(id, sizeBytes).catch((err) => {
       if (sizeBytes > originalMaxBytes) throw err;
       return attachmentAPI.download(id, sizeBytes);
     }),

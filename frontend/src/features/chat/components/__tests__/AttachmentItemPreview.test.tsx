@@ -36,7 +36,7 @@ it("shows the server thumbnail in the grid and the original in the viewer", asyn
   download.mockResolvedValue(new Blob(["o"]));
   render(<AttachmentItem attachment={attachment("img1", "image/png", 20 * 1024 * 1024)} thumbnail />);
   const img = await screen.findByRole("img");
-  expect(thumbnail).toHaveBeenCalledWith("img1");
+  expect(thumbnail).toHaveBeenCalledWith("img1", 20 * 1024 * 1024);
   expect(download).not.toHaveBeenCalled();
   fireEvent.click(img.closest("button")!);
   await waitFor(() => expect(download).toHaveBeenCalledWith("img1", 20 * 1024 * 1024));

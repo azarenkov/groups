@@ -82,9 +82,10 @@ class AttachmentAPI {
     await this.client.delete(`/v1/attachments/${attachmentId}`);
   }
 
-  async thumbnail(attachmentId: string, signal?: AbortSignal): Promise<Blob> {
+  async thumbnail(attachmentId: string, sourceBytes = 0, signal?: AbortSignal): Promise<Blob> {
     const response = await this.client.get(`/v1/attachments/${attachmentId}/thumbnail`, {
       responseType: "blob",
+      timeout: transferTimeoutMs(sourceBytes, SLOWEST_DOWNLOAD_BYTES_PER_MS),
       signal,
     });
     return response.data;
