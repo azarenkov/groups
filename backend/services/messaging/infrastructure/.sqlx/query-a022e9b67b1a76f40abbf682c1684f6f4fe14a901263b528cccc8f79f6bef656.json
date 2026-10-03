@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT m.id AS \"message_id!\", m.sender_id AS \"author_id!\", COALESCE(u.name, '') AS \"author_name!\", (m.forwarded_from->>'authorId')::uuid AS \"forwarded_author_id?\", m.created_at AS \"created_at!\",\n                       l.found[1] AS \"url!\", l.ordinal AS \"ordinal!\"\n                FROM dm_messages m\n                LEFT JOIN messaging_user_profiles u ON u.user_id = m.sender_id\n                CROSS JOIN LATERAL regexp_matches(m.content, $4, 'g') WITH ORDINALITY AS l(found, ordinal)\n                WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)\n                  AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)\n                  AND m.content ~ 'https?://'\n                  AND m.invite_community_id IS NULL\n                  AND m.call_status IS NULL\n                  AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)\n                  AND ($5 = '' OR lower(l.found[1]) LIKE $5 ESCAPE '\\')\n                  AND ($6::timestamptz IS NULL OR (m.created_at, m.id, l.ordinal) < ($6, $7, $8))\n                ORDER BY m.created_at DESC, m.id DESC, l.ordinal DESC\n                LIMIT $9\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "author_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "author_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "forwarded_author_id?",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "url!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "ordinal!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Uuid",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "a022e9b67b1a76f40abbf682c1684f6f4fe14a901263b528cccc8f79f6bef656"
+}

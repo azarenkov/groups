@@ -220,6 +220,8 @@ impl SharedContentRepository for PostgresSharedContentRepository {
                 WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                   AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
                   AND m.content ~ 'https?://'
+                  AND m.invite_community_id IS NULL
+                  AND m.call_status IS NULL
                   AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)
                   AND ($5 = '' OR lower(l.found[1]) LIKE $5 ESCAPE '\')
                   AND ($6::timestamptz IS NULL OR (m.created_at, m.id, l.ordinal) < ($6, $7, $8))
@@ -253,6 +255,8 @@ impl SharedContentRepository for PostgresSharedContentRepository {
                 LEFT JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                 WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                   AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
+                  AND m.invite_community_id IS NULL
+                  AND m.call_status IS NULL
                   AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)
                   AND CASE $4::text
                         WHEN 'voice' THEN a.voice_duration_ms IS NOT NULL OR a.video_duration_ms IS NOT NULL
