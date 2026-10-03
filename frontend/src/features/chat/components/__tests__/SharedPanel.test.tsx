@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import i18n from "../../../../i18n";
 import SharedPanel from "../SharedPanel";
 import { sharedAPI } from "../../api/shared";
-import { insertMessageLinks, mergeFirstPage, reconcileEdit } from "../../hooks/useSharedContent";
+import { itemKey, mergeFirstPage, messageItems, reconcileEdit, replaceMessageItems } from "../../hooks/useSharedContent";
 
 jest.mock("../../api/shared", () => {
   const actual = jest.requireActual("../../api/shared");
@@ -174,13 +174,62 @@ describe("shared panel edge cases", () => {
     expect(list).toHaveBeenLastCalledWith(expect.anything(), "files", expect.objectContaining({ before: null }));
   });
 
-  it("places links gained by an edit among the loaded ones", () => {
+  it("places items gained by an edit among the loaded ones", () => {
     const items = [link("m3", "https://c", "2026-10-03"), link("m1", "https://a", "2026-10-01")];
-    const edited = { messageId: "m2", authorId: "u", authorName: "", createdAt: "2026-10-02", urls: ["https://b"] };
-    expect(insertMessageLinks(items, edited, false).map((i) => i.url)).toEqual(["https://c", "https://b", "https://a"]);
-    const older = { ...edited, createdAt: "2026-09-01" };
-    expect(insertMessageLinks(items, older, false).map((i) => i.url)).toEqual(["https://c", "https://a"]);
-    expect(insertMessageLinks(items, older, true).map((i) => i.url)).toEqual(["https://c", "https://a", "https://b"]);
+    const fresh = [link("m2", "https://b", "2026-10-02")];
+    expect(replaceMessageItems(items, "m2", fresh, false).map((i) => i.url)).toEqual(["https://c", "https://b", "https://a"]);
+    const older = [link("m2", "https://b", "2026-09-01")];
+    expect(replaceMessageItems(items, "m2", older, false).map((i) => i.url)).toEqual(["https://c", "https://a"]);
+    expect(replaceMessageItems(items, "m2", older, true).map((i) => i.url)).toEqual(["https://c", "https://a", "https://b"]);
+  });
+
+  it("builds a message's items for the open tab", () => {
+    const message = {
+      id: "m1",
+      authorId: "u",
+      authorName: "Bob",
+      createdAt: "2026-10-01",
+      content: "https://x.io https://x.io",
+      attachments: [
+        { id: "a", fileName: "pic.png", contentType: "image/png", sizeBytes: 1, createdAt: "" },
+        { id: "b", fileName: "doc.pdf", contentType: "application/pdf", sizeBytes: 1, createdAt: "" },
+      ],
+    };
+    expect(messageItems(message, "media", "").map((i) => i.attachment?.id)).toEqual(["a"]);
+    expect(messageItems(message, "files", "doc").map((i) => i.attachment?.id)).toEqual(["b"]);
+    const links = messageItems(message, "links", "");
+    expect(links.map((i) => i.position)).toEqual([2, 1]);
+    expect(new Set(links.map(itemKey)).size).toBe(2);
+  });
+
+  it("keeps repeated links apart across page boundaries", () => {
+    const first = { ...link("m1", "https://same", "2026-10-01"), position: 2 };
+    const second = { ...link("m1", "https://same", "2026-10-01"), position: 1 };
+    expect(mergeFirstPage([first, second], [first], false)).toHaveLength(2);
+  });
+
+  it("fetches an edited message that gained an attachment", async () => {
+    list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    render(
+      <SharedPanel scope={{ kind: "dm", friendId: "u2" }} currentUserId="u1" onClose={() => undefined} onShowMessage={() => undefined} />,
+    );
+    list.mockResolvedValueOnce({
+      items: [{ ...file("a3", "new.pdf"), createdAt: "2026-10-03T00:00:00Z" }, { ...file("a1", "old.pdf"), createdAt: "2026-10-01T00:00:00Z" }],
+      nextCursor: "older",
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Files" }));
+    expect(await screen.findByText("old.pdf")).toBeInTheDocument();
+    (sharedAPI.message as jest.Mock).mockResolvedValueOnce({
+      id: "m2",
+      authorId: "u2",
+      authorName: "Bob",
+      createdAt: "2026-10-02T00:00:00Z",
+      content: "",
+      attachments: [{ id: "a2", fileName: "added.pdf", contentType: "application/pdf", sizeBytes: 5, createdAt: "" }],
+    });
+    list.mockResolvedValueOnce({ items: [{ ...file("a3", "new.pdf"), createdAt: "2026-10-03T00:00:00Z" }], nextCursor: "first" });
+    act(() => wsHandlers.current.onEdited?.({ id: "m2", newContent: "", attachments: [{ id: "a2" }] }));
+    expect(await screen.findByText("added.pdf")).toBeInTheDocument();
   });
 
   it("fetches an edited message that gained links and shows them", async () => {

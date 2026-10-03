@@ -1,6 +1,7 @@
 import React from "react";
 
 import { URL_REGEX } from "../../../shared/lib/links";
+import type { Attachment } from "../../../shared/types/channel";
 import { sharedAPI, sharedScopeKey, type SharedItem, type SharedKind, type SharedScope } from "../api/shared";
 
 export const SHARED_PAGE_SIZE = 30;
@@ -17,7 +18,7 @@ interface SharedState {
 const EMPTY: SharedState = { items: [], nextCursor: null, loading: false, failed: false, loaded: false };
 
 export const itemKey = (item: SharedItem): string =>
-  `${item.messageId}:${item.attachment?.id ?? item.url ?? ""}`;
+  `${item.messageId}:${item.attachment ? `a:${item.attachment.id}` : `l:${item.position ?? item.url ?? ""}`}`;
 
 const olderThan = (item: SharedItem, edge: SharedItem): boolean =>
   item.createdAt < edge.createdAt || (item.createdAt === edge.createdAt && item.messageId < edge.messageId);
@@ -40,44 +41,72 @@ export interface MessageEdit {
   content?: string;
 }
 
-export const matchingLinks = (content: string, query: string): string[] => {
+export const sharedKindOf = (attachment: Attachment): SharedKind =>
+  attachment.voice || attachment.videoNote
+    ? "voice"
+    : attachment.contentType.startsWith("image/") || attachment.contentType.startsWith("video/")
+      ? "media"
+      : "files";
+
+export interface SharedMessage {
+  id: string;
+  authorId: string;
+  authorName?: string;
+  createdAt: string;
+  content: string;
+  attachments?: Attachment[];
+}
+
+export const messageItems = (message: SharedMessage, kind: SharedKind, query: string): SharedItem[] => {
   const needle = query.trim().toLowerCase();
-  return (content.match(URL_REGEX) ?? []).filter((url) => !needle || url.toLowerCase().includes(needle)).reverse();
+  const base = {
+    messageId: message.id,
+    authorId: message.authorId,
+    authorName: message.authorName ?? "",
+    createdAt: message.createdAt,
+  };
+  if (kind === "links") {
+    return (message.content.match(URL_REGEX) ?? [])
+      .map((url, index) => ({ ...base, url, position: index + 1 }))
+      .filter((item) => !needle || item.url.toLowerCase().includes(needle))
+      .reverse();
+  }
+  return (message.attachments ?? [])
+    .filter((a) => sharedKindOf(a) === kind && (!needle || a.fileName.toLowerCase().includes(needle)))
+    .sort((x, y) => (x.id < y.id ? 1 : x.id > y.id ? -1 : 0))
+    .map((attachment) => ({ ...base, attachment }));
 };
 
-export const insertMessageLinks = (
+export const replaceMessageItems = (
   items: SharedItem[],
-  message: { messageId: string; authorId: string; authorName: string; createdAt: string; urls: string[] },
+  messageId: string,
+  fresh: SharedItem[],
   complete: boolean,
 ): SharedItem[] => {
-  if (message.urls.length === 0 || items.some((item) => item.messageId === message.messageId)) return items;
-  const entries = message.urls.map((url) => ({
-    messageId: message.messageId,
-    authorId: message.authorId,
-    authorName: message.authorName,
-    createdAt: message.createdAt,
-    url,
-  }));
-  const anchor: SharedItem = entries[0];
-  const at = items.findIndex((item) => olderThan(item, anchor));
-  if (at < 0) return complete ? [...items, ...entries] : items;
-  return [...items.slice(0, at), ...entries, ...items.slice(at)];
+  const first = items.findIndex((item) => item.messageId === messageId);
+  const rest = items.filter((item) => item.messageId !== messageId);
+  if (fresh.length === 0) return rest;
+  if (first >= 0) return [...rest.slice(0, first), ...fresh, ...rest.slice(first)];
+  const at = rest.findIndex((item) => olderThan(item, fresh[0]));
+  if (at < 0) return complete ? [...rest, ...fresh] : rest;
+  return [...rest.slice(0, at), ...fresh, ...rest.slice(at)];
 };
 
 export const reconcileEdit = (items: SharedItem[], edit: MessageEdit, kind: SharedKind, query: string): SharedItem[] => {
-  const first = items.findIndex((item) => item.messageId === edit.messageId);
-  if (first < 0) return items;
+  const template = items.find((item) => item.messageId === edit.messageId);
+  if (!template) return items;
   if (kind !== "links") {
     if (!edit.attachmentIds) return items;
     const kept = new Set(edit.attachmentIds);
     return items.filter((item) => item.messageId !== edit.messageId || (!!item.attachment && kept.has(item.attachment.id)));
   }
   if (edit.content === undefined) return items;
-  const template = items[first];
-  const urls = matchingLinks(edit.content, query);
-  const replaced = urls.map((url) => ({ ...template, attachment: undefined, url }));
-  const rest = items.filter((item) => item.messageId !== edit.messageId);
-  return [...rest.slice(0, first), ...replaced, ...rest.slice(first)];
+  const fresh = messageItems(
+    { id: template.messageId, authorId: template.authorId, authorName: template.authorName, createdAt: template.createdAt, content: edit.content },
+    "links",
+    query,
+  );
+  return replaceMessageItems(items, edit.messageId, fresh, false);
 };
 
 export function useSharedContent(scope: SharedScope, kind: SharedKind, query: string) {
@@ -176,11 +205,13 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
 
   const applyEdit = React.useCallback(
     (edit: MessageEdit) => {
+      setState((s) => ({ ...s, items: reconcileEdit(s.items, edit, kind, debouncedQuery) }));
       const known = itemsRef.current.some((item) => item.messageId === edit.messageId);
-      if (known || kind !== "links" || !edit.content || matchingLinks(edit.content, debouncedQuery).length === 0) {
-        setState((s) => ({ ...s, items: reconcileEdit(s.items, edit, kind, debouncedQuery) }));
-        return;
-      }
+      const mayAdd =
+        kind === "links"
+          ? (edit.content?.match(URL_REGEX)?.length ?? 0) > 0
+          : (edit.attachmentIds?.length ?? 0) > 0;
+      if (!known && !mayAdd) return;
       const viewAtEdit = viewRef.current;
       sharedAPI
         .message(scopeRef.current, edit.messageId)
@@ -188,17 +219,7 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
           if (viewRef.current !== viewAtEdit) return;
           setState((s) => ({
             ...s,
-            items: insertMessageLinks(
-              s.items,
-              {
-                messageId: message.id,
-                authorId: message.authorId,
-                authorName: message.authorName ?? "",
-                createdAt: message.createdAt,
-                urls: matchingLinks(message.content, debouncedQuery),
-              },
-              s.nextCursor === null,
-            ),
+            items: replaceMessageItems(s.items, message.id, messageItems(message, kind, debouncedQuery), s.nextCursor === null),
           }));
         })
         .catch(() => {});

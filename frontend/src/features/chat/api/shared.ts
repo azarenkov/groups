@@ -16,6 +16,7 @@ export interface SharedItem {
   createdAt: string;
   attachment?: Attachment;
   url?: string;
+  position?: number;
 }
 
 export interface SharedPage {

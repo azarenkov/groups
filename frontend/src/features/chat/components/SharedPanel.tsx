@@ -164,9 +164,9 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
       />
       <div className="shared-scroll">
         <ul className={"shared-list shared-list-" + kind}>
-          {content.items.map((item, index) => (
+          {content.items.map((item) => (
             <SharedEntry
-              key={`${itemKey(item)}:${index}`}
+              key={itemKey(item)}
               item={item}
               kind={kind}
               mine={!!currentUserId && item.authorId === currentUserId}
