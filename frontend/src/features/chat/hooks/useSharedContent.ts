@@ -15,7 +15,20 @@ interface SharedState {
 
 const EMPTY: SharedState = { items: [], nextCursor: null, loading: false, failed: false, loaded: false };
 
-export function useSharedContent(scope: SharedScope, kind: SharedKind, query: string, refreshKey: number) {
+export const itemKey = (item: SharedItem): string =>
+  `${item.messageId}:${item.attachment?.id ?? item.url ?? ""}`;
+
+const olderThan = (item: SharedItem, edge: SharedItem): boolean =>
+  item.createdAt < edge.createdAt || (item.createdAt === edge.createdAt && item.messageId < edge.messageId);
+
+export const mergeFirstPage = (current: SharedItem[], page: SharedItem[], pageComplete: boolean): SharedItem[] => {
+  if (pageComplete || page.length === 0) return page;
+  const edge = page[page.length - 1];
+  const keys = new Set(page.map(itemKey));
+  return [...page, ...current.filter((item) => !keys.has(itemKey(item)) && olderThan(item, edge))];
+};
+
+export function useSharedContent(scope: SharedScope, kind: SharedKind, query: string) {
   const [state, setState] = React.useState<SharedState>(EMPTY);
   const requestRef = React.useRef(0);
   const scopeKey = sharedScopeKey(scope);
@@ -30,9 +43,9 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
   }, [query]);
 
   const fetchPage = React.useCallback(
-    async (before: string | null, append: boolean) => {
+    async (before: string | null, mode: "reset" | "append" | "merge") => {
       const request = ++requestRef.current;
-      setState((s) => ({ ...(append ? s : EMPTY), loading: true, failed: false, loaded: append ? s.loaded : false }));
+      setState((s) => (mode === "reset" ? { ...EMPTY, loading: true } : { ...s, loading: true, failed: false }));
       try {
         const page = await sharedAPI.list(scopeRef.current, kind, {
           q: debouncedQuery || undefined,
@@ -41,15 +54,28 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
         });
         if (request !== requestRef.current) return;
         setState((s) => {
-          const seen = new Set(append ? s.items.map(itemKey) : []);
-          const fresh = page.items.filter((item) => !seen.has(itemKey(item)));
-          return {
-            items: append ? [...s.items, ...fresh] : page.items,
-            nextCursor: page.nextCursor,
-            loading: false,
-            failed: false,
-            loaded: true,
-          };
+          if (mode === "append") {
+            const seen = new Set(s.items.map(itemKey));
+            return {
+              items: [...s.items, ...page.items.filter((item) => !seen.has(itemKey(item)))],
+              nextCursor: page.nextCursor,
+              loading: false,
+              failed: false,
+              loaded: true,
+            };
+          }
+          if (mode === "merge") {
+            const items = mergeFirstPage(s.items, page.items, page.nextCursor === null);
+            const extended = items.length > page.items.length;
+            return {
+              items,
+              nextCursor: extended ? s.nextCursor : page.nextCursor,
+              loading: false,
+              failed: false,
+              loaded: true,
+            };
+          }
+          return { items: page.items, nextCursor: page.nextCursor, loading: false, failed: false, loaded: true };
         });
       } catch {
         if (request !== requestRef.current) return;
@@ -60,8 +86,8 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
   );
 
   React.useEffect(() => {
-    void fetchPage(null, false);
-  }, [fetchPage, scopeKey, refreshKey]);
+    void fetchPage(null, "reset");
+  }, [fetchPage, scopeKey]);
 
   React.useEffect(
     () => () => {
@@ -72,16 +98,21 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
 
   const loadMore = React.useCallback(() => {
     if (state.loading || !state.nextCursor || state.failed) return;
-    void fetchPage(state.nextCursor, true);
+    void fetchPage(state.nextCursor, "append");
   }, [fetchPage, state.loading, state.nextCursor, state.failed]);
 
   const retry = React.useCallback(() => {
-    if (state.items.length > 0 && state.nextCursor) void fetchPage(state.nextCursor, true);
-    else void fetchPage(null, false);
+    if (state.items.length > 0 && state.nextCursor) void fetchPage(state.nextCursor, "append");
+    else void fetchPage(null, "reset");
   }, [fetchPage, state.items.length, state.nextCursor]);
 
-  return { ...state, searching: query.trim() !== debouncedQuery, loadMore, retry };
-}
+  const refreshTop = React.useCallback(() => {
+    void fetchPage(null, "merge");
+  }, [fetchPage]);
 
-export const itemKey = (item: SharedItem): string =>
-  `${item.messageId}:${item.attachment?.id ?? item.url ?? ""}`;
+  const dropMessage = React.useCallback((messageId: string) => {
+    setState((s) => ({ ...s, items: s.items.filter((item) => item.messageId !== messageId) }));
+  }, []);
+
+  return { ...state, searching: query.trim() !== debouncedQuery, loadMore, retry, refreshTop, dropMessage };
+}

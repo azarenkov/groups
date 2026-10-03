@@ -6,6 +6,7 @@ import { domainOf } from "../../../shared/lib/links";
 import { currentLocale } from "../../../i18n";
 import type { SharedItem, SharedKind, SharedScope } from "../api/shared";
 import { itemKey, useSharedContent } from "../hooks/useSharedContent";
+import { useWsChannelMessages, useWsDmMessages } from "../hooks/useWebSocketMessages";
 import AttachmentItem from "./AttachmentItem";
 import VideoNotePlayer from "./VideoNotePlayer";
 import VoicePlayer from "./VoicePlayer";
@@ -15,7 +16,6 @@ const TABS: SharedKind[] = ["media", "files", "voice", "links"];
 interface SharedPanelProps {
   scope: SharedScope;
   currentUserId?: string;
-  refreshKey: number;
   onClose: () => void;
   onShowMessage: (messageId: string) => void;
 }
@@ -76,13 +76,32 @@ const SharedEntry: React.FC<{
   );
 };
 
-const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, refreshKey, onClose, onShowMessage }) => {
+const LINK_HINT = /https?:\/\//i;
+
+const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose, onShowMessage }) => {
   const { t } = useTranslation("chat");
   const [kind, setKind] = React.useState<SharedKind>("media");
   const [query, setQuery] = React.useState("");
-  const content = useSharedContent(scope, kind, query, refreshKey);
+  const content = useSharedContent(scope, kind, query);
   const sentinelRef = React.useRef<HTMLDivElement>(null);
-  const { loadMore } = content;
+  const { loadMore, refreshTop, dropMessage } = content;
+
+  const affects = (message: { content?: string; newContent?: string; attachments?: unknown[] }) =>
+    kind === "links"
+      ? LINK_HINT.test(message.content ?? message.newContent ?? "")
+      : (message.attachments?.length ?? 0) > 0;
+  const handlers = {
+    onSent: (m: { content: string; attachments?: unknown[] }) => {
+      if (affects(m)) refreshTop();
+    },
+    onEdited: (m: { id: string }) => {
+      dropMessage(m.id);
+      refreshTop();
+    },
+    onDeleted: (m: { id: string }) => dropMessage(m.id),
+  };
+  useWsChannelMessages(scope.kind === "channel" ? scope.channelId : null, handlers);
+  useWsDmMessages(scope.kind === "dm" ? scope.friendId : null, currentUserId, handlers);
 
   React.useEffect(() => {
     const node = sentinelRef.current;

@@ -30,6 +30,8 @@ import VoiceChannelPreview from "../../voice/components/VoiceChannelPreview";
 import type { VoicePreviewParticipant } from "../../voice/components/VoiceChannelPreview";
 import MembersPanel from "./MembersPanel";
 import SharedPanel from "../../chat/components/SharedPanel";
+
+const SHARED_OVERLAY_QUERY = "(max-width: 900px)";
 import NoTextChannel from "./NoTextChannel";
 import SettingsView from "../../settings/components/SettingsView";
 import { useHotkey } from "../../settings/lib/hotkeys";
@@ -161,8 +163,7 @@ const CommunitiesPage: React.FC = () => {
   const [sidebarQuery, setSidebarQuery] = useState("");
   const [membersOpenById, setMembersOpenById] = useState<Record<string, boolean>>({});
   const [sharedOpenFor, setSharedOpenFor] = useState<string | null>(null);
-  const [sharedRefresh, setSharedRefresh] = useState(0);
-  const bumpShared = React.useCallback(() => setSharedRefresh((n) => n + 1), []);
+
 
   const voice = useVoiceSession();
   const {
@@ -727,7 +728,6 @@ const CommunitiesPage: React.FC = () => {
                 onOpenMessageHandled={() => setOpenMessage(null)}
                 sharedOpen={showSharedForDm}
                 onToggleShared={() => setSharedOpenFor((open) => (open === dmSharedKey ? null : dmSharedKey))}
-                onMessagesChanged={bumpShared}
                 communities={communities}
                 onGoToCommunity={selection.handleGoToCommunity}
                 callMode={!!activeCallId && callFocused}
@@ -840,7 +840,6 @@ const CommunitiesPage: React.FC = () => {
                     ? () => setSharedOpenFor((open) => (open === channelSharedKey ? null : channelSharedKey))
                     : undefined
                 }
-                onMessagesChanged={bumpShared}
               />
             )}
 
@@ -899,11 +898,12 @@ const CommunitiesPage: React.FC = () => {
                     : { kind: "channel", communityId: selectedCommunity!.id, channelId: activeTextChannel!.id }
                 }
                 currentUserId={user?.id}
-                refreshKey={sharedRefresh}
                 onClose={() => setSharedOpenFor(null)}
                 onShowMessage={(messageId) => {
                   const convId = showSharedForDm && selectedDm ? selectedDm.id : activeTextChannel?.id;
-                  if (convId) setOpenMessage({ convId, messageId });
+                  if (!convId) return;
+                  if (window.matchMedia?.(SHARED_OVERLAY_QUERY).matches) setSharedOpenFor(null);
+                  setOpenMessage({ convId, messageId });
                 }}
               />
             </>

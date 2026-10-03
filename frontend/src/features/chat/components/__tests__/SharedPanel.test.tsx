@@ -1,14 +1,24 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import i18n from "../../../../i18n";
 import SharedPanel from "../SharedPanel";
 import { sharedAPI } from "../../api/shared";
+import { mergeFirstPage } from "../../hooks/useSharedContent";
 
 jest.mock("../../api/shared", () => {
   const actual = jest.requireActual("../../api/shared");
   return { ...actual, sharedAPI: { list: jest.fn() } };
 });
+
+const wsHandlers: { current: { onSent?: (m: unknown) => void; onDeleted?: (m: unknown) => void } } = { current: {} };
+
+jest.mock("../../hooks/useWebSocketMessages", () => ({
+  useWsChannelMessages: () => undefined,
+  useWsDmMessages: (_peer: string | null, _self: string | undefined, handlers: typeof wsHandlers.current) => {
+    wsHandlers.current = handlers;
+  },
+}));
 
 jest.mock("../AttachmentItem", () => ({
   __esModule: true,
@@ -39,7 +49,6 @@ describe("SharedPanel", () => {
       <SharedPanel
         scope={{ kind: "dm", friendId: "u2" }}
         currentUserId="u1"
-        refreshKey={0}
         onClose={() => undefined}
         onShowMessage={onShowMessage}
       />,
@@ -86,4 +95,35 @@ describe("SharedPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("Nothing found")).toBeInTheDocument();
   });
+
+  it("keeps loaded pages when a new file arrives and drops deleted messages", async () => {
+    list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    renderPanel();
+    list.mockResolvedValueOnce({ items: [file("a1", "old.pdf")], nextCursor: "c1" });
+    fireEvent.click(screen.getByRole("tab", { name: "Files" }));
+    expect(await screen.findByText("old.pdf")).toBeInTheDocument();
+    list.mockResolvedValueOnce({ items: [{ ...file("a2", "new.pdf"), createdAt: "2026-10-02T10:00:00Z" }, file("a1", "old.pdf")], nextCursor: "c2" });
+    act(() => wsHandlers.current.onSent?.({ content: "", attachments: [{}] }));
+    expect(await screen.findByText("new.pdf")).toBeInTheDocument();
+    expect(screen.getAllByText("old.pdf")).toHaveLength(1);
+    act(() => wsHandlers.current.onDeleted?.({ id: "m-a1" }));
+    expect(screen.queryByText("old.pdf")).toBeNull();
+    expect(screen.getByText("new.pdf")).toBeInTheDocument();
+  });
 });
+
+describe("mergeFirstPage", () => {
+  const item = (messageId: string, createdAt: string) => ({ messageId, authorId: "u", authorName: "", createdAt, url: `https://x/${messageId}` });
+
+  it("prepends fresh items and keeps older loaded ones", () => {
+    const current = [item("b", "2026-10-02"), item("a", "2026-10-01")];
+    const page = [item("c", "2026-10-03"), item("b", "2026-10-02")];
+    expect(mergeFirstPage(current, page, false).map((i) => i.messageId)).toEqual(["c", "b", "a"]);
+  });
+
+  it("takes the page as is when it is the whole list", () => {
+    const current = [item("b", "2026-10-02"), item("a", "2026-10-01")];
+    expect(mergeFirstPage(current, [item("b", "2026-10-02")], true).map((i) => i.messageId)).toEqual(["b"]);
+  });
+});
+
