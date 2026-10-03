@@ -30,6 +30,8 @@ export const VIDEO_NOTE_MAX_MS = MINUTE_MS;
 
 export const VIDEO_NOTE_SIZE_BY_TIER: Record<Tier, number> = { free: 384, pro: 640, premium: 640 };
 
+export const STICKER_PACKS_BY_TIER: Record<Tier, number> = { free: 2, pro: 10, premium: 50 };
+
 export const BADGE_STYLES = [
   "tint",
   "solid",

@@ -6,15 +6,16 @@ import PlanUntil from "../../../subscription/components/PlanUntil";
 import TrialOffer from "../../../subscription/components/TrialOffer";
 import {
   VIDEO_NOTE_SIZE_BY_TIER,
+  STICKER_PACKS_BY_TIER,
   VOICE_MESSAGE_MAX_MS_BY_TIER,
   type Tier,
 } from "../../../subscription/lib/plans";
 import { useEntitlementsStore } from "../../../subscription/store/entitlementsStore";
 
 const PLANS: { tier: Tier; features: string[] }[] = [
-  { tier: "free", features: ["noise", "attachments", "voice", "videoNote", "stream"] },
-  { tier: "pro", features: ["attachments", "voice", "videoNote", "stream", "badge", "banner", "avatar"] },
-  { tier: "premium", features: ["attachments", "voice", "videoNote", "stream", "badge", "goldBadge", "banner", "avatar", "support"] },
+  { tier: "free", features: ["noise", "attachments", "voice", "videoNote", "stream", "stickerPacks"] },
+  { tier: "pro", features: ["attachments", "voice", "videoNote", "stream", "stickerPacks", "badge", "banner", "avatar"] },
+  { tier: "premium", features: ["attachments", "voice", "videoNote", "stream", "stickerPacks", "badge", "goldBadge", "banner", "avatar"] },
 ];
 
 export function SubscriptionSection() {
@@ -48,6 +49,7 @@ export function SubscriptionSection() {
                     {t(`page.plans.${tier}.${feature}`, {
                       minutes: VOICE_MESSAGE_MAX_MS_BY_TIER[tier] / 60000,
                       size: VIDEO_NOTE_SIZE_BY_TIER[tier],
+                      packs: STICKER_PACKS_BY_TIER[tier],
                     })}
                   </li>
                 ))}
