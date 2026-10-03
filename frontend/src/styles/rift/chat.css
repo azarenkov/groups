@@ -1295,7 +1295,7 @@
   align-items: center;
   gap: 14px;
   max-width: 100%;
-  padding: 28px 28px 22px;
+  padding: 50px 28px 22px;
   border-radius: 20px;
   background: var(--surface-raised);
   box-shadow: var(--shadow-lg);
