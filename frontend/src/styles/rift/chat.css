@@ -1161,8 +1161,10 @@
 .sticker-pack-head > div:first-child { flex: 1; min-width: 0; }
 .sticker-pack-name { font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sticker-pack-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.sticker-pack-rename { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.sticker-pack-rename .s-input { flex: 1; min-width: 160px; }
+.sticker-pack-head.renaming > div:first-child { flex-basis: 100%; }
+.sticker-pack-rename { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.sticker-pack-rename .s-input { flex: 1; min-width: 0; }
+.sticker-pack-rename .s-btn { flex-shrink: 0; }
 .sticker-icon-btn {
   display: inline-flex;
   align-items: center;

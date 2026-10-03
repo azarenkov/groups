@@ -378,7 +378,7 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
               !error && <div className="sticker-modal-empty">{t("loading")}</div>
             ) : (
               <div className="sticker-pack-view">
-                <div className="sticker-pack-head">
+                <div className={"sticker-pack-head" + (renaming ? " renaming" : "")}>
                   <div>
                     {renaming ? (
                       <form
@@ -429,7 +429,7 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                       </button>
                     </div>
                   </div>
-                  {own ? (
+                  {renaming ? null : own ? (
                     <>
                       {!installedIds.has(pack.id) && (
                         <button type="button" className="s-btn primary" disabled={busy} onClick={() => void toggleInstall(pack)}>
