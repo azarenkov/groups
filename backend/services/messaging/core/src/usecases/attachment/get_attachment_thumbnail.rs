@@ -43,14 +43,14 @@ pub enum GetAttachmentThumbnailError {
 
 type InFlight = StdMutex<HashMap<String, Arc<Mutex<()>>>>;
 
-struct KeyLock<'a> {
-    map: &'a InFlight,
+struct KeyLock {
+    map: Arc<InFlight>,
     key: String,
     lock: Option<Arc<Mutex<()>>>,
 }
 
-impl<'a> KeyLock<'a> {
-    fn acquire(map: &'a InFlight, key: &str) -> Self {
+impl KeyLock {
+    fn acquire(map: &Arc<InFlight>, key: &str) -> Self {
         let lock = map
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -58,18 +58,18 @@ impl<'a> KeyLock<'a> {
             .or_default()
             .clone();
         Self {
-            map,
+            map: map.clone(),
             key: key.to_string(),
             lock: Some(lock),
         }
     }
 
-    fn lock(&self) -> &Mutex<()> {
-        self.lock.as_deref().expect("key lock is held until drop")
+    fn lock(&self) -> Arc<Mutex<()>> {
+        self.lock.clone().expect("key lock is held until drop")
     }
 }
 
-impl Drop for KeyLock<'_> {
+impl Drop for KeyLock {
     fn drop(&mut self) {
         let mut map = self.map.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         drop(self.lock.take());
@@ -79,24 +79,36 @@ impl Drop for KeyLock<'_> {
     }
 }
 
-pub struct GetAttachmentThumbnail<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> {
+struct Inner<M, S, T, R> {
     message_repository: Arc<M>,
     storage: Arc<S>,
     thumbnailer: Arc<T>,
     releases: Arc<R>,
-    generating: Semaphore,
-    in_flight: InFlight,
+    generating: Arc<Semaphore>,
+    in_flight: Arc<InFlight>,
 }
 
-impl<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> GetAttachmentThumbnail<M, S, T, R> {
+pub struct GetAttachmentThumbnail<M, S, T, R> {
+    inner: Arc<Inner<M, S, T, R>>,
+}
+
+impl<M, S, T, R> GetAttachmentThumbnail<M, S, T, R>
+where
+    M: MessageRepository + Send + Sync + 'static,
+    S: FileStorage + Send + Sync + 'static,
+    T: Thumbnailer + Send + Sync + 'static,
+    R: StorageReleases + Send + Sync + 'static,
+{
     pub fn new(message_repository: Arc<M>, storage: Arc<S>, thumbnailer: Arc<T>, releases: Arc<R>) -> Self {
         Self {
-            message_repository,
-            storage,
-            thumbnailer,
-            releases,
-            generating: Semaphore::new(THUMBNAIL_CONCURRENCY),
-            in_flight: StdMutex::new(HashMap::new()),
+            inner: Arc::new(Inner {
+                message_repository,
+                storage,
+                thumbnailer,
+                releases,
+                generating: Arc::new(Semaphore::new(THUMBNAIL_CONCURRENCY)),
+                in_flight: Arc::new(StdMutex::new(HashMap::new())),
+            }),
         }
     }
 
@@ -105,7 +117,8 @@ impl<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> G
         attachment_id: Uuid,
         user_id: UserId,
     ) -> Result<(&'static str, ByteStream), GetAttachmentThumbnailError> {
-        let link = self
+        let inner = &self.inner;
+        let link = inner
             .message_repository
             .find_attachment_for_user(attachment_id, &user_id)
             .await?
@@ -113,13 +126,25 @@ impl<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> G
         if !link.content_type.starts_with("image/") || link.size_bytes > THUMBNAIL_SOURCE_MAX_BYTES {
             return Err(GetAttachmentThumbnailError::Unavailable);
         }
-        if let Some(cached) = self.cached(&link.storage_key).await? {
+        if let Some(cached) = inner.cached(&link.storage_key).await? {
             return Ok(cached);
         }
-        let key_lock = KeyLock::acquire(&self.in_flight, &link.storage_key);
-        self.generate(attachment_id, &user_id, &link.storage_key, key_lock.lock()).await
+        let key_lock = KeyLock::acquire(&inner.in_flight, &link.storage_key);
+        let worker = inner.clone();
+        let storage_key = link.storage_key.clone();
+        tokio::spawn(async move { worker.generate(attachment_id, user_id, storage_key, key_lock).await })
+            .await
+            .map_err(|_| GetAttachmentThumbnailError::Unavailable)?
     }
+}
 
+impl<M, S, T, R> Inner<M, S, T, R>
+where
+    M: MessageRepository + Send + Sync,
+    S: FileStorage + Send + Sync,
+    T: Thumbnailer + Send + Sync,
+    R: StorageReleases + Send + Sync,
+{
     async fn cached(&self, storage_key: &str) -> Result<Option<(&'static str, ByteStream)>, GetAttachmentThumbnailError> {
         for (ext, content_type) in VARIANTS {
             match self.storage.get_stream(&thumbnail_key(storage_key, ext)).await {
@@ -134,20 +159,21 @@ impl<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> G
     async fn generate(
         &self,
         attachment_id: Uuid,
-        user_id: &UserId,
-        storage_key: &str,
-        key_lock: &Mutex<()>,
+        user_id: UserId,
+        storage_key: String,
+        key_lock: KeyLock,
     ) -> Result<(&'static str, ByteStream), GetAttachmentThumbnailError> {
-        let _key_guard = key_lock.lock().await;
-        if let Some(cached) = self.cached(storage_key).await? {
+        let _key_guard = key_lock.lock().lock_owned().await;
+        if let Some(cached) = self.cached(&storage_key).await? {
             return Ok(cached);
         }
         let _permit = self
             .generating
-            .acquire()
+            .clone()
+            .acquire_owned()
             .await
             .map_err(|_| GetAttachmentThumbnailError::Unavailable)?;
-        let original = self.read_all(storage_key).await?;
+        let original = self.read_all(&storage_key).await?;
         let thumbnail = self
             .thumbnailer
             .thumbnail(original)
@@ -158,7 +184,7 @@ impl<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> G
             .find(|(_, ct)| *ct == thumbnail.content_type)
             .map(|(ext, _)| *ext)
             .unwrap_or("jpg");
-        self.persist(attachment_id, user_id, storage_key, ext, &thumbnail).await;
+        self.persist(attachment_id, &user_id, &storage_key, ext, &thumbnail).await;
         let body: ByteStream = Box::pin(stream::once(async move { Ok(thumbnail.bytes) }));
         Ok((thumbnail.content_type, body))
     }
@@ -209,7 +235,7 @@ mod tests {
 
     #[test]
     fn key_locks_are_removed_when_dropped_even_if_shared() {
-        let map: InFlight = StdMutex::new(HashMap::new());
+        let map: Arc<InFlight> = Arc::new(StdMutex::new(HashMap::new()));
         let first = KeyLock::acquire(&map, "a");
         let second = KeyLock::acquire(&map, "a");
         assert_eq!(map.lock().unwrap().len(), 1);
