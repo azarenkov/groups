@@ -24,6 +24,7 @@ const attachment = (id: string, contentType: string, sizeBytes = 1000) => ({
 let created = 0;
 
 beforeEach(() => {
+  HTMLMediaElement.prototype.canPlayType = (type: string) => (type === "video/mp4" ? "probably" : "");
   thumbnail.mockReset();
   download.mockReset();
   imageUrlCache.clear();
@@ -57,6 +58,12 @@ it("falls back to the original image when there is no thumbnail", async () => {
   render(<AttachmentItem attachment={attachment("img2", "image/png")} thumbnail />);
   expect(await screen.findByRole("img")).toBeInTheDocument();
   expect(download).toHaveBeenCalledWith("img2", 1000);
+});
+
+it("keeps formats the browser cannot play as a download", () => {
+  render(<AttachmentItem attachment={attachment("avi1", "video/x-msvideo")} />);
+  expect(document.querySelector(".msg-attach-video")).toBeNull();
+  expect(screen.getByRole("button", { name: /avi1\.bin/ })).toBeInTheDocument();
 });
 
 it("plays videos in a viewer instead of only downloading them", async () => {

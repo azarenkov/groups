@@ -77,8 +77,8 @@ export const VideoViewer: React.FC<{ attachment: Attachment; onClose: () => void
   return createPortal(
     <div className="image-viewer-overlay video-viewer-overlay" onClick={onClose}>
       <div className="video-viewer" onClick={(e) => e.stopPropagation()}>
-        {url ? (
-          <video src={url} controls autoPlay playsInline />
+        {url && !failed ? (
+          <video src={url} controls autoPlay playsInline onError={() => setFailed(true)} />
         ) : failed ? (
           <span className="video-viewer-error">{t("videoLoadFailed")}</span>
         ) : (

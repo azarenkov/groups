@@ -21,6 +21,21 @@ export const IMAGE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
 export const THUMBNAIL_SOURCE_MAX_BYTES = 25 * 1024 * 1024;
 export const VIDEO_PLAY_MAX_BYTES = 200 * 1024 * 1024;
 
+const playableTypes = new Map<string, boolean>();
+
+export const canPlayVideo = (contentType: string): boolean => {
+  const cached = playableTypes.get(contentType);
+  if (cached !== undefined) return cached;
+  let playable = false;
+  try {
+    playable = document.createElement("video").canPlayType(contentType) !== "";
+  } catch {
+    playable = false;
+  }
+  playableTypes.set(contentType, playable);
+  return playable;
+};
+
 export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: boolean }> = ({
   attachment,
   thumbnail = false,
@@ -29,7 +44,9 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
     attachment.contentType.startsWith("image/") &&
     attachment.sizeBytes <= (thumbnail ? THUMBNAIL_SOURCE_MAX_BYTES : IMAGE_PREVIEW_MAX_BYTES);
   const isVideo =
-    attachment.contentType.startsWith("video/") && attachment.sizeBytes <= VIDEO_PLAY_MAX_BYTES;
+    attachment.contentType.startsWith("video/") &&
+    attachment.sizeBytes <= VIDEO_PLAY_MAX_BYTES &&
+    canPlayVideo(attachment.contentType);
   const cacheKey = thumbnail ? thumbnailKey(attachment.id) : attachment.id;
   const [url, setUrl] = React.useState<string | null>(() =>
     acquireImageUrl(cacheKey),
