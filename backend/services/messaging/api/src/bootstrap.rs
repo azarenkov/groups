@@ -321,6 +321,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             message_repository.clone(),
             minio_storage.clone(),
             Arc::new(ImageThumbnailer),
+            Arc::new(messaging_infrastructure::outbox::storage::PostgresStorageReleases::new(postgres_pool.clone())),
         ),
         get_attachment_usecase: GetAttachment::new(
             message_repository.clone(),

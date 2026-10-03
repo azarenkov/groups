@@ -158,7 +158,8 @@ impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
                     if !self.delete_thumbnails(&key).await
                         && let Err(e) = self.repository.enqueue_cleanup(std::slice::from_ref(&key)).await
                     {
-                        tracing::warn!(error = %e, %key, "Failed to queue thumbnails of an orphan attachment");
+                        tracing::warn!(error = %e, %key, "Failed to queue thumbnails of an orphan attachment; keeping it for the next sweep");
+                        continue;
                     }
                     match self.storage.delete(&key).await {
                         Ok(()) | Err(FileStorageError::NotFound) => {

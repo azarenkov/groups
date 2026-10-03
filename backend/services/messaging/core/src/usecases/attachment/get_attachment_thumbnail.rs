@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 use crate::ports::{
     file_storage::{ByteStream, FileStorage, FileStorageError},
+    storage_releases::StorageReleases,
     thumbnailer::{Thumbnail, Thumbnailer},
 };
 
@@ -40,20 +41,22 @@ pub enum GetAttachmentThumbnailError {
     Repository(#[from] RepositoryError),
 }
 
-pub struct GetAttachmentThumbnail<M: MessageRepository, S: FileStorage, T: Thumbnailer> {
+pub struct GetAttachmentThumbnail<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> {
     message_repository: Arc<M>,
     storage: Arc<S>,
     thumbnailer: Arc<T>,
+    releases: Arc<R>,
     generating: Semaphore,
     in_flight: StdMutex<HashMap<String, Arc<Mutex<()>>>>,
 }
 
-impl<M: MessageRepository, S: FileStorage, T: Thumbnailer> GetAttachmentThumbnail<M, S, T> {
-    pub fn new(message_repository: Arc<M>, storage: Arc<S>, thumbnailer: Arc<T>) -> Self {
+impl<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> GetAttachmentThumbnail<M, S, T, R> {
+    pub fn new(message_repository: Arc<M>, storage: Arc<S>, thumbnailer: Arc<T>, releases: Arc<R>) -> Self {
         Self {
             message_repository,
             storage,
             thumbnailer,
+            releases,
             generating: Semaphore::new(THUMBNAIL_CONCURRENCY),
             in_flight: StdMutex::new(HashMap::new()),
         }
@@ -156,7 +159,10 @@ impl<M: MessageRepository, S: FileStorage, T: Thumbnailer> GetAttachmentThumbnai
         if !self.still_linked(attachment_id, user_id).await
             && let Err(e) = self.storage.delete(&key).await
         {
-            tracing::warn!(error = %e, %attachment_id, "Failed to drop a thumbnail of a removed attachment");
+            tracing::warn!(error = %e, %attachment_id, "Failed to drop a thumbnail of a removed attachment; queueing cleanup");
+            if let Err(e) = self.releases.release(&[storage_key.to_string()]).await {
+                tracing::error!(error = %e, %attachment_id, "Failed to queue cleanup of a late thumbnail");
+            }
         }
     }
 

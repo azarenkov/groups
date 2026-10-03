@@ -176,7 +176,12 @@ pub struct AppState {
     pub list_message_attachments_usecase:
         ListMessageAttachments<PostgresMessageRepository, PostgresDmMessageRepository>,
     pub get_attachment_thumbnail_usecase:
-        GetAttachmentThumbnail<PostgresMessageRepository, MinioStorage, ImageThumbnailer>,
+        GetAttachmentThumbnail<
+            PostgresMessageRepository,
+            MinioStorage,
+            ImageThumbnailer,
+            messaging_infrastructure::outbox::storage::PostgresStorageReleases,
+        >,
     pub get_attachment_usecase:
         GetAttachment<PostgresMessageRepository, MinioStorage, MediaClaimsClient>,
     pub send_friend_request_usecase:
