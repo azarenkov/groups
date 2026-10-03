@@ -40,6 +40,7 @@ impl From<SharedParams> for SharedQuery {
 struct SharedItemResponse {
     message_id: Uuid,
     author_id: Uuid,
+    author_name: String,
     created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     attachment: Option<AttachmentResponse>,
@@ -56,6 +57,7 @@ impl From<SharedItem> for SharedItemResponse {
         Self {
             message_id: item.message_id,
             author_id: item.author_id.uuid(),
+            author_name: item.author_name,
             created_at: item.created_at,
             attachment,
             url,

@@ -43,6 +43,7 @@ fn like_pattern(query: Option<&str>) -> String {
 struct AttachmentRow {
     message_id: Uuid,
     author_id: Uuid,
+    author_name: String,
     message_created_at: DateTime<Utc>,
     attachment_id: Uuid,
     file_name: String,
@@ -62,6 +63,7 @@ impl From<AttachmentRow> for SharedItem {
         Self {
             message_id: r.message_id,
             author_id: UserId::new(r.author_id),
+            author_name: r.author_name,
             created_at: r.message_created_at,
             cursor: SharedCursor {
                 created_at: r.message_created_at,
@@ -85,6 +87,7 @@ impl From<AttachmentRow> for SharedItem {
 struct LinkRow {
     message_id: Uuid,
     author_id: Uuid,
+    author_name: String,
     created_at: DateTime<Utc>,
     url: String,
     ordinal: i64,
@@ -95,6 +98,7 @@ impl From<LinkRow> for SharedItem {
         Self {
             message_id: r.message_id,
             author_id: UserId::new(r.author_id),
+            author_name: r.author_name,
             created_at: r.created_at,
             cursor: SharedCursor {
                 created_at: r.created_at,
@@ -133,9 +137,10 @@ impl SharedContentRepository for PostgresSharedContentRepository {
             (SharedScope::Channel(channel_id), SharedKind::Links) => sqlx::query_as!(
                 LinkRow,
                 r#"
-                SELECT m.id AS "message_id!", m.author_id AS "author_id!", m.created_at AS "created_at!",
+                SELECT m.id AS "message_id!", m.author_id AS "author_id!", COALESCE(u.name, '') AS "author_name!", m.created_at AS "created_at!",
                        l.found[1] AS "url!", l.ordinal AS "ordinal!"
                 FROM messages m
+                LEFT JOIN messaging_user_profiles u ON u.user_id = m.author_id
                 CROSS JOIN LATERAL regexp_matches(m.content, $3, 'g') WITH ORDINALITY AS l(found, ordinal)
                 WHERE m.channel_id = $1
                   AND m.kind = 'user'
@@ -164,11 +169,12 @@ impl SharedContentRepository for PostgresSharedContentRepository {
             (SharedScope::Channel(channel_id), kind) => sqlx::query_as!(
                 AttachmentRow,
                 r#"
-                SELECT a.message_id, m.author_id, m.created_at AS message_created_at, a.attachment_id,
+                SELECT a.message_id, m.author_id, COALESCE(u.name, '') AS "author_name!", m.created_at AS message_created_at, a.attachment_id,
                        a.file_name, a.content_type, a.size_bytes, a.storage_key, a.created_at,
                        a.voice_duration_ms, a.voice_waveform, a.video_duration_ms, a.video_size, a.video_poster
                 FROM message_attachments a
                 JOIN messages m ON m.id = a.message_id
+                LEFT JOIN messaging_user_profiles u ON u.user_id = m.author_id
                 WHERE m.channel_id = $1
                   AND m.kind = 'user'
                   AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)
@@ -202,9 +208,10 @@ impl SharedContentRepository for PostgresSharedContentRepository {
             (SharedScope::Dm { user_a, user_b }, SharedKind::Links) => sqlx::query_as!(
                 LinkRow,
                 r#"
-                SELECT m.id AS "message_id!", m.sender_id AS "author_id!", m.created_at AS "created_at!",
+                SELECT m.id AS "message_id!", m.sender_id AS "author_id!", COALESCE(u.name, '') AS "author_name!", m.created_at AS "created_at!",
                        l.found[1] AS "url!", l.ordinal AS "ordinal!"
                 FROM dm_messages m
+                LEFT JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                 CROSS JOIN LATERAL regexp_matches(m.content, $4, 'g') WITH ORDINALITY AS l(found, ordinal)
                 WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                   AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
@@ -234,11 +241,12 @@ impl SharedContentRepository for PostgresSharedContentRepository {
             (SharedScope::Dm { user_a, user_b }, kind) => sqlx::query_as!(
                 AttachmentRow,
                 r#"
-                SELECT a.dm_message_id AS message_id, m.sender_id AS author_id, m.created_at AS message_created_at,
+                SELECT a.dm_message_id AS message_id, m.sender_id AS author_id, COALESCE(u.name, '') AS "author_name!", m.created_at AS message_created_at,
                        a.attachment_id, a.file_name, a.content_type, a.size_bytes, a.storage_key, a.created_at,
                        a.voice_duration_ms, a.voice_waveform, a.video_duration_ms, a.video_size, a.video_poster
                 FROM dm_message_attachments a
                 JOIN dm_messages m ON m.id = a.dm_message_id
+                LEFT JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                 WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                   AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
                   AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)
