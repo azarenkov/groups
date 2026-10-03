@@ -212,5 +212,28 @@ describe("shared panel edge cases", () => {
       ]),
     );
   });
+
+  it("ignores a link lookup that finishes after switching tabs", async () => {
+    list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    render(
+      <SharedPanel scope={{ kind: "dm", friendId: "u2" }} currentUserId="u1" onClose={() => undefined} onShowMessage={() => undefined} />,
+    );
+    list.mockResolvedValueOnce({ items: [link("m3", "https://c.example", "2026-10-03T00:00:00Z")], nextCursor: "older" });
+    fireEvent.click(screen.getByRole("tab", { name: "Links" }));
+    expect(await screen.findByText("https://c.example")).toBeInTheDocument();
+    let resolveMessage: (m: unknown) => void = () => undefined;
+    (sharedAPI.message as jest.Mock).mockReturnValueOnce(new Promise((resolve) => (resolveMessage = resolve)));
+    list.mockResolvedValueOnce({ items: [link("m3", "https://c.example", "2026-10-03T00:00:00Z")], nextCursor: "older" });
+    act(() => wsHandlers.current.onEdited?.({ id: "m2", newContent: "see https://b.example" }));
+    list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    fireEvent.click(screen.getByRole("tab", { name: "Files" }));
+    expect(await screen.findByText("Files from this chat will appear here")).toBeInTheDocument();
+    await act(async () => {
+      resolveMessage({ id: "m2", authorId: "u2", authorName: "Bob", createdAt: "2026-10-02T00:00:00Z", content: "see https://b.example" });
+      await Promise.resolve();
+    });
+    expect(screen.getByText("Files from this chat will appear here")).toBeInTheDocument();
+    expect(screen.queryByText("https://b.example")).toBeNull();
+  });
 });
 

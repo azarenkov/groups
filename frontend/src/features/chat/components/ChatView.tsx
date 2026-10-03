@@ -155,13 +155,6 @@ const ChatView: React.FC<ChatViewProps> = ({
     currentUserId,
   });
 
-  const onOpenHandledRef = React.useRef(onOpenMessageHandled);
-  onOpenHandledRef.current = onOpenMessageHandled;
-  React.useEffect(() => {
-    if (!openMessageId || showInitialLoader) return;
-    void jumpToMessageId(openMessageId);
-    onOpenHandledRef.current?.();
-  }, [openMessageId, showInitialLoader, jumpToMessageId]);
 
   useChatWsMessages({
     channelId: channelId ?? null,
@@ -176,6 +169,17 @@ const ChatView: React.FC<ChatViewProps> = ({
     nameSyncTick,
     onClose: () => setHighlightedMessageId(null),
   });
+
+  const onOpenHandledRef = React.useRef(onOpenMessageHandled);
+  onOpenHandledRef.current = onOpenMessageHandled;
+  const { closeSearch } = search;
+  React.useEffect(() => {
+    if (!openMessageId || showInitialLoader) return;
+    closeSearch();
+    void jumpToMessageId(openMessageId);
+    onOpenHandledRef.current?.();
+  }, [openMessageId, showInitialLoader, jumpToMessageId, closeSearch]);
+
   const searchActive = search.searchOpen && search.searchInput.trim().length > 0;
 
   const pull = usePullToRefresh({

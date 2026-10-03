@@ -171,6 +171,8 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
 
   const itemsRef = React.useRef(state.items);
   itemsRef.current = state.items;
+  const viewRef = React.useRef("");
+  viewRef.current = `${scopeKey}|${kind}|${debouncedQuery}`;
 
   const applyEdit = React.useCallback(
     (edit: MessageEdit) => {
@@ -179,11 +181,11 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
         setState((s) => ({ ...s, items: reconcileEdit(s.items, edit, kind, debouncedQuery) }));
         return;
       }
-      const scopeAtEdit = sharedScopeKey(scopeRef.current);
+      const viewAtEdit = viewRef.current;
       sharedAPI
         .message(scopeRef.current, edit.messageId)
         .then((message) => {
-          if (sharedScopeKey(scopeRef.current) !== scopeAtEdit) return;
+          if (viewRef.current !== viewAtEdit) return;
           setState((s) => ({
             ...s,
             items: insertMessageLinks(
