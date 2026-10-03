@@ -16,6 +16,14 @@ describe("SubscriptionSection", () => {
     expect(screen.getAllByText("Кружки в повышенном качестве 640×640")).toHaveLength(2);
   });
 
+  it("lists sticker pack limits and no priority support", () => {
+    render(<SubscriptionSection />);
+    expect(screen.getByText("До 2 своих стикерпаков")).toBeInTheDocument();
+    expect(screen.getByText("До 10 своих стикерпаков")).toBeInTheDocument();
+    expect(screen.getByText("До 50 своих стикерпаков")).toBeInTheDocument();
+    expect(screen.queryByText("Приоритетная поддержка")).toBeNull();
+  });
+
   it("offers high noise suppression on the free plan", () => {
     render(<SubscriptionSection />);
     expect(screen.getByText("Шумоподавление: выключено, стандартное или высокое")).toBeInTheDocument();

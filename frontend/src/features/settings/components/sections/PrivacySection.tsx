@@ -72,6 +72,14 @@ export function PrivacySection() {
           </SettingsRow>
         </div>
       )}
+      {!failed && settings && (
+        <div className="s-section">
+          <h2>{t("privacy.profile")}</h2>
+          <SettingsRow label={t("privacy.showLocalTime")} hint={t("privacy.showLocalTimeHint")}>
+            <Switch on={settings.showLocalTime} disabled={busy} onClick={() => apply({ showLocalTime: !settings.showLocalTime })} />
+          </SettingsRow>
+        </div>
+      )}
       <BlockedUsersSection />
     </>
   );
