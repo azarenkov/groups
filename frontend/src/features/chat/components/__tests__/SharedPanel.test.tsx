@@ -5,7 +5,7 @@ import i18n from "../../../../i18n";
 import SharedPanel from "../SharedPanel";
 import { useBlockStore } from "../../../social/store/blockStore";
 import { sharedAPI } from "../../api/shared";
-import { itemKey, mergeFirstPage, messageItems, reconcileEdit, replaceMessageItems } from "../../hooks/useSharedContent";
+import { compareInstants, itemKey, mergeFirstPage, messageItems, reconcileEdit, replaceMessageItems } from "../../hooks/useSharedContent";
 
 jest.mock("../../api/shared", () => {
   const actual = jest.requireActual("../../api/shared");
@@ -112,6 +112,21 @@ describe("SharedPanel", () => {
     act(() => wsHandlers.current.onDeleted?.({ id: "m-a1" }));
     expect(screen.queryByText("old.pdf")).toBeNull();
     expect(screen.getByText("new.pdf")).toBeInTheDocument();
+  });
+});
+
+describe("compareInstants", () => {
+  it("orders timestamps with different fractional precision", () => {
+    expect(compareInstants("2026-10-01T10:00:00.1Z", "2026-10-01T10:00:00.100100Z")).toBe(-1);
+    expect(compareInstants("2026-10-01T10:00:00.100100Z", "2026-10-01T10:00:00.1Z")).toBe(1);
+    expect(compareInstants("2026-10-01T10:00:00Z", "2026-10-01T10:00:00.000Z")).toBe(0);
+    expect(compareInstants("2026-10-01T10:00:01Z", "2026-10-01T10:00:00.999999Z")).toBe(1);
+  });
+
+  it("keeps an older same-second item when merging", () => {
+    const older = { messageId: "b", authorId: "u", authorName: "", createdAt: "2026-10-01T10:00:00.100Z", url: "https://old" };
+    const edge = { messageId: "a", authorId: "u", authorName: "", createdAt: "2026-10-01T10:00:00.100100Z", url: "https://edge" };
+    expect(mergeFirstPage([edge, older], [edge], false).map((i) => i.url)).toEqual(["https://edge", "https://old"]);
   });
 });
 

@@ -21,8 +21,23 @@ const EMPTY: SharedState = { items: [], nextCursor: null, loading: false, failed
 export const itemKey = (item: SharedItem): string =>
   `${item.messageId}:${item.attachment ? `a:${item.attachment.id}` : `l:${item.position ?? item.url ?? ""}`}`;
 
-const olderThan = (item: SharedItem, edge: SharedItem): boolean =>
-  item.createdAt < edge.createdAt || (item.createdAt === edge.createdAt && item.messageId < edge.messageId);
+const INSTANT = /^(.*?)(?:\.(\d+))?(Z|[+-]\d\d:?\d\d)?$/;
+
+export const compareInstants = (a: string, b: string): number => {
+  const [, baseA, fracA = "", zoneA = "Z"] = INSTANT.exec(a) ?? [];
+  const [, baseB, fracB = "", zoneB = "Z"] = INSTANT.exec(b) ?? [];
+  const secondsA = Date.parse(`${baseA}${zoneA}`);
+  const secondsB = Date.parse(`${baseB}${zoneB}`);
+  if (secondsA !== secondsB) return secondsA < secondsB ? -1 : 1;
+  const nanosA = fracA.padEnd(9, "0").slice(0, 9);
+  const nanosB = fracB.padEnd(9, "0").slice(0, 9);
+  return nanosA === nanosB ? 0 : nanosA < nanosB ? -1 : 1;
+};
+
+const olderThan = (item: SharedItem, edge: SharedItem): boolean => {
+  const order = compareInstants(item.createdAt, edge.createdAt);
+  return order < 0 || (order === 0 && item.messageId < edge.messageId);
+};
 
 export const mergeFirstPage = (current: SharedItem[], page: SharedItem[], pageComplete: boolean): SharedItem[] => {
   if (pageComplete || page.length === 0) return page;
