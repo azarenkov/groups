@@ -4,6 +4,12 @@ import { IDLE_WHEEL_GESTURE, nextWheelGesture } from "../lib/scrollRules";
 
 export const PULL_THRESHOLD = 64;
 export const PULL_MAX = 96;
+export const REFRESH_TIMEOUT_MS = 15000;
+const MIN_SPIN_MS = 650;
+const WHEEL_RELEASE_MS = 400;
+const SETTLE = "0.3s cubic-bezier(0.22, 1, 0.36, 1)";
+
+const atBottom = (b: HTMLDivElement) => b.scrollTop + b.clientHeight >= b.scrollHeight - 1;
 
 export function usePullToRefresh(params: {
   bodyRef: React.RefObject<HTMLDivElement>;
@@ -12,77 +18,130 @@ export function usePullToRefresh(params: {
   onRefresh: () => Promise<void>;
 }) {
   const { bodyRef, enabled, convId, onRefresh } = params;
-  const [pullDistance, setPullDistance] = React.useState(0);
-  const [refreshing, setRefreshing] = React.useState(false);
-  const pullStartYRef = React.useRef<number | null>(null);
-  const wheelPullRef = React.useRef(0);
-  const wheelGestureRef = React.useRef(IDLE_WHEEL_GESTURE);
-  const wheelResetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const indicatorRef = React.useRef<HTMLDivElement>(null);
+  const distanceRef = React.useRef(0);
+  const frameRef = React.useRef<number | null>(null);
   const refreshingRef = React.useRef(false);
-  refreshingRef.current = refreshing;
+  const touchStartYRef = React.useRef<number | null>(null);
+  const wheelGestureRef = React.useRef(IDLE_WHEEL_GESTURE);
+  const wheelReleaseRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generationRef = React.useRef(0);
   const enabledRef = React.useRef(enabled);
   enabledRef.current = enabled;
   const onRefreshRef = React.useRef(onRefresh);
   onRefreshRef.current = onRefresh;
 
-  React.useEffect(() => {
-    setPullDistance(0);
-    pullStartYRef.current = null;
-    wheelPullRef.current = 0;
-    wheelGestureRef.current = IDLE_WHEEL_GESTURE;
-  }, [convId]);
+  const paint = React.useCallback(
+    (distance: number, animate: boolean) => {
+      distanceRef.current = distance;
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        const body = bodyRef.current;
+        const indicator = indicatorRef.current;
+        const shown = refreshingRef.current ? PULL_THRESHOLD : distance;
+        const progress = Math.min(shown / PULL_THRESHOLD, 1);
+        if (body) {
+          body.style.transition = animate ? `transform ${SETTLE}` : "none";
+          body.style.transform = shown > 0 ? `translateY(${-shown}px)` : "";
+        }
+        if (indicator) {
+          indicator.style.transition = animate ? `transform ${SETTLE}, opacity 0.2s` : "none";
+          indicator.style.opacity = String(refreshingRef.current ? 1 : progress);
+          indicator.style.transform = `translateX(-50%) translateY(${44 - shown}px) scale(${
+            refreshingRef.current ? 1 : 0.6 + 0.4 * progress
+          })`;
+          indicator.classList.toggle("refreshing", refreshingRef.current);
+          const icon = indicator.firstElementChild as HTMLElement | null;
+          if (icon) icon.style.transform = refreshingRef.current ? "" : `rotate(${shown * 2.5}deg)`;
+        }
+      });
+    },
+    [bodyRef],
+  );
 
-  const triggerPullRefresh = React.useCallback(async () => {
+  const clearWheelRelease = () => {
+    if (wheelReleaseRef.current) clearTimeout(wheelReleaseRef.current);
+    wheelReleaseRef.current = null;
+  };
+
+  const settle = React.useCallback(() => {
+    touchStartYRef.current = null;
+    paint(0, true);
+  }, [paint]);
+
+  React.useEffect(() => {
+    generationRef.current += 1;
+    refreshingRef.current = false;
+    touchStartYRef.current = null;
+    wheelGestureRef.current = IDLE_WHEEL_GESTURE;
+    clearWheelRelease();
+    paint(0, false);
+  }, [convId, paint]);
+
+  React.useEffect(
+    () => () => {
+      generationRef.current += 1;
+      clearWheelRelease();
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    },
+    [],
+  );
+
+  const refresh = React.useCallback(async () => {
     if (refreshingRef.current || !enabledRef.current) {
-      setPullDistance(0);
+      settle();
       return;
     }
-    setRefreshing(true);
-    setPullDistance(PULL_THRESHOLD);
+    const generation = generationRef.current;
+    refreshingRef.current = true;
+    touchStartYRef.current = null;
+    clearWheelRelease();
+    paint(PULL_THRESHOLD, true);
     const started = Date.now();
+    let timer: ReturnType<typeof setTimeout> | null = null;
     try {
-      await onRefreshRef.current();
+      await Promise.race([
+        onRefreshRef.current(),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, REFRESH_TIMEOUT_MS);
+        }),
+      ]);
+    } catch {
     } finally {
-      const wait = Math.max(0, 650 - (Date.now() - started));
-      setTimeout(() => {
-        setRefreshing(false);
-        setPullDistance(0);
-        wheelPullRef.current = 0;
-      }, wait);
+      if (timer) clearTimeout(timer);
     }
-  }, []);
-
-  const atBottom = (b: HTMLDivElement) =>
-    b.scrollTop + b.clientHeight >= b.scrollHeight - 1;
+    const wait = Math.max(0, MIN_SPIN_MS - (Date.now() - started));
+    setTimeout(() => {
+      if (generation !== generationRef.current) return;
+      refreshingRef.current = false;
+      wheelGestureRef.current = IDLE_WHEEL_GESTURE;
+      paint(0, true);
+    }, wait);
+  }, [paint, settle]);
 
   const onPullTouchStart = (e: React.TouchEvent) => {
     if (refreshingRef.current) return;
     const b = bodyRef.current;
-    pullStartYRef.current = b && atBottom(b) ? e.touches[0].clientY : null;
+    touchStartYRef.current = b && atBottom(b) ? e.touches[0].clientY : null;
   };
 
   const onPullTouchMove = (e: React.TouchEvent) => {
-    if (refreshingRef.current || pullStartYRef.current === null) return;
+    if (refreshingRef.current || touchStartYRef.current === null) return;
     const b = bodyRef.current;
     if (!b || !atBottom(b)) {
-      pullStartYRef.current = null;
-      setPullDistance(0);
+      settle();
       return;
     }
-    const dy = pullStartYRef.current - e.touches[0].clientY;
-    setPullDistance(dy > 0 ? Math.min(dy * 0.45, PULL_MAX) : 0);
+    const dy = touchStartYRef.current - e.touches[0].clientY;
+    paint(dy > 0 ? Math.min(dy * 0.45, PULL_MAX) : 0, false);
   };
 
   const onPullTouchEnd = () => {
-    if (refreshingRef.current) return;
-    pullStartYRef.current = null;
-    if (pullDistance >= PULL_THRESHOLD) {
-      void triggerPullRefresh();
-    } else {
-      setPullDistance(0);
-    }
+    if (refreshingRef.current || touchStartYRef.current === null) return;
+    touchStartYRef.current = null;
+    if (distanceRef.current >= PULL_THRESHOLD) void refresh();
+    else settle();
   };
 
   const onPullWheel = (e: React.WheelEvent) => {
@@ -92,38 +151,32 @@ export function usePullToRefresh(params: {
     const gesture = nextWheelGesture(wheelGestureRef.current, e.timeStamp, atBottom(b));
     wheelGestureRef.current = gesture;
     if (!gesture.armed || e.deltaY <= 0) {
-      if (!gesture.armed && wheelPullRef.current !== 0) {
-        wheelPullRef.current = 0;
-        setPullDistance(0);
+      if (!gesture.armed && distanceRef.current !== 0) {
+        clearWheelRelease();
+        settle();
       }
       return;
     }
-    wheelPullRef.current = Math.min(
-      wheelPullRef.current + e.deltaY * 0.35,
-      PULL_MAX,
-    );
-    setPullDistance(wheelPullRef.current);
-    if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current);
-    if (wheelPullRef.current >= PULL_THRESHOLD) {
-      void triggerPullRefresh();
+    const next = Math.min(distanceRef.current + e.deltaY * 0.35, PULL_MAX);
+    if (next >= PULL_THRESHOLD) {
+      distanceRef.current = next;
+      void refresh();
       return;
     }
-    wheelResetTimerRef.current = setTimeout(() => {
-      wheelResetTimerRef.current = null;
-      if (!refreshingRef.current) {
-        wheelPullRef.current = 0;
-        setPullDistance(0);
-      }
-    }, 400);
+    paint(next, false);
+    clearWheelRelease();
+    wheelReleaseRef.current = setTimeout(() => {
+      wheelReleaseRef.current = null;
+      if (!refreshingRef.current) settle();
+    }, WHEEL_RELEASE_MS);
   };
 
   return {
-    pullDistance,
-    refreshing,
-    pullStartYRef,
+    indicatorRef,
     onPullTouchStart,
     onPullTouchMove,
     onPullTouchEnd,
+    onPullTouchCancel: settle,
     onPullWheel,
   };
 }
