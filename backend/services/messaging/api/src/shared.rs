@@ -9,7 +9,7 @@ use messaging::usecases::shared::list_shared_content::{SharedPage, SharedQuery};
 use messaging_domain::{
     channel::id::ChannelId,
     community::id::CommunityId,
-    shared::{SharedContent, SharedItem},
+    shared::{SharedContent, SharedItem, SharedItemKey},
 };
 use uuid::Uuid;
 
@@ -46,10 +46,16 @@ struct SharedItemResponse {
     attachment: Option<AttachmentResponse>,
     #[serde(skip_serializing_if = "Option::is_none")]
     url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    position: Option<i64>,
 }
 
 impl From<SharedItem> for SharedItemResponse {
     fn from(item: SharedItem) -> Self {
+        let position = match item.cursor.item {
+            SharedItemKey::Link(ordinal) => Some(ordinal),
+            SharedItemKey::Attachment(_) => None,
+        };
         let (attachment, url) = match item.content {
             SharedContent::Attachment(link) => (Some(AttachmentResponse::from(link)), None),
             SharedContent::Link(url) => (None, Some(url)),
@@ -61,6 +67,7 @@ impl From<SharedItem> for SharedItemResponse {
             created_at: item.created_at,
             attachment,
             url,
+            position,
         }
     }
 }
