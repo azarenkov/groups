@@ -1,9 +1,13 @@
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex as StdMutex},
+};
 
 use domain::user::id::UserId;
 use futures::{StreamExt, stream};
 use messaging_domain::message::repository::MessageRepository;
 use ports::repository::RepositoryError;
+use tokio::sync::{Mutex, Semaphore};
 use uuid::Uuid;
 
 use crate::ports::{
@@ -12,6 +16,7 @@ use crate::ports::{
 };
 
 pub const THUMBNAIL_SOURCE_MAX_BYTES: i64 = 25 * 1024 * 1024;
+pub const THUMBNAIL_CONCURRENCY: usize = 2;
 
 const VARIANTS: [(&str, &str); 2] = [("jpg", "image/jpeg"), ("png", "image/png")];
 
@@ -39,6 +44,8 @@ pub struct GetAttachmentThumbnail<M: MessageRepository, S: FileStorage, T: Thumb
     message_repository: Arc<M>,
     storage: Arc<S>,
     thumbnailer: Arc<T>,
+    generating: Semaphore,
+    in_flight: StdMutex<HashMap<String, Arc<Mutex<()>>>>,
 }
 
 impl<M: MessageRepository, S: FileStorage, T: Thumbnailer> GetAttachmentThumbnail<M, S, T> {
@@ -47,6 +54,8 @@ impl<M: MessageRepository, S: FileStorage, T: Thumbnailer> GetAttachmentThumbnai
             message_repository,
             storage,
             thumbnailer,
+            generating: Semaphore::new(THUMBNAIL_CONCURRENCY),
+            in_flight: StdMutex::new(HashMap::new()),
         }
     }
 
@@ -63,14 +72,56 @@ impl<M: MessageRepository, S: FileStorage, T: Thumbnailer> GetAttachmentThumbnai
         if !link.content_type.starts_with("image/") || link.size_bytes > THUMBNAIL_SOURCE_MAX_BYTES {
             return Err(GetAttachmentThumbnailError::Unavailable);
         }
+        if let Some(cached) = self.cached(&link.storage_key).await? {
+            return Ok(cached);
+        }
+        let key_lock = self.key_lock(&link.storage_key);
+        let result = self.generate(attachment_id, &user_id, &link.storage_key, &key_lock).await;
+        self.release_key_lock(&link.storage_key, key_lock);
+        result
+    }
+
+    async fn cached(&self, storage_key: &str) -> Result<Option<(&'static str, ByteStream)>, GetAttachmentThumbnailError> {
         for (ext, content_type) in VARIANTS {
-            match self.storage.get_stream(&thumbnail_key(&link.storage_key, ext)).await {
-                Ok(stream) => return Ok((content_type, stream)),
+            match self.storage.get_stream(&thumbnail_key(storage_key, ext)).await {
+                Ok(stream) => return Ok(Some((content_type, stream))),
                 Err(FileStorageError::NotFound) => {}
                 Err(e) => return Err(e.into()),
             }
         }
-        let original = self.read_all(&link.storage_key).await?;
+        Ok(None)
+    }
+
+    fn key_lock(&self, storage_key: &str) -> Arc<Mutex<()>> {
+        let mut map = self.in_flight.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        map.entry(storage_key.to_string()).or_default().clone()
+    }
+
+    fn release_key_lock(&self, storage_key: &str, lock: Arc<Mutex<()>>) {
+        let mut map = self.in_flight.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        drop(lock);
+        if map.get(storage_key).is_some_and(|entry| Arc::strong_count(entry) == 1) {
+            map.remove(storage_key);
+        }
+    }
+
+    async fn generate(
+        &self,
+        attachment_id: Uuid,
+        user_id: &UserId,
+        storage_key: &str,
+        key_lock: &Mutex<()>,
+    ) -> Result<(&'static str, ByteStream), GetAttachmentThumbnailError> {
+        let _key_guard = key_lock.lock().await;
+        if let Some(cached) = self.cached(storage_key).await? {
+            return Ok(cached);
+        }
+        let _permit = self
+            .generating
+            .acquire()
+            .await
+            .map_err(|_| GetAttachmentThumbnailError::Unavailable)?;
+        let original = self.read_all(storage_key).await?;
         let thumbnail = self
             .thumbnailer
             .thumbnail(original)
@@ -81,7 +132,7 @@ impl<M: MessageRepository, S: FileStorage, T: Thumbnailer> GetAttachmentThumbnai
             .find(|(_, ct)| *ct == thumbnail.content_type)
             .map(|(ext, _)| *ext)
             .unwrap_or("jpg");
-        self.persist(attachment_id, &user_id, &link.storage_key, ext, &thumbnail).await;
+        self.persist(attachment_id, user_id, storage_key, ext, &thumbnail).await;
         let body: ByteStream = Box::pin(stream::once(async move { Ok(thumbnail.bytes) }));
         Ok((thumbnail.content_type, body))
     }

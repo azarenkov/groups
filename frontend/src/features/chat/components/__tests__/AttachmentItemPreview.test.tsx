@@ -39,8 +39,16 @@ it("shows the server thumbnail in the grid and the original in the viewer", asyn
   const img = await screen.findByRole("img");
   expect(thumbnail).toHaveBeenCalledWith("img1", 20 * 1024 * 1024);
   expect(download).not.toHaveBeenCalled();
+  let revoked = "";
+  URL.revokeObjectURL = (url: string) => {
+    revoked = url;
+  };
   fireEvent.click(img.closest("button")!);
-  await waitFor(() => expect(download).toHaveBeenCalledWith("img1", 20 * 1024 * 1024));
+  await waitFor(() => expect(download).toHaveBeenCalledWith("img1", 20 * 1024 * 1024, expect.any(AbortSignal)));
+  await waitFor(() => expect(document.querySelector(".image-viewer-overlay img")?.getAttribute("src")).toBe("blob:2"));
+  fireEvent.click(document.querySelector(".image-viewer-overlay")!);
+  await waitFor(() => expect(revoked).toBe("blob:2"));
+  expect(imageUrlCache.has("img1")).toBe(false);
 });
 
 it("falls back to the original image when there is no thumbnail", async () => {

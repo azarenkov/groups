@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 
 import { attachmentAPI } from "../api/attachment";
 import type { Attachment } from "../../../shared/types/channel";
-import { acquireImageUrl, downloadImageUrl, releaseImageUrl, retainImageUrl } from "../lib/imageUrlCache";
 
 const useEscape = (onClose: () => void) => {
   React.useEffect(() => {
@@ -23,27 +22,24 @@ export const OriginalImageViewer: React.FC<{ attachment: Attachment; placeholder
   placeholder,
   onClose,
 }) => {
-  const [url, setUrl] = React.useState<string | null>(() => acquireImageUrl(attachment.id));
-  const urlRef = React.useRef(url);
-  urlRef.current = url;
+  const [url, setUrl] = React.useState<string | null>(null);
   useEscape(onClose);
 
   React.useEffect(() => {
-    if (url) return;
-    let cancelled = false;
-    downloadImageUrl(attachment.id, attachment.sizeBytes)
-      .then((objectUrl) => {
-        if (cancelled) return;
-        retainImageUrl(attachment.id, objectUrl);
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
+    attachmentAPI
+      .download(attachment.id, attachment.sizeBytes, controller.signal)
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
       })
       .catch(() => {});
     return () => {
-      cancelled = true;
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [attachment.id, attachment.sizeBytes, url]);
-
-  React.useEffect(() => () => releaseImageUrl(attachment.id, urlRef.current), [attachment.id]);
+  }, [attachment.id, attachment.sizeBytes]);
 
   const shown = url ?? placeholder;
   return createPortal(
