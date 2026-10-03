@@ -105,7 +105,7 @@ const SharedEntry: React.FC<{
       />
     );
   } else {
-    body = <AttachmentItem attachment={attachment} />;
+    body = <AttachmentItem attachment={attachment} thumbnail={kind === "media"} />;
   }
   return (
     <li className={"shared-entry shared-" + kind}>
