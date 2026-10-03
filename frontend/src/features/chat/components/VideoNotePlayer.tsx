@@ -19,6 +19,7 @@ const PREVIEW_DWELL_MS = 800;
 
 interface VideoNotePlayerProps {
   messageId: string;
+  playbackId?: string;
   attachment: Attachment;
   isMine: boolean;
   listened: boolean;
@@ -28,12 +29,14 @@ interface VideoNotePlayerProps {
 
 const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
   messageId,
+  playbackId,
   attachment,
   isMine,
   listened,
   showListenDot,
   onListened,
 }) => {
+  const playId = playbackId ?? messageId;
   const note = attachment.videoNote;
   const durationMs = note?.durationMs ?? 0;
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -51,7 +54,7 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
   const currentId = useVoicePlaybackStore((s) => s.currentId);
   const speed = useVoicePlaybackStore((s) => s.speed);
   const speakerDeviceId = useVoiceSettingsStore((s) => s.speakerDeviceId);
-  const active = currentId === messageId;
+  const active = currentId === playId;
   const activeRef = React.useRef(active);
   activeRef.current = active;
   const visibleRef = React.useRef(visible);
@@ -91,9 +94,9 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
       disposedRef.current = true;
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
       urlRef.current = null;
-      useVoicePlaybackStore.getState().release(messageId);
+      useVoicePlaybackStore.getState().release(playId);
     };
-  }, [messageId]);
+  }, [playId]);
 
   const previewAllowed = attachment.sizeBytes <= PREVIEW_MAX_BYTES;
 
@@ -124,7 +127,7 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
           loadingRef.current = false;
           if (controller.signal.aborted) return;
           setFailed(true);
-          if (activeRef.current) useVoicePlaybackStore.getState().release(messageId);
+          if (activeRef.current) useVoicePlaybackStore.getState().release(playId);
         });
     };
     const timer = active ? null : setTimeout(start, PREVIEW_DWELL_MS);
@@ -136,7 +139,7 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
         loadingRef.current = false;
       }
     };
-  }, [visible, active, previewAllowed, attachment.id, attachment.sizeBytes, messageId, unload]);
+  }, [visible, active, previewAllowed, attachment.id, attachment.sizeBytes, playId, unload]);
 
   React.useEffect(() => {
     const video = videoRef.current;
@@ -203,19 +206,19 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
   }, [active, playing, durationMs]);
 
   const play = React.useCallback(() => {
-    useVoicePlaybackStore.getState().setCurrent(messageId);
-  }, [messageId]);
+    useVoicePlaybackStore.getState().setCurrent(playId);
+  }, [playId]);
 
   const autoplayableRef = React.useRef(false);
   autoplayableRef.current = !isMine && !listened && !reportedRef.current;
   React.useEffect(
     () =>
-      registerVoicePlayer(messageId, {
+      registerVoicePlayer(playId, {
         element: () => rootRef.current,
         autoplayable: () => autoplayableRef.current,
         play,
       }),
-    [messageId, play],
+    [playId, play],
   );
 
   const toggle = () => {
@@ -276,8 +279,8 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
               if (!activeRef.current) return;
               setPlaying(false);
               setProgress(0);
-              useVoicePlaybackStore.getState().release(messageId);
-              nextAutoplayAfter(messageId)?.play();
+              useVoicePlaybackStore.getState().release(playId);
+              nextAutoplayAfter(playId)?.play();
             }}
           />
         )}

@@ -62,10 +62,26 @@ const SharedEntry: React.FC<{
   let body: React.ReactNode;
   if (attachment.videoNote) {
     body = (
-      <VideoNotePlayer messageId={item.messageId} attachment={attachment} isMine={mine} listened showListenDot={false} />
+      <VideoNotePlayer
+        messageId={item.messageId}
+        playbackId={`shared:${item.messageId}:${attachment.id}`}
+        attachment={attachment}
+        isMine={mine}
+        listened
+        showListenDot={false}
+      />
     );
   } else if (attachment.voice) {
-    body = <VoicePlayer messageId={item.messageId} attachment={attachment} isMine={mine} listened showListenDot={false} />;
+    body = (
+      <VoicePlayer
+        messageId={item.messageId}
+        playbackId={`shared:${item.messageId}:${attachment.id}`}
+        attachment={attachment}
+        isMine={mine}
+        listened
+        showListenDot={false}
+      />
+    );
   } else {
     body = <AttachmentItem attachment={attachment} />;
   }
