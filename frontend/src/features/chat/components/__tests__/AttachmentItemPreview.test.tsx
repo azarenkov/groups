@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import AttachmentItem from "../AttachmentItem";
 import { attachmentAPI } from "../../api/attachment";
 import { imageUrlCache } from "../../lib/imageUrlCache";
+import { ApiError } from "../../../../shared/lib/apiError";
 
 jest.mock("../../api/attachment", () => ({
   attachmentAPI: { thumbnail: jest.fn(), download: jest.fn() },
@@ -57,3 +58,12 @@ it("plays videos in a viewer instead of only downloading them", async () => {
   await waitFor(() => expect(document.querySelector("video")).not.toBeNull());
   expect(download).toHaveBeenCalledWith("vid1", 1000, expect.any(AbortSignal));
 });
+
+it("shows a file row at once when a large image has no thumbnail", async () => {
+  thumbnail.mockRejectedValue(new ApiError("no thumbnail", 404, "ATTACHMENT_THUMBNAIL_UNAVAILABLE"));
+  render(<AttachmentItem attachment={attachment("big1", "image/tiff", 20 * 1024 * 1024)} thumbnail />);
+  expect(await screen.findByText("big1.bin")).toBeInTheDocument();
+  expect(thumbnail).toHaveBeenCalledTimes(1);
+  expect(download).not.toHaveBeenCalled();
+});
+

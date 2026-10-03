@@ -2,6 +2,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 
 import { attachmentAPI } from "../api/attachment";
+import { ApiError } from "../../../shared/lib/apiError";
 import type { Attachment } from "../../../shared/types/channel";
 import { formatFileSize } from "../lib/messageFormat";
 import {
@@ -95,8 +96,12 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
           setUrl(objectUrl);
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return;
+        if (thumbnail && err instanceof ApiError && err.status === 404) {
+          setFailed(true);
+          return;
+        }
         if (attemptsRef.current < 3) {
           const delay = 1500 * 2 ** attemptsRef.current;
           attemptsRef.current += 1;

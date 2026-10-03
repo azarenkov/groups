@@ -27,6 +27,20 @@ pub struct CleanupOrphanAttachments<R: AttachmentRepository, S: FileStorage, L: 
 impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
     CleanupOrphanAttachments<R, S, L>
 {
+    async fn delete_thumbnails(&self, key: &str) -> bool {
+        let mut all = true;
+        for thumb_key in attachment_thumbnail_keys(key) {
+            match self.storage.delete(&thumb_key).await {
+                Ok(()) | Err(FileStorageError::NotFound) => {}
+                Err(e) => {
+                    tracing::warn!(error = %e, key = %thumb_key, "Failed to delete attachment thumbnail");
+                    all = false;
+                }
+            }
+        }
+        all
+    }
+
     pub fn new(repository: Arc<R>, storage: Arc<S>, links_lookup: Arc<L>) -> Self {
         Self {
             repository,
@@ -141,6 +155,11 @@ impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
                             continue;
                         }
                     };
+                    if !self.delete_thumbnails(&key).await
+                        && let Err(e) = self.repository.enqueue_cleanup(std::slice::from_ref(&key)).await
+                    {
+                        tracing::warn!(error = %e, %key, "Failed to queue thumbnails of an orphan attachment");
+                    }
                     match self.storage.delete(&key).await {
                         Ok(()) | Err(FileStorageError::NotFound) => {
                             if let Err(e) = self.repository.delete_orphan_row(id).await {
