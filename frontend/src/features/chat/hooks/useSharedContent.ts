@@ -114,6 +114,7 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
   const requestRef = React.useRef(0);
   const failedRef = React.useRef<{ before: string | null; mode: "reset" | "append" | "merge" } | null>(null);
   const droppedRef = React.useRef(new Set<string>());
+  const editSeqRef = React.useRef(new Map<string, number>());
   const alive = (items: SharedItem[]) => items.filter((item) => !droppedRef.current.has(item.messageId));
   const scopeKey = sharedScopeKey(scope);
   const scopeRef = React.useRef(scope);
@@ -218,10 +219,13 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
           : (edit.attachmentIds?.length ?? 0) > 0;
       if (!known && !mayAdd) return;
       const viewAtEdit = viewRef.current;
+      const seq = (editSeqRef.current.get(edit.messageId) ?? 0) + 1;
+      editSeqRef.current.set(edit.messageId, seq);
       sharedAPI
         .message(scopeRef.current, edit.messageId)
         .then((message) => {
           if (viewRef.current !== viewAtEdit || droppedRef.current.has(message.id)) return;
+          if (editSeqRef.current.get(edit.messageId) !== seq) return;
           setState((s) => ({
             ...s,
             items: replaceMessageItems(s.items, message.id, messageItems(message, kind, debouncedQuery), s.nextCursor === null),

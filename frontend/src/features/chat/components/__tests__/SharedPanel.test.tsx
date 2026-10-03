@@ -304,5 +304,34 @@ describe("shared panel edge cases", () => {
     expect(screen.queryByText("gone.pdf")).toBeNull();
     expect(screen.getByText("old.pdf")).toBeInTheDocument();
   });
+
+  it("applies only the latest lookup when a message is edited twice", async () => {
+    list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    render(
+      <SharedPanel scope={{ kind: "dm", friendId: "u2" }} currentUserId="u1" onClose={() => undefined} onShowMessage={() => undefined} />,
+    );
+    list.mockResolvedValueOnce({
+      items: [link("m9", "https://top.example", "2026-10-05T00:00:00Z"), link("m1", "https://a.example", "2026-10-01T00:00:00Z")],
+      nextCursor: "older",
+    });
+    list.mockResolvedValue({ items: [link("m9", "https://top.example", "2026-10-05T00:00:00Z")], nextCursor: "first" });
+    fireEvent.click(screen.getByRole("tab", { name: "Links" }));
+    expect(await screen.findByText("https://a.example")).toBeInTheDocument();
+    const message = (content: string) => ({ id: "m1", authorId: "u2", authorName: "Bob", createdAt: "2026-10-01T00:00:00Z", content });
+    let first: (m: unknown) => void = () => undefined;
+    (sharedAPI.message as jest.Mock)
+      .mockReturnValueOnce(new Promise((resolve) => (first = resolve)))
+      .mockResolvedValueOnce(message("now https://second.example"));
+    act(() => wsHandlers.current.onEdited?.({ id: "m1", newContent: "https://first.example" }));
+    act(() => wsHandlers.current.onEdited?.({ id: "m1", newContent: "now https://second.example" }));
+    expect(await screen.findByText("https://second.example")).toBeInTheDocument();
+    await act(async () => {
+      first(message("https://first.example"));
+      await Promise.resolve();
+    });
+    expect(screen.getByText("https://second.example")).toBeInTheDocument();
+    expect(screen.queryByText("https://first.example")).toBeNull();
+    list.mockReset();
+  });
 });
 
