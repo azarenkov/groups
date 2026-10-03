@@ -17,6 +17,7 @@ export interface StickerPack {
   installCount: number;
   stickerCount: number;
   installed?: boolean;
+  coverStickerId?: string | null;
   stickers: PackSticker[];
 }
 
@@ -67,6 +68,10 @@ class StickersAPI {
 
   async reorder(packId: string, stickerIds: string[]): Promise<void> {
     await this.client.put(`/v1/sticker-packs/${packId}/order`, { stickerIds });
+  }
+
+  async setCover(packId: string, stickerId: string): Promise<void> {
+    await this.client.put(`/v1/sticker-packs/${packId}/cover`, { stickerId });
   }
 
   async install(packId: string): Promise<void> {

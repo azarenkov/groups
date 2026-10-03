@@ -716,6 +716,7 @@ export const Message: React.FC<MessageProps> = ({
                           emoji={reply.sticker.emoji}
                           size={28}
                           className="msg-reply-thumb"
+                          animated={reply.sticker.animated}
                         />
                       )}
                       {reply.videoNotePoster && (
@@ -756,6 +757,7 @@ export const Message: React.FC<MessageProps> = ({
                   size={160}
                   width={msg.sticker.width}
                   height={msg.sticker.height}
+                  animated={msg.sticker.animated}
                 />
               </button>
             ) : (

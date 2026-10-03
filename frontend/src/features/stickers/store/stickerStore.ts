@@ -148,6 +148,19 @@ export const stickerSession = (): (() => boolean) => {
   return () => gen === generation;
 };
 
+export const packCover = (pack: StickerPack): PackSticker | undefined =>
+  pack.stickers.find((s) => s.id === pack.coverStickerId) ?? pack.stickers[0];
+
+export const moveSticker = (ids: string[], id: string, to: number): string[] => {
+  const from = ids.indexOf(id);
+  if (from < 0) return ids;
+  const target = Math.max(0, Math.min(ids.length - 1, to));
+  if (target === from) return ids;
+  const next = ids.filter((x) => x !== id);
+  next.splice(target, 0, id);
+  return next;
+};
+
 export const isInstalled = (pack: StickerPack): boolean => pack.installed !== false;
 
 export const installedPacks = (packs: StickerPack[]): StickerPack[] => packs.filter(isInstalled);

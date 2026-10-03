@@ -5,9 +5,11 @@ import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import { ApiError } from "../../../shared/lib/apiError";
 import { openReport } from "../../moderation/store/reportModalStore";
+import { copyTextToClipboard } from "../../../shared/lib/clipboard";
+import { publicAppOrigin } from "../../../shared/config/runtime";
 import { useAuthStore } from "../../auth/store/authStore";
 import { stickersAPI, type StickerPack } from "../api/stickers";
-import { isInstalled, stickerSession, useStickerStore } from "../store/stickerStore";
+import { isInstalled, moveSticker, packCover, stickerSession, useStickerStore } from "../store/stickerStore";
 import StickerImage from "./StickerImage";
 
 type View = { kind: "search" } | { kind: "mine" } | { kind: "create" } | { kind: "pack"; id: string };
@@ -22,6 +24,13 @@ const STICKER_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
 
 const errorText = (err: unknown, fallback: string) =>
   err instanceof ApiError && err.message ? err.message : fallback;
+
+const orderedPreview = (pack: StickerPack) => {
+  const cover = packCover(pack);
+  return cover ? [cover, ...pack.stickers.filter((s) => s.id !== cover.id)].slice(0, 5) : [];
+};
+
+export const packLink = (slug: string) => `${publicAppOrigin()}/stickers/${slug}`;
 
 const PackRow: React.FC<{
   pack: StickerPack;
@@ -38,8 +47,8 @@ const PackRow: React.FC<{
         <span className="sticker-pack-row-name">{pack.name}</span>
         <span className="sticker-pack-row-meta">{t("count", { count: pack.stickerCount })}</span>
         <span className="sticker-pack-row-preview">
-          {pack.stickers.slice(0, 5).map((s) => (
-            <StickerImage key={s.id} id={s.id} emoji={s.emoji} size={40} width={s.width} height={s.height} />
+          {orderedPreview(pack).map((s) => (
+            <StickerImage key={s.id} id={s.id} emoji={s.emoji} size={40} width={s.width} height={s.height} animated={s.animated} />
           ))}
         </span>
       </button>
@@ -78,8 +87,16 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
   const [pack, setPack] = React.useState<StickerPack | null>(null);
   const [name, setName] = React.useState("");
   const [selectedSticker, setSelectedSticker] = React.useState<string | null>(null);
+  const [renaming, setRenaming] = React.useState(false);
+  const [draftName, setDraftName] = React.useState("");
+  const [dragging, setDragging] = React.useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = React.useState(false);
 
-  React.useEffect(() => setSelectedSticker(null), [view]);
+  React.useEffect(() => {
+    setSelectedSticker(null);
+    setRenaming(false);
+    setLinkCopied(false);
+  }, [view]);
   const [emoji, setEmoji] = React.useState("🙂");
   const fileRef = React.useRef<HTMLInputElement>(null);
 
@@ -204,7 +221,63 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
       setView({ kind: "mine" });
     });
 
+  const updatePack = (next: StickerPack) => {
+    setPack(next);
+    if (useStickerStore.getState().packs.some((p) => p.id === next.id)) useStickerStore.getState().upsertPack(next);
+  };
+
+  const renamePack = () =>
+    run(async (sameSession) => {
+      if (!pack) return;
+      const name = draftName.trim();
+      await stickersAPI.rename(pack.id, name);
+      if (!sameSession()) return;
+      updatePack({ ...pack, name });
+      setRenaming(false);
+    });
+
+  const reorder = (stickerId: string, to: number) => {
+    if (!pack) return;
+    const ids = moveSticker(
+      pack.stickers.map((s) => s.id),
+      stickerId,
+      to,
+    );
+    if (ids.every((id, i) => id === pack.stickers[i]?.id)) return;
+    const previous = pack;
+    const byId = new Map(pack.stickers.map((s) => [s.id, s]));
+    updatePack({ ...pack, stickers: ids.map((id) => byId.get(id)!) });
+    void run(async (sameSession) => {
+      try {
+        await stickersAPI.reorder(previous.id, ids);
+      } catch (err) {
+        if (sameSession()) updatePack(previous);
+        throw err;
+      }
+    });
+  };
+
+  const makeCover = (stickerId: string) =>
+    run(async (sameSession) => {
+      if (!pack) return;
+      await stickersAPI.setCover(pack.id, stickerId);
+      if (!sameSession()) return;
+      updatePack({ ...pack, coverStickerId: stickerId });
+    });
+
+  const copyLink = async () => {
+    if (!pack) return;
+    try {
+      await copyTextToClipboard(packLink(pack.slug));
+      setLinkCopied(true);
+    } catch {
+      setError(t("actionFailed"));
+    }
+  };
+
   const own = !!pack && pack.ownerId === userId;
+  const coverId = pack ? packCover(pack)?.id : undefined;
+  const selectedIndex = pack && selectedSticker ? pack.stickers.findIndex((s) => s.id === selectedSticker) : -1;
 
   return createPortal(
     <div className="modal-overlay sticker-modal-overlay" onMouseDown={onClose} onSubmit={(e) => e.stopPropagation()}>
@@ -302,14 +375,58 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
           )}
           {view.kind === "pack" &&
             (!pack ? (
-              <div className="sticker-modal-empty">{t("loading")}</div>
+              !error && <div className="sticker-modal-empty">{t("loading")}</div>
             ) : (
               <div className="sticker-pack-view">
                 <div className="sticker-pack-head">
                   <div>
-                    <div className="sticker-pack-name">{pack.name}</div>
+                    {renaming ? (
+                      <form
+                        className="sticker-pack-rename"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void renamePack();
+                        }}
+                      >
+                        <input
+                          className="s-input"
+                          autoFocus
+                          value={draftName}
+                          maxLength={64}
+                          aria-label={t("name")}
+                          onChange={(e) => setDraftName(e.target.value)}
+                        />
+                        <button type="submit" className="s-btn primary" disabled={busy || draftName.trim().length < 3}>
+                          {t("save")}
+                        </button>
+                        <button type="button" className="s-btn secondary" onClick={() => setRenaming(false)}>
+                          {t("cancel")}
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="sticker-pack-title">
+                        <span className="sticker-pack-name">{pack.name}</span>
+                        {own && (
+                          <button
+                            type="button"
+                            className="sticker-icon-btn"
+                            title={t("rename")}
+                            aria-label={t("rename")}
+                            onClick={() => {
+                              setDraftName(pack.name);
+                              setRenaming(true);
+                            }}
+                          >
+                            <Icon name="edit" size={13} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <div className="sticker-pack-meta">
-                      {t("count", { count: pack.stickerCount })} · /{pack.slug}
+                      {t("count", { count: pack.stickerCount })} · /{pack.slug} ·{" "}
+                      <button type="button" className="sticker-link-btn" onClick={() => void copyLink()}>
+                        {linkCopied ? t("linkCopied") : t("copyLink")}
+                      </button>
                     </div>
                   </div>
                   {own ? (
@@ -347,8 +464,29 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                   )}
                 </div>
                 <div className="sticker-pack-grid">
-                  {pack.stickers.map((s) => (
-                    <div key={s.id} className={"sticker-pack-cell" + (selectedSticker === s.id ? " selected" : "")}>
+                  {pack.stickers.map((s, index) => (
+                    <div
+                      key={s.id}
+                      className={
+                        "sticker-pack-cell" +
+                        (selectedSticker === s.id ? " selected" : "") +
+                        (dragging === s.id ? " dragging" : "")
+                      }
+                      draggable={own && !busy}
+                      onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = "move";
+                        setDragging(s.id);
+                      }}
+                      onDragEnd={() => setDragging(null)}
+                      onDragOver={(e) => {
+                        if (dragging) e.preventDefault();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (dragging) reorder(dragging, index);
+                        setDragging(null);
+                      }}
+                    >
                       <button
                         type="button"
                         className="sticker-pack-select"
@@ -356,10 +494,11 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                         aria-label={s.emoji}
                         onClick={() => setSelectedSticker((current) => (current === s.id ? null : s.id))}
                       >
-                        <StickerImage id={s.id} emoji={s.emoji} size={88} width={s.width} height={s.height} />
+                        <StickerImage id={s.id} emoji={s.emoji} size={88} width={s.width} height={s.height} animated={s.animated} />
                         <span className="sticker-pack-emoji" aria-hidden="true">
                           {s.emoji}
                         </span>
+                        {s.id === coverId && <span className="sticker-pack-cover-badge">{t("cover")}</span>}
                       </button>
                       {own && (
                         <button
@@ -376,6 +515,39 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                     </div>
                   ))}
                 </div>
+                {own && selectedSticker && selectedIndex >= 0 && (
+                  <div className="sticker-pack-tools">
+                    <button
+                      type="button"
+                      className="s-btn secondary"
+                      title={t("moveLeft")}
+                      aria-label={t("moveLeft")}
+                      disabled={busy || selectedIndex === 0}
+                      onClick={() => reorder(selectedSticker, selectedIndex - 1)}
+                    >
+                      <Icon name="chev-left" size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="s-btn secondary"
+                      title={t("moveRight")}
+                      aria-label={t("moveRight")}
+                      disabled={busy || selectedIndex === pack.stickers.length - 1}
+                      onClick={() => reorder(selectedSticker, selectedIndex + 1)}
+                    >
+                      <Icon name="chev" size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="s-btn secondary"
+                      disabled={busy || selectedSticker === coverId}
+                      onClick={() => void makeCover(selectedSticker)}
+                    >
+                      {t("makeCover")}
+                    </button>
+                  </div>
+                )}
+                {own && pack.stickers.length > 1 && <small className="sticker-pack-hint">{t("reorderHint")}</small>}
                 {own && (
                   <div className="sticker-add">
                     <input

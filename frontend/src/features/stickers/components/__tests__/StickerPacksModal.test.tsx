@@ -12,6 +12,9 @@ jest.mock("../../api/stickers", () => ({
     create: jest.fn(),
     pack: jest.fn(),
     removeSticker: jest.fn(),
+    rename: jest.fn(),
+    reorder: jest.fn(),
+    setCover: jest.fn(),
   },
 }));
 
@@ -80,3 +83,47 @@ it("keeps selecting and removing a sticker as separate buttons", async () => {
   expect(select).toHaveAttribute("aria-pressed", "true");
   expect(document.querySelector(".sticker-pack-cell.selected")).not.toBeNull();
 });
+
+it("lets the owner rename the pack, move a sticker and pick the cover", async () => {
+  useAuthStore.setState({ user: { id: "u1" } } as never);
+  const stickers = ["s1", "s2", "s3"].map((id) => ({
+    id,
+    packId: "p1",
+    emoji: "😺",
+    animated: false,
+    width: 512,
+    height: 512,
+  }));
+  (stickersAPI.pack as jest.Mock).mockResolvedValueOnce({
+    id: "p1",
+    ownerId: "u1",
+    name: "Cats",
+    slug: "cats",
+    installCount: 1,
+    stickerCount: 3,
+    stickers,
+  });
+  (stickersAPI.rename as jest.Mock).mockResolvedValue(undefined);
+  (stickersAPI.reorder as jest.Mock).mockResolvedValue(undefined);
+  (stickersAPI.setCover as jest.Mock).mockResolvedValue(undefined);
+  render(<StickerPacksModal onClose={() => undefined} packId="cats" />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Rename" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Kittens" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(await screen.findByText("Kittens")).toBeInTheDocument();
+  expect(stickersAPI.rename).toHaveBeenCalledWith("p1", "Kittens");
+
+  fireEvent.click(screen.getAllByRole("button", { name: "😺" })[2]);
+  fireEvent.click(screen.getByRole("button", { name: "Move left" }));
+  await waitFor(() => expect(stickersAPI.reorder).toHaveBeenCalledWith("p1", ["s1", "s3", "s2"]));
+
+  await waitFor(() => expect(screen.getByRole("button", { name: "Make cover" })).not.toBeDisabled());
+  fireEvent.click(screen.getByRole("button", { name: "Make cover" }));
+  await waitFor(() => expect(stickersAPI.setCover).toHaveBeenCalledWith("p1", "s3"));
+  await waitFor(() =>
+    expect(document.querySelectorAll(".sticker-pack-cell")[1].querySelector(".sticker-pack-cover-badge")).not.toBeNull(),
+  );
+  expect(document.querySelectorAll(".sticker-pack-cover-badge")).toHaveLength(1);
+});
+

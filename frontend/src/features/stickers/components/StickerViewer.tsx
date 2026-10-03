@@ -14,6 +14,7 @@ const VIEWER_SIZE = 320;
 
 interface ViewedSticker {
   id: string;
+  animated?: boolean;
   packId: string;
   emoji: string;
   width: number;
@@ -105,7 +106,14 @@ const StickerViewer: React.FC<StickerViewerProps> = ({ sticker, messageId, onClo
         <button type="button" className="sticker-viewer-close" onClick={onClose} title={t("close")} aria-label={t("close")}>
           <Icon name="x" size={14} />
         </button>
-        <StickerImage id={sticker.id} emoji={sticker.emoji} size={VIEWER_SIZE} width={sticker.width} height={sticker.height} />
+        <StickerImage
+          id={sticker.id}
+          emoji={sticker.emoji}
+          size={VIEWER_SIZE}
+          width={sticker.width}
+          height={sticker.height}
+          animated={sticker.animated}
+        />
         <div className="sticker-viewer-info">
           <span className="sticker-viewer-emoji" aria-hidden="true">
             {sticker.emoji}
