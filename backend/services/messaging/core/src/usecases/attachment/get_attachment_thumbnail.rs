@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::ports::{
     file_storage::{ByteStream, FileStorage, FileStorageError},
-    thumbnailer::Thumbnailer,
+    thumbnailer::{Thumbnail, Thumbnailer},
 };
 
 pub const THUMBNAIL_SOURCE_MAX_BYTES: i64 = 25 * 1024 * 1024;
@@ -81,15 +81,32 @@ impl<M: MessageRepository, S: FileStorage, T: Thumbnailer> GetAttachmentThumbnai
             .find(|(_, ct)| *ct == thumbnail.content_type)
             .map(|(ext, _)| *ext)
             .unwrap_or("jpg");
-        if let Err(e) = self
-            .storage
-            .put(&thumbnail_key(&link.storage_key, ext), thumbnail.content_type, thumbnail.bytes.clone())
-            .await
-        {
-            tracing::warn!(error = %e, %attachment_id, "Failed to store attachment thumbnail");
-        }
+        self.persist(attachment_id, &user_id, &link.storage_key, ext, &thumbnail).await;
         let body: ByteStream = Box::pin(stream::once(async move { Ok(thumbnail.bytes) }));
         Ok((thumbnail.content_type, body))
+    }
+
+    async fn still_linked(&self, attachment_id: Uuid, user_id: &UserId) -> bool {
+        matches!(
+            self.message_repository.find_attachment_for_user(attachment_id, user_id).await,
+            Ok(Some(_))
+        )
+    }
+
+    async fn persist(&self, attachment_id: Uuid, user_id: &UserId, storage_key: &str, ext: &str, thumbnail: &Thumbnail) {
+        if !self.still_linked(attachment_id, user_id).await {
+            return;
+        }
+        let key = thumbnail_key(storage_key, ext);
+        if let Err(e) = self.storage.put(&key, thumbnail.content_type, thumbnail.bytes.clone()).await {
+            tracing::warn!(error = %e, %attachment_id, "Failed to store attachment thumbnail");
+            return;
+        }
+        if !self.still_linked(attachment_id, user_id).await
+            && let Err(e) = self.storage.delete(&key).await
+        {
+            tracing::warn!(error = %e, %attachment_id, "Failed to drop a thumbnail of a removed attachment");
+        }
     }
 
     async fn read_all(&self, key: &str) -> Result<Vec<u8>, GetAttachmentThumbnailError> {

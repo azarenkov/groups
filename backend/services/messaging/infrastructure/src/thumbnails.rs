@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 use async_trait::async_trait;
-use image::{DynamicImage, ImageFormat, ImageReader, imageops::FilterType};
+use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader, imageops::FilterType, metadata::Orientation};
 use messaging::ports::thumbnailer::{Thumbnail, Thumbnailer};
 
 pub const THUMBNAIL_SIDE: u32 = 320;
@@ -18,7 +18,10 @@ pub fn render_thumbnail(bytes: &[u8]) -> Option<Thumbnail> {
     limits.max_image_height = Some(MAX_DIMENSION);
     limits.max_alloc = Some(MAX_ALLOC);
     reader.limits(limits);
-    let image = reader.decode().ok()?;
+    let mut decoder = reader.into_decoder().ok()?;
+    let orientation = decoder.orientation().unwrap_or(Orientation::NoTransforms);
+    let mut image = DynamicImage::from_decoder(decoder).ok()?;
+    image.apply_orientation(orientation);
     let thumb = if image.width() > THUMBNAIL_SIDE || image.height() > THUMBNAIL_SIDE {
         image.resize(THUMBNAIL_SIDE, THUMBNAIL_SIDE, FilterType::Triangle)
     } else {
@@ -70,6 +73,22 @@ mod tests {
         assert_eq!(thumb.content_type, "image/png");
         let decoded = image::load_from_memory(&thumb.bytes).unwrap();
         assert_eq!((decoded.width(), decoded.height()), (64, 48));
+    }
+
+    #[test]
+    fn exif_rotation_is_applied() {
+        let photo = DynamicImage::ImageRgb8(image::RgbImage::from_pixel(40, 20, image::Rgb([10, 200, 10])));
+        let jpeg = encode(photo, ImageFormat::Jpeg);
+        let exif: [u8; 34] = [
+            0xFF, 0xE1, 0x00, 0x20, b'E', b'x', b'i', b'f', 0, 0, b'M', b'M', 0, 42, 0, 0, 0, 8, 0, 1, 0x01, 0x12,
+            0, 3, 0, 0, 0, 1, 0, 6, 0, 0, 0, 0,
+        ];
+        let mut rotated = jpeg[..2].to_vec();
+        rotated.extend_from_slice(&exif);
+        rotated.extend_from_slice(&jpeg[2..]);
+        let thumb = render_thumbnail(&rotated).unwrap();
+        let decoded = image::load_from_memory(&thumb.bytes).unwrap();
+        assert_eq!((decoded.width(), decoded.height()), (20, 40));
     }
 
     #[test]
