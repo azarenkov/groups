@@ -30,8 +30,6 @@ import VoiceChannelPreview from "../../voice/components/VoiceChannelPreview";
 import type { VoicePreviewParticipant } from "../../voice/components/VoiceChannelPreview";
 import MembersPanel from "./MembersPanel";
 import SharedPanel from "../../chat/components/SharedPanel";
-
-const SHARED_OVERLAY_QUERY = "(max-width: 900px)";
 import NoTextChannel from "./NoTextChannel";
 import SettingsView from "../../settings/components/SettingsView";
 import { useHotkey } from "../../settings/lib/hotkeys";
@@ -62,6 +60,8 @@ import { qualityClass, qualityLabel } from "../../voice/lib/quality";
 import { Channel, ChannelKind } from "../../../shared/types/channel";
 import { Community } from "../../../shared/types/community";
 import "../../../styles/rift.css";
+
+const SHARED_OVERLAY_QUERY = "(max-width: 900px)";
 
 const CommunitiesPage: React.FC = () => {
   const { t: tModals } = useTranslation("modals");
