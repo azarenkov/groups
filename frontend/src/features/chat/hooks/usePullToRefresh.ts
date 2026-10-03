@@ -22,6 +22,9 @@ export function usePullToRefresh(params: {
   const distanceRef = React.useRef(0);
   const frameRef = React.useRef<number | null>(null);
   const refreshingRef = React.useRef(false);
+  const inFlightRef = React.useRef<string | undefined | null>(null);
+  const convIdRef = React.useRef(convId);
+  convIdRef.current = convId;
   const touchStartYRef = React.useRef<number | null>(null);
   const wheelGestureRef = React.useRef(IDLE_WHEEL_GESTURE);
   const wheelReleaseRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -89,11 +92,13 @@ export function usePullToRefresh(params: {
   );
 
   const refresh = React.useCallback(async () => {
-    if (refreshingRef.current || !enabledRef.current) {
+    const conv = convIdRef.current;
+    if (refreshingRef.current || !enabledRef.current || (inFlightRef.current !== null && inFlightRef.current === conv)) {
       settle();
       return;
     }
     const generation = generationRef.current;
+    inFlightRef.current = conv;
     refreshingRef.current = true;
     touchStartYRef.current = null;
     clearWheelRelease();
@@ -101,8 +106,11 @@ export function usePullToRefresh(params: {
     const started = Date.now();
     let timer: ReturnType<typeof setTimeout> | null = null;
     try {
+      const request = onRefreshRef.current().finally(() => {
+        if (inFlightRef.current === conv) inFlightRef.current = null;
+      });
       await Promise.race([
-        onRefreshRef.current(),
+        request,
         new Promise<void>((resolve) => {
           timer = setTimeout(resolve, REFRESH_TIMEOUT_MS);
         }),

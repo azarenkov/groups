@@ -96,3 +96,35 @@ it("stops spinning when a refresh never answers", async () => {
   expect(indicator().classList.contains("refreshing")).toBe(false);
   expect(body().style.transform).toBe("");
 });
+
+it("does not start another refresh while a slow one is still running", async () => {
+  let finish: () => void = () => undefined;
+  const onRefresh = jest.fn(() => new Promise<void>((resolve) => (finish = resolve)));
+  mount(onRefresh);
+  const pullAndRelease = async () => {
+    touch("touchStart", 400);
+    touch("touchMove", 200);
+    act(() => {
+      body().dispatchEvent(new TouchEvent("touchend", { bubbles: true }));
+    });
+    frame();
+  };
+  await pullAndRelease();
+  await act(async () => {
+    jest.advanceTimersByTime(REFRESH_TIMEOUT_MS);
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  frame();
+  await pullAndRelease();
+  expect(onRefresh).toHaveBeenCalledTimes(1);
+  expect(body().style.transform).toBe("");
+  await act(async () => {
+    finish();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  await pullAndRelease();
+  expect(onRefresh).toHaveBeenCalledTimes(2);
+});
+
