@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import Icon from "../../../shared/ui/Icon";
+import { ApiError } from "../../../shared/lib/apiError";
 import { useAuthStore } from "../../auth/store/authStore";
 import { openReport } from "../../moderation/store/reportModalStore";
 import { stickersAPI, type StickerPack } from "../api/stickers";
@@ -21,19 +22,28 @@ interface ViewedSticker {
 
 interface StickerViewerProps {
   sticker: ViewedSticker;
+  messageId?: string;
   onClose: () => void;
   onOpenPack: (packId: string) => void;
 }
 
-type PackState = { kind: "loading" } | { kind: "ready"; pack: StickerPack } | { kind: "gone" };
+type PackState =
+  | { kind: "loading" }
+  | { kind: "ready"; pack: StickerPack }
+  | { kind: "gone" }
+  | { kind: "failed" };
 
-const StickerViewer: React.FC<StickerViewerProps> = ({ sticker, onClose, onOpenPack }) => {
+const isGone = (err: unknown) =>
+  err instanceof ApiError && (err.status === 404 || err.code === "STICKER_PACK_NOT_FOUND");
+
+const StickerViewer: React.FC<StickerViewerProps> = ({ sticker, messageId, onClose, onOpenPack }) => {
   const { t } = useTranslation("stickers");
   const userId = useAuthStore((s) => s.user?.id ?? null);
   const myPacks = useStickerStore((s) => s.packs);
   const [state, setState] = React.useState<PackState>({ kind: "loading" });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [attempt, setAttempt] = React.useState(0);
 
   React.useEffect(() => {
     if (userId && useStickerStore.getState().userId !== userId) void useStickerStore.getState().load(userId);
@@ -47,13 +57,13 @@ const StickerViewer: React.FC<StickerViewerProps> = ({ sticker, onClose, onOpenP
       .then((pack) => {
         if (!cancelled) setState({ kind: "ready", pack });
       })
-      .catch(() => {
-        if (!cancelled) setState({ kind: "gone" });
+      .catch((err) => {
+        if (!cancelled) setState({ kind: isGone(err) ? "gone" : "failed" });
       });
     return () => {
       cancelled = true;
     };
-  }, [sticker.packId]);
+  }, [sticker.packId, attempt]);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -101,9 +111,22 @@ const StickerViewer: React.FC<StickerViewerProps> = ({ sticker, onClose, onOpenP
             {sticker.emoji}
           </span>
           <span className="sticker-viewer-pack">
-            {state.kind === "loading" ? t("loading") : pack ? pack.name : t("packGone")}
+            {state.kind === "loading"
+              ? t("loading")
+              : pack
+                ? pack.name
+                : state.kind === "gone"
+                  ? t("packGone")
+                  : t("loadFailed")}
           </span>
         </div>
+        {state.kind === "failed" && (
+          <div className="sticker-viewer-actions">
+            <button type="button" className="s-btn secondary" onClick={() => setAttempt((n) => n + 1)}>
+              {t("retry")}
+            </button>
+          </div>
+        )}
         {pack && (
           <div className="sticker-viewer-actions">
             {!installed && (
@@ -120,7 +143,7 @@ const StickerViewer: React.FC<StickerViewerProps> = ({ sticker, onClose, onOpenP
                 className="s-btn secondary"
                 onClick={() => {
                   onClose();
-                  openReport({ type: "stickerPack", id: pack.id, name: pack.name });
+                  openReport({ type: "stickerPack", id: pack.id, name: pack.name, messageId });
                 }}
               >
                 {t("report")}

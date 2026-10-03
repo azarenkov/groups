@@ -764,6 +764,7 @@ export const Message: React.FC<MessageProps> = ({
             {stickerViewerOpen && msg.sticker && (
               <StickerViewer
                 sticker={msg.sticker}
+                messageId={msg.id}
                 onClose={() => setStickerViewerOpen(false)}
                 onOpenPack={(packId) => {
                   setStickerViewerOpen(false);

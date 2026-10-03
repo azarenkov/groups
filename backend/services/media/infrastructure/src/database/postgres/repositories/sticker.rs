@@ -386,8 +386,8 @@ impl StickerRepository for PostgresStickerRepository {
             FROM media_sticker_packs p
             WHERE p.deleted_at IS NULL AND NOT p.hidden
               AND EXISTS (SELECT 1 FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL)
-              AND ($1 = '' OR lower(p.name) LIKE '%' || $1 || '%' ESCAPE '\' OR p.slug LIKE '%' || $1 || '%' ESCAPE '\')
-            ORDER BY (lower(p.name) LIKE $1 || '%' ESCAPE '\' OR p.slug LIKE $1 || '%' ESCAPE '\') DESC,
+              AND lower(p.name) LIKE '%' || $1 || '%' ESCAPE '\'
+            ORDER BY (lower(p.name) LIKE $1 || '%' ESCAPE '\') DESC,
                      p.install_count DESC, p.created_at DESC, p.id
             LIMIT $2 OFFSET $3
             "#,

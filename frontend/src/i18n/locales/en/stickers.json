@@ -36,5 +36,6 @@
   "addPack": "Add pack",
   "openPack": "Open pack",
   "packGone": "Pack deleted",
-  "report": "Report"
+  "report": "Report",
+  "retry": "Try again"
 }
