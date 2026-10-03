@@ -9,6 +9,13 @@ use crate::ports::{
     file_storage::{FileStorage, FileStorageError},
 };
 
+pub fn attachment_thumbnail_keys(key: &str) -> Vec<String> {
+    if !key.starts_with("attachments/") {
+        return Vec::new();
+    }
+    ["jpg", "png"].iter().map(|ext| format!("{key}.thumb.{ext}")).collect()
+}
+
 pub struct CleanupOrphanAttachments<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
 {
     repository: Arc<R>,
@@ -153,13 +160,22 @@ impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
 
         match self.repository.list_cleanup_queue(1000).await {
             Ok(keys) => {
-                for key in keys {
+                'keys: for key in keys {
                     if let Some(still_key) = still_avatar_key(&key) {
                         match self.storage.delete(&still_key).await {
                             Ok(()) | Err(FileStorageError::NotFound) => {}
                             Err(e) => {
                                 tracing::warn!(error = %e, key = %still_key, "Failed to delete queued still avatar frame; will retry");
                                 continue;
+                            }
+                        }
+                    }
+                    for thumb_key in attachment_thumbnail_keys(&key) {
+                        match self.storage.delete(&thumb_key).await {
+                            Ok(()) | Err(FileStorageError::NotFound) => {}
+                            Err(e) => {
+                                tracing::warn!(error = %e, key = %thumb_key, "Failed to delete queued attachment thumbnail; will retry");
+                                continue 'keys;
                             }
                         }
                     }
@@ -190,5 +206,19 @@ impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
                 tracing::warn!(error = %e, "Cleanup queue query failed");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod thumbnail_key_tests {
+    use super::attachment_thumbnail_keys;
+
+    #[test]
+    fn attachment_keys_also_clean_their_thumbnails() {
+        assert_eq!(
+            attachment_thumbnail_keys("attachments/abc"),
+            vec!["attachments/abc.thumb.jpg".to_string(), "attachments/abc.thumb.png".to_string()]
+        );
+        assert!(attachment_thumbnail_keys("avatars/abc.png").is_empty());
     }
 }

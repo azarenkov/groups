@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
 use messaging::usecases::shared::list_shared_content::ListSharedContent;
+use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnail;
+use messaging_infrastructure::thumbnails::ImageThumbnailer;
 use messaging::usecases::{
     privacy::{get_privacy::GetPrivacy, update_privacy::UpdatePrivacy},
     report::create_report::CreateReport,
@@ -173,6 +175,8 @@ pub struct AppState {
         ListSharedContent<PostgresSharedContentRepository, PostgresChannelRepository, PostgresCommunityRepository>,
     pub list_message_attachments_usecase:
         ListMessageAttachments<PostgresMessageRepository, PostgresDmMessageRepository>,
+    pub get_attachment_thumbnail_usecase:
+        GetAttachmentThumbnail<PostgresMessageRepository, MinioStorage, ImageThumbnailer>,
     pub get_attachment_usecase:
         GetAttachment<PostgresMessageRepository, MinioStorage, MediaClaimsClient>,
     pub send_friend_request_usecase:

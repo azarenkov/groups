@@ -1,5 +1,7 @@
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
 use messaging::usecases::shared::list_shared_content::ListSharedContent;
+use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnail;
+use messaging_infrastructure::thumbnails::ImageThumbnailer;
 use std::{error::Error, sync::Arc};
 use api_common::shutdown::{self, ShutdownConfig};
 
@@ -314,6 +316,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_message_attachments_usecase: ListMessageAttachments::new(
             message_repository.clone(),
             dm_repository.clone(),
+        ),
+        get_attachment_thumbnail_usecase: GetAttachmentThumbnail::new(
+            message_repository.clone(),
+            minio_storage.clone(),
+            Arc::new(ImageThumbnailer),
         ),
         get_attachment_usecase: GetAttachment::new(
             message_repository.clone(),
