@@ -19,6 +19,7 @@ export interface PrivacySettings {
   dmPolicy: "all" | "friends" | "no_one";
   callPolicy: "all" | "friends" | "no_one";
   acceptFriendRequests: boolean;
+  showLocalTime: boolean;
 }
 
 export interface PublicProfile {

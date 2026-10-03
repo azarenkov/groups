@@ -118,7 +118,10 @@
     "allowRequests": "Allow friend requests",
     "allowRequestsHint": "Anyone can send you a friend request.",
     "loadFailed": "Couldn't load privacy settings.",
-    "blockedLoadFailed": "Couldn't load blocked users."
+    "blockedLoadFailed": "Couldn't load blocked users.",
+    "profile": "Profile",
+    "showLocalTime": "Show my local time",
+    "showLocalTimeHint": "Others will see what time it is for you in your profile."
   },
   "connections": {
     "title": "Connections",

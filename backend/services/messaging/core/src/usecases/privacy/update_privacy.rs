@@ -16,6 +16,7 @@ pub struct PrivacyPatch {
     pub dm_policy: Option<String>,
     pub call_policy: Option<String>,
     pub accept_friend_requests: Option<bool>,
+    pub show_local_time: Option<bool>,
 }
 
 pub struct UpdatePrivacy<P: PrivacyRepository> {
@@ -38,7 +39,7 @@ impl<P: PrivacyRepository> UpdatePrivacy<P> {
             .transpose()?;
         Ok(self
             .privacy_repository
-            .apply_patch(&user_id, dm_policy, call_policy, patch.accept_friend_requests)
+            .apply_patch(&user_id, dm_policy, call_policy, patch.accept_friend_requests, patch.show_local_time)
             .await?)
     }
 }

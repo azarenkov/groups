@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT dm_policy, call_policy, accept_friend_requests FROM user_privacy_settings WHERE user_id = $1",
+  "query": "SELECT dm_policy, call_policy, accept_friend_requests, show_local_time FROM user_privacy_settings WHERE user_id = $1",
   "describe": {
     "columns": [
       {
@@ -17,6 +17,11 @@
         "ordinal": 2,
         "name": "accept_friend_requests",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "show_local_time",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -27,8 +32,9 @@
     "nullable": [
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "4069fbf9037cb186a3a6de07e64f36f2f8c6e4bdd22d38679dcc8d65546bc3cd"
+  "hash": "dca04f9fd4160b4777dfb6614f9844947ca7bf2f2bb590ba027b14117b0719f3"
 }

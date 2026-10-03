@@ -12,6 +12,7 @@ struct PrivacyResponse {
     dm_policy: &'static str,
     call_policy: &'static str,
     accept_friend_requests: bool,
+    show_local_time: bool,
 }
 
 impl From<PrivacySettings> for PrivacyResponse {
@@ -20,6 +21,7 @@ impl From<PrivacySettings> for PrivacyResponse {
             dm_policy: settings.dm_policy.as_str(),
             call_policy: settings.call_policy.as_str(),
             accept_friend_requests: settings.accept_friend_requests,
+            show_local_time: settings.show_local_time,
         }
     }
 }
@@ -42,6 +44,7 @@ struct UpdatePrivacyBody {
     dm_policy: Option<String>,
     call_policy: Option<String>,
     accept_friend_requests: Option<bool>,
+    show_local_time: Option<bool>,
 }
 
 #[patch("/me/privacy")]
@@ -59,6 +62,7 @@ async fn update_privacy(
                 dm_policy: body.dm_policy,
                 call_policy: body.call_policy,
                 accept_friend_requests: body.accept_friend_requests,
+                show_local_time: body.show_local_time,
             },
         )
         .await?;

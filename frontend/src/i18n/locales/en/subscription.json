@@ -51,7 +51,8 @@
         "attachments": "Attachments up to 15 MB, 5 per message",
         "voice": "Voice messages up to {{minutes}} min",
         "videoNote": "Video notes {{size}}×{{size}}",
-        "stream": "Screen share at 720p 60 fps"
+        "stream": "Screen share at 720p 60 fps",
+        "stickerPacks": "Up to {{packs}} sticker packs of your own"
       },
       "pro": {
         "name": "Rift Pro",
@@ -62,7 +63,8 @@
         "stream": "Screen share up to 1440p 60 fps",
         "badge": "A Pro badge in the style you pick",
         "banner": "Your own profile banner",
-        "avatar": "Animated avatar"
+        "avatar": "Animated avatar",
+        "stickerPacks": "Up to {{packs}} sticker packs of your own"
       },
       "premium": {
         "name": "Rift Premium",
@@ -74,8 +76,8 @@
         "badge": "A Premium badge in the style you pick",
         "goldBadge": "Exclusive gold badge",
         "banner": "Your own profile banner",
-        "support": "Priority support",
-        "avatar": "Animated avatar"
+        "avatar": "Animated avatar",
+        "stickerPacks": "Up to {{packs}} sticker packs of your own"
       }
     },
     "billing": {

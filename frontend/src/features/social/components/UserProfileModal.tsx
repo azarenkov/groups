@@ -362,10 +362,12 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
                   <div className="profile-label">{t("memberSince")}</div>
                   <div className="profile-value">{memberSince ?? "—"}</div>
                 </div>
-                <div>
-                  <div className="profile-label">{t("localTime")}</div>
-                  <div className="profile-value">{localTime ?? "—"}</div>
-                </div>
+                {localTime && (
+                  <div>
+                    <div className="profile-label">{t("localTime")}</div>
+                    <div className="profile-value">{localTime}</div>
+                  </div>
+                )}
               </div>
               {connections.length > 0 && (
                 <div className="profile-mutual">

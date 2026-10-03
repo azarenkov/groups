@@ -881,7 +881,7 @@
 .msg.bubble.mine .txt:is(.vnote-only, .sticker-only, .jumbo-only) .msg-reply-author { color: var(--accent) !important; }
 .msg.bubble.mine .txt:is(.vnote-only, .sticker-only, .jumbo-only) .msg-reply-text { color: var(--fg-2); }
 .vnote {
-  --vnote-size: 220px;
+  --vnote-size: 300px;
   position: relative;
   isolation: isolate;
   width: var(--vnote-size); height: var(--vnote-size);
@@ -889,14 +889,14 @@
   transition: width 0.22s var(--ease-spring, ease), height 0.22s var(--ease-spring, ease);
 }
 .vnote.active {
-  --vnote-size: 260px;
+  --vnote-size: 340px;
   border-radius: 50%;
   background: conic-gradient(var(--accent) var(--vnote-progress, 0deg), color-mix(in srgb, var(--fg-1) 14%, transparent) 0);
 }
 .vnote.active .vnote-face { inset: 3px; }
 @media (max-width: 600px) {
-  .vnote { --vnote-size: 200px; }
-  .vnote.active { --vnote-size: 250px; }
+  .vnote { --vnote-size: 240px; }
+  .vnote.active { --vnote-size: 280px; }
 }
 .vnote-face {
   position: absolute; inset: 0;
@@ -1114,7 +1114,7 @@
   background: transparent;
   cursor: pointer;
 }
-.msg-sticker .sticker-img-placeholder { font-size: 64px; }
+.msg-sticker .sticker-img-placeholder { font-size: 88px; }
 .msg-reply-thumb.sticker-img { border-radius: 4px; }
 .sticker-modal { width: 520px; }
 .sticker-modal-tabs { display: flex; gap: 4px; padding: 12px 20px 0; }
