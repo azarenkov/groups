@@ -871,6 +871,7 @@
 .msg.bubble .txt.vnote-only { background: transparent; padding: 0; }
 .msg.bubble .txt.jumbo-only { background: transparent; padding: 0; box-shadow: none; }
 .msg-text.jumbo { font-size: 48px; line-height: 1.15; letter-spacing: 0; }
+.msg-text.jumbo.jumbo-few { font-size: 36px; }
 .msg.bubble.mine .txt:is(.vnote-only, .sticker-only, .jumbo-only) .msg-forwarded { color: var(--fg-3); }
 .msg.bubble.mine .txt:is(.vnote-only, .sticker-only, .jumbo-only) .msg-reply {
   border-left-color: var(--accent);
@@ -1160,8 +1161,10 @@
 .sticker-pack-head > div:first-child { flex: 1; min-width: 0; }
 .sticker-pack-name { font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sticker-pack-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.sticker-pack-rename { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.sticker-pack-rename .s-input { flex: 1; min-width: 160px; }
+.sticker-pack-head.renaming > div:first-child { flex-basis: 100%; }
+.sticker-pack-rename { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.sticker-pack-rename .s-input { flex: 1; min-width: 0; }
+.sticker-pack-rename .s-btn { flex-shrink: 0; }
 .sticker-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -1292,7 +1295,7 @@
   align-items: center;
   gap: 14px;
   max-width: 100%;
-  padding: 28px 28px 22px;
+  padding: 50px 28px 22px;
   border-radius: 20px;
   background: var(--surface-raised);
   box-shadow: var(--shadow-lg);

@@ -715,11 +715,12 @@ body.electron .body-area::before {
   display: flex; align-items: center; justify-content: center;
   color: var(--accent);
   pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%) translateY(44px) scale(0.6);
   transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s;
 }
 .pull-refresh-icon {
   display: inline-flex;
-  transition: transform 0.1s linear;
 }
 .pull-refresh.refreshing .pull-refresh-icon {
   animation: pull-spin 0.7s linear infinite;

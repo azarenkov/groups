@@ -17,7 +17,7 @@ import AttachmentItem from "./AttachmentItem";
 import VoicePlayer from "./VoicePlayer";
 import VideoNotePlayer from "./VideoNotePlayer";
 import { videoNoteAttachmentOf } from "../lib/voice";
-import { isJumboEmoji } from "../lib/emoji";
+import { jumboEmojiCount } from "../lib/emoji";
 import StickerImage from "../../stickers/components/StickerImage";
 import StickerPacksModal from "../../stickers/components/StickerPacksModal";
 import StickerViewer from "../../stickers/components/StickerViewer";
@@ -124,7 +124,8 @@ export const Message: React.FC<MessageProps> = ({
   onOpenForwardSource,
   onVoiceListened,
 }) => {
-  const jumbo = !msg.sticker && !(msg.attachments?.length ?? 0) && isJumboEmoji(msg.content);
+  const jumboCount = !msg.sticker && !(msg.attachments?.length ?? 0) ? jumboEmojiCount(msg.content) : 0;
+  const jumbo = jumboCount > 0;
   const [stickerPackOpen, setStickerPackOpen] = React.useState<string | null>(null);
   const [stickerViewerOpen, setStickerViewerOpen] = React.useState(false);
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
@@ -761,7 +762,7 @@ export const Message: React.FC<MessageProps> = ({
                 />
               </button>
             ) : (
-              <span className={"msg-text" + (jumbo ? " jumbo" : "")}>{renderWithLinks(msg.content)}</span>
+              <span className={"msg-text" + (jumbo ? " jumbo" : "") + (jumboCount > 1 ? " jumbo-few" : "")}>{renderWithLinks(msg.content)}</span>
             )}
             {stickerViewerOpen && msg.sticker && (
               <StickerViewer

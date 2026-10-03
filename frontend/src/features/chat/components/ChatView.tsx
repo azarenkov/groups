@@ -33,7 +33,7 @@ import { publicAppOrigin } from "../../../shared/config/runtime";
 import { useMessageSearch } from "../hooks/useMessageSearch";
 import { useMessenger } from "../hooks/useMessenger";
 import { useReadReceipts } from "../hooks/useReadReceipts";
-import { PULL_THRESHOLD, usePullToRefresh } from "../hooks/usePullToRefresh";
+import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import type { ChannelMeta, DmMeta } from "../types";
 import { openForward } from "../store/forwardModalStore";
 import { canDeleteForEveryone } from "../lib/messageMenu";
@@ -376,29 +376,8 @@ const ChatView: React.FC<ChatViewProps> = ({
         className="chat-body-wrap"
         style={callMode ? { display: "none" } : undefined}
       >
-      <div
-        className={"pull-refresh" + (pull.refreshing ? " refreshing" : "")}
-        style={{
-          opacity: pull.refreshing
-            ? 1
-            : Math.min(pull.pullDistance / PULL_THRESHOLD, 1),
-          transform: `translateX(-50%) translateY(${
-            44 - (pull.refreshing ? PULL_THRESHOLD : pull.pullDistance)
-          }px) scale(${
-            pull.refreshing
-              ? 1
-              : 0.6 + 0.4 * Math.min(pull.pullDistance / PULL_THRESHOLD, 1)
-          })`,
-        }}
-      >
-        <span
-          className="pull-refresh-icon"
-          style={
-            pull.refreshing
-              ? undefined
-              : { transform: `rotate(${pull.pullDistance * 2.5}deg)` }
-          }
-        >
+      <div ref={pull.indicatorRef} className="pull-refresh">
+        <span className="pull-refresh-icon">
           <Icon name="refresh" size={15} />
         </span>
       </div>
@@ -409,6 +388,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         onTouchStart={pull.onPullTouchStart}
         onTouchMove={pull.onPullTouchMove}
         onTouchEnd={pull.onPullTouchEnd}
+        onTouchCancel={pull.onPullTouchCancel}
         onWheel={pull.onPullWheel}
         onDragOver={(e) => {
           if (e.dataTransfer.types.includes("Files")) {
@@ -423,13 +403,6 @@ const ChatView: React.FC<ChatViewProps> = ({
             setDragOver(false);
             addFiles(e.dataTransfer.files);
           }
-        }}
-        style={{
-          transform: `translateY(${-pull.pullDistance}px)`,
-          transition:
-            pull.pullStartYRef.current !== null
-              ? "none"
-              : "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
         {searchActive ? (
