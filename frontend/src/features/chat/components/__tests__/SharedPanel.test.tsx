@@ -358,5 +358,42 @@ describe("shared panel edge cases", () => {
     expect(screen.getByText("abuse.pdf")).toBeInTheDocument();
     useBlockStore.setState({ blocked: {} } as never);
   });
+
+  it("retries a failed lookup of an edited message", async () => {
+    jest.useFakeTimers();
+    try {
+      list.mockResolvedValueOnce({ items: [], nextCursor: null });
+      render(
+        <SharedPanel scope={{ kind: "dm", friendId: "u2" }} currentUserId="u1" onClose={() => undefined} onShowMessage={() => undefined} />,
+      );
+      list.mockResolvedValueOnce({
+        items: [link("m9", "https://top.example", "2026-10-05T00:00:00Z"), link("m1", "https://a.example", "2026-10-01T00:00:00Z")],
+        nextCursor: "older",
+      });
+      fireEvent.click(screen.getByRole("tab", { name: "Links" }));
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+        await Promise.resolve();
+      });
+      expect(await screen.findByText("https://a.example")).toBeInTheDocument();
+      list.mockResolvedValue({ items: [link("m9", "https://top.example", "2026-10-05T00:00:00Z")], nextCursor: "first" });
+      (sharedAPI.message as jest.Mock)
+        .mockRejectedValueOnce(new Error("offline"))
+        .mockResolvedValueOnce({ id: "m1", authorId: "u2", authorName: "Bob", createdAt: "2026-10-01T00:00:00Z", content: "https://fixed.example" });
+      act(() => wsHandlers.current.onEdited?.({ id: "m1", newContent: "https://fixed.example" }));
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.advanceTimersByTime(1000);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(sharedAPI.message).toHaveBeenCalledTimes(2);
+      expect(screen.getByText("https://fixed.example")).toBeInTheDocument();
+    } finally {
+      jest.useRealTimers();
+      list.mockReset();
+    }
+  });
 });
 

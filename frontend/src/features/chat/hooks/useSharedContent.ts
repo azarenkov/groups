@@ -6,6 +6,7 @@ import { sharedAPI, sharedScopeKey, type SharedItem, type SharedKind, type Share
 
 export const SHARED_PAGE_SIZE = 30;
 export const SHARED_SEARCH_DEBOUNCE_MS = 250;
+export const EDIT_LOOKUP_RETRY_MS = [1000, 3000, 10000];
 
 interface SharedState {
   items: SharedItem[];
@@ -223,17 +224,28 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
       const viewAtEdit = viewRef.current;
       const seq = (editSeqRef.current.get(edit.messageId) ?? 0) + 1;
       editSeqRef.current.set(edit.messageId, seq);
-      sharedAPI
-        .message(scopeRef.current, edit.messageId)
-        .then((message) => {
-          if (viewRef.current !== viewAtEdit || droppedRef.current.has(message.id)) return;
-          if (editSeqRef.current.get(edit.messageId) !== seq) return;
-          setState((s) => ({
-            ...s,
-            items: replaceMessageItems(s.items, message.id, messageItems(message, kind, debouncedQuery), s.nextCursor === null),
-          }));
-        })
-        .catch(() => {});
+      const current = () =>
+        viewRef.current === viewAtEdit &&
+        !droppedRef.current.has(edit.messageId) &&
+        editSeqRef.current.get(edit.messageId) === seq;
+      const lookup = (attempt: number) => {
+        sharedAPI
+          .message(scopeRef.current, edit.messageId)
+          .then((message) => {
+            if (!current()) return;
+            setState((s) => ({
+              ...s,
+              items: replaceMessageItems(s.items, message.id, messageItems(message, kind, debouncedQuery), s.nextCursor === null),
+            }));
+          })
+          .catch(() => {
+            if (!current() || attempt >= EDIT_LOOKUP_RETRY_MS.length) return;
+            window.setTimeout(() => {
+              if (current()) lookup(attempt + 1);
+            }, EDIT_LOOKUP_RETRY_MS[attempt]);
+          });
+      };
+      lookup(0);
     },
     [kind, debouncedQuery],
   );
