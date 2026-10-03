@@ -20,6 +20,7 @@ const PREVIEW_DWELL_MS = 800;
 interface VideoNotePlayerProps {
   messageId: string;
   playbackId?: string;
+  autoplay?: boolean;
   attachment: Attachment;
   isMine: boolean;
   listened: boolean;
@@ -30,6 +31,7 @@ interface VideoNotePlayerProps {
 const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
   messageId,
   playbackId,
+  autoplay = true,
   attachment,
   isMine,
   listened,
@@ -210,7 +212,7 @@ const VideoNotePlayer: React.FC<VideoNotePlayerProps> = ({
   }, [playId]);
 
   const autoplayableRef = React.useRef(false);
-  autoplayableRef.current = !isMine && !listened && !reportedRef.current;
+  autoplayableRef.current = autoplay && !isMine && !listened && !reportedRef.current;
   React.useEffect(
     () =>
       registerVoicePlayer(playId, {

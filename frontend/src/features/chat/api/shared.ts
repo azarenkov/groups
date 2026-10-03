@@ -33,6 +33,11 @@ const sharedPath = (scope: SharedScope): string =>
     : `/v1/communities/${scope.communityId}/channels/${scope.channelId}/shared`;
 
 export const sharedAPI = {
+  markListened(scope: SharedScope, messageId: string): Promise<void> {
+    return scope.kind === "dm"
+      ? dmAPI.markVoiceListened(scope.friendId, messageId)
+      : channelAPI.markVoiceListened(scope.communityId, scope.channelId, messageId);
+  },
   message(scope: SharedScope, messageId: string): Promise<ChannelMessage> {
     return scope.kind === "dm"
       ? dmAPI.getMessage(scope.friendId, messageId)
@@ -52,3 +57,9 @@ export const sharedAPI = {
     return response.data.data;
   },
 };
+
+export const VOICE_LISTENED_EVENT = "rift:voice-listened";
+
+export const announceVoiceListened = (messageId: string) =>
+  window.dispatchEvent(new CustomEvent(VOICE_LISTENED_EVENT, { detail: { messageId } }));
+

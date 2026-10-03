@@ -113,6 +113,8 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
   const [state, setState] = React.useState<SharedState>(EMPTY);
   const requestRef = React.useRef(0);
   const failedRef = React.useRef<{ before: string | null; mode: "reset" | "append" | "merge" } | null>(null);
+  const droppedRef = React.useRef(new Set<string>());
+  const alive = (items: SharedItem[]) => items.filter((item) => !droppedRef.current.has(item.messageId));
   const scopeKey = sharedScopeKey(scope);
   const scopeRef = React.useRef(scope);
   scopeRef.current = scope;
@@ -136,6 +138,7 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
           limit: SHARED_PAGE_SIZE,
         });
         if (request !== requestRef.current) return;
+        page.items = alive(page.items);
         setState((s) => {
           if (mode === "append") {
             const seen = new Set(s.items.map(itemKey));
@@ -170,6 +173,7 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
   );
 
   React.useEffect(() => {
+    droppedRef.current = new Set();
     void fetchPage(null, "reset");
   }, [fetchPage, scopeKey]);
 
@@ -195,6 +199,7 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
   }, [fetchPage]);
 
   const dropMessage = React.useCallback((messageId: string) => {
+    droppedRef.current.add(messageId);
     setState((s) => ({ ...s, items: s.items.filter((item) => item.messageId !== messageId) }));
   }, []);
 
@@ -216,7 +221,7 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
       sharedAPI
         .message(scopeRef.current, edit.messageId)
         .then((message) => {
-          if (viewRef.current !== viewAtEdit) return;
+          if (viewRef.current !== viewAtEdit || droppedRef.current.has(message.id)) return;
           setState((s) => ({
             ...s,
             items: replaceMessageItems(s.items, message.id, messageItems(message, kind, debouncedQuery), s.nextCursor === null),

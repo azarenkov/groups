@@ -17,6 +17,7 @@ type SinkAudio = HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> 
 interface VoicePlayerProps {
   messageId: string;
   playbackId?: string;
+  autoplay?: boolean;
   attachment: Attachment;
   isMine: boolean;
   listened: boolean;
@@ -27,6 +28,7 @@ interface VoicePlayerProps {
 const VoicePlayer: React.FC<VoicePlayerProps> = ({
   messageId,
   playbackId,
+  autoplay = true,
   attachment,
   isMine,
   listened,
@@ -184,7 +186,7 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
   }, [durationMs, ensureAudio, isMine, playId, onListened, unloadAudio]);
 
   const autoplayableRef = React.useRef(false);
-  autoplayableRef.current = !isMine && !listened && !reportedRef.current;
+  autoplayableRef.current = autoplay && !isMine && !listened && !reportedRef.current;
   React.useEffect(
     () =>
       registerVoicePlayer(playId, {

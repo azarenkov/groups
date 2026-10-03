@@ -34,6 +34,7 @@ import { useMessageSearch } from "../hooks/useMessageSearch";
 import { useMessenger } from "../hooks/useMessenger";
 import { useReadReceipts } from "../hooks/useReadReceipts";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
+import { VOICE_LISTENED_EVENT } from "../api/shared";
 import type { ChannelMeta, DmMeta } from "../types";
 import { openForward } from "../store/forwardModalStore";
 import { canDeleteForEveryone } from "../lib/messageMenu";
@@ -169,6 +170,16 @@ const ChatView: React.FC<ChatViewProps> = ({
     nameSyncTick,
     onClose: () => setHighlightedMessageId(null),
   });
+
+  React.useEffect(() => {
+    const onListened = (event: Event) => {
+      const id = (event as CustomEvent<{ messageId?: string }>).detail?.messageId;
+      if (!id) return;
+      setMessages((prev) => (prev.some((m) => m.id === id) ? prev.map((m) => (m.id === id ? { ...m, voiceListened: true } : m)) : prev));
+    };
+    window.addEventListener(VOICE_LISTENED_EVENT, onListened);
+    return () => window.removeEventListener(VOICE_LISTENED_EVENT, onListened);
+  }, [setMessages]);
 
   const onOpenHandledRef = React.useRef(onOpenMessageHandled);
   onOpenHandledRef.current = onOpenMessageHandled;

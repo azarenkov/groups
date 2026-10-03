@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import { domainOf } from "../../../shared/lib/links";
 import { currentLocale } from "../../../i18n";
-import type { SharedItem, SharedKind, SharedScope } from "../api/shared";
+import { announceVoiceListened, sharedAPI, type SharedItem, type SharedKind, type SharedScope } from "../api/shared";
 import { itemKey, useSharedContent } from "../hooks/useSharedContent";
 import { useWsChannelMessages, useWsDmMessages } from "../hooks/useWebSocketMessages";
 import { ws } from "../../../shared/ws/websocket";
@@ -28,8 +28,9 @@ const SharedEntry: React.FC<{
   item: SharedItem;
   kind: SharedKind;
   mine: boolean;
+  scope: SharedScope;
   onShowMessage: (messageId: string) => void;
-}> = ({ item, kind, mine, onShowMessage }) => {
+}> = ({ item, kind, mine, scope, onShowMessage }) => {
   const { t } = useTranslation("chat");
   const author = mine ? t("shared.you") : item.authorName || t("shared.unknownAuthor");
   const meta = (
@@ -59,6 +60,10 @@ const SharedEntry: React.FC<{
   }
   const attachment = item.attachment;
   if (!attachment) return null;
+  const markListened = async () => {
+    await sharedAPI.markListened(scope, item.messageId);
+    announceVoiceListened(item.messageId);
+  };
   let body: React.ReactNode;
   if (attachment.videoNote) {
     body = (
@@ -67,8 +72,10 @@ const SharedEntry: React.FC<{
         playbackId={`shared:${item.messageId}:${attachment.id}`}
         attachment={attachment}
         isMine={mine}
-        listened
+        listened={false}
+        autoplay={false}
         showListenDot={false}
+        onListened={markListened}
       />
     );
   } else if (attachment.voice) {
@@ -78,8 +85,10 @@ const SharedEntry: React.FC<{
         playbackId={`shared:${item.messageId}:${attachment.id}`}
         attachment={attachment}
         isMine={mine}
-        listened
+        listened={false}
+        autoplay={false}
         showListenDot={false}
+        onListened={markListened}
       />
     );
   } else {
@@ -186,6 +195,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
               item={item}
               kind={kind}
               mine={!!currentUserId && item.authorId === currentUserId}
+              scope={scope}
               onShowMessage={onShowMessage}
             />
           ))}

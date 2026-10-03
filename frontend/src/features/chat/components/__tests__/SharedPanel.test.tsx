@@ -8,7 +8,7 @@ import { itemKey, mergeFirstPage, messageItems, reconcileEdit, replaceMessageIte
 
 jest.mock("../../api/shared", () => {
   const actual = jest.requireActual("../../api/shared");
-  return { ...actual, sharedAPI: { list: jest.fn(), message: jest.fn() } };
+  return { ...actual, sharedAPI: { list: jest.fn(), message: jest.fn(), markListened: jest.fn() } };
 });
 
 const wsHandlers: {
@@ -283,6 +283,26 @@ describe("shared panel edge cases", () => {
     });
     expect(screen.getByText("Files from this chat will appear here")).toBeInTheDocument();
     expect(screen.queryByText("https://b.example")).toBeNull();
+  });
+
+  it("does not bring back a message deleted while a refresh was running", async () => {
+    list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    render(
+      <SharedPanel scope={{ kind: "dm", friendId: "u2" }} currentUserId="u1" onClose={() => undefined} onShowMessage={() => undefined} />,
+    );
+    list.mockResolvedValueOnce({ items: [file("a1", "old.pdf")], nextCursor: null });
+    fireEvent.click(screen.getByRole("tab", { name: "Files" }));
+    expect(await screen.findByText("old.pdf")).toBeInTheDocument();
+    let finish: (page: unknown) => void = () => undefined;
+    list.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+    act(() => wsHandlers.current.onSent?.({ content: "", attachments: [{}] }));
+    act(() => wsHandlers.current.onDeleted?.({ id: "m-a2" }));
+    await act(async () => {
+      finish({ items: [{ ...file("a2", "gone.pdf"), createdAt: "2026-10-02T10:00:00Z" }, file("a1", "old.pdf")], nextCursor: null });
+      await Promise.resolve();
+    });
+    expect(screen.queryByText("gone.pdf")).toBeNull();
+    expect(screen.getByText("old.pdf")).toBeInTheDocument();
   });
 });
 
