@@ -1,4 +1,4 @@
-import { installedPacks, searchMyStickers, useStickerStore } from "../stickerStore";
+import { installedPacks, moveSticker, packCover, searchMyStickers, useStickerStore } from "../stickerStore";
 import { stickersAPI, type PackSticker, type StickerPack } from "../../api/stickers";
 
 jest.mock("../../api/stickers", () => ({
@@ -155,3 +155,19 @@ describe("searchMyStickers", () => {
     expect(searchMyStickers(packs, "  ")).toEqual([]);
   });
 });
+
+describe("pack helpers", () => {
+  it("moves a sticker to a new position", () => {
+    expect(moveSticker(["a", "b", "c"], "c", 0)).toEqual(["c", "a", "b"]);
+    expect(moveSticker(["a", "b", "c"], "a", 5)).toEqual(["b", "c", "a"]);
+    expect(moveSticker(["a", "b", "c"], "x", 1)).toEqual(["a", "b", "c"]);
+  });
+
+  it("uses the chosen cover or falls back to the first sticker", () => {
+    const stickers = [sticker("a", "1", "😺"), sticker("b", "1", "🐶")];
+    expect(packCover({ ...pack("1", stickers), coverStickerId: "b" })?.id).toBe("b");
+    expect(packCover({ ...pack("1", stickers), coverStickerId: "gone" })?.id).toBe("a");
+    expect(packCover(pack("1", []))).toBeUndefined();
+  });
+});
+

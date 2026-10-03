@@ -5,7 +5,8 @@ import { useAuthStore } from "../../auth/store/authStore";
 import { useCommunityStore } from "../store/communityStore";
 import { channelsFullyLoaded, useChannelStore } from "../store/channelStore";
 import { communityAPI } from "../api/community";
-import { extractInviteToken } from "../../../shared/lib/inviteLinks";
+import { extractInviteToken, extractPackSlug } from "../../../shared/lib/inviteLinks";
+import StickerPacksModal from "../../stickers/components/StickerPacksModal";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useBlockStore } from "../../social/store/blockStore";
 import {
@@ -110,6 +111,13 @@ const CommunitiesPage: React.FC = () => {
     setJoinToken(token);
     setCommunityModalView("join");
     setIsCommunityModalOpen(true);
+  }, [searchParams, setSearchParams]);
+  const [linkedPack, setLinkedPack] = useState<string | null>(null);
+  useEffect(() => {
+    const raw = searchParams.get("stickers");
+    if (!raw) return;
+    setSearchParams({}, { replace: true });
+    setLinkedPack(extractPackSlug(raw));
   }, [searchParams, setSearchParams]);
   const [pendingMessageLink, setPendingMessageLink] = useState<OpenMessageLink | null>(null);
   const [openMessage, setOpenMessage] = useState<{ convId: string; messageId: string } | null>(null);
@@ -922,6 +930,7 @@ const CommunitiesPage: React.FC = () => {
         )}
       </div>
 
+      {linkedPack && <StickerPacksModal packId={linkedPack} onClose={() => setLinkedPack(null)} />}
 
       <ModalsHost
         communityModal={{

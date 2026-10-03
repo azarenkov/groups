@@ -3,12 +3,18 @@ import { useTranslation } from "react-i18next";
 
 import Icon from "../../../shared/ui/Icon";
 import { useAuthStore } from "../../auth/store/authStore";
-import type { PackSticker } from "../api/stickers";
-import { installedPacks, searchMyStickers, useStickerStore } from "../store/stickerStore";
+import type { PackSticker, StickerPack } from "../api/stickers";
+import { installedPacks, packCover, searchMyStickers, useStickerStore } from "../store/stickerStore";
 import StickerImage from "./StickerImage";
 import StickerPacksModal from "./StickerPacksModal";
 
 const PACKS_MAX_AGE_MS = 60_000;
+
+const PackTabIcon: React.FC<{ pack: StickerPack }> = ({ pack }) => {
+  const cover = packCover(pack);
+  if (!cover) return <span className="sticker-pop-tab-letter">{pack.name.slice(0, 1)}</span>;
+  return <StickerImage id={cover.id} emoji={cover.emoji} size={22} animated={cover.animated} />;
+};
 
 interface StickerPickerProps {
   disabled?: boolean;
@@ -115,6 +121,7 @@ const StickerPicker: React.FC<StickerPickerProps> = ({ disabled, onPick }) => {
                     size={72}
                     width={sticker.width}
                     height={sticker.height}
+                    animated={sticker.animated}
                   />
                 </button>
               ))
@@ -147,11 +154,7 @@ const StickerPicker: React.FC<StickerPickerProps> = ({ disabled, onPick }) => {
                   setTab(pack.id);
                 }}
               >
-                {pack.stickers[0] ? (
-                  <StickerImage id={pack.stickers[0].id} emoji={pack.stickers[0].emoji} size={22} />
-                ) : (
-                  <span className="sticker-pop-tab-letter">{pack.name.slice(0, 1)}</span>
-                )}
+                <PackTabIcon pack={pack} />
               </button>
             ))}
             <button

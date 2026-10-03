@@ -9,9 +9,21 @@ export function extractInviteToken(input: string): string | null {
   return TOKEN_RE.test(candidate) ? candidate : null;
 }
 
+const PACK_SLUG_RE = /^[a-z0-9_]{3,32}$/;
+
+export function extractPackSlug(input: string): string | null {
+  const slug = input.trim().toLowerCase();
+  return PACK_SLUG_RE.test(slug) ? slug : null;
+}
+
 export function authRedirectTarget(search: string): string {
   const next = new URLSearchParams(search).get("next");
   if (!next) return "/app";
+  const pack = /^\/stickers\/([^/?#]+)$/.exec(next);
+  if (pack) {
+    const slug = extractPackSlug(pack[1]);
+    return slug ? `/stickers/${slug}` : "/app";
+  }
   const match = /^\/join\/([^/?#]+)$/.exec(next);
   if (!match) return "/app";
   const token = extractInviteToken(match[1]);

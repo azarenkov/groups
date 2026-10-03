@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,\n                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS \"sticker_count!\",\n                   NULL::boolean AS installed\n            FROM media_sticker_packs p\n            WHERE p.deleted_at IS NULL AND NOT p.hidden\n              AND EXISTS (SELECT 1 FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL)\n              AND lower(p.name) LIKE '%' || $1 || '%' ESCAPE '\\'\n            ORDER BY (lower(p.name) LIKE $1 || '%' ESCAPE '\\') DESC,\n                     p.install_count DESC, p.created_at DESC, p.id\n            LIMIT $2 OFFSET $3\n            ",
+  "query": "\n            SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,\n                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS \"sticker_count!\",\n                   (SELECT c.id FROM media_stickers c WHERE c.id = p.cover_sticker_id AND c.deleted_at IS NULL) AS cover_sticker_id,\n                   NULL::boolean AS installed\n            FROM media_sticker_packs p\n            WHERE p.deleted_at IS NULL AND NOT p.hidden\n              AND EXISTS (SELECT 1 FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL)\n              AND lower(p.name) LIKE '%' || $1 || '%' ESCAPE '\\'\n            ORDER BY (lower(p.name) LIKE $1 || '%' ESCAPE '\\') DESC,\n                     p.install_count DESC, p.created_at DESC, p.id\n            LIMIT $2 OFFSET $3\n            ",
   "describe": {
     "columns": [
       {
@@ -40,6 +40,11 @@
       },
       {
         "ordinal": 7,
+        "name": "cover_sticker_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 8,
         "name": "installed",
         "type_info": "Bool"
       }
@@ -59,8 +64,9 @@
       false,
       false,
       null,
+      null,
       null
     ]
   },
-  "hash": "b02391df0ae1059406f93c11c0d196a0c425cc5b157ddeaebc8e7b56d0e90073"
+  "hash": "ee200dc1fd7b9d3c6f45dd59e0638b9705775f22999b8ef9b5f48ad4c8f74bbd"
 }

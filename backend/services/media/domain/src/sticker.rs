@@ -32,6 +32,7 @@ pub struct StickerPack {
     pub sticker_count: i64,
     pub created_at: DateTime<Utc>,
     pub installed: Option<bool>,
+    pub cover_sticker_id: Option<Uuid>,
     pub stickers: Vec<Sticker>,
 }
 
@@ -73,6 +74,7 @@ pub trait StickerRepository: Send + Sync {
     async fn create_pack(&self, id: Uuid, owner_id: &UserId, name: &str, slug: &str, max_owned: i64) -> Result<Option<bool>, RepositoryError>;
     async fn find_pack(&self, id_or_slug: &str) -> Result<Option<StickerPack>, RepositoryError>;
     async fn rename_pack(&self, pack_id: Uuid, owner_id: &UserId, name: &str) -> Result<bool, RepositoryError>;
+    async fn set_cover(&self, pack_id: Uuid, owner_id: &UserId, sticker_id: Uuid) -> Result<bool, RepositoryError>;
     async fn delete_pack(&self, pack_id: Uuid, owner_id: &UserId) -> Result<bool, RepositoryError>;
     async fn add_sticker(&self, pack_id: Uuid, owner_id: &UserId, sticker: &NewSticker) -> Result<AddStickerOutcome, RepositoryError>;
     async fn delete_sticker(&self, pack_id: Uuid, sticker_id: Uuid, owner_id: &UserId) -> Result<bool, RepositoryError>;

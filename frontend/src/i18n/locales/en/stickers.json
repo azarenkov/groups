@@ -37,5 +37,15 @@
   "openPack": "Open pack",
   "packGone": "Pack deleted",
   "report": "Report",
-  "retry": "Try again"
+  "retry": "Try again",
+  "rename": "Rename",
+  "save": "Save",
+  "cancel": "Cancel",
+  "copyLink": "Copy link",
+  "linkCopied": "Link copied",
+  "cover": "Cover",
+  "makeCover": "Make cover",
+  "moveLeft": "Move left",
+  "moveRight": "Move right",
+  "reorderHint": "Drag a sticker, or select it to change the order and the cover"
 }

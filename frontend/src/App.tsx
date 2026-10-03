@@ -6,6 +6,7 @@ import {
   Navigate,
   useLocation,
   useNavigate,
+  useParams,
 } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import LoginPage from "./features/auth/components/LoginPage";
@@ -26,12 +27,22 @@ import { ws } from "./shared/ws/websocket";
 import { installWsBootstrap } from "./shared/ws/websocketBootstrap";
 import { initGameActivity } from "./features/social/lib/gameActivity";
 import { initHotkeys } from "./features/settings/lib/hotkeys";
-import { authRedirectTarget, extractInviteToken } from "./shared/lib/inviteLinks";
+import { authRedirectTarget, extractInviteToken, extractPackSlug } from "./shared/lib/inviteLinks";
 import "styles/App.css";
 
 const AuthRedirect: React.FC = () => {
   const { search } = useLocation();
   return <Navigate to={authRedirectTarget(search)} replace />;
+};
+
+const StickerPackLink: React.FC = () => {
+  const { slug: raw = "" } = useParams();
+  const { isAuthenticated, tokens } = useAuthStore();
+  const slug = extractPackSlug(raw);
+  const verified = !!tokens?.accessToken && isAccessTokenVerified(tokens.accessToken);
+  if (!slug) return <Navigate to="/app" replace />;
+  if (isAuthenticated && verified) return <Navigate to={`/app?stickers=${encodeURIComponent(slug)}`} replace />;
+  return <Navigate to={`/login?next=${encodeURIComponent(`/stickers/${slug}`)}`} replace />;
 };
 
 const DeepLinkListener: React.FC = () => {
@@ -251,6 +262,7 @@ const App: React.FC = () => {
               }
             />
             <Route path="/join/:token" element={<JoinPage />} />
+            <Route path="/stickers/:slug" element={<StickerPackLink />} />
             <Route
               path="/app"
               element={
