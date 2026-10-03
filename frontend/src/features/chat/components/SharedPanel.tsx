@@ -123,6 +123,8 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
   const [query, setQuery] = React.useState("");
   const content = useSharedContent(scope, kind, query);
   const blockedIds = useBlockStore((s) => s.blocked);
+  const blocksLoaded = useBlockStore((s) => s.loaded);
+  const waitingForBlocks = scope.kind === "channel" && !blocksLoaded;
   const sentinelRef = React.useRef<HTMLDivElement>(null);
   const { loadMore, refreshTop, dropMessage, applyEdit } = content;
 
@@ -170,7 +172,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
     return () => observer.disconnect();
   }, [loadMore, content.items.length]);
 
-  const empty = content.loaded && !content.loading && !content.failed && content.items.length === 0;
+  const empty = content.loaded && !content.loading && !content.failed && content.items.length === 0 && !waitingForBlocks;
 
   return (
     <aside className="shared-panel" aria-label={t("shared.title")}>
@@ -203,7 +205,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
       />
       <div className="shared-scroll">
         <ul className={"shared-list shared-list-" + kind}>
-          {content.items.map((item) => (
+          {!waitingForBlocks && content.items.map((item) => (
             <SharedEntry
               key={itemKey(item)}
               item={item}
@@ -229,7 +231,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
             </button>
           </div>
         )}
-        {content.loading && (
+        {(content.loading || waitingForBlocks) && (
           <div className="shared-loading">
             <span className="loading-spinner" />
           </div>

@@ -150,6 +150,12 @@ describe("shared panel edge cases", () => {
     ]);
   });
 
+  it("keeps the forwarded author when rebuilding edited links", () => {
+    const items = [{ ...link("m2", "https://old"), forwardedAuthorId: "blocked" }];
+    const edited = reconcileEdit(items, { messageId: "m2", content: "https://new" }, "links", "");
+    expect(edited[0].forwardedAuthorId).toBe("blocked");
+  });
+
   it("reconciles an edited message in place", () => {
     const items = [link("m3", "https://c"), link("m2", "https://old2"), link("m2", "https://old1"), link("m1", "https://a")];
     const edited = reconcileEdit(items, { messageId: "m2", content: "now https://one and https://two." }, "links", "");
@@ -336,7 +342,7 @@ describe("shared panel edge cases", () => {
   });
 
   it("hides content from blocked channel members until asked", async () => {
-    useBlockStore.setState({ blocked: { u2: true } } as never);
+    useBlockStore.setState({ blocked: { u2: true }, loaded: false } as never);
     list.mockResolvedValueOnce({ items: [], nextCursor: null });
     render(
       <SharedPanel
@@ -351,12 +357,16 @@ describe("shared panel edge cases", () => {
       nextCursor: null,
     });
     fireEvent.click(screen.getByRole("tab", { name: "Files" }));
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText("abuse.pdf")).toBeNull();
+    expect(screen.queryByText("Message from a blocked user")).toBeNull();
+    act(() => useBlockStore.setState({ loaded: true } as never));
     expect(await screen.findAllByText("Message from a blocked user")).toHaveLength(2);
     expect(screen.queryByText("abuse.pdf")).toBeNull();
     expect(screen.queryByText("forwarded.pdf")).toBeNull();
     fireEvent.click(screen.getAllByRole("button", { name: "Show" })[0]);
     expect(screen.getByText("abuse.pdf")).toBeInTheDocument();
-    useBlockStore.setState({ blocked: {} } as never);
+    useBlockStore.setState({ blocked: {}, loaded: false } as never);
   });
 
   it("retries a failed lookup of an edited message", async () => {

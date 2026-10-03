@@ -105,7 +105,14 @@ export const reconcileEdit = (items: SharedItem[], edit: MessageEdit, kind: Shar
   }
   if (edit.content === undefined) return items;
   const fresh = messageItems(
-    { id: template.messageId, authorId: template.authorId, authorName: template.authorName, createdAt: template.createdAt, content: edit.content },
+    {
+      id: template.messageId,
+      authorId: template.authorId,
+      authorName: template.authorName,
+      forwardedFrom: template.forwardedAuthorId ? { authorId: template.forwardedAuthorId } : null,
+      createdAt: template.createdAt,
+      content: edit.content,
+    },
     "links",
     query,
   );
