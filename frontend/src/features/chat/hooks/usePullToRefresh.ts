@@ -22,7 +22,7 @@ export function usePullToRefresh(params: {
   const distanceRef = React.useRef(0);
   const frameRef = React.useRef<number | null>(null);
   const refreshingRef = React.useRef(false);
-  const inFlightRef = React.useRef<string | undefined | null>(null);
+  const inFlightRef = React.useRef(new Set<string | undefined>());
   const convIdRef = React.useRef(convId);
   convIdRef.current = convId;
   const touchStartYRef = React.useRef<number | null>(null);
@@ -93,12 +93,12 @@ export function usePullToRefresh(params: {
 
   const refresh = React.useCallback(async () => {
     const conv = convIdRef.current;
-    if (refreshingRef.current || !enabledRef.current || (inFlightRef.current !== null && inFlightRef.current === conv)) {
+    if (refreshingRef.current || !enabledRef.current || inFlightRef.current.has(conv)) {
       settle();
       return;
     }
     const generation = generationRef.current;
-    inFlightRef.current = conv;
+    inFlightRef.current.add(conv);
     refreshingRef.current = true;
     touchStartYRef.current = null;
     clearWheelRelease();
@@ -107,7 +107,7 @@ export function usePullToRefresh(params: {
     let timer: ReturnType<typeof setTimeout> | null = null;
     try {
       const request = onRefreshRef.current().finally(() => {
-        if (inFlightRef.current === conv) inFlightRef.current = null;
+        inFlightRef.current.delete(conv);
       });
       await Promise.race([
         request,

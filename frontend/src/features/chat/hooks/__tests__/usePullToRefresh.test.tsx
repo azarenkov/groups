@@ -5,10 +5,10 @@ import { PULL_THRESHOLD, REFRESH_TIMEOUT_MS, usePullToRefresh } from "../usePull
 
 let renders = 0;
 
-const Harness: React.FC<{ onRefresh: () => Promise<void> }> = ({ onRefresh }) => {
+const Harness: React.FC<{ onRefresh: () => Promise<void>; convId?: string }> = ({ onRefresh, convId = "c1" }) => {
   renders += 1;
   const bodyRef = React.useRef<HTMLDivElement>(null);
-  const pull = usePullToRefresh({ bodyRef, enabled: true, convId: "c1", onRefresh });
+  const pull = usePullToRefresh({ bodyRef, enabled: true, convId, onRefresh });
   return (
     <>
       <div ref={pull.indicatorRef} className="pull-refresh">
@@ -54,10 +54,27 @@ afterEach(() => {
 });
 
 const mount = (onRefresh: () => Promise<void>) => {
-  render(<Harness onRefresh={onRefresh} />);
+  const view = render(<Harness onRefresh={onRefresh} />);
   Object.defineProperty(body(), "scrollHeight", { configurable: true, value: 500 });
   Object.defineProperty(body(), "clientHeight", { configurable: true, value: 500 });
+  return view;
 };
+
+const pullAndRelease = () => {
+  touch("touchStart", 400);
+  touch("touchMove", 200);
+  act(() => {
+    body().dispatchEvent(new TouchEvent("touchend", { bubbles: true }));
+  });
+  frame();
+};
+
+const outlast = () =>
+  act(async () => {
+    jest.advanceTimersByTime(REFRESH_TIMEOUT_MS);
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 
 it("follows the finger without re-rendering and springs back when the touch is cancelled", () => {
   mount(() => Promise.resolve());
@@ -125,6 +142,35 @@ it("does not start another refresh while a slow one is still running", async () 
     await Promise.resolve();
   });
   await pullAndRelease();
+  expect(onRefresh).toHaveBeenCalledTimes(2);
+});
+
+it("keeps a slow chat locked after refreshing another chat", async () => {
+  const pending: Record<string, () => void> = {};
+  let current = "c1";
+  const onRefresh = jest.fn(() => new Promise<void>((resolve) => (pending[current] = resolve)));
+  const { rerender } = mount(onRefresh);
+  pullAndRelease();
+  await outlast();
+  frame();
+
+  current = "c2";
+  rerender(<Harness onRefresh={onRefresh} convId="c2" />);
+  frame();
+  pullAndRelease();
+  expect(onRefresh).toHaveBeenCalledTimes(2);
+  await act(async () => {
+    pending.c2();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  await outlast();
+  frame();
+
+  current = "c1";
+  rerender(<Harness onRefresh={onRefresh} convId="c1" />);
+  frame();
+  pullAndRelease();
   expect(onRefresh).toHaveBeenCalledTimes(2);
 });
 
