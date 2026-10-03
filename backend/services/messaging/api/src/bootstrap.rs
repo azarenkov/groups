@@ -1,4 +1,5 @@
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
+use messaging::usecases::shared::list_shared_content::ListSharedContent;
 use std::{error::Error, sync::Arc};
 use api_common::shutdown::{self, ShutdownConfig};
 
@@ -75,7 +76,7 @@ use messaging_infrastructure::{
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
             notification_preference::PostgresNotificationPreferenceRepository,
-            read_state::PostgresReadStateRepository, community::PostgresCommunityRepository,
+            read_state::PostgresReadStateRepository, shared::PostgresSharedContentRepository, community::PostgresCommunityRepository,
             hidden_message::PostgresHiddenMessageRepository,
             voice_listen::PostgresVoiceListenRepository,
             community_role::PostgresCommunityRoleRepository,
@@ -302,6 +303,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         search_channel_messages_usecase: SearchChannelMessages::new(
             message_repository.clone(),
+            channel_repository.clone(),
+            community_repository.clone(),
+        ),
+        list_shared_content_usecase: ListSharedContent::new(
+            Arc::new(PostgresSharedContentRepository::new(postgres_pool.clone())),
             channel_repository.clone(),
             community_repository.clone(),
         ),

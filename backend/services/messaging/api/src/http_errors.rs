@@ -107,6 +107,7 @@ macro_rules! impl_http_mapping_delegate {
 
 use messaging::usecases::attachment::get_attachment::GetAttachmentError;
 use messaging::usecases::attachment::list_message_attachments::ListMessageAttachmentsError;
+use messaging::usecases::shared::list_shared_content::ListSharedContentError;
 use messaging::usecases::call::log_call::LogCallError;
 use messaging::usecases::channel::abort_voice_connection::AbortVoiceConnectionError;
 use messaging::usecases::channel::create_channel::CreateChannelError;
@@ -1155,6 +1156,40 @@ impl HttpMapping for ListChannelMessagesError {
             ListChannelMessagesError::InvalidCursor => "INVALID_CURSOR",
             ListChannelMessagesError::ConflictingCursors => "CONFLICTING_CURSORS",
             ListChannelMessagesError::MessageNotFound => "MESSAGE_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for ListSharedContentError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ListSharedContentError::Repository(e) => e.to_http_status(),
+            ListSharedContentError::NotCommunityMember | ListSharedContentError::NotChannelMember => StatusCode::FORBIDDEN,
+            ListSharedContentError::ChannelNotFound => StatusCode::NOT_FOUND,
+            ListSharedContentError::NotTextChannel
+            | ListSharedContentError::InvalidKind
+            | ListSharedContentError::InvalidCursor
+            | ListSharedContentError::SelfConversation => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ListSharedContentError::Repository(e) => e.to_user_message(),
+            other => other.to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ListSharedContentError::Repository(e) => e.to_error_code(),
+            ListSharedContentError::NotCommunityMember => "COMMUNITY_NOT_MEMBER",
+            ListSharedContentError::NotChannelMember => "CHANNEL_NOT_MEMBER",
+            ListSharedContentError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            ListSharedContentError::NotTextChannel => "CHANNEL_NOT_TEXT",
+            ListSharedContentError::InvalidKind => "SHARED_KIND_INVALID",
+            ListSharedContentError::InvalidCursor => "INVALID_CURSOR",
+            ListSharedContentError::SelfConversation => "DM_SELF",
         }
     }
 }

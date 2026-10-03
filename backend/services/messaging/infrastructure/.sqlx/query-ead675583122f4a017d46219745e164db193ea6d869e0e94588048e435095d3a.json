@@ -1,0 +1,107 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT a.message_id, m.author_id, m.created_at AS message_created_at, a.attachment_id,\n                       a.file_name, a.content_type, a.size_bytes, a.storage_key, a.created_at,\n                       a.voice_duration_ms, a.voice_waveform, a.video_duration_ms, a.video_size, a.video_poster\n                FROM message_attachments a\n                JOIN messages m ON m.id = a.message_id\n                WHERE m.channel_id = $1\n                  AND m.kind = 'user'\n                  AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)\n                  AND CASE $3::text\n                        WHEN 'voice' THEN a.voice_duration_ms IS NOT NULL OR a.video_duration_ms IS NOT NULL\n                        WHEN 'media' THEN a.voice_duration_ms IS NULL AND a.video_duration_ms IS NULL\n                             AND (a.content_type LIKE 'image/%' OR a.content_type LIKE 'video/%')\n                        ELSE a.voice_duration_ms IS NULL AND a.video_duration_ms IS NULL\n                             AND a.content_type NOT LIKE 'image/%' AND a.content_type NOT LIKE 'video/%'\n                      END\n                  AND ($4 = '' OR lower(a.file_name) LIKE $4 ESCAPE '\\')\n                  AND ($5::timestamptz IS NULL OR (m.created_at, m.id, a.attachment_id) < ($5, $6, $7))\n                ORDER BY m.created_at DESC, m.id DESC, a.attachment_id DESC\n                LIMIT $8\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "author_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "message_created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "attachment_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "file_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "content_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "size_bytes",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "storage_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "voice_duration_ms",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "voice_waveform",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 11,
+        "name": "video_duration_ms",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
+        "name": "video_size",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 13,
+        "name": "video_poster",
+        "type_info": "Bytea"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Uuid",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "ead675583122f4a017d46219745e164db193ea6d869e0e94588048e435095d3a"
+}

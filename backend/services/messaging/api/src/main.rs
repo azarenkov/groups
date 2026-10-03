@@ -20,6 +20,7 @@ mod reports;
 mod roles;
 mod routes;
 mod server;
+mod shared;
 mod voice;
 mod state;
 

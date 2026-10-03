@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
+use messaging::usecases::shared::list_shared_content::ListSharedContent;
 use messaging::usecases::{
     privacy::{get_privacy::GetPrivacy, update_privacy::UpdatePrivacy},
     report::create_report::CreateReport,
@@ -69,7 +70,7 @@ use messaging_infrastructure::{
         dm_message::PostgresDmMessageRepository, friendship::PostgresFriendshipRepository,
         message::PostgresMessageRepository,
         notification_preference::PostgresNotificationPreferenceRepository,
-        read_state::PostgresReadStateRepository,
+        read_state::PostgresReadStateRepository, shared::PostgresSharedContentRepository,
         hidden_message::PostgresHiddenMessageRepository,
         voice_listen::PostgresVoiceListenRepository,
         community::PostgresCommunityRepository,
@@ -168,6 +169,8 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresCommunityRepository,
     >,
+    pub list_shared_content_usecase:
+        ListSharedContent<PostgresSharedContentRepository, PostgresChannelRepository, PostgresCommunityRepository>,
     pub list_message_attachments_usecase:
         ListMessageAttachments<PostgresMessageRepository, PostgresDmMessageRepository>,
     pub get_attachment_usecase:
