@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import Icon from "../../../shared/ui/Icon";
 import { ApiError } from "../../../shared/lib/apiError";
+import { openReport } from "../../moderation/store/reportModalStore";
 import { useAuthStore } from "../../auth/store/authStore";
 import { stickersAPI, type StickerPack } from "../api/stickers";
 import { isInstalled, stickerSession, useStickerStore } from "../store/stickerStore";
@@ -102,11 +103,16 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
 
   React.useEffect(() => {
     if (view.kind !== "search") return;
+    if (!query.trim()) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
     let cancelled = false;
     setSearching(true);
     const timer = window.setTimeout(() => {
       stickersAPI
-        .search(query)
+        .search(query.trim())
         .then((packs) => {
           if (!cancelled) setResults(packs);
         })
@@ -238,7 +244,9 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                 onChange={(e) => setQuery(e.target.value)}
               />
               {results.length === 0 ? (
-                <div className="sticker-modal-empty">{searching ? t("loading") : t("nothingFound")}</div>
+                <div className="sticker-modal-empty">
+                  {!query.trim() ? t("searchHint") : searching ? t("loading") : t("nothingFound")}
+                </div>
               ) : (
                 results.map((p) => (
                   <PackRow
@@ -316,14 +324,26 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
                       </button>
                     </>
                   ) : (
-                    <button
-                      type="button"
-                      className={"s-btn " + (installedIds.has(pack.id) ? "secondary" : "primary")}
-                      disabled={busy}
-                      onClick={() => void toggleInstall(pack)}
-                    >
-                      {installedIds.has(pack.id) ? t("remove") : t("add")}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="s-btn secondary"
+                        onClick={() => {
+                          onClose();
+                          openReport({ type: "stickerPack", id: pack.id, name: pack.name });
+                        }}
+                      >
+                        {t("report")}
+                      </button>
+                      <button
+                        type="button"
+                        className={"s-btn " + (installedIds.has(pack.id) ? "secondary" : "primary")}
+                        disabled={busy}
+                        onClick={() => void toggleInstall(pack)}
+                      >
+                        {installedIds.has(pack.id) ? t("remove") : t("add")}
+                      </button>
+                    </>
                   )}
                 </div>
                 <div className="sticker-pack-grid">

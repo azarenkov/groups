@@ -352,8 +352,24 @@ pub fn sticker_routes(cfg: &mut web::ServiceConfig) {
     .service(web::scope("/v1/stickers").service(sticker_file));
 }
 
+#[get("/sticker-packs/{pack_id}")]
+async fn internal_sticker_pack(
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, HttpError> {
+    match app_state.sticker_packs.pack(&path.into_inner().to_string()).await {
+        Ok(pack) => Ok(HttpResponse::Ok().json(contracts::internal::stickers::StickerPackInfoV1 {
+            id: pack.id,
+            owner_id: pack.owner_id.uuid(),
+            name: pack.name,
+        })),
+        Err(media::usecases::sticker::StickerError::PackNotFound) => Ok(HttpResponse::NotFound().finish()),
+        Err(e) => Err(e.into()),
+    }
+}
+
 pub fn internal_sticker_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(internal_sticker);
+    cfg.service(internal_sticker).service(internal_sticker_pack);
 }
 
 async fn read_sticker_upload(payload: &mut Multipart) -> Result<(Vec<u8>, String), HttpError> {

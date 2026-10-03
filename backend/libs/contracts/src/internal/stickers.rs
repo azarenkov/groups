@@ -17,3 +17,11 @@ pub struct StickerInfoV1 {
     #[serde(default)]
     pub deleted: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StickerPackInfoV1 {
+    pub id: Uuid,
+    pub owner_id: Uuid,
+    pub name: String,
+}

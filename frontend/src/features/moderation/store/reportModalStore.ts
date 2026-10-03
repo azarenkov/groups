@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 export interface ReportTarget {
-  type: "user" | "community";
+  type: "user" | "community" | "stickerPack";
   id: string;
   name: string;
   messageId?: string;

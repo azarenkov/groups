@@ -1,6 +1,7 @@
 {
   "titleUser": "Report user",
   "titleCommunity": "Report community",
+  "titleStickerPack": "Report sticker pack",
   "lead": "Tell us what is wrong with \"{{name}}\". Only the Rift team sees this report.",
   "detailsOptional": "Details (optional)",
   "detailsRequired": "Details (required)",

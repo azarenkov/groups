@@ -20,6 +20,7 @@ import { videoNoteAttachmentOf } from "../lib/voice";
 import { isJumboEmoji } from "../lib/emoji";
 import StickerImage from "../../stickers/components/StickerImage";
 import StickerPacksModal from "../../stickers/components/StickerPacksModal";
+import StickerViewer from "../../stickers/components/StickerViewer";
 import LinkPreview from "./LinkPreview";
 import ReadTicks from "./ReadTicks";
 import { renderWithLinks } from "./MessageText";
@@ -125,6 +126,7 @@ export const Message: React.FC<MessageProps> = ({
 }) => {
   const jumbo = !msg.sticker && !(msg.attachments?.length ?? 0) && isJumboEmoji(msg.content);
   const [stickerPackOpen, setStickerPackOpen] = React.useState<string | null>(null);
+  const [stickerViewerOpen, setStickerViewerOpen] = React.useState(false);
   const editFileInputRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
     rememberMentionTarget(displayName, msg.authorId);
@@ -745,7 +747,7 @@ export const Message: React.FC<MessageProps> = ({
                 aria-label={`${msg.sticker.emoji} ${i18n.t("replySticker", { ns: "chat" })}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setStickerPackOpen(msg.sticker?.packId ?? null);
+                  setStickerViewerOpen(true);
                 }}
               >
                 <StickerImage
@@ -758,6 +760,17 @@ export const Message: React.FC<MessageProps> = ({
               </button>
             ) : (
               <span className={"msg-text" + (jumbo ? " jumbo" : "")}>{renderWithLinks(msg.content)}</span>
+            )}
+            {stickerViewerOpen && msg.sticker && (
+              <StickerViewer
+                sticker={msg.sticker}
+                messageId={msg.id}
+                onClose={() => setStickerViewerOpen(false)}
+                onOpenPack={(packId) => {
+                  setStickerViewerOpen(false);
+                  setStickerPackOpen(packId);
+                }}
+              />
             )}
             {stickerPackOpen && (
               <StickerPacksModal packId={stickerPackOpen} onClose={() => setStickerPackOpen(null)} />

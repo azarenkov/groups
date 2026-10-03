@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use messaging::ports::attachment_claims::{AttachmentClaimError, AttachmentClaims};
+use messaging::ports::sticker_packs::{StickerPackDirectory, StickerPackInfo, StickerPackLookupError};
 use contracts::internal::attachments::{ClaimRequestV1, ClaimedAttachmentV1, ReleaseRequestV1};
-use contracts::internal::stickers::StickerInfoV1;
+use contracts::internal::stickers::{StickerInfoV1, StickerPackInfoV1};
 use domain::{attachment::AttachmentLink, sticker::StickerSnapshot, user::id::UserId};
 use uuid::Uuid;
 
@@ -154,3 +155,34 @@ impl AttachmentClaims for MediaClaimsClient {
         }
     }
 }
+
+#[async_trait]
+impl StickerPackDirectory for MediaClaimsClient {
+    async fn find_pack(&self, id: Uuid) -> Result<Option<StickerPackInfo>, StickerPackLookupError> {
+        let response = super::with_request_id(
+            self.client
+                .get(format!("{}/internal/sticker-packs/{}", self.base_url, id)),
+        )
+        .send()
+        .await
+        .map_err(|e| StickerPackLookupError(e.to_string()))?;
+        match response.status().as_u16() {
+            200 => {
+                let info: StickerPackInfoV1 = response
+                    .json()
+                    .await
+                    .map_err(|e| StickerPackLookupError(e.to_string()))?;
+                Ok(Some(StickerPackInfo {
+                    id: info.id,
+                    owner_id: UserId::new(info.owner_id),
+                    name: info.name,
+                }))
+            }
+            404 => Ok(None),
+            status => Err(StickerPackLookupError(format!(
+                "sticker pack lookup returned status {status}"
+            ))),
+        }
+    }
+}
+

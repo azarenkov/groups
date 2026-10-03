@@ -8,6 +8,7 @@ import { reportAPI } from "../api/report";
 import {
   MAX_REPORT_DETAILS,
   COMMUNITY_REPORT_REASONS,
+  STICKER_PACK_REPORT_REASONS,
   USER_REPORT_REASONS,
   countReportDetails,
   detailsLengthAfterEdit,
@@ -68,7 +69,11 @@ const ReportModal: React.FC = () => {
   if (!target) return null;
 
   const reasons =
-    target.type === "user" ? USER_REPORT_REASONS : COMMUNITY_REPORT_REASONS;
+    target.type === "user"
+      ? USER_REPORT_REASONS
+      : target.type === "stickerPack"
+        ? STICKER_PACK_REPORT_REASONS
+        : COMMUNITY_REPORT_REASONS;
   const trimmed = details.trim();
   const written = countReportDetails(trimmed);
   const needsDetails = reason === "other" && written === 0;
@@ -89,6 +94,8 @@ const ReportModal: React.FC = () => {
     try {
       if (target.type === "user") {
         await reportAPI.reportUser(target.id, payload);
+      } else if (target.type === "stickerPack") {
+        await reportAPI.reportStickerPack(target.id, payload);
       } else {
         await reportAPI.reportCommunity(target.id, payload);
       }
@@ -125,7 +132,11 @@ const ReportModal: React.FC = () => {
       >
         <div className="m-head">
           <h3>
-            {target.type === "user" ? t("titleUser") : t("titleCommunity")}
+            {target.type === "user"
+              ? t("titleUser")
+              : target.type === "stickerPack"
+                ? t("titleStickerPack")
+                : t("titleCommunity")}
           </h3>
           <button
             type="button"
