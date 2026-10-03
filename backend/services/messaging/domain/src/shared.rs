@@ -91,6 +91,7 @@ pub struct SharedItem {
     pub message_id: Uuid,
     pub author_id: UserId,
     pub author_name: String,
+    pub forwarded_author_id: Option<UserId>,
     pub created_at: DateTime<Utc>,
     pub content: SharedContent,
     pub cursor: SharedCursor,

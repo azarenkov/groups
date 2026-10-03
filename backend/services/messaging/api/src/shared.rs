@@ -41,6 +41,8 @@ struct SharedItemResponse {
     message_id: Uuid,
     author_id: Uuid,
     author_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    forwarded_author_id: Option<Uuid>,
     created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     attachment: Option<AttachmentResponse>,
@@ -64,6 +66,7 @@ impl From<SharedItem> for SharedItemResponse {
             message_id: item.message_id,
             author_id: item.author_id.uuid(),
             author_name: item.author_name,
+            forwarded_author_id: item.forwarded_author_id.map(|id| id.uuid()),
             created_at: item.created_at,
             attachment,
             url,
