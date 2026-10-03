@@ -35,8 +35,12 @@ impl PostgresStickerRepository {
             SELECT id AS "id!", pack_id AS "pack_id!", storage_key AS "storage_key!", animated AS "animated!",
                    width AS "width!", height AS "height!", emoji AS "emoji!", position AS "position!"
             FROM (
-                SELECT s.*, row_number() OVER (PARTITION BY s.pack_id ORDER BY s.position, s.created_at) AS rank
+                SELECT s.*, row_number() OVER (
+                    PARTITION BY s.pack_id
+                    ORDER BY (s.id IS NOT DISTINCT FROM p.cover_sticker_id) DESC, s.position, s.created_at
+                ) AS rank
                 FROM media_stickers s
+                JOIN media_sticker_packs p ON p.id = s.pack_id
                 WHERE s.pack_id = ANY($1) AND s.deleted_at IS NULL
             ) ranked
             WHERE $2::bigint IS NULL OR rank <= $2
@@ -83,6 +87,7 @@ impl PostgresStickerRepository {
                 sticker_count: p.sticker_count,
                 created_at: p.created_at,
                 installed: p.installed,
+                cover_sticker_id: p.cover_sticker_id,
             })
             .collect())
     }
@@ -97,6 +102,7 @@ struct PackRow {
     sticker_count: i64,
     created_at: DateTime<Utc>,
     installed: Option<bool>,
+    cover_sticker_id: Option<Uuid>,
 }
 
 #[async_trait]
@@ -184,6 +190,7 @@ impl StickerRepository for PostgresStickerRepository {
             r#"
             SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,
                    (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS "sticker_count!",
+                   (SELECT c.id FROM media_stickers c WHERE c.id = p.cover_sticker_id AND c.deleted_at IS NULL) AS cover_sticker_id,
                    NULL::boolean AS installed
             FROM media_sticker_packs p
             WHERE p.deleted_at IS NULL AND (p.id = $1 OR p.slug = $2)
@@ -209,6 +216,23 @@ impl StickerRepository for PostgresStickerRepository {
             pack_id,
             owner_id.uuid(),
             name,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    async fn set_cover(&self, pack_id: Uuid, owner_id: &UserId, sticker_id: Uuid) -> Result<bool, RepositoryError> {
+        let result = sqlx::query!(
+            r#"
+            UPDATE media_sticker_packs p SET cover_sticker_id = $3, updated_at = now()
+            WHERE p.id = $1 AND p.owner_id = $2 AND p.deleted_at IS NULL
+              AND EXISTS (SELECT 1 FROM media_stickers s WHERE s.id = $3 AND s.pack_id = p.id AND s.deleted_at IS NULL)
+            "#,
+            pack_id,
+            owner_id.uuid(),
+            sticker_id,
         )
         .execute(&self.pool)
         .await
@@ -382,6 +406,7 @@ impl StickerRepository for PostgresStickerRepository {
             r#"
             SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,
                    (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS "sticker_count!",
+                   (SELECT c.id FROM media_stickers c WHERE c.id = p.cover_sticker_id AND c.deleted_at IS NULL) AS cover_sticker_id,
                    NULL::boolean AS installed
             FROM media_sticker_packs p
             WHERE p.deleted_at IS NULL AND NOT p.hidden
@@ -407,6 +432,7 @@ impl StickerRepository for PostgresStickerRepository {
             r#"
             SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,
                    (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS "sticker_count!",
+                   (SELECT c.id FROM media_stickers c WHERE c.id = p.cover_sticker_id AND c.deleted_at IS NULL) AS cover_sticker_id,
                    (i.user_id IS NOT NULL) AS installed
             FROM media_sticker_packs p
             LEFT JOIN media_sticker_installs i ON i.pack_id = p.id AND i.user_id = $1

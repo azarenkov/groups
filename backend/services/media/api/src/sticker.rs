@@ -60,6 +60,7 @@ struct PackResponse {
     sticker_count: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     installed: Option<bool>,
+    cover_sticker_id: Option<Uuid>,
     stickers: Vec<StickerResponse>,
 }
 
@@ -73,6 +74,7 @@ impl From<StickerPack> for PackResponse {
             install_count: pack.install_count,
             sticker_count: pack.sticker_count,
             installed: pack.installed,
+            cover_sticker_id: pack.cover_sticker_id,
             stickers: pack
                 .stickers
                 .into_iter()
@@ -201,6 +203,26 @@ async fn rename_pack(
     app_state
         .sticker_packs
         .rename_pack(UserId::new(auth.id), path.into_inner(), &body.name)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SetCoverBody {
+    sticker_id: Uuid,
+}
+
+#[put("/{pack_id}/cover")]
+async fn set_pack_cover(
+    auth: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+    body: web::Json<SetCoverBody>,
+) -> Result<impl Responder, HttpError> {
+    app_state
+        .sticker_packs
+        .set_cover(UserId::new(auth.id), path.into_inner(), body.sticker_id)
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }
@@ -346,6 +368,7 @@ pub fn sticker_routes(cfg: &mut web::ServiceConfig) {
             .service(add_sticker)
             .service(delete_sticker)
             .service(reorder_stickers)
+            .service(set_pack_cover)
             .service(install_pack)
             .service(uninstall_pack),
     )

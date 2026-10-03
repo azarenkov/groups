@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id AS \"id!\", pack_id AS \"pack_id!\", storage_key AS \"storage_key!\", animated AS \"animated!\",\n                   width AS \"width!\", height AS \"height!\", emoji AS \"emoji!\", position AS \"position!\"\n            FROM (\n                SELECT s.*, row_number() OVER (PARTITION BY s.pack_id ORDER BY s.position, s.created_at) AS rank\n                FROM media_stickers s\n                WHERE s.pack_id = ANY($1) AND s.deleted_at IS NULL\n            ) ranked\n            WHERE $2::bigint IS NULL OR rank <= $2\n            ORDER BY pack_id, position, created_at\n            ",
+  "query": "\n            SELECT id AS \"id!\", pack_id AS \"pack_id!\", storage_key AS \"storage_key!\", animated AS \"animated!\",\n                   width AS \"width!\", height AS \"height!\", emoji AS \"emoji!\", position AS \"position!\"\n            FROM (\n                SELECT s.*, row_number() OVER (\n                    PARTITION BY s.pack_id\n                    ORDER BY (s.id IS NOT DISTINCT FROM p.cover_sticker_id) DESC, s.position, s.created_at\n                ) AS rank\n                FROM media_stickers s\n                JOIN media_sticker_packs p ON p.id = s.pack_id\n                WHERE s.pack_id = ANY($1) AND s.deleted_at IS NULL\n            ) ranked\n            WHERE $2::bigint IS NULL OR rank <= $2\n            ORDER BY pack_id, position, created_at\n            ",
   "describe": {
     "columns": [
       {
@@ -61,5 +61,5 @@
       false
     ]
   },
-  "hash": "72c3634f2f68b10a5c8e1e66483aad3c09412b5055e223d6f92ab7debff51384"
+  "hash": "a2f9631c1a006098b15ecbb66f4b7711acb5370165bfd2b9592cff44ea8fb862"
 }

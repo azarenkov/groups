@@ -180,6 +180,13 @@ where
         Ok(())
     }
 
+    pub async fn set_cover(&self, owner_id: UserId, pack_id: Uuid, sticker_id: Uuid) -> Result<(), StickerError> {
+        if !self.stickers.set_cover(pack_id, &owner_id, sticker_id).await? {
+            return Err(StickerError::StickerNotFound);
+        }
+        Ok(())
+    }
+
     pub async fn delete_pack(&self, owner_id: UserId, pack_id: Uuid) -> Result<(), StickerError> {
         if !self.stickers.delete_pack(pack_id, &owner_id).await? {
             return Err(StickerError::PackNotFound);
@@ -369,6 +376,7 @@ mod tests {
             sticker_count: ids.len() as i64,
             created_at: Utc::now(),
             installed: None,
+            cover_sticker_id: None,
             stickers: ids
                 .iter()
                 .enumerate()

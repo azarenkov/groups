@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,\n                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS \"sticker_count!\",\n                   (i.user_id IS NOT NULL) AS installed\n            FROM media_sticker_packs p\n            LEFT JOIN media_sticker_installs i ON i.pack_id = p.id AND i.user_id = $1\n            WHERE p.deleted_at IS NULL AND (i.user_id IS NOT NULL OR p.owner_id = $1)\n            ORDER BY COALESCE(i.installed_at, p.created_at), p.id\n            LIMIT $2\n            ",
+  "query": "\n            SELECT p.id, p.owner_id, p.name, p.slug, p.install_count, p.created_at,\n                   (SELECT COUNT(*) FROM media_stickers s WHERE s.pack_id = p.id AND s.deleted_at IS NULL) AS \"sticker_count!\",\n                   (SELECT c.id FROM media_stickers c WHERE c.id = p.cover_sticker_id AND c.deleted_at IS NULL) AS cover_sticker_id,\n                   (i.user_id IS NOT NULL) AS installed\n            FROM media_sticker_packs p\n            LEFT JOIN media_sticker_installs i ON i.pack_id = p.id AND i.user_id = $1\n            WHERE p.deleted_at IS NULL AND (i.user_id IS NOT NULL OR p.owner_id = $1)\n            ORDER BY COALESCE(i.installed_at, p.created_at), p.id\n            LIMIT $2\n            ",
   "describe": {
     "columns": [
       {
@@ -40,6 +40,11 @@
       },
       {
         "ordinal": 7,
+        "name": "cover_sticker_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 8,
         "name": "installed",
         "type_info": "Bool"
       }
@@ -58,8 +63,9 @@
       false,
       false,
       null,
+      null,
       null
     ]
   },
-  "hash": "5b1b3dfb48c84ea2716a2bd75414cd80ffd430a7fbc46979ac9b77c7581efcfb"
+  "hash": "0286441325a30ba6d4f5b4a09f48177c607db2bc3a85cacacadbb0c49bdc44a3"
 }
