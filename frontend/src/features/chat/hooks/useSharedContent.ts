@@ -1,5 +1,6 @@
 import React from "react";
 
+import { URL_REGEX } from "../../../shared/lib/links";
 import { sharedAPI, sharedScopeKey, type SharedItem, type SharedKind, type SharedScope } from "../api/shared";
 
 export const SHARED_PAGE_SIZE = 30;
@@ -25,12 +26,43 @@ export const mergeFirstPage = (current: SharedItem[], page: SharedItem[], pageCo
   if (pageComplete || page.length === 0) return page;
   const edge = page[page.length - 1];
   const keys = new Set(page.map(itemKey));
-  return [...page, ...current.filter((item) => !keys.has(itemKey(item)) && olderThan(item, edge))];
+  return [
+    ...page,
+    ...current.filter(
+      (item) => !keys.has(itemKey(item)) && (olderThan(item, edge) || item.messageId === edge.messageId),
+    ),
+  ];
+};
+
+export interface MessageEdit {
+  messageId: string;
+  attachmentIds?: string[];
+  content?: string;
+}
+
+export const reconcileEdit = (items: SharedItem[], edit: MessageEdit, kind: SharedKind, query: string): SharedItem[] => {
+  const first = items.findIndex((item) => item.messageId === edit.messageId);
+  if (first < 0) return items;
+  if (kind !== "links") {
+    if (!edit.attachmentIds) return items;
+    const kept = new Set(edit.attachmentIds);
+    return items.filter((item) => item.messageId !== edit.messageId || (!!item.attachment && kept.has(item.attachment.id)));
+  }
+  if (edit.content === undefined) return items;
+  const template = items[first];
+  const needle = query.trim().toLowerCase();
+  const urls = (edit.content.match(URL_REGEX) ?? [])
+    .filter((url) => !needle || url.toLowerCase().includes(needle))
+    .reverse();
+  const replaced = urls.map((url) => ({ ...template, attachment: undefined, url }));
+  const rest = items.filter((item) => item.messageId !== edit.messageId);
+  return [...rest.slice(0, first), ...replaced, ...rest.slice(first)];
 };
 
 export function useSharedContent(scope: SharedScope, kind: SharedKind, query: string) {
   const [state, setState] = React.useState<SharedState>(EMPTY);
   const requestRef = React.useRef(0);
+  const failedRef = React.useRef<{ before: string | null; mode: "reset" | "append" | "merge" } | null>(null);
   const scopeKey = sharedScopeKey(scope);
   const scopeRef = React.useRef(scope);
   scopeRef.current = scope;
@@ -45,6 +77,7 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
   const fetchPage = React.useCallback(
     async (before: string | null, mode: "reset" | "append" | "merge") => {
       const request = ++requestRef.current;
+      failedRef.current = null;
       setState((s) => (mode === "reset" ? { ...EMPTY, loading: true } : { ...s, loading: true, failed: false }));
       try {
         const page = await sharedAPI.list(scopeRef.current, kind, {
@@ -79,6 +112,7 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
         });
       } catch {
         if (request !== requestRef.current) return;
+        failedRef.current = { before, mode };
         setState((s) => ({ ...s, loading: false, failed: true }));
       }
     },
@@ -102,9 +136,9 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
   }, [fetchPage, state.loading, state.nextCursor, state.failed]);
 
   const retry = React.useCallback(() => {
-    if (state.items.length > 0 && state.nextCursor) void fetchPage(state.nextCursor, "append");
-    else void fetchPage(null, "reset");
-  }, [fetchPage, state.items.length, state.nextCursor]);
+    const failed = failedRef.current ?? { before: null, mode: "reset" as const };
+    void fetchPage(failed.before, failed.mode);
+  }, [fetchPage]);
 
   const refreshTop = React.useCallback(() => {
     void fetchPage(null, "merge");
@@ -114,5 +148,12 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
     setState((s) => ({ ...s, items: s.items.filter((item) => item.messageId !== messageId) }));
   }, []);
 
-  return { ...state, searching: query.trim() !== debouncedQuery, loadMore, retry, refreshTop, dropMessage };
+  const applyEdit = React.useCallback(
+    (edit: MessageEdit) => {
+      setState((s) => ({ ...s, items: reconcileEdit(s.items, edit, kind, debouncedQuery) }));
+    },
+    [kind, debouncedQuery],
+  );
+
+  return { ...state, searching: query.trim() !== debouncedQuery, loadMore, retry, refreshTop, dropMessage, applyEdit };
 }

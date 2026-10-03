@@ -4,14 +4,16 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import i18n from "../../../../i18n";
 import SharedPanel from "../SharedPanel";
 import { sharedAPI } from "../../api/shared";
-import { mergeFirstPage } from "../../hooks/useSharedContent";
+import { mergeFirstPage, reconcileEdit } from "../../hooks/useSharedContent";
 
 jest.mock("../../api/shared", () => {
   const actual = jest.requireActual("../../api/shared");
   return { ...actual, sharedAPI: { list: jest.fn() } };
 });
 
-const wsHandlers: { current: { onSent?: (m: unknown) => void; onDeleted?: (m: unknown) => void } } = { current: {} };
+const wsHandlers: {
+  current: { onSent?: (m: unknown) => void; onEdited?: (m: unknown) => void; onDeleted?: (m: unknown) => void };
+} = { current: {} };
 
 jest.mock("../../hooks/useWebSocketMessages", () => ({
   useWsChannelMessages: () => undefined,
@@ -124,6 +126,52 @@ describe("mergeFirstPage", () => {
   it("takes the page as is when it is the whole list", () => {
     const current = [item("b", "2026-10-02"), item("a", "2026-10-01")];
     expect(mergeFirstPage(current, [item("b", "2026-10-02")], true).map((i) => i.messageId)).toEqual(["b"]);
+  });
+});
+
+describe("shared panel edge cases", () => {
+  const link = (messageId: string, url: string, createdAt = "2026-10-01") => ({
+    messageId,
+    authorId: "u",
+    authorName: "",
+    createdAt,
+    url,
+  });
+
+  it("keeps siblings of the boundary message when merging", () => {
+    const current = [link("m2", "https://b"), link("m2", "https://a"), link("m1", "https://z", "2026-09-01")];
+    const page = [link("m3", "https://new", "2026-10-05"), link("m2", "https://b")];
+    expect(mergeFirstPage(current, page, false).map((i) => i.url)).toEqual([
+      "https://new",
+      "https://b",
+      "https://a",
+      "https://z",
+    ]);
+  });
+
+  it("reconciles an edited message in place", () => {
+    const items = [link("m3", "https://c"), link("m2", "https://old2"), link("m2", "https://old1"), link("m1", "https://a")];
+    const edited = reconcileEdit(items, { messageId: "m2", content: "now https://one and https://two." }, "links", "");
+    expect(edited.map((i) => i.url)).toEqual(["https://c", "https://two", "https://one", "https://a"]);
+    const files = [file("x1", "a.pdf"), { ...file("x2", "b.pdf"), messageId: "m-x1" }];
+    expect(reconcileEdit(files, { messageId: "m-x1", attachmentIds: ["x2"] }, "files", "").map((i) => i.attachment?.id)).toEqual(["x2"]);
+  });
+
+  it("retries a failed refresh instead of loading older pages", async () => {
+    list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    render(
+      <SharedPanel scope={{ kind: "dm", friendId: "u2" }} currentUserId="u1" onClose={() => undefined} onShowMessage={() => undefined} />,
+    );
+    list.mockResolvedValueOnce({ items: [file("a1", "old.pdf")], nextCursor: "c1" });
+    fireEvent.click(screen.getByRole("tab", { name: "Files" }));
+    expect(await screen.findByText("old.pdf")).toBeInTheDocument();
+    list.mockRejectedValueOnce(new Error("offline"));
+    act(() => wsHandlers.current.onSent?.({ content: "", attachments: [{}] }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    list.mockResolvedValueOnce({ items: [{ ...file("a2", "new.pdf"), createdAt: "2026-10-02T10:00:00Z" }, file("a1", "old.pdf")], nextCursor: "c1" });
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("new.pdf")).toBeInTheDocument();
+    expect(list).toHaveBeenLastCalledWith(expect.anything(), "files", expect.objectContaining({ before: null }));
   });
 });
 

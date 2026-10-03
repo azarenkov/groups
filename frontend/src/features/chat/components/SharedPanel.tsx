@@ -7,6 +7,7 @@ import { currentLocale } from "../../../i18n";
 import type { SharedItem, SharedKind, SharedScope } from "../api/shared";
 import { itemKey, useSharedContent } from "../hooks/useSharedContent";
 import { useWsChannelMessages, useWsDmMessages } from "../hooks/useWebSocketMessages";
+import { ws } from "../../../shared/ws/websocket";
 import AttachmentItem from "./AttachmentItem";
 import VideoNotePlayer from "./VideoNotePlayer";
 import VoicePlayer from "./VoicePlayer";
@@ -84,7 +85,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
   const [query, setQuery] = React.useState("");
   const content = useSharedContent(scope, kind, query);
   const sentinelRef = React.useRef<HTMLDivElement>(null);
-  const { loadMore, refreshTop, dropMessage } = content;
+  const { loadMore, refreshTop, dropMessage, applyEdit } = content;
 
   const affects = (message: { content?: string; newContent?: string; attachments?: unknown[] }) =>
     kind === "links"
@@ -94,14 +95,28 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
     onSent: (m: { content: string; attachments?: unknown[] }) => {
       if (affects(m)) refreshTop();
     },
-    onEdited: (m: { id: string }) => {
-      dropMessage(m.id);
+    onEdited: (m: { id: string; newContent?: string; attachments?: { id: string }[] }) => {
+      applyEdit({
+        messageId: m.id,
+        content: m.newContent,
+        attachmentIds: m.attachments ? m.attachments.map((a) => a.id) : undefined,
+      });
       refreshTop();
     },
     onDeleted: (m: { id: string }) => dropMessage(m.id),
   };
   useWsChannelMessages(scope.kind === "channel" ? scope.channelId : null, handlers);
   useWsDmMessages(scope.kind === "dm" ? scope.friendId : null, currentUserId, handlers);
+
+  React.useEffect(
+    () =>
+      ws.on((env) => {
+        if (env.type !== "message.hidden") return;
+        const id = (env.data as { messageId?: unknown }).messageId;
+        if (typeof id === "string") dropMessage(id);
+      }),
+    [dropMessage],
+  );
 
   React.useEffect(() => {
     const node = sentinelRef.current;
