@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 
 import i18n from "../../../../i18n";
 import SharedPanel from "../SharedPanel";
+import { useBlockStore } from "../../../social/store/blockStore";
 import { sharedAPI } from "../../api/shared";
 import { itemKey, mergeFirstPage, messageItems, reconcileEdit, replaceMessageItems } from "../../hooks/useSharedContent";
 
@@ -332,6 +333,26 @@ describe("shared panel edge cases", () => {
     expect(screen.getByText("https://second.example")).toBeInTheDocument();
     expect(screen.queryByText("https://first.example")).toBeNull();
     list.mockReset();
+  });
+
+  it("hides content from blocked channel members until asked", async () => {
+    useBlockStore.setState({ blocked: { u2: true } } as never);
+    list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    render(
+      <SharedPanel
+        scope={{ kind: "channel", communityId: "c1", channelId: "ch1" }}
+        currentUserId="u1"
+        onClose={() => undefined}
+        onShowMessage={() => undefined}
+      />,
+    );
+    list.mockResolvedValueOnce({ items: [file("a1", "abuse.pdf")], nextCursor: null });
+    fireEvent.click(screen.getByRole("tab", { name: "Files" }));
+    expect(await screen.findByText("Message from a blocked user")).toBeInTheDocument();
+    expect(screen.queryByText("abuse.pdf")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show" }));
+    expect(screen.getByText("abuse.pdf")).toBeInTheDocument();
+    useBlockStore.setState({ blocked: {} } as never);
   });
 });
 

@@ -8,6 +8,7 @@ import { announceVoiceListened, sharedAPI, type SharedItem, type SharedKind, typ
 import { itemKey, useSharedContent } from "../hooks/useSharedContent";
 import { useWsChannelMessages, useWsDmMessages } from "../hooks/useWebSocketMessages";
 import { ws } from "../../../shared/ws/websocket";
+import { useBlockStore } from "../../social/store/blockStore";
 import AttachmentItem from "./AttachmentItem";
 import VideoNotePlayer from "./VideoNotePlayer";
 import VoicePlayer from "./VoicePlayer";
@@ -28,10 +29,22 @@ const SharedEntry: React.FC<{
   item: SharedItem;
   kind: SharedKind;
   mine: boolean;
+  blocked: boolean;
   scope: SharedScope;
   onShowMessage: (messageId: string) => void;
-}> = ({ item, kind, mine, scope, onShowMessage }) => {
+}> = ({ item, kind, mine, blocked, scope, onShowMessage }) => {
   const { t } = useTranslation("chat");
+  const [revealed, setRevealed] = React.useState(false);
+  if (blocked && !revealed) {
+    return (
+      <li className="shared-entry shared-blocked">
+        <span>{t("blockedMessage")}</span>
+        <button type="button" className="shared-jump" onClick={() => setRevealed(true)}>
+          {t("showBlockedMessage")}
+        </button>
+      </li>
+    );
+  }
   const author = mine ? t("shared.you") : item.authorName || t("shared.unknownAuthor");
   const meta = (
     <div className="shared-meta">
@@ -109,6 +122,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
   const [kind, setKind] = React.useState<SharedKind>("media");
   const [query, setQuery] = React.useState("");
   const content = useSharedContent(scope, kind, query);
+  const blockedIds = useBlockStore((s) => s.blocked);
   const sentinelRef = React.useRef<HTMLDivElement>(null);
   const { loadMore, refreshTop, dropMessage, applyEdit } = content;
 
@@ -195,6 +209,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
               item={item}
               kind={kind}
               mine={!!currentUserId && item.authorId === currentUserId}
+              blocked={scope.kind === "channel" && !!blockedIds[item.authorId]}
               scope={scope}
               onShowMessage={onShowMessage}
             />
