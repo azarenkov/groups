@@ -162,7 +162,11 @@ async fn get_user_profile(
         bio: if hidden { String::new() } else { view.profile.bio },
         profile_updated_at: view.profile.profile_updated_at,
         active: view.profile.active,
-        timezone: if hidden { String::new() } else { view.profile.timezone },
+        timezone: if hidden || (auth_token.id != target_id && !settings.show_local_time) {
+            String::new()
+        } else {
+            view.profile.timezone
+        },
         member_since: if hidden { None } else { view.profile.registered_at },
         accepts_calls,
         accepts_messages,

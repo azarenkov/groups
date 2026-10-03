@@ -33,6 +33,7 @@ pub struct PrivacySettings {
     pub dm_policy: ContactPolicy,
     pub call_policy: ContactPolicy,
     pub accept_friend_requests: bool,
+    pub show_local_time: bool,
 }
 
 impl Default for PrivacySettings {
@@ -41,6 +42,7 @@ impl Default for PrivacySettings {
             dm_policy: ContactPolicy::Friends,
             call_policy: ContactPolicy::Friends,
             accept_friend_requests: true,
+            show_local_time: false,
         }
     }
 }
@@ -54,5 +56,6 @@ pub trait PrivacyRepository {
         dm_policy: Option<ContactPolicy>,
         call_policy: Option<ContactPolicy>,
         accept_friend_requests: Option<bool>,
+        show_local_time: Option<bool>,
     ) -> Result<PrivacySettings, RepositoryError>;
 }

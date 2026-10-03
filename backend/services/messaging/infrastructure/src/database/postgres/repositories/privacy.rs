@@ -20,7 +20,7 @@ impl PostgresPrivacyRepository {
 impl PrivacyRepository for PostgresPrivacyRepository {
     async fn get(&self, user_id: &UserId) -> Result<PrivacySettings, RepositoryError> {
         let row = sqlx::query!(
-            r#"SELECT dm_policy, call_policy, accept_friend_requests FROM user_privacy_settings WHERE user_id = $1"#,
+            r#"SELECT dm_policy, call_policy, accept_friend_requests, show_local_time FROM user_privacy_settings WHERE user_id = $1"#,
             user_id.uuid(),
         )
         .fetch_optional(&self.pool)
@@ -31,6 +31,7 @@ impl PrivacyRepository for PostgresPrivacyRepository {
                 dm_policy: ContactPolicy::parse(&r.dm_policy).unwrap_or(ContactPolicy::Friends),
                 call_policy: ContactPolicy::parse(&r.call_policy).unwrap_or(ContactPolicy::Friends),
                 accept_friend_requests: r.accept_friend_requests,
+                show_local_time: r.show_local_time,
             })
             .unwrap_or_default())
     }
@@ -41,22 +42,25 @@ impl PrivacyRepository for PostgresPrivacyRepository {
         dm_policy: Option<ContactPolicy>,
         call_policy: Option<ContactPolicy>,
         accept_friend_requests: Option<bool>,
+        show_local_time: Option<bool>,
     ) -> Result<PrivacySettings, RepositoryError> {
         let row = sqlx::query!(
             r#"
-            INSERT INTO user_privacy_settings (user_id, dm_policy, call_policy, accept_friend_requests, updated_at)
-            VALUES ($1, COALESCE($2, 'friends'), COALESCE($3, 'friends'), COALESCE($4, true), now())
+            INSERT INTO user_privacy_settings (user_id, dm_policy, call_policy, accept_friend_requests, show_local_time, updated_at)
+            VALUES ($1, COALESCE($2, 'friends'), COALESCE($3, 'friends'), COALESCE($4, true), COALESCE($5, false), now())
             ON CONFLICT (user_id) DO UPDATE
                 SET dm_policy = COALESCE($2, user_privacy_settings.dm_policy),
                     call_policy = COALESCE($3, user_privacy_settings.call_policy),
                     accept_friend_requests = COALESCE($4, user_privacy_settings.accept_friend_requests),
+                    show_local_time = COALESCE($5, user_privacy_settings.show_local_time),
                     updated_at = now()
-            RETURNING dm_policy, call_policy, accept_friend_requests
+            RETURNING dm_policy, call_policy, accept_friend_requests, show_local_time
             "#,
             user_id.uuid(),
             dm_policy.map(|p| p.as_str().to_string()) as Option<String>,
             call_policy.map(|p| p.as_str().to_string()) as Option<String>,
             accept_friend_requests,
+            show_local_time,
         )
         .fetch_one(&self.pool)
         .await
@@ -65,6 +69,7 @@ impl PrivacyRepository for PostgresPrivacyRepository {
             dm_policy: ContactPolicy::parse(&row.dm_policy).unwrap_or(ContactPolicy::Friends),
             call_policy: ContactPolicy::parse(&row.call_policy).unwrap_or(ContactPolicy::Friends),
             accept_friend_requests: row.accept_friend_requests,
+            show_local_time: row.show_local_time,
         })
     }
 }

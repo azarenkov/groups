@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO user_privacy_settings (user_id, dm_policy, call_policy, accept_friend_requests, show_local_time, updated_at)\n            VALUES ($1, COALESCE($2, 'friends'), COALESCE($3, 'friends'), COALESCE($4, true), COALESCE($5, false), now())\n            ON CONFLICT (user_id) DO UPDATE\n                SET dm_policy = COALESCE($2, user_privacy_settings.dm_policy),\n                    call_policy = COALESCE($3, user_privacy_settings.call_policy),\n                    accept_friend_requests = COALESCE($4, user_privacy_settings.accept_friend_requests),\n                    show_local_time = COALESCE($5, user_privacy_settings.show_local_time),\n                    updated_at = now()\n            RETURNING dm_policy, call_policy, accept_friend_requests, show_local_time\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dm_policy",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "call_policy",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "accept_friend_requests",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "show_local_time",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e676b8f1573816d541744606c9ed038a767e6a7dda0948eb64aa4af894dfc368"
+}
