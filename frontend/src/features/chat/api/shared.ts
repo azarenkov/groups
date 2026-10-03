@@ -13,6 +13,7 @@ export interface SharedItem {
   messageId: string;
   authorId: string;
   authorName: string;
+  forwardedAuthorId?: string;
   createdAt: string;
   attachment?: Attachment;
   url?: string;

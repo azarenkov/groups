@@ -52,6 +52,7 @@ export interface SharedMessage {
   id: string;
   authorId: string;
   authorName?: string;
+  forwardedFrom?: { authorId: string } | null;
   createdAt: string;
   content: string;
   attachments?: Attachment[];
@@ -63,6 +64,7 @@ export const messageItems = (message: SharedMessage, kind: SharedKind, query: st
     messageId: message.id,
     authorId: message.authorId,
     authorName: message.authorName ?? "",
+    forwardedAuthorId: message.forwardedFrom?.authorId,
     createdAt: message.createdAt,
   };
   if (kind === "links") {

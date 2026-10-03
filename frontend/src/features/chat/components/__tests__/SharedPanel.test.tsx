@@ -346,11 +346,15 @@ describe("shared panel edge cases", () => {
         onShowMessage={() => undefined}
       />,
     );
-    list.mockResolvedValueOnce({ items: [file("a1", "abuse.pdf")], nextCursor: null });
+    list.mockResolvedValueOnce({
+      items: [file("a1", "abuse.pdf"), { ...file("a0", "forwarded.pdf"), authorId: "u3", forwardedAuthorId: "u2" }],
+      nextCursor: null,
+    });
     fireEvent.click(screen.getByRole("tab", { name: "Files" }));
-    expect(await screen.findByText("Message from a blocked user")).toBeInTheDocument();
+    expect(await screen.findAllByText("Message from a blocked user")).toHaveLength(2);
     expect(screen.queryByText("abuse.pdf")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Show" }));
+    expect(screen.queryByText("forwarded.pdf")).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: "Show" })[0]);
     expect(screen.getByText("abuse.pdf")).toBeInTheDocument();
     useBlockStore.setState({ blocked: {} } as never);
   });

@@ -209,7 +209,10 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
               item={item}
               kind={kind}
               mine={!!currentUserId && item.authorId === currentUserId}
-              blocked={scope.kind === "channel" && !!blockedIds[item.authorId]}
+              blocked={
+                scope.kind === "channel" &&
+                (!!blockedIds[item.authorId] || (!!item.forwardedAuthorId && !!blockedIds[item.forwardedAuthorId]))
+              }
               scope={scope}
               onShowMessage={onShowMessage}
             />
