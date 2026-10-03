@@ -46,6 +46,9 @@ interface ChatViewProps {
   membersOpen?: boolean;
   communities?: Community[];
   onToggleMembers?: () => void;
+  sharedOpen?: boolean;
+  onToggleShared?: () => void;
+  onMessagesChanged?: () => void;
   onRemoveFriend?: () => void;
   onBlockUser?: () => void;
   onGoToCommunity?: (communityId: string) => void | Promise<void>;
@@ -63,6 +66,9 @@ const ChatView: React.FC<ChatViewProps> = ({
   membersOpen,
   communities,
   onToggleMembers,
+  sharedOpen,
+  onToggleShared,
+  onMessagesChanged,
   onRemoveFriend,
   onBlockUser,
   onGoToCommunity,
@@ -183,6 +189,23 @@ const ChatView: React.FC<ChatViewProps> = ({
       void refetchUnread().catch(() => {});
     },
   });
+
+  const messagesSignature = React.useMemo(
+    () =>
+      messages
+        .map((m) => `${m.id}:${m.editedAt ?? ""}:${m.attachments?.length ?? 0}`)
+        .join("|"),
+    [messages],
+  );
+  const onMessagesChangedRef = React.useRef(onMessagesChanged);
+  onMessagesChangedRef.current = onMessagesChanged;
+  const lastSignatureRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (lastSignatureRef.current !== null && lastSignatureRef.current !== messagesSignature) {
+      onMessagesChangedRef.current?.();
+    }
+    lastSignatureRef.current = messagesSignature;
+  }, [messagesSignature]);
 
   const composer = useMessageComposer({
     messenger,
@@ -340,6 +363,8 @@ const ChatView: React.FC<ChatViewProps> = ({
         searchActive={search.searchOpen}
         onToggleSearch={search.toggleSearch}
         onToggleMembers={onToggleMembers}
+        sharedOpen={sharedOpen}
+        onToggleShared={onToggleShared}
         onRemoveFriend={onRemoveFriend}
         onBlockUser={onBlockUser}
         onUnblockUser={() => {
