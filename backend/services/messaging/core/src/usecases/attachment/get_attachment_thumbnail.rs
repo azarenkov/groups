@@ -41,13 +41,51 @@ pub enum GetAttachmentThumbnailError {
     Repository(#[from] RepositoryError),
 }
 
+type InFlight = StdMutex<HashMap<String, Arc<Mutex<()>>>>;
+
+struct KeyLock<'a> {
+    map: &'a InFlight,
+    key: String,
+    lock: Option<Arc<Mutex<()>>>,
+}
+
+impl<'a> KeyLock<'a> {
+    fn acquire(map: &'a InFlight, key: &str) -> Self {
+        let lock = map
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .entry(key.to_string())
+            .or_default()
+            .clone();
+        Self {
+            map,
+            key: key.to_string(),
+            lock: Some(lock),
+        }
+    }
+
+    fn lock(&self) -> &Mutex<()> {
+        self.lock.as_deref().expect("key lock is held until drop")
+    }
+}
+
+impl Drop for KeyLock<'_> {
+    fn drop(&mut self) {
+        let mut map = self.map.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        drop(self.lock.take());
+        if map.get(&self.key).is_some_and(|entry| Arc::strong_count(entry) == 1) {
+            map.remove(&self.key);
+        }
+    }
+}
+
 pub struct GetAttachmentThumbnail<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> {
     message_repository: Arc<M>,
     storage: Arc<S>,
     thumbnailer: Arc<T>,
     releases: Arc<R>,
     generating: Semaphore,
-    in_flight: StdMutex<HashMap<String, Arc<Mutex<()>>>>,
+    in_flight: InFlight,
 }
 
 impl<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> GetAttachmentThumbnail<M, S, T, R> {
@@ -78,10 +116,8 @@ impl<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> G
         if let Some(cached) = self.cached(&link.storage_key).await? {
             return Ok(cached);
         }
-        let key_lock = self.key_lock(&link.storage_key);
-        let result = self.generate(attachment_id, &user_id, &link.storage_key, &key_lock).await;
-        self.release_key_lock(&link.storage_key, key_lock);
-        result
+        let key_lock = KeyLock::acquire(&self.in_flight, &link.storage_key);
+        self.generate(attachment_id, &user_id, &link.storage_key, key_lock.lock()).await
     }
 
     async fn cached(&self, storage_key: &str) -> Result<Option<(&'static str, ByteStream)>, GetAttachmentThumbnailError> {
@@ -93,19 +129,6 @@ impl<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> G
             }
         }
         Ok(None)
-    }
-
-    fn key_lock(&self, storage_key: &str) -> Arc<Mutex<()>> {
-        let mut map = self.in_flight.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        map.entry(storage_key.to_string()).or_default().clone()
-    }
-
-    fn release_key_lock(&self, storage_key: &str, lock: Arc<Mutex<()>>) {
-        let mut map = self.in_flight.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        drop(lock);
-        if map.get(storage_key).is_some_and(|entry| Arc::strong_count(entry) == 1) {
-            map.remove(storage_key);
-        }
     }
 
     async fn generate(
@@ -177,5 +200,22 @@ impl<M: MessageRepository, S: FileStorage, T: Thumbnailer, R: StorageReleases> G
             bytes.extend_from_slice(&chunk);
         }
         Ok(bytes)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn key_locks_are_removed_when_dropped_even_if_shared() {
+        let map: InFlight = StdMutex::new(HashMap::new());
+        let first = KeyLock::acquire(&map, "a");
+        let second = KeyLock::acquire(&map, "a");
+        assert_eq!(map.lock().unwrap().len(), 1);
+        drop(first);
+        assert_eq!(map.lock().unwrap().len(), 1);
+        drop(second);
+        assert!(map.lock().unwrap().is_empty());
     }
 }
