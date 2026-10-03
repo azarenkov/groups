@@ -85,6 +85,8 @@ export interface MessageProps {
   onVoiceListened?: () => Promise<void>;
 }
 
+const MESSAGE_STICKER_SIZE = 220;
+
 export const Message: React.FC<MessageProps> = ({
   tabbable,
   blockedAuthor,
@@ -755,7 +757,7 @@ export const Message: React.FC<MessageProps> = ({
                 <StickerImage
                   id={msg.sticker.id}
                   emoji={msg.sticker.emoji}
-                  size={160}
+                  size={MESSAGE_STICKER_SIZE}
                   width={msg.sticker.width}
                   height={msg.sticker.height}
                   animated={msg.sticker.animated}
