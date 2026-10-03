@@ -61,4 +61,11 @@ export const emojiOnlyCount = (text: string): number => {
   return count;
 };
 
+export const MAX_JUMBO_EMOJI = 3;
+
+export const jumboEmojiCount = (text: string): number => {
+  const count = emojiOnlyCount(text);
+  return count <= MAX_JUMBO_EMOJI ? count : 0;
+};
+
 export const isJumboEmoji = (text: string): boolean => emojiOnlyCount(text) === 1;

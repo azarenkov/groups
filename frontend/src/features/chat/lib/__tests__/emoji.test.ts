@@ -1,4 +1,4 @@
-import { emojiOnlyCount, isJumboEmoji } from "../emoji";
+import { emojiOnlyCount, isJumboEmoji, jumboEmojiCount } from "../emoji";
 
 describe("isJumboEmoji", () => {
   it("enlarges a single emoji, including composed ones", () => {
@@ -16,5 +16,14 @@ describe("isJumboEmoji", () => {
   it("counts emoji-only messages", () => {
     expect(emojiOnlyCount("😀 😃 😄")).toBe(3);
     expect(emojiOnlyCount("😀 a")).toBe(0);
+  });
+
+  it("enlarges up to three emoji and leaves longer runs as text", () => {
+    expect(jumboEmojiCount("😂")).toBe(1);
+    expect(jumboEmojiCount("😂😂😂")).toBe(3);
+    expect(jumboEmojiCount(" 👍🏽 🇷🇺 ")).toBe(2);
+    expect(jumboEmojiCount("😂😂😂😂")).toBe(0);
+    expect(jumboEmojiCount("😂 ok")).toBe(0);
+    expect(jumboEmojiCount("")).toBe(0);
   });
 });
