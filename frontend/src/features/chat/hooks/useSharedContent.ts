@@ -40,6 +40,30 @@ export interface MessageEdit {
   content?: string;
 }
 
+export const matchingLinks = (content: string, query: string): string[] => {
+  const needle = query.trim().toLowerCase();
+  return (content.match(URL_REGEX) ?? []).filter((url) => !needle || url.toLowerCase().includes(needle)).reverse();
+};
+
+export const insertMessageLinks = (
+  items: SharedItem[],
+  message: { messageId: string; authorId: string; authorName: string; createdAt: string; urls: string[] },
+  complete: boolean,
+): SharedItem[] => {
+  if (message.urls.length === 0 || items.some((item) => item.messageId === message.messageId)) return items;
+  const entries = message.urls.map((url) => ({
+    messageId: message.messageId,
+    authorId: message.authorId,
+    authorName: message.authorName,
+    createdAt: message.createdAt,
+    url,
+  }));
+  const anchor: SharedItem = entries[0];
+  const at = items.findIndex((item) => olderThan(item, anchor));
+  if (at < 0) return complete ? [...items, ...entries] : items;
+  return [...items.slice(0, at), ...entries, ...items.slice(at)];
+};
+
 export const reconcileEdit = (items: SharedItem[], edit: MessageEdit, kind: SharedKind, query: string): SharedItem[] => {
   const first = items.findIndex((item) => item.messageId === edit.messageId);
   if (first < 0) return items;
@@ -50,10 +74,7 @@ export const reconcileEdit = (items: SharedItem[], edit: MessageEdit, kind: Shar
   }
   if (edit.content === undefined) return items;
   const template = items[first];
-  const needle = query.trim().toLowerCase();
-  const urls = (edit.content.match(URL_REGEX) ?? [])
-    .filter((url) => !needle || url.toLowerCase().includes(needle))
-    .reverse();
+  const urls = matchingLinks(edit.content, query);
   const replaced = urls.map((url) => ({ ...template, attachment: undefined, url }));
   const rest = items.filter((item) => item.messageId !== edit.messageId);
   return [...rest.slice(0, first), ...replaced, ...rest.slice(first)];
@@ -148,9 +169,37 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
     setState((s) => ({ ...s, items: s.items.filter((item) => item.messageId !== messageId) }));
   }, []);
 
+  const itemsRef = React.useRef(state.items);
+  itemsRef.current = state.items;
+
   const applyEdit = React.useCallback(
     (edit: MessageEdit) => {
-      setState((s) => ({ ...s, items: reconcileEdit(s.items, edit, kind, debouncedQuery) }));
+      const known = itemsRef.current.some((item) => item.messageId === edit.messageId);
+      if (known || kind !== "links" || !edit.content || matchingLinks(edit.content, debouncedQuery).length === 0) {
+        setState((s) => ({ ...s, items: reconcileEdit(s.items, edit, kind, debouncedQuery) }));
+        return;
+      }
+      const scopeAtEdit = sharedScopeKey(scopeRef.current);
+      sharedAPI
+        .message(scopeRef.current, edit.messageId)
+        .then((message) => {
+          if (sharedScopeKey(scopeRef.current) !== scopeAtEdit) return;
+          setState((s) => ({
+            ...s,
+            items: insertMessageLinks(
+              s.items,
+              {
+                messageId: message.id,
+                authorId: message.authorId,
+                authorName: message.authorName ?? "",
+                createdAt: message.createdAt,
+                urls: matchingLinks(message.content, debouncedQuery),
+              },
+              s.nextCursor === null,
+            ),
+          }));
+        })
+        .catch(() => {});
     },
     [kind, debouncedQuery],
   );

@@ -1,5 +1,7 @@
 import { http } from "../../../shared/api/http";
-import type { Attachment } from "../../../shared/types/channel";
+import type { Attachment, ChannelMessage } from "../../../shared/types/channel";
+import { channelAPI } from "../../communities/api/channel";
+import { dmAPI } from "../../dm/api/dm";
 
 export type SharedKind = "media" | "files" | "voice" | "links";
 
@@ -30,6 +32,12 @@ const sharedPath = (scope: SharedScope): string =>
     : `/v1/communities/${scope.communityId}/channels/${scope.channelId}/shared`;
 
 export const sharedAPI = {
+  message(scope: SharedScope, messageId: string): Promise<ChannelMessage> {
+    return scope.kind === "dm"
+      ? dmAPI.getMessage(scope.friendId, messageId)
+      : channelAPI.getMessage(scope.communityId, scope.channelId, messageId);
+  },
+
   async list(
     scope: SharedScope,
     kind: SharedKind,

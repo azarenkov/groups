@@ -4,11 +4,11 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import i18n from "../../../../i18n";
 import SharedPanel from "../SharedPanel";
 import { sharedAPI } from "../../api/shared";
-import { mergeFirstPage, reconcileEdit } from "../../hooks/useSharedContent";
+import { insertMessageLinks, mergeFirstPage, reconcileEdit } from "../../hooks/useSharedContent";
 
 jest.mock("../../api/shared", () => {
   const actual = jest.requireActual("../../api/shared");
-  return { ...actual, sharedAPI: { list: jest.fn() } };
+  return { ...actual, sharedAPI: { list: jest.fn(), message: jest.fn() } };
 });
 
 const wsHandlers: {
@@ -172,6 +172,45 @@ describe("shared panel edge cases", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("new.pdf")).toBeInTheDocument();
     expect(list).toHaveBeenLastCalledWith(expect.anything(), "files", expect.objectContaining({ before: null }));
+  });
+
+  it("places links gained by an edit among the loaded ones", () => {
+    const items = [link("m3", "https://c", "2026-10-03"), link("m1", "https://a", "2026-10-01")];
+    const edited = { messageId: "m2", authorId: "u", authorName: "", createdAt: "2026-10-02", urls: ["https://b"] };
+    expect(insertMessageLinks(items, edited, false).map((i) => i.url)).toEqual(["https://c", "https://b", "https://a"]);
+    const older = { ...edited, createdAt: "2026-09-01" };
+    expect(insertMessageLinks(items, older, false).map((i) => i.url)).toEqual(["https://c", "https://a"]);
+    expect(insertMessageLinks(items, older, true).map((i) => i.url)).toEqual(["https://c", "https://a", "https://b"]);
+  });
+
+  it("fetches an edited message that gained links and shows them", async () => {
+    list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    render(
+      <SharedPanel scope={{ kind: "dm", friendId: "u2" }} currentUserId="u1" onClose={() => undefined} onShowMessage={() => undefined} />,
+    );
+    list.mockResolvedValueOnce({
+      items: [link("m3", "https://c.example", "2026-10-03T00:00:00Z"), link("m1", "https://a.example", "2026-10-01T00:00:00Z")],
+      nextCursor: "older",
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Links" }));
+    expect(await screen.findByText("https://a.example")).toBeInTheDocument();
+    (sharedAPI.message as jest.Mock).mockResolvedValueOnce({
+      id: "m2",
+      authorId: "u2",
+      authorName: "Bob",
+      createdAt: "2026-10-02T00:00:00Z",
+      content: "see https://b.example",
+    });
+    list.mockResolvedValueOnce({ items: [link("m3", "https://c.example", "2026-10-03T00:00:00Z")], nextCursor: "first" });
+    act(() => wsHandlers.current.onEdited?.({ id: "m2", newContent: "see https://b.example" }));
+    expect(await screen.findByText("https://b.example")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(Array.from(document.querySelectorAll(".shared-link-url")).map((n) => n.textContent)).toEqual([
+        "https://c.example",
+        "https://b.example",
+        "https://a.example",
+      ]),
+    );
   });
 });
 
