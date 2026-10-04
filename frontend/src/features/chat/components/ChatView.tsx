@@ -15,6 +15,7 @@ import i18n from "../../../i18n";
 import { useUserNamesStore } from "../../social/store/userNamesStore";
 import { refetchUnread } from "../store/unreadStore";
 import { useRolesStore, userPermissions } from "../../communities/store/rolesStore";
+import { useCommunityStore } from "../../communities/store/communityStore";
 import ChannelHeader from "./ChannelHeader";
 import Composer from "./Composer";
 import SearchResults from "./SearchResults";
@@ -235,9 +236,10 @@ const ChatView: React.FC<ChatViewProps> = ({
   React.useEffect(() => {
     if (communityId) void fetchRoles(communityId).catch(() => {});
   }, [communityId, fetchRoles]);
+  const storedCommunities = useCommunityStore((s) => s.communities);
   const communityOwnerId = React.useMemo(
-    () => communities?.find((sv) => sv.id === communityId)?.ownerId,
-    [communities, communityId],
+    () => (communities ?? storedCommunities).find((sv) => sv.id === communityId)?.ownerId,
+    [communities, storedCommunities, communityId],
   );
   const {
     mentionQuery,
