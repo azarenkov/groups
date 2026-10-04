@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import { CommunityLogo, UserAvatar } from "../../../shared/ui/Avatar";
@@ -87,6 +88,18 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const [menuOpen, setMenuOpen] = React.useState(false);
   const badge = useBadge(userId);
   const bannerUrl = useAvatarUrl("banner", badge && !blockedMe ? userId : null);
+  const avatarUrl = useAvatarUrl("user", userId);
+  const [avatarOpen, setAvatarOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (!avatarOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      setAvatarOpen(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [avatarOpen]);
   const [copied, setCopied] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
   useMinuteTick();
@@ -225,10 +238,36 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
             <Icon name="x" size={15} />
           </button>
         </div>
+        {avatarOpen &&
+          avatarUrl &&
+          createPortal(
+            <div
+              className="image-viewer-overlay"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAvatarOpen(false);
+              }}
+            >
+              <img src={avatarUrl} alt={name} className="profile-avatar-full" />
+            </div>,
+            document.body,
+          )}
         <div className="profile-body">
           <div className="profile-avatar-row">
             <span className="profile-avatar-wrap">
-              <UserAvatar userId={userId} name={name || "?"} className="profile-avatar" style={{ background: colorForId(userId) }} />
+              {avatarUrl ? (
+                <button
+                  type="button"
+                  className="profile-avatar-open"
+                  title={t("openAvatar")}
+                  aria-label={t("openAvatar")}
+                  onClick={() => setAvatarOpen(true)}
+                >
+                  <UserAvatar userId={userId} name={name || "?"} className="profile-avatar" style={{ background: colorForId(userId) }} />
+                </button>
+              ) : (
+                <UserAvatar userId={userId} name={name || "?"} className="profile-avatar" style={{ background: colorForId(userId) }} />
+              )}
               <span className={"profile-presence " + (online ? "online" : "offline")} />
             </span>
             {profile?.voiceRoom && !blockedMe && (

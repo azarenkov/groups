@@ -14,6 +14,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
   padding: 24px 24px 12px;
   display: flex; flex-direction: column;
 }
@@ -1349,7 +1350,10 @@
 }
 .shared-tab:hover { background: var(--surface-hover); }
 .shared-tab.on { background: var(--accent-tint); color: var(--accent); font-weight: 600; }
-.shared-search { margin: 0 12px 8px; width: auto; }
+.shared-panel .shared-search { margin: 0 12px 8px; width: auto; box-sizing: border-box; flex-shrink: 0; }
+.shared-panel .vnote { --vnote-size: 200px; max-width: 100%; max-height: none; }
+.shared-panel .vnote.active { --vnote-size: 230px; }
+.shared-panel .shared-voice .shared-body { display: flex; justify-content: center; }
 .shared-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 12px; }
 .shared-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .shared-list-media { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }

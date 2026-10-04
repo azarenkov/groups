@@ -28,5 +28,6 @@
   "unblock": "Unblock",
   "blockedNotice": "You blocked this user. They cannot message you, call you or send you requests.",
   "blockedByNotice": "You cannot interact with this user.",
-  "profileShort": "Profile"
+  "profileShort": "Profile",
+  "openAvatar": "Open avatar"
 }

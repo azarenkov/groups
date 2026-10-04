@@ -1,7 +1,7 @@
 import React from "react";
 import { act, render } from "@testing-library/react";
 
-import { PULL_THRESHOLD, REFRESH_TIMEOUT_MS, usePullToRefresh } from "../usePullToRefresh";
+import { PULL_THRESHOLD, REFRESH_TIMEOUT_MS, resist, usePullToRefresh } from "../usePullToRefresh";
 
 let renders = 0;
 
@@ -82,7 +82,8 @@ it("follows the finger without re-rendering and springs back when the touch is c
   touch("touchStart", 400);
   touch("touchMove", 360);
   frame();
-  expect(body().style.transform).toBe("translateY(-18px)");
+  expect(body().style.transform).toBe(`translate3d(0, ${-resist(40 * 0.9)}px, 0)`);
+  expect(body().style.willChange).toBe("transform");
   expect(renders).toBe(before);
   act(() => {
     body().dispatchEvent(new TouchEvent("touchcancel", { bubbles: true }));
@@ -103,7 +104,7 @@ it("stops spinning when a refresh never answers", async () => {
   frame();
   expect(onRefresh).toHaveBeenCalledTimes(1);
   expect(indicator().classList.contains("refreshing")).toBe(true);
-  expect(body().style.transform).toBe(`translateY(${-PULL_THRESHOLD}px)`);
+  expect(body().style.transform).toBe(`translate3d(0, ${-PULL_THRESHOLD}px, 0)`);
   await act(async () => {
     jest.advanceTimersByTime(REFRESH_TIMEOUT_MS);
     await Promise.resolve();
@@ -172,5 +173,12 @@ it("keeps a slow chat locked after refreshing another chat", async () => {
   frame();
   pullAndRelease();
   expect(onRefresh).toHaveBeenCalledTimes(2);
+});
+
+it("eases the pull towards its limit", () => {
+  expect(resist(0)).toBe(0);
+  expect(resist(50)).toBeLessThan(50);
+  expect(resist(10_000)).toBeLessThanOrEqual(96);
+  expect(resist(200)).toBeGreaterThan(resist(100));
 });
 

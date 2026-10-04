@@ -2227,3 +2227,15 @@ body:has(.panel-resizer.dragging) { cursor: col-resize; }
 .ctx-sep { height: 1px; margin: 4px 6px; background: var(--hairline); }
 .ctx-custom { padding: 6px 10px; }
 .ctx-custom:has(> .ctx-item) { padding: 0; }
+
+.profile-avatar-open {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: zoom-in;
+}
+.profile-avatar-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.image-viewer-overlay .profile-avatar-full { width: min(80vw, 80vh, 640px); height: auto; aspect-ratio: 1; object-fit: cover; border-radius: 50%; }
+

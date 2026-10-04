@@ -9,6 +9,9 @@ const MIN_SPIN_MS = 650;
 const WHEEL_RELEASE_MS = 400;
 const SETTLE = "0.3s cubic-bezier(0.22, 1, 0.36, 1)";
 
+export const resist = (raw: number): number =>
+  raw <= 0 ? 0 : PULL_MAX * (1 - Math.exp(-raw / (PULL_MAX * 1.2)));
+
 const atBottom = (b: HTMLDivElement) => b.scrollTop + b.clientHeight >= b.scrollHeight - 1;
 
 export function usePullToRefresh(params: {
@@ -20,6 +23,7 @@ export function usePullToRefresh(params: {
   const { bodyRef, enabled, convId, onRefresh } = params;
   const indicatorRef = React.useRef<HTMLDivElement>(null);
   const distanceRef = React.useRef(0);
+  const rawPullRef = React.useRef(0);
   const frameRef = React.useRef<number | null>(null);
   const refreshingRef = React.useRef(false);
   const inFlightRef = React.useRef(new Set<string | undefined>());
@@ -46,7 +50,8 @@ export function usePullToRefresh(params: {
         const progress = Math.min(shown / PULL_THRESHOLD, 1);
         if (body) {
           body.style.transition = animate ? `transform ${SETTLE}` : "none";
-          body.style.transform = shown > 0 ? `translateY(${-shown}px)` : "";
+          body.style.transform = shown > 0 ? `translate3d(0, ${-shown}px, 0)` : "";
+          body.style.willChange = shown > 0 || refreshingRef.current ? "transform" : "";
         }
         if (indicator) {
           indicator.style.transition = animate ? `transform ${SETTLE}, opacity 0.2s` : "none";
@@ -142,7 +147,7 @@ export function usePullToRefresh(params: {
       return;
     }
     const dy = touchStartYRef.current - e.touches[0].clientY;
-    paint(dy > 0 ? Math.min(dy * 0.45, PULL_MAX) : 0, false);
+    paint(resist(dy * 0.9), false);
   };
 
   const onPullTouchEnd = () => {
@@ -165,7 +170,9 @@ export function usePullToRefresh(params: {
       }
       return;
     }
-    const next = Math.min(distanceRef.current + e.deltaY * 0.35, PULL_MAX);
+    if (distanceRef.current === 0) rawPullRef.current = 0;
+    rawPullRef.current += e.deltaY * 0.7;
+    const next = resist(rawPullRef.current);
     if (next >= PULL_THRESHOLD) {
       distanceRef.current = next;
       void refresh();
