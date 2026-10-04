@@ -57,6 +57,29 @@ async fn download_attachment(
         .streaming(body))
 }
 
+#[get("/{attachment_id}/thumbnail")]
+async fn attachment_thumbnail(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, HttpError> {
+    let (content_type, stream) = app_state
+        .get_attachment_thumbnail_usecase
+        .execute(path.into_inner(), UserId::new(auth_token.id))
+        .await?;
+    let body = stream.map(|chunk| chunk.map(web::Bytes::from));
+    Ok(HttpResponse::Ok()
+        .content_type(content_type)
+        .insert_header(("Content-Disposition", "inline"))
+        .insert_header(("X-Content-Type-Options", "nosniff"))
+        .insert_header(("Cache-Control", "private, no-store"))
+        .streaming(body))
+}
+
 pub fn attachment_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(web::scope("/v1/attachments").service(download_attachment));
+    cfg.service(
+        web::scope("/v1/attachments")
+            .service(attachment_thumbnail)
+            .service(download_attachment),
+    );
 }

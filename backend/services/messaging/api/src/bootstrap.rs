@@ -1,4 +1,7 @@
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
+use messaging::usecases::shared::list_shared_content::ListSharedContent;
+use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnail;
+use messaging_infrastructure::thumbnails::ImageThumbnailer;
 use std::{error::Error, sync::Arc};
 use api_common::shutdown::{self, ShutdownConfig};
 
@@ -75,7 +78,7 @@ use messaging_infrastructure::{
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
             notification_preference::PostgresNotificationPreferenceRepository,
-            read_state::PostgresReadStateRepository, community::PostgresCommunityRepository,
+            read_state::PostgresReadStateRepository, shared::PostgresSharedContentRepository, community::PostgresCommunityRepository,
             hidden_message::PostgresHiddenMessageRepository,
             voice_listen::PostgresVoiceListenRepository,
             community_role::PostgresCommunityRoleRepository,
@@ -305,9 +308,20 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             community_repository.clone(),
         ),
+        list_shared_content_usecase: ListSharedContent::new(
+            Arc::new(PostgresSharedContentRepository::new(postgres_pool.clone())),
+            channel_repository.clone(),
+            community_repository.clone(),
+        ),
         list_message_attachments_usecase: ListMessageAttachments::new(
             message_repository.clone(),
             dm_repository.clone(),
+        ),
+        get_attachment_thumbnail_usecase: GetAttachmentThumbnail::new(
+            message_repository.clone(),
+            minio_storage.clone(),
+            Arc::new(ImageThumbnailer),
+            Arc::new(messaging_infrastructure::outbox::storage::PostgresStorageReleases::new(postgres_pool.clone())),
         ),
         get_attachment_usecase: GetAttachment::new(
             message_repository.clone(),

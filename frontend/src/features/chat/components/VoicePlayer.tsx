@@ -16,6 +16,8 @@ type SinkAudio = HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> 
 
 interface VoicePlayerProps {
   messageId: string;
+  playbackId?: string;
+  autoplay?: boolean;
   attachment: Attachment;
   isMine: boolean;
   listened: boolean;
@@ -25,12 +27,15 @@ interface VoicePlayerProps {
 
 const VoicePlayer: React.FC<VoicePlayerProps> = ({
   messageId,
+  playbackId,
+  autoplay = true,
   attachment,
   isMine,
   listened,
   showListenDot,
   onListened,
 }) => {
+  const playId = playbackId ?? messageId;
   const durationMs = attachment.voice?.durationMs ?? 0;
   const waveform = attachment.voice?.waveform ?? [];
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -95,8 +100,8 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
   }, [durationMs]);
 
   React.useEffect(() => {
-    if (currentId !== messageId) unloadAudio();
-  }, [currentId, messageId, unloadAudio]);
+    if (currentId !== playId) unloadAudio();
+  }, [currentId, playId, unloadAudio]);
 
   React.useEffect(() => {
     disposedRef.current = false;
@@ -104,9 +109,9 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
       disposedRef.current = true;
       audioRef.current?.pause();
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-      useVoicePlaybackStore.getState().release(messageId);
+      useVoicePlaybackStore.getState().release(playId);
     };
-  }, [messageId]);
+  }, [playId]);
 
   const ensureAudio = React.useCallback((): Promise<SinkAudio> => {
     if (audioRef.current) return Promise.resolve(audioRef.current);
@@ -137,8 +142,8 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
           setPlaying(false);
           setProgress(0);
           audio.currentTime = 0;
-          useVoicePlaybackStore.getState().release(messageId);
-          nextAutoplayAfter(messageId)?.play();
+          useVoicePlaybackStore.getState().release(playId);
+          nextAutoplayAfter(playId)?.play();
         });
         audioRef.current = audio;
         setLoading(false);
@@ -152,14 +157,14 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
       });
     loadingRef.current = promise;
     return promise;
-  }, [attachment.id, attachment.sizeBytes, messageId, tick]);
+  }, [attachment.id, attachment.sizeBytes, playId, tick]);
 
   const play = React.useCallback(() => {
-    useVoicePlaybackStore.getState().setCurrent(messageId);
+    useVoicePlaybackStore.getState().setCurrent(playId);
     setFailed(false);
     void ensureAudio()
       .then((audio) => {
-        if (useVoicePlaybackStore.getState().currentId !== messageId) {
+        if (useVoicePlaybackStore.getState().currentId !== playId) {
           unloadAudio();
           return;
         }
@@ -178,18 +183,18 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
         });
       })
       .catch(() => setFailed(true));
-  }, [durationMs, ensureAudio, isMine, messageId, onListened, unloadAudio]);
+  }, [durationMs, ensureAudio, isMine, playId, onListened, unloadAudio]);
 
   const autoplayableRef = React.useRef(false);
-  autoplayableRef.current = !isMine && !listened && !reportedRef.current;
+  autoplayableRef.current = autoplay && !isMine && !listened && !reportedRef.current;
   React.useEffect(
     () =>
-      registerVoicePlayer(messageId, {
+      registerVoicePlayer(playId, {
         element: () => rootRef.current,
         autoplayable: () => autoplayableRef.current,
         play,
       }),
-    [messageId, play],
+    [playId, play],
   );
 
   const toggle = () => {

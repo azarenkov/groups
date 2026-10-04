@@ -2,27 +2,54 @@ import React from "react";
 import { createPortal } from "react-dom";
 
 import { attachmentAPI } from "../api/attachment";
+import { ApiError } from "../../../shared/lib/apiError";
 import type { Attachment } from "../../../shared/types/channel";
 import { formatFileSize } from "../lib/messageFormat";
 import {
   acquireImageUrl,
   discardBrokenImageUrl,
   downloadImageUrl,
+  downloadThumbnailUrl,
   releaseImageUrl,
   retainImageUrl,
+  thumbnailKey,
 } from "../lib/imageUrlCache";
 import Icon from "../../../shared/ui/Icon";
+import { OriginalImageViewer, VideoViewer } from "./MediaViewers";
 
 export const IMAGE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
+export const THUMBNAIL_SOURCE_MAX_BYTES = 25 * 1024 * 1024;
+export const VIDEO_PLAY_MAX_BYTES = 200 * 1024 * 1024;
 
-export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
+const playableTypes = new Map<string, boolean>();
+
+export const canPlayVideo = (contentType: string): boolean => {
+  const cached = playableTypes.get(contentType);
+  if (cached !== undefined) return cached;
+  let playable = false;
+  try {
+    playable = document.createElement("video").canPlayType(contentType) !== "";
+  } catch {
+    playable = false;
+  }
+  playableTypes.set(contentType, playable);
+  return playable;
+};
+
+export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: boolean }> = ({
   attachment,
+  thumbnail = false,
 }) => {
   const isImage =
     attachment.contentType.startsWith("image/") &&
-    attachment.sizeBytes <= IMAGE_PREVIEW_MAX_BYTES;
+    attachment.sizeBytes <= (thumbnail ? THUMBNAIL_SOURCE_MAX_BYTES : IMAGE_PREVIEW_MAX_BYTES);
+  const isVideo =
+    attachment.contentType.startsWith("video/") &&
+    attachment.sizeBytes <= VIDEO_PLAY_MAX_BYTES &&
+    canPlayVideo(attachment.contentType);
+  const cacheKey = thumbnail ? thumbnailKey(attachment.id) : attachment.id;
   const [url, setUrl] = React.useState<string | null>(() =>
-    acquireImageUrl(attachment.id),
+    acquireImageUrl(cacheKey),
   );
   const [failed, setFailed] = React.useState(false);
   const [viewerOpen, setViewerOpen] = React.useState(false);
@@ -36,8 +63,8 @@ export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
   viewerOpenRef.current = viewerOpen;
 
   React.useEffect(() => {
-    return () => releaseImageUrl(attachment.id, urlRef.current);
-  }, [attachment.id]);
+    return () => releaseImageUrl(cacheKey, urlRef.current);
+  }, [cacheKey]);
 
   React.useEffect(() => {
     if (!isImage) return;
@@ -55,7 +82,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
         } else {
           setVisible(false);
           if (!viewerOpenRef.current && urlRef.current) {
-            releaseImageUrl(attachment.id, urlRef.current);
+            releaseImageUrl(cacheKey, urlRef.current);
             setUrl(null);
           }
         }
@@ -64,27 +91,34 @@ export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [attachment.id, isImage]);
+  }, [cacheKey, isImage]);
 
   React.useEffect(() => {
     if (!isImage || url || !visible) return;
-    const cached = acquireImageUrl(attachment.id);
+    const cached = acquireImageUrl(cacheKey);
     if (cached) {
       setUrl(cached);
       return;
     }
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    downloadImageUrl(attachment.id, attachment.sizeBytes)
+    const load = thumbnail
+      ? downloadThumbnailUrl(attachment.id, attachment.sizeBytes, IMAGE_PREVIEW_MAX_BYTES)
+      : downloadImageUrl(attachment.id, attachment.sizeBytes);
+    load
       .then((objectUrl) => {
         if (!cancelled) {
           attemptsRef.current = 0;
-          retainImageUrl(attachment.id, objectUrl);
+          retainImageUrl(cacheKey, objectUrl);
           setUrl(objectUrl);
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return;
+        if (thumbnail && err instanceof ApiError && err.status === 404) {
+          setFailed(true);
+          return;
+        }
         if (attemptsRef.current < 3) {
           const delay = 1500 * 2 ** attemptsRef.current;
           attemptsRef.current += 1;
@@ -97,7 +131,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [attachment.id, attachment.sizeBytes, isImage, url, visible, retryTick]);
+  }, [attachment.id, attachment.sizeBytes, cacheKey, thumbnail, isImage, url, visible, retryTick]);
 
   const handleDownload = () => {
     void attachmentAPI
@@ -130,7 +164,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
               alt={attachment.fileName}
               loading="lazy"
               onError={() => {
-                if (url) discardBrokenImageUrl(attachment.id, url);
+                if (url) discardBrokenImageUrl(cacheKey, url);
                 setUrl(null);
                 setFailed(true);
               }}
@@ -141,15 +175,19 @@ export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
             </span>
           )}
         </button>
+        {viewerOpen && url && thumbnail && (
+          <OriginalImageViewer attachment={attachment} placeholder={url} onClose={() => setViewerOpen(false)} />
+        )}
         {viewerOpen &&
           url &&
+          !thumbnail &&
           createPortal(
             <div
               className="image-viewer-overlay"
               onClick={() => {
                 setViewerOpen(false);
                 if (!visible && urlRef.current) {
-                  releaseImageUrl(attachment.id, urlRef.current);
+                  releaseImageUrl(cacheKey, urlRef.current);
                   setUrl(null);
                 }
               }}
@@ -158,6 +196,27 @@ export const AttachmentItem: React.FC<{ attachment: Attachment }> = ({
             </div>,
             document.body,
           )}
+      </>
+    );
+  }
+
+  if (isVideo) {
+    return (
+      <>
+        <button
+          type="button"
+          className={"msg-attach-file msg-attach-video" + (thumbnail ? " tile" : "")}
+          onClick={() => setViewerOpen(true)}
+        >
+          <span className="msg-attach-file-icon">
+            <Icon name="play" size={16} />
+          </span>
+          <span className="msg-attach-file-info">
+            <span className="msg-attach-file-name">{attachment.fileName}</span>
+            <span className="msg-attach-file-size">{formatFileSize(attachment.sizeBytes)}</span>
+          </span>
+        </button>
+        {viewerOpen && <VideoViewer attachment={attachment} onClose={() => setViewerOpen(false)} />}
       </>
     );
   }
