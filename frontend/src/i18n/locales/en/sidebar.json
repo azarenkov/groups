@@ -69,5 +69,6 @@
     "retry": "Retry",
     "unknownAuthor": "Unknown user",
     "openLink": "Open {{domain}}"
-  }
+  },
+  "dmMuted": "Notifications muted"
 }

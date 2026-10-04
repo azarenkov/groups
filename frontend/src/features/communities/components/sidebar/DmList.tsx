@@ -8,6 +8,8 @@ import UserBadge from "../../../subscription/components/UserBadge";
 import { formatListTime, msUntilNextDay } from "../../../dm/lib/directOrder";
 import { useProfileModalStore } from "../../../social/store/profileModalStore";
 import { isBlockedEitherWay } from "../../../social/store/blockStore";
+import { dmLevelOf, useNotificationPrefsStore } from "../../../settings/store/notificationPrefsStore";
+import { useNotificationSettingsStore } from "../../../settings/store/notificationSettingsStore";
 import {
   openContextMenu,
   openContextMenuAt,
@@ -44,6 +46,8 @@ const DmList: React.FC<DmListProps> = ({
 }) => {
   const { t, i18n } = useTranslation(["sidebar", "common"]);
   const activities = useActivityStore((s) => s.byUser);
+  const dmLevels = useNotificationPrefsStore((s) => s.dmLevels);
+  const globalMentions = useNotificationSettingsStore((s) => s.mentions);
   const [now, setNow] = React.useState(() => new Date());
   React.useEffect(() => {
     const timer = setTimeout(() => setNow(new Date()), msUntilNextDay(now));
@@ -103,6 +107,7 @@ const DmList: React.FC<DmListProps> = ({
       {directs.map((d) => {
         const unread = unreadByDm[d.id] ?? 0;
         const activity = d.online ? activities[d.id] : undefined;
+        const muted = dmLevelOf(dmLevels, d.id, globalMentions) === "none";
         const sub =
           d.lastMessage ||
           (d.online ? t("statusOnline") : t("statusOffline"));
@@ -143,6 +148,12 @@ const DmList: React.FC<DmListProps> = ({
               <div className="sb-dm-name">
                 <span className="sb-dm-name-text">{d.name}</span>
                 <UserBadge userId={d.id} size="sm" />
+                {muted && (
+                  <span className="sb-dm-muted" title={t("dmMuted")} aria-label={t("dmMuted")}>
+                    <Icon name="bell" size={12} />
+                    <span className="nb-dot" />
+                  </span>
+                )}
                 {activity && (
                   <span className="sb-dm-game" title={activity.name}>
                     {activity.name}
@@ -158,7 +169,7 @@ const DmList: React.FC<DmListProps> = ({
                 <div className={"sb-dm-sub" + (unread > 0 ? " unread" : "")}>
                   {sub}
                 </div>
-                {unread > 0 && <span className="sb-dm-badge">{unread}</span>}
+                {unread > 0 && <span className={"sb-dm-badge" + (muted ? " muted" : "")}>{unread}</span>}
               </div>
             </div>
           </div>

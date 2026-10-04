@@ -21,6 +21,7 @@ const Harness: React.FC<{ onRefresh: () => Promise<void>; convId?: string }> = (
         onTouchMove={pull.onPullTouchMove}
         onTouchEnd={pull.onPullTouchEnd}
         onTouchCancel={pull.onPullTouchCancel}
+        onWheel={pull.onPullWheel}
       />
     </>
   );
@@ -182,3 +183,40 @@ it("eases the pull towards its limit", () => {
   expect(resist(200)).toBeGreaterThan(resist(100));
 });
 
+
+const wheel = (deltaY: number) =>
+  act(() => {
+    const event = new WheelEvent("wheel", { bubbles: true, deltaY });
+    Object.defineProperty(event, "timeStamp", { value: Date.now() });
+    body().dispatchEvent(event);
+  });
+
+it("does not let trackpad momentum start a second pull after a refresh", async () => {
+  const onRefresh = jest.fn(() => Promise.resolve());
+  mount(onRefresh);
+  for (let i = 0; i < 10; i += 1) {
+    wheel(40);
+    act(() => {
+      jest.advanceTimersByTime(16);
+    });
+  }
+  expect(onRefresh).toHaveBeenCalledTimes(1);
+  for (let i = 0; i < 80; i += 1) {
+    wheel(8);
+    await act(async () => {
+      jest.advanceTimersByTime(16);
+      await Promise.resolve();
+    });
+  }
+  frame();
+  expect(indicator().classList.contains("refreshing")).toBe(false);
+  expect(body().style.transform).toBe("");
+  expect(onRefresh).toHaveBeenCalledTimes(1);
+  act(() => {
+    jest.advanceTimersByTime(500);
+  });
+  wheel(40);
+  frame();
+  expect(body().style.transform).not.toBe("");
+  expect(body().style.transition).toContain("transform 0.12s");
+});

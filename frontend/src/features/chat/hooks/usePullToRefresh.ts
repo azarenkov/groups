@@ -8,6 +8,9 @@ export const REFRESH_TIMEOUT_MS = 15000;
 const MIN_SPIN_MS = 650;
 const WHEEL_RELEASE_MS = 400;
 const SETTLE = "0.3s cubic-bezier(0.22, 1, 0.36, 1)";
+const WHEEL_FOLLOW = "0.12s cubic-bezier(0.22, 1, 0.36, 1)";
+
+type Motion = "none" | "follow" | "settle";
 
 export const resist = (raw: number): number =>
   raw <= 0 ? 0 : PULL_MAX * (1 - Math.exp(-raw / (PULL_MAX * 1.2)));
@@ -39,7 +42,7 @@ export function usePullToRefresh(params: {
   onRefreshRef.current = onRefresh;
 
   const paint = React.useCallback(
-    (distance: number, animate: boolean) => {
+    (distance: number, motion: Motion) => {
       distanceRef.current = distance;
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
       frameRef.current = requestAnimationFrame(() => {
@@ -48,13 +51,14 @@ export function usePullToRefresh(params: {
         const indicator = indicatorRef.current;
         const shown = refreshingRef.current ? PULL_THRESHOLD : distance;
         const progress = Math.min(shown / PULL_THRESHOLD, 1);
+        const timing = motion === "settle" ? SETTLE : motion === "follow" ? WHEEL_FOLLOW : null;
         if (body) {
-          body.style.transition = animate ? `transform ${SETTLE}` : "none";
+          body.style.transition = timing ? `transform ${timing}` : "none";
           body.style.transform = shown > 0 ? `translate3d(0, ${-shown}px, 0)` : "";
           body.style.willChange = shown > 0 || refreshingRef.current ? "transform" : "";
         }
         if (indicator) {
-          indicator.style.transition = animate ? `transform ${SETTLE}, opacity 0.2s` : "none";
+          indicator.style.transition = timing ? `transform ${timing}, opacity 0.2s` : "none";
           indicator.style.opacity = String(refreshingRef.current ? 1 : progress);
           indicator.style.transform = `translateX(-50%) translateY(${44 - shown}px) scale(${
             refreshingRef.current ? 1 : 0.6 + 0.4 * progress
@@ -75,7 +79,7 @@ export function usePullToRefresh(params: {
 
   const settle = React.useCallback(() => {
     touchStartYRef.current = null;
-    paint(0, true);
+    paint(0, "settle");
   }, [paint]);
 
   React.useEffect(() => {
@@ -84,7 +88,7 @@ export function usePullToRefresh(params: {
     touchStartYRef.current = null;
     wheelGestureRef.current = IDLE_WHEEL_GESTURE;
     clearWheelRelease();
-    paint(0, false);
+    paint(0, "none");
   }, [convId, paint]);
 
   React.useEffect(
@@ -107,7 +111,7 @@ export function usePullToRefresh(params: {
     refreshingRef.current = true;
     touchStartYRef.current = null;
     clearWheelRelease();
-    paint(PULL_THRESHOLD, true);
+    paint(PULL_THRESHOLD, "settle");
     const started = Date.now();
     let timer: ReturnType<typeof setTimeout> | null = null;
     try {
@@ -128,8 +132,8 @@ export function usePullToRefresh(params: {
     setTimeout(() => {
       if (generation !== generationRef.current) return;
       refreshingRef.current = false;
-      wheelGestureRef.current = IDLE_WHEEL_GESTURE;
-      paint(0, true);
+      wheelGestureRef.current = { lastAt: wheelGestureRef.current.lastAt, armed: false };
+      paint(0, "settle");
     }, wait);
   }, [paint, settle]);
 
@@ -147,7 +151,7 @@ export function usePullToRefresh(params: {
       return;
     }
     const dy = touchStartYRef.current - e.touches[0].clientY;
-    paint(resist(dy * 0.9), false);
+    paint(resist(dy * 0.9), "none");
   };
 
   const onPullTouchEnd = () => {
@@ -158,7 +162,10 @@ export function usePullToRefresh(params: {
   };
 
   const onPullWheel = (e: React.WheelEvent) => {
-    if (refreshingRef.current) return;
+    if (refreshingRef.current) {
+      wheelGestureRef.current = { lastAt: e.timeStamp, armed: false };
+      return;
+    }
     const b = bodyRef.current;
     if (!b) return;
     const gesture = nextWheelGesture(wheelGestureRef.current, e.timeStamp, atBottom(b));
@@ -178,7 +185,7 @@ export function usePullToRefresh(params: {
       void refresh();
       return;
     }
-    paint(next, false);
+    paint(next, "follow");
     clearWheelRelease();
     wheelReleaseRef.current = setTimeout(() => {
       wheelReleaseRef.current = null;

@@ -5,7 +5,7 @@ import { ApiError } from "../../../shared/lib/apiError";
 import { useCallStore } from "../../voice/store/callStore";
 
 import i18n from "../../../i18n";
-import { useNotificationPrefsStore } from "../../settings/store/notificationPrefsStore";
+import { dmLevelOf, useNotificationPrefsStore } from "../../settings/store/notificationPrefsStore";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
@@ -69,7 +69,7 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   const globalMentions = useNotificationSettingsStore((s) => s.mentions);
   const notifLevel = useNotificationPrefsStore((s) =>
     dm
-      ? (s.dmLevels[dm.friendId] ?? (globalMentions === "none" ? "none" : "all"))
+      ? dmLevelOf(s.dmLevels, dm.friendId, globalMentions)
       : channel
         ? (s.channelLevels[channel.id] ?? globalMentions)
         : "all",

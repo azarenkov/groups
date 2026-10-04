@@ -21,6 +21,12 @@ interface NotificationPrefsState {
   clearAll: () => void;
 }
 
+export const dmLevelOf = (
+  dmLevels: Record<string, NotifLevel>,
+  friendId: string,
+  globalMentions: string,
+): NotifLevel => dmLevels[friendId] ?? (globalMentions === "none" ? "none" : "all");
+
 function isLevel(v: string): v is NotifLevel {
   return v === "all" || v === "mentions" || v === "none";
 }
