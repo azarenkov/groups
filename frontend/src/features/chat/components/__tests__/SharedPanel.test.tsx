@@ -502,5 +502,19 @@ describe("shared panel edge cases", () => {
     expect(screen.queryByText("https://brief.example")).toBeNull();
     list.mockReset();
   });
+
+  it("has no search on the voice tab and clears the query there", async () => {
+    list.mockResolvedValue({ items: [], nextCursor: null });
+    render(
+      <SharedPanel scope={{ kind: "dm", friendId: "u2" }} currentUserId="u1" onClose={() => undefined} onShowMessage={() => undefined} />,
+    );
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "report" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Voice" }));
+    expect(screen.queryByRole("textbox")).toBeNull();
+    await waitFor(() =>
+      expect(list).toHaveBeenLastCalledWith(expect.anything(), "voice", expect.objectContaining({ q: undefined })),
+    );
+    list.mockReset();
+  });
 });
 

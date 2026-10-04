@@ -190,19 +190,24 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
             role="tab"
             aria-selected={kind === tab}
             className={"shared-tab" + (kind === tab ? " on" : "")}
-            onClick={() => setKind(tab)}
+            onClick={() => {
+              setKind(tab);
+              if (tab === "voice") setQuery("");
+            }}
           >
             {t(`shared.tabs.${tab}`)}
           </button>
         ))}
       </div>
-      <input
-        className="s-input shared-search"
-        value={query}
-        placeholder={t(kind === "links" ? "shared.searchLinks" : "shared.searchFiles")}
-        aria-label={t(kind === "links" ? "shared.searchLinks" : "shared.searchFiles")}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      {kind !== "voice" && (
+        <input
+          className="s-input shared-search"
+          value={query}
+          placeholder={t(kind === "links" ? "shared.searchLinks" : "shared.searchFiles")}
+          aria-label={t(kind === "links" ? "shared.searchLinks" : "shared.searchFiles")}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      )}
       <div className="shared-scroll">
         <ul className={"shared-list shared-list-" + kind}>
           {!waitingForBlocks && content.items.map((item) => (
