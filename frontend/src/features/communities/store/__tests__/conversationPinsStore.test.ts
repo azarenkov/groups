@@ -138,18 +138,15 @@ it("never sends a queued write after the account changes", async () => {
   expect(put).toHaveBeenCalledTimes(1);
 });
 
-it("lets two early toggles share the initial load", async () => {
+it("lets two early toggles share one initial load", async () => {
   useConversationPinsStore.getState().clearAll();
-  const gets: ((v: unknown) => void)[] = [];
-  get.mockImplementation(() => new Promise((resolve) => gets.push(resolve)));
+  get.mockResolvedValueOnce(reply({ dms: ["old"], communities: [] })).mockRejectedValueOnce(new Error("second"));
   put.mockImplementation((_url: string, body: { ids: string[] }) => Promise.resolve(reply({ dms: body.ids, communities: [] })));
   const first = useConversationPinsStore.getState().toggle("dms", "a");
   const second = useConversationPinsStore.getState().toggle("dms", "b");
-  expect(gets).toHaveLength(2);
-  gets[0]({ data: { data: { dms: ["old"], communities: [] } } });
-  gets[1]({ data: { data: { dms: ["old"], communities: [] } } });
   await first;
   await second;
+  expect(get).toHaveBeenCalledTimes(1);
   expect(useConversationPinsStore.getState().dms).toEqual(["b", "a", "old"]);
 });
 

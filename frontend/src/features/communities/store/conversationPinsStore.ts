@@ -40,7 +40,7 @@ let remoteDuringWrite = false;
 let latestFetch = 0;
 let stateEpoch = 0;
 let writeChain: Promise<unknown> = Promise.resolve();
-let latestFetchPromise: Promise<void> | null = null;
+let initialLoad: Promise<void> | null = null;
 
 export const togglePinned = (list: string[], id: string): string[] =>
   list.includes(id) ? list.filter((x) => x !== id) : [id, ...list];
@@ -74,22 +74,27 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       const gen = sessionGen;
       const request = ++latestFetch;
       const epoch = stateEpoch;
-      const promise = api.list().then((lists) => {
+      return api.list().then((lists) => {
         if (gen !== sessionGen || request !== latestFetch || epoch !== stateEpoch || pendingWrites > 0) return;
         install(lists);
       });
-      latestFetchPromise = promise;
-      return promise;
     },
 
     toggle: async (kind, id, keep) => {
       const gen = sessionGen;
       if (!get().loaded) {
-        let waiting: Promise<void> | null = get().fetch();
-        while (waiting && !get().loaded && gen === sessionGen) {
-          await waiting;
-          waiting = latestFetchPromise === waiting ? null : latestFetchPromise;
+        if (!initialLoad) {
+          const load: Promise<void> = api
+            .list()
+            .then((lists) => {
+              if (gen === sessionGen && !get().loaded && pendingWrites === 0) install(lists);
+            })
+            .finally(() => {
+              if (initialLoad === load) initialLoad = null;
+            });
+          initialLoad = load;
         }
+        await initialLoad;
         if (gen !== sessionGen || !get().loaded) throw new Error("PINS_NOT_LOADED");
       }
       const before = keep ? get()[kind].filter((x) => keep.has(x)) : get()[kind];
@@ -144,7 +149,7 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       pendingWrites = 0;
       remoteDuringWrite = false;
       latestFetch += 1;
-      latestFetchPromise = null;
+      initialLoad = null;
       stateEpoch += 1;
       writeChain = Promise.resolve();
       set({ dms: [], communities: [], loaded: false });
