@@ -110,6 +110,11 @@ impl SearchRepository for PostgresSearchRepository {
                     LEFT JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                     LEFT JOIN messaging_user_profiles pu ON pu.user_id = peer.id
                     WHERE (m.sender_id = $1 OR m.recipient_id = $1)
+                      AND NOT EXISTS (
+                          SELECT 1 FROM user_blocks b
+                          WHERE (b.blocker_id = $1 AND b.blocked_id = peer.id)
+                             OR (b.blocker_id = peer.id AND b.blocked_id = $1)
+                      )
                       AND m.invite_community_id IS NULL
                       AND m.call_status IS NULL
                       AND m.search_tsv @@ to_tsquery('simple', (SELECT string_agg(quote_literal(t.lexeme) || ':*', ' & ') FROM unnest(to_tsvector('simple', $2)) AS t))
@@ -222,6 +227,11 @@ impl SearchRepository for PostgresSearchRepository {
                     LEFT JOIN messaging_user_profiles u ON u.user_id = m.sender_id
                     LEFT JOIN messaging_user_profiles pu ON pu.user_id = peer.id
                     WHERE (m.sender_id = $1 OR m.recipient_id = $1)
+                      AND NOT EXISTS (
+                          SELECT 1 FROM user_blocks b
+                          WHERE (b.blocker_id = $1 AND b.blocked_id = peer.id)
+                             OR (b.blocker_id = peer.id AND b.blocked_id = $1)
+                      )
                       AND m.invite_community_id IS NULL
                       AND m.call_status IS NULL
                       AND a.voice_duration_ms IS NULL AND a.video_duration_ms IS NULL
@@ -339,6 +349,11 @@ impl SearchRepository for PostgresSearchRepository {
                     LEFT JOIN messaging_user_profiles pu ON pu.user_id = peer.id
                     CROSS JOIN LATERAL regexp_matches(m.content, $2, 'g') WITH ORDINALITY AS l(found, ordinal)
                     WHERE (m.sender_id = $1 OR m.recipient_id = $1)
+                      AND NOT EXISTS (
+                          SELECT 1 FROM user_blocks b
+                          WHERE (b.blocker_id = $1 AND b.blocked_id = peer.id)
+                             OR (b.blocker_id = peer.id AND b.blocked_id = $1)
+                      )
                       AND m.invite_community_id IS NULL
                       AND m.call_status IS NULL
                       AND m.content ~ 'https?://'
