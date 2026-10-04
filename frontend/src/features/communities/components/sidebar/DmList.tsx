@@ -49,6 +49,7 @@ const DmList: React.FC<DmListProps> = ({
   const activities = useActivityStore((s) => s.byUser);
   const dmLevels = useNotificationPrefsStore((s) => s.dmLevels);
   const pinnedDms = useConversationPinsStore((s) => s.dms);
+  const accessiblePins = () => pinnedDms.filter((id) => !isBlockedEitherWay(id));
   const globalMentions = useNotificationSettingsStore((s) => s.mentions);
   const [now, setNow] = React.useState(() => new Date());
   React.useEffect(() => {
@@ -65,11 +66,11 @@ const DmList: React.FC<DmListProps> = ({
       id: "pin",
       label: t(pinnedDms.includes(d.id) ? "unpinChat" : "pinChat"),
       icon: "pin",
-      disabled: !pinnedDms.includes(d.id) && pinnedDms.length >= MAX_PINNED_CONVERSATIONS,
+      disabled: !pinnedDms.includes(d.id) && accessiblePins().length >= MAX_PINNED_CONVERSATIONS,
       onSelect: () => {
         void useConversationPinsStore
           .getState()
-          .toggle("dms", d.id)
+          .toggle("dms", d.id, new Set(accessiblePins()))
           .catch((e) => console.warn("[DmList] pin failed:", e));
       },
     },

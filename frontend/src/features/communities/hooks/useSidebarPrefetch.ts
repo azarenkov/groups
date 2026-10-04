@@ -23,7 +23,7 @@ export function useSidebarPrefetch(params: {
   const previews = useDmPreviewStore((s) => s.byFriend);
   const missingPinnedDm =
     hasSession &&
-    pinnedDms.some((id) => !previews[id] && !friends.some((f) => f.friendId === id));
+    pinnedDms.some((id) => !previews[id] && !friends.some((f) => f.friendId === id && f.status === "accepted"));
 
   useEffect(() => {
     if (!hasSession) return;

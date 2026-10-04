@@ -13,6 +13,7 @@ beforeEach(() => {
   get.mockReset();
   put.mockReset();
   useConversationPinsStore.getState().clearAll();
+  useConversationPinsStore.getState().applyRemote({ dms: [], communities: [] });
 });
 
 it("puts pinned items first in pin order and keeps the rest in place", () => {
@@ -68,6 +69,7 @@ it("does not let a write from the previous account affect the next one", async (
   const old = useConversationPinsStore.getState().toggle("dms", "a");
   await Promise.resolve();
   useConversationPinsStore.getState().clearAll();
+  useConversationPinsStore.getState().applyRemote({ dms: [], communities: [] });
   finish(reply({ dms: ["a"], communities: [] }));
   await old;
   expect(useConversationPinsStore.getState().dms).toEqual([]);
@@ -105,4 +107,33 @@ it("refuses to pin more than the limit", async () => {
 it("applies pins changed on another device", () => {
   useConversationPinsStore.getState().applyRemote({ dms: ["u1"], communities: ["c1"] });
   expect(useConversationPinsStore.getState()).toMatchObject({ dms: ["u1"], communities: ["c1"], loaded: true });
+});
+
+it("loads the current pins before the first toggle so nothing is lost", async () => {
+  useConversationPinsStore.getState().clearAll();
+  get.mockResolvedValue(reply({ dms: ["old"], communities: [] }));
+  put.mockResolvedValue(reply({ dms: ["new", "old"], communities: [] }));
+  await useConversationPinsStore.getState().toggle("dms", "new");
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["new", "old"] });
+});
+
+it("refuses to toggle when the pins cannot be loaded", async () => {
+  useConversationPinsStore.getState().clearAll();
+  get.mockRejectedValue(new Error("offline"));
+  await expect(useConversationPinsStore.getState().toggle("dms", "x")).rejects.toThrow("offline");
+  expect(put).not.toHaveBeenCalled();
+});
+
+it("never sends a queued write after the account changes", async () => {
+  let finish: (v: unknown) => void = () => undefined;
+  put.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+  const first = useConversationPinsStore.getState().toggle("dms", "a");
+  const second = useConversationPinsStore.getState().toggle("dms", "b");
+  await Promise.resolve();
+  await Promise.resolve();
+  useConversationPinsStore.getState().clearAll();
+  finish(reply({ dms: ["a"], communities: [] }));
+  await first;
+  await expect(second).rejects.toThrow("SESSION_CHANGED");
+  expect(put).toHaveBeenCalledTimes(1);
 });

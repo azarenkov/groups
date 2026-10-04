@@ -77,17 +77,24 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       install(lists);
     },
 
-    toggle: (kind, id, keep) => {
+    toggle: async (kind, id, keep) => {
       const gen = sessionGen;
+      if (!get().loaded) {
+        await get().fetch();
+        if (gen !== sessionGen || !get().loaded) throw new Error("PINS_NOT_LOADED");
+      }
       const before = keep ? get()[kind].filter((x) => keep.has(x)) : get()[kind];
       const next = togglePinned(before, id);
       if (next.length > MAX_PINNED_CONVERSATIONS) {
-        return Promise.reject(new Error("PIN_LIMIT_REACHED"));
+        throw new Error("PIN_LIMIT_REACHED");
       }
       stateEpoch += 1;
       set({ [kind]: next } as Partial<PinLists>);
       pendingWrites += 1;
-      const write = writeChain.then(() => api.replace(kind, get()[kind]));
+      const write = writeChain.then(() => {
+        if (gen !== sessionGen) throw new Error("SESSION_CHANGED");
+        return api.replace(kind, get()[kind]);
+      });
       writeChain = write.catch(() => undefined);
       let failed = false;
       return write
