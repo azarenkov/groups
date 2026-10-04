@@ -451,5 +451,32 @@ describe("shared panel edge cases", () => {
       list.mockReset();
     }
   });
+
+  it("ignores a lookup for a message deleted before switching tabs and back", async () => {
+    list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    render(
+      <SharedPanel scope={{ kind: "dm", friendId: "u2" }} currentUserId="u1" onClose={() => undefined} onShowMessage={() => undefined} />,
+    );
+    const page = {
+      items: [link("m9", "https://top.example", "2026-10-05T00:00:00Z"), link("m1", "https://low.example", "2026-10-01T00:00:00Z")],
+      nextCursor: "older",
+    };
+    list.mockResolvedValue(page);
+    fireEvent.click(screen.getByRole("tab", { name: "Links" }));
+    expect(await screen.findByText("https://top.example")).toBeInTheDocument();
+    let resolveMessage: (m: unknown) => void = () => undefined;
+    (sharedAPI.message as jest.Mock).mockReturnValueOnce(new Promise((resolve) => (resolveMessage = resolve)));
+    act(() => wsHandlers.current.onEdited?.({ id: "m5", newContent: "https://ghost.example" }));
+    act(() => wsHandlers.current.onDeleted?.({ id: "m5" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Files" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Links" }));
+    expect(await screen.findByText("https://top.example")).toBeInTheDocument();
+    await act(async () => {
+      resolveMessage({ id: "m5", authorId: "u2", authorName: "Bob", createdAt: "2026-10-04T00:00:00Z", content: "https://ghost.example" });
+      await Promise.resolve();
+    });
+    expect(screen.queryByText("https://ghost.example")).toBeNull();
+    list.mockReset();
+  });
 });
 

@@ -139,6 +139,7 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
   const requestRef = React.useRef(0);
   const failedRef = React.useRef<{ before: string | null; mode: "reset" | "append" | "merge" } | null>(null);
   const droppedRef = React.useRef(new Set<string>());
+  const viewGenRef = React.useRef(0);
   const editSeqRef = React.useRef(new Map<string, number>());
   const alive = (items: SharedItem[]) => items.filter((item) => !droppedRef.current.has(item.messageId));
   const scopeKey = sharedScopeKey(scope);
@@ -200,6 +201,10 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
 
   React.useEffect(() => {
     droppedRef.current = new Set();
+  }, [scopeKey]);
+
+  React.useEffect(() => {
+    viewGenRef.current += 1;
     void fetchPage(null, "reset");
   }, [fetchPage, scopeKey]);
 
@@ -231,8 +236,7 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
 
   const itemsRef = React.useRef(state.items);
   itemsRef.current = state.items;
-  const viewRef = React.useRef("");
-  viewRef.current = `${scopeKey}|${kind}|${debouncedQuery}`;
+
 
   const applyEdit = React.useCallback(
     (edit: MessageEdit) => {
@@ -243,11 +247,11 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
           ? (edit.content?.match(URL_REGEX)?.length ?? 0) > 0
           : (edit.attachmentIds?.length ?? 0) > 0;
       if (!known && !mayAdd) return;
-      const viewAtEdit = viewRef.current;
+      const viewAtEdit = viewGenRef.current;
       const seq = (editSeqRef.current.get(edit.messageId) ?? 0) + 1;
       editSeqRef.current.set(edit.messageId, seq);
       const current = () =>
-        viewRef.current === viewAtEdit &&
+        viewGenRef.current === viewAtEdit &&
         !droppedRef.current.has(edit.messageId) &&
         editSeqRef.current.get(edit.messageId) === seq;
       const lookup = (attempt: number) => {
