@@ -286,6 +286,12 @@ async fn load_conversation_pins(
         WHERE p.user_id = $1
           AND (p.kind <> 'community'
                OR EXISTS (SELECT 1 FROM community_members m WHERE m.community_id = p.target_id AND m.user_id = p.user_id))
+          AND (p.kind <> 'dm'
+               OR NOT EXISTS (
+                   SELECT 1 FROM user_blocks b
+                   WHERE (b.blocker_id = p.user_id AND b.blocked_id = p.target_id)
+                      OR (b.blocker_id = p.target_id AND b.blocked_id = p.user_id)
+               ))
         ORDER BY p."position", p.pinned_at
         "#,
         user.uuid(),
