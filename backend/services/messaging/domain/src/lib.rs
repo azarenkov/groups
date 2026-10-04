@@ -10,4 +10,5 @@ pub mod notification;
 pub mod read_state;
 pub mod report;
 pub mod privacy;
+pub mod shared;
 pub mod community;

@@ -82,6 +82,11 @@ export function useMessageSearch(params: {
     };
   }, [searchQuery, searchOpen, convId, nameSyncTick]);
 
+  const closeSearch = React.useCallback(() => {
+    setSearchOpen(false);
+    clearResults();
+  }, [clearResults]);
+
   const toggleSearch = React.useCallback(() => {
     setSearchOpen((prev) => {
       const next = !prev;
@@ -115,6 +120,7 @@ export function useMessageSearch(params: {
     searchError,
     searchTotal,
     clearResults,
+    closeSearch,
     toggleSearch,
   };
 }
