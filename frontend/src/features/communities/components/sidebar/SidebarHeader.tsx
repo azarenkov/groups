@@ -1,7 +1,8 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
-import { useHotkey } from "../../../settings/lib/hotkeys";
+import { effectiveBinding, useActiveBindings, useHotkey } from "../../../settings/lib/hotkeys";
+import { IS_MAC, bindingKeycaps } from "../../../settings/lib/hotkeyMatching";
 
 interface SidebarHeaderProps {
   homeActive: boolean;
@@ -34,6 +35,8 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const switcherBinding = effectiveBinding(useActiveBindings(), "quickSwitcher");
+  const switcherLabel = switcherBinding ? bindingKeycaps(switcherBinding).join(IS_MAC ? "" : "+") : null;
   useHotkey("quickSwitcher", () => {
     searchInputRef.current?.focus();
     searchInputRef.current?.select();
@@ -97,7 +100,7 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
             <Icon name="x" size={11} />
           </button>
         ) : (
-          <kbd>⌘K</kbd>
+          switcherLabel && <kbd>{switcherLabel}</kbd>
         )}
       </div>
 

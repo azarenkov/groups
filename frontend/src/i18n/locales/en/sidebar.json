@@ -59,5 +59,15 @@
   "openCommunity": "Open",
   "previewVoice": "🎤 Voice message",
   "previewVideoNote": "📹 Video message",
-  "previewSticker": "Sticker {{emoji}}"
+  "previewSticker": "Sticker {{emoji}}",
+  "search": {
+    "messages": "Messages",
+    "files": "Files",
+    "links": "Links",
+    "nothing": "Nothing found",
+    "failed": "Search failed",
+    "retry": "Retry",
+    "unknownAuthor": "Unknown user",
+    "openLink": "Open {{domain}}"
+  }
 }

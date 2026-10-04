@@ -101,6 +101,54 @@
   transition: background 140ms var(--ease-spring), color 140ms;
 }
 .sb-load-more:hover { background: var(--bg-3); color: var(--fg-1); }
+.sb-load-more:disabled { opacity: 0.5; cursor: default; }
+
+.sb-global-search .sb-view + .sb-view { margin-top: 6px; }
+.sb-hit {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 7px 12px;
+  border-radius: 10px; cursor: pointer;
+  transition: background 140ms var(--ease-spring);
+}
+.sb-hit:hover, .sb-hit:focus-visible { background: var(--surface-hover); outline: none; }
+.sb-hit-head {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 11px; color: var(--fg-3);
+}
+.sb-hit-place {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 600;
+}
+.sb-hit-time { flex-shrink: 0; }
+.sb-hit-body {
+  display: flex; align-items: center; gap: 6px;
+  min-width: 0;
+  font-size: 13px; color: var(--fg-2);
+}
+.sb-hit-body > svg { flex-shrink: 0; color: var(--fg-3); }
+.sb-hit-text {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+.sb-hit-links .sb-hit-text, .sb-hit-files .sb-hit-text { -webkit-line-clamp: 1; }
+.sb-hit-author { color: var(--fg-1); font-weight: 600; }
+.sb-hit-muted { flex-shrink: 0; font-size: 12px; color: var(--fg-3); }
+.sb-hit-text mark {
+  background: var(--accent-tint); color: var(--fg-1);
+  border-radius: 3px; padding: 0 1px;
+}
+.sb-hit-open {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 6px;
+  color: var(--fg-3);
+}
+.sb-hit-open:hover { background: var(--bg-3); color: var(--fg-1); }
+.sb-hit-loading { display: flex; justify-content: center; padding: 10px 0; }
+.sb-hit-error { display: flex; flex-direction: column; gap: 4px; }
 
 .sb-dm {
   display: flex; align-items: center; gap: 11px;

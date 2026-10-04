@@ -674,6 +674,7 @@ const CommunitiesPage: React.FC = () => {
           currentUserStatus={userStatus}
           searchQuery={sidebarQuery}
           onSearchQueryChange={setSidebarQuery}
+          onOpenSearchResult={setPendingMessageLink}
           unreadByChannel={unreadByChannel}
           unreadByDm={unreadByDm}
           channelToCommunity={channelToCommunity}
