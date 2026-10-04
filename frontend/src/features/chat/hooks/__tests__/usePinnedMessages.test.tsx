@@ -10,8 +10,13 @@ jest.mock("../../api/pins", () => ({
 }));
 
 const listeners: ((env: { type: string; data: unknown }) => void)[] = [];
+const openListeners: (() => void)[] = [];
 jest.mock("../../../../shared/ws/websocket", () => ({
   ws: {
+    onOpen: (fn: () => void) => {
+      openListeners.push(fn);
+      return () => openListeners.splice(openListeners.indexOf(fn), 1);
+    },
     on: (fn: (env: { type: string; data: unknown }) => void) => {
       listeners.push(fn);
       return () => listeners.splice(listeners.indexOf(fn), 1);
@@ -50,6 +55,7 @@ beforeEach(() => {
   list.mockReset();
   unpin.mockReset();
   listeners.length = 0;
+  openListeners.length = 0;
   latest = null;
 });
 
@@ -141,4 +147,14 @@ it("never shows the previous conversation's pins after switching", async () => {
   const before = seen.length;
   rerender(<Probe scope={{ kind: "dm", friendId: "u3" }} />);
   expect(seen.slice(before).every((ids) => ids.length === 0)).toBe(true);
+});
+
+it("reloads pins after the socket reconnects", async () => {
+  list.mockResolvedValueOnce([pin("a")]).mockResolvedValueOnce([pin("b"), pin("a")]);
+  render(<Harness scope={dm} />);
+  await waitFor(() => expect(latest!.pins.map((p) => p.messageId)).toEqual(["a"]));
+  act(() => {
+    openListeners.forEach((fn) => fn());
+  });
+  await waitFor(() => expect(latest!.pins.map((p) => p.messageId)).toEqual(["b", "a"]));
 });

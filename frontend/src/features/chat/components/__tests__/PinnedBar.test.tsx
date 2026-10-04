@@ -1,9 +1,10 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import i18n from "../../../../i18n";
 import PinnedBar from "../PinnedBar";
 import type { PinnedMessage } from "../../api/pins";
+import { useUserNamesStore } from "../../../social/store/userNamesStore";
 
 const pin = (id: string, extra: Partial<PinnedMessage> = {}): PinnedMessage => ({
   messageId: id,
@@ -79,5 +80,12 @@ describe("PinnedBar", () => {
     expect(screen.queryByText("secret words", { exact: false })).toBeNull();
     expect(screen.queryByText("Bob", { exact: false })).toBeNull();
     expect(screen.getByText(i18n.t("chat:blockedMessage"))).toBeTruthy();
+  });
+
+  it("uses the latest name of the author", () => {
+    useUserNamesStore.setState({ overrides: { u2: "Robert" } });
+    render(<PinnedBar pins={[pin("a")]} canUnpin={false} onJump={jest.fn()} onUnpin={jest.fn()} />);
+    expect(screen.getByText("Robert:", { exact: false })).toBeTruthy();
+    act(() => useUserNamesStore.setState({ overrides: {} }));
   });
 });

@@ -85,6 +85,13 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
 
   React.useEffect(() => {
     if (!key) return;
+    return ws.onOpen(() => {
+      void refresh();
+    });
+  }, [key, refresh]);
+
+  React.useEffect(() => {
+    if (!key) return;
     return ws.on((env) => {
       const current = scopeRef.current;
       if (!current) return;

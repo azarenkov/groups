@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import Icon from "../../../shared/ui/Icon";
 import type { PinnedMessage } from "../api/pins";
+import { useUserNamesStore } from "../../social/store/userNamesStore";
 
 interface PinnedBarProps {
   pins: PinnedMessage[];
@@ -23,6 +24,7 @@ export function pinPreview(pin: PinnedMessage, t: (key: string, opts?: Record<st
 
 const PinnedBar: React.FC<PinnedBarProps> = ({ pins, currentUserId, canUnpin, isHidden, onJump, onUnpin }) => {
   const { t } = useTranslation("chat");
+  const nameOverrides = useUserNamesStore((s) => s.overrides);
   const [index, setIndex] = React.useState(0);
   const [listOpen, setListOpen] = React.useState(false);
   const wrapRef = React.useRef<HTMLDivElement>(null);
@@ -55,7 +57,9 @@ const PinnedBar: React.FC<PinnedBarProps> = ({ pins, currentUserId, canUnpin, is
   if (pins.length === 0) return null;
   const current = pins[Math.min(index, pins.length - 1)];
   const author = (pin: PinnedMessage) =>
-    currentUserId && pin.authorId === currentUserId ? t("you") : pin.authorName || t("pins.unknownAuthor");
+    currentUserId && pin.authorId === currentUserId
+      ? t("you")
+      : nameOverrides[pin.authorId] ?? (pin.authorName || t("pins.unknownAuthor"));
   const describe = (pin: PinnedMessage) =>
     isHidden?.(pin) ? (
       <span className="pinned-bar-blocked">{t("blockedMessage")}</span>
