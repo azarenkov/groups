@@ -127,3 +127,18 @@ it("applies only the newest refresh and keeps deleted pins gone", async () => {
   expect(latest!.pins.map((p) => p.messageId)).toEqual(["b"]);
   jest.useRealTimers();
 });
+
+it("never shows the previous conversation's pins after switching", async () => {
+  list.mockResolvedValueOnce([pin("a")]).mockImplementationOnce(() => new Promise(() => undefined));
+  const seen: string[][] = [];
+  const Probe: React.FC<{ scope: SharedScope }> = ({ scope }) => {
+    const result = usePinnedMessages(scope, "u1");
+    seen.push(result.pins.map((p) => p.messageId));
+    return null;
+  };
+  const { rerender } = render(<Probe scope={dm} />);
+  await waitFor(() => expect(seen[seen.length - 1]).toEqual(["a"]));
+  const before = seen.length;
+  rerender(<Probe scope={{ kind: "dm", friendId: "u3" }} />);
+  expect(seen.slice(before).every((ids) => ids.length === 0)).toBe(true);
+});

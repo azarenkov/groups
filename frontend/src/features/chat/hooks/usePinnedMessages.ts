@@ -21,7 +21,10 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
   const key = scope ? sharedScopeKey(scope) : null;
   const scopeRef = React.useRef(scope);
   scopeRef.current = scope;
-  const [pins, setPins] = React.useState<PinnedMessage[]>([]);
+  const [state, setState] = React.useState<{ key: string | null; items: PinnedMessage[] }>({ key: null, items: [] });
+  const keyRef = React.useRef(key);
+  keyRef.current = key;
+  const pins = React.useMemo(() => (state.key === key ? state.items : []), [state, key]);
   const genRef = React.useRef(0);
   const requestRef = React.useRef(0);
   const droppedRef = React.useRef(new Set<string>());
@@ -35,7 +38,7 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
     try {
       const items = await pinsAPI.list(current);
       if (gen !== genRef.current || request !== requestRef.current) return;
-      setPins(items.filter((p) => !droppedRef.current.has(p.messageId)));
+      setState({ key: keyRef.current, items: items.filter((p) => !droppedRef.current.has(p.messageId)) });
     } catch (e) {
       console.warn("[pins] load failed:", e);
     }
@@ -52,7 +55,7 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
   React.useEffect(() => {
     genRef.current += 1;
     droppedRef.current = new Set();
-    setPins([]);
+    setState({ key, items: [] });
     if (key) void refresh();
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -62,7 +65,11 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
 
   const drop = React.useCallback((messageId: string) => {
     droppedRef.current.add(messageId);
-    setPins((prev) => (prev.some((p) => p.messageId === messageId) ? prev.filter((p) => p.messageId !== messageId) : prev));
+    setState((prev) =>
+      prev.items.some((p) => p.messageId === messageId)
+        ? { key: prev.key, items: prev.items.filter((p) => p.messageId !== messageId) }
+        : prev,
+    );
   }, []);
 
   const pinsRef = React.useRef(pins);
