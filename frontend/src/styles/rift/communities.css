@@ -206,6 +206,17 @@
   font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
   display: inline-flex; align-items: center; justify-content: center;
 }
+.sb-dm-badge.muted { background: var(--fg-4); }
+.sb-dm-muted {
+  position: relative; flex: 0 0 auto;
+  display: inline-flex; align-items: center;
+  color: var(--fg-3);
+}
+.sb-dm-muted .nb-dot {
+  position: absolute; top: -1px; right: -2px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #ff453a;
+}
 
 .sb-srv {
   display: flex; align-items: center; gap: 11px;
