@@ -90,16 +90,8 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const bannerUrl = useAvatarUrl("banner", badge && !blockedMe ? userId : null);
   const avatarUrl = useAvatarUrl("user", userId);
   const [avatarOpen, setAvatarOpen] = React.useState(false);
-  React.useEffect(() => {
-    if (!avatarOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      setAvatarOpen(false);
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [avatarOpen]);
+  const avatarOpenRef = React.useRef(avatarOpen);
+  avatarOpenRef.current = avatarOpen;
   const [copied, setCopied] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
   useMinuteTick();
@@ -112,6 +104,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
     setFailed(false);
     setMenuOpen(false);
     setCopied(false);
+    setAvatarOpen(false);
   }, [userId]);
 
   React.useEffect(() => {
@@ -159,7 +152,8 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopImmediatePropagation();
-        close();
+        if (avatarOpenRef.current) setAvatarOpen(false);
+        else close();
       }
     };
     window.addEventListener("keydown", onKey, true);
