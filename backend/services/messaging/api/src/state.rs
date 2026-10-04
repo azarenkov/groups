@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
+use messaging::usecases::pin::{conversation_pins::ConversationPins, message_pins::MessagePins};
 use messaging::usecases::search::global_search::GlobalSearch;
 use messaging::usecases::shared::list_shared_content::ListSharedContent;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnail;
@@ -73,7 +74,7 @@ use messaging_infrastructure::{
         dm_message::PostgresDmMessageRepository, friendship::PostgresFriendshipRepository,
         message::PostgresMessageRepository,
         notification_preference::PostgresNotificationPreferenceRepository,
-        read_state::PostgresReadStateRepository, search::PostgresSearchRepository, shared::PostgresSharedContentRepository,
+        read_state::PostgresReadStateRepository, pin::{PostgresConversationPinRepository, PostgresMessagePinRepository}, search::PostgresSearchRepository, shared::PostgresSharedContentRepository,
         hidden_message::PostgresHiddenMessageRepository,
         voice_listen::PostgresVoiceListenRepository,
         community::PostgresCommunityRepository,
@@ -173,6 +174,14 @@ pub struct AppState {
         PostgresCommunityRepository,
     >,
     pub global_search_usecase: GlobalSearch<PostgresSearchRepository>,
+    pub message_pins_usecase: MessagePins<
+        PostgresMessagePinRepository,
+        PostgresChannelRepository,
+        PostgresCommunityRepository,
+        PostgresCommunityUnitOfWork,
+        PostgresFriendshipRepository,
+    >,
+    pub conversation_pins_usecase: ConversationPins<PostgresConversationPinRepository, PostgresCommunityRepository>,
     pub list_shared_content_usecase:
         ListSharedContent<PostgresSharedContentRepository, PostgresChannelRepository, PostgresCommunityRepository>,
     pub list_message_attachments_usecase:

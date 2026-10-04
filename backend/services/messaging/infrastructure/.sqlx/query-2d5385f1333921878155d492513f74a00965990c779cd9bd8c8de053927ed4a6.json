@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    INSERT INTO dm_pinned_messages (message_id, user_low, user_high, pinned_by)\n                    VALUES ($1, $2, $3, $4)\n                    ON CONFLICT (message_id) DO NOTHING\n                    RETURNING pinned_at\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pinned_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2d5385f1333921878155d492513f74a00965990c779cd9bd8c8de053927ed4a6"
+}

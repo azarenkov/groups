@@ -1,4 +1,5 @@
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
+use messaging::usecases::pin::{conversation_pins::ConversationPins, message_pins::MessagePins};
 use messaging::usecases::search::global_search::GlobalSearch;
 use messaging::usecases::shared::list_shared_content::ListSharedContent;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnail;
@@ -79,7 +80,7 @@ use messaging_infrastructure::{
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
             notification_preference::PostgresNotificationPreferenceRepository,
-            read_state::PostgresReadStateRepository, search::PostgresSearchRepository, shared::PostgresSharedContentRepository, community::PostgresCommunityRepository,
+            read_state::PostgresReadStateRepository, pin::{PostgresConversationPinRepository, PostgresMessagePinRepository}, search::PostgresSearchRepository, shared::PostgresSharedContentRepository, community::PostgresCommunityRepository,
             hidden_message::PostgresHiddenMessageRepository,
             voice_listen::PostgresVoiceListenRepository,
             community_role::PostgresCommunityRoleRepository,
@@ -310,6 +311,17 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             community_repository.clone(),
         ),
         global_search_usecase: GlobalSearch::new(Arc::new(PostgresSearchRepository::new(postgres_pool.clone()))),
+        message_pins_usecase: MessagePins::new(
+            Arc::new(PostgresMessagePinRepository::new(postgres_pool.clone())),
+            channel_repository.clone(),
+            community_repository.clone(),
+            community_unit_of_work.clone(),
+            friendship_repository.clone(),
+        ),
+        conversation_pins_usecase: ConversationPins::new(
+            Arc::new(PostgresConversationPinRepository::new(postgres_pool.clone())),
+            community_repository.clone(),
+        ),
         list_shared_content_usecase: ListSharedContent::new(
             Arc::new(PostgresSharedContentRepository::new(postgres_pool.clone())),
             channel_repository.clone(),

@@ -70,3 +70,23 @@ pub struct VoiceListenedV1 {
     pub listened_at: DateTime<Utc>,
     pub recipients: Vec<Uuid>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessagePinChangedV1 {
+    pub message_id: Uuid,
+    #[serde(default)]
+    pub channel_id: Option<Uuid>,
+    #[serde(default)]
+    pub participants: Vec<Uuid>,
+    pub pinned: bool,
+    pub actor_id: Uuid,
+    pub occurred_at: DateTime<Utc>,
+    pub recipients: Vec<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversationPinsUpdatedV1 {
+    pub user_id: Uuid,
+    pub dms: Vec<Uuid>,
+    pub communities: Vec<Uuid>,
+}

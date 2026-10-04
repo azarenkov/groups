@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO conversation_pins (user_id, kind, target_id, \"position\")\n            SELECT $1, $2, t.id, t.ord::int\n            FROM unnest($3::uuid[]) WITH ORDINALITY AS t(id, ord)\n            ON CONFLICT (user_id, kind, target_id) DO UPDATE SET \"position\" = EXCLUDED.\"position\"\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "de0f5b869c3f8f1aa77df28b129708dbfea46ac9c3fb39f9c2a8a76479ba758e"
+}

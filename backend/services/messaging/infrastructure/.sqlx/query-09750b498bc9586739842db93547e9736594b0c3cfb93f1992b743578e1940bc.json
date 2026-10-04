@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM conversation_pins WHERE user_id = $1 AND kind = $2 AND NOT (target_id = ANY($3))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "09750b498bc9586739842db93547e9736594b0c3cfb93f1992b743578e1940bc"
+}
