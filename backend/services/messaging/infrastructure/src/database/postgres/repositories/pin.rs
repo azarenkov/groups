@@ -84,19 +84,9 @@ impl MessagePinRepository for PostgresMessagePinRepository {
             .execute(&mut *tx)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        let pinned_at = match scope {
+        let (pinned_at, count) = match scope {
             PinScope::Channel(channel_id) => {
-                let count = sqlx::query_scalar!(
-                    r#"SELECT COUNT(*) AS "count!" FROM channel_pinned_messages WHERE channel_id = $1"#,
-                    channel_id,
-                )
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(map_sqlx_error_to_domain_error)?;
-                if count >= MAX_PINNED_MESSAGES {
-                    return Ok(PinOutcome::LimitReached);
-                }
-                sqlx::query_scalar!(
+                let pinned_at = sqlx::query_scalar!(
                     r#"
                     INSERT INTO channel_pinned_messages (message_id, channel_id, pinned_by)
                     VALUES ($1, $2, $3)
@@ -109,21 +99,18 @@ impl MessagePinRepository for PostgresMessagePinRepository {
                 )
                 .fetch_optional(&mut *tx)
                 .await
-                .map_err(map_sqlx_error_to_domain_error)?
-            }
-            PinScope::Dm { user_low, user_high } => {
+                .map_err(map_sqlx_error_to_domain_error)?;
                 let count = sqlx::query_scalar!(
-                    r#"SELECT COUNT(*) AS "count!" FROM dm_pinned_messages WHERE user_low = $1 AND user_high = $2"#,
-                    user_low,
-                    user_high,
+                    r#"SELECT COUNT(*) AS "count!" FROM channel_pinned_messages WHERE channel_id = $1"#,
+                    channel_id,
                 )
                 .fetch_one(&mut *tx)
                 .await
                 .map_err(map_sqlx_error_to_domain_error)?;
-                if count >= MAX_PINNED_MESSAGES {
-                    return Ok(PinOutcome::LimitReached);
-                }
-                sqlx::query_scalar!(
+                (pinned_at, count)
+            }
+            PinScope::Dm { user_low, user_high } => {
+                let pinned_at = sqlx::query_scalar!(
                     r#"
                     INSERT INTO dm_pinned_messages (message_id, user_low, user_high, pinned_by)
                     VALUES ($1, $2, $3, $4)
@@ -137,12 +124,24 @@ impl MessagePinRepository for PostgresMessagePinRepository {
                 )
                 .fetch_optional(&mut *tx)
                 .await
-                .map_err(map_sqlx_error_to_domain_error)?
+                .map_err(map_sqlx_error_to_domain_error)?;
+                let count = sqlx::query_scalar!(
+                    r#"SELECT COUNT(*) AS "count!" FROM dm_pinned_messages WHERE user_low = $1 AND user_high = $2"#,
+                    user_low,
+                    user_high,
+                )
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+                (pinned_at, count)
             }
         };
         let Some(pinned_at) = pinned_at else {
             return Ok(PinOutcome::AlreadyPinned);
         };
+        if count > MAX_PINNED_MESSAGES {
+            return Ok(PinOutcome::LimitReached);
+        }
         save_pin_event(&mut tx, scope, message_id, pinned_by, true, pinned_at, recipients).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(PinOutcome::Pinned(pinned_at))

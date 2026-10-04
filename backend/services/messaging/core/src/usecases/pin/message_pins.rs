@@ -84,6 +84,9 @@ where
         if viewer == friend {
             return Err(MessagePinError::SelfConversation);
         }
+        if self.friendships.block_relation(&viewer, &friend).await?.any() {
+            return Err(MessagePinError::Blocked);
+        }
         Ok(self.pins.list(PinScope::dm(&viewer, &friend), &viewer).await?)
     }
 
