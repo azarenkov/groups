@@ -183,5 +183,7 @@
       "voice": "Voice messages and video notes will appear here",
       "links": "Links from messages will appear here"
     }
-  }
+  },
+  "videoLoadFailed": "Couldn't load the video",
+  "download": "Download"
 }

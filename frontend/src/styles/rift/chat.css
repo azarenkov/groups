@@ -1404,3 +1404,20 @@
   .shared-panel { position: absolute; inset: 0 0 0 auto; width: min(100%, 360px); z-index: 20; box-shadow: var(--shadow-lg); }
 }
 
+.video-viewer-overlay { cursor: default; }
+.video-viewer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 92vw;
+}
+.video-viewer video { max-width: 92vw; max-height: 80vh; border-radius: 10px; background: #000; }
+.video-viewer-bar { display: flex; align-items: center; gap: 12px; color: #fff; font-size: 13px; }
+.video-viewer-name { max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.85; }
+.video-viewer-download { color: #fff; font-weight: 600; }
+.video-viewer-error { color: #fff; }
+.msg-attach-video .msg-attach-file-icon { background: var(--accent); color: #fff; }
+.msg-attach-video.tile { flex-direction: column; align-items: flex-start; aspect-ratio: 4 / 3; justify-content: space-between; width: 100%; }
+.shared-media .shared-body .msg-attach-image { width: 100%; }
+
