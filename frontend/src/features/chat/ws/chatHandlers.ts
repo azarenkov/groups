@@ -34,7 +34,6 @@ export const chatHandlers: WsHandlers = {
       const level =
         useNotificationPrefsStore.getState().channelLevels[channelId] ??
         defaultMentionLevel();
-      if (level === "none") return;
       if (level === "mentions") {
         const myName = useAuthStore.getState().user?.name;
         const mentioned = Array.isArray(d.mentions)
@@ -58,7 +57,7 @@ export const chatHandlers: WsHandlers = {
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpChannel(channelId, communityId);
-      if (asString(d.kind) === "system") return;
+      if (level === "none" || asString(d.kind) === "system") return;
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
         showDesktopNotification(
