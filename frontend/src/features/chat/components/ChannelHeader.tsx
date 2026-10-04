@@ -22,6 +22,8 @@ export interface ChannelHeaderProps {
   searchActive?: boolean;
   onToggleSearch?: () => void;
   onToggleMembers?: () => void;
+  sharedOpen?: boolean;
+  onToggleShared?: () => void;
   onRemoveFriend?: () => void;
   onBlockUser?: () => void;
 }
@@ -36,6 +38,8 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   searchActive,
   onToggleSearch,
   onToggleMembers,
+  sharedOpen,
+  onToggleShared,
   onRemoveFriend,
   onBlockUser,
 }) => {
@@ -257,6 +261,17 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               { k: "none", ttl: i18n.t("notifications.nothing", { ns: "chat" }), sub: i18n.t("notifications.dmNothingHint", { ns: "chat" }) },
             ],
           )}
+          {onToggleShared && (
+            <button
+              type="button"
+              className={"icon-btn" + (sharedOpen ? " on" : "")}
+              title={i18n.t(sharedOpen ? "shared.close" : "shared.title", { ns: "chat" })}
+              aria-pressed={!!sharedOpen}
+              onClick={onToggleShared}
+            >
+              <Icon name="paperclip" size={15} />
+            </button>
+          )}
           {onToggleSearch && (
             <button
               type="button"
@@ -361,6 +376,17 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             onClick={onToggleMembers}
           >
             <Icon name="users" size={15} />
+          </button>
+        )}
+        {onToggleShared && (
+          <button
+            type="button"
+            className={"icon-btn" + (sharedOpen ? " on" : "")}
+            title={i18n.t(sharedOpen ? "shared.close" : "shared.title", { ns: "chat" })}
+            aria-pressed={!!sharedOpen}
+            onClick={onToggleShared}
+          >
+            <Icon name="paperclip" size={15} />
           </button>
         )}
         {onToggleSearch && (

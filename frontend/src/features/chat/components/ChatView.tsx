@@ -34,6 +34,7 @@ import { useMessageSearch } from "../hooks/useMessageSearch";
 import { useMessenger } from "../hooks/useMessenger";
 import { useReadReceipts } from "../hooks/useReadReceipts";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
+import { VOICE_LISTENED_EVENT } from "../api/shared";
 import type { ChannelMeta, DmMeta } from "../types";
 import { openForward } from "../store/forwardModalStore";
 import { canDeleteForEveryone } from "../lib/messageMenu";
@@ -46,6 +47,8 @@ interface ChatViewProps {
   membersOpen?: boolean;
   communities?: Community[];
   onToggleMembers?: () => void;
+  sharedOpen?: boolean;
+  onToggleShared?: () => void;
   onRemoveFriend?: () => void;
   onBlockUser?: () => void;
   onGoToCommunity?: (communityId: string) => void | Promise<void>;
@@ -63,6 +66,8 @@ const ChatView: React.FC<ChatViewProps> = ({
   membersOpen,
   communities,
   onToggleMembers,
+  sharedOpen,
+  onToggleShared,
   onRemoveFriend,
   onBlockUser,
   onGoToCommunity,
@@ -151,13 +156,6 @@ const ChatView: React.FC<ChatViewProps> = ({
     currentUserId,
   });
 
-  const onOpenHandledRef = React.useRef(onOpenMessageHandled);
-  onOpenHandledRef.current = onOpenMessageHandled;
-  React.useEffect(() => {
-    if (!openMessageId || showInitialLoader) return;
-    void jumpToMessageId(openMessageId);
-    onOpenHandledRef.current?.();
-  }, [openMessageId, showInitialLoader, jumpToMessageId]);
 
   useChatWsMessages({
     channelId: channelId ?? null,
@@ -172,6 +170,27 @@ const ChatView: React.FC<ChatViewProps> = ({
     nameSyncTick,
     onClose: () => setHighlightedMessageId(null),
   });
+
+  React.useEffect(() => {
+    const onListened = (event: Event) => {
+      const id = (event as CustomEvent<{ messageId?: string }>).detail?.messageId;
+      if (!id) return;
+      setMessages((prev) => (prev.some((m) => m.id === id) ? prev.map((m) => (m.id === id ? { ...m, voiceListened: true } : m)) : prev));
+    };
+    window.addEventListener(VOICE_LISTENED_EVENT, onListened);
+    return () => window.removeEventListener(VOICE_LISTENED_EVENT, onListened);
+  }, [setMessages]);
+
+  const onOpenHandledRef = React.useRef(onOpenMessageHandled);
+  onOpenHandledRef.current = onOpenMessageHandled;
+  const { closeSearch } = search;
+  React.useEffect(() => {
+    if (!openMessageId || showInitialLoader) return;
+    closeSearch();
+    void jumpToMessageId(openMessageId);
+    onOpenHandledRef.current?.();
+  }, [openMessageId, showInitialLoader, jumpToMessageId, closeSearch]);
+
   const searchActive = search.searchOpen && search.searchInput.trim().length > 0;
 
   const pull = usePullToRefresh({
@@ -340,6 +359,8 @@ const ChatView: React.FC<ChatViewProps> = ({
         searchActive={search.searchOpen}
         onToggleSearch={search.toggleSearch}
         onToggleMembers={onToggleMembers}
+        sharedOpen={sharedOpen}
+        onToggleShared={onToggleShared}
         onRemoveFriend={onRemoveFriend}
         onBlockUser={onBlockUser}
         onUnblockUser={() => {

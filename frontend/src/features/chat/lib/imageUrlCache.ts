@@ -35,18 +35,30 @@ export const cacheImageUrl = (id: string, url: string): string => {
 
 export const pendingImageDownloads = new Map<string, Promise<string>>();
 
-export const downloadImageUrl = (id: string, sizeBytes = 0): Promise<string> => {
-  const existing = pendingImageDownloads.get(id);
+const downloadCachedUrl = (key: string, load: () => Promise<Blob>): Promise<string> => {
+  const existing = pendingImageDownloads.get(key);
   if (existing) return existing;
-  const promise = attachmentAPI
-    .download(id, sizeBytes)
-    .then((blob) => cacheImageUrl(id, URL.createObjectURL(blob)))
+  const promise = load()
+    .then((blob) => cacheImageUrl(key, URL.createObjectURL(blob)))
     .finally(() => {
-      pendingImageDownloads.delete(id);
+      pendingImageDownloads.delete(key);
     });
-  pendingImageDownloads.set(id, promise);
+  pendingImageDownloads.set(key, promise);
   return promise;
 };
+
+export const downloadImageUrl = (id: string, sizeBytes = 0): Promise<string> =>
+  downloadCachedUrl(id, () => attachmentAPI.download(id, sizeBytes));
+
+export const thumbnailKey = (id: string) => `thumb:${id}`;
+
+export const downloadThumbnailUrl = (id: string, sizeBytes: number, originalMaxBytes: number): Promise<string> =>
+  downloadCachedUrl(thumbnailKey(id), () =>
+    attachmentAPI.thumbnail(id, sizeBytes).catch((err) => {
+      if (sizeBytes > originalMaxBytes) throw err;
+      return attachmentAPI.download(id, sizeBytes);
+    }),
+  );
 
 export const acquireImageUrl = (id: string): string | null => {
   const entry = imageUrlCache.get(id);

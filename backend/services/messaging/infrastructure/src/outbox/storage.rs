@@ -88,6 +88,25 @@ pub(crate) async fn release_storage_keys(
     save_outbox_records(tx, &records).await
 }
 
+pub struct PostgresStorageReleases {
+    pool: sqlx::Pool<Postgres>,
+}
+
+impl PostgresStorageReleases {
+    pub fn new(pool: sqlx::Pool<Postgres>) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait::async_trait]
+impl messaging::ports::storage_releases::StorageReleases for PostgresStorageReleases {
+    async fn release(&self, storage_keys: &[String]) -> Result<(), RepositoryError> {
+        let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+        release_storage_keys(&mut tx, storage_keys).await?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)
+    }
+}
+
 fn storage_release_records(storage_keys: &[String]) -> Vec<OutboxRecord> {
     let mut keys = storage_keys.to_vec();
     keys.sort();

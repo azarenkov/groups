@@ -158,5 +158,32 @@
   "videoNoteInvalid": "Couldn't send the video message.",
   "voiceSlideToLock": "Slide up to lock",
   "stickerUnavailable": "This sticker is no longer available",
-  "replySticker": "Sticker"
+  "replySticker": "Sticker",
+  "shared": {
+    "title": "Shared",
+    "close": "Close shared content",
+    "resize": "Resize shared content panel",
+    "tabs": {
+      "media": "Media",
+      "files": "Files",
+      "voice": "Voice",
+      "links": "Links"
+    },
+    "searchFiles": "Search by file name",
+    "searchLinks": "Search by address",
+    "showInChat": "Show in chat",
+    "you": "You",
+    "unknownAuthor": "Unknown",
+    "nothingFound": "Nothing found",
+    "loadFailed": "Couldn't load",
+    "retry": "Try again",
+    "empty": {
+      "media": "Images and videos from this chat will appear here",
+      "files": "Files from this chat will appear here",
+      "voice": "Voice messages and video notes will appear here",
+      "links": "Links from messages will appear here"
+    }
+  },
+  "videoLoadFailed": "Couldn't load the video",
+  "download": "Download"
 }

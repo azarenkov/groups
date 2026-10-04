@@ -1,2 +1,2 @@
 pub mod mapping;
-pub(crate) mod storage;
+pub mod storage;
