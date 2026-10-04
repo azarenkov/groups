@@ -82,7 +82,7 @@ it("does not let a write from the previous account affect the next one", async (
 it("drops communities the user is no longer in when toggling", async () => {
   useConversationPinsStore.getState().applyRemote({ communities: ["gone", "c1"] });
   put.mockResolvedValue(reply({ dms: [], communities: ["c2", "c1"] }));
-  await useConversationPinsStore.getState().toggle("communities", "c2", new Set(["c1", "c2"]));
+  await useConversationPinsStore.getState().toggle("communities", "c2", (id) => id === "c1");
   expect(put).toHaveBeenCalledWith("/v1/users/me/pins/communities", { ids: ["c2", "c1"] });
 });
 
@@ -155,4 +155,27 @@ it("forgets a community locally without saving", () => {
   useConversationPinsStore.getState().forget("communities", "c1");
   expect(useConversationPinsStore.getState().communities).toEqual(["c2"]);
   expect(put).not.toHaveBeenCalled();
+});
+
+it("filters with the loaded list, not the one seen before loading", async () => {
+  useConversationPinsStore.getState().clearAll();
+  get.mockResolvedValue(reply({ dms: ["x", "blocked"], communities: [] }));
+  put.mockImplementation((_url: string, body: { ids: string[] }) => Promise.resolve(reply({ dms: body.ids, communities: [] })));
+  await useConversationPinsStore.getState().toggle("dms", "new", (id) => id !== "blocked");
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["new", "x"] });
+});
+
+it("goes on when the reconnect fetch loaded pins even if its own load failed", async () => {
+  useConversationPinsStore.getState().clearAll();
+  let resolveReconnect: (v: unknown) => void = () => undefined;
+  get
+    .mockImplementationOnce(() => new Promise((resolve) => (resolveReconnect = resolve)))
+    .mockRejectedValueOnce(new Error("toggle load failed"));
+  put.mockImplementation((_url: string, body: { ids: string[] }) => Promise.resolve(reply({ dms: body.ids, communities: [] })));
+  const reconnect = useConversationPinsStore.getState().fetch();
+  const toggle = useConversationPinsStore.getState().toggle("dms", "a");
+  resolveReconnect(reply({ dms: ["old"], communities: [] }));
+  await reconnect;
+  await toggle;
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["a", "old"] });
 });

@@ -14,7 +14,7 @@ interface PinLists {
 interface ConversationPinsState extends PinLists {
   loaded: boolean;
   fetch: () => Promise<void>;
-  toggle: (kind: ConversationPinKind, id: string, keep?: Set<string>) => Promise<void>;
+  toggle: (kind: ConversationPinKind, id: string, keep?: (pinnedId: string) => boolean) => Promise<void>;
   applyRemote: (lists: Partial<PinLists>) => void;
   forget: (kind: ConversationPinKind, id: string) => void;
   clearAll: () => void;
@@ -94,10 +94,12 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
             });
           initialLoad = load;
         }
-        await initialLoad;
+        await initialLoad.catch((err) => {
+          if (!get().loaded) throw err;
+        });
         if (gen !== sessionGen || !get().loaded) throw new Error("PINS_NOT_LOADED");
       }
-      const before = keep ? get()[kind].filter((x) => keep.has(x)) : get()[kind];
+      const before = keep ? get()[kind].filter((x) => x === id || keep(x)) : get()[kind];
       const next = togglePinned(before, id);
       if (next.length > MAX_PINNED_CONVERSATIONS) {
         throw new Error("PIN_LIMIT_REACHED");
