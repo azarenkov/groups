@@ -30,7 +30,7 @@ it("pins optimistically and keeps the server answer", async () => {
   const pending = useConversationPinsStore.getState().toggle("dms", "u2");
   expect(useConversationPinsStore.getState().dms).toEqual(["u2"]);
   await Promise.resolve();
-  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["u2"] });
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["u2"] }, expect.anything());
   finish(reply({ dms: ["u2"], communities: ["c1"] }));
   await pending;
   expect(useConversationPinsStore.getState().communities).toEqual(["c1"]);
@@ -83,7 +83,7 @@ it("drops communities the user is no longer in when toggling", async () => {
   useConversationPinsStore.getState().applyRemote({ communities: ["gone", "c1"] });
   put.mockResolvedValue(reply({ dms: [], communities: ["c2", "c1"] }));
   await useConversationPinsStore.getState().toggle("communities", "c2", (id) => id === "c1");
-  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/communities", { ids: ["c2", "c1"] });
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/communities", { ids: ["c2", "c1"] }, expect.anything());
 });
 
 it("reloads from the server when saving fails", async () => {
@@ -92,7 +92,7 @@ it("reloads from the server when saving fails", async () => {
   await expect(useConversationPinsStore.getState().toggle("communities", "c1")).rejects.toThrow("boom");
   await Promise.resolve();
   await Promise.resolve();
-  expect(get).toHaveBeenCalledWith("/v1/users/me/pins");
+  expect(get).toHaveBeenCalledWith("/v1/users/me/pins", expect.anything());
   expect(useConversationPinsStore.getState().communities).toEqual([]);
 });
 
@@ -114,7 +114,7 @@ it("loads the current pins before the first toggle so nothing is lost", async ()
   get.mockResolvedValue(reply({ dms: ["old"], communities: [] }));
   put.mockResolvedValue(reply({ dms: ["new", "old"], communities: [] }));
   await useConversationPinsStore.getState().toggle("dms", "new");
-  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["new", "old"] });
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["new", "old"] }, expect.anything());
 });
 
 it("refuses to toggle when the pins cannot be loaded", async () => {
@@ -162,7 +162,7 @@ it("filters with the loaded list, not the one seen before loading", async () => 
   get.mockResolvedValue(reply({ dms: ["x", "blocked"], communities: [] }));
   put.mockImplementation((_url: string, body: { ids: string[] }) => Promise.resolve(reply({ dms: body.ids, communities: [] })));
   await useConversationPinsStore.getState().toggle("dms", "new", (id) => id !== "blocked");
-  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["new", "x"] });
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["new", "x"] }, expect.anything());
 });
 
 it("goes on when the reconnect fetch loaded pins even if its own load failed", async () => {
@@ -177,5 +177,31 @@ it("goes on when the reconnect fetch loaded pins even if its own load failed", a
   resolveReconnect(reply({ dms: ["old"], communities: [] }));
   await reconnect;
   await toggle;
-  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["a", "old"] });
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["a", "old"] }, expect.anything());
+});
+
+it("keeps an older successful fetch when a newer one fails", async () => {
+  let resolveOld: (v: unknown) => void = () => undefined;
+  let rejectNew: (e: unknown) => void = () => undefined;
+  get
+    .mockImplementationOnce(() => new Promise((resolve) => (resolveOld = resolve)))
+    .mockImplementationOnce(() => new Promise((_resolve, reject) => (rejectNew = reject)));
+  const older = useConversationPinsStore.getState().fetch();
+  const newer = useConversationPinsStore.getState().fetch();
+  rejectNew(new Error("offline"));
+  await expect(newer).rejects.toThrow("offline");
+  resolveOld(reply({ dms: ["kept"], communities: [] }));
+  await older;
+  expect(useConversationPinsStore.getState().dms).toEqual(["kept"]);
+});
+
+it("aborts requests of the previous account", async () => {
+  put.mockImplementation(() => new Promise(() => undefined));
+  void useConversationPinsStore.getState().toggle("dms", "a").catch(() => undefined);
+  await Promise.resolve();
+  await Promise.resolve();
+  const signal = put.mock.calls[0][2].signal as AbortSignal;
+  expect(signal.aborted).toBe(false);
+  useConversationPinsStore.getState().clearAll();
+  expect(signal.aborted).toBe(true);
 });

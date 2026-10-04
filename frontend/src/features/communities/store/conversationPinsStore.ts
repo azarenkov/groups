@@ -21,12 +21,12 @@ interface ConversationPinsState extends PinLists {
 }
 
 const api = {
-  async list(): Promise<PinLists> {
-    const response = await http.get("/v1/users/me/pins");
+  async list(signal: AbortSignal): Promise<PinLists> {
+    const response = await http.get("/v1/users/me/pins", { signal });
     return response.data.data;
   },
-  async replace(kind: ConversationPinKind, ids: string[]): Promise<PinLists> {
-    const response = await http.put(`/v1/users/me/pins/${kind}`, { ids });
+  async replace(kind: ConversationPinKind, ids: string[], signal: AbortSignal): Promise<PinLists> {
+    const response = await http.put(`/v1/users/me/pins/${kind}`, { ids }, { signal });
     return response.data.data;
   },
 };
@@ -38,6 +38,8 @@ let sessionGen = 0;
 let pendingWrites = 0;
 let remoteDuringWrite = false;
 let latestFetch = 0;
+let appliedFetch = 0;
+let sessionAbort = new AbortController();
 let stateEpoch = 0;
 let writeChain: Promise<unknown> = Promise.resolve();
 let initialLoad: Promise<void> | null = null;
@@ -54,8 +56,8 @@ export function pinnedFirst<T extends { id: string }>(items: T[], pinned: string
 }
 
 export const useConversationPinsStore = create<ConversationPinsState>((set, get) => {
-  const install = (lists: Partial<PinLists>) => {
-    stateEpoch += 1;
+  const install = (lists: Partial<PinLists>, fromFetch = false) => {
+    if (!fromFetch) stateEpoch += 1;
     const dms = ids(lists.dms);
     const communities = ids(lists.communities);
     set({
@@ -74,9 +76,10 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       const gen = sessionGen;
       const request = ++latestFetch;
       const epoch = stateEpoch;
-      return api.list().then((lists) => {
-        if (gen !== sessionGen || request !== latestFetch || epoch !== stateEpoch || pendingWrites > 0) return;
-        install(lists);
+      return api.list(sessionAbort.signal).then((lists) => {
+        if (gen !== sessionGen || request < appliedFetch || epoch !== stateEpoch || pendingWrites > 0) return;
+        appliedFetch = request;
+        install(lists, true);
       });
     },
 
@@ -85,7 +88,7 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       if (!get().loaded) {
         if (!initialLoad) {
           const load: Promise<void> = api
-            .list()
+            .list(sessionAbort.signal)
             .then((lists) => {
               if (gen === sessionGen && !get().loaded && pendingWrites === 0) install(lists);
             })
@@ -109,7 +112,7 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       pendingWrites += 1;
       const write = writeChain.then(() => {
         if (gen !== sessionGen) throw new Error("SESSION_CHANGED");
-        return api.replace(kind, get()[kind]);
+        return api.replace(kind, get()[kind], sessionAbort.signal);
       });
       writeChain = write.catch(() => undefined);
       let failed = false;
@@ -151,6 +154,9 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       pendingWrites = 0;
       remoteDuringWrite = false;
       latestFetch += 1;
+      appliedFetch = latestFetch;
+      sessionAbort.abort();
+      sessionAbort = new AbortController();
       initialLoad = null;
       stateEpoch += 1;
       writeChain = Promise.resolve();
