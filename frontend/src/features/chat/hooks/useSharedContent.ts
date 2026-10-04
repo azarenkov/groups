@@ -240,6 +240,8 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
 
   const applyEdit = React.useCallback(
     (edit: MessageEdit) => {
+      const seq = (editSeqRef.current.get(edit.messageId) ?? 0) + 1;
+      editSeqRef.current.set(edit.messageId, seq);
       setState((s) => ({ ...s, items: reconcileEdit(s.items, edit, kind, debouncedQuery) }));
       const known = itemsRef.current.some((item) => item.messageId === edit.messageId);
       const mayAdd =
@@ -248,8 +250,6 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
           : (edit.attachmentIds?.length ?? 0) > 0;
       if (!known && !mayAdd) return;
       const viewAtEdit = viewGenRef.current;
-      const seq = (editSeqRef.current.get(edit.messageId) ?? 0) + 1;
-      editSeqRef.current.set(edit.messageId, seq);
       const current = () =>
         viewGenRef.current === viewAtEdit &&
         !droppedRef.current.has(edit.messageId) &&

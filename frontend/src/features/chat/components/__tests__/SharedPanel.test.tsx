@@ -478,5 +478,29 @@ describe("shared panel edge cases", () => {
     expect(screen.queryByText("https://ghost.example")).toBeNull();
     list.mockReset();
   });
+
+  it("drops a pending lookup when a later edit removes the content", async () => {
+    list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    render(
+      <SharedPanel scope={{ kind: "dm", friendId: "u2" }} currentUserId="u1" onClose={() => undefined} onShowMessage={() => undefined} />,
+    );
+    list.mockResolvedValueOnce({
+      items: [link("m9", "https://top.example", "2026-10-05T00:00:00Z"), link("m1", "https://low.example", "2026-10-01T00:00:00Z")],
+      nextCursor: "older",
+    });
+    list.mockResolvedValue({ items: [link("m9", "https://top.example", "2026-10-05T00:00:00Z")], nextCursor: "first" });
+    fireEvent.click(screen.getByRole("tab", { name: "Links" }));
+    expect(await screen.findByText("https://low.example")).toBeInTheDocument();
+    let resolveMessage: (m: unknown) => void = () => undefined;
+    (sharedAPI.message as jest.Mock).mockReturnValueOnce(new Promise((resolve) => (resolveMessage = resolve)));
+    act(() => wsHandlers.current.onEdited?.({ id: "m5", newContent: "https://brief.example" }));
+    act(() => wsHandlers.current.onEdited?.({ id: "m5", newContent: "no links now" }));
+    await act(async () => {
+      resolveMessage({ id: "m5", authorId: "u2", authorName: "Bob", createdAt: "2026-10-04T00:00:00Z", content: "https://brief.example" });
+      await Promise.resolve();
+    });
+    expect(screen.queryByText("https://brief.example")).toBeNull();
+    list.mockReset();
+  });
 });
 
