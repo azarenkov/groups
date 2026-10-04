@@ -79,8 +79,10 @@ mod tests {
     use std::sync::Mutex;
     use uuid::Uuid;
 
+    type SearchCall = (SearchKind, String, Option<SearchCursor>, i64);
+
     struct FakeRepository {
-        calls: Mutex<Vec<(SearchKind, String, Option<SearchCursor>, i64)>>,
+        calls: Mutex<Vec<SearchCall>>,
         hits: usize,
     }
 

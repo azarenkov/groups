@@ -95,7 +95,7 @@ impl SearchRepository for PostgresSearchRepository {
                         channel_id: r.channel_id,
                         channel_name: r.channel_name,
                     },
-                    snippet: snippet(&r.content),
+                    snippet: snippet(&r.content, query),
                     found: SearchMatch::Message,
                     cursor: SearchCursor { created_at: r.created_at, message_id: r.message_id, item: SearchItemKey::Message },
                 }));
@@ -139,7 +139,7 @@ impl SearchRepository for PostgresSearchRepository {
                     forwarded_author_id: r.forwarded_author_id.map(UserId::new),
                     created_at: r.created_at,
                     place: SearchPlace::Dm { peer_id: r.peer_id, peer_name: r.peer_name },
-                    snippet: snippet(&r.content),
+                    snippet: snippet(&r.content, query),
                     found: SearchMatch::Message,
                     cursor: SearchCursor { created_at: r.created_at, message_id: r.message_id, item: SearchItemKey::Message },
                 }));
@@ -196,7 +196,7 @@ impl SearchRepository for PostgresSearchRepository {
                         channel_id: r.channel_id,
                         channel_name: r.channel_name,
                     },
-                    snippet: snippet(&r.content),
+                    snippet: snippet(&r.content, query),
                     found: SearchMatch::Attachment(AttachmentLink {
                         id: r.attachment_id,
                         file_name: r.file_name,
@@ -258,7 +258,7 @@ impl SearchRepository for PostgresSearchRepository {
                     forwarded_author_id: r.forwarded_author_id.map(UserId::new),
                     created_at: r.created_at,
                     place: SearchPlace::Dm { peer_id: r.peer_id, peer_name: r.peer_name },
-                    snippet: snippet(&r.content),
+                    snippet: snippet(&r.content, query),
                     found: SearchMatch::Attachment(AttachmentLink {
                         id: r.attachment_id,
                         file_name: r.file_name,
@@ -295,6 +295,7 @@ impl SearchRepository for PostgresSearchRepository {
                     LEFT JOIN messaging_user_profiles u ON u.user_id = m.author_id
                     CROSS JOIN LATERAL regexp_matches(m.content, $2, 'g') WITH ORDINALITY AS l(found, ordinal)
                     WHERE m.kind = 'user'
+                      AND lower(m.content) LIKE $3 ESCAPE '\'
                       AND m.content ~ 'https?://'
                       AND lower(l.found[1]) LIKE $3 ESCAPE '\'
                       AND EXISTS (SELECT 1 FROM community_members cm WHERE cm.community_id = c.community_id AND cm.user_id = $1)
@@ -328,7 +329,7 @@ impl SearchRepository for PostgresSearchRepository {
                         channel_id: r.channel_id,
                         channel_name: r.channel_name,
                     },
-                    snippet: snippet(&r.content),
+                    snippet: snippet(&r.content, query),
                     found: SearchMatch::Link(r.url),
                     cursor: SearchCursor {
                         created_at: r.created_at,
@@ -356,6 +357,7 @@ impl SearchRepository for PostgresSearchRepository {
                       )
                       AND m.invite_community_id IS NULL
                       AND m.call_status IS NULL
+                      AND lower(m.content) LIKE $3 ESCAPE '\'
                       AND m.content ~ 'https?://'
                       AND lower(l.found[1]) LIKE $3 ESCAPE '\'
                       AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
@@ -381,7 +383,7 @@ impl SearchRepository for PostgresSearchRepository {
                     forwarded_author_id: r.forwarded_author_id.map(UserId::new),
                     created_at: r.created_at,
                     place: SearchPlace::Dm { peer_id: r.peer_id, peer_name: r.peer_name },
-                    snippet: snippet(&r.content),
+                    snippet: snippet(&r.content, query),
                     found: SearchMatch::Link(r.url),
                     cursor: SearchCursor {
                         created_at: r.created_at,

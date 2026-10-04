@@ -137,14 +137,45 @@ pub fn clamp_search_limit(limit: Option<i64>) -> i64 {
     limit.unwrap_or(SEARCH_PAGE_DEFAULT).clamp(1, SEARCH_PAGE_MAX)
 }
 
-pub fn snippet(content: &str) -> String {
-    let flat = content.split_whitespace().collect::<Vec<_>>().join(" ");
-    if flat.chars().count() <= SNIPPET_MAX_CHARS {
-        return flat;
+pub const SNIPPET_LEAD_CHARS: usize = 60;
+
+fn fold(c: char) -> char {
+    c.to_lowercase().next().unwrap_or(c)
+}
+
+fn first_match(haystack: &[char], query: &str) -> Option<usize> {
+    query
+        .split_whitespace()
+        .filter_map(|term| {
+            let needle: Vec<char> = term.chars().map(fold).collect();
+            if needle.is_empty() || needle.len() > haystack.len() {
+                return None;
+            }
+            (0..=haystack.len() - needle.len())
+                .find(|&start| haystack[start..start + needle.len()].iter().zip(&needle).all(|(a, b)| fold(*a) == *b))
+        })
+        .min()
+}
+
+pub fn snippet(content: &str, query: &str) -> String {
+    let flat: Vec<char> = content.split_whitespace().collect::<Vec<_>>().join(" ").chars().collect();
+    if flat.len() <= SNIPPET_MAX_CHARS {
+        return flat.into_iter().collect();
     }
-    let mut cut: String = flat.chars().take(SNIPPET_MAX_CHARS).collect();
-    cut.push('…');
-    cut
+    let hit = first_match(&flat, query).unwrap_or(0);
+    let start = hit
+        .saturating_sub(SNIPPET_LEAD_CHARS)
+        .min(flat.len() - SNIPPET_MAX_CHARS);
+    let end = start + SNIPPET_MAX_CHARS;
+    let mut out = String::new();
+    if start > 0 {
+        out.push('…');
+    }
+    out.extend(&flat[start..end]);
+    if end < flat.len() {
+        out.push('…');
+    }
+    out
 }
 
 pub fn merge_newest(mut hits: Vec<SearchHit>, limit: usize) -> Vec<SearchHit> {
@@ -198,10 +229,23 @@ mod tests {
 
     #[test]
     fn snippets_are_flattened_and_shortened() {
-        assert_eq!(snippet("a\n  b"), "a b");
-        assert_eq!(snippet("one   two\tthree"), "one two three");
-        assert!(snippet(&"x".repeat(500)).ends_with('…'));
-        assert_eq!(snippet(&"x".repeat(500)).chars().count(), SNIPPET_MAX_CHARS + 1);
+        assert_eq!(snippet("a\n  b", "a"), "a b");
+        assert_eq!(snippet("one   two\tthree", "two"), "one two three");
+        assert!(snippet(&"x".repeat(500), "zz").ends_with('…'));
+        assert_eq!(snippet(&"x".repeat(500), "zz").chars().count(), SNIPPET_MAX_CHARS + 1);
+    }
+
+    #[test]
+    fn long_snippets_are_centered_on_the_first_matched_term() {
+        let content = format!("{} Привет мир {}", "a".repeat(300), "b".repeat(300));
+        let cut = snippet(&content, "zzz ПРИВ");
+        assert!(cut.starts_with('…') && cut.ends_with('…'));
+        assert!(cut.contains("Привет мир"));
+        assert_eq!(cut.chars().count(), SNIPPET_MAX_CHARS + 2);
+        let tail = format!("{} конец", "a".repeat(400));
+        let end = snippet(&tail, "конец");
+        assert!(end.starts_with('…') && end.ends_with("конец"));
+        assert_eq!(end.chars().count(), SNIPPET_MAX_CHARS + 1);
     }
 
     #[test]
