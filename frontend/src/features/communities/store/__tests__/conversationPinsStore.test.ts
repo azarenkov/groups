@@ -30,11 +30,58 @@ it("pins optimistically and keeps the server answer", async () => {
   expect(useConversationPinsStore.getState().dms).toEqual(["u2"]);
   await Promise.resolve();
   expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["u2"] });
-  useConversationPinsStore.getState().applyRemote({ dms: [] });
-  expect(useConversationPinsStore.getState().dms).toEqual(["u2"]);
   finish(reply({ dms: ["u2"], communities: ["c1"] }));
   await pending;
   expect(useConversationPinsStore.getState().communities).toEqual(["c1"]);
+  expect(get).not.toHaveBeenCalled();
+});
+
+it("reloads after a write when another device changed pins meanwhile", async () => {
+  let finish: (v: unknown) => void = () => undefined;
+  put.mockImplementation(() => new Promise((resolve) => (finish = resolve)));
+  get.mockResolvedValue(reply({ dms: ["u9", "u2"], communities: [] }));
+  const pending = useConversationPinsStore.getState().toggle("dms", "u2");
+  await Promise.resolve();
+  useConversationPinsStore.getState().applyRemote({ dms: ["u9"] });
+  expect(useConversationPinsStore.getState().dms).toEqual(["u2"]);
+  finish(reply({ dms: ["u2"], communities: [] }));
+  await pending;
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(get).toHaveBeenCalledTimes(1);
+  expect(useConversationPinsStore.getState().dms).toEqual(["u9", "u2"]);
+});
+
+it("ignores an older fetch that finishes after a newer update", async () => {
+  let resolveOld: (v: unknown) => void = () => undefined;
+  get.mockImplementationOnce(() => new Promise((resolve) => (resolveOld = resolve)));
+  const old = useConversationPinsStore.getState().fetch();
+  useConversationPinsStore.getState().applyRemote({ dms: ["fresh"] });
+  resolveOld(reply({ dms: ["stale"], communities: [] }));
+  await old;
+  expect(useConversationPinsStore.getState().dms).toEqual(["fresh"]);
+});
+
+it("does not let a write from the previous account affect the next one", async () => {
+  let finish: (v: unknown) => void = () => undefined;
+  put.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+  const old = useConversationPinsStore.getState().toggle("dms", "a");
+  await Promise.resolve();
+  useConversationPinsStore.getState().clearAll();
+  finish(reply({ dms: ["a"], communities: [] }));
+  await old;
+  expect(useConversationPinsStore.getState().dms).toEqual([]);
+  put.mockResolvedValueOnce(reply({ dms: ["b"], communities: [] }));
+  await useConversationPinsStore.getState().toggle("dms", "b");
+  useConversationPinsStore.getState().applyRemote({ dms: ["remote"] });
+  expect(useConversationPinsStore.getState().dms).toEqual(["remote"]);
+});
+
+it("drops communities the user is no longer in when toggling", async () => {
+  useConversationPinsStore.getState().applyRemote({ communities: ["gone", "c1"] });
+  put.mockResolvedValue(reply({ dms: [], communities: ["c2", "c1"] }));
+  await useConversationPinsStore.getState().toggle("communities", "c2", new Set(["c1", "c2"]));
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/communities", { ids: ["c2", "c1"] });
 });
 
 it("reloads from the server when saving fails", async () => {

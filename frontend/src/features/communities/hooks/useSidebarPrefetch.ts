@@ -3,6 +3,7 @@ import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useDmPreviewStore } from "../../dm/store/dmPreviewStore";
 import type { Channel } from "../../../shared/types/channel";
 import type { Community } from "../../../shared/types/community";
+import { useConversationPinsStore } from "../store/conversationPinsStore";
 
 export function useSidebarPrefetch(params: {
   query: string;
@@ -17,6 +18,12 @@ export function useSidebarPrefetch(params: {
   const previewsNextCursor = useDmPreviewStore((s) => s.nextCursor);
   const loadMorePreviews = useDmPreviewStore((s) => s.loadMore);
   const prefetchInflightRef = useRef<Set<string>>(new Set());
+  const pinnedDms = useConversationPinsStore((s) => s.dms);
+  const friends = useFriendshipStore((s) => s.friends);
+  const previews = useDmPreviewStore((s) => s.byFriend);
+  const missingPinnedDm =
+    hasSession &&
+    pinnedDms.some((id) => !previews[id] && !friends.some((f) => f.friendId === id));
 
   useEffect(() => {
     if (!hasSession) return;
@@ -48,6 +55,12 @@ export function useSidebarPrefetch(params: {
     loadMoreFriends,
     loadMorePreviews,
   ]);
+
+  useEffect(() => {
+    if (!missingPinnedDm) return;
+    if (friendsNextCursor) void loadMoreFriends();
+    if (previewsNextCursor) void loadMorePreviews();
+  }, [missingPinnedDm, friendsNextCursor, previewsNextCursor, loadMoreFriends, loadMorePreviews]);
 
   return {
     hasMoreDirects: !!friendsNextCursor || !!previewsNextCursor,
