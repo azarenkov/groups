@@ -1,0 +1,79 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT p.message_id AS \"message_id!\", m.sender_id AS \"author_id!\", COALESCE(u.name, '') AS \"author_name!\",\n                       (m.forwarded_from->>'authorId')::uuid AS \"forwarded_author_id?\",\n                       m.content AS \"content!\", m.sticker->>'emoji' AS \"sticker_emoji?\",\n                       EXISTS (SELECT 1 FROM dm_message_attachments a WHERE a.dm_message_id = m.id) AS \"has_attachments!\",\n                       m.created_at AS \"created_at!\", p.pinned_by AS \"pinned_by!\", p.pinned_at AS \"pinned_at!\"\n                FROM dm_pinned_messages p\n                JOIN dm_messages m ON m.id = p.message_id\n                LEFT JOIN messaging_user_profiles u ON u.user_id = m.sender_id\n                WHERE p.user_low = $1 AND p.user_high = $2\n                  AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)\n                ORDER BY p.pinned_at DESC, p.message_id DESC\n                LIMIT $4\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "author_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "author_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "forwarded_author_id?",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "content!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "sticker_emoji?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "has_attachments!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "pinned_by!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 9,
+        "name": "pinned_at!",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      false,
+      null,
+      null,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e74bf2ffdf51399736a4ad4d54e1949143c20615f0cee56c65226b3020cf00d3"
+}

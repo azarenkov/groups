@@ -188,6 +188,7 @@ impl MessagePinRepository for PostgresMessagePinRepository {
                 PinnedRow,
                 r#"
                 SELECT p.message_id AS "message_id!", m.author_id AS "author_id!", COALESCE(u.name, '') AS "author_name!",
+                       (m.forwarded_from->>'authorId')::uuid AS "forwarded_author_id?",
                        m.content AS "content!", m.sticker->>'emoji' AS "sticker_emoji?",
                        EXISTS (SELECT 1 FROM message_attachments a WHERE a.message_id = m.id) AS "has_attachments!",
                        m.created_at AS "created_at!", p.pinned_by AS "pinned_by!", p.pinned_at AS "pinned_at!"
@@ -210,6 +211,7 @@ impl MessagePinRepository for PostgresMessagePinRepository {
                 PinnedRow,
                 r#"
                 SELECT p.message_id AS "message_id!", m.sender_id AS "author_id!", COALESCE(u.name, '') AS "author_name!",
+                       (m.forwarded_from->>'authorId')::uuid AS "forwarded_author_id?",
                        m.content AS "content!", m.sticker->>'emoji' AS "sticker_emoji?",
                        EXISTS (SELECT 1 FROM dm_message_attachments a WHERE a.dm_message_id = m.id) AS "has_attachments!",
                        m.created_at AS "created_at!", p.pinned_by AS "pinned_by!", p.pinned_at AS "pinned_at!"
@@ -238,6 +240,7 @@ struct PinnedRow {
     message_id: Uuid,
     author_id: Uuid,
     author_name: String,
+    forwarded_author_id: Option<Uuid>,
     content: String,
     sticker_emoji: Option<String>,
     has_attachments: bool,
@@ -252,6 +255,7 @@ impl From<PinnedRow> for PinnedMessage {
             message_id: r.message_id,
             author_id: UserId::new(r.author_id),
             author_name: r.author_name,
+            forwarded_author_id: r.forwarded_author_id.map(UserId::new),
             content: r.content,
             sticker_emoji: r.sticker_emoji,
             has_attachments: r.has_attachments,
