@@ -48,20 +48,11 @@ export const normalizeGlobalQuery = (raw: string): string | null => {
 
 export function useGlobalSearch(rawQuery: string) {
   const query = normalizeGlobalQuery(rawQuery);
-  const [debounced, setDebounced] = React.useState<string | null>(null);
+  const [searched, setSearched] = React.useState<string | null>(null);
   const [sections, setSections] = React.useState<Sections>(emptySections);
   const genRef = React.useRef(0);
   const sectionsRef = React.useRef(sections);
   sectionsRef.current = sections;
-
-  React.useEffect(() => {
-    if (query === null) {
-      setDebounced(null);
-      return;
-    }
-    const timer = setTimeout(() => setDebounced(query), GLOBAL_SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [query]);
 
   const patch = React.useCallback((kind: GlobalSearchKind, next: Partial<GlobalSearchSection>) => {
     setSections((prev) => ({ ...prev, [kind]: { ...prev[kind], ...next } }));
@@ -98,28 +89,33 @@ export function useGlobalSearch(rawQuery: string) {
   React.useEffect(() => {
     genRef.current += 1;
     setSections(emptySections());
-    if (debounced === null) return;
-    for (const kind of GLOBAL_SEARCH_KINDS) void fetchPage(debounced, kind, null);
-  }, [debounced, fetchPage]);
+    setSearched(null);
+    if (query === null) return;
+    const timer = setTimeout(() => {
+      setSearched(query);
+      for (const kind of GLOBAL_SEARCH_KINDS) void fetchPage(query, kind, null);
+    }, GLOBAL_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [query, fetchPage]);
 
   const loadMore = React.useCallback(
     (kind: GlobalSearchKind) => {
       const section = sectionsRef.current[kind];
-      if (debounced === null || section.loading || !section.nextCursor) return;
-      void fetchPage(debounced, kind, section.nextCursor);
+      if (searched === null || section.loading || !section.nextCursor) return;
+      void fetchPage(searched, kind, section.nextCursor);
     },
-    [debounced, fetchPage],
+    [searched, fetchPage],
   );
 
   const retry = React.useCallback(
     (kind: GlobalSearchKind) => {
       const section = sectionsRef.current[kind];
-      if (debounced === null || section.loading) return;
-      void fetchPage(debounced, kind, section.loaded ? section.nextCursor : null);
+      if (searched === null || section.loading) return;
+      void fetchPage(searched, kind, section.loaded ? section.nextCursor : null);
     },
-    [debounced, fetchPage],
+    [searched, fetchPage],
   );
 
-  const settled = debounced !== null && debounced === query;
+  const settled = searched !== null && searched === query;
   return { active: query !== null, settled, sections, loadMore, retry };
 }

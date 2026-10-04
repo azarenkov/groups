@@ -38,7 +38,7 @@ export const hitLink = (hit: GlobalSearchHit): OpenMessageLink =>
         channelId: hit.place.channelId,
         messageId: hit.messageId,
       }
-    : { kind: "dm", peerId: hit.place.peerId, messageId: hit.messageId };
+    : { kind: "dm", peerId: hit.place.peerId, messageId: hit.messageId, peerName: hit.place.peerName || undefined };
 
 const SearchHitRow: React.FC<{
   hit: GlobalSearchHit;
@@ -62,7 +62,10 @@ const SearchHitRow: React.FC<{
     body = (
       <>
         <Icon name="paperclip" size={12} />
-        <span className="sb-hit-text">{highlightTerms(hit.attachment.fileName, query)}</span>
+        <span className="sb-hit-text">
+          <span className="sb-hit-author">{author}: </span>
+          {highlightTerms(hit.attachment.fileName, query)}
+        </span>
         <span className="sb-hit-muted">{formatFileSize(hit.attachment.sizeBytes)}</span>
       </>
     );
@@ -70,7 +73,10 @@ const SearchHitRow: React.FC<{
     body = (
       <>
         <Icon name="link" size={12} />
-        <span className="sb-hit-text">{highlightTerms(hit.url, query)}</span>
+        <span className="sb-hit-text">
+          <span className="sb-hit-author">{author}: </span>
+          {highlightTerms(hit.url, query)}
+        </span>
       </>
     );
   } else {

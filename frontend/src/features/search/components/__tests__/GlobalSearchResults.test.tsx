@@ -112,6 +112,41 @@ describe("GlobalSearchResults", () => {
     expect(screen.queryByText("stale", { exact: false })).toBeNull();
   });
 
+  it("hides results of the previous query while the next one is debounced", async () => {
+    let resolveOld: (value: { items: GlobalSearchHit[]; nextCursor: null }) => void = () => undefined;
+    search.mockImplementation((q: string, kind: string) => {
+      if (kind !== "messages") return page([]);
+      if (q === "old") return new Promise((resolve) => (resolveOld = resolve));
+      return page([]);
+    });
+    const { rerender } = render(<GlobalSearchResults query="old" currentUserId="u1" onOpen={jest.fn()} />);
+    await flush();
+    rerender(<GlobalSearchResults query="older" currentUserId="u1" onOpen={jest.fn()} />);
+    await act(async () => resolveOld({ items: [channelHit("stale")], nextCursor: null }));
+    expect(screen.queryByText("stale", { exact: false })).toBeNull();
+  });
+
+  it("shows who posted files and keeps the DM peer name for opening", async () => {
+    search.mockImplementation((_q: string, kind: string) =>
+      kind === "files"
+        ? page([
+            {
+              ...dmHit("f1"),
+              authorId: "u3",
+              authorName: "Carol",
+              attachment: { id: "a1", fileName: "report.pdf", contentType: "application/pdf", sizeBytes: 10, createdAt: "2026-10-01T10:00:00Z" },
+            },
+          ])
+        : page([]),
+    );
+    const onOpen = jest.fn();
+    render(<GlobalSearchResults query="report" currentUserId="u1" onOpen={onOpen} />);
+    await flush();
+    await screen.findByText("Carol:", { exact: false });
+    fireEvent.click(screen.getByText("Carol:", { exact: false }));
+    expect(onOpen).toHaveBeenCalledWith({ kind: "dm", peerId: "u3", messageId: "f1", peerName: "Carol" });
+  });
+
   it("collapses blocked authors in channels", async () => {
     useBlockStore.setState({ blocked: { u9: true }, loaded: true });
     search.mockImplementation((_q: string, kind: string) =>
@@ -146,7 +181,7 @@ describe("global search helpers", () => {
   });
 
   it("links DM hits to the peer", () => {
-    expect(hitLink(dmHit("m1"))).toEqual({ kind: "dm", peerId: "u3", messageId: "m1" });
+    expect(hitLink(dmHit("m1"))).toEqual({ kind: "dm", peerId: "u3", messageId: "m1", peerName: "Carol" });
   });
 
   it("highlights every term without treating it as a pattern", () => {

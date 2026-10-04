@@ -560,12 +560,23 @@ const CommunitiesPage: React.FC = () => {
     const link = pendingMessageLink;
     if (!link) return;
     if (link.kind === "dm") {
-      if (!openDmRef.current(link.peerId)) return;
+      if (!openDmRef.current(link.peerId, link.peerName)) return;
       setPendingMessageLink(null);
       setOpenMessage({ convId: link.peerId, messageId: link.messageId });
       return;
     }
     if (!communities.some((c) => c.id === link.communityId)) return;
+    if (!channelsByCommunity[link.communityId]?.some((c) => c.id === link.channelId)) {
+      const drop = () => setPendingMessageLink((current) => (current === link ? null : current));
+      if (channelsFullyLoaded(link.communityId)) {
+        drop();
+        return;
+      }
+      void fetchChannels(link.communityId).then((ok) => {
+        if (!ok) drop();
+      });
+      return;
+    }
     setPendingMessageLink(null);
     expandCommunityRef.current(link.communityId);
     useCallStore.getState().setFocused(false);
@@ -576,6 +587,8 @@ const CommunitiesPage: React.FC = () => {
   }, [
     pendingMessageLink,
     communities,
+    channelsByCommunity,
+    fetchChannels,
     acceptedFriends,
     dmPreviews,
     setSelectedDm,
