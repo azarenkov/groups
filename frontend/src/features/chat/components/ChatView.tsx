@@ -299,8 +299,12 @@ const ChatView: React.FC<ChatViewProps> = ({
   React.useEffect(() => {
     setPinError(null);
   }, [convId]);
+  const pinConvRef = React.useRef(convId);
+  pinConvRef.current = convId;
   const togglePin = (messageId: string, pin: boolean) => {
+    const startedIn = convId;
     void pinned.setPinned(messageId, pin).catch((e) => {
+      if (pinConvRef.current !== startedIn) return;
       const code = e instanceof ApiError ? e.code : undefined;
       setPinError(
         i18n.t(code === "PIN_LIMIT_REACHED" ? "pins.limit" : pin ? "pins.pinFailed" : "pins.unpinFailed", {
