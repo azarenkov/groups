@@ -123,6 +123,11 @@ const CommunitiesPage: React.FC = () => {
     setLinkedPack(extractPackSlug(raw));
   }, [searchParams, setSearchParams]);
   const [pendingMessageLink, setPendingMessageLink] = useState<OpenMessageLink | null>(null);
+  const linkRefreshRef = React.useRef<{ link: OpenMessageLink | null; communities: boolean; channels: boolean }>({
+    link: null,
+    communities: false,
+    channels: false,
+  });
   const [openMessage, setOpenMessage] = useState<{ convId: string; messageId: string } | null>(null);
   useEffect(() => {
     const link = parseMessageLink(searchParams, user?.id);
@@ -565,15 +570,25 @@ const CommunitiesPage: React.FC = () => {
       setOpenMessage({ convId: link.peerId, messageId: link.messageId });
       return;
     }
-    if (!communities.some((c) => c.id === link.communityId)) return;
+    const refreshed = linkRefreshRef.current.link === link ? linkRefreshRef.current : { link, communities: false, channels: false };
+    linkRefreshRef.current = refreshed;
+    const drop = () => setPendingMessageLink((current) => (current === link ? null : current));
+    if (!communities.some((c) => c.id === link.communityId)) {
+      if (refreshed.communities) return;
+      refreshed.communities = true;
+      void fetchCommunities().then(() => {
+        if (!useCommunityStore.getState().communities.some((c) => c.id === link.communityId)) drop();
+      });
+      return;
+    }
     if (!channelsByCommunity[link.communityId]?.some((c) => c.id === link.channelId)) {
-      const drop = () => setPendingMessageLink((current) => (current === link ? null : current));
-      if (channelsFullyLoaded(link.communityId)) {
-        drop();
-        return;
-      }
+      if (refreshed.channels) return;
+      refreshed.channels = true;
       void fetchChannels(link.communityId).then((ok) => {
-        if (!ok) drop();
+        const found = useChannelStore
+          .getState()
+          .channelsByCommunity[link.communityId]?.some((c) => c.id === link.channelId);
+        if (!ok || (!found && channelsFullyLoaded(link.communityId))) drop();
       });
       return;
     }
@@ -589,6 +604,7 @@ const CommunitiesPage: React.FC = () => {
     communities,
     channelsByCommunity,
     fetchChannels,
+    fetchCommunities,
     acceptedFriends,
     dmPreviews,
     setSelectedDm,
