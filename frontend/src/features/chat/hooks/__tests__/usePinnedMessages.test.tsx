@@ -158,3 +158,20 @@ it("reloads pins after the socket reconnects", async () => {
   });
   await waitFor(() => expect(latest!.pins.map((p) => p.messageId)).toEqual(["b", "a"]));
 });
+
+it("refreshes when a message is edited while the first load is still running", async () => {
+  jest.useFakeTimers();
+  let resolveFirst: (items: PinnedMessage[]) => void = () => undefined;
+  list.mockImplementationOnce(() => new Promise((resolve) => (resolveFirst = resolve))).mockResolvedValueOnce([
+    { ...pin("a"), content: "edited" },
+  ]);
+  render(<Harness scope={dm} />);
+  emit("dm_message.edited", { id: "a", senderId: "u2", recipientId: "u1", newContent: "edited" });
+  await act(async () => resolveFirst([pin("a")]));
+  await act(async () => {
+    jest.advanceTimersByTime(PIN_REFRESH_DEBOUNCE_MS);
+    await Promise.resolve();
+  });
+  expect(latest!.pins[0].content).toBe("edited");
+  jest.useRealTimers();
+});
