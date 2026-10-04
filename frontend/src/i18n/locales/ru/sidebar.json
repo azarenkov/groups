@@ -59,5 +59,15 @@
   "openCommunity": "Открыть",
   "previewVoice": "🎤 Голосовое сообщение",
   "previewVideoNote": "📹 Видеосообщение",
-  "previewSticker": "Стикер {{emoji}}"
+  "previewSticker": "Стикер {{emoji}}",
+  "search": {
+    "messages": "Сообщения",
+    "files": "Файлы",
+    "links": "Ссылки",
+    "nothing": "Ничего не найдено",
+    "failed": "Не удалось выполнить поиск",
+    "retry": "Повторить",
+    "unknownAuthor": "Неизвестный пользователь",
+    "openLink": "Открыть {{domain}}"
+  }
 }

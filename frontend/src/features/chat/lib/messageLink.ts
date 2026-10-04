@@ -16,7 +16,7 @@ export function messageLink(origin: string, target: MessageLinkTarget): string {
 
 export type OpenMessageLink =
   | { kind: "channel"; communityId: string; channelId: string; messageId: string }
-  | { kind: "dm"; peerId: string; messageId: string };
+  | { kind: "dm"; peerId: string; messageId: string; peerName?: string };
 
 export function parseMessageLink(
   params: URLSearchParams,

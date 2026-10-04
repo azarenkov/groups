@@ -10,6 +10,8 @@ import CommunityList from "./sidebar/CommunityList";
 import CommunityPage from "./sidebar/CommunityPage";
 import SidebarFooter from "./sidebar/SidebarFooter";
 import SidebarHeader from "./sidebar/SidebarHeader";
+import GlobalSearchResults from "../../search/components/GlobalSearchResults";
+import type { OpenMessageLink } from "../../chat/lib/messageLink";
 import { useSidebarPermissions } from "./sidebar/permissions";
 import { useSidebarNavigation } from "./sidebar/useSidebarNavigation";
 import type { SidebarVoiceMember } from "./sidebar/types";
@@ -53,6 +55,7 @@ interface SidebarProps {
   onSetStatus?: (status: "online" | "offline") => void;
   onLeaveCommunity?: (community: Community) => void;
   onCallDm?: (dm: DirectConversation) => void;
+  onOpenSearchResult?: (link: OpenMessageLink) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -94,6 +97,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSetStatus,
   onLeaveCommunity,
   onCallDm,
+  onOpenSearchResult,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   const { tab, openCommunityId, navState, goHistory, setTab, setOpenCommunityId } =
@@ -254,6 +258,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           <>
             {dmList}
             {communityView}
+            {onOpenSearchResult && (
+              <GlobalSearchResults query={searchQuery} currentUserId={currentUserId} onOpen={onOpenSearchResult} />
+            )}
           </>
         ) : tab === "dms" ? (
           dmList
