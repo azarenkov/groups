@@ -53,12 +53,12 @@ export const dmHandlers: WsHandlers = {
       const dmLevel =
         useNotificationPrefsStore.getState().dmLevels[senderId] ??
         (defaultMentionLevel() === "none" ? "none" : "all");
-      if (dmLevel === "none") return;
       lastDmBumpAt[senderId] = Math.max(
         lastDmBumpAt[senderId] ?? 0,
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpDm(senderId);
+      if (dmLevel === "none") return;
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
         showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments, d.sticker));
