@@ -37,8 +37,8 @@ let installed = false;
 let prefsReloadGen = 0;
 
 const handlers: WsHandlers = {
-  "conversation_pins.updated": (d) => {
-    useConversationPinsStore.getState().applyRemote(d as { dms?: string[]; communities?: string[] });
+  "conversation_pins.updated": () => {
+    useConversationPinsStore.getState().remoteChanged();
   },
   ...communityHandlers,
   ...chatHandlers,

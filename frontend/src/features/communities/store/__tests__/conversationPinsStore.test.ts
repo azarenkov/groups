@@ -205,3 +205,11 @@ it("aborts requests of the previous account", async () => {
   useConversationPinsStore.getState().clearAll();
   expect(signal.aborted).toBe(true);
 });
+
+it("reloads from the server on a remote change instead of trusting the event order", async () => {
+  get.mockResolvedValue(reply({ dms: ["current"], communities: [] }));
+  useConversationPinsStore.getState().remoteChanged();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(get).toHaveBeenCalledTimes(1);
+  expect(useConversationPinsStore.getState().dms).toEqual(["current"]);
+});

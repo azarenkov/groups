@@ -16,6 +16,7 @@ interface ConversationPinsState extends PinLists {
   fetch: () => Promise<void>;
   toggle: (kind: ConversationPinKind, id: string, keep?: (pinnedId: string) => boolean) => Promise<void>;
   applyRemote: (lists: Partial<PinLists>) => void;
+  remoteChanged: () => void;
   forget: (kind: ConversationPinKind, id: string) => void;
   clearAll: () => void;
 }
@@ -133,6 +134,16 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
             void get().fetch().catch(() => {});
           }
         });
+    },
+
+    remoteChanged: () => {
+      if (pendingWrites > 0) {
+        remoteDuringWrite = true;
+        return;
+      }
+      void get()
+        .fetch()
+        .catch((err) => console.warn("[pins] reload after a remote change failed:", err));
     },
 
     applyRemote: (lists) => {
