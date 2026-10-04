@@ -13,6 +13,8 @@ struct PinnedMessageResponse {
     message_id: Uuid,
     author_id: Uuid,
     author_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    forwarded_author_id: Option<Uuid>,
     content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     sticker_emoji: Option<String>,
@@ -28,6 +30,7 @@ impl From<PinnedMessage> for PinnedMessageResponse {
             message_id: pin.message_id,
             author_id: pin.author_id.uuid(),
             author_name: pin.author_name,
+            forwarded_author_id: pin.forwarded_author_id.map(|id| id.uuid()),
             content: pin.content,
             sticker_emoji: pin.sticker_emoji,
             has_attachments: pin.has_attachments,

@@ -37,6 +37,7 @@ pub struct PinnedMessage {
     pub message_id: Uuid,
     pub author_id: UserId,
     pub author_name: String,
+    pub forwarded_author_id: Option<UserId>,
     pub content: String,
     pub sticker_emoji: Option<String>,
     pub has_attachments: bool,
