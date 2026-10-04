@@ -1,0 +1,117 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT m.id AS \"message_id!\", m.author_id AS \"author_id!\", COALESCE(u.name, '') AS \"author_name!\",\n                           (m.forwarded_from->>'authorId')::uuid AS \"forwarded_author_id?\",\n                           m.created_at AS \"created_at!\", m.content AS \"content!\",\n                           c.id AS \"channel_id!\", c.name AS \"channel_name!\", s.id AS \"community_id!\", s.name AS \"community_name!\",\n                           a.attachment_id AS \"attachment_id!\", a.file_name AS \"file_name!\", a.content_type AS \"content_type!\",\n                           a.size_bytes AS \"size_bytes!\", a.storage_key AS \"storage_key!\", a.created_at AS \"attached_at!\"\n                    FROM message_attachments a\n                    JOIN messages m ON m.id = a.message_id\n                    JOIN channels c ON c.id = m.channel_id AND c.kind = 'text'\n                    JOIN communities s ON s.id = c.community_id\n                    LEFT JOIN messaging_user_profiles u ON u.user_id = m.author_id\n                    WHERE m.kind = 'user'\n                      AND a.voice_duration_ms IS NULL AND a.video_duration_ms IS NULL\n                      AND lower(a.file_name) LIKE $2 ESCAPE '\\'\n                      AND EXISTS (SELECT 1 FROM community_members cm WHERE cm.community_id = c.community_id AND cm.user_id = $1)\n                      AND (c.visibility = 'public'\n                           OR EXISTS (SELECT 1 FROM channel_text_participants p WHERE p.channel_id = c.id AND p.user_id = $1))\n                      AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)\n                      AND ($3::timestamptz IS NULL OR (m.created_at, m.id, a.attachment_id) < ($3, $4, $5))\n                    ORDER BY m.created_at DESC, m.id DESC, a.attachment_id DESC\n                    LIMIT $6\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "author_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "author_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "forwarded_author_id?",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "content!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "channel_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "channel_name!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 8,
+        "name": "community_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 9,
+        "name": "community_name!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 10,
+        "name": "attachment_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 11,
+        "name": "file_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "content_type!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "size_bytes!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "storage_key!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 15,
+        "name": "attached_at!",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Uuid",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "799cc7c12c3eafa559670cfc270419a4a7a519e832563536b3841cbf9c3f2fd3"
+}

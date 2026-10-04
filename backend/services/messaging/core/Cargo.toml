@@ -17,3 +17,6 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["sync", "time", "rt"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
