@@ -137,3 +137,25 @@ it("never sends a queued write after the account changes", async () => {
   await expect(second).rejects.toThrow("SESSION_CHANGED");
   expect(put).toHaveBeenCalledTimes(1);
 });
+
+it("lets two early toggles share the initial load", async () => {
+  useConversationPinsStore.getState().clearAll();
+  const gets: ((v: unknown) => void)[] = [];
+  get.mockImplementation(() => new Promise((resolve) => gets.push(resolve)));
+  put.mockImplementation((_url: string, body: { ids: string[] }) => Promise.resolve(reply({ dms: body.ids, communities: [] })));
+  const first = useConversationPinsStore.getState().toggle("dms", "a");
+  const second = useConversationPinsStore.getState().toggle("dms", "b");
+  expect(gets).toHaveLength(2);
+  gets[0]({ data: { data: { dms: ["old"], communities: [] } } });
+  gets[1]({ data: { data: { dms: ["old"], communities: [] } } });
+  await first;
+  await second;
+  expect(useConversationPinsStore.getState().dms).toEqual(["b", "a", "old"]);
+});
+
+it("forgets a community locally without saving", () => {
+  useConversationPinsStore.getState().applyRemote({ communities: ["c1", "c2"] });
+  useConversationPinsStore.getState().forget("communities", "c1");
+  expect(useConversationPinsStore.getState().communities).toEqual(["c2"]);
+  expect(put).not.toHaveBeenCalled();
+});

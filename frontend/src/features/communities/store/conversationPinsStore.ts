@@ -16,6 +16,7 @@ interface ConversationPinsState extends PinLists {
   fetch: () => Promise<void>;
   toggle: (kind: ConversationPinKind, id: string, keep?: Set<string>) => Promise<void>;
   applyRemote: (lists: Partial<PinLists>) => void;
+  forget: (kind: ConversationPinKind, id: string) => void;
   clearAll: () => void;
 }
 
@@ -39,6 +40,7 @@ let remoteDuringWrite = false;
 let latestFetch = 0;
 let stateEpoch = 0;
 let writeChain: Promise<unknown> = Promise.resolve();
+let latestFetchPromise: Promise<void> | null = null;
 
 export const togglePinned = (list: string[], id: string): string[] =>
   list.includes(id) ? list.filter((x) => x !== id) : [id, ...list];
@@ -68,19 +70,26 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
     communities: [],
     loaded: false,
 
-    fetch: async () => {
+    fetch: () => {
       const gen = sessionGen;
       const request = ++latestFetch;
       const epoch = stateEpoch;
-      const lists = await api.list();
-      if (gen !== sessionGen || request !== latestFetch || epoch !== stateEpoch || pendingWrites > 0) return;
-      install(lists);
+      const promise = api.list().then((lists) => {
+        if (gen !== sessionGen || request !== latestFetch || epoch !== stateEpoch || pendingWrites > 0) return;
+        install(lists);
+      });
+      latestFetchPromise = promise;
+      return promise;
     },
 
     toggle: async (kind, id, keep) => {
       const gen = sessionGen;
       if (!get().loaded) {
-        await get().fetch();
+        let waiting: Promise<void> | null = get().fetch();
+        while (waiting && !get().loaded && gen === sessionGen) {
+          await waiting;
+          waiting = latestFetchPromise === waiting ? null : latestFetchPromise;
+        }
         if (gen !== sessionGen || !get().loaded) throw new Error("PINS_NOT_LOADED");
       }
       const before = keep ? get()[kind].filter((x) => keep.has(x)) : get()[kind];
@@ -124,11 +133,18 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       install(lists);
     },
 
+    forget: (kind, id) => {
+      if (!get()[kind].includes(id)) return;
+      stateEpoch += 1;
+      set({ [kind]: get()[kind].filter((x) => x !== id) } as Partial<PinLists>);
+    },
+
     clearAll: () => {
       sessionGen += 1;
       pendingWrites = 0;
       remoteDuringWrite = false;
       latestFetch += 1;
+      latestFetchPromise = null;
       stateEpoch += 1;
       writeChain = Promise.resolve();
       set({ dms: [], communities: [], loaded: false });

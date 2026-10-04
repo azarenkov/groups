@@ -13,7 +13,6 @@ import {
 } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import { MAX_PINNED_CONVERSATIONS, useConversationPinsStore } from "../../store/conversationPinsStore";
-import { useCommunityStore } from "../../store/communityStore";
 import { useLongPress } from "../../../../shared/ui/contextMenu/useLongPress";
 import { useRolesStore } from "../../store/rolesStore";
 
@@ -61,10 +60,7 @@ const CommunityList: React.FC<CommunityListProps> = ({
       void roles.fetch(community.id).catch(() => {});
     }
   }, [communities, currentUserId]);
-  const storedCommunityPins = useConversationPinsStore((s) => s.communities);
-  const memberCommunities = useCommunityStore((s) => s.communities);
-  const memberIds = new Set(memberCommunities.map((c) => c.id));
-  const pinnedCommunities = storedCommunityPins.filter((id) => memberIds.has(id));
+  const pinnedCommunities = useConversationPinsStore((s) => s.communities);
   const communityMenu = (community: Community): MenuEntry[] => {
     const owner = !!currentUserId && community.ownerId === currentUserId;
     const isPinned = pinnedCommunities.includes(community.id);
@@ -79,7 +75,7 @@ const CommunityList: React.FC<CommunityListProps> = ({
         onSelect: () => {
           void useConversationPinsStore
             .getState()
-            .toggle("communities", community.id, memberIds)
+            .toggle("communities", community.id)
             .catch((e) => console.warn("[CommunityList] pin failed:", e));
         },
       },
