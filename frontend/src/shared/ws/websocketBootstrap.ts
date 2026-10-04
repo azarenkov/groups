@@ -29,6 +29,7 @@ import { useAuthStore } from "../../features/auth/store/authStore";
 import { useUserNamesStore } from "../../features/social/store/userNamesStore";
 import { markNotificationPrefsStale, useNotificationPrefsStore } from "../../features/settings/store/notificationPrefsStore";
 import { useNotificationSettingsStore } from "../../features/settings/store/notificationSettingsStore";
+import { useConversationPinsStore } from "../../features/communities/store/conversationPinsStore";
 
 export { setActiveChatView };
 
@@ -36,6 +37,9 @@ let installed = false;
 let prefsReloadGen = 0;
 
 const handlers: WsHandlers = {
+  "conversation_pins.updated": (d) => {
+    useConversationPinsStore.getState().applyRemote(d as { dms?: string[]; communities?: string[] });
+  },
   ...communityHandlers,
   ...chatHandlers,
   ...dmHandlers,
@@ -100,6 +104,10 @@ export function installWsBootstrap() {
         void roles.fetch(communityId).catch(() => {});
       }
     });
+    void useConversationPinsStore
+      .getState()
+      .fetch()
+      .catch((err) => console.warn("[ws] failed to reload conversation pins:", err));
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
     void loadActivitiesFor(trackedActivityIds());

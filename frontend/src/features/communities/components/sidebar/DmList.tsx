@@ -9,6 +9,7 @@ import { formatListTime, msUntilNextDay } from "../../../dm/lib/directOrder";
 import { useProfileModalStore } from "../../../social/store/profileModalStore";
 import { isBlockedEitherWay } from "../../../social/store/blockStore";
 import { dmLevelOf, useNotificationPrefsStore } from "../../../settings/store/notificationPrefsStore";
+import { MAX_PINNED_CONVERSATIONS, useConversationPinsStore } from "../../store/conversationPinsStore";
 import { useNotificationSettingsStore } from "../../../settings/store/notificationSettingsStore";
 import {
   openContextMenu,
@@ -47,6 +48,7 @@ const DmList: React.FC<DmListProps> = ({
   const { t, i18n } = useTranslation(["sidebar", "common"]);
   const activities = useActivityStore((s) => s.byUser);
   const dmLevels = useNotificationPrefsStore((s) => s.dmLevels);
+  const pinnedDms = useConversationPinsStore((s) => s.dms);
   const globalMentions = useNotificationSettingsStore((s) => s.mentions);
   const [now, setNow] = React.useState(() => new Date());
   React.useEffect(() => {
@@ -58,6 +60,19 @@ const DmList: React.FC<DmListProps> = ({
     ...(onCall && !isBlockedEitherWay(d.id)
       ? [{ kind: "item" as const, id: "call", label: t("callFriend"), icon: "phone" as const, onSelect: () => onCall(d) }]
       : []),
+    {
+      kind: "item",
+      id: "pin",
+      label: t(pinnedDms.includes(d.id) ? "unpinChat" : "pinChat"),
+      icon: "pin",
+      disabled: !pinnedDms.includes(d.id) && pinnedDms.length >= MAX_PINNED_CONVERSATIONS,
+      onSelect: () => {
+        void useConversationPinsStore
+          .getState()
+          .toggle("dms", d.id)
+          .catch((e) => console.warn("[DmList] pin failed:", e));
+      },
+    },
     { kind: "separator", id: "s1" },
     {
       kind: "item",
@@ -157,6 +172,11 @@ const DmList: React.FC<DmListProps> = ({
                 {activity && (
                   <span className="sb-dm-game" title={activity.name}>
                     {activity.name}
+                  </span>
+                )}
+                {pinnedDms.includes(d.id) && (
+                  <span className="sb-pinned" title={t("pinned")} aria-label={t("pinned")}>
+                    <Icon name="pin" size={11} />
                   </span>
                 )}
                 {d.lastAt && (

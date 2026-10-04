@@ -6,6 +6,7 @@ import DmList from "../DmList";
 import { useNotificationPrefsStore } from "../../../../settings/store/notificationPrefsStore";
 import { useNotificationSettingsStore } from "../../../../settings/store/notificationSettingsStore";
 import type { DirectConversation } from "../../../../dm/types";
+import { useConversationPinsStore } from "../../../store/conversationPinsStore";
 
 const dm = (id: string, name: string): DirectConversation => ({
   id,
@@ -59,5 +60,23 @@ describe("DmList mute indicator", () => {
     const muted = screen.getAllByLabelText("Notifications muted");
     expect(muted).toHaveLength(1);
     expect(muted[0].closest(".sb-dm")?.textContent).toContain("Bob");
+  });
+});
+
+describe("DmList pins", () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  it("marks pinned chats", () => {
+    act(() => {
+      useNotificationSettingsStore.setState({ mentions: "all" });
+      useNotificationPrefsStore.setState({ dmLevels: {} });
+      useConversationPinsStore.getState().applyRemote({ dms: ["u1"] });
+    });
+    renderList();
+    const marks = screen.getAllByLabelText("Pinned");
+    expect(marks).toHaveLength(1);
+    expect(marks[0].closest(".sb-dm")?.textContent).toContain("Alice");
   });
 });

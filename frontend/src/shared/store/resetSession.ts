@@ -16,6 +16,9 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
   void import("../../features/social/store/presenceStore").then((m) => m.usePresenceStore.getState().clearAll());
   void import("../../features/chat/store/readReceiptStore").then((m) => m.useReadReceiptStore.getState().clear());
   void import("../../features/communities/store/rolesStore").then((m) => m.useRolesStore.getState().clearAll());
+  void import("../../features/communities/store/conversationPinsStore").then((m) =>
+    m.useConversationPinsStore.getState().clearAll(),
+  );
   void import("../../features/voice/store/streamViewersStore").then((m) =>
     m.useStreamViewersStore.getState().clearAll(),
   );
