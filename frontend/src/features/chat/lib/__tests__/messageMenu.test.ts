@@ -37,6 +37,12 @@ describe("messageActions", () => {
     expect(messageActions(ctx())).toEqual(["reply", "forward", "copy", "link", "delete", "report"]);
   });
 
+  it("offers pinning only when allowed and never on cards or system messages", () => {
+    expect(messageActions(ctx({ canPin: true }))).toEqual(["reply", "forward", "copy", "link", "pin", "delete", "report"]);
+    expect(messageActions(ctx({ canPin: true, msg: msg({ callStatus: "completed", content: "" }) }))).not.toContain("pin");
+    expect(messageActions(ctx({ canPin: true, msg: msg({ system: { kind: "joined" } as never }) }))).not.toContain("pin");
+  });
+
   it("offers only delete on your own call card", () => {
     expect(messageActions(ctx({ isMine: true, msg: msg({ callStatus: "completed", content: "" }) }))).toEqual([
       "link",

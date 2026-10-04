@@ -34,7 +34,9 @@ import { useMessageSearch } from "../hooks/useMessageSearch";
 import { useMessenger } from "../hooks/useMessenger";
 import { useReadReceipts } from "../hooks/useReadReceipts";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
-import { VOICE_LISTENED_EVENT } from "../api/shared";
+import { VOICE_LISTENED_EVENT, type SharedScope } from "../api/shared";
+import { usePinnedMessages } from "../hooks/usePinnedMessages";
+import PinnedBar from "./PinnedBar";
 import type { ChannelMeta, DmMeta } from "../types";
 import { openForward } from "../store/forwardModalStore";
 import { canDeleteForEveryone } from "../lib/messageMenu";
@@ -275,6 +277,37 @@ const ChatView: React.FC<ChatViewProps> = ({
     (communityOwnerId === currentUserId ||
       userPermissions(rolesData, currentUserId).includes("manageMessages"));
 
+  const pinScope = React.useMemo<SharedScope | null>(
+    () =>
+      dmFriendId
+        ? { kind: "dm", friendId: dmFriendId }
+        : channelId && communityId
+          ? { kind: "channel", communityId, channelId }
+          : null,
+    [dmFriendId, channelId, communityId],
+  );
+  const pinned = usePinnedMessages(pinScope, currentUserId);
+  const canPin = dm ? !dmBlocked && !dmBlockedBy : canModerateMessages;
+  const [pinError, setPinError] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!pinError) return;
+    const timer = setTimeout(() => setPinError(null), 4000);
+    return () => clearTimeout(timer);
+  }, [pinError]);
+  React.useEffect(() => {
+    setPinError(null);
+  }, [convId]);
+  const togglePin = (messageId: string, pin: boolean) => {
+    void pinned.setPinned(messageId, pin).catch((e) => {
+      const code = e instanceof ApiError ? e.code : undefined;
+      setPinError(
+        i18n.t(code === "PIN_LIMIT_REACHED" ? "pins.limit" : pin ? "pins.pinFailed" : "pins.unpinFailed", {
+          ns: "chat",
+        }),
+      );
+    });
+  };
+
   const handleJumpToMessage = async (target: ChannelMessage) => {
     search.clearResults();
     await jumpToMessage(target);
@@ -369,6 +402,20 @@ const ChatView: React.FC<ChatViewProps> = ({
       />
       {topSlot}
       {dm && !callMode && <CallJoinBanner friendId={dm.friendId} />}
+      {!callMode && (
+        <PinnedBar
+          pins={pinned.pins}
+          currentUserId={currentUserId}
+          canUnpin={canPin}
+          onJump={(id) => void jumpToMessageId(id)}
+          onUnpin={(id) => togglePin(id, false)}
+        />
+      )}
+      {pinError && (
+        <div className="pin-error" role="alert">
+          {pinError}
+        </div>
+      )}
       {search.searchOpen && (channel || dm) && (
         <div className="search-bar">
           <Icon name="search" size={14} />
@@ -584,6 +631,8 @@ const ChatView: React.FC<ChatViewProps> = ({
             onAcceptInvite={handleAcceptInvite}
             onDeclineInvite={handleDeclineInvite}
             onOpenInviteCommunity={onGoToCommunity}
+            pinnedIds={pinned.pinnedIds}
+            onTogglePin={canPin ? (message, pin) => togglePin(message.id, pin) : undefined}
           />
         )}
       </div>

@@ -83,6 +83,8 @@ export interface MessageProps {
   onForward?: () => void;
   onOpenForwardSource?: () => void;
   onVoiceListened?: () => Promise<void>;
+  pinned?: boolean;
+  onTogglePin?: () => void;
 }
 
 const MESSAGE_STICKER_SIZE = 220;
@@ -125,6 +127,8 @@ export const Message: React.FC<MessageProps> = ({
   onForward,
   onOpenForwardSource,
   onVoiceListened,
+  pinned,
+  onTogglePin,
 }) => {
   const jumboCount = !msg.sticker && !(msg.attachments?.length ?? 0) ? jumboEmojiCount(msg.content) : 0;
   const jumbo = jumboCount > 0;
@@ -163,6 +167,7 @@ export const Message: React.FC<MessageProps> = ({
       msg,
       isMine,
       hasSelection: selection.trim().length > 0,
+      canPin: !!onTogglePin,
     });
     const entry: Record<MessageAction, MenuEntry> = {
       reply: {
@@ -200,6 +205,13 @@ export const Message: React.FC<MessageProps> = ({
         disabled: !onCopyLink,
         onSelect: () => onCopyLink?.(),
       },
+      pin: {
+        kind: "item",
+        id: "pin",
+        label: i18n.t(pinned ? "pins.unpin" : "pins.pin", { ns: "chat" }),
+        icon: "pin",
+        onSelect: () => onTogglePin?.(),
+      },
       edit: {
         kind: "item",
         id: "edit",
@@ -230,6 +242,7 @@ export const Message: React.FC<MessageProps> = ({
       ...pick("forward"),
       ...pick("copy"),
       ...pick("link"),
+      ...pick("pin"),
       { kind: "separator", id: "s1" },
       ...pick("edit"),
       ...pick("report"),
@@ -825,6 +838,11 @@ export const Message: React.FC<MessageProps> = ({
         )}
         {!editing && !hideMeta && !msg.callStatus && !msg.inviteCommunityId && (
           <div className="msg-meta">
+            {pinned && (
+              <span className="msg-pinned" title={i18n.t("pins.pinned", { ns: "chat" })} aria-label={i18n.t("pins.pinned", { ns: "chat" })}>
+                <Icon name="pin" size={11} />
+              </span>
+            )}
             {!hideTime && <time className="msg-time">{time}</time>}
             {receipt && (
               <span
