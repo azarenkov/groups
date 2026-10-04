@@ -67,6 +67,7 @@
   background: var(--surface);
 }
 .msg-pinned { display: inline-flex; align-items: center; color: var(--fg-3); margin-right: 4px; }
+.pinned-bar-blocked { color: var(--fg-3); font-style: italic; }
 
 .search-bar {
   display: flex; align-items: center; gap: 8px;

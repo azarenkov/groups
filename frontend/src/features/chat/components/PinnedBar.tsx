@@ -8,6 +8,7 @@ interface PinnedBarProps {
   pins: PinnedMessage[];
   currentUserId?: string;
   canUnpin: boolean;
+  isHidden?: (pin: PinnedMessage) => boolean;
   onJump: (messageId: string) => void;
   onUnpin: (messageId: string) => void;
 }
@@ -20,7 +21,7 @@ export function pinPreview(pin: PinnedMessage, t: (key: string, opts?: Record<st
   return t("pins.message");
 }
 
-const PinnedBar: React.FC<PinnedBarProps> = ({ pins, currentUserId, canUnpin, onJump, onUnpin }) => {
+const PinnedBar: React.FC<PinnedBarProps> = ({ pins, currentUserId, canUnpin, isHidden, onJump, onUnpin }) => {
   const { t } = useTranslation("chat");
   const [index, setIndex] = React.useState(0);
   const [listOpen, setListOpen] = React.useState(false);
@@ -55,6 +56,15 @@ const PinnedBar: React.FC<PinnedBarProps> = ({ pins, currentUserId, canUnpin, on
   const current = pins[Math.min(index, pins.length - 1)];
   const author = (pin: PinnedMessage) =>
     currentUserId && pin.authorId === currentUserId ? t("you") : pin.authorName || t("pins.unknownAuthor");
+  const describe = (pin: PinnedMessage) =>
+    isHidden?.(pin) ? (
+      <span className="pinned-bar-blocked">{t("blockedMessage")}</span>
+    ) : (
+      <>
+        <span className="pinned-bar-author">{author(pin)}: </span>
+        {pinPreview(pin, t)}
+      </>
+    );
 
   const openCurrent = () => {
     onJump(current.messageId);
@@ -73,10 +83,7 @@ const PinnedBar: React.FC<PinnedBarProps> = ({ pins, currentUserId, canUnpin, on
               ? t("pins.titleOf", { index: Math.min(index, pins.length - 1) + 1, count: pins.length })
               : t("pins.title")}
           </span>
-          <span className="pinned-bar-preview">
-            <span className="pinned-bar-author">{author(current)}: </span>
-            {pinPreview(current, t)}
-          </span>
+          <span className="pinned-bar-preview">{describe(current)}</span>
         </span>
       </button>
       <button
@@ -101,8 +108,7 @@ const PinnedBar: React.FC<PinnedBarProps> = ({ pins, currentUserId, canUnpin, on
                   onJump(pin.messageId);
                 }}
               >
-                <span className="pinned-bar-author">{author(pin)}</span>
-                <span className="pinned-list-preview">{pinPreview(pin, t)}</span>
+                <span className="pinned-list-preview">{describe(pin)}</span>
               </button>
               {canUnpin && (
                 <button

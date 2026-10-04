@@ -102,3 +102,28 @@ it("removes a pin right away when unpinning", async () => {
   expect(unpin).toHaveBeenCalledWith(dm, "a");
   expect(latest!.pins).toHaveLength(0);
 });
+
+it("applies only the newest refresh and keeps deleted pins gone", async () => {
+  jest.useFakeTimers();
+  const resolvers: ((items: PinnedMessage[]) => void)[] = [];
+  list.mockResolvedValueOnce([pin("a"), pin("b")]);
+  render(<Harness scope={dm} />);
+  await act(async () => {
+    await Promise.resolve();
+  });
+  list.mockImplementation(() => new Promise((resolve) => resolvers.push(resolve)));
+  emit("message.pin_changed", { participants: ["u1", "u2"] });
+  await act(async () => {
+    jest.advanceTimersByTime(PIN_REFRESH_DEBOUNCE_MS);
+  });
+  emit("dm_message.deleted", { id: "a", senderId: "u2", recipientId: "u1" });
+  emit("message.pin_changed", { participants: ["u1", "u2"] });
+  await act(async () => {
+    jest.advanceTimersByTime(PIN_REFRESH_DEBOUNCE_MS);
+  });
+  expect(resolvers).toHaveLength(2);
+  await act(async () => resolvers[1]([pin("b")]));
+  await act(async () => resolvers[0]([pin("a"), pin("b")]));
+  expect(latest!.pins.map((p) => p.messageId)).toEqual(["b"]);
+  jest.useRealTimers();
+});

@@ -407,7 +407,16 @@ const ChatView: React.FC<ChatViewProps> = ({
           pins={pinned.pins}
           currentUserId={currentUserId}
           canUnpin={canPin}
-          onJump={(id) => void jumpToMessageId(id)}
+          isHidden={
+            channel
+              ? (pin) =>
+                  !blocksLoaded || !!blockedIds[pin.authorId] || (!!pin.forwardedAuthorId && !!blockedIds[pin.forwardedAuthorId])
+              : undefined
+          }
+          onJump={(id) => {
+            closeSearch();
+            void jumpToMessageId(id);
+          }}
           onUnpin={(id) => togglePin(id, false)}
         />
       )}

@@ -23,15 +23,19 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
   scopeRef.current = scope;
   const [pins, setPins] = React.useState<PinnedMessage[]>([]);
   const genRef = React.useRef(0);
+  const requestRef = React.useRef(0);
+  const droppedRef = React.useRef(new Set<string>());
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = React.useCallback(async () => {
     const current = scopeRef.current;
     if (!current) return;
     const gen = genRef.current;
+    const request = ++requestRef.current;
     try {
       const items = await pinsAPI.list(current);
-      if (gen === genRef.current) setPins(items);
+      if (gen !== genRef.current || request !== requestRef.current) return;
+      setPins(items.filter((p) => !droppedRef.current.has(p.messageId)));
     } catch (e) {
       console.warn("[pins] load failed:", e);
     }
@@ -47,6 +51,7 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
 
   React.useEffect(() => {
     genRef.current += 1;
+    droppedRef.current = new Set();
     setPins([]);
     if (key) void refresh();
     return () => {
@@ -56,6 +61,7 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
   }, [key, refresh]);
 
   const drop = React.useCallback((messageId: string) => {
+    droppedRef.current.add(messageId);
     setPins((prev) => (prev.some((p) => p.messageId === messageId) ? prev.filter((p) => p.messageId !== messageId) : prev));
   }, []);
 
@@ -88,8 +94,10 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
     async (messageId: string, pinned: boolean) => {
       const current = scopeRef.current;
       if (!current) return;
-      if (pinned) await pinsAPI.pin(current, messageId);
-      else {
+      if (pinned) {
+        droppedRef.current.delete(messageId);
+        await pinsAPI.pin(current, messageId);
+      } else {
         await pinsAPI.unpin(current, messageId);
         drop(messageId);
       }

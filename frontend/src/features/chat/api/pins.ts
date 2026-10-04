@@ -5,6 +5,7 @@ export interface PinnedMessage {
   messageId: string;
   authorId: string;
   authorName: string;
+  forwardedAuthorId?: string;
   content: string;
   stickerEmoji?: string;
   hasAttachments: boolean;

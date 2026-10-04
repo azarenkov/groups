@@ -836,6 +836,13 @@ export const Message: React.FC<MessageProps> = ({
             })()}
           </div>
         )}
+        {pinned && !editing && hideMeta && (
+          <div className="msg-meta msg-meta-pin">
+            <span className="msg-pinned" title={i18n.t("pins.pinned", { ns: "chat" })} aria-label={i18n.t("pins.pinned", { ns: "chat" })}>
+              <Icon name="pin" size={11} />
+            </span>
+          </div>
+        )}
         {!editing && !hideMeta && !msg.callStatus && !msg.inviteCommunityId && (
           <div className="msg-meta">
             {pinned && (

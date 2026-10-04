@@ -55,7 +55,7 @@ describe("PinnedBar", () => {
     expect(screen.getByText("Sticker 🐱")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("All pinned messages"));
     expect(screen.getByText("📎 Attachment")).toBeTruthy();
-    expect(screen.getByText("You")).toBeTruthy();
+    expect(screen.getAllByText("You:", { exact: false }).length).toBeGreaterThan(0);
     fireEvent.click(screen.getAllByLabelText("Unpin")[1]);
     expect(onUnpin).toHaveBeenCalledWith("b");
   });
@@ -64,5 +64,20 @@ describe("PinnedBar", () => {
     render(<PinnedBar pins={[pin("a")]} canUnpin={false} onJump={jest.fn()} onUnpin={jest.fn()} />);
     fireEvent.click(screen.getByLabelText("All pinned messages"));
     expect(screen.queryByLabelText("Unpin")).toBeNull();
+  });
+
+  it("masks pins from blocked authors", () => {
+    render(
+      <PinnedBar
+        pins={[pin("a", { content: "secret words" })]}
+        canUnpin={false}
+        isHidden={(p) => p.authorId === "u2"}
+        onJump={jest.fn()}
+        onUnpin={jest.fn()}
+      />,
+    );
+    expect(screen.queryByText("secret words", { exact: false })).toBeNull();
+    expect(screen.queryByText("Bob", { exact: false })).toBeNull();
+    expect(screen.getByText(i18n.t("chat:blockedMessage"))).toBeTruthy();
   });
 });
