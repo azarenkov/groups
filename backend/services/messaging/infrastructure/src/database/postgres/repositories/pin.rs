@@ -49,8 +49,8 @@ async fn save_pin_event(
     }
     let record = OutboxRecord {
         id: Uuid::new_v4(),
-        aggregate_id: actor.uuid(),
-        aggregate_type: AggregateType::User,
+        aggregate_id: message_id,
+        aggregate_type: AggregateType::Message,
         parent_id: None,
         parent_type: None,
         event_type: "message.pin_changed".to_string(),
@@ -282,9 +282,11 @@ async fn load_conversation_pins(
 ) -> Result<ConversationPins, RepositoryError> {
     let rows = sqlx::query!(
         r#"
-        SELECT kind, target_id FROM conversation_pins
-        WHERE user_id = $1
-        ORDER BY "position", pinned_at
+        SELECT p.kind, p.target_id FROM conversation_pins p
+        WHERE p.user_id = $1
+          AND (p.kind <> 'community'
+               OR EXISTS (SELECT 1 FROM community_members m WHERE m.community_id = p.target_id AND m.user_id = p.user_id))
+        ORDER BY p."position", p.pinned_at
         "#,
         user.uuid(),
     )
