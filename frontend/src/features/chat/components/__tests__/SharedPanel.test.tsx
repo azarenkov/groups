@@ -420,5 +420,36 @@ describe("shared panel edge cases", () => {
       list.mockReset();
     }
   });
+
+  it("does not page through a channel while blocks are loading", async () => {
+    const original = (window as unknown as { IntersectionObserver?: unknown }).IntersectionObserver;
+    (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver = class {
+      constructor(private callback: (entries: { isIntersecting: boolean }[]) => void) {}
+      observe() {
+        this.callback([{ isIntersecting: true }]);
+      }
+      disconnect() {}
+    };
+    useBlockStore.setState({ blocked: {}, loaded: false } as never);
+    try {
+      list.mockResolvedValue({ items: [file("a1", "one.pdf")], nextCursor: "more" });
+      render(
+        <SharedPanel
+          scope={{ kind: "channel", communityId: "c1", channelId: "ch1" }}
+          currentUserId="u1"
+          onClose={() => undefined}
+          onShowMessage={() => undefined}
+        />,
+      );
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+      expect(list).toHaveBeenCalledTimes(1);
+    } finally {
+      (window as unknown as { IntersectionObserver?: unknown }).IntersectionObserver = original;
+      list.mockReset();
+    }
+  });
 });
 

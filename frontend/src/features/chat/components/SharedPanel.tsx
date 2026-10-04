@@ -161,7 +161,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
 
   React.useEffect(() => {
     const node = sentinelRef.current;
-    if (!node || typeof IntersectionObserver === "undefined") return;
+    if (!node || waitingForBlocks || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) loadMore();
@@ -170,7 +170,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [loadMore, content.items.length]);
+  }, [loadMore, content.items.length, waitingForBlocks]);
 
   const empty = content.loaded && !content.loading && !content.failed && content.items.length === 0 && !waitingForBlocks;
 
