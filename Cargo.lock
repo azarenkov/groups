@@ -2550,6 +2550,7 @@ dependencies = [
  "contracts",
  "domain",
  "futures",
+ "image",
  "infrastructure-common",
  "livekit-api",
  "messaging",

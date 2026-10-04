@@ -1,4 +1,5 @@
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
+use messaging::usecases::search::global_search::GlobalSearch;
 use messaging::usecases::shared::list_shared_content::ListSharedContent;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnail;
 use messaging_infrastructure::thumbnails::ImageThumbnailer;
@@ -78,7 +79,7 @@ use messaging_infrastructure::{
             dm_message::PostgresDmMessageRepository,
             friendship::PostgresFriendshipRepository, message::PostgresMessageRepository,
             notification_preference::PostgresNotificationPreferenceRepository,
-            read_state::PostgresReadStateRepository, shared::PostgresSharedContentRepository, community::PostgresCommunityRepository,
+            read_state::PostgresReadStateRepository, search::PostgresSearchRepository, shared::PostgresSharedContentRepository, community::PostgresCommunityRepository,
             hidden_message::PostgresHiddenMessageRepository,
             voice_listen::PostgresVoiceListenRepository,
             community_role::PostgresCommunityRoleRepository,
@@ -308,6 +309,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             channel_repository.clone(),
             community_repository.clone(),
         ),
+        global_search_usecase: GlobalSearch::new(Arc::new(PostgresSearchRepository::new(postgres_pool.clone()))),
         list_shared_content_usecase: ListSharedContent::new(
             Arc::new(PostgresSharedContentRepository::new(postgres_pool.clone())),
             channel_repository.clone(),

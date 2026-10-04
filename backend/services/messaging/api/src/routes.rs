@@ -113,7 +113,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                     web::scope("/v1")
                         .configure(read_state_routes)
                         .configure(notification_routes)
-                        .configure(presence_routes),
+                        .configure(presence_routes)
+                        .configure(crate::search::search_routes),
                 ),
         );
 }

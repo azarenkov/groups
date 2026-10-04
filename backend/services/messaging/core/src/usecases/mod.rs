@@ -11,5 +11,6 @@ pub mod privacy;
 pub mod read_state;
 pub mod report;
 pub mod role;
+pub mod search;
 pub mod shared;
 pub mod community;

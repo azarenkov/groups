@@ -107,6 +107,7 @@ macro_rules! impl_http_mapping_delegate {
 
 use messaging::usecases::attachment::get_attachment::GetAttachmentError;
 use messaging::usecases::attachment::list_message_attachments::ListMessageAttachmentsError;
+use messaging::usecases::search::global_search::GlobalSearchError;
 use messaging::usecases::shared::list_shared_content::ListSharedContentError;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnailError;
 use messaging::usecases::call::log_call::LogCallError;
@@ -1184,6 +1185,33 @@ impl HttpMapping for GetAttachmentThumbnailError {
             GetAttachmentThumbnailError::Unavailable => "ATTACHMENT_THUMBNAIL_UNAVAILABLE",
             GetAttachmentThumbnailError::Storage(e) => e.to_error_code(),
             GetAttachmentThumbnailError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl HttpMapping for GlobalSearchError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GlobalSearchError::Repository(e) => e.to_http_status(),
+            GlobalSearchError::InvalidKind | GlobalSearchError::InvalidQuery | GlobalSearchError::InvalidCursor => {
+                StatusCode::BAD_REQUEST
+            }
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            GlobalSearchError::Repository(e) => e.to_user_message(),
+            other => other.to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GlobalSearchError::Repository(e) => e.to_error_code(),
+            GlobalSearchError::InvalidKind => "SEARCH_KIND_INVALID",
+            GlobalSearchError::InvalidQuery => "SEARCH_QUERY_INVALID",
+            GlobalSearchError::InvalidCursor => "INVALID_CURSOR",
         }
     }
 }
