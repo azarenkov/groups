@@ -175,3 +175,25 @@ it("refreshes when a message is edited while the first load is still running", a
   expect(latest!.pins[0].content).toBe("edited");
   jest.useRealTimers();
 });
+
+it("does not store a late answer under the newly opened chat", async () => {
+  let resolveOld: (items: PinnedMessage[]) => void = () => undefined;
+  list.mockImplementationOnce(() => new Promise((resolve) => (resolveOld = resolve))).mockImplementationOnce(() => new Promise(() => undefined));
+  const seen: string[][] = [];
+  const Probe: React.FC<{ scope: SharedScope }> = ({ scope }) => {
+    const result = usePinnedMessages(scope, "u1");
+    if (scope.kind === "dm" && scope.friendId === "u3") {
+      resolveOld([pin("old")]);
+    }
+    seen.push(result.pins.map((p) => p.messageId));
+    return null;
+  };
+  const { rerender } = render(<Probe scope={dm} />);
+  rerender(<Probe scope={{ kind: "dm", friendId: "u3" }} />);
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  rerender(<Probe scope={{ kind: "dm", friendId: "u3" }} />);
+  expect(seen.every((ids) => !ids.includes("old"))).toBe(true);
+});

@@ -22,8 +22,6 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
   const scopeRef = React.useRef(scope);
   scopeRef.current = scope;
   const [state, setState] = React.useState<{ key: string | null; items: PinnedMessage[] }>({ key: null, items: [] });
-  const keyRef = React.useRef(key);
-  keyRef.current = key;
   const pins = React.useMemo(() => (state.key === key ? state.items : []), [state, key]);
   const genRef = React.useRef(0);
   const requestRef = React.useRef(0);
@@ -34,13 +32,15 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
   const refresh = React.useCallback(async () => {
     const current = scopeRef.current;
     if (!current) return;
+    const requestKey = sharedScopeKey(current);
     const gen = genRef.current;
     const request = ++requestRef.current;
     inflightRef.current += 1;
     try {
       const items = await pinsAPI.list(current);
       if (gen !== genRef.current || request !== requestRef.current) return;
-      setState({ key: keyRef.current, items: items.filter((p) => !droppedRef.current.has(p.messageId)) });
+      if (sharedScopeKey(scopeRef.current ?? current) !== requestKey) return;
+      setState({ key: requestKey, items: items.filter((p) => !droppedRef.current.has(p.messageId)) });
     } catch (e) {
       console.warn("[pins] load failed:", e);
     } finally {
