@@ -11,6 +11,7 @@ import { useUnreadStore } from "../../chat/store/unreadStore";
 import { useUserNamesStore } from "../../social/store/userNamesStore";
 import { useVoicePresenceStore } from "../../voice/store/voicePresenceStore";
 import { asString, purgeCommunityLocally } from "../../../shared/ws/context";
+import { dropConversation } from "../../chat/lib/messageCache";
 
 export const communityHandlers: WsHandlers = {
   "community.created": (d) => {
@@ -114,6 +115,7 @@ export const communityHandlers: WsHandlers = {
       const communityId = asString(d.communityId);
       if (!id || !communityId) return;
       useChannelStore.getState().removeChannel(communityId, id);
+      dropConversation(id);
       useVoicePresenceStore.getState().clearChannel(id);
       useUnreadStore.getState().resetChannel(id);
       return;

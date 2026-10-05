@@ -4,6 +4,7 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
   );
   void import("../lib/avatarCache").then((m) => m.clearAvatarCache());
   void import("../../features/chat/lib/mentionTargets").then((m) => m.clearMentionTargets());
+  void import("../../features/chat/lib/messageCache").then((m) => m.clearMessageCache());
 
   void import("../../features/social/store/activityStore").then((m) => m.useActivityStore.getState().clearAll());
   void import("../../features/social/store/blockStore").then((m) => m.useBlockStore.getState().clearAll());

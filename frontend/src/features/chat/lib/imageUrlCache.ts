@@ -1,4 +1,5 @@
 import { attachmentAPI } from "../api/attachment";
+import { readCachedBlob, writeCachedBlob } from "../../../shared/lib/blobCache";
 
 export const IMAGE_CACHE_LIMIT = 40;
 export interface CachedImage {
@@ -38,7 +39,16 @@ export const pendingImageDownloads = new Map<string, Promise<string>>();
 const downloadCachedUrl = (key: string, load: () => Promise<Blob>): Promise<string> => {
   const existing = pendingImageDownloads.get(key);
   if (existing) return existing;
-  const promise = load()
+  const storeKey = `img:${key}`;
+  const promise = readCachedBlob(storeKey)
+    .then(
+      (cached) =>
+        cached ??
+        load().then((blob) => {
+          void writeCachedBlob(storeKey, blob);
+          return blob;
+        }),
+    )
     .then((blob) => cacheImageUrl(key, URL.createObjectURL(blob)))
     .finally(() => {
       pendingImageDownloads.delete(key);

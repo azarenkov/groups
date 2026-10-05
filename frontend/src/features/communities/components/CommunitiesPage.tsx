@@ -5,6 +5,7 @@ import { useAuthStore } from "../../auth/store/authStore";
 import { useCommunityStore } from "../store/communityStore";
 import { channelsFullyLoaded, useChannelStore } from "../store/channelStore";
 import { pinnedFirst, useConversationPinsStore } from "../store/conversationPinsStore";
+import { hydrateSidebar, readSidebarSnapshot, clearSidebarSnapshot, startSidebarSnapshots } from "../lib/sidebarSnapshot";
 import { communityAPI } from "../api/community";
 import { extractInviteToken, extractPackSlug } from "../../../shared/lib/inviteLinks";
 import StickerPacksModal from "../../stickers/components/StickerPacksModal";
@@ -240,8 +241,17 @@ const CommunitiesPage: React.FC = () => {
     currentUserId: user?.id,
   });
 
+  const sessionUserId = user?.id;
+  useEffect(() => {
+    if (!hasSession || !sessionUserId) return;
+    const snapshot = readSidebarSnapshot();
+    if (snapshot && snapshot.userId !== sessionUserId) clearSidebarSnapshot();
+    return startSidebarSnapshots(sessionUserId);
+  }, [hasSession, sessionUserId]);
+
   useEffect(() => {
     if (hasSession) {
+      hydrateSidebar(useAuthStore.getState().user?.id);
       fetchCommunities();
       fetchFriends();
       useConversationPinsStore.getState().ensureLoaded();

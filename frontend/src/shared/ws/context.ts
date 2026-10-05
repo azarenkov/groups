@@ -1,4 +1,5 @@
 import { isBlockedEitherWay } from "../../features/social/store/blockStore";
+import { dropConversation } from "../../features/chat/lib/messageCache";
 import { useChannelStore } from "../../features/communities/store/channelStore";
 import { useCommunityStore } from "../../features/communities/store/communityStore";
 import { useUnreadStore } from "../../features/chat/store/unreadStore";
@@ -93,6 +94,7 @@ export function purgeCommunityLocally(id: string) {
   const channelIds = (channelState.channelsByCommunity[id] ?? []).map((c) => c.id);
   voiceState.purgePendingForCommunity(id, channelIds);
   for (const cid of channelIds) {
+    dropConversation(cid);
     voiceState.clearChannel(cid);
     unreadState.resetChannel(cid);
   }

@@ -30,6 +30,7 @@ import { useUserNamesStore } from "../../features/social/store/userNamesStore";
 import { markNotificationPrefsStale, useNotificationPrefsStore } from "../../features/settings/store/notificationPrefsStore";
 import { useNotificationSettingsStore } from "../../features/settings/store/notificationSettingsStore";
 import { useConversationPinsStore } from "../../features/communities/store/conversationPinsStore";
+import { installMessageCacheSync } from "../../features/chat/lib/messageCache";
 
 export { setActiveChatView };
 
@@ -57,6 +58,7 @@ function dispatch(env: WsEnvelope) {
 export function installWsBootstrap() {
   if (installed) return;
   installed = true;
+  installMessageCacheSync();
   const onForeground = () => {
     if (!viewIsForeground()) return;
     const channelId = getActiveChannelView();

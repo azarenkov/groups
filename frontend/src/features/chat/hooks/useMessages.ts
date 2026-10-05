@@ -6,6 +6,24 @@ import { PAGE_LIMIT } from "../constants";
 import { mergeWithLive } from "../lib/messageFormat";
 import { appendedOwnMessage, shouldStickToBottom } from "../lib/scrollRules";
 import type { Messenger } from "./useMessenger";
+import {
+  dropConversation,
+  readConversation,
+  reconcileLatestPage,
+  saveConversation,
+  type ScrollMemory,
+} from "../lib/messageCache";
+
+export function captureScroll(body: HTMLDivElement | null, atBottom: boolean): ScrollMemory {
+  if (!body || atBottom) return { atBottom: true, anchorId: null, offset: 0 };
+  const top = body.getBoundingClientRect().top;
+  const nodes = body.querySelectorAll<HTMLElement>("[data-msg-id]");
+  for (const node of Array.from(nodes)) {
+    const offset = node.getBoundingClientRect().top - top;
+    if (offset >= 0) return { atBottom: false, anchorId: node.dataset.msgId ?? null, offset };
+  }
+  return { atBottom: true, anchorId: null, offset: 0 };
+}
 
 const HIGHLIGHT_MS = 2500;
 const JUMP_CONTEXT = 25;
@@ -64,27 +82,67 @@ export function useMessages(params: {
     isConversation && loadedChannelIdRef.current !== convId;
   const showInitialLoader = loadingInitial || conversationNotReady;
 
-  React.useEffect(() => {
-    setMessages([]);
-    setHasMore(false);
+  const hasMoreRef = React.useRef(hasMore);
+  hasMoreRef.current = hasMore;
+  const accessErrorRef = React.useRef(accessError);
+  accessErrorRef.current = accessError;
+  const restoredFromCacheRef = React.useRef(false);
+
+  React.useLayoutEffect(() => {
+    const body = bodyRef.current;
+    const cached = convId ? readConversation(convId) : undefined;
+    restoredFromCacheRef.current = !!cached;
     setAccessError(null);
-    nearBottomRef.current = true;
     restoreScrollRef.current = null;
     tailIdRef.current = null;
     if (bodyRef.current) bodyRef.current.style.overflowAnchor = "";
+    if (cached && convId) {
+      setMessages(cached.messages);
+      setHasMore(cached.hasMore);
+      nearBottomRef.current = cached.scroll.atBottom;
+      if (!cached.scroll.atBottom && cached.scroll.anchorId) {
+        if (bodyRef.current) bodyRef.current.style.overflowAnchor = "none";
+        restoreScrollRef.current = { anchorId: cached.scroll.anchorId, offset: cached.scroll.offset };
+      }
+      loadedChannelIdRef.current = convId;
+    } else {
+      setMessages([]);
+      setHasMore(false);
+      nearBottomRef.current = true;
+    }
+    return () => {
+      if (!convId || loadedChannelIdRef.current !== convId || accessErrorRef.current) return;
+      saveConversation(convId, {
+        messages: messagesRef.current,
+        hasMore: hasMoreRef.current,
+        scroll: captureScroll(body, nearBottomRef.current),
+      });
+    };
+  }, [convId]);
+
+  React.useEffect(() => {
     const messengerNow = messengerRef.current;
     if (!messengerNow || !convId) return;
 
     let cancelled = false;
-    setLoadingInitial(true);
+    const fromCache = restoredFromCacheRef.current;
+    if (!fromCache) setLoadingInitial(true);
     const targetId = convId;
     messengerNow
       .listMessages({ limit: PAGE_LIMIT })
       .then((res) => {
         if (cancelled) return;
         const ordered = [...res.messages].reverse();
-        setMessages((prev) => mergeWithLive(ordered, prev));
-        setHasMore(res.messages.length >= PAGE_LIMIT);
+        const fullPage = res.messages.length >= PAGE_LIMIT;
+        if (!fromCache) {
+          setMessages((prev) => mergeWithLive(ordered, prev));
+          setHasMore(fullPage);
+          return;
+        }
+        const reconciled = reconcileLatestPage(messagesRef.current, ordered, fullPage);
+        setMessages((prev) => reconcileLatestPage(prev, ordered, fullPage).messages);
+        if (!fullPage) setHasMore(false);
+        else if (reconciled.gap) setHasMore(true);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -95,8 +153,12 @@ export function useMessages(params: {
             apiErr?.code === "CHANNEL_PASSWORD_REQUIRED" ||
             apiErr?.code === "INVALID_CHANNEL_PASSWORD")
         ) {
+          dropConversation(targetId);
+          setMessages([]);
           setAccessError(apiErr.message || "You haven't joined this channel yet.");
         } else if (isDm && apiErr?.code === "NOT_FRIENDS") {
+          dropConversation(targetId);
+          setMessages([]);
           setAccessError(i18n.t("notFriends", { ns: "chat" }));
         } else {
           console.warn("[ChatView] failed to load messages:", err);
@@ -180,7 +242,7 @@ export function useMessages(params: {
     if (!nearBottomRef.current && !own) return;
     body.scrollTop = body.scrollHeight;
     nearBottomRef.current = true;
-  }, [messages.length, loadingInitial]);
+  }, [messages.length, loadingInitial, convId]);
 
   const loadOlder = React.useCallback(async () => {
     const messengerNow = messengerRef.current;

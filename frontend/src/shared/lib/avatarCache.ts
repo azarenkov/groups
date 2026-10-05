@@ -3,6 +3,7 @@ import React from "react";
 import { userAPI } from "../../features/social/api/user";
 import { communityAPI } from "../../features/communities/api/community";
 import { ApiError } from "./apiError";
+import { deleteCachedBlob, readCachedBlob, writeCachedBlob } from "./blobCache";
 
 export type AvatarKind = "user" | "community" | "banner";
 
@@ -16,6 +17,21 @@ const generations = new Map<string, number>();
 const fetchedAt = new Map<string, number>();
 
 const keyFor = (kind: AvatarKind, id: string) => `${kind}:${id}`;
+const storeKeyFor = (key: string) => `avatar:${key}`;
+const restoring = new Set<string>();
+
+const restoreFromDisk = (key: string, gen: number) => {
+  if (cache.has(key) || restoring.has(key)) return;
+  restoring.add(key);
+  void readCachedBlob(storeKeyFor(key))
+    .then((blob) => {
+      if (!blob || cache.has(key) || (generations.get(key) ?? 0) !== gen) return;
+      cache.set(key, URL.createObjectURL(blob));
+      evictIfNeeded();
+      notify(key);
+    })
+    .finally(() => restoring.delete(key));
+};
 
 const notify = (key: string) => {
   const set = listeners.get(key);
@@ -43,6 +59,7 @@ const load = (kind: AvatarKind, id: string) => {
     return;
   }
   const gen = generations.get(key) ?? 0;
+  restoreFromDisk(key, gen);
   const promise = (kind === "user"
     ? userAPI.downloadAvatar(id)
     : kind === "banner"
@@ -55,6 +72,7 @@ const load = (kind: AvatarKind, id: string) => {
         URL.revokeObjectURL(url);
         return;
       }
+      void writeCachedBlob(storeKeyFor(key), blob);
       const old = cache.get(key);
       if (old && old !== url) URL.revokeObjectURL(old);
       cache.set(key, url);
@@ -64,6 +82,7 @@ const load = (kind: AvatarKind, id: string) => {
     .catch((err) => {
       if ((generations.get(key) ?? 0) !== gen) return;
       if (err instanceof ApiError && err.status === 404) {
+        void deleteCachedBlob(storeKeyFor(key));
         const old = cache.get(key);
         if (old) URL.revokeObjectURL(old);
         cache.set(key, null);
@@ -91,6 +110,7 @@ const load = (kind: AvatarKind, id: string) => {
 export const bustAvatar = (kind: AvatarKind, id: string) => {
   const key = keyFor(kind, id);
   generations.set(key, (generations.get(key) ?? 0) + 1);
+  void deleteCachedBlob(storeKeyFor(key));
   const url = cache.get(key);
   cache.delete(key);
   fetchedAt.delete(key);
