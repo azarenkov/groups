@@ -142,9 +142,10 @@ it("does not start another refresh while a slow one is still running", async () 
     await Promise.resolve();
     await Promise.resolve();
   });
-  frame();
+  settleAll();
   await pullAndRelease();
   expect(onRefresh).toHaveBeenCalledTimes(1);
+  settleAll();
   expect(body().style.transform).toBe("");
   await act(async () => {
     finish();
@@ -247,4 +248,19 @@ it("springs smoothly to its target without overshooting", () => {
   expect(position).toBe(PULL_THRESHOLD);
   expect(steps).toBeGreaterThan(10);
   expect(steps).toBeLessThan(60);
+});
+
+it("eases back even when the finger lifts before the last move was painted", () => {
+  mount(() => Promise.resolve());
+  touch("touchStart", 400);
+  touch("touchMove", 360);
+  act(() => {
+    body().dispatchEvent(new TouchEvent("touchend", { bubbles: true }));
+  });
+  frame();
+  const shown = -parseFloat(body().style.transform.replace("translate3d(0, ", ""));
+  expect(shown).toBeGreaterThan(0);
+  expect(shown).toBeLessThan(resist(40 * 0.9));
+  settleAll();
+  expect(body().style.transform).toBe("");
 });

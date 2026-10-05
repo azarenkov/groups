@@ -47,6 +47,7 @@ export function usePullToRefresh(params: {
   const shownRef = React.useRef(0);
   const velocityRef = React.useRef(0);
   const lastFrameRef = React.useRef<number | null>(null);
+  const directPendingRef = React.useRef<number | null>(null);
   const refreshingRef = React.useRef(false);
   const inFlightRef = React.useRef(new Set<string | undefined>());
   const convIdRef = React.useRef(convId);
@@ -92,13 +93,22 @@ export function usePullToRefresh(params: {
       if (motion === "none") {
         if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
         lastFrameRef.current = null;
+        directPendingRef.current = targetNow();
         frameRef.current = requestAnimationFrame(() => {
           frameRef.current = null;
+          directPendingRef.current = null;
           shownRef.current = targetNow();
           velocityRef.current = 0;
           render(shownRef.current);
         });
         return;
+      }
+      if (directPendingRef.current !== null && frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+        shownRef.current = directPendingRef.current;
+        velocityRef.current = 0;
+        directPendingRef.current = null;
       }
       if (frameRef.current !== null) return;
       const step = (now: number) => {
