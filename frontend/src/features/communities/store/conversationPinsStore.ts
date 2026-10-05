@@ -32,8 +32,12 @@ const api = {
     const response = await http.get("/v1/users/me/pins", { signal });
     return response.data.data;
   },
-  async replace(kind: ConversationPinKind, ids: string[], signal: AbortSignal): Promise<PinLists> {
-    const response = await http.put(`/v1/users/me/pins/${kind}`, { ids }, { signal });
+  async pin(kind: ConversationPinKind, id: string, signal: AbortSignal): Promise<PinLists> {
+    const response = await http.put(`/v1/users/me/pins/${kind}/${id}`, undefined, { signal });
+    return response.data.data;
+  },
+  async unpin(kind: ConversationPinKind, id: string, signal: AbortSignal): Promise<PinLists> {
+    const response = await http.delete(`/v1/users/me/pins/${kind}/${id}`, { signal });
     return response.data.data;
   },
 };
@@ -155,9 +159,13 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
         await Promise.allSettled([...inflightFetches]);
         if (gen !== sessionGen) throw new Error("SESSION_CHANGED");
       }
-      const before = keep ? get()[kind].filter((x) => x === id || keep(x)) : get()[kind];
-      const next = withPinned(before, id, pinned);
       const current = get()[kind];
+      const stale = keep ? current.filter((x) => x !== id && !keep(x)) : [];
+      const next = withPinned(
+        current.filter((x) => !stale.includes(x)),
+        id,
+        pinned,
+      );
       if (next.length === current.length && next.every((x, i) => x === current[i])) return;
       if (next.length > MAX_PINNED_CONVERSATIONS) {
         throw new Error("PIN_LIMIT_REACHED");
@@ -165,9 +173,13 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       stateEpoch += 1;
       set({ [kind]: next } as Partial<PinLists>);
       pendingWrites += 1;
-      const write = writeChain.then(() => {
+      const write = writeChain.then(async () => {
+        for (const staleId of stale) {
+          if (gen !== sessionGen) throw new Error("SESSION_CHANGED");
+          await api.unpin(kind, staleId, sessionAbort.signal);
+        }
         if (gen !== sessionGen) throw new Error("SESSION_CHANGED");
-        return api.replace(kind, get()[kind], sessionAbort.signal);
+        return pinned ? api.pin(kind, id, sessionAbort.signal) : api.unpin(kind, id, sessionAbort.signal);
       });
       writeChain = write.catch(() => undefined);
       let failed = false;
