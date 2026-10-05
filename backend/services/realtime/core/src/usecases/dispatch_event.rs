@@ -19,8 +19,8 @@ use contracts::events::{
     },
     message::{
         ChannelMessageDeletedV1 as ChannelMsgDeleted, ChannelMessageEditedV1 as ChannelMsgEdited,
-        ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto, MessageHiddenV1 as MessageHiddenDto,
-        VoiceListenedV1 as VoiceListenedDto,
+        ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto, ConversationPinsUpdatedV1 as ConversationPinsUpdatedDto,
+        MessageHiddenV1 as MessageHiddenDto, MessagePinChangedV1 as MessagePinChangedDto, VoiceListenedV1 as VoiceListenedDto,
     },
     community::{
         CommunityCreatedV1 as CommunityCreatedDto, CommunityDeletedV1 as CommunityDeletedDto,
@@ -289,6 +289,39 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         publisher
             .publish_to_users(unique(evt.recipients), &envelope)
             .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".message.pin_changed") {
+        let evt: MessagePinChangedDto = serde_json::from_slice(payload)?;
+        let mut data = json!({
+            "messageId": evt.message_id,
+            "pinned": evt.pinned,
+            "actorId": evt.actor_id,
+            "at": evt.occurred_at,
+        });
+        if let Some(channel_id) = evt.channel_id {
+            data["channelId"] = json!(channel_id);
+        } else {
+            data["participants"] = json!(evt.participants);
+        }
+        let envelope = Envelope::new("message.pin_changed", data);
+        publisher
+            .publish_to_users(unique(evt.recipients), &envelope)
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".conversation_pins.updated") {
+        let evt: ConversationPinsUpdatedDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "conversation_pins.updated",
+            json!({
+                "dms": evt.dms,
+                "communities": evt.communities,
+            }),
+        );
+        publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
         return Ok(());
     }
 

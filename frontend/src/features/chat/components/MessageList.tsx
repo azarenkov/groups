@@ -39,6 +39,8 @@ interface MessageListProps {
   onDeclineInvite: (message: ChannelMessage) => void;
   onOpenInviteCommunity?: (communityId: string) => void;
   onVoiceListened?: (message: ChannelMessage) => Promise<void>;
+  pinnedIds?: Set<string>;
+  onTogglePin?: (message: ChannelMessage, pinned: boolean) => void;
 }
 
 const MessageList: React.FC<MessageListProps> = ({
@@ -73,6 +75,8 @@ const MessageList: React.FC<MessageListProps> = ({
   onDeclineInvite,
   onOpenInviteCommunity,
   onVoiceListened,
+  pinnedIds,
+  onTogglePin,
 }) => {
   let lastBubbleIndex = -1;
   for (let k = messages.length - 1; k >= 0; k -= 1) {
@@ -175,6 +179,8 @@ const MessageList: React.FC<MessageListProps> = ({
                     m.inviteCommunityId && onOpenInviteCommunity?.(m.inviteCommunityId)
                   }
                   onVoiceListened={onVoiceListened ? () => onVoiceListened(m) : undefined}
+                  pinned={!!pinnedIds?.has(m.id)}
+                  onTogglePin={onTogglePin ? () => onTogglePin(m, !pinnedIds?.has(m.id)) : undefined}
                 />
                 </React.Fragment>
               );

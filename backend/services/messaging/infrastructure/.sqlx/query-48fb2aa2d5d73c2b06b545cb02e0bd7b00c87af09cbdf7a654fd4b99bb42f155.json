@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM dm_pinned_messages WHERE message_id = $1 AND user_low = $2 AND user_high = $3 RETURNING message_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "48fb2aa2d5d73c2b06b545cb02e0bd7b00c87af09cbdf7a654fd4b99bb42f155"
+}

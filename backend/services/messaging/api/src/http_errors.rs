@@ -107,6 +107,7 @@ macro_rules! impl_http_mapping_delegate {
 
 use messaging::usecases::attachment::get_attachment::GetAttachmentError;
 use messaging::usecases::attachment::list_message_attachments::ListMessageAttachmentsError;
+use messaging::usecases::pin::{conversation_pins::ConversationPinError, message_pins::MessagePinError};
 use messaging::usecases::search::global_search::GlobalSearchError;
 use messaging::usecases::shared::list_shared_content::ListSharedContentError;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnailError;
@@ -1185,6 +1186,72 @@ impl HttpMapping for GetAttachmentThumbnailError {
             GetAttachmentThumbnailError::Unavailable => "ATTACHMENT_THUMBNAIL_UNAVAILABLE",
             GetAttachmentThumbnailError::Storage(e) => e.to_error_code(),
             GetAttachmentThumbnailError::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl HttpMapping for MessagePinError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            MessagePinError::Repository(e) => e.to_http_status(),
+            MessagePinError::NotCommunityMember | MessagePinError::NotChannelMember | MessagePinError::NotAllowed | MessagePinError::Blocked => {
+                StatusCode::FORBIDDEN
+            }
+            MessagePinError::ChannelNotFound => StatusCode::NOT_FOUND,
+            MessagePinError::LimitReached => StatusCode::CONFLICT,
+            MessagePinError::NotTextChannel | MessagePinError::NotPinnable | MessagePinError::SelfConversation => {
+                StatusCode::BAD_REQUEST
+            }
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            MessagePinError::Repository(e) => e.to_user_message(),
+            other => other.to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            MessagePinError::Repository(e) => e.to_error_code(),
+            MessagePinError::NotCommunityMember => "COMMUNITY_NOT_MEMBER",
+            MessagePinError::NotChannelMember => "CHANNEL_NOT_MEMBER",
+            MessagePinError::ChannelNotFound => "CHANNEL_NOT_FOUND",
+            MessagePinError::NotTextChannel => "CHANNEL_NOT_TEXT",
+            MessagePinError::NotAllowed => "PIN_NOT_ALLOWED",
+            MessagePinError::NotPinnable => "PIN_NOT_PINNABLE",
+            MessagePinError::LimitReached => "PIN_LIMIT_REACHED",
+            MessagePinError::Blocked => "USER_BLOCKED",
+            MessagePinError::SelfConversation => "DM_SELF",
+        }
+    }
+}
+
+impl HttpMapping for ConversationPinError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ConversationPinError::Repository(e) => e.to_http_status(),
+            ConversationPinError::UnknownTarget => StatusCode::NOT_FOUND,
+            ConversationPinError::TooMany => StatusCode::CONFLICT,
+            ConversationPinError::InvalidKind | ConversationPinError::SelfConversation => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ConversationPinError::Repository(e) => e.to_user_message(),
+            other => other.to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ConversationPinError::Repository(e) => e.to_error_code(),
+            ConversationPinError::InvalidKind => "PIN_KIND_INVALID",
+            ConversationPinError::TooMany => "PIN_LIMIT_REACHED",
+            ConversationPinError::UnknownTarget => "PIN_TARGET_NOT_FOUND",
+            ConversationPinError::SelfConversation => "DM_SELF",
         }
     }
 }

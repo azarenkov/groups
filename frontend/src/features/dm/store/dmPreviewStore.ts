@@ -20,6 +20,7 @@ interface DmPreviewState {
   byFriend: Record<string, DmPreview>;
   nextCursor: string | null;
   isLoadingMore: boolean;
+  loaded: boolean;
   setAll: (
     items: (DmPreview & { peerId: string })[],
     replace?: boolean,
@@ -46,6 +47,7 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
   byFriend: {},
   nextCursor: null,
   isLoadingMore: false,
+  loaded: false,
 
   setNextCursor: (cursor) => set({ nextCursor: cursor }),
 
@@ -142,7 +144,7 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
     sessionGen += 1;
     pendingReplace = false;
     pagesLoaded = 0;
-    set({ byFriend: {}, nextCursor: null, isLoadingMore: false });
+    set({ byFriend: {}, nextCursor: null, isLoadingMore: false, loaded: false });
   },
 }));
 
@@ -160,6 +162,7 @@ const runPreviewsRefetch = coalesce(async () => {
     store.setNextCursor(res.nextCursor);
     pagesLoaded = replace ? 1 : Math.max(pagesLoaded, 1);
   }
+  if (!useDmPreviewStore.getState().loaded) useDmPreviewStore.setState({ loaded: true });
   const gen = previewGen;
   for (let page = 1; page < rebuildPages; page += 1) {
     const before = useDmPreviewStore.getState().nextCursor;

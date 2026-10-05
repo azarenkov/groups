@@ -207,6 +207,14 @@
   display: inline-flex; align-items: center; justify-content: center;
 }
 .sb-dm-badge.muted { background: var(--fg-4); }
+.sb-pinned {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center;
+  color: var(--fg-3);
+}
+.sb-dm-name .sb-pinned { margin-left: auto; }
+.sb-dm-name .sb-pinned + .sb-dm-time { margin-left: 0; }
+.sb-srv .sb-pinned { margin-left: 4px; }
 .sb-dm-muted {
   position: relative; flex: 0 0 auto;
   display: inline-flex; align-items: center;

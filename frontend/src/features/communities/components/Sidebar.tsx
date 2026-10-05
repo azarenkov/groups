@@ -12,6 +12,7 @@ import SidebarFooter from "./sidebar/SidebarFooter";
 import SidebarHeader from "./sidebar/SidebarHeader";
 import GlobalSearchResults from "../../search/components/GlobalSearchResults";
 import type { OpenMessageLink } from "../../chat/lib/messageLink";
+import { pinnedFirst, useConversationPinsStore } from "../store/conversationPinsStore";
 import { useSidebarPermissions } from "./sidebar/permissions";
 import { useSidebarNavigation } from "./sidebar/useSidebarNavigation";
 import type { SidebarVoiceMember } from "./sidebar/types";
@@ -109,17 +110,20 @@ const Sidebar: React.FC<SidebarProps> = ({
   const match = (s: string) => s.toLowerCase().includes(q);
   const isFiltering = q.length > 0;
 
-  const visibleDirects = isFiltering
-    ? directs.filter((d) => match(d.name))
-    : directs;
+  const dmPins = useConversationPinsStore((s) => s.dms);
+  const communityPins = useConversationPinsStore((s) => s.communities);
+  const visibleDirects = pinnedFirst(isFiltering ? directs.filter((d) => match(d.name)) : directs, dmPins);
 
-  const filteredCommunities = isFiltering
-    ? communities.filter((community) => {
-        if (match(community.name)) return true;
-        const channels = channelsByCommunity[community.id] || [];
-        return channels.some((c) => match(c.name));
-      })
-    : communities;
+  const filteredCommunities = pinnedFirst(
+    isFiltering
+      ? communities.filter((community) => {
+          if (match(community.name)) return true;
+          const channels = channelsByCommunity[community.id] || [];
+          return channels.some((c) => match(c.name));
+        })
+      : communities,
+    communityPins,
+  );
 
   const visibleChannelsFor = (communityId: string) => {
     const channels = channelsByCommunity[communityId] || [];

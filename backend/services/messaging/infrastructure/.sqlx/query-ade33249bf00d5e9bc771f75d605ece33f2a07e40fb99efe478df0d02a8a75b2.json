@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO conversation_pins (user_id, kind, target_id, \"position\")\n            SELECT $1, $2, $3,\n                   COALESCE((SELECT MIN(p.\"position\") FROM conversation_pins p WHERE p.user_id = $1 AND p.kind = $2), 1) - 1\n            WHERE $2 <> 'dm'\n               OR (EXISTS (SELECT 1 FROM messaging_user_profiles u WHERE u.user_id = $3)\n                   AND NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id = $3))\n            ON CONFLICT (user_id, kind, target_id) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ade33249bf00d5e9bc771f75d605ece33f2a07e40fb99efe478df0d02a8a75b2"
+}
