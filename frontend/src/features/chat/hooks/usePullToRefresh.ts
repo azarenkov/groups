@@ -31,6 +31,10 @@ export function springStep(
 export const resist = (raw: number): number =>
   raw <= 0 ? 0 : PULL_MAX * (1 - Math.exp(-raw / (PULL_MAX * 1.2)));
 
+export const prefersReducedMotion = (): boolean =>
+  document.documentElement.classList.contains("reduce-motion") ||
+  (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
 const atBottom = (b: HTMLDivElement) => b.scrollTop + b.clientHeight >= b.scrollHeight - 1;
 
 export function usePullToRefresh(params: {
@@ -90,7 +94,7 @@ export function usePullToRefresh(params: {
     (distance: number, motion: Motion) => {
       distanceRef.current = distance;
       const targetNow = () => (refreshingRef.current ? PULL_THRESHOLD : distanceRef.current);
-      if (motion === "none") {
+      if (motion === "none" || prefersReducedMotion()) {
         if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
         lastFrameRef.current = null;
         directPendingRef.current = targetNow();

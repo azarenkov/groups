@@ -264,3 +264,20 @@ it("eases back even when the finger lifts before the last move was painted", () 
   settleAll();
   expect(body().style.transform).toBe("");
 });
+
+it("jumps straight back without animating when reduced motion is on", () => {
+  document.documentElement.classList.add("reduce-motion");
+  try {
+    mount(() => Promise.resolve());
+    touch("touchStart", 400);
+    touch("touchMove", 360);
+    frame();
+    act(() => {
+      body().dispatchEvent(new TouchEvent("touchcancel", { bubbles: true }));
+    });
+    frame();
+    expect(body().style.transform).toBe("");
+  } finally {
+    document.documentElement.classList.remove("reduce-motion");
+  }
+});
