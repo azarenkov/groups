@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useCommunityStore } from "../store/communityStore";
 import { channelsFullyLoaded, useChannelStore } from "../store/channelStore";
+import { pinnedFirst, useConversationPinsStore } from "../store/conversationPinsStore";
 import { communityAPI } from "../api/community";
 import { extractInviteToken, extractPackSlug } from "../../../shared/lib/inviteLinks";
 import StickerPacksModal from "../../stickers/components/StickerPacksModal";
@@ -415,15 +416,16 @@ const CommunitiesPage: React.FC = () => {
       if (next.id !== selectedChannelId) handleSelectChannel(selectedCommunity, next);
       return;
     }
-    if (acceptedFriends.length === 0) return;
-    const idx = acceptedFriends.findIndex((d) => d.id === selectedDm?.id);
+    const ordered = pinnedFirst(acceptedFriends, useConversationPinsStore.getState().dms);
+    if (ordered.length === 0) return;
+    const idx = ordered.findIndex((d) => d.id === selectedDm?.id);
     const next =
-      acceptedFriends[
+      ordered[
         idx < 0
           ? delta > 0
             ? 0
-            : acceptedFriends.length - 1
-          : (idx + delta + acceptedFriends.length) % acceptedFriends.length
+            : ordered.length - 1
+          : (idx + delta + ordered.length) % ordered.length
       ];
     if (next.id !== selectedDm?.id) handleSelectDm(next);
   };

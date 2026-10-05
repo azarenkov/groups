@@ -61,6 +61,7 @@ const CommunityList: React.FC<CommunityListProps> = ({
     }
   }, [communities, currentUserId]);
   const pinnedCommunities = useConversationPinsStore((s) => s.communities);
+  const pinsLoaded = useConversationPinsStore((s) => s.loaded);
   const communityMenu = (community: Community): MenuEntry[] => {
     const owner = !!currentUserId && community.ownerId === currentUserId;
     const isPinned = pinnedCommunities.includes(community.id);
@@ -71,7 +72,7 @@ const CommunityList: React.FC<CommunityListProps> = ({
         id: "pin",
         label: t(isPinned ? "unpinCommunity" : "pinCommunity"),
         icon: "pin",
-        disabled: !isPinned && pinnedCommunities.length >= MAX_PINNED_CONVERSATIONS,
+        disabled: !pinsLoaded || (!isPinned && pinnedCommunities.length >= MAX_PINNED_CONVERSATIONS),
         onSelect: () => {
           void useConversationPinsStore
             .getState()
