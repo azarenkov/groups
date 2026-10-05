@@ -32,6 +32,8 @@ export type WsEventType =
   | "message.edited"
   | "message.deleted"
   | "message.hidden"
+  | "message.pin_changed"
+  | "conversation_pins.updated"
   | "voice.listened"
   | "channel.created"
   | "channel.renamed"

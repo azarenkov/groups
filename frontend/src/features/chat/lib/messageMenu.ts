@@ -1,16 +1,17 @@
 import type { ChannelMessage } from "../../../shared/types/channel";
 import { isVoiceMessage } from "./voice";
 
-export type MessageAction = "reply" | "forward" | "copy" | "link" | "edit" | "delete" | "report";
+export type MessageAction = "reply" | "forward" | "copy" | "link" | "pin" | "edit" | "delete" | "report";
 
 export interface MessageMenuContext {
   msg: ChannelMessage;
   isMine: boolean;
   hasSelection: boolean;
+  canPin?: boolean;
 }
 
 export function messageActions(ctx: MessageMenuContext): MessageAction[] {
-  const { msg, isMine, hasSelection } = ctx;
+  const { msg, isMine, hasSelection, canPin } = ctx;
   const card = !!msg.callStatus || !!msg.inviteCommunityId;
   const actions: MessageAction[] = [];
   if (!card && !msg.system) actions.push("reply");
@@ -19,6 +20,7 @@ export function messageActions(ctx: MessageMenuContext): MessageAction[] {
   const hasText = !voice && (msg.content.length > 0 || (msg.attachments?.length ?? 0) > 0);
   if (!card && (hasText || hasSelection)) actions.push("copy");
   if (!msg.system) actions.push("link");
+  if (canPin && !card && !msg.system) actions.push("pin");
   if (isMine && !card && !voice && !msg.system && !msg.forwardedFrom) actions.push("edit");
   if (isMine || !msg.inviteCommunityId) actions.push("delete");
   if (!isMine && !card && !msg.system) actions.push("report");

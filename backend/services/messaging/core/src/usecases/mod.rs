@@ -7,6 +7,7 @@ pub mod friendship;
 pub mod hidden_message;
 pub mod voice_listen;
 pub mod notification;
+pub mod pin;
 pub mod privacy;
 pub mod read_state;
 pub mod report;

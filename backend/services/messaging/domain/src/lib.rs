@@ -9,6 +9,7 @@ pub mod message;
 pub mod notification;
 pub mod read_state;
 pub mod report;
+pub mod pin;
 pub mod privacy;
 pub mod search;
 pub mod shared;

@@ -66,6 +66,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(join_text_channel)
                         .service(search_channel_messages)
                         .configure(crate::shared::channel_shared_routes)
+                        .configure(crate::pins::channel_pin_routes)
                         .service(get_channel_message)
                         .service(disconnect_voice_member)
                         .service(hide_channel_message)
@@ -83,6 +84,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                 )
                 .service(
                     web::scope("/v1/users")
+                        .configure(crate::pins::user_pin_routes)
                         .configure(badge_routes)
                         .service(crate::forward::forward_message)
                         .service(search_dm_messages)
