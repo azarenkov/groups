@@ -9,6 +9,7 @@ import { useCommunityStore } from "../../store/communityStore";
 import { useConversationPinsStore } from "../../store/conversationPinsStore";
 import { useFriendshipStore } from "../../../social/store/friendshipStore";
 import { useDmPreviewStore } from "../../../dm/store/dmPreviewStore";
+import { useChannelStore } from "../../store/channelStore";
 
 const community = { id: "c1", name: "Rift", ownerId: "u1" } as never;
 const friend = { friendId: "u2", friendName: "Bob", status: "accepted" } as never;
@@ -81,4 +82,25 @@ it("does not overwrite data that already came from the server", () => {
 it("treats a broken snapshot as missing", () => {
   localStorage.setItem(SIDEBAR_SNAPSHOT_KEY, "{not json");
   expect(hydrateSidebar("me")).toBe(false);
+});
+
+it("restores channels of fully loaded communities without marking them loaded", async () => {
+  const channel = { id: "ch1", communityId: "c1", name: "general", kind: "text" } as never;
+  localStorage.setItem(
+    SIDEBAR_SNAPSHOT_KEY,
+    JSON.stringify({
+      v: 1,
+      userId: "me",
+      communities: [community],
+      channels: { c1: [channel] },
+      friends: [],
+      statusById: {},
+      previews: [],
+      pins: { dms: [], communities: [] },
+    }),
+  );
+  hydrateSidebar("me");
+  expect(useChannelStore.getState().channelsByCommunity.c1).toEqual([channel]);
+  const { channelsFullyLoaded } = jest.requireActual("../../store/channelStore");
+  expect(channelsFullyLoaded("c1")).toBe(false);
 });

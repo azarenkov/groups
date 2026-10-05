@@ -13,6 +13,7 @@ interface ChannelState {
   error: string | null;
 
   setChannels: (communityId: string, channels: Channel[]) => void;
+  hydrate: (byCommunity: Record<string, Channel[]>) => void;
   setSelectedChannel: (channelId: string | null) => void;
   addChannel: (communityId: string, channel: Channel) => void;
   removeChannel: (communityId: string, channelId: string) => void;
@@ -128,6 +129,19 @@ export const useChannelStore = create<ChannelState>((set, get) => {
     selectedChannelId: null,
     isLoading: false,
     error: null,
+
+    hydrate: (byCommunity) => {
+      set((state) => {
+        const next = { ...state.channelsByCommunity };
+        let changed = false;
+        for (const [communityId, channels] of Object.entries(byCommunity)) {
+          if (next[communityId] || complete.has(communityId) || inFlight.has(communityId) || !Array.isArray(channels)) continue;
+          next[communityId] = channels;
+          changed = true;
+        }
+        return changed ? { channelsByCommunity: next } : {};
+      });
+    },
 
     setChannels: (communityId, channels) =>
       set((state) => ({

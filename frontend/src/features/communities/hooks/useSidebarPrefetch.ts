@@ -4,6 +4,7 @@ import { useDmPreviewStore } from "../../dm/store/dmPreviewStore";
 import type { Channel } from "../../../shared/types/channel";
 import type { Community } from "../../../shared/types/community";
 import { useConversationPinsStore } from "../store/conversationPinsStore";
+import { channelsFullyLoaded } from "../store/channelStore";
 import { useBlockStore } from "../../social/store/blockStore";
 
 export const PINNED_DM_RETRY_MS = 2000;
@@ -41,7 +42,7 @@ export function useSidebarPrefetch(params: {
     const handle = window.setTimeout(() => {
       const inflight = prefetchInflightRef.current;
       communities.forEach((s) => {
-        if (channelsByCommunity[s.id]) return;
+        if (channelsFullyLoaded(s.id)) return;
         if (inflight.has(s.id)) return;
         inflight.add(s.id);
         Promise.resolve(fetchChannels(s.id)).finally(() => {

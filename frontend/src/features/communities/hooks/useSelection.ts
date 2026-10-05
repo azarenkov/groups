@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { channelsFullyLoaded } from "../store/channelStore";
 import { userAPI } from "../../social/api/user";
 import { useCallStore } from "../../voice/store/callStore";
 import { useUnreadStore } from "../../chat/store/unreadStore";
@@ -44,7 +45,7 @@ export function useSelection(params: {
     const existing = new Set(communities.map((s) => s.id));
     expandedCommunityIds.forEach((id) => {
       if (!existing.has(id)) return;
-      if (!channelsByCommunity[id]) fetchChannels(id);
+      if (!channelsFullyLoaded(id)) fetchChannels(id);
     });
   }, [expandedCommunityIds, hasSession, fetchChannels, channelsByCommunity, communities]);
 
@@ -62,7 +63,7 @@ export function useSelection(params: {
     if (!list) return;
     if (selectedChannelId) {
       const current = list.find((c) => c.id === selectedChannelId);
-      if (current) return;
+      if (current || !channelsFullyLoaded(selectedCommunityId)) return;
     }
     const firstText = list.find((c) => c.kind === "text");
     if (firstText) setSelectedChannel(firstText.id);

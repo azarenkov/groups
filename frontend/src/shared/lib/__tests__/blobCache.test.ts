@@ -1,4 +1,8 @@
 import {
+  BLOB_CACHE_MIN_BYTES,
+  limitFromQuota,
+  setBlobCacheLimit,
+  type BlobBackend,
   BLOB_CACHE_MAX_BYTES,
   BLOB_CACHE_MAX_ITEM_BYTES,
   clearBlobCache,
@@ -66,4 +70,56 @@ it("works without a storage backend", async () => {
   setBlobBackend(null);
   await writeCachedBlob("a", blobOf(1));
   expect(await readCachedBlob("a")).toBeNull();
+});
+
+it("sizes the cache from the storage quota", () => {
+  expect(limitFromQuota(undefined)).toBe(BLOB_CACHE_MAX_BYTES);
+  expect(limitFromQuota(10 * 1024 * 1024 * 1024)).toBe(BLOB_CACHE_MAX_BYTES);
+  expect(limitFromQuota(500 * 1024 * 1024)).toBe(50 * 1024 * 1024);
+  expect(limitFromQuota(50 * 1024 * 1024)).toBe(BLOB_CACHE_MIN_BYTES);
+});
+
+it("keeps the cache under the quota-based limit", async () => {
+  setBlobCacheLimit(30 * 1024 * 1024);
+  const now = jest.spyOn(Date, "now");
+  for (let i = 0; i < 3; i += 1) {
+    now.mockReturnValue(i + 1);
+    await writeCachedBlob(`q${i}`, blobOf(12 * 1024 * 1024));
+  }
+  await evictBlobCacheNow();
+  now.mockRestore();
+  expect(await readCachedBlob("q0")).toBeNull();
+  expect(await readCachedBlob("q2")).not.toBeNull();
+});
+
+it("frees space and retries when the browser runs out of quota", async () => {
+  const memory = memoryBlobBackend();
+  let failures = 1;
+  const flaky: BlobBackend = {
+    ...memory,
+    put: async (record) => {
+      if (record.key === "big" && failures > 0) {
+        failures -= 1;
+        throw new DOMException("full", "QuotaExceededError");
+      }
+      await memory.put(record);
+    },
+  };
+  setBlobBackend(flaky);
+  await writeCachedBlob("old", blobOf(10));
+  await writeCachedBlob("big", blobOf(10));
+  expect(await readCachedBlob("big")).not.toBeNull();
+  expect(await readCachedBlob("old")).toBeNull();
+});
+
+it("stops writing for the session when storage keeps failing", async () => {
+  const memory = memoryBlobBackend();
+  const putSpy = jest.fn(async () => {
+    throw new DOMException("full", "QuotaExceededError");
+  });
+  setBlobBackend({ ...memory, put: putSpy });
+  await writeCachedBlob("a", blobOf(10));
+  const calls = putSpy.mock.calls.length;
+  await writeCachedBlob("b", blobOf(10));
+  expect(putSpy.mock.calls.length).toBe(calls);
 });

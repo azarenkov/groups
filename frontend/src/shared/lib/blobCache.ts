@@ -72,6 +72,14 @@ const current = (): BlobBackend | null => {
 export const setBlobBackend = (next: BlobBackend | null): void => {
   backend = next;
   writesSinceEvict = 0;
+  disabled = false;
+  limitBytes = null;
+  limitResolving = null;
+};
+
+export const setBlobCacheLimit = (bytes: number | null): void => {
+  limitBytes = bytes;
+  limitResolving = null;
 };
 
 export const evictBlobCacheNow = async (): Promise<void> => {
@@ -81,6 +89,37 @@ export const evictBlobCacheNow = async (): Promise<void> => {
 
 let generation = 0;
 let writesSinceEvict = 0;
+let disabled = false;
+let limitBytes: number | null = null;
+let limitResolving: Promise<number> | null = null;
+
+export const BLOB_CACHE_MIN_BYTES = 20 * 1024 * 1024;
+export const BLOB_CACHE_QUOTA_SHARE = 0.1;
+
+export function limitFromQuota(quota: number | undefined): number {
+  if (!quota || !Number.isFinite(quota) || quota <= 0) return BLOB_CACHE_MAX_BYTES;
+  return Math.max(BLOB_CACHE_MIN_BYTES, Math.min(BLOB_CACHE_MAX_BYTES, Math.floor(quota * BLOB_CACHE_QUOTA_SHARE)));
+}
+
+const resolveLimit = (): Promise<number> => {
+  if (limitBytes !== null) return Promise.resolve(limitBytes);
+  if (!limitResolving) {
+    limitResolving = (async () => {
+      try {
+        const storage = typeof navigator !== "undefined" ? navigator.storage : undefined;
+        if (storage && typeof window !== "undefined" && (window as { electron?: unknown }).electron && storage.persist) {
+          await storage.persist().catch(() => false);
+        }
+        const estimate = storage?.estimate ? await storage.estimate() : undefined;
+        limitBytes = limitFromQuota(estimate?.quota);
+      } catch {
+        limitBytes = BLOB_CACHE_MAX_BYTES;
+      }
+      return limitBytes;
+    })();
+  }
+  return limitResolving;
+};
 const EVICT_EVERY_WRITES = 20;
 
 export async function readCachedBlob(key: string): Promise<Blob | null> {
@@ -96,12 +135,13 @@ export async function readCachedBlob(key: string): Promise<Blob | null> {
   }
 }
 
-async function evict(store: BlobBackend, keep: string): Promise<void> {
+async function evict(store: BlobBackend, keep: string, target?: number): Promise<void> {
+  const limit = target ?? (await resolveLimit());
   const records = await store.all();
   let total = records.reduce((sum, r) => sum + r.size, 0);
-  if (total <= BLOB_CACHE_MAX_BYTES) return;
+  if (total <= limit) return;
   for (const record of records.sort((a, b) => a.usedAt - b.usedAt)) {
-    if (total <= BLOB_CACHE_MAX_BYTES) break;
+    if (total <= limit) break;
     if (record.key === keep) continue;
     await store.delete(record.key);
     total -= record.size;
@@ -110,11 +150,25 @@ async function evict(store: BlobBackend, keep: string): Promise<void> {
 
 export async function writeCachedBlob(key: string, blob: Blob): Promise<void> {
   const store = current();
-  if (!store || blob.size > BLOB_CACHE_MAX_ITEM_BYTES) return;
+  if (!store || disabled || blob.size > BLOB_CACHE_MAX_ITEM_BYTES) return;
   const gen = generation;
   try {
-    if (gen !== generation) return;
-    await store.put({ key, blob, size: blob.size, usedAt: Date.now() });
+    const limit = await resolveLimit();
+    if (gen !== generation || blob.size > limit) return;
+    const record = { key, blob, size: blob.size, usedAt: Date.now() };
+    try {
+      await store.put(record);
+    } catch {
+      const records = await store.all();
+      const total = records.reduce((sum, r) => sum + r.size, 0);
+      await evict(store, key, Math.floor(total / 2));
+      try {
+        await store.put(record);
+      } catch {
+        disabled = true;
+        return;
+      }
+    }
     if (gen !== generation) {
       await store.delete(key);
       return;
