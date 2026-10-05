@@ -54,7 +54,6 @@ pub trait ReadStateRepository {
     async fn dm_unread_counts(
         &self,
         user_id: &UserId,
-        default_level: &str,
     ) -> Result<Vec<DmUnread>, RepositoryError>;
 
     async fn dm_peer_read_at(

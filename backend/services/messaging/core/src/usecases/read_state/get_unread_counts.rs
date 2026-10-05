@@ -33,12 +33,11 @@ impl<R: ReadStateRepository> GetUnreadCounts<R> {
             "mentions" | "none" => default_level,
             _ => "all",
         };
-        let dm_default = if channel_default == "none" { "none" } else { "all" };
         let channels = self
             .repo
             .channel_unread_counts(&user_id, channel_default)
             .await?;
-        let dms = self.repo.dm_unread_counts(&user_id, dm_default).await?;
+        let dms = self.repo.dm_unread_counts(&user_id).await?;
         Ok(UnreadCounts { channels, dms })
     }
 }

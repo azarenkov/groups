@@ -180,7 +180,6 @@ impl ReadStateRepository for PostgresReadStateRepository {
                 SELECT 1 FROM user_blocks b
                 WHERE b.blocker_id = $1 AND b.blocked_id = m.author_id
               )
-              AND COALESCE(np.level, $2) <> 'none'
               AND (
                   COALESCE(np.level, $2) <> 'mentions'
                   OR $1 = ANY(m.mentions)
@@ -207,7 +206,6 @@ impl ReadStateRepository for PostgresReadStateRepository {
     async fn dm_unread_counts(
         &self,
         user_id: &UserId,
-        default_level: &str,
     ) -> Result<Vec<DmUnread>, RepositoryError> {
         let rows = sqlx::query!(
             r#"
@@ -217,17 +215,12 @@ impl ReadStateRepository for PostgresReadStateRepository {
             FROM dm_messages m
             LEFT JOIN dm_read_state r
                 ON r.user_id = $1 AND r.friend_id = m.sender_id
-            LEFT JOIN notification_preferences np
-                ON np.user_id = $1
-               AND np.scope_type = 'dm'
-               AND np.scope_id = m.sender_id
             WHERE m.recipient_id = $1
               AND m.created_at > COALESCE(r.last_read_at, '1970-01-01T00:00:00Z'::timestamptz)
               AND NOT EXISTS (
                 SELECT 1 FROM hidden_messages h
                 WHERE h.user_id = $1 AND h.message_id = m.id
               )
-              AND COALESCE(np.level, $2) <> 'none'
               AND NOT EXISTS (
                 SELECT 1 FROM user_blocks b
                 WHERE (b.blocker_id = $1 AND b.blocked_id = m.sender_id)
@@ -236,7 +229,6 @@ impl ReadStateRepository for PostgresReadStateRepository {
             GROUP BY m.sender_id
             "#,
             user_id.uuid(),
-            default_level,
         )
         .fetch_all(&self.pool)
         .await
