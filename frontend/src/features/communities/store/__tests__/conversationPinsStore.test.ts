@@ -337,3 +337,42 @@ it("keeps retrying the first load until it succeeds", async () => {
   warn.mockRestore();
   jest.useRealTimers();
 });
+
+it("retries reloading after a remote change until it works", async () => {
+  jest.useFakeTimers();
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  get.mockRejectedValueOnce(new Error("down")).mockResolvedValueOnce(reply({ dms: ["remote"], communities: [] }));
+  useConversationPinsStore.getState().remoteChanged();
+  for (let i = 0; i < 4; i += 1) {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    jest.advanceTimersByTime(PINS_LOAD_MAX_DELAY_MS);
+  }
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(get).toHaveBeenCalledTimes(2);
+  expect(useConversationPinsStore.getState().dms).toEqual(["remote"]);
+  warn.mockRestore();
+  jest.useRealTimers();
+});
+
+it("keeps retrying to reconcile after a failed save", async () => {
+  jest.useFakeTimers();
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  put.mockRejectedValueOnce(new Error("save failed"));
+  get.mockRejectedValueOnce(new Error("down")).mockResolvedValueOnce(reply({ dms: [], communities: [] }));
+  await expect(useConversationPinsStore.getState().setPinned("dms", "x", true)).rejects.toThrow("save failed");
+  expect(useConversationPinsStore.getState().dms).toEqual(["x"]);
+  for (let i = 0; i < 4; i += 1) {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    jest.advanceTimersByTime(PINS_LOAD_MAX_DELAY_MS);
+  }
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(useConversationPinsStore.getState().dms).toEqual([]);
+  warn.mockRestore();
+  jest.useRealTimers();
+});

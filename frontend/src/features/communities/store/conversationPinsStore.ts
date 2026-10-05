@@ -52,6 +52,8 @@ let writeChain: Promise<unknown> = Promise.resolve();
 let initialLoad: Promise<void> | null = null;
 const inflightFetches = new Set<Promise<void>>();
 let ensureLoop = false;
+let reconcileRunning = false;
+let reconcileAgain = false;
 
 export const PINS_LOAD_RETRY_MS = 1000;
 export const PINS_LOAD_MAX_DELAY_MS = 30000;
@@ -68,6 +70,33 @@ export function pinnedFirst<T extends { id: string }>(items: T[], pinned: string
 }
 
 export const useConversationPinsStore = create<ConversationPinsState>((set, get) => {
+  const reconcile = () => {
+    if (reconcileRunning) {
+      reconcileAgain = true;
+      return;
+    }
+    reconcileRunning = true;
+    const gen = sessionGen;
+    void (async () => {
+      let delay = PINS_LOAD_RETRY_MS;
+      while (gen === sessionGen) {
+        reconcileAgain = false;
+        try {
+          await get().fetch();
+          if (!reconcileAgain) break;
+          continue;
+        } catch (err) {
+          console.warn("[pins] reload failed, retrying:", err);
+        }
+        if (gen !== sessionGen) break;
+        const wait = delay;
+        await new Promise((resolve) => setTimeout(resolve, wait));
+        delay = Math.min(delay * 2, PINS_LOAD_MAX_DELAY_MS);
+      }
+      if (gen === sessionGen) reconcileRunning = false;
+    })();
+  };
+
   const install = (lists: Partial<PinLists>, fromFetch = false) => {
     if (!fromFetch) stateEpoch += 1;
     const dms = ids(lists.dms);
@@ -156,7 +185,7 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
           if (pendingWrites > 0) return;
           if (remoteDuringWrite || failed) {
             remoteDuringWrite = false;
-            void get().fetch().catch(() => {});
+            reconcile();
           }
         });
     },
@@ -187,9 +216,7 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
         remoteDuringWrite = true;
         return;
       }
-      void get()
-        .fetch()
-        .catch((err) => console.warn("[pins] reload after a remote change failed:", err));
+      reconcile();
     },
 
     applyRemote: (lists) => {
@@ -208,9 +235,7 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
         set({ [kind]: get()[kind].filter((x) => x !== id) } as Partial<PinLists>);
       }
       if (hadFetches && pendingWrites === 0) {
-        void get()
-          .fetch()
-          .catch((err) => console.warn("[pins] reload after leaving failed:", err));
+        reconcile();
       }
     },
 
@@ -225,6 +250,8 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       initialLoad = null;
       inflightFetches.clear();
       ensureLoop = false;
+      reconcileRunning = false;
+      reconcileAgain = false;
       stateEpoch += 1;
       writeChain = Promise.resolve();
       set({ dms: [], communities: [], loaded: false });
