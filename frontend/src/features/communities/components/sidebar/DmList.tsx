@@ -70,7 +70,7 @@ const DmList: React.FC<DmListProps> = ({
       onSelect: () => {
         void useConversationPinsStore
           .getState()
-          .toggle("dms", d.id, (pinnedId) => !isBlockedEitherWay(pinnedId))
+          .setPinned("dms", d.id, !pinnedDms.includes(d.id), (pinnedId) => !isBlockedEitherWay(pinnedId))
           .catch((e) => console.warn("[DmList] pin failed:", e));
       },
     },

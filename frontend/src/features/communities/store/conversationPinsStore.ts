@@ -14,7 +14,12 @@ interface PinLists {
 interface ConversationPinsState extends PinLists {
   loaded: boolean;
   fetch: () => Promise<void>;
-  toggle: (kind: ConversationPinKind, id: string, keep?: (pinnedId: string) => boolean) => Promise<void>;
+  setPinned: (
+    kind: ConversationPinKind,
+    id: string,
+    pinned: boolean,
+    keep?: (pinnedId: string) => boolean,
+  ) => Promise<void>;
   applyRemote: (lists: Partial<PinLists>) => void;
   remoteChanged: () => void;
   forget: (kind: ConversationPinKind, id: string) => void;
@@ -46,8 +51,8 @@ let writeChain: Promise<unknown> = Promise.resolve();
 let initialLoad: Promise<void> | null = null;
 const inflightFetches = new Set<Promise<void>>();
 
-export const togglePinned = (list: string[], id: string): string[] =>
-  list.includes(id) ? list.filter((x) => x !== id) : [id, ...list];
+export const withPinned = (list: string[], id: string, pinned: boolean): string[] =>
+  pinned ? (list.includes(id) ? list : [id, ...list]) : list.filter((x) => x !== id);
 
 export function pinnedFirst<T extends { id: string }>(items: T[], pinned: string[]): T[] {
   if (pinned.length === 0) return items;
@@ -91,7 +96,7 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       return promise;
     },
 
-    toggle: async (kind, id, keep) => {
+    setPinned: async (kind, id, pinned, keep) => {
       const gen = sessionGen;
       if (!get().loaded) {
         if (!initialLoad) {
@@ -120,7 +125,9 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
         if (gen !== sessionGen) throw new Error("SESSION_CHANGED");
       }
       const before = keep ? get()[kind].filter((x) => x === id || keep(x)) : get()[kind];
-      const next = togglePinned(before, id);
+      const next = withPinned(before, id, pinned);
+      const current = get()[kind];
+      if (next.length === current.length && next.every((x, i) => x === current[i])) return;
       if (next.length > MAX_PINNED_CONVERSATIONS) {
         throw new Error("PIN_LIMIT_REACHED");
       }

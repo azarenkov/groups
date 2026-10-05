@@ -75,7 +75,7 @@ const CommunityList: React.FC<CommunityListProps> = ({
         onSelect: () => {
           void useConversationPinsStore
             .getState()
-            .toggle("communities", community.id)
+            .setPinned("communities", community.id, !isPinned)
             .catch((e) => console.warn("[CommunityList] pin failed:", e));
         },
       },

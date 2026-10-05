@@ -61,6 +61,9 @@ export function useSidebarPrefetch(params: {
 
   const [pinRetry, setPinRetry] = useState(0);
   useEffect(() => {
+    if (!missingPinnedDm) setPinRetry(0);
+  }, [missingPinnedDm]);
+  useEffect(() => {
     if (!missingPinnedDm || (!friendsNextCursor && !previewsNextCursor)) return;
     if (friendsNextCursor) void loadMoreFriends();
     if (previewsNextCursor) void loadMorePreviews();
