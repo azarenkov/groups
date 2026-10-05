@@ -44,6 +44,7 @@ let sessionAbort = new AbortController();
 let stateEpoch = 0;
 let writeChain: Promise<unknown> = Promise.resolve();
 let initialLoad: Promise<void> | null = null;
+const inflightFetches = new Set<Promise<void>>();
 
 export const togglePinned = (list: string[], id: string): string[] =>
   list.includes(id) ? list.filter((x) => x !== id) : [id, ...list];
@@ -77,11 +78,17 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       const gen = sessionGen;
       const request = ++latestFetch;
       const epoch = stateEpoch;
-      return api.list(sessionAbort.signal).then((lists) => {
+      const promise = api.list(sessionAbort.signal).then((lists) => {
         if (gen !== sessionGen || request < appliedFetch || epoch !== stateEpoch || pendingWrites > 0) return;
         appliedFetch = request;
         install(lists, true);
       });
+      inflightFetches.add(promise);
+      void promise.then(
+        () => inflightFetches.delete(promise),
+        () => inflightFetches.delete(promise),
+      );
+      return promise;
     },
 
     toggle: async (kind, id, keep) => {
@@ -102,6 +109,10 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
           if (!get().loaded) throw err;
         });
         if (gen !== sessionGen || !get().loaded) throw new Error("PINS_NOT_LOADED");
+      }
+      if (inflightFetches.size > 0) {
+        await Promise.allSettled([...inflightFetches]);
+        if (gen !== sessionGen) throw new Error("SESSION_CHANGED");
       }
       const before = keep ? get()[kind].filter((x) => x === id || keep(x)) : get()[kind];
       const next = togglePinned(before, id);
@@ -169,6 +180,7 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       sessionAbort.abort();
       sessionAbort = new AbortController();
       initialLoad = null;
+      inflightFetches.clear();
       stateEpoch += 1;
       writeChain = Promise.resolve();
       set({ dms: [], communities: [], loaded: false });

@@ -213,3 +213,14 @@ it("reloads from the server on a remote change instead of trusting the event ord
   expect(get).toHaveBeenCalledTimes(1);
   expect(useConversationPinsStore.getState().dms).toEqual(["current"]);
 });
+
+it("waits for a running reload before building the next pin list", async () => {
+  let resolveReload: (v: unknown) => void = () => undefined;
+  get.mockImplementationOnce(() => new Promise((resolve) => (resolveReload = resolve)));
+  put.mockImplementation((_url: string, body: { ids: string[] }) => Promise.resolve(reply({ dms: body.ids, communities: [] })));
+  useConversationPinsStore.getState().remoteChanged();
+  const toggle = useConversationPinsStore.getState().toggle("dms", "mine");
+  resolveReload(reply({ dms: ["other-device"], communities: [] }));
+  await toggle;
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["mine", "other-device"] }, expect.anything());
+});
