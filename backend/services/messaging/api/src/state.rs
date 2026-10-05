@@ -181,7 +181,7 @@ pub struct AppState {
         PostgresCommunityUnitOfWork,
         PostgresFriendshipRepository,
     >,
-    pub conversation_pins_usecase: ConversationPins<PostgresConversationPinRepository, PostgresCommunityRepository>,
+    pub conversation_pins_usecase: ConversationPins<PostgresConversationPinRepository>,
     pub list_shared_content_usecase:
         ListSharedContent<PostgresSharedContentRepository, PostgresChannelRepository, PostgresCommunityRepository>,
     pub list_message_attachments_usecase:

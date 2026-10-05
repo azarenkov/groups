@@ -1232,10 +1232,9 @@ impl HttpMapping for ConversationPinError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ConversationPinError::Repository(e) => e.to_http_status(),
-            ConversationPinError::InvalidKind
-            | ConversationPinError::TooMany
-            | ConversationPinError::Duplicate
-            | ConversationPinError::SelfConversation => StatusCode::BAD_REQUEST,
+            ConversationPinError::UnknownTarget => StatusCode::NOT_FOUND,
+            ConversationPinError::TooMany => StatusCode::CONFLICT,
+            ConversationPinError::InvalidKind | ConversationPinError::SelfConversation => StatusCode::BAD_REQUEST,
         }
     }
 
@@ -1251,7 +1250,7 @@ impl HttpMapping for ConversationPinError {
             ConversationPinError::Repository(e) => e.to_error_code(),
             ConversationPinError::InvalidKind => "PIN_KIND_INVALID",
             ConversationPinError::TooMany => "PIN_LIMIT_REACHED",
-            ConversationPinError::Duplicate => "PIN_DUPLICATE",
+            ConversationPinError::UnknownTarget => "PIN_TARGET_NOT_FOUND",
             ConversationPinError::SelfConversation => "DM_SELF",
         }
     }
