@@ -7,10 +7,26 @@ export const PULL_MAX = 96;
 export const REFRESH_TIMEOUT_MS = 15000;
 const MIN_SPIN_MS = 650;
 const WHEEL_RELEASE_MS = 400;
-const SETTLE = "0.3s cubic-bezier(0.22, 1, 0.36, 1)";
-const WHEEL_FOLLOW = "0.12s cubic-bezier(0.22, 1, 0.36, 1)";
+export const SPRING_STIFFNESS = 170;
+export const SPRING_DAMPING = 2 * Math.sqrt(SPRING_STIFFNESS);
+const MAX_STEP_S = 1 / 30;
 
 type Motion = "none" | "follow" | "settle";
+
+export function springStep(
+  position: number,
+  velocity: number,
+  target: number,
+  dt: number,
+): { position: number; velocity: number; done: boolean } {
+  const accel = SPRING_STIFFNESS * (target - position) - SPRING_DAMPING * velocity;
+  const nextVelocity = velocity + accel * dt;
+  const nextPosition = position + nextVelocity * dt;
+  if (Math.abs(target - nextPosition) < 0.25 && Math.abs(nextVelocity) < 4) {
+    return { position: target, velocity: 0, done: true };
+  }
+  return { position: nextPosition, velocity: nextVelocity, done: false };
+}
 
 export const resist = (raw: number): number =>
   raw <= 0 ? 0 : PULL_MAX * (1 - Math.exp(-raw / (PULL_MAX * 1.2)));
@@ -28,6 +44,9 @@ export function usePullToRefresh(params: {
   const distanceRef = React.useRef(0);
   const rawPullRef = React.useRef(0);
   const frameRef = React.useRef<number | null>(null);
+  const shownRef = React.useRef(0);
+  const velocityRef = React.useRef(0);
+  const lastFrameRef = React.useRef<number | null>(null);
   const refreshingRef = React.useRef(false);
   const inFlightRef = React.useRef(new Set<string | undefined>());
   const convIdRef = React.useRef(convId);
@@ -41,35 +60,65 @@ export function usePullToRefresh(params: {
   const onRefreshRef = React.useRef(onRefresh);
   onRefreshRef.current = onRefresh;
 
+  const render = React.useCallback(
+    (shown: number) => {
+      const body = bodyRef.current;
+      const indicator = indicatorRef.current;
+      const refreshing = refreshingRef.current;
+      const progress = Math.min(Math.max(shown, 0) / PULL_THRESHOLD, 1);
+      if (body) {
+        body.style.transition = "none";
+        body.style.transform = shown > 0.5 ? `translate3d(0, ${-shown}px, 0)` : "";
+        body.style.willChange = shown > 0.5 || refreshing ? "transform" : "";
+      }
+      if (indicator) {
+        indicator.style.transition = "opacity 0.2s";
+        indicator.style.opacity = String(refreshing ? 1 : progress);
+        indicator.style.transform = `translateX(-50%) translateY(${44 - shown}px) scale(${
+          refreshing ? 1 : 0.6 + 0.4 * progress
+        })`;
+        indicator.classList.toggle("refreshing", refreshing);
+        const icon = indicator.firstElementChild as HTMLElement | null;
+        if (icon) icon.style.transform = refreshing ? "" : `rotate(${shown * 2.5}deg)`;
+      }
+    },
+    [bodyRef],
+  );
+
   const paint = React.useCallback(
     (distance: number, motion: Motion) => {
       distanceRef.current = distance;
-      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
-      frameRef.current = requestAnimationFrame(() => {
-        frameRef.current = null;
-        const body = bodyRef.current;
-        const indicator = indicatorRef.current;
-        const shown = refreshingRef.current ? PULL_THRESHOLD : distance;
-        const progress = Math.min(shown / PULL_THRESHOLD, 1);
-        const timing = motion === "settle" ? SETTLE : motion === "follow" ? WHEEL_FOLLOW : null;
-        if (body) {
-          body.style.transition = timing ? `transform ${timing}` : "none";
-          body.style.transform = shown > 0 ? `translate3d(0, ${-shown}px, 0)` : "";
-          body.style.willChange = shown > 0 || refreshingRef.current ? "transform" : "";
+      const targetNow = () => (refreshingRef.current ? PULL_THRESHOLD : distanceRef.current);
+      if (motion === "none") {
+        if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+        lastFrameRef.current = null;
+        frameRef.current = requestAnimationFrame(() => {
+          frameRef.current = null;
+          shownRef.current = targetNow();
+          velocityRef.current = 0;
+          render(shownRef.current);
+        });
+        return;
+      }
+      if (frameRef.current !== null) return;
+      const step = (now: number) => {
+        const last = lastFrameRef.current ?? now - 1000 / 60;
+        const dt = Math.min(Math.max((now - last) / 1000, 0.001), MAX_STEP_S);
+        lastFrameRef.current = now;
+        const next = springStep(shownRef.current, velocityRef.current, targetNow(), dt);
+        shownRef.current = next.position;
+        velocityRef.current = next.velocity;
+        render(next.position);
+        if (next.done) {
+          frameRef.current = null;
+          lastFrameRef.current = null;
+          return;
         }
-        if (indicator) {
-          indicator.style.transition = timing ? `transform ${timing}, opacity 0.2s` : "none";
-          indicator.style.opacity = String(refreshingRef.current ? 1 : progress);
-          indicator.style.transform = `translateX(-50%) translateY(${44 - shown}px) scale(${
-            refreshingRef.current ? 1 : 0.6 + 0.4 * progress
-          })`;
-          indicator.classList.toggle("refreshing", refreshingRef.current);
-          const icon = indicator.firstElementChild as HTMLElement | null;
-          if (icon) icon.style.transform = refreshingRef.current ? "" : `rotate(${shown * 2.5}deg)`;
-        }
-      });
+        frameRef.current = requestAnimationFrame(step);
+      };
+      frameRef.current = requestAnimationFrame(step);
     },
-    [bodyRef],
+    [render],
   );
 
   const clearWheelRelease = () => {
@@ -130,10 +179,14 @@ export function usePullToRefresh(params: {
     }
     const wait = Math.max(0, MIN_SPIN_MS - (Date.now() - started));
     setTimeout(() => {
-      if (generation !== generationRef.current) return;
-      refreshingRef.current = false;
-      wheelGestureRef.current = { lastAt: wheelGestureRef.current.lastAt, armed: false };
-      paint(0, "settle");
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (generation !== generationRef.current) return;
+          refreshingRef.current = false;
+          wheelGestureRef.current = { lastAt: wheelGestureRef.current.lastAt, armed: false };
+          paint(0, "settle");
+        }),
+      );
     }, wait);
   }, [paint, settle]);
 
