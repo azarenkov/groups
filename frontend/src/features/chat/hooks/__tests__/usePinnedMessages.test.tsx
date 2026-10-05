@@ -197,3 +197,18 @@ it("does not store a late answer under the newly opened chat", async () => {
   rerender(<Probe scope={{ kind: "dm", friendId: "u3" }} />);
   expect(seen.every((ids) => !ids.includes("old"))).toBe(true);
 });
+
+it("keeps an older successful load when a newer overlapping one fails", async () => {
+  let resolveFirst: (items: PinnedMessage[]) => void = () => undefined;
+  let rejectSecond: (e: unknown) => void = () => undefined;
+  list
+    .mockImplementationOnce(() => new Promise((resolve) => (resolveFirst = resolve)))
+    .mockImplementationOnce(() => new Promise((_resolve, reject) => (rejectSecond = reject)));
+  render(<Harness scope={dm} />);
+  act(() => {
+    openListeners.forEach((fn) => fn());
+  });
+  await act(async () => rejectSecond(new Error("offline")));
+  await act(async () => resolveFirst([pin("a")]));
+  expect(latest!.pins.map((p) => p.messageId)).toEqual(["a"]);
+});
