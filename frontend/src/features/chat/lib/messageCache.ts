@@ -70,17 +70,17 @@ export function reconcileLatestPage(
   current: ChannelMessage[],
   latest: ChannelMessage[],
   fullPage: boolean,
+  knownBefore: ReadonlySet<string>,
 ): { messages: ChannelMessage[]; gap: boolean } {
   const ids = new Set(latest.map((m) => m.id));
-  const newest = latest[latest.length - 1]?.createdAt;
-  const live = current.filter((m) => !ids.has(m.id) && (!newest || m.createdAt > newest));
+  const live = current.filter((m) => !ids.has(m.id) && !knownBefore.has(m.id));
   if (!fullPage || latest.length === 0) {
     return { messages: [...latest, ...live], gap: false };
   }
   const cutoff = latest[0].createdAt;
   const reachesWindow = current.some((m) => m.createdAt >= cutoff);
   if (!reachesWindow) return { messages: [...latest, ...live], gap: true };
-  const older = current.filter((m) => m.createdAt < cutoff && !ids.has(m.id));
+  const older = current.filter((m) => m.createdAt < cutoff && !ids.has(m.id) && knownBefore.has(m.id));
   return { messages: [...older, ...latest, ...live], gap: false };
 }
 

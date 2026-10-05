@@ -86,12 +86,12 @@ export function useMessages(params: {
   hasMoreRef.current = hasMore;
   const accessErrorRef = React.useRef(accessError);
   accessErrorRef.current = accessError;
-  const restoredFromCacheRef = React.useRef(false);
+  const restoredFromCacheRef = React.useRef<ChannelMessage[] | null>(null);
 
   React.useLayoutEffect(() => {
     const body = bodyRef.current;
     const cached = convId ? readConversation(convId) : undefined;
-    restoredFromCacheRef.current = !!cached;
+    restoredFromCacheRef.current = cached ? cached.messages : null;
     setAccessError(null);
     restoreScrollRef.current = null;
     tailIdRef.current = null;
@@ -125,9 +125,11 @@ export function useMessages(params: {
     if (!messengerNow || !convId) return;
 
     let cancelled = false;
-    const fromCache = restoredFromCacheRef.current;
+    const restored = restoredFromCacheRef.current;
+    const fromCache = restored !== null;
     if (!fromCache) setLoadingInitial(true);
     const targetId = convId;
+    const knownBefore = new Set((restored ?? []).map((m) => m.id));
     messengerNow
       .listMessages({ limit: PAGE_LIMIT })
       .then((res) => {
@@ -139,8 +141,8 @@ export function useMessages(params: {
           setHasMore(fullPage);
           return;
         }
-        const reconciled = reconcileLatestPage(messagesRef.current, ordered, fullPage);
-        setMessages((prev) => reconcileLatestPage(prev, ordered, fullPage).messages);
+        const reconciled = reconcileLatestPage(restored ?? [], ordered, fullPage, knownBefore);
+        setMessages((prev) => reconcileLatestPage(prev, ordered, fullPage, knownBefore).messages);
         if (!fullPage) setHasMore(false);
         else if (reconciled.gap) setHasMore(true);
       })

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { clearPersistentSessionData } from "../../../shared/lib/persistentSessionData";
 import { clearRefreshToken, setRefreshToken } from "../../../shared/lib/secureStorage";
 import { resetSessionStores } from "../../../shared/store/resetSession";
 
@@ -66,8 +67,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     const outgoingToken = get().tokens?.accessToken ?? null;
     set({ user: null, tokens: null, isAuthenticated: false, error: null });
     resetSessionStores(outgoingToken);
-    void import("../../communities/lib/sidebarSnapshot").then((m) => m.clearSidebarSnapshot());
-    void import("../../../shared/lib/blobCache").then((m) => m.clearBlobCache());
+    clearPersistentSessionData();
     void clearRefreshToken();
   },
 

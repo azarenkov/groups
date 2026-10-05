@@ -73,3 +73,14 @@ it("shows a recently opened chat from cache and refreshes it quietly", async () 
   await waitFor(() => expect(latest!.messages.map((m) => m.id)).toEqual(["a2", "a3"]));
   expect(latest!.showInitialLoader).toBe(false);
 });
+
+it("does not keep cached messages that were deleted while away", async () => {
+  const { rerender } = render(<Harness convId="a" />);
+  await answer("a", [msg("a1", 1), msg("a2", 2)]);
+  rerender(<Harness convId="b" />);
+  await answer("b", [msg("b1", 1)]);
+  rerender(<Harness convId="a" />);
+  expect(latest!.messages.map((m) => m.id)).toEqual(["a1", "a2"]);
+  await answer("a", [msg("a1", 1)]);
+  await waitFor(() => expect(latest!.messages.map((m) => m.id)).toEqual(["a1"]));
+});

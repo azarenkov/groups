@@ -55,24 +55,31 @@ beforeEach(() => {
 
 describe("reconcileLatestPage", () => {
   it("replaces the whole history when the latest page is short", () => {
-    const result = reconcileLatestPage([msg("a", 1), msg("gone", 2)], [msg("a", 1), msg("b", 3)], false);
+    const result = reconcileLatestPage([msg("a", 1), msg("gone", 2)], [msg("a", 1), msg("b", 3)], false, new Set(["a", "gone"]));
     expect(result.messages.map((m) => m.id)).toEqual(["a", "b"]);
   });
 
   it("keeps older cached messages and replaces the refreshed window", () => {
     const cached = [msg("old", 1), msg("x", 5), msg("deleted", 6)];
     const latest = [msg("x", 5), msg("y", 7)];
-    const result = reconcileLatestPage(cached, latest, true);
+    const result = reconcileLatestPage(cached, latest, true, new Set(cached.map((m) => m.id)));
     expect(result).toEqual({ messages: [msg("old", 1), msg("x", 5), msg("y", 7)], gap: false });
   });
 
   it("drops the cached history when it no longer touches the latest page", () => {
-    const result = reconcileLatestPage([msg("old", 1)], [msg("y", 7), msg("z", 8)], true);
+    const result = reconcileLatestPage([msg("old", 1)], [msg("y", 7), msg("z", 8)], true, new Set(["old"]));
     expect(result).toEqual({ messages: [msg("y", 7), msg("z", 8)], gap: true });
   });
 
+  it("drops cached messages the server no longer has, even newer ones", () => {
+    const result = reconcileLatestPage([msg("a", 1), msg("deleted-later", 9)], [], false, new Set(["a", "deleted-later"]));
+    expect(result.messages).toEqual([]);
+    const partial = reconcileLatestPage([msg("a", 1), msg("x", 9)], [msg("a", 1)], false, new Set(["a", "x"]));
+    expect(partial.messages.map((m) => m.id)).toEqual(["a"]);
+  });
+
   it("keeps live messages that arrived after the page was read", () => {
-    const result = reconcileLatestPage([msg("a", 1), msg("live", 9)], [msg("a", 1)], false);
+    const result = reconcileLatestPage([msg("a", 1), msg("live", 9)], [msg("a", 1)], false, new Set(["a"]));
     expect(result.messages.map((m) => m.id)).toEqual(["a", "live"]);
   });
 });
