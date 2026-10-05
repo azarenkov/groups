@@ -32,3 +32,17 @@ CREATE TABLE messaging.conversation_pins (
     CONSTRAINT conversation_pins_pkey PRIMARY KEY (user_id, kind, target_id),
     CONSTRAINT conversation_pins_kind_check CHECK (kind = ANY (ARRAY['dm'::text, 'community'::text]))
 );
+
+CREATE FUNCTION messaging.conversation_pins_member_cleanup() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    DELETE FROM messaging.conversation_pins
+    WHERE user_id = OLD.user_id AND kind = 'community' AND target_id = OLD.community_id;
+    RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER conversation_pins_member_cleanup
+    AFTER DELETE ON messaging.community_members
+    FOR EACH ROW EXECUTE FUNCTION messaging.conversation_pins_member_cleanup();
