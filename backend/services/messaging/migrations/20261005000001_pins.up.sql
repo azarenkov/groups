@@ -46,3 +46,33 @@ $$;
 CREATE TRIGGER conversation_pins_member_cleanup
     AFTER DELETE ON messaging.community_members
     FOR EACH ROW EXECUTE FUNCTION messaging.conversation_pins_member_cleanup();
+
+CREATE FUNCTION messaging.conversation_pins_block_cleanup() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    DELETE FROM messaging.conversation_pins
+    WHERE kind = 'dm'
+      AND ((user_id = NEW.blocker_id AND target_id = NEW.blocked_id)
+           OR (user_id = NEW.blocked_id AND target_id = NEW.blocker_id));
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER conversation_pins_block_cleanup
+    AFTER INSERT ON messaging.user_blocks
+    FOR EACH ROW EXECUTE FUNCTION messaging.conversation_pins_block_cleanup();
+
+CREATE FUNCTION messaging.conversation_pins_deleted_user_cleanup() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    DELETE FROM messaging.conversation_pins
+    WHERE user_id = NEW.user_id OR (kind = 'dm' AND target_id = NEW.user_id);
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER conversation_pins_deleted_user_cleanup
+    AFTER INSERT ON messaging.messaging_deleted_users
+    FOR EACH ROW EXECUTE FUNCTION messaging.conversation_pins_deleted_user_cleanup();
