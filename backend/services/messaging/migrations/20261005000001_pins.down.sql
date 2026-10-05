@@ -1,3 +1,7 @@
+DROP TRIGGER IF EXISTS conversation_pins_deleted_user_cleanup ON messaging.messaging_deleted_users;
+DROP FUNCTION IF EXISTS messaging.conversation_pins_deleted_user_cleanup();
+DROP TRIGGER IF EXISTS conversation_pins_block_cleanup ON messaging.user_blocks;
+DROP FUNCTION IF EXISTS messaging.conversation_pins_block_cleanup();
 DROP TRIGGER IF EXISTS conversation_pins_member_cleanup ON messaging.community_members;
 DROP FUNCTION IF EXISTS messaging.conversation_pins_member_cleanup();
 DROP TABLE IF EXISTS messaging.conversation_pins;
