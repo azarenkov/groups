@@ -176,9 +176,16 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
 
     forget: (kind, id) => {
       if (pendingWrites > 0) remoteDuringWrite = true;
-      if (!get()[kind].includes(id)) return;
+      const hadFetches = inflightFetches.size > 0;
       stateEpoch += 1;
-      set({ [kind]: get()[kind].filter((x) => x !== id) } as Partial<PinLists>);
+      if (get()[kind].includes(id)) {
+        set({ [kind]: get()[kind].filter((x) => x !== id) } as Partial<PinLists>);
+      }
+      if (hadFetches && pendingWrites === 0) {
+        void get()
+          .fetch()
+          .catch((err) => console.warn("[pins] reload after leaving failed:", err));
+      }
     },
 
     clearAll: () => {

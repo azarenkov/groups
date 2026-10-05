@@ -299,3 +299,17 @@ it("lets a newer reload win over the first toggle's load", async () => {
   await toggle;
   expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["mine", "newer", "old"] }, expect.anything());
 });
+
+it("drops a load that started before leaving a community and reloads", async () => {
+  useConversationPinsStore.getState().clearAll();
+  let resolveOld: (v: unknown) => void = () => undefined;
+  get
+    .mockImplementationOnce(() => new Promise((resolve) => (resolveOld = resolve)))
+    .mockResolvedValueOnce(reply({ dms: [], communities: ["kept"] }));
+  const old = useConversationPinsStore.getState().fetch();
+  useConversationPinsStore.getState().forget("communities", "left");
+  resolveOld(reply({ dms: [], communities: ["left", "kept"] }));
+  await old;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(useConversationPinsStore.getState().communities).toEqual(["kept"]);
+});
