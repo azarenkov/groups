@@ -53,9 +53,9 @@ const DmList: React.FC<DmListProps> = ({
   const pinnedDms = useConversationPinsStore((s) => s.dms);
   const pinsLoaded = useConversationPinsStore((s) => s.loaded);
   const friends = useFriendshipStore((s) => s.friends);
-  const friendsComplete = useFriendshipStore((s) => !s.nextCursor);
+  const friendsComplete = useFriendshipStore((s) => s.loaded && !s.nextCursor);
   const previews = useDmPreviewStore((s) => s.byFriend);
-  const previewsComplete = useDmPreviewStore((s) => !s.nextCursor);
+  const previewsComplete = useDmPreviewStore((s) => s.loaded && !s.nextCursor);
   const pinStillReachable = (id: string) =>
     !isBlockedEitherWay(id) &&
     (!!previews[id] ||

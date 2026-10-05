@@ -91,14 +91,20 @@ describe("DmList pin limit", () => {
     const { useFriendshipStore } = jest.requireActual("../../../../social/store/friendshipStore");
     const { useDmPreviewStore } = jest.requireActual("../../../../dm/store/dmPreviewStore");
     act(() => {
-      useFriendshipStore.setState({ friends: [], nextCursor: null });
-      useDmPreviewStore.setState({ byFriend: {}, nextCursor: null });
+      useFriendshipStore.setState({ friends: [], nextCursor: null, loaded: true });
+      useDmPreviewStore.setState({ byFriend: {}, nextCursor: null, loaded: false });
       useConversationPinsStore
         .getState()
         .applyRemote({ dms: ["u1", "gone1", "gone2", "gone3", "gone4", "gone5", "gone6", "gone7", "gone8", "gone9"] });
     });
     renderList();
     const bob = screen.getByText("Bob").closest(".sb-dm") as HTMLElement;
+    fireEvent.contextMenu(bob);
+    const early = useContextMenuStore.getState().menu.entries.find((e: { id: string }) => e.id === "pin");
+    expect(early.disabled).toBe(true);
+    act(() => {
+      useDmPreviewStore.setState({ loaded: true });
+    });
     fireEvent.contextMenu(bob);
     const pin = useContextMenuStore.getState().menu.entries.find((e: { id: string }) => e.id === "pin");
     expect(pin.disabled).toBe(false);
