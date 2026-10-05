@@ -8,6 +8,8 @@ import UserBadge from "../../../subscription/components/UserBadge";
 import { formatListTime, msUntilNextDay } from "../../../dm/lib/directOrder";
 import { useProfileModalStore } from "../../../social/store/profileModalStore";
 import { isBlockedEitherWay } from "../../../social/store/blockStore";
+import { useFriendshipStore } from "../../../social/store/friendshipStore";
+import { useDmPreviewStore } from "../../../dm/store/dmPreviewStore";
 import { dmLevelOf, useNotificationPrefsStore } from "../../../settings/store/notificationPrefsStore";
 import { MAX_PINNED_CONVERSATIONS, useConversationPinsStore } from "../../store/conversationPinsStore";
 import { useNotificationSettingsStore } from "../../../settings/store/notificationSettingsStore";
@@ -50,7 +52,16 @@ const DmList: React.FC<DmListProps> = ({
   const dmLevels = useNotificationPrefsStore((s) => s.dmLevels);
   const pinnedDms = useConversationPinsStore((s) => s.dms);
   const pinsLoaded = useConversationPinsStore((s) => s.loaded);
-  const accessiblePins = () => pinnedDms.filter((id) => !isBlockedEitherWay(id));
+  const friends = useFriendshipStore((s) => s.friends);
+  const friendsComplete = useFriendshipStore((s) => !s.nextCursor);
+  const previews = useDmPreviewStore((s) => s.byFriend);
+  const previewsComplete = useDmPreviewStore((s) => !s.nextCursor);
+  const pinStillReachable = (id: string) =>
+    !isBlockedEitherWay(id) &&
+    (!!previews[id] ||
+      friends.some((f) => f.friendId === id && f.status === "accepted") ||
+      !(friendsComplete && previewsComplete));
+  const accessiblePins = () => pinnedDms.filter(pinStillReachable);
   const globalMentions = useNotificationSettingsStore((s) => s.mentions);
   const [now, setNow] = React.useState(() => new Date());
   React.useEffect(() => {
@@ -71,7 +82,7 @@ const DmList: React.FC<DmListProps> = ({
       onSelect: () => {
         void useConversationPinsStore
           .getState()
-          .setPinned("dms", d.id, !pinnedDms.includes(d.id), (pinnedId) => !isBlockedEitherWay(pinnedId))
+          .setPinned("dms", d.id, !pinnedDms.includes(d.id), pinStillReachable)
           .catch((e) => console.warn("[DmList] pin failed:", e));
       },
     },
