@@ -244,6 +244,7 @@ const CommunitiesPage: React.FC = () => {
     if (hasSession) {
       fetchCommunities();
       fetchFriends();
+      useConversationPinsStore.getState().ensureLoaded();
       void useBlockStore.getState().fetch();
       void useEntitlementsStore.getState().fetch();
     }

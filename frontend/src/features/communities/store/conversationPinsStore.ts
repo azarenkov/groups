@@ -22,6 +22,7 @@ interface ConversationPinsState extends PinLists {
   ) => Promise<void>;
   applyRemote: (lists: Partial<PinLists>) => void;
   remoteChanged: () => void;
+  ensureLoaded: () => void;
   forget: (kind: ConversationPinKind, id: string) => void;
   clearAll: () => void;
 }
@@ -50,6 +51,10 @@ let stateEpoch = 0;
 let writeChain: Promise<unknown> = Promise.resolve();
 let initialLoad: Promise<void> | null = null;
 const inflightFetches = new Set<Promise<void>>();
+let ensureLoop = false;
+
+export const PINS_LOAD_RETRY_MS = 1000;
+export const PINS_LOAD_MAX_DELAY_MS = 30000;
 
 export const withPinned = (list: string[], id: string, pinned: boolean): string[] =>
   pinned ? (list.includes(id) ? list : [id, ...list]) : list.filter((x) => x !== id);
@@ -156,6 +161,27 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
         });
     },
 
+    ensureLoaded: () => {
+      if (get().loaded || ensureLoop) return;
+      ensureLoop = true;
+      const gen = sessionGen;
+      void (async () => {
+        let delay = PINS_LOAD_RETRY_MS;
+        while (gen === sessionGen && !get().loaded) {
+          try {
+            await get().fetch();
+          } catch (err) {
+            console.warn("[pins] initial load failed:", err);
+          }
+          if (gen !== sessionGen || get().loaded) break;
+          const wait = delay;
+          await new Promise((resolve) => setTimeout(resolve, wait));
+          delay = Math.min(delay * 2, PINS_LOAD_MAX_DELAY_MS);
+        }
+        if (gen === sessionGen) ensureLoop = false;
+      })();
+    },
+
     remoteChanged: () => {
       if (pendingWrites > 0) {
         remoteDuringWrite = true;
@@ -198,6 +224,7 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       sessionAbort = new AbortController();
       initialLoad = null;
       inflightFetches.clear();
+      ensureLoop = false;
       stateEpoch += 1;
       writeChain = Promise.resolve();
       set({ dms: [], communities: [], loaded: false });

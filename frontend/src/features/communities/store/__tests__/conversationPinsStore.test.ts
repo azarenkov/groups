@@ -1,5 +1,5 @@
 import { http } from "../../../../shared/api/http";
-import { MAX_PINNED_CONVERSATIONS, pinnedFirst, withPinned, useConversationPinsStore } from "../conversationPinsStore";
+import { MAX_PINNED_CONVERSATIONS, PINS_LOAD_MAX_DELAY_MS, pinnedFirst, withPinned, useConversationPinsStore } from "../conversationPinsStore";
 
 jest.mock("../../../../shared/api/http", () => ({
   http: { get: jest.fn(), put: jest.fn() },
@@ -312,4 +312,28 @@ it("drops a load that started before leaving a community and reloads", async () 
   await old;
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(useConversationPinsStore.getState().communities).toEqual(["kept"]);
+});
+
+it("keeps retrying the first load until it succeeds", async () => {
+  useConversationPinsStore.getState().clearAll();
+  jest.useFakeTimers();
+  get
+    .mockRejectedValueOnce(new Error("down"))
+    .mockRejectedValueOnce(new Error("down"))
+    .mockResolvedValueOnce(reply({ dms: ["a"], communities: [] }));
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  useConversationPinsStore.getState().ensureLoaded();
+  useConversationPinsStore.getState().ensureLoaded();
+  for (let i = 0; i < 5; i += 1) {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    jest.advanceTimersByTime(PINS_LOAD_MAX_DELAY_MS);
+  }
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(get).toHaveBeenCalledTimes(3);
+  expect(useConversationPinsStore.getState()).toMatchObject({ loaded: true, dms: ["a"] });
+  warn.mockRestore();
+  jest.useRealTimers();
 });
