@@ -30,32 +30,49 @@ fn scope_key(scope: PinScope) -> String {
     }
 }
 
-async fn save_pin_event(
-    tx: &mut Transaction<'_, Postgres>,
+fn pin_event_record(
     scope: PinScope,
     message_id: Uuid,
     actor: &UserId,
     pinned: bool,
     occurred_at: DateTime<Utc>,
     recipients: &[Uuid],
-) -> Result<(), RepositoryError> {
-    let (channel_id, participants) = match scope {
-        PinScope::Channel(channel_id) => (Some(channel_id), Vec::new()),
-        PinScope::Dm { user_low, user_high } => (None, vec![user_low, user_high]),
+) -> OutboxRecord {
+    let (channel_id, participants, aggregate_type, parent_id, parent_type, sender_id, recipient_id) = match scope {
+        PinScope::Channel(channel_id) => (
+            Some(channel_id),
+            Vec::new(),
+            AggregateType::Message,
+            Some(channel_id),
+            Some(AggregateType::Channel),
+            None,
+            None,
+        ),
+        PinScope::Dm { user_low, user_high } => (
+            None,
+            vec![user_low, user_high],
+            AggregateType::DmMessage,
+            None,
+            None,
+            Some(user_low),
+            Some(user_high),
+        ),
     };
     let mut recipients = recipients.to_vec();
     if !recipients.contains(&actor.uuid()) {
         recipients.push(actor.uuid());
     }
-    let record = OutboxRecord {
+    OutboxRecord {
         id: Uuid::new_v4(),
         aggregate_id: message_id,
-        aggregate_type: AggregateType::Message,
-        parent_id: None,
-        parent_type: None,
+        aggregate_type,
+        parent_id,
+        parent_type,
         event_type: "message.pin_changed".to_string(),
         payload: serde_json::json!({
             "message_id": message_id,
+            "sender_id": sender_id,
+            "recipient_id": recipient_id,
             "channel_id": channel_id,
             "participants": participants,
             "pinned": pinned,
@@ -65,7 +82,19 @@ async fn save_pin_event(
         }),
         occurred_at,
         request_id: None,
-    };
+    }
+}
+
+async fn save_pin_event(
+    tx: &mut Transaction<'_, Postgres>,
+    scope: PinScope,
+    message_id: Uuid,
+    actor: &UserId,
+    pinned: bool,
+    occurred_at: DateTime<Utc>,
+    recipients: &[Uuid],
+) -> Result<(), RepositoryError> {
+    let record = pin_event_record(scope, message_id, actor, pinned, occurred_at, recipients);
     save_outbox_records(tx, std::slice::from_ref(&record)).await
 }
 
@@ -371,5 +400,57 @@ impl ConversationPinRepository for PostgresConversationPinRepository {
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(pins)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use infrastructure_common::messaging::nats::producer::partitioned_subject;
+
+    fn partition_of(subject: &str) -> String {
+        subject.split('.').nth(2).unwrap().to_string()
+    }
+
+    #[test]
+    fn channel_pin_events_share_the_channel_partition() {
+        let channel = Uuid::new_v4();
+        let pin = pin_event_record(PinScope::Channel(channel), Uuid::new_v4(), &UserId::new(Uuid::new_v4()), true, Utc::now(), &[]);
+        let sent = OutboxRecord {
+            id: Uuid::new_v4(),
+            aggregate_id: Uuid::new_v4(),
+            aggregate_type: AggregateType::Message,
+            parent_id: Some(channel),
+            parent_type: Some(AggregateType::Channel),
+            event_type: "message.sent".to_string(),
+            payload: serde_json::json!({}),
+            occurred_at: Utc::now(),
+            request_id: None,
+        };
+        let pin_subject = partitioned_subject("messaging", &pin, 16);
+        assert!(pin_subject.ends_with(".message.pin_changed"));
+        assert_eq!(partition_of(&pin_subject), partition_of(&partitioned_subject("messaging", &sent, 16)));
+    }
+
+    #[test]
+    fn dm_pin_events_share_the_conversation_partition() {
+        let (a, b) = (Uuid::new_v4(), Uuid::new_v4());
+        let scope = PinScope::dm(&UserId::new(a), &UserId::new(b));
+        let pin = pin_event_record(scope, Uuid::new_v4(), &UserId::new(a), false, Utc::now(), &[]);
+        let sent = OutboxRecord {
+            id: Uuid::new_v4(),
+            aggregate_id: Uuid::new_v4(),
+            aggregate_type: AggregateType::DmMessage,
+            parent_id: Some(b),
+            parent_type: Some(AggregateType::User),
+            event_type: "dm_message.sent".to_string(),
+            payload: serde_json::json!({ "sender_id": b, "recipient_id": a }),
+            occurred_at: Utc::now(),
+            request_id: None,
+        };
+        let pin_subject = partitioned_subject("messaging", &pin, 16);
+        let sent_subject = partitioned_subject("messaging", &sent, 16);
+        assert_eq!(pin_subject.split('.').nth(1), sent_subject.split('.').nth(1));
+        assert_eq!(partition_of(&pin_subject), partition_of(&sent_subject));
     }
 }
