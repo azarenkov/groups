@@ -325,6 +325,7 @@ const CommunitiesPage: React.FC = () => {
     if (deleteConfirm?.type !== "community") return;
     try {
       await deleteCommunity(deleteConfirm.id);
+      useConversationPinsStore.getState().forget("communities", deleteConfirm.id);
       if (selectedCommunityId === deleteConfirm.id) setSelectedCommunity(null);
       clearChannels(deleteConfirm.id);
       if (joinedChannel?.communityId === deleteConfirm.id) {
@@ -343,6 +344,7 @@ const CommunitiesPage: React.FC = () => {
     if (deleteConfirm?.type !== "leave-community") return;
     try {
       await communityAPI.leave(deleteConfirm.id);
+      useConversationPinsStore.getState().forget("communities", deleteConfirm.id);
       if (selectedCommunityId === deleteConfirm.id) setSelectedCommunity(null);
       clearChannels(deleteConfirm.id);
       if (joinedChannel?.communityId === deleteConfirm.id) {
