@@ -105,12 +105,17 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
             });
           initialLoad = load;
         }
+        let loadError: unknown = null;
         await initialLoad.catch((err) => {
-          if (!get().loaded) throw err;
+          loadError = err;
         });
-        if (gen !== sessionGen || !get().loaded) throw new Error("PINS_NOT_LOADED");
+        while (!get().loaded && inflightFetches.size > 0 && gen === sessionGen) {
+          await Promise.allSettled([...inflightFetches]);
+        }
+        if (gen !== sessionGen) throw new Error("SESSION_CHANGED");
+        if (!get().loaded) throw loadError ?? new Error("PINS_NOT_LOADED");
       }
-      if (inflightFetches.size > 0) {
+      while (inflightFetches.size > 0) {
         await Promise.allSettled([...inflightFetches]);
         if (gen !== sessionGen) throw new Error("SESSION_CHANGED");
       }

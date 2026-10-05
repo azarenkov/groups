@@ -224,3 +224,38 @@ it("waits for a running reload before building the next pin list", async () => {
   await toggle;
   expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["mine", "other-device"] }, expect.anything());
 });
+
+it("waits for reloads that start while it is already waiting", async () => {
+  let resolveA: (v: unknown) => void = () => undefined;
+  let resolveB: (v: unknown) => void = () => undefined;
+  get
+    .mockImplementationOnce(() => new Promise((resolve) => (resolveA = resolve)))
+    .mockImplementationOnce(() => new Promise((resolve) => (resolveB = resolve)));
+  put.mockImplementation((_url: string, body: { ids: string[] }) => Promise.resolve(reply({ dms: body.ids, communities: [] })));
+  void useConversationPinsStore.getState().fetch();
+  const toggle = useConversationPinsStore.getState().toggle("dms", "mine");
+  void useConversationPinsStore.getState().fetch();
+  resolveA(reply({ dms: ["a"], communities: [] }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(put).not.toHaveBeenCalled();
+  resolveB(reply({ dms: ["b"], communities: [] }));
+  await toggle;
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["mine", "b"] }, expect.anything());
+});
+
+it("uses the reconnect load when its own first load fails", async () => {
+  useConversationPinsStore.getState().clearAll();
+  let resolveReconnect: (v: unknown) => void = () => undefined;
+  let rejectOwn: (e: unknown) => void = () => undefined;
+  get
+    .mockImplementationOnce(() => new Promise((resolve) => (resolveReconnect = resolve)))
+    .mockImplementationOnce(() => new Promise((_resolve, reject) => (rejectOwn = reject)));
+  put.mockImplementation((_url: string, body: { ids: string[] }) => Promise.resolve(reply({ dms: body.ids, communities: [] })));
+  void useConversationPinsStore.getState().fetch();
+  const toggle = useConversationPinsStore.getState().toggle("dms", "a");
+  rejectOwn(new Error("own failed"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  resolveReconnect(reply({ dms: ["old"], communities: [] }));
+  await toggle;
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["a", "old"] }, expect.anything());
+});

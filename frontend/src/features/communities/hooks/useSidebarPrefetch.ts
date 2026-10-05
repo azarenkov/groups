@@ -1,9 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useDmPreviewStore } from "../../dm/store/dmPreviewStore";
 import type { Channel } from "../../../shared/types/channel";
 import type { Community } from "../../../shared/types/community";
 import { useConversationPinsStore } from "../store/conversationPinsStore";
+
+export const PINNED_DM_RETRY_MS = 2000;
+export const PINNED_DM_MAX_RETRIES = 5;
 
 export function useSidebarPrefetch(params: {
   query: string;
@@ -56,11 +59,18 @@ export function useSidebarPrefetch(params: {
     loadMorePreviews,
   ]);
 
+  const [pinRetry, setPinRetry] = useState(0);
   useEffect(() => {
-    if (!missingPinnedDm) return;
+    if (!missingPinnedDm || (!friendsNextCursor && !previewsNextCursor)) return;
     if (friendsNextCursor) void loadMoreFriends();
     if (previewsNextCursor) void loadMorePreviews();
-  }, [missingPinnedDm, friendsNextCursor, previewsNextCursor, loadMoreFriends, loadMorePreviews]);
+    if (pinRetry >= PINNED_DM_MAX_RETRIES) return;
+    const timer = window.setTimeout(
+      () => setPinRetry((n) => n + 1),
+      PINNED_DM_RETRY_MS * 2 ** pinRetry,
+    );
+    return () => window.clearTimeout(timer);
+  }, [missingPinnedDm, friendsNextCursor, previewsNextCursor, loadMoreFriends, loadMorePreviews, pinRetry]);
 
   return {
     hasMoreDirects: !!friendsNextCursor || !!previewsNextCursor,
