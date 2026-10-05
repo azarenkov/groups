@@ -4,6 +4,7 @@ import { useDmPreviewStore } from "../../dm/store/dmPreviewStore";
 import type { Channel } from "../../../shared/types/channel";
 import type { Community } from "../../../shared/types/community";
 import { useConversationPinsStore } from "../store/conversationPinsStore";
+import { useBlockStore } from "../../social/store/blockStore";
 
 export const PINNED_DM_RETRY_MS = 2000;
 export const PINNED_DM_MAX_RETRIES = 5;
@@ -24,8 +25,11 @@ export function useSidebarPrefetch(params: {
   const pinnedDms = useConversationPinsStore((s) => s.dms);
   const friends = useFriendshipStore((s) => s.friends);
   const previews = useDmPreviewStore((s) => s.byFriend);
+  const blocked = useBlockStore((s) => s.blocked);
+  const blockedBy = useBlockStore((s) => s.blockedBy);
   const missingPinnedKey = hasSession
     ? pinnedDms
+        .filter((id) => !blocked[id] && !blockedBy[id])
         .filter((id) => !previews[id] && !friends.some((f) => f.friendId === id && f.status === "accepted"))
         .join(",")
     : "";

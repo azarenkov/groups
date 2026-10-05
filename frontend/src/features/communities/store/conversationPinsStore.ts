@@ -100,11 +100,8 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
       const gen = sessionGen;
       if (!get().loaded) {
         if (!initialLoad) {
-          const load: Promise<void> = api
-            .list(sessionAbort.signal)
-            .then((lists) => {
-              if (gen === sessionGen && !get().loaded && pendingWrites === 0) install(lists);
-            })
+          const load: Promise<void> = get()
+            .fetch()
             .finally(() => {
               if (initialLoad === load) initialLoad = null;
             });

@@ -282,3 +282,20 @@ it("does not bring back a community forgotten while a write was running", async 
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(useConversationPinsStore.getState().communities).toEqual(["c1"]);
 });
+
+it("lets a newer reload win over the first toggle's load", async () => {
+  useConversationPinsStore.getState().clearAll();
+  let resolveInitial: (v: unknown) => void = () => undefined;
+  let resolveReload: (v: unknown) => void = () => undefined;
+  get
+    .mockImplementationOnce(() => new Promise((resolve) => (resolveInitial = resolve)))
+    .mockImplementationOnce(() => new Promise((resolve) => (resolveReload = resolve)));
+  put.mockImplementation((_url: string, body: { ids: string[] }) => Promise.resolve(reply({ dms: body.ids, communities: [] })));
+  const toggle = useConversationPinsStore.getState().setPinned("dms", "mine", true);
+  void useConversationPinsStore.getState().fetch();
+  resolveInitial(reply({ dms: ["old"], communities: [] }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  resolveReload(reply({ dms: ["newer", "old"], communities: [] }));
+  await toggle;
+  expect(put).toHaveBeenCalledWith("/v1/users/me/pins/dms", { ids: ["mine", "newer", "old"] }, expect.anything());
+});
