@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
@@ -96,32 +94,29 @@ pub struct ConversationPins {
     pub communities: Vec<Uuid>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ConversationPinsError {
-    TooMany,
-    Duplicate,
-}
-
-pub fn validate_conversation_pins(ids: &[Uuid]) -> Result<(), ConversationPinsError> {
-    if ids.len() > MAX_PINNED_CONVERSATIONS {
-        return Err(ConversationPinsError::TooMany);
-    }
-    let unique: HashSet<&Uuid> = ids.iter().collect();
-    if unique.len() != ids.len() {
-        return Err(ConversationPinsError::Duplicate);
-    }
-    Ok(())
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConversationPinOutcome {
+    Updated(ConversationPins),
+    LimitReached,
+    UnknownTarget,
 }
 
 #[async_trait]
 pub trait ConversationPinRepository: Send + Sync {
     async fn list(&self, user: &UserId) -> Result<ConversationPins, RepositoryError>;
 
-    async fn replace(
+    async fn pin(
         &self,
         user: &UserId,
         kind: ConversationPinKind,
-        ids: &[Uuid],
+        target: Uuid,
+    ) -> Result<ConversationPinOutcome, RepositoryError>;
+
+    async fn unpin(
+        &self,
+        user: &UserId,
+        kind: ConversationPinKind,
+        target: Uuid,
     ) -> Result<ConversationPins, RepositoryError>;
 }
 
@@ -140,19 +135,6 @@ mod tests {
                 user_low: Uuid::from_u128(1),
                 user_high: Uuid::from_u128(2)
             }
-        );
-    }
-
-    #[test]
-    fn conversation_pins_are_limited_and_unique() {
-        let ids: Vec<Uuid> = (0..MAX_PINNED_CONVERSATIONS as u128).map(Uuid::from_u128).collect();
-        assert_eq!(validate_conversation_pins(&ids), Ok(()));
-        let mut more = ids.clone();
-        more.push(Uuid::from_u128(999));
-        assert_eq!(validate_conversation_pins(&more), Err(ConversationPinsError::TooMany));
-        assert_eq!(
-            validate_conversation_pins(&[Uuid::from_u128(1), Uuid::from_u128(1)]),
-            Err(ConversationPinsError::Duplicate)
         );
     }
 

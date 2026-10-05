@@ -69,11 +69,6 @@ impl From<ConversationPins> for ConversationPinsResponse {
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
-struct ConversationPinsRequest {
-    ids: Vec<Uuid>,
-}
-
 #[get("/{community_id}/channels/{channel_id}/pins")]
 async fn list_channel_pins(
     auth_token: RateLimitedAuthToken,
@@ -187,16 +182,30 @@ async fn list_conversation_pins(
     Ok(HttpResponse::Ok().json(ApiResponse::success(ConversationPinsResponse::from(pins))))
 }
 
-#[put("/me/pins/{kind}")]
-async fn replace_conversation_pins(
+#[put("/me/pins/{kind}/{target_id}")]
+async fn pin_conversation(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
-    path: web::Path<String>,
-    body: web::Json<ConversationPinsRequest>,
+    path: web::Path<(String, Uuid)>,
 ) -> Result<impl Responder, HttpError> {
+    let (kind, target) = path.into_inner();
     let pins = app_state
         .conversation_pins_usecase
-        .replace(UserId::new(auth_token.id), &path.into_inner(), body.into_inner().ids)
+        .pin(UserId::new(auth_token.id), &kind, target)
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(ConversationPinsResponse::from(pins))))
+}
+
+#[delete("/me/pins/{kind}/{target_id}")]
+async fn unpin_conversation(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<(String, Uuid)>,
+) -> Result<impl Responder, HttpError> {
+    let (kind, target) = path.into_inner();
+    let pins = app_state
+        .conversation_pins_usecase
+        .unpin(UserId::new(auth_token.id), &kind, target)
         .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(ConversationPinsResponse::from(pins))))
 }
@@ -212,5 +221,6 @@ pub fn user_pin_routes(cfg: &mut web::ServiceConfig) {
         .service(pin_dm_message)
         .service(unpin_dm_message)
         .service(list_conversation_pins)
-        .service(replace_conversation_pins);
+        .service(pin_conversation)
+        .service(unpin_conversation);
 }

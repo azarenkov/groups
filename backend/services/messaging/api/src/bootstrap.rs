@@ -318,10 +318,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             community_unit_of_work.clone(),
             friendship_repository.clone(),
         ),
-        conversation_pins_usecase: ConversationPins::new(
-            Arc::new(PostgresConversationPinRepository::new(postgres_pool.clone())),
-            community_repository.clone(),
-        ),
+        conversation_pins_usecase: ConversationPins::new(Arc::new(PostgresConversationPinRepository::new(
+            postgres_pool.clone(),
+        ))),
         list_shared_content_usecase: ListSharedContent::new(
             Arc::new(PostgresSharedContentRepository::new(postgres_pool.clone())),
             channel_repository.clone(),

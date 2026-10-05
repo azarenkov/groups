@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
 use messaging_domain::pin::{
-    ConversationPinKind, ConversationPinRepository, ConversationPins, MAX_PINNED_MESSAGES, MessagePinRepository,
+    ConversationPinKind, ConversationPinOutcome, ConversationPinRepository, ConversationPins, MAX_PINNED_CONVERSATIONS,
+    MAX_PINNED_MESSAGES, MessagePinRepository,
     PinOutcome, PinScope, PinnedMessage,
 };
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
@@ -345,62 +346,100 @@ impl ConversationPinRepository for PostgresConversationPinRepository {
         load_conversation_pins(&self.pool, user).await
     }
 
-    async fn replace(
+    async fn pin(
         &self,
         user: &UserId,
         kind: ConversationPinKind,
-        ids: &[Uuid],
-    ) -> Result<ConversationPins, RepositoryError> {
-        let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 52))")
-            .bind(format!("conversation_pins:{}", user.uuid()))
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query!(
-            r#"DELETE FROM conversation_pins WHERE user_id = $1 AND kind = $2 AND NOT (target_id = ANY($3))"#,
-            user.uuid(),
-            kind.as_str(),
-            ids,
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        target: Uuid,
+    ) -> Result<ConversationPinOutcome, RepositoryError> {
+        let mut tx = begin_pins_tx(&self.pool, user).await?;
         sqlx::query!(
             r#"
             INSERT INTO conversation_pins (user_id, kind, target_id, "position")
-            SELECT $1, $2, t.id, t.ord::int
-            FROM unnest($3::uuid[]) WITH ORDINALITY AS t(id, ord)
-            ON CONFLICT (user_id, kind, target_id) DO UPDATE SET "position" = EXCLUDED."position"
+            SELECT $1, $2, $3,
+                   COALESCE((SELECT MIN(p."position") FROM conversation_pins p WHERE p.user_id = $1 AND p.kind = $2), 1) - 1
+            WHERE $2 <> 'dm'
+               OR (EXISTS (SELECT 1 FROM messaging_user_profiles u WHERE u.user_id = $3)
+                   AND NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id = $3))
+            ON CONFLICT (user_id, kind, target_id) DO NOTHING
             "#,
             user.uuid(),
             kind.as_str(),
-            ids,
+            target,
         )
         .execute(&mut *tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         let pins = load_conversation_pins(&mut *tx, user).await?;
-        let now = Utc::now();
-        let record = OutboxRecord {
-            id: Uuid::new_v4(),
-            aggregate_id: user.uuid(),
-            aggregate_type: AggregateType::User,
-            parent_id: None,
-            parent_type: None,
-            event_type: "conversation_pins.updated".to_string(),
-            payload: serde_json::json!({
-                "user_id": user.uuid(),
-                "dms": pins.dms,
-                "communities": pins.communities,
-            }),
-            occurred_at: now,
-            request_id: None,
+        let list = match kind {
+            ConversationPinKind::Dm => &pins.dms,
+            ConversationPinKind::Community => &pins.communities,
         };
-        save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+        if !list.contains(&target) {
+            return Ok(ConversationPinOutcome::UnknownTarget);
+        }
+        if list.len() > MAX_PINNED_CONVERSATIONS {
+            return Ok(ConversationPinOutcome::LimitReached);
+        }
+        save_pins_event(&mut tx, user, &pins).await?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(ConversationPinOutcome::Updated(pins))
+    }
+
+    async fn unpin(
+        &self,
+        user: &UserId,
+        kind: ConversationPinKind,
+        target: Uuid,
+    ) -> Result<ConversationPins, RepositoryError> {
+        let mut tx = begin_pins_tx(&self.pool, user).await?;
+        sqlx::query!(
+            r#"DELETE FROM conversation_pins WHERE user_id = $1 AND kind = $2 AND target_id = $3"#,
+            user.uuid(),
+            kind.as_str(),
+            target,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let pins = load_conversation_pins(&mut *tx, user).await?;
+        save_pins_event(&mut tx, user, &pins).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(pins)
     }
+}
+
+async fn begin_pins_tx<'a>(pool: &'a Pool<Postgres>, user: &UserId) -> Result<Transaction<'a, Postgres>, RepositoryError> {
+    let mut tx = pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 52))")
+        .bind(format!("conversation_pins:{}", user.uuid()))
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(tx)
+}
+
+async fn save_pins_event(
+    tx: &mut Transaction<'_, Postgres>,
+    user: &UserId,
+    pins: &ConversationPins,
+) -> Result<(), RepositoryError> {
+    let record = OutboxRecord {
+        id: Uuid::new_v4(),
+        aggregate_id: user.uuid(),
+        aggregate_type: AggregateType::User,
+        parent_id: None,
+        parent_type: None,
+        event_type: "conversation_pins.updated".to_string(),
+        payload: serde_json::json!({
+            "user_id": user.uuid(),
+            "dms": pins.dms,
+            "communities": pins.communities,
+        }),
+        occurred_at: Utc::now(),
+        request_id: None,
+    };
+    save_outbox_records(tx, std::slice::from_ref(&record)).await
 }
 
 #[cfg(test)]
