@@ -70,5 +70,10 @@
     "unknownAuthor": "Unknown user",
     "openLink": "Open {{domain}}"
   },
-  "dmMuted": "Notifications muted"
+  "dmMuted": "Notifications muted",
+  "pinChat": "Pin chat",
+  "unpinChat": "Unpin chat",
+  "pinCommunity": "Pin community",
+  "unpinCommunity": "Unpin community",
+  "pinned": "Pinned"
 }

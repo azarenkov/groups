@@ -80,6 +80,9 @@ export function scheduleUnreadRefetch() {
 }
 
 export function purgeCommunityLocally(id: string) {
+  void import("../../features/communities/store/conversationPinsStore").then(({ useConversationPinsStore }) => {
+    useConversationPinsStore.getState().forget("communities", id);
+  });
   void import("../../features/communities/store/rolesStore").then(({ useRolesStore }) => {
     useRolesStore.getState().clearCommunity(id);
   });

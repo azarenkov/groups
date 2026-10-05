@@ -12,6 +12,7 @@ import {
   openContextMenuAt,
 } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
+import { MAX_PINNED_CONVERSATIONS, useConversationPinsStore } from "../../store/conversationPinsStore";
 import { useLongPress } from "../../../../shared/ui/contextMenu/useLongPress";
 import { useRolesStore } from "../../store/rolesStore";
 
@@ -59,10 +60,26 @@ const CommunityList: React.FC<CommunityListProps> = ({
       void roles.fetch(community.id).catch(() => {});
     }
   }, [communities, currentUserId]);
+  const pinnedCommunities = useConversationPinsStore((s) => s.communities);
+  const pinsLoaded = useConversationPinsStore((s) => s.loaded);
   const communityMenu = (community: Community): MenuEntry[] => {
     const owner = !!currentUserId && community.ownerId === currentUserId;
+    const isPinned = pinnedCommunities.includes(community.id);
     return [
       { kind: "item", id: "open", label: t("openCommunity"), icon: "chev", onSelect: () => onPick(community) },
+      {
+        kind: "item",
+        id: "pin",
+        label: t(isPinned ? "unpinCommunity" : "pinCommunity"),
+        icon: "pin",
+        disabled: !pinsLoaded || (!isPinned && pinnedCommunities.length >= MAX_PINNED_CONVERSATIONS),
+        onSelect: () => {
+          void useConversationPinsStore
+            .getState()
+            .setPinned("communities", community.id, !isPinned)
+            .catch((e) => console.warn("[CommunityList] pin failed:", e));
+        },
+      },
       ...(perms.canInviteIn(community)
         ? [
             {
@@ -173,6 +190,11 @@ const CommunityList: React.FC<CommunityListProps> = ({
                   title="Someone is in voice"
                   aria-label="Voice activity"
                 />
+              )}
+              {pinnedCommunities.includes(community.id) && (
+                <span className="sb-pinned" title={t("pinned")} aria-label={t("pinned")}>
+                  <Icon name="pin" size={11} />
+                </span>
               )}
               {communityUnread > 0 && (
                 <span className="sb-community-unread">{communityUnread}</span>
