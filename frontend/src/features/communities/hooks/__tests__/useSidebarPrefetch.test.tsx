@@ -1,7 +1,7 @@
 import React from "react";
 import { act, render } from "@testing-library/react";
 
-import { PINNED_DM_RETRY_MS, useSidebarPrefetch } from "../useSidebarPrefetch";
+import { PINNED_DM_MAX_DELAY_MS, PINNED_DM_RETRY_MS, useSidebarPrefetch } from "../useSidebarPrefetch";
 import { useFriendshipStore } from "../../../social/store/friendshipStore";
 import { useDmPreviewStore } from "../../../dm/store/dmPreviewStore";
 import { useConversationPinsStore } from "../../store/conversationPinsStore";
@@ -106,4 +106,24 @@ it("does not page through everything for a blocked pinned DM", () => {
   act(() => {
     useBlockStore.setState({ blocked: {}, blockedBy: {} } as never);
   });
+});
+
+it("keeps retrying a missing pinned DM at a capped pace", () => {
+  jest.useFakeTimers();
+  const loadMorePreviews = jest.fn(() => Promise.resolve());
+  useFriendshipStore.setState({ friends: [], nextCursor: null, loadMore: jest.fn() } as never);
+  useDmPreviewStore.setState({ byFriend: {}, nextCursor: "p2", loadMore: loadMorePreviews } as never);
+  useConversationPinsStore.getState().applyRemote({ dms: ["stubborn"] });
+  render(<Harness />);
+  for (let i = 0; i < 12; i += 1) {
+    act(() => {
+      jest.advanceTimersByTime(PINNED_DM_MAX_DELAY_MS);
+    });
+  }
+  const before = loadMorePreviews.mock.calls.length;
+  act(() => {
+    jest.advanceTimersByTime(PINNED_DM_MAX_DELAY_MS);
+  });
+  expect(loadMorePreviews.mock.calls.length).toBe(before + 1);
+  jest.useRealTimers();
 });

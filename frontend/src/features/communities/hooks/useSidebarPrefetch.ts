@@ -7,7 +7,7 @@ import { useConversationPinsStore } from "../store/conversationPinsStore";
 import { useBlockStore } from "../../social/store/blockStore";
 
 export const PINNED_DM_RETRY_MS = 2000;
-export const PINNED_DM_MAX_RETRIES = 5;
+export const PINNED_DM_MAX_DELAY_MS = 60000;
 
 export function useSidebarPrefetch(params: {
   query: string;
@@ -74,10 +74,9 @@ export function useSidebarPrefetch(params: {
     if (!missingPinnedDm || (!friendsNextCursor && !previewsNextCursor)) return;
     if (friendsNextCursor) void loadMoreFriends();
     if (previewsNextCursor) void loadMorePreviews();
-    if (pinRetry >= PINNED_DM_MAX_RETRIES) return;
     const timer = window.setTimeout(
       () => setPinRetry((n) => n + 1),
-      PINNED_DM_RETRY_MS * 2 ** pinRetry,
+      Math.min(PINNED_DM_RETRY_MS * 2 ** Math.min(pinRetry, 10), PINNED_DM_MAX_DELAY_MS),
     );
     return () => window.clearTimeout(timer);
   }, [missingPinnedDm, missingPinnedKey, friendsNextCursor, previewsNextCursor, loadMoreFriends, loadMorePreviews, pinRetry]);
