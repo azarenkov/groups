@@ -1,7 +1,7 @@
 import React from "react";
 import { act, render } from "@testing-library/react";
 
-import { PULL_THRESHOLD, REFRESH_TIMEOUT_MS, resist, usePullToRefresh } from "../usePullToRefresh";
+import { PULL_THRESHOLD, REFRESH_TIMEOUT_MS, resist, springStep, usePullToRefresh } from "../usePullToRefresh";
 
 let renders = 0;
 
@@ -43,6 +43,11 @@ const touch = (type: "touchStart" | "touchMove", y: number) => {
 const frame = () =>
   act(() => {
     jest.advanceTimersByTime(20);
+  });
+
+const settleAll = () =>
+  act(() => {
+    jest.advanceTimersByTime(2000);
   });
 
 beforeEach(() => {
@@ -90,6 +95,8 @@ it("follows the finger without re-rendering and springs back when the touch is c
     body().dispatchEvent(new TouchEvent("touchcancel", { bubbles: true }));
   });
   frame();
+  expect(body().style.transform).not.toBe("");
+  settleAll();
   expect(body().style.transform).toBe("");
   expect(indicator().style.opacity).toBe("0");
 });
@@ -105,13 +112,14 @@ it("stops spinning when a refresh never answers", async () => {
   frame();
   expect(onRefresh).toHaveBeenCalledTimes(1);
   expect(indicator().classList.contains("refreshing")).toBe(true);
+  settleAll();
   expect(body().style.transform).toBe(`translate3d(0, ${-PULL_THRESHOLD}px, 0)`);
   await act(async () => {
     jest.advanceTimersByTime(REFRESH_TIMEOUT_MS);
     await Promise.resolve();
     await Promise.resolve();
   });
-  frame();
+  settleAll();
   expect(indicator().classList.contains("refreshing")).toBe(false);
   expect(body().style.transform).toBe("");
 });
@@ -134,9 +142,10 @@ it("does not start another refresh while a slow one is still running", async () 
     await Promise.resolve();
     await Promise.resolve();
   });
-  frame();
+  settleAll();
   await pullAndRelease();
   expect(onRefresh).toHaveBeenCalledTimes(1);
+  settleAll();
   expect(body().style.transform).toBe("");
   await act(async () => {
     finish();
@@ -217,6 +226,58 @@ it("does not let trackpad momentum start a second pull after a refresh", async (
   });
   wheel(40);
   frame();
-  expect(body().style.transform).not.toBe("");
-  expect(body().style.transition).toContain("transform 0.12s");
+  const shown = -parseFloat(body().style.transform.replace("translate3d(0, ", ""));
+  expect(shown).toBeGreaterThan(0);
+  expect(shown).toBeLessThan(resist(40 * 0.7));
+});
+
+it("springs smoothly to its target without overshooting", () => {
+  let position = 0;
+  let velocity = 0;
+  let previous = 0;
+  let steps = 0;
+  for (; steps < 200; steps += 1) {
+    const next = springStep(position, velocity, PULL_THRESHOLD, 1 / 60);
+    expect(next.position).toBeGreaterThanOrEqual(previous);
+    expect(next.position).toBeLessThanOrEqual(PULL_THRESHOLD);
+    previous = next.position;
+    position = next.position;
+    velocity = next.velocity;
+    if (next.done) break;
+  }
+  expect(position).toBe(PULL_THRESHOLD);
+  expect(steps).toBeGreaterThan(10);
+  expect(steps).toBeLessThan(60);
+});
+
+it("eases back even when the finger lifts before the last move was painted", () => {
+  mount(() => Promise.resolve());
+  touch("touchStart", 400);
+  touch("touchMove", 360);
+  act(() => {
+    body().dispatchEvent(new TouchEvent("touchend", { bubbles: true }));
+  });
+  frame();
+  const shown = -parseFloat(body().style.transform.replace("translate3d(0, ", ""));
+  expect(shown).toBeGreaterThan(0);
+  expect(shown).toBeLessThan(resist(40 * 0.9));
+  settleAll();
+  expect(body().style.transform).toBe("");
+});
+
+it("jumps straight back without animating when reduced motion is on", () => {
+  document.documentElement.classList.add("reduce-motion");
+  try {
+    mount(() => Promise.resolve());
+    touch("touchStart", 400);
+    touch("touchMove", 360);
+    frame();
+    act(() => {
+      body().dispatchEvent(new TouchEvent("touchcancel", { bubbles: true }));
+    });
+    frame();
+    expect(body().style.transform).toBe("");
+  } finally {
+    document.documentElement.classList.remove("reduce-motion");
+  }
 });
