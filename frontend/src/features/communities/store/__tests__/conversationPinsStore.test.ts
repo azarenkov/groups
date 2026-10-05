@@ -268,3 +268,17 @@ it("keeps a chat pinned when Pin was chosen before the list loaded", async () =>
   expect(put).not.toHaveBeenCalled();
   expect(useConversationPinsStore.getState().dms).toEqual(["a", "b"]);
 });
+
+it("does not bring back a community forgotten while a write was running", async () => {
+  useConversationPinsStore.getState().applyRemote({ communities: ["left"] });
+  let finish: (v: unknown) => void = () => undefined;
+  put.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+  get.mockResolvedValue(reply({ dms: [], communities: ["c1"] }));
+  const pending = useConversationPinsStore.getState().setPinned("communities", "c1", true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  useConversationPinsStore.getState().forget("communities", "left");
+  finish(reply({ dms: [], communities: ["c1", "left"] }));
+  await pending;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(useConversationPinsStore.getState().communities).toEqual(["c1"]);
+});

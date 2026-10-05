@@ -68,3 +68,28 @@ it("gives a newly missing pinned DM a fresh retry budget", () => {
   expect(loadMorePreviews.mock.calls.length).toBeGreaterThan(exhausted + 1);
   jest.useRealTimers();
 });
+
+it("restarts retries when one missing pinned DM is replaced by another", () => {
+  jest.useFakeTimers();
+  const loadMorePreviews = jest.fn(() => Promise.resolve());
+  useFriendshipStore.setState({ friends: [], nextCursor: null, loadMore: jest.fn() } as never);
+  useDmPreviewStore.setState({ byFriend: {}, nextCursor: "p2", loadMore: loadMorePreviews } as never);
+  useConversationPinsStore.getState().applyRemote({ dms: ["first"] });
+  render(<Harness />);
+  for (let i = 0; i < 10; i += 1) {
+    act(() => {
+      jest.advanceTimersByTime(PINNED_DM_RETRY_MS * 64);
+    });
+  }
+  const exhausted = loadMorePreviews.mock.calls.length;
+  act(() => {
+    useConversationPinsStore.getState().applyRemote({ dms: ["second"] });
+  });
+  for (let i = 0; i < 3; i += 1) {
+    act(() => {
+      jest.advanceTimersByTime(PINNED_DM_RETRY_MS * 4);
+    });
+  }
+  expect(loadMorePreviews.mock.calls.length).toBeGreaterThan(exhausted + 1);
+  jest.useRealTimers();
+});

@@ -178,6 +178,7 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
     },
 
     forget: (kind, id) => {
+      if (pendingWrites > 0) remoteDuringWrite = true;
       if (!get()[kind].includes(id)) return;
       stateEpoch += 1;
       set({ [kind]: get()[kind].filter((x) => x !== id) } as Partial<PinLists>);

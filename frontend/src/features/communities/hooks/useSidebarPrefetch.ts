@@ -24,9 +24,12 @@ export function useSidebarPrefetch(params: {
   const pinnedDms = useConversationPinsStore((s) => s.dms);
   const friends = useFriendshipStore((s) => s.friends);
   const previews = useDmPreviewStore((s) => s.byFriend);
-  const missingPinnedDm =
-    hasSession &&
-    pinnedDms.some((id) => !previews[id] && !friends.some((f) => f.friendId === id && f.status === "accepted"));
+  const missingPinnedKey = hasSession
+    ? pinnedDms
+        .filter((id) => !previews[id] && !friends.some((f) => f.friendId === id && f.status === "accepted"))
+        .join(",")
+    : "";
+  const missingPinnedDm = missingPinnedKey.length > 0;
 
   useEffect(() => {
     if (!hasSession) return;
@@ -61,8 +64,8 @@ export function useSidebarPrefetch(params: {
 
   const [pinRetry, setPinRetry] = useState(0);
   useEffect(() => {
-    if (!missingPinnedDm) setPinRetry(0);
-  }, [missingPinnedDm]);
+    setPinRetry(0);
+  }, [missingPinnedKey]);
   useEffect(() => {
     if (!missingPinnedDm || (!friendsNextCursor && !previewsNextCursor)) return;
     if (friendsNextCursor) void loadMoreFriends();
@@ -73,7 +76,7 @@ export function useSidebarPrefetch(params: {
       PINNED_DM_RETRY_MS * 2 ** pinRetry,
     );
     return () => window.clearTimeout(timer);
-  }, [missingPinnedDm, friendsNextCursor, previewsNextCursor, loadMoreFriends, loadMorePreviews, pinRetry]);
+  }, [missingPinnedDm, missingPinnedKey, friendsNextCursor, previewsNextCursor, loadMoreFriends, loadMorePreviews, pinRetry]);
 
   return {
     hasMoreDirects: !!friendsNextCursor || !!previewsNextCursor,
