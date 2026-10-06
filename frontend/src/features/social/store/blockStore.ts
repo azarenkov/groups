@@ -78,7 +78,7 @@ const recordVersion = (
 const PRESENCE_SNAPSHOT_BATCH = 100;
 const PRESENCE_SNAPSHOT_ATTEMPTS = 5;
 
-const resyncPresence = (ids: string[]) => {
+export const resyncPresence = (ids: string[]) => {
   if (ids.length === 0) return;
   void import("../api/user").then(({ userAPI }) => {
     for (let start = 0; start < ids.length; start += PRESENCE_SNAPSHOT_BATCH) {

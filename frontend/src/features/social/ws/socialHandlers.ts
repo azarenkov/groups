@@ -9,7 +9,7 @@ import { useBadgeStore } from "../../subscription/store/badgeStore";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 import { loadActivitiesFor, loadFriendActivities, useActivityStore } from "../store/activityStore";
 import { useAuthStore } from "../../auth/store/authStore";
-import { isBlockedEitherWay, useBlockStore } from "../store/blockStore";
+import { isBlockedEitherWay, resyncPresence, useBlockStore } from "../store/blockStore";
 import { useCallStore } from "../../voice/store/callStore";
 import { refetchDmPreviews } from "../../dm/store/dmPreviewStore";
 import { useFriendshipStore } from "../store/friendshipStore";
@@ -39,7 +39,12 @@ export const socialHandlers: WsHandlers = {
         .then(() => loadFriendActivities());
       return;
   },
-  "friendship.requestAccepted": () => {
+  "friendship.requestAccepted": (d) => {
+      const selfId = useAuthStore.getState().user?.id;
+      const accepterId = asString(d.accepterId);
+      const senderId = asString(d.senderId);
+      const peer = accepterId === selfId ? senderId : accepterId;
+      if (peer && peer !== selfId) resyncPresence([peer]);
       void useFriendshipStore
         .getState()
         .fetchFriends()
