@@ -114,6 +114,12 @@ describe("message cache", () => {
     expect(readConversation("u2")!.messages).toEqual([]);
   });
 
+  it("finds the cached DM of an edit that only names the sender", () => {
+    saveConversation("me-peer", entry([msg("mine", 1, { authorId: "me" })]));
+    emit("dm_message.edited", { id: "mine", senderId: "me", newContent: "edited", occurredAt: "2026-10-01T11:00:00Z" });
+    expect(readConversation("me-peer")!.messages[0].content).toBe("edited");
+  });
+
   it("keeps only the newest page of every chat after reconnecting", () => {
     const long = Array.from({ length: 120 }, (_, i) => msg(`m${i}`, i % 60, { createdAt: new Date(Date.UTC(2026, 9, 1, 0, i)).toISOString() }));
     saveConversation("c1", { ...entry(long), scroll: { atBottom: false, anchorId: "m3", offset: 10 } });

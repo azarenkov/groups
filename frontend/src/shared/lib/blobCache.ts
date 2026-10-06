@@ -71,7 +71,7 @@ const current = (): BlobBackend | null => {
 
 export const setBlobBackend = (next: BlobBackend | null): void => {
   backend = next;
-  writesSinceEvict = 0;
+  knownTotal = null;
   disabled = false;
   limitBytes = null;
   limitResolving = null;
@@ -88,7 +88,7 @@ export const evictBlobCacheNow = async (): Promise<void> => {
 };
 
 let generation = 0;
-let writesSinceEvict = 0;
+let knownTotal: number | null = null;
 let disabled = false;
 let limitBytes: number | null = null;
 let limitResolving: Promise<number> | null = null;
@@ -120,7 +120,6 @@ const resolveLimit = (): Promise<number> => {
   }
   return limitResolving;
 };
-const EVICT_EVERY_WRITES = 20;
 
 export async function readCachedBlob(key: string): Promise<Blob | null> {
   const store = current();
@@ -139,13 +138,25 @@ async function evict(store: BlobBackend, keep: string, target?: number): Promise
   const limit = target ?? (await resolveLimit());
   const records = await store.all();
   let total = records.reduce((sum, r) => sum + r.size, 0);
-  if (total <= limit) return;
+  if (total <= limit) {
+    knownTotal = total;
+    return;
+  }
   for (const record of records.sort((a, b) => a.usedAt - b.usedAt)) {
     if (total <= limit) break;
     if (record.key === keep) continue;
     await store.delete(record.key);
     total -= record.size;
   }
+  knownTotal = total;
+}
+
+async function totalSize(store: BlobBackend): Promise<number> {
+  if (knownTotal === null) {
+    const records = await store.all();
+    knownTotal = records.reduce((sum, r) => sum + r.size, 0);
+  }
+  return knownTotal;
 }
 
 export async function writeCachedBlob(key: string, blob: Blob): Promise<void> {
@@ -156,16 +167,17 @@ export async function writeCachedBlob(key: string, blob: Blob): Promise<void> {
     const limit = await resolveLimit();
     if (gen !== generation || blob.size > limit) return;
     const record = { key, blob, size: blob.size, usedAt: Date.now() };
+    const previous = await store.get(key);
+    const before = await totalSize(store);
     try {
       await store.put(record);
     } catch {
-      const records = await store.all();
-      const total = records.reduce((sum, r) => sum + r.size, 0);
-      await evict(store, key, Math.floor(total / 2));
+      await evict(store, key, Math.floor(before / 2));
       try {
         await store.put(record);
       } catch {
         disabled = true;
+        knownTotal = null;
         return;
       }
     }
@@ -173,11 +185,10 @@ export async function writeCachedBlob(key: string, blob: Blob): Promise<void> {
       await store.delete(key);
       return;
     }
-    writesSinceEvict += 1;
-    if (writesSinceEvict < EVICT_EVERY_WRITES) return;
-    writesSinceEvict = 0;
-    await evict(store, key);
+    knownTotal = (knownTotal ?? before) + blob.size - (previous?.size ?? 0);
+    if (knownTotal > limit) await evict(store, key);
   } catch {
+    knownTotal = null;
     return;
   }
 }
@@ -186,7 +197,9 @@ export async function deleteCachedBlob(key: string): Promise<void> {
   const store = current();
   if (!store) return;
   try {
+    const previous = await store.get(key);
     await store.delete(key);
+    if (previous && knownTotal !== null) knownTotal = Math.max(0, knownTotal - previous.size);
   } catch {
     return;
   }
@@ -194,6 +207,7 @@ export async function deleteCachedBlob(key: string): Promise<void> {
 
 export async function clearBlobCache(): Promise<void> {
   generation += 1;
+  knownTotal = 0;
   const store = current();
   if (!store) return;
   try {

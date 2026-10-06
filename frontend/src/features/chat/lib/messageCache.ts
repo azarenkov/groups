@@ -98,12 +98,19 @@ export function installMessageCacheSync(): void {
   ws.on((env) => {
     const d = env.data as Record<string, unknown>;
     const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+    const holderOf = (messageId: string | undefined) => {
+      if (!messageId) return undefined;
+      for (const [key, entry] of entries) {
+        if (entry.messages.some((m) => m.id === messageId)) return key;
+      }
+      return undefined;
+    };
     const dmKey = () => {
       const self = useAuthStore.getState().user?.id;
       const sender = str(d.senderId);
       const recipient = str(d.recipientId);
-      if (!self || !sender || !recipient) return undefined;
-      return sender === self ? recipient : sender;
+      if (self && sender && recipient) return sender === self ? recipient : sender;
+      return holderOf(str(d.id));
     };
     const edit = (key: string | undefined) => {
       const id = str(d.id);

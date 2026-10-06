@@ -39,22 +39,26 @@ it("skips files that are too large to keep", async () => {
 
 it("evicts the least recently used blobs above the size limit", async () => {
   const size = 20 * 1024 * 1024;
-  const count = Math.floor(BLOB_CACHE_MAX_BYTES / size) + 2;
+  const fits = Math.floor(BLOB_CACHE_MAX_BYTES / size);
   const now = jest.spyOn(Date, "now");
-  for (let i = 0; i < count; i += 1) {
+  for (let i = 0; i < fits; i += 1) {
     now.mockReturnValue(i + 1);
     await writeCachedBlob(`b${i}`, blobOf(size));
   }
-  now.mockReturnValue(count + 1);
+  now.mockReturnValue(fits + 1);
   await readCachedBlob("b0");
   await new Promise((resolve) => setTimeout(resolve, 0));
+  for (let i = fits; i < fits + 2; i += 1) {
+    now.mockReturnValue(i + 2);
+    await writeCachedBlob(`b${i}`, blobOf(size));
+  }
   await evictBlobCacheNow();
   now.mockRestore();
   expect(await readCachedBlob("b0")).not.toBeNull();
   expect(await readCachedBlob("b1")).toBeNull();
   expect(await readCachedBlob("b2")).toBeNull();
   expect(await readCachedBlob("b3")).not.toBeNull();
-  expect(await readCachedBlob(`b${count - 1}`)).not.toBeNull();
+  expect(await readCachedBlob(`b${fits + 1}`)).not.toBeNull();
 });
 
 it("forgets everything on sign out, including writes still in flight", async () => {
@@ -122,4 +126,17 @@ it("stops writing for the session when storage keeps failing", async () => {
   const calls = putSpy.mock.calls.length;
   await writeCachedBlob("b", blobOf(10));
   expect(putSpy.mock.calls.length).toBe(calls);
+});
+
+it("keeps the size under the limit after every single write", async () => {
+  setBlobCacheLimit(25 * 1024 * 1024);
+  const now = jest.spyOn(Date, "now");
+  for (let i = 0; i < 4; i += 1) {
+    now.mockReturnValue(i + 1);
+    await writeCachedBlob(`w${i}`, blobOf(10 * 1024 * 1024));
+  }
+  now.mockRestore();
+  const kept = [];
+  for (let i = 0; i < 4; i += 1) if (await readCachedBlob(`w${i}`)) kept.push(i);
+  expect(kept).toEqual([2, 3]);
 });
