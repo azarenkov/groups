@@ -116,7 +116,8 @@ export function startSidebarSnapshots(userId: string): () => void {
       timer = null;
       const friendsReady = useFriendshipStore.getState().loaded;
       const previewsReady = useDmPreviewStore.getState().loaded;
-      if (!friendsReady || !previewsReady) return;
+      const communitiesReady = useCommunityStore.getState().loaded;
+      if (!friendsReady || !previewsReady || !communitiesReady) return;
       try {
         storage()?.setItem(SIDEBAR_SNAPSHOT_KEY, JSON.stringify(buildSidebarSnapshot(userId)));
       } catch {

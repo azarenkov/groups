@@ -14,6 +14,7 @@ interface ChannelState {
 
   setChannels: (communityId: string, channels: Channel[]) => void;
   hydrate: (byCommunity: Record<string, Channel[]>) => void;
+  clearAll: () => void;
   setSelectedChannel: (channelId: string | null) => void;
   addChannel: (communityId: string, channel: Channel) => void;
   removeChannel: (communityId: string, channelId: string) => void;
@@ -194,6 +195,18 @@ export const useChannelStore = create<ChannelState>((set, get) => {
     setError: (error) => set({ error }),
 
     clearError: () => set({ error: null }),
+
+    clearAll: () => {
+      const ids = new Set([...Object.keys(get().channelsByCommunity), ...inFlight.keys(), ...complete]);
+      for (const communityId of ids) {
+        clearGen.set(communityId, (clearGen.get(communityId) ?? 0) + 1);
+        removedDuringFetch.delete(communityId);
+        patchedDuringFetch.delete(communityId);
+      }
+      inFlight.clear();
+      complete.clear();
+      set({ channelsByCommunity: {}, selectedChannelId: null, isLoading: false, error: null });
+    },
 
     clearChannels: (communityId) => {
       clearGen.set(communityId, (clearGen.get(communityId) ?? 0) + 1);

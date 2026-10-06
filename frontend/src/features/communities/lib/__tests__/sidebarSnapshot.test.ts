@@ -25,7 +25,7 @@ const preview = {
 
 beforeEach(() => {
   localStorage.clear();
-  useCommunityStore.setState({ communities: [], isLoading: false, pagination: null });
+  useCommunityStore.getState().clearAll();
   useFriendshipStore.setState({ friends: [], statusById: {}, loaded: false, isLoading: false });
   useDmPreviewStore.getState().clear();
   useConversationPinsStore.getState().clearAll();
@@ -33,7 +33,7 @@ beforeEach(() => {
 
 it("saves the sidebar once friends and chats have loaded and restores it on the next start", () => {
   jest.useFakeTimers();
-  useCommunityStore.setState({ communities: [community] });
+  useCommunityStore.setState({ communities: [community], loaded: true });
   useFriendshipStore.setState({ friends: [friend], statusById: { u2: "accepted", u3: "pending_incoming" }, loaded: true });
   useDmPreviewStore.getState().setAll([{ ...preview, peerId: "u2" }], true);
   const stop = startSidebarSnapshots("me");
@@ -103,4 +103,18 @@ it("restores channels of fully loaded communities without marking them loaded", 
   expect(useChannelStore.getState().channelsByCommunity.c1).toEqual([channel]);
   const { channelsFullyLoaded } = jest.requireActual("../../store/channelStore");
   expect(channelsFullyLoaded("c1")).toBe(false);
+});
+
+it("does not save leftovers of the previous account before this account's communities load", () => {
+  jest.useFakeTimers();
+  useCommunityStore.setState({ communities: [community], loaded: true });
+  useCommunityStore.getState().clearAll();
+  useCommunityStore.setState({ communities: [community] });
+  useFriendshipStore.setState({ friends: [friend], statusById: {}, loaded: true });
+  useDmPreviewStore.setState({ loaded: true });
+  const stop = startSidebarSnapshots("me");
+  jest.advanceTimersByTime(SNAPSHOT_SAVE_DELAY_MS);
+  stop();
+  jest.useRealTimers();
+  expect(localStorage.getItem(SIDEBAR_SNAPSHOT_KEY)).toBeNull();
 });
