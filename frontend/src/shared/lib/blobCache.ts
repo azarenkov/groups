@@ -121,13 +121,24 @@ const resolveLimit = (): Promise<number> => {
   return limitResolving;
 };
 
+async function touch(store: BlobBackend, record: BlobRecord, gen: number): Promise<void> {
+  try {
+    if (gen !== generation) return;
+    await store.put({ ...record, usedAt: Date.now() });
+    if (gen !== generation) await store.delete(record.key);
+  } catch {
+    return;
+  }
+}
+
 export async function readCachedBlob(key: string): Promise<Blob | null> {
   const store = current();
   if (!store) return null;
+  const gen = generation;
   try {
     const record = await store.get(key);
-    if (!record) return null;
-    void store.put({ ...record, usedAt: Date.now() }).catch(() => undefined);
+    if (!record || gen !== generation) return null;
+    void touch(store, record, gen);
     return record.blob;
   } catch {
     return null;

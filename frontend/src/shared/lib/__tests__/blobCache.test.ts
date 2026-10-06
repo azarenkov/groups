@@ -140,3 +140,25 @@ it("keeps the size under the limit after every single write", async () => {
   for (let i = 0; i < 4; i += 1) if (await readCachedBlob(`w${i}`)) kept.push(i);
   expect(kept).toEqual([2, 3]);
 });
+
+it("does not bring a blob back when sign out happens during a read", async () => {
+  const memory = memoryBlobBackend();
+  let releaseGet: () => void = () => undefined;
+  const slow: BlobBackend = {
+    ...memory,
+    get: async (key) => {
+      const record = await memory.get(key);
+      await new Promise<void>((resolve) => (releaseGet = resolve));
+      return record;
+    },
+  };
+  setBlobBackend(slow);
+  await memory.put({ key: "secret", blob: blobOf(1), size: 1, usedAt: 1 });
+  const reading = readCachedBlob("secret");
+  await Promise.resolve();
+  await clearBlobCache();
+  releaseGet();
+  expect(await reading).toBeNull();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(await memory.get("secret")).toBeUndefined();
+});
