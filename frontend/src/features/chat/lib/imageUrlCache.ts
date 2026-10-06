@@ -1,5 +1,5 @@
 import { attachmentAPI } from "../api/attachment";
-import { blobCacheGeneration, readCachedBlob, writeCachedBlob } from "../../../shared/lib/blobCache";
+import { blobCacheGeneration, deleteCachedBlob, readCachedBlob, writeCachedBlob } from "../../../shared/lib/blobCache";
 
 export const IMAGE_CACHE_LIMIT = 40;
 export interface CachedImage {
@@ -95,6 +95,7 @@ export const releaseImageUrl = (id: string, url: string | null) => {
 };
 
 export const discardBrokenImageUrl = (id: string, url: string) => {
+  void deleteCachedBlob(`img:${id}`);
   const entry = imageUrlCache.get(id);
   if (entry && entry.url === url) {
     if (entry.refs > 0) entry.refs -= 1;
