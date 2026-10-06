@@ -170,9 +170,11 @@ async function totalSize(store: BlobBackend): Promise<number> {
   return knownTotal;
 }
 
-export async function writeCachedBlob(key: string, blob: Blob): Promise<void> {
+export const blobCacheGeneration = (): number => generation;
+
+export async function writeCachedBlob(key: string, blob: Blob, startedAt: number = generation): Promise<void> {
   const store = current();
-  if (!store || disabled || blob.size > BLOB_CACHE_MAX_ITEM_BYTES) return;
+  if (!store || disabled || blob.size > BLOB_CACHE_MAX_ITEM_BYTES || startedAt !== generation) return;
   const gen = generation;
   try {
     const limit = await resolveLimit();

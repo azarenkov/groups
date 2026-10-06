@@ -3,7 +3,7 @@ import React from "react";
 import { userAPI } from "../../features/social/api/user";
 import { communityAPI } from "../../features/communities/api/community";
 import { ApiError } from "./apiError";
-import { deleteCachedBlob, readCachedBlob, writeCachedBlob } from "./blobCache";
+import { blobCacheGeneration, deleteCachedBlob, readCachedBlob, writeCachedBlob } from "./blobCache";
 
 export type AvatarKind = "user" | "community" | "banner";
 
@@ -59,6 +59,7 @@ const load = (kind: AvatarKind, id: string) => {
     return;
   }
   const gen = generations.get(key) ?? 0;
+  const startedAt = blobCacheGeneration();
   restoreFromDisk(key, gen);
   const promise = (kind === "user"
     ? userAPI.downloadAvatar(id)
@@ -72,7 +73,7 @@ const load = (kind: AvatarKind, id: string) => {
         URL.revokeObjectURL(url);
         return;
       }
-      void writeCachedBlob(storeKeyFor(key), blob);
+      void writeCachedBlob(storeKeyFor(key), blob, startedAt);
       const old = cache.get(key);
       if (old && old !== url) URL.revokeObjectURL(old);
       cache.set(key, url);

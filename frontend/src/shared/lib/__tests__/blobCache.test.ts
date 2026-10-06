@@ -1,4 +1,5 @@
 import {
+  blobCacheGeneration,
   BLOB_CACHE_MIN_BYTES,
   limitFromQuota,
   setBlobCacheLimit,
@@ -161,4 +162,13 @@ it("does not bring a blob back when sign out happens during a read", async () =>
   expect(await reading).toBeNull();
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(await memory.get("secret")).toBeUndefined();
+});
+
+it("does not store a download that started before sign out", async () => {
+  const startedAt = blobCacheGeneration();
+  await clearBlobCache();
+  await writeCachedBlob("private", blobOf(1), startedAt);
+  expect(await readCachedBlob("private")).toBeNull();
+  await writeCachedBlob("fresh", blobOf(1), blobCacheGeneration());
+  expect(await readCachedBlob("fresh")).not.toBeNull();
 });
