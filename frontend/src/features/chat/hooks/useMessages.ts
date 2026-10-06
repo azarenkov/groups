@@ -87,6 +87,7 @@ export function useMessages(params: {
   const accessErrorRef = React.useRef(accessError);
   accessErrorRef.current = accessError;
   const restoredFromCacheRef = React.useRef<ChannelMessage[] | null>(null);
+  const revalidatingRef = React.useRef(false);
 
   React.useLayoutEffect(() => {
     const body = bodyRef.current;
@@ -130,6 +131,7 @@ export function useMessages(params: {
     if (!fromCache) setLoadingInitial(true);
     const targetId = convId;
     const knownBefore = new Set((restored ?? []).map((m) => m.id));
+    revalidatingRef.current = fromCache;
     messengerNow
       .listMessages({ limit: PAGE_LIMIT })
       .then((res) => {
@@ -168,11 +170,13 @@ export function useMessages(params: {
       })
       .finally(() => {
         if (cancelled) return;
+        revalidatingRef.current = false;
         loadedChannelIdRef.current = targetId;
         setLoadingInitial(false);
       });
     return () => {
       cancelled = true;
+      revalidatingRef.current = false;
     };
   }, [convId, isText, isDm]);
 
@@ -249,7 +253,7 @@ export function useMessages(params: {
   const loadOlder = React.useCallback(async () => {
     const messengerNow = messengerRef.current;
     if (!messengerNow || !convId) return;
-    if (loadingOlderRef.current) return;
+    if (loadingOlderRef.current || revalidatingRef.current) return;
     if (!hasMore) return;
     if (messages.length === 0) return;
     const oldestId = messages[0].id;

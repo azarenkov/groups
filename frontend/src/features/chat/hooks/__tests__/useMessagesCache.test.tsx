@@ -18,12 +18,15 @@ const msg = (id: string, minute: number): ChannelMessage => ({
 const pages: Record<string, ChannelMessage[]> = {};
 const pending: Record<string, ((messages: ChannelMessage[]) => void) | undefined> = {};
 
+const olderCalls: string[] = [];
 const messengerFor = (convId: string): Messenger =>
   ({
-    listMessages: () =>
-      new Promise((resolve) => {
+    listMessages: (opts: { before?: string }) => {
+      if (opts.before) olderCalls.push(`${convId}:${opts.before}`);
+      return new Promise((resolve) => {
         pending[convId] = (messages) => resolve({ messages: [...messages].reverse() });
-      }),
+      });
+    },
   }) as unknown as Messenger;
 
 let latest: ReturnType<typeof useMessages> | null = null;
@@ -83,4 +86,18 @@ it("does not keep cached messages that were deleted while away", async () => {
   expect(latest!.messages.map((m) => m.id)).toEqual(["a1", "a2"]);
   await answer("a", [msg("a1", 1)]);
   await waitFor(() => expect(latest!.messages.map((m) => m.id)).toEqual(["a1"]));
+});
+
+it("waits for the quiet refresh before loading older messages", async () => {
+  const page = Array.from({ length: 50 }, (_, i) => ({ ...msg(`p${i}`, 0), createdAt: new Date(Date.UTC(2026, 9, 1, 0, i)).toISOString() }));
+  const { rerender } = render(<Harness convId="a" />);
+  await answer("a", page);
+  rerender(<Harness convId="b" />);
+  await answer("b", [msg("b1", 1)]);
+  olderCalls.length = 0;
+  rerender(<Harness convId="a" />);
+  await act(async () => {
+    await latest!.handleScroll();
+  });
+  expect(olderCalls).toEqual([]);
 });

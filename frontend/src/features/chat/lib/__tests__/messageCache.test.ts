@@ -78,6 +78,12 @@ describe("reconcileLatestPage", () => {
     expect(partial.messages.map((m) => m.id)).toEqual(["a"]);
   });
 
+  it("does not treat a live message as an overlap with the refreshed page", () => {
+    const current = [msg("old", 1), msg("live", 9)];
+    const result = reconcileLatestPage(current, [msg("y", 7), msg("z", 8)], true, new Set(["old"]));
+    expect(result).toEqual({ messages: [msg("y", 7), msg("z", 8), msg("live", 9)], gap: true });
+  });
+
   it("keeps live messages that arrived after the page was read", () => {
     const result = reconcileLatestPage([msg("a", 1), msg("live", 9)], [msg("a", 1)], false, new Set(["a"]));
     expect(result.messages.map((m) => m.id)).toEqual(["a", "live"]);

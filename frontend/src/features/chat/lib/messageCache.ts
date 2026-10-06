@@ -78,7 +78,7 @@ export function reconcileLatestPage(
     return { messages: [...latest, ...live], gap: false };
   }
   const cutoff = latest[0].createdAt;
-  const reachesWindow = current.some((m) => m.createdAt >= cutoff);
+  const reachesWindow = current.some((m) => knownBefore.has(m.id) && m.createdAt >= cutoff);
   if (!reachesWindow) return { messages: [...latest, ...live], gap: true };
   const older = current.filter((m) => m.createdAt < cutoff && !ids.has(m.id) && knownBefore.has(m.id));
   return { messages: [...older, ...latest, ...live], gap: false };
