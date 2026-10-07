@@ -1,9 +1,11 @@
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import Icon from "../../../shared/ui/Icon";
 import { ApiError } from "../../../shared/lib/apiError";
+import { queryClient, queryKeys, retryUnless } from "../../../shared/query/queryClient";
 import { useAuthStore } from "../../auth/store/authStore";
 import { openReport } from "../../moderation/store/reportModalStore";
 import { stickersAPI, type StickerPack } from "../api/stickers";
@@ -41,30 +43,24 @@ const StickerViewer: React.FC<StickerViewerProps> = ({ sticker, messageId, onClo
   const { t } = useTranslation("stickers");
   const userId = useAuthStore((s) => s.user?.id ?? null);
   const myPacks = useStickerStore((s) => s.packs);
-  const [state, setState] = React.useState<PackState>({ kind: "loading" });
+  const packQuery = useQuery(
+    {
+      queryKey: queryKeys.stickerPack(sticker.packId),
+      queryFn: () => stickersAPI.pack(sticker.packId),
+      retry: retryUnless(isGone),
+    },
+    queryClient,
+  );
+  const state: PackState = packQuery.data
+    ? { kind: "ready", pack: packQuery.data }
+    : packQuery.isError
+      ? { kind: isGone(packQuery.error) ? "gone" : "failed" }
+      : { kind: "loading" };
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [attempt, setAttempt] = React.useState(0);
-
   React.useEffect(() => {
     if (userId && useStickerStore.getState().userId !== userId) void useStickerStore.getState().load(userId);
   }, [userId]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    setState({ kind: "loading" });
-    stickersAPI
-      .pack(sticker.packId)
-      .then((pack) => {
-        if (!cancelled) setState({ kind: "ready", pack });
-      })
-      .catch((err) => {
-        if (!cancelled) setState({ kind: isGone(err) ? "gone" : "failed" });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [sticker.packId, attempt]);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -130,7 +126,7 @@ const StickerViewer: React.FC<StickerViewerProps> = ({ sticker, messageId, onClo
         </div>
         {state.kind === "failed" && (
           <div className="sticker-viewer-actions">
-            <button type="button" className="s-btn secondary" onClick={() => setAttempt((n) => n + 1)}>
+            <button type="button" className="s-btn secondary" onClick={() => void packQuery.refetch()}>
               {t("retry")}
             </button>
           </div>

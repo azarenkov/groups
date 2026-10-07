@@ -1,11 +1,11 @@
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
 
+import { queryClient, queryKeys, refetchFresh } from "../../../shared/query/queryClient";
 import { ws } from "../../../shared/ws/websocket";
 import { pinsAPI, type PinnedMessage } from "../api/pins";
 import { sharedScopeKey, type SharedScope } from "../api/shared";
 import { useWsChannelMessages, useWsDmMessages } from "./useWebSocketMessages";
-
-export const PIN_REFRESH_DEBOUNCE_MS = 250;
 
 export const pinEventMatches = (
   data: { channelId?: unknown; participants?: unknown },
@@ -17,73 +17,65 @@ export const pinEventMatches = (
   return data.participants.includes(scope.friendId) && data.participants.includes(currentUserId);
 };
 
+const droppedByScope = new Map<string, Set<string>>();
+
+export function clearPinTombstones(): void {
+  droppedByScope.clear();
+}
+
+const droppedFor = (key: string): Set<string> => {
+  let set = droppedByScope.get(key);
+  if (!set) {
+    set = new Set();
+    droppedByScope.set(key, set);
+  }
+  return set;
+};
+
+const EMPTY: PinnedMessage[] = [];
+
 export function usePinnedMessages(scope: SharedScope | null, currentUserId?: string) {
   const key = scope ? sharedScopeKey(scope) : null;
   const scopeRef = React.useRef(scope);
   scopeRef.current = scope;
-  const [state, setState] = React.useState<{ key: string | null; items: PinnedMessage[] }>({ key: null, items: [] });
-  const pins = React.useMemo(() => (state.key === key ? state.items : []), [state, key]);
-  const genRef = React.useRef(0);
-  const requestRef = React.useRef(0);
-  const appliedRef = React.useRef(0);
-  const inflightRef = React.useRef(0);
-  const droppedRef = React.useRef(new Set<string>());
-  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const refresh = React.useCallback(async () => {
-    const current = scopeRef.current;
-    if (!current) return;
-    const requestKey = sharedScopeKey(current);
-    const gen = genRef.current;
-    const request = ++requestRef.current;
-    inflightRef.current += 1;
-    try {
-      const items = await pinsAPI.list(current);
-      if (gen !== genRef.current || request < appliedRef.current) return;
-      if (sharedScopeKey(scopeRef.current ?? current) !== requestKey) return;
-      appliedRef.current = request;
-      setState({ key: requestKey, items: items.filter((p) => !droppedRef.current.has(p.messageId)) });
-    } catch (e) {
-      console.warn("[pins] load failed:", e);
-    } finally {
-      inflightRef.current -= 1;
-    }
-  }, []);
+  const query = useQuery(
+    {
+      queryKey: queryKeys.pins(key ?? ""),
+      queryFn: async () => {
+        const items = await pinsAPI.list(scopeRef.current as SharedScope);
+        const dropped = droppedByScope.get(key as string);
+        return dropped ? items.filter((p) => !dropped.has(p.messageId)) : items;
+      },
+      enabled: !!key,
+    },
+    queryClient,
+  );
+  const pins = (key && query.data) || EMPTY;
 
-  const scheduleRefresh = React.useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null;
-      void refresh();
-    }, PIN_REFRESH_DEBOUNCE_MS);
-  }, [refresh]);
+  const invalidate = React.useCallback(async () => {
+    if (!key) return;
+    await refetchFresh(queryKeys.pins(key));
+  }, [key]);
 
-  React.useEffect(() => {
-    genRef.current += 1;
-    appliedRef.current = requestRef.current;
-    droppedRef.current = new Set();
-    setState({ key, items: [] });
-    if (key) void refresh();
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = null;
-    };
-  }, [key, refresh]);
-
-  const drop = React.useCallback((messageId: string) => {
-    droppedRef.current.add(messageId);
-    setState((prev) =>
-      prev.items.some((p) => p.messageId === messageId)
-        ? { key: prev.key, items: prev.items.filter((p) => p.messageId !== messageId) }
-        : prev,
-    );
-  }, []);
+  const drop = React.useCallback(
+    (messageId: string) => {
+      if (!key) return;
+      droppedFor(key).add(messageId);
+      queryClient.setQueryData<PinnedMessage[]>(queryKeys.pins(key), (prev: PinnedMessage[] | undefined) =>
+        prev && prev.some((p) => p.messageId === messageId) ? prev.filter((p) => p.messageId !== messageId) : prev,
+      );
+    },
+    [key],
+  );
 
   const pinsRef = React.useRef(pins);
   pinsRef.current = pins;
   const handlers = {
     onEdited: (m: { id: string }) => {
-      if (inflightRef.current > 0 || pinsRef.current.some((p) => p.messageId === m.id)) scheduleRefresh();
+      if (!key) return;
+      const fetching = queryClient.isFetching({ queryKey: queryKeys.pins(key) }) > 0;
+      if (fetching || pinsRef.current.some((p) => p.messageId === m.id)) void invalidate();
     },
     onDeleted: (m: { id: string }) => drop(m.id),
   };
@@ -92,41 +84,38 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
 
   React.useEffect(() => {
     if (!key) return;
-    return ws.onOpen(() => {
-      void refresh();
-    });
-  }, [key, refresh]);
-
-  React.useEffect(() => {
-    if (!key) return;
     return ws.on((env) => {
       const current = scopeRef.current;
       if (!current) return;
       const data = env.data as { messageId?: unknown; channelId?: unknown; participants?: unknown };
       if (env.type === "message.pin_changed" && pinEventMatches(data, current, currentUserId)) {
-        scheduleRefresh();
+        void invalidate();
       } else if (env.type === "message.hidden" && typeof data.messageId === "string") {
         drop(data.messageId);
       }
     });
-  }, [key, currentUserId, scheduleRefresh, drop]);
+  }, [key, currentUserId, invalidate, drop]);
 
   const setPinned = React.useCallback(
     async (messageId: string, pinned: boolean) => {
       const current = scopeRef.current;
       if (!current) return;
+      const scopeKey = sharedScopeKey(current);
       if (pinned) {
-        droppedRef.current.delete(messageId);
+        droppedFor(scopeKey).delete(messageId);
         await pinsAPI.pin(current, messageId);
       } else {
         await pinsAPI.unpin(current, messageId);
-        drop(messageId);
+        droppedFor(scopeKey).add(messageId);
+        queryClient.setQueryData<PinnedMessage[]>(queryKeys.pins(scopeKey), (prev: PinnedMessage[] | undefined) =>
+          prev ? prev.filter((p) => p.messageId !== messageId) : prev,
+        );
       }
-      scheduleRefresh();
+      await refetchFresh(queryKeys.pins(scopeKey));
     },
-    [drop, scheduleRefresh],
+    [],
   );
 
   const pinnedIds = React.useMemo(() => new Set(pins.map((p) => p.messageId)), [pins]);
-  return { pins, pinnedIds, setPinned, refresh };
+  return { pins, pinnedIds, setPinned, refresh: invalidate };
 }

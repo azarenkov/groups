@@ -173,6 +173,34 @@ describe("GlobalSearchResults", () => {
   });
 });
 
+describe("GlobalSearchResults cache", () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  it("reuses results when the same text is searched again", async () => {
+    jest.useFakeTimers();
+    search.mockReset();
+    search.mockImplementation(() => page([]));
+    const { rerender } = render(<GlobalSearchResults query="hello" currentUserId="u1" onOpen={jest.fn()} />);
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(search).toHaveBeenCalledTimes(3);
+    rerender(<GlobalSearchResults query="hello world" currentUserId="u1" onOpen={jest.fn()} />);
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(search).toHaveBeenCalledTimes(6);
+    rerender(<GlobalSearchResults query="hello" currentUserId="u1" onOpen={jest.fn()} />);
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(search).toHaveBeenCalledTimes(6);
+    jest.useRealTimers();
+  });
+});
+
 describe("global search helpers", () => {
   it("normalizes queries to the server limits", () => {
     expect(normalizeGlobalQuery("  hi ")).toBe("hi");
