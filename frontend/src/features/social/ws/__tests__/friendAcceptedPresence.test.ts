@@ -6,13 +6,21 @@ import { userAPI } from "../../api/user";
 
 jest.mock("../../api/user", () => {
   const actual = jest.requireActual("../../api/user");
-  return { ...actual, userAPI: { ...actual.userAPI, presenceSnapshot: jest.fn() } };
+  return {
+    ...actual,
+    userAPI: {
+      ...actual.userAPI,
+      presenceSnapshot: jest.fn(),
+      getActivities: jest.fn(),
+    },
+  };
 });
 
 const snapshot = userAPI.presenceSnapshot as jest.Mock;
 
 beforeEach(() => {
   snapshot.mockReset();
+  (userAPI.getActivities as jest.Mock).mockResolvedValue({ asOf: 0, activities: [] });
   useAuthStore.setState({ user: { id: "me", name: "Me" } } as never);
   usePresenceStore.getState().clearAll();
   useFriendshipStore.setState({ fetchFriends: jest.fn(() => Promise.resolve()) } as never);
@@ -36,4 +44,17 @@ it("checks the sender's status on the side that accepted", async () => {
   await settle();
   expect(snapshot).toHaveBeenCalledWith(["sender"]);
   expect(usePresenceStore.getState().online.sender).toBe(true);
+});
+
+it("does not let a slow status check undo a newer offline event", async () => {
+  let resolve: (v: { online: string[] }) => void = () => undefined;
+  snapshot.mockImplementation(() => new Promise((r) => (resolve = r)));
+  socialHandlers["friendship.requestAccepted"]!({ accepterId: "friend", senderId: "me" }, {} as never);
+  await settle();
+  socialHandlers["user.online"]!({ userId: "friend" }, {} as never);
+  socialHandlers["user.offline"]!({ userId: "friend" }, {} as never);
+  resolve({ online: ["friend"] });
+  await settle();
+  await settle();
+  expect(usePresenceStore.getState().online.friend).toBeUndefined();
 });

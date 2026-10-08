@@ -6,6 +6,8 @@ import { entitlementsAPI } from "../../api/entitlements";
 import { useEntitlementsStore } from "../../store/entitlementsStore";
 import { ApiError } from "../../../../shared/lib/apiError";
 
+const TRIAL_END = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+
 jest.mock("../../api/entitlements", () => ({
   entitlementsAPI: {
     getMine: jest.fn(),
@@ -35,14 +37,14 @@ describe("TrialOffer", () => {
 
   it("starts the trial and switches the account to Pro until the end date", async () => {
     act(() => useEntitlementsStore.setState({ trialAvailable: true }));
-    mockedApi.startTrial.mockResolvedValue({ tier: "pro", validUntil: "2026-10-06T12:00:00Z" });
+    mockedApi.startTrial.mockResolvedValue({ tier: "pro", validUntil: TRIAL_END });
     render(<TrialOffer />);
     fireEvent.click(screen.getByRole("button", { name: "Попробовать Pro бесплатно на 7 дней" }));
     await waitFor(() => expect(useEntitlementsStore.getState().tier).toBe("pro"));
     const state = useEntitlementsStore.getState();
     expect(state.trial).toBe(true);
     expect(state.trialAvailable).toBe(false);
-    expect(state.validUntil).toBe("2026-10-06T12:00:00Z");
+    expect(state.validUntil).toBe(TRIAL_END);
   });
 
   it("explains why the trial could not start", async () => {
@@ -73,11 +75,11 @@ describe("applyTier", () => {
 
   it("keeps the trial window from a realtime update and clears it on Free", () => {
     const store = useEntitlementsStore.getState();
-    store.applyTier("pro", null, { validUntil: "2026-10-06T12:00:00Z", trial: true });
+    store.applyTier("pro", null, { validUntil: TRIAL_END, trial: true });
     expect(useEntitlementsStore.getState()).toMatchObject({
       tier: "pro",
       trial: true,
-      validUntil: "2026-10-06T12:00:00Z",
+      validUntil: TRIAL_END,
       trialAvailable: false,
     });
     store.applyTier("free", null, { validUntil: null, trial: false });

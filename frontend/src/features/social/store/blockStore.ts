@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import { friendshipAPI } from "../api/friendship";
-import { usePresenceStore } from "./presenceStore";
+import { presenceGeneration, usePresenceStore } from "./presenceStore";
 import { profileVersion } from "./userProfileStore";
 import { ApiError } from "../../../shared/lib/apiError";
 import type { BlockedUser, BlockRelation } from "../../../shared/types/friendship";
@@ -84,6 +84,7 @@ export const resyncPresence = (ids: string[]) => {
     for (let start = 0; start < ids.length; start += PRESENCE_SNAPSHOT_BATCH) {
       const batch = ids.slice(start, start + PRESENCE_SNAPSHOT_BATCH);
       const gens = new Map(batch.map((id) => [id, blockGeneration(id)] as const));
+      const seen = new Map(batch.map((id) => [id, presenceGeneration(id)] as const));
       void (async () => {
         for (let attempt = 0; attempt < PRESENCE_SNAPSHOT_ATTEMPTS; attempt += 1) {
           try {
@@ -91,8 +92,9 @@ export const resyncPresence = (ids: string[]) => {
             const presence = usePresenceStore.getState();
             for (const id of res.online) {
               if (gens.get(id) !== blockGeneration(id)) continue;
+              if (seen.get(id) !== presenceGeneration(id)) continue;
               if (isBlockedEitherWay(id)) continue;
-              presence.setOnline(id);
+              presence.applySnapshot(id);
             }
             return;
           } catch {
