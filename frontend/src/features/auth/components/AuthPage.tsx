@@ -55,8 +55,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
     if (token === null) return;
     setResetToken(token);
     setMode("reset-password");
-    navigate("/reset-password", { replace: true });
-  }, [defaultMode, search, navigate]);
+  }, [defaultMode, search]);
 
   useEffect(() => {
     if (hasUnverifiedSession && !resetFlow) {
@@ -118,6 +117,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
               token={resetToken}
               onDone={() => {
                 if (useAuthStore.getState().tokens) useAuthStore.getState().logout();
+                navigate("/reset-password", { replace: true });
                 setMode("reset-success");
               }}
               onRequestNew={() => setMode("forgot")}

@@ -407,6 +407,43 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         Ok(())
     }
 
+    async fn load_verification_code_for_update(&mut self, id: &VerificationCodeId) -> Result<Option<VerificationCode>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+                SELECT
+                    id,
+                    user_id,
+                    channel AS "channel: VerificationChannelDto",
+                    code_hash,
+                    purpose AS "purpose: VerificationPurposeDto",
+                    expires_at,
+                    consumed_at,
+                    attempts,
+                    created_at
+                FROM verification_codes
+                WHERE id = $1
+                FOR UPDATE
+            "#,
+            id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|row| {
+            VerificationCode::restore(
+                VerificationCodeId::new(row.id),
+                UserId::new(row.user_id),
+                row.channel.into(),
+                CodeHash::new(row.code_hash),
+                row.purpose.into(),
+                row.expires_at,
+                row.consumed_at,
+                row.attempts as u8,
+                row.created_at,
+            )
+        }))
+    }
+
     async fn consume_pending_verifications(&mut self, user_id: &UserId, purpose: VerificationPurpose, now: DateTime<Utc>) -> Result<(), RepositoryError> {
         let purpose_dto = VerificationPurposeDto::from(&purpose);
         sqlx::query!(
