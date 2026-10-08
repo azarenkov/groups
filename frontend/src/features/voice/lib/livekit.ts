@@ -20,6 +20,13 @@ import {
   makeupGainFor,
   speechBandRatio,
 } from "./makeupGain";
+import {
+  MIC_GATE_HOLD_MS,
+  MIC_GATE_TICK_MS,
+  connectThroughLookahead,
+  isGateOpen,
+  setGateOpen,
+} from "./micGate";
 import { RemoteAudioGraph } from "./livekit/remoteAudio";
 import {
   degradationFor,
@@ -858,7 +865,7 @@ export class LiveKitService {
         postSource.connect(makeup);
         makeup.connect(limiter);
         limiter.connect(postGain);
-        postGain.connect(postGate);
+        connectThroughLookahead(ctx, postGain, postGate);
         postGate.connect(postDest);
         stopMakeup = trackDenoiserMakeup(
           ctx,
@@ -1004,7 +1011,7 @@ export class LiveKitService {
         this.micGainNode.gain.value = this.micVolume;
       }
       if (this.micGateGain && this.micGainAnalyser) {
-        this.micGateGain.gain.value = 1;
+        setGateOpen(this.micGateGain, true);
         this.startMicGate(this.micGainAnalyser);
       } else {
         this.stopMicGate();
@@ -1765,7 +1772,7 @@ export class LiveKitService {
       analyser.fftSize = 256;
       const destination = audioCtx.createMediaStreamDestination();
       source.connect(gain);
-      gain.connect(gate);
+      connectThroughLookahead(audioCtx, gain, gate);
       gain.connect(analyser);
       gate.connect(destination);
       const processed = destination.stream.getAudioTracks()[0];
@@ -1987,17 +1994,17 @@ export class LiveKitService {
             20 * Math.log10(Math.max(Math.sqrt(sum / tdata.length), 1e-6));
           passed = db > -72 + 0.72 * sensitivity;
         }
-        if (passed) holdUntil = now + 250;
+        if (passed) holdUntil = now + MIC_GATE_HOLD_MS;
         const active = now < holdUntil;
         this.setLocalSpeaking(
           active && !this.desiredMicMuted && this.micVolume > 0,
         );
         if (this.pushToTalkEnforced && this.pttHolding) {
-          gate.gain.value = 1;
+          setGateOpen(gate, true);
           return;
         }
-        gate.gain.value = active ? 1 : 0;
-      }, 50);
+        setGateOpen(gate, active);
+      }, MIC_GATE_TICK_MS);
     });
   }
 
@@ -2076,7 +2083,7 @@ function trackDenoiserMakeup(
     const inputRms = analyserRms(input, inputBuffer);
     const denoisedRms = analyserRms(denoised, denoisedBuffer);
     input.getByteFrequencyData(spectrum);
-    const gateOpen = gate.gain.value > 0;
+    const gateOpen = isGateOpen(gate);
     const speech = isSpeech(
       inputRms,
       speechBandRatio(spectrum, ctx.sampleRate),
