@@ -32,32 +32,6 @@ pub trait UserRepository {
     ) -> Result<PasswordHash, RepositoryError>;
     async fn get_username_by_id(&self, user_id: &UserId) -> Result<UserName, RepositoryError>;
     async fn get_user_id_by_email(&self, email: &Email) -> Result<UserId, RepositoryError>;
-    async fn claim_with_oauth(
-        &self,
-        user_id: &UserId,
-        password_hash: &PasswordHash,
-        verified_at: DateTime<Utc>,
-        provider: &str,
-        subject: &str,
-        email: &Email,
-    ) -> Result<(), RepositoryError>;
-    async fn find_user_id_by_oauth(
-        &self,
-        provider: &str,
-        subject: &str,
-    ) -> Result<Option<UserId>, RepositoryError>;
-    async fn find_oauth_subject_for_user(
-        &self,
-        provider: &str,
-        user_id: &UserId,
-    ) -> Result<Option<String>, RepositoryError>;
-    async fn link_oauth_identity(
-        &self,
-        provider: &str,
-        subject: &str,
-        user_id: &UserId,
-        email: &Email,
-    ) -> Result<(), RepositoryError>;
     async fn list_oauth_connections(
         &self,
         user_id: &UserId,

@@ -44,7 +44,6 @@ pub struct MeResponse {
     pub locale: String,
     pub email_verified: bool,
     pub password_changed_at: Option<chrono::DateTime<chrono::Utc>>,
-    pub linked_providers: Vec<String>,
     pub bio: String,
     pub show_activity: bool,
     pub show_game_activity: bool,
@@ -66,7 +65,6 @@ async fn get_me(
         locale: profile.locale.as_str().to_string(),
         email_verified: profile.email_verified,
         password_changed_at: profile.password_changed_at,
-        linked_providers: profile.linked_providers,
         bio: profile.bio,
         show_activity: profile.show_activity,
         show_game_activity: profile.show_game_activity,
@@ -160,17 +158,15 @@ async fn update_me_name(
 pub struct UpdatePasswordBody {
     #[validate(length(min = 1, max = 128))]
     pub current_password: Option<String>,
-    pub google_id_token: Option<String>,
     #[validate(length(min = 4, max = 30))]
     pub new_password: String,
 }
 
-fn reauth_from(password: Option<String>, google_id_token: Option<String>) -> Result<Reauth, HttpError> {
-    match (password, google_id_token) {
-        (Some(password), _) if !password.is_empty() => Ok(Reauth::Password(password)),
-        (_, Some(token)) if !token.is_empty() => Ok(Reauth::GoogleIdToken(token)),
+fn reauth_from(password: Option<String>) -> Result<Reauth, HttpError> {
+    match password {
+        Some(password) if !password.is_empty() => Ok(Reauth { password }),
         _ => Err(HttpError::new(
-            "Provide a password or a Google id token".to_string(),
+            "Provide your current password".to_string(),
             actix_web::http::StatusCode::BAD_REQUEST,
             "REAUTH_REQUIRED",
         )),
@@ -194,7 +190,7 @@ async fn update_me_password(
         .execute(
             user_id,
             ChangePasswordRequest {
-                reauth: reauth_from(body.current_password, body.google_id_token)?,
+                reauth: reauth_from(body.current_password)?,
                 new_password: body.new_password,
                 ip: client.ip,
                 user_agent: client.user_agent,
@@ -211,7 +207,6 @@ async fn update_me_password(
 pub struct ChangeEmailBody {
     #[validate(length(min = 1, max = 128))]
     pub password: Option<String>,
-    pub google_id_token: Option<String>,
     #[validate(email)]
     pub new_email: String,
 }
@@ -232,7 +227,7 @@ async fn change_me_email(
         .execute(
             user_id,
             RequestEmailChangeRequest {
-                reauth: reauth_from(body.password, body.google_id_token)?,
+                reauth: reauth_from(body.password)?,
                 new_email: body.new_email,
                 request_id: ctx.request_id,
             },
@@ -291,7 +286,6 @@ async fn confirm_me_email(
 pub struct PasswordBody {
     #[validate(length(min = 1, max = 128))]
     pub password: Option<String>,
-    pub google_id_token: Option<String>,
 }
 
 #[post("/me/disable")]
@@ -305,7 +299,7 @@ async fn disable_me(
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
     let ctx = request_context(&req);
-    let reauth = reauth_from(body.password, body.google_id_token)?;
+    let reauth = reauth_from(body.password)?;
     app_state
         .disable_account_usecase
         .execute(user_id, &reauth, ctx.request_id.as_deref())
@@ -324,7 +318,7 @@ async fn delete_me(
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
     let ctx = request_context(&req);
-    let reauth = reauth_from(body.password, body.google_id_token)?;
+    let reauth = reauth_from(body.password)?;
     app_state
         .delete_account_usecase
         .execute(user_id, &reauth, ctx.request_id.as_deref())

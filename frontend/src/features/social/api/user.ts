@@ -5,8 +5,7 @@ import { http } from "../../../shared/api/http";
 import { ApiError } from "../../../shared/lib/apiError";
 
 export interface Reauth {
-  password?: string;
-  googleIdToken?: string;
+  password: string;
 }
 
 export interface AppearanceSettings {
@@ -68,7 +67,6 @@ export interface MeProfile {
   locale: string;
   emailVerified: boolean;
   passwordChangedAt: string | null;
-  linkedProviders: string[];
   bio: string;
   showActivity: boolean;
   showGameActivity: boolean;
@@ -250,7 +248,6 @@ class UserAPI {
   ): Promise<{ accessToken: string; refreshToken: string; tokenType: string; expiresIn: number }> {
     const response = await this.client.patch("/v1/users/me/password", {
       currentPassword: reauth.password,
-      googleIdToken: reauth.googleIdToken,
       newPassword,
     });
     return response.data.data;

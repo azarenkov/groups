@@ -196,7 +196,6 @@ impl IdentityTransaction for Fake {
     async fn load_stale_unverified_users_for_update(&mut self, _: DateTime<Utc>, _: i64) -> Result<Vec<User>, RepositoryError> { unimplemented!() }
     async fn load_pending_verification_for_update(&mut self, _: &UserId) -> Result<Option<VerificationCode>, RepositoryError> { unimplemented!() }
     async fn delete_oauth_identities(&mut self, _: &UserId) -> Result<(), RepositoryError> { unimplemented!() }
-    async fn link_oauth_identity(&mut self, _: &str, _: &str, _: &UserId, _: &Email) -> Result<bool, RepositoryError> { unimplemented!() }
     async fn load_refresh_token_for_update(&mut self, _: &RefreshTokenId) -> Result<Option<RefreshToken>, RepositoryError> { unimplemented!() }
     async fn insert_user(&mut self, _: &User) -> Result<(), RepositoryError> { unimplemented!() }
     async fn insert_refresh_token(&mut self, _: &RefreshToken) -> Result<(), RepositoryError> { unimplemented!() }
@@ -232,10 +231,6 @@ impl UserRepository for Fake {
     async fn get_password_hash_by_email(&self, _: &Email) -> Result<PasswordHash, RepositoryError> { unimplemented!() }
     async fn get_username_by_id(&self, _: &UserId) -> Result<UserName, RepositoryError> { unimplemented!() }
     async fn get_user_id_by_email(&self, _: &Email) -> Result<UserId, RepositoryError> { unimplemented!() }
-    async fn claim_with_oauth(&self, _: &UserId, _: &PasswordHash, _: DateTime<Utc>, _: &str, _: &str, _: &Email) -> Result<(), RepositoryError> { unimplemented!() }
-    async fn find_user_id_by_oauth(&self, _: &str, _: &str) -> Result<Option<UserId>, RepositoryError> { unimplemented!() }
-    async fn find_oauth_subject_for_user(&self, _: &str, _: &UserId) -> Result<Option<String>, RepositoryError> { unimplemented!() }
-    async fn link_oauth_identity(&self, _: &str, _: &str, _: &UserId, _: &Email) -> Result<(), RepositoryError> { unimplemented!() }
     async fn list_oauth_connections(&self, _: &UserId) -> Result<Vec<(String, String, Option<String>)>, RepositoryError> { unimplemented!() }
     async fn link_connection(&self, _: &str, _: &str, _: &UserId, _: &str) -> Result<bool, RepositoryError> { unimplemented!() }
     async fn unlink_connection(&self, _: &UserId, _: &str) -> Result<bool, RepositoryError> { unimplemented!() }

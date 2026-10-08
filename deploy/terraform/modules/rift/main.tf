@@ -103,7 +103,6 @@ locals {
       MAILER_PORT                    = var.mailer.port
       MAILER_FROM                    = var.mailer.from
       MAILER_PASSWORD_RESET_BASE_URL = local.app_url
-      GOOGLE_CLIENT_ID               = var.oauth.google_client_id
     }
     secrets = {
       existingSecret = "${var.release_name}-secrets"

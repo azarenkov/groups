@@ -2,7 +2,6 @@ interface RuntimeConfig {
   apiUrl?: string;
   appUrl?: string;
   wsUrl?: string;
-  googleClientId?: string;
 }
 
 declare global {
@@ -53,6 +52,3 @@ export const wsEndpoint = (): string => {
     return "ws://localhost:8080/ws";
   }
 };
-
-export const googleClientId = (): string =>
-  nonEmpty(runtime().googleClientId) ?? process.env.REACT_APP_GOOGLE_CLIENT_ID ?? "";

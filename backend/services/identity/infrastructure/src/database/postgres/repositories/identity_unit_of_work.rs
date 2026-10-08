@@ -263,24 +263,6 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         }))
     }
 
-    async fn link_oauth_identity(&mut self, provider: &str, subject: &str, user_id: &UserId, email: &Email) -> Result<bool, RepositoryError> {
-        let result = sqlx::query!(
-            r#"
-                INSERT INTO oauth_identities (provider, subject, user_id, email)
-                VALUES ($1, $2, $3, $4)
-                ON CONFLICT (provider, subject) DO NOTHING
-            "#,
-            provider,
-            subject,
-            user_id.uuid(),
-            email.as_str(),
-        )
-        .execute(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(result.rows_affected() > 0)
-    }
-
     async fn delete_oauth_identities(&mut self, user_id: &UserId) -> Result<(), RepositoryError> {
         sqlx::query!("DELETE FROM oauth_identities WHERE user_id = $1", user_id.uuid())
             .execute(&mut *self.tx)

@@ -1,5 +1,4 @@
 pub mod github_connector;
-pub mod google_verifier;
 pub mod steam_connector;
 
 pub(crate) fn urlencode(value: &str) -> String {

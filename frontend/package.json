@@ -12,7 +12,6 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "postbuild": "node scripts/write-desktop-config.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "electron": "electron .",

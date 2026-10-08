@@ -1,6 +1,5 @@
 pub mod activity_audience;
 pub mod block_lookup;
-pub mod user_state;
 
 pub(crate) fn with_request_id(builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
     let builder = api_common::middleware::internal::with_internal_token(builder);

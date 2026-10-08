@@ -130,11 +130,6 @@ variable "monitoring" {
   default = false
 }
 
-variable "google_client_id" {
-  type    = string
-  default = ""
-}
-
 variable "github_client_id" {
   type    = string
   default = ""

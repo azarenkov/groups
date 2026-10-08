@@ -6,7 +6,7 @@ use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, u
 use ports::repository::RepositoryError;
 
 use crate::{
-    ports::{hasher::{HashError, Hasher}, oauth_verifier::OAuthIdentityVerifier},
+    ports::{hasher::{HashError, Hasher}},
     usecases::user::reauth::{Reauth, ReauthError, Reauthenticator},
 };
 
@@ -34,31 +34,29 @@ pub struct RequestEmailChangeRequest {
     pub request_id: Option<String>,
 }
 
-pub struct RequestEmailChange<U, W, H, V>
+pub struct RequestEmailChange<U, W, H>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
-    V: OAuthIdentityVerifier,
 {
     user_repository: Arc<U>,
     unit_of_work: Arc<W>,
     hasher: Arc<H>,
-    reauthenticator: Arc<Reauthenticator<U, H, V>>,
+    reauthenticator: Arc<Reauthenticator<H>>,
 }
 
-impl<U, W, H, V> RequestEmailChange<U, W, H, V>
+impl<U, W, H> RequestEmailChange<U, W, H>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
-    V: OAuthIdentityVerifier,
 {
     pub fn new(
         user_repository: Arc<U>,
         unit_of_work: Arc<W>,
         hasher: Arc<H>,
-        reauthenticator: Arc<Reauthenticator<U, H, V>>,
+        reauthenticator: Arc<Reauthenticator<H>>,
     ) -> Self {
         Self {
             user_repository,

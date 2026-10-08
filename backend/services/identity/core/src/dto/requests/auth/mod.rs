@@ -1,6 +1,4 @@
 pub mod confirm_registration;
-pub mod google_complete;
-pub mod google_login;
 pub mod issue_verification_code;
 pub mod login_user;
 pub mod logout;
