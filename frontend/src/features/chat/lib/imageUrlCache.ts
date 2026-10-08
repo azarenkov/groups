@@ -36,12 +36,22 @@ export const cacheImageUrl = (id: string, url: string): string => {
 
 export const pendingImageDownloads = new Map<string, Promise<string>>();
 
+let imageSession = 0;
+
+export const clearImageUrlCache = (): void => {
+  imageSession += 1;
+  for (const entry of imageUrlCache.values()) URL.revokeObjectURL(entry.url);
+  imageUrlCache.clear();
+  pendingImageDownloads.clear();
+};
+
 const downloadCachedUrl = (key: string, load: () => Promise<Blob>): Promise<string> => {
   const existing = pendingImageDownloads.get(key);
   if (existing) return existing;
   const storeKey = `img:${key}`;
   const startedAt = blobCacheGeneration();
-  const promise = readCachedBlob(storeKey)
+  const session = imageSession;
+  const promise: Promise<string> = readCachedBlob(storeKey)
     .then(
       (cached) =>
         cached ??
@@ -50,9 +60,12 @@ const downloadCachedUrl = (key: string, load: () => Promise<Blob>): Promise<stri
           return blob;
         }),
     )
-    .then((blob) => cacheImageUrl(key, URL.createObjectURL(blob)))
+    .then((blob) => {
+      if (session !== imageSession) throw new Error("image session ended");
+      return cacheImageUrl(key, URL.createObjectURL(blob));
+    })
     .finally(() => {
-      pendingImageDownloads.delete(key);
+      if (pendingImageDownloads.get(key) === promise) pendingImageDownloads.delete(key);
     });
   pendingImageDownloads.set(key, promise);
   return promise;

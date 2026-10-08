@@ -1,5 +1,5 @@
 import { memoryBlobBackend, readCachedBlob, setBlobBackend, writeCachedBlob } from "../../../../shared/lib/blobCache";
-import { discardBrokenImageUrl, downloadThumbnailUrl } from "../imageUrlCache";
+import { acquireImageUrl, clearImageUrlCache, discardBrokenImageUrl, downloadImageUrl, downloadThumbnailUrl } from "../imageUrlCache";
 import { attachmentAPI } from "../../api/attachment";
 
 jest.mock("../../api/attachment", () => ({
@@ -7,6 +7,7 @@ jest.mock("../../api/attachment", () => ({
 }));
 
 const thumbnail = attachmentAPI.thumbnail as jest.Mock;
+const download = attachmentAPI.download as jest.Mock;
 
 beforeAll(() => {
   Object.assign(URL, {
@@ -37,4 +38,20 @@ it("forgets a stored image that turned out to be broken", async () => {
   thumbnail.mockResolvedValueOnce({ size: 4 } as Blob);
   await downloadThumbnailUrl("a2", 3, 10);
   expect(thumbnail).toHaveBeenCalledTimes(1);
+});
+
+it("forgets attachment URLs from the previous account on sign-out", async () => {
+  (URL.createObjectURL as jest.Mock).mockImplementation(() => `blob:${Math.random()}`);
+  download.mockResolvedValueOnce({ size: 3 } as Blob);
+  const seen = await downloadImageUrl("a3", 3);
+  let finish: (blob: Blob) => void = () => undefined;
+  download.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+  const late = downloadImageUrl("a4", 3);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  clearImageUrlCache();
+  finish({ size: 3 } as Blob);
+  await expect(late).rejects.toThrow();
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith(seen);
+  expect(acquireImageUrl("a3")).toBeNull();
+  expect(acquireImageUrl("a4")).toBeNull();
 });
