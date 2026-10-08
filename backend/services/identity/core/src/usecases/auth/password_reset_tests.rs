@@ -162,6 +162,9 @@ impl IdentityTransaction for Fake {
         stored.consumed_at = code.consumed_at();
         Ok(())
     }
+    async fn load_verification_code_for_update(&mut self, id: &VerificationCodeId) -> Result<Option<VerificationCode>, RepositoryError> {
+        Ok(self.0.lock().unwrap().codes.iter().find(|c| c.id.uuid() == id.uuid()).map(restore_code))
+    }
     async fn consume_pending_verifications(&mut self, user_id: &UserId, purpose: VerificationPurpose, now: DateTime<Utc>) -> Result<(), RepositoryError> {
         let mut state = self.0.lock().unwrap();
         for code in state.codes.iter_mut().filter(|c| c.user_id == *user_id && std::mem::discriminant(&c.purpose) == std::mem::discriminant(&purpose)) {
@@ -339,16 +342,31 @@ async fn unknown_emails_and_quick_repeats_look_the_same_and_send_nothing() {
 }
 
 #[tokio::test]
-async fn a_forged_secret_locks_the_link() {
+async fn guessed_links_do_not_burn_the_emailed_one() {
     let (fake, user_id) = Fake::with_user();
     let (request, apply) = usecases(&fake);
     request.execute(forgot("t@example.com")).await.unwrap();
     let token = fake.tokens().pop().unwrap();
-    let forged = reset_token(&user_id, &"0".repeat(64));
+    let guessed = format!("{}.{}", user_id.uuid().simple(), "0".repeat(64));
+    for _ in 0..(VerificationCode::max_attempts() + 1) {
+        assert!(matches!(apply.execute(reset(&guessed, "x-pass")).await, Err(ResetPasswordError::InvalidToken)));
+    }
+    assert!(matches!(apply.execute(reset("garbage", "new-pass")).await, Err(ResetPasswordError::InvalidToken)));
+    apply.execute(reset(&token, "new-pass")).await.unwrap();
+    assert_eq!(fake.password(), "h:new-pass");
+}
+
+#[tokio::test]
+async fn a_wrong_secret_for_the_emailed_link_locks_it() {
+    let (fake, _) = Fake::with_user();
+    let (request, apply) = usecases(&fake);
+    request.execute(forgot("t@example.com")).await.unwrap();
+    let token = fake.tokens().pop().unwrap();
+    let (id, _) = token.split_once('.').unwrap();
+    let wrong = format!("{id}.{}", "0".repeat(64));
     for _ in 0..VerificationCode::max_attempts() {
-        assert!(matches!(apply.execute(reset(&forged, "x-pass")).await, Err(ResetPasswordError::InvalidToken)));
+        assert!(matches!(apply.execute(reset(&wrong, "x-pass")).await, Err(ResetPasswordError::InvalidToken)));
     }
     assert!(matches!(apply.execute(reset(&token, "new-pass")).await, Err(ResetPasswordError::InvalidToken)));
-    assert!(matches!(apply.execute(reset("garbage", "new-pass")).await, Err(ResetPasswordError::InvalidToken)));
     assert_eq!(fake.password(), "h:old");
 }

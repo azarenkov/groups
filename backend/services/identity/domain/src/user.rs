@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use domain::password_hash::PasswordHash;
-use crate::{user::email::Email, user::tier::BadgeStyle, user::tier::Tier, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
+use crate::{user::email::Email, user::tier::BadgeStyle, user::tier::Tier, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 
 pub const BIO_MAX_CHARS: usize = 190;
 
@@ -180,6 +180,25 @@ impl User {
             channel,
             code_hash,
             purpose,
+            self.locale,
+        ))
+    }
+
+    pub fn issue_password_reset(
+        &self,
+        id: VerificationCodeId,
+        token: String,
+        code_hash: CodeHash,
+    ) -> Result<VerificationCode, UserError> {
+        self.ensure_can_request_verification(VerificationPurpose::PasswordReset)?;
+        Ok(VerificationCode::issue_with_id(
+            id,
+            self.id,
+            self.email.clone(),
+            token,
+            VerificationChannel::Email,
+            code_hash,
+            VerificationPurpose::PasswordReset,
             self.locale,
         ))
     }
