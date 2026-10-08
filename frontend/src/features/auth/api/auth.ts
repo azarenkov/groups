@@ -110,6 +110,17 @@ class AuthAPI {
     return response.data.data;
   }
 
+  async forgotPassword(email: string, altcha?: string | null): Promise<void> {
+    await this.client.post("/v1/auth/password/forgot", {
+      email,
+      ...(altcha ? { altcha } : {}),
+    });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    await this.client.post("/v1/auth/password/reset", { token, newPassword });
+  }
+
   async captchaChallenge(): Promise<AltchaChallenge | null> {
     const response = await this.client.get("/v1/auth/challenge");
     const data = response.data.data as { enabled: boolean; challenge?: AltchaChallenge };

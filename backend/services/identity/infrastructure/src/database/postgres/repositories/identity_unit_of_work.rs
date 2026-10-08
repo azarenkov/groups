@@ -425,6 +425,24 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         Ok(())
     }
 
+    async fn consume_pending_verifications(&mut self, user_id: &UserId, purpose: VerificationPurpose, now: DateTime<Utc>) -> Result<(), RepositoryError> {
+        let purpose_dto = VerificationPurposeDto::from(&purpose);
+        sqlx::query!(
+            r#"
+                UPDATE verification_codes
+                SET consumed_at = $3
+                WHERE user_id = $1 AND purpose = $2 AND consumed_at IS NULL
+            "#,
+            user_id.uuid(),
+            purpose_dto as VerificationPurposeDto,
+            now,
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
     async fn lock_user(&mut self, user_id: &UserId) -> Result<bool, RepositoryError> {
         let row = sqlx::query_scalar!(
             r#"SELECT 1 AS "one!" FROM users WHERE id = $1 FOR UPDATE"#,

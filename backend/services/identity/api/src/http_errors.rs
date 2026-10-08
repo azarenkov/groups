@@ -89,6 +89,7 @@ use identity::usecases::auth::google_login::GoogleLoginError;
 use identity::usecases::auth::issue_verification_code::IssueVerificationCodeError;
 use identity::usecases::auth::login::LoginError;
 use identity::usecases::auth::logout::LogoutError;
+use identity::usecases::auth::password_reset::{RequestPasswordResetError, ResetPasswordError};
 use identity::usecases::auth::refresh_tokens::RefreshTokensError;
 use identity::usecases::auth::register::RegistrationError;
 use identity::usecases::user::change_password::ChangePasswordError;
@@ -564,6 +565,60 @@ impl HttpMapping for IssueVerificationCodeError {
             IssueVerificationCodeError::UserAlreadyVerified => "USER_ALREADY_VERIFIED",
             IssueVerificationCodeError::UserNotFound => "USER_NOT_FOUND",
             IssueVerificationCodeError::TooSoon(_) => "VERIFICATION_RESEND_TOO_SOON",
+        }
+    }
+}
+
+impl HttpMapping for RequestPasswordResetError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RequestPasswordResetError::Repository(e) => e.to_http_status(),
+            RequestPasswordResetError::Hash(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            RequestPasswordResetError::Repository(e) => e.to_user_message(),
+            RequestPasswordResetError::Hash(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RequestPasswordResetError::Repository(e) => e.to_error_code(),
+            RequestPasswordResetError::Hash(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl HttpMapping for ResetPasswordError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ResetPasswordError::Repository(e) => e.to_http_status(),
+            ResetPasswordError::Hash(e) => e.to_http_status(),
+            ResetPasswordError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
+            ResetPasswordError::InvalidToken | ResetPasswordError::Expired => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ResetPasswordError::Repository(e) => e.to_user_message(),
+            ResetPasswordError::Hash(e) => e.to_user_message(),
+            ResetPasswordError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
+            ResetPasswordError::InvalidToken => "This reset link is invalid or has already been used".to_string(),
+            ResetPasswordError::Expired => "This reset link has expired".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ResetPasswordError::Repository(e) => e.to_error_code(),
+            ResetPasswordError::Hash(e) => e.to_error_code(),
+            ResetPasswordError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
+            ResetPasswordError::InvalidToken => "RESET_TOKEN_INVALID",
+            ResetPasswordError::Expired => "RESET_TOKEN_EXPIRED",
         }
     }
 }

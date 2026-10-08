@@ -20,6 +20,7 @@ use identity::usecases::{
     auth::{
         confirm_registration::ConfirmRegistration, google_login::GoogleLogin,
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
+        password_reset::{RequestPasswordReset, ResetPassword},
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
     user::{
@@ -212,6 +213,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             unit_of_work.clone(),
             hasher.clone(),
         ),
+        request_password_reset_usecase: RequestPasswordReset::new(
+            user_repository.clone(),
+            unit_of_work.clone(),
+            hasher.clone(),
+        ),
+        reset_password_usecase: ResetPassword::new(unit_of_work.clone(), hasher.clone(), access_revoker.clone()),
         login_user_usecase: LoginUser::new(
             user_repository.clone(),
             hasher.clone(),

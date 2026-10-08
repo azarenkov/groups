@@ -86,7 +86,7 @@ impl VerificationCode {
     fn ttl_for(purpose: &VerificationPurpose) -> Duration {
         match purpose {
             VerificationPurpose::Registration => Duration::minutes(30),
-            VerificationPurpose::PasswordReset => Duration::minutes(10),
+            VerificationPurpose::PasswordReset => Duration::minutes(30),
             VerificationPurpose::EmailChange => Duration::minutes(10),
             VerificationPurpose::PhoneChange => Duration::minutes(10),
         }
@@ -95,6 +95,11 @@ impl VerificationCode {
     pub fn generate() -> String {
         let code = rand::rng().random_range(0..1_000_000);
         format!("{:06}", code)
+    }
+
+    pub fn generate_secret() -> String {
+        let bytes: [u8; 32] = rand::rng().random();
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
     }
 
     pub fn pull_events(&mut self) -> Vec<VerificationEvent> {

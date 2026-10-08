@@ -40,6 +40,8 @@ pub enum UserError {
     Deleted,
     #[error("Bio is too long")]
     BioTooLong,
+    #[error("Verification code not for password reset")]
+    NotPasswordResetCode,
 }
 
 #[derive(Debug, Serialize)]
@@ -235,6 +237,52 @@ impl User {
         self.password_changed_at = Some(now);
         self.updated_at = now;
         self.record(UserEvent::PasswordChanged(UserPasswordChanged::record(self.id, now)));
+    }
+
+    pub fn ensure_can_reset_password(&self, code: &VerificationCode, now: DateTime<Utc>) -> Result<(), UserError> {
+        if self.deleted_at.is_some() {
+            return Err(UserError::Deleted);
+        }
+        if *code.user_id() != self.id {
+            return Err(UserError::ForeignCode);
+        }
+        if !matches!(code.purpose(), VerificationPurpose::PasswordReset) {
+            return Err(UserError::NotPasswordResetCode);
+        }
+        if code.consumed_at().is_some() {
+            return Err(UserError::CodeConsumed);
+        }
+        if code.is_limit_attempts() {
+            return Err(UserError::TooManyAttempts);
+        }
+        if code.expires_at() < now {
+            return Err(UserError::CodeExpired);
+        }
+        Ok(())
+    }
+
+    pub fn reset_password(
+        &mut self,
+        code: &mut VerificationCode,
+        code_matches: bool,
+        password_hash: PasswordHash,
+        now: DateTime<Utc>,
+    ) -> Result<(), UserError> {
+        self.ensure_can_reset_password(code, now)?;
+        if !code_matches {
+            code.register_failed_attempt();
+            return Err(if code.is_limit_attempts() {
+                UserError::TooManyAttempts
+            } else {
+                UserError::BadCode
+            });
+        }
+        code.consume(now);
+        if self.email_verified_at.is_none() {
+            self.verify_email(now);
+        }
+        self.change_password(password_hash, now);
+        Ok(())
     }
 
     pub fn request_email_change(

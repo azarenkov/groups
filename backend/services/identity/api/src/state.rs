@@ -20,6 +20,7 @@ use identity::usecases::{
     auth::{
         confirm_registration::ConfirmRegistration, google_login::GoogleLogin,
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
+        password_reset::{RequestPasswordReset, ResetPassword},
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
     user::{
@@ -60,6 +61,12 @@ pub struct AppState {
         PostgresIdentityUnitOfWork,
         BcryptHasher,
     >,
+    pub request_password_reset_usecase: RequestPasswordReset<
+        PostgresUserRepository,
+        PostgresIdentityUnitOfWork,
+        BcryptHasher,
+    >,
+    pub reset_password_usecase: ResetPassword<PostgresIdentityUnitOfWork, BcryptHasher, RedisAccessRevoker>,
     pub login_user_usecase: LoginUser<
         PostgresUserRepository,
         BcryptHasher,

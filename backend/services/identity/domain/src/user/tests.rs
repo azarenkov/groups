@@ -252,3 +252,70 @@ fn picking_a_badge_style_tells_the_other_services() {
     assert!(!BadgeStyle::Default.needs_paid_tier());
     assert_eq!(BadgeStyle::parse("sparkly"), None);
 }
+
+fn reset_code(user: &User) -> VerificationCode {
+    user.issue_verification(
+        VerificationChannel::Email,
+        VerificationPurpose::PasswordReset,
+        "token".to_string(),
+        CodeHash::new("hash".to_string()),
+    )
+    .unwrap()
+}
+
+#[test]
+fn a_reset_code_sets_the_new_password_once_and_verifies_the_email() {
+    let mut user = fresh_user();
+    let mut code = reset_code(&user);
+    let now = Utc::now();
+    user.reset_password(&mut code, true, PasswordHash::new("new".into()), now).unwrap();
+    assert_eq!(user.password_hash().as_str(), "new");
+    assert_eq!(user.password_changed_at(), Some(now));
+    assert!(user.is_email_verified());
+    assert_eq!(code.consumed_at(), Some(now));
+    assert!(matches!(
+        user.pull_events().as_slice(),
+        [UserEvent::EmailVerified(_), UserEvent::PasswordChanged(_)]
+    ));
+    assert_eq!(
+        user.reset_password(&mut code, true, PasswordHash::new("again".into()), now).unwrap_err(),
+        UserError::CodeConsumed
+    );
+    assert_eq!(user.password_hash().as_str(), "new");
+}
+
+#[test]
+fn a_reset_code_expires_and_locks_after_wrong_secrets() {
+    let mut user = fresh_user();
+    let mut code = reset_code(&user);
+    let later = Utc::now() + Duration::minutes(31);
+    assert_eq!(
+        user.reset_password(&mut code, true, PasswordHash::new("new".into()), later).unwrap_err(),
+        UserError::CodeExpired
+    );
+    for _ in 0..(VerificationCode::max_attempts() - 1) {
+        assert_eq!(
+            user.reset_password(&mut code, false, PasswordHash::new("new".into()), Utc::now()).unwrap_err(),
+            UserError::BadCode
+        );
+    }
+    assert_eq!(
+        user.reset_password(&mut code, false, PasswordHash::new("new".into()), Utc::now()).unwrap_err(),
+        UserError::TooManyAttempts
+    );
+    assert_eq!(
+        user.reset_password(&mut code, true, PasswordHash::new("new".into()), Utc::now()).unwrap_err(),
+        UserError::TooManyAttempts
+    );
+    assert_eq!(user.password_hash().as_str(), "hash");
+}
+
+#[test]
+fn other_codes_cannot_reset_the_password() {
+    let mut user = fresh_user();
+    let mut code = registration_code(&user);
+    assert_eq!(
+        user.reset_password(&mut code, true, PasswordHash::new("new".into()), Utc::now()).unwrap_err(),
+        UserError::NotPasswordResetCode
+    );
+}

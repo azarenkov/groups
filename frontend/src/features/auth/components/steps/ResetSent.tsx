@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
-import { ArrowLeft } from "../authHelpers";
+import { ArrowLeft, FormError } from "../authHelpers";
+import { useForgotPassword } from "../../lib/useForgotPassword";
 
+export const RESEND_RESET_AFTER_S = 60;
 
 export const ResetSent: React.FC<{
   email: string;
-  onResend: () => void;
-  onOpenLink: () => void;
   onBack: () => void;
-}> = ({ email, onResend, onOpenLink, onBack }) => {
+}> = ({ email, onBack }) => {
   const { t } = useTranslation("auth");
-  const [secondsLeft, setSecondsLeft] = useState(30);
+  const { send, sending, error } = useForgotPassword();
+  const [secondsLeft, setSecondsLeft] = useState(RESEND_RESET_AFTER_S);
   useEffect(() => {
     if (secondsLeft <= 0) return;
     const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
@@ -36,9 +37,7 @@ export const ResetSent: React.FC<{
         </span>
         <span>{t("checkInboxHint")}</span>
       </div>
-      <button type="button" className="btn primary" onClick={onOpenLink}>
-        {t("clickedLink")}
-      </button>
+      {error && <FormError>{error}</FormError>}
       <div className="auth-resend">
         {secondsLeft > 0 ? (
           <>
@@ -48,9 +47,11 @@ export const ResetSent: React.FC<{
           <button
             type="button"
             className="auth-link muted"
+            disabled={sending}
             onClick={() => {
-              setSecondsLeft(30);
-              onResend();
+              void send(email).then((ok) => {
+                if (ok) setSecondsLeft(RESEND_RESET_AFTER_S);
+              });
             }}
           >
             {t("resendEmail")}

@@ -33,3 +33,16 @@ export function authRedirectTarget(search: string): string {
 export function appDeepLink(token: string): string {
   return `rift://join/${token}`;
 }
+
+const RESET_TOKEN_RE = /^[0-9a-f]{32}\.[0-9a-f]{64}$/;
+
+export function resetPasswordDeepLink(token: string): string {
+  return `rift://reset-password?token=${encodeURIComponent(token)}`;
+}
+
+export function extractResetToken(url: string): string | null {
+  const match = /^rift:\/\/reset-password\/?\?token=([^&#]+)/.exec(url.trim());
+  if (!match) return null;
+  const token = decodeURIComponent(match[1]);
+  return RESET_TOKEN_RE.test(token) ? token : null;
+}
