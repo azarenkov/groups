@@ -172,3 +172,55 @@ it("does not store a download that started before sign out", async () => {
   await writeCachedBlob("fresh", blobOf(1), blobCacheGeneration());
   expect(await readCachedBlob("fresh")).not.toBeNull();
 });
+
+it("does not let a read's usage update bring back a blob deleted meanwhile", async () => {
+  const memory = memoryBlobBackend();
+  let releaseGet: () => void = () => undefined;
+  let slow = true;
+  setBlobBackend({
+    ...memory,
+    get: async (key) => {
+      const record = await memory.get(key);
+      if (slow) {
+        slow = false;
+        await new Promise<void>((resolve) => (releaseGet = resolve));
+      }
+      return record;
+    },
+  });
+  await memory.put({ key: "avatar", blob: blobOf(1), size: 1, usedAt: 1 });
+  const reading = readCachedBlob("avatar");
+  await Promise.resolve();
+  await deleteCachedBlob("avatar");
+  releaseGet();
+  await reading;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(await memory.get("avatar")).toBeUndefined();
+});
+
+it("does not let a read's usage update overwrite a newer blob", async () => {
+  const memory = memoryBlobBackend();
+  let releaseGet: () => void = () => undefined;
+  let slow = true;
+  setBlobBackend({
+    ...memory,
+    get: async (key) => {
+      const record = await memory.get(key);
+      if (slow) {
+        slow = false;
+        await new Promise<void>((resolve) => (releaseGet = resolve));
+      }
+      return record;
+    },
+  });
+  const oldBlob = blobOf(1);
+  const newBlob = blobOf(2);
+  await memory.put({ key: "avatar", blob: oldBlob, size: 1, usedAt: 1 });
+  const reading = readCachedBlob("avatar");
+  await Promise.resolve();
+  await writeCachedBlob("avatar", newBlob);
+  releaseGet();
+  await reading;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect((await memory.get("avatar"))?.blob).toBe(newBlob);
+});

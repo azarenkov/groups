@@ -121,24 +121,43 @@ const resolveLimit = (): Promise<number> => {
   return limitResolving;
 };
 
-async function touch(store: BlobBackend, record: BlobRecord, gen: number): Promise<void> {
-  try {
-    if (gen !== generation) return;
-    await store.put({ ...record, usedAt: Date.now() });
-    if (gen !== generation) await store.delete(record.key);
-  } catch {
-    return;
-  }
+const keyVersions = new Map<string, number>();
+const keyChains = new Map<string, Promise<unknown>>();
+
+const bumpKey = (key: string) => keyVersions.set(key, (keyVersions.get(key) ?? 0) + 1);
+
+function forKey<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const previous = keyChains.get(key) ?? Promise.resolve();
+  const run = previous.then(task, task);
+  const tail = run.catch(() => undefined);
+  keyChains.set(key, tail);
+  void tail.then(() => {
+    if (keyChains.get(key) === tail) keyChains.delete(key);
+  });
+  return run;
+}
+
+function touch(store: BlobBackend, record: BlobRecord, gen: number, version: number | undefined): Promise<void> {
+  return forKey(record.key, async () => {
+    if (gen !== generation || keyVersions.get(record.key) !== version) return;
+    try {
+      await store.put({ ...record, usedAt: Date.now() });
+      if (gen !== generation) await store.delete(record.key);
+    } catch {
+      return;
+    }
+  });
 }
 
 export async function readCachedBlob(key: string): Promise<Blob | null> {
   const store = current();
   if (!store) return null;
   const gen = generation;
+  const version = keyVersions.get(key);
   try {
     const record = await store.get(key);
     if (!record || gen !== generation) return null;
-    void touch(store, record, gen);
+    void touch(store, record, gen, version);
     return record.blob;
   } catch {
     return null;
@@ -156,6 +175,7 @@ async function evict(store: BlobBackend, keep: string, target?: number): Promise
   for (const record of records.sort((a, b) => a.usedAt - b.usedAt)) {
     if (total <= limit) break;
     if (record.key === keep) continue;
+    bumpKey(record.key);
     await store.delete(record.key);
     total -= record.size;
   }
@@ -172,10 +192,15 @@ async function totalSize(store: BlobBackend): Promise<number> {
 
 export const blobCacheGeneration = (): number => generation;
 
-export async function writeCachedBlob(key: string, blob: Blob, startedAt: number = generation): Promise<void> {
+export function writeCachedBlob(key: string, blob: Blob, startedAt: number = generation): Promise<void> {
   const store = current();
-  if (!store || disabled || blob.size > BLOB_CACHE_MAX_ITEM_BYTES || startedAt !== generation) return;
+  if (!store || disabled || blob.size > BLOB_CACHE_MAX_ITEM_BYTES || startedAt !== generation) return Promise.resolve();
+  bumpKey(key);
   const gen = generation;
+  return forKey(key, () => storeBlob(store, key, blob, gen));
+}
+
+async function storeBlob(store: BlobBackend, key: string, blob: Blob, gen: number): Promise<void> {
   try {
     const limit = await resolveLimit();
     if (gen !== generation || blob.size > limit) return;
@@ -206,21 +231,25 @@ export async function writeCachedBlob(key: string, blob: Blob, startedAt: number
   }
 }
 
-export async function deleteCachedBlob(key: string): Promise<void> {
+export function deleteCachedBlob(key: string): Promise<void> {
   const store = current();
-  if (!store) return;
-  try {
-    const previous = await store.get(key);
-    await store.delete(key);
-    if (previous && knownTotal !== null) knownTotal = Math.max(0, knownTotal - previous.size);
-  } catch {
-    return;
-  }
+  if (!store) return Promise.resolve();
+  bumpKey(key);
+  return forKey(key, async () => {
+    try {
+      const previous = await store.get(key);
+      await store.delete(key);
+      if (previous && knownTotal !== null) knownTotal = Math.max(0, knownTotal - previous.size);
+    } catch {
+      return;
+    }
+  });
 }
 
 export async function clearBlobCache(): Promise<void> {
   generation += 1;
   knownTotal = 0;
+  keyVersions.clear();
   const store = current();
   if (!store) return;
   try {
