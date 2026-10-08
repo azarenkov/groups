@@ -5,6 +5,8 @@ import i18n from "../../../../i18n";
 import UserProfileModal from "../UserProfileModal";
 import { useProfileModalStore } from "../../store/profileModalStore";
 import { homeAPI } from "../../../home/api/home";
+import { useAuthStore } from "../../../auth/store/authStore";
+import { useUserProfileStore } from "../../store/userProfileStore";
 
 jest.mock("../../../../shared/lib/avatarCache", () => ({ useAvatarUrl: () => null }));
 jest.mock("../../../home/api/home", () => ({ homeAPI: { profile: jest.fn() } }));
@@ -33,6 +35,10 @@ const publicProfile = (name: string) => ({
   voiceRoom: null,
 });
 
+beforeEach(() => {
+  useAuthStore.setState({ user: { id: "me", name: "Me" } } as never);
+});
+
 it("shows a profile opened before right away while refreshing it", async () => {
   await i18n.changeLanguage("en");
   profile.mockResolvedValueOnce(publicProfile("Bobby")).mockImplementation(() => new Promise(() => undefined));
@@ -46,5 +52,22 @@ it("shows a profile opened before right away while refreshing it", async () => {
   act(() => useProfileModalStore.getState().open("u2"));
   expect(screen.getByText("Bobby")).toBeTruthy();
   expect(profile).toHaveBeenCalledTimes(2);
+  act(() => useProfileModalStore.getState().close());
+});
+
+it("drops a profile answer that arrives after signing out", async () => {
+  let finish: (v: unknown) => void = () => undefined;
+  profile.mockReset();
+  profile.mockImplementation(() => new Promise((resolve) => (finish = resolve)));
+  render(<UserProfileModal onOpenDm={jest.fn()} onCall={jest.fn()} onRemoveFriend={jest.fn()} onBlockUser={jest.fn()} />);
+  await act(async () => {
+    useProfileModalStore.getState().open("u9");
+  });
+  act(() => useAuthStore.setState({ user: null } as never));
+  await act(async () => {
+    finish({ ...publicProfile("Leak"), id: "u9", bio: "old account bio", profileUpdatedAt: "2026-10-01T00:00:00Z" });
+    await Promise.resolve();
+  });
+  expect(useUserProfileStore.getState().bios.u9).toBeUndefined();
   act(() => useProfileModalStore.getState().close());
 });

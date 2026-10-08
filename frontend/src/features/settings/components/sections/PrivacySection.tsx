@@ -22,7 +22,10 @@ export function PrivacySection() {
     setBusy(true);
     homeAPI
       .updatePrivacy(patch)
-      .then((saved) => queryClient.setQueryData(queryKeys.privacySettings(), saved))
+      .then(async (saved) => {
+        await queryClient.cancelQueries({ queryKey: queryKeys.privacySettings() });
+        queryClient.setQueryData(queryKeys.privacySettings(), saved);
+      })
       .catch((err) => console.warn("[privacy] update failed:", err))
       .finally(() => setBusy(false));
   };

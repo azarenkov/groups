@@ -1,47 +1,39 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import React from "react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import i18n from "../../../../../i18n";
-import { homeAPI } from "../../../../home/api/home";
 import { PrivacySection } from "../PrivacySection";
+import { homeAPI } from "../../../../home/api/home";
+import { queryClient, queryKeys } from "../../../../../shared/query/queryClient";
 
-jest.mock("../../../../home/api/home", () => ({
-  homeAPI: { privacy: jest.fn(), updatePrivacy: jest.fn() },
-}));
-
+jest.mock("../../../../home/api/home", () => ({ homeAPI: { privacy: jest.fn(), updatePrivacy: jest.fn() } }));
 jest.mock("../../../../social/store/blockStore", () => {
-  const state = {
-    page: [],
-    pageLoaded: true,
-    pageError: false,
-    pageCursor: null,
-    pageLoading: false,
-    fetchPage: () => Promise.resolve(),
-    unblock: () => Promise.resolve(),
-  };
-  const useBlockStore = (select: (s: typeof state) => unknown) => select(state);
-  useBlockStore.getState = () => state;
-  return { useBlockStore };
+  const actual = jest.requireActual("../../../../social/store/blockStore");
+  actual.useBlockStore.setState({ fetch: () => Promise.resolve(), loaded: true, blocked: {} });
+  return actual;
 });
 
-const settings = { dmPolicy: "friends", callPolicy: "friends", acceptFriendRequests: true, showLocalTime: false };
+const privacy = homeAPI.privacy as jest.Mock;
+const update = homeAPI.updatePrivacy as jest.Mock;
+const settings = (dmPolicy: string) => ({ dmPolicy, acceptFriendRequests: true, showActivity: true, showLocalTime: false });
 
-describe("PrivacySection", () => {
-  beforeAll(async () => {
-    await i18n.changeLanguage("ru");
+it("keeps a saved change when an older read finishes later", async () => {
+  await i18n.changeLanguage("en");
+  privacy.mockResolvedValueOnce(settings("all"));
+  render(<PrivacySection />);
+  await screen.findAllByText(i18n.t("settings:privacy.friends"));
+  let finishRead: (v: unknown) => void = () => undefined;
+  privacy.mockImplementationOnce(() => new Promise((resolve) => (finishRead = resolve)));
+  act(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.privacySettings() });
   });
-
-  beforeEach(() => {
-    (homeAPI.privacy as jest.Mock).mockResolvedValue(settings);
-    (homeAPI.updatePrivacy as jest.Mock).mockResolvedValue({ ...settings, showLocalTime: true });
+  update.mockResolvedValueOnce(settings("friends"));
+  await act(async () => {
+    fireEvent.click(screen.getAllByText(i18n.t("settings:privacy.friends"))[0]);
   });
-
-  it("keeps local time hidden by default and turns it on", async () => {
-    render(<PrivacySection />);
-    const label = await screen.findByText("Показывать моё местное время");
-    const toggle = label.closest(".s-row")!.querySelector<HTMLButtonElement>(".s-switch")!;
-    expect(toggle).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(toggle);
-    await waitFor(() => expect(homeAPI.updatePrivacy).toHaveBeenCalledWith({ showLocalTime: true }));
-    await waitFor(() => expect(toggle).toHaveAttribute("aria-pressed", "true"));
+  await act(async () => {
+    finishRead(settings("all"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
+  expect(queryClient.getQueryData<{ dmPolicy: string }>(queryKeys.privacySettings())?.dmPolicy).toBe("friends");
 });

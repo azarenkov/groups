@@ -119,7 +119,9 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
       queryFn: async () => {
         const id = userId as string;
         const gen = blockGeneration(id);
+        const session = useAuthStore.getState().user?.id;
         const p = await homeAPI.profile(id);
+        if (!session || useAuthStore.getState().user?.id !== session) throw new Error("SESSION_CHANGED");
         useUserProfileStore.getState().apply(id, p.bio, profileVersion(p.profileUpdatedAt));
         useBlockStore.getState().applyRelation(id, { blocked: p.blocked, blockedBy: p.blockedBy }, gen);
         return p;

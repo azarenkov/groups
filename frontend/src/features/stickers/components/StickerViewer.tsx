@@ -51,11 +51,14 @@ const StickerViewer: React.FC<StickerViewerProps> = ({ sticker, messageId, onClo
     },
     queryClient,
   );
-  const state: PackState = packQuery.data
-    ? { kind: "ready", pack: packQuery.data }
-    : packQuery.isError
-      ? { kind: isGone(packQuery.error) ? "gone" : "failed" }
-      : { kind: "loading" };
+  const state: PackState =
+    packQuery.isError && isGone(packQuery.error)
+      ? { kind: "gone" }
+      : packQuery.data
+        ? { kind: "ready", pack: packQuery.data }
+        : packQuery.isError
+          ? { kind: "failed" }
+          : { kind: "loading" };
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   React.useEffect(() => {
