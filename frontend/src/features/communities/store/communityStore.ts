@@ -4,6 +4,7 @@ import { communityAPI } from "../api/community";
 
 interface CommunityState {
   communities: Community[];
+  loaded: boolean;
   selectedCommunityId: string | null;
   isLoading: boolean;
   error: string | null;
@@ -34,13 +35,18 @@ interface CommunityState {
     accentColor?: string,
   ) => Promise<Community>;
   deleteCommunity: (communityId: string) => Promise<void>;
+  clearAll: () => void;
 }
 
 let removedDuringFetch = new Set<string>();
 let patchedDuringFetch = new Set<string>();
+let communitySessionGen = 0;
+
+export const communitySession = (): number => communitySessionGen;
 
 export const useCommunityStore = create<CommunityState>((set, get) => ({
   communities: [],
+  loaded: false,
   selectedCommunityId: null,
   isLoading: false,
   error: null,
@@ -81,7 +87,16 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
 
   setPagination: (pagination) => set({ pagination }),
 
+  clearAll: () => {
+    communitySessionGen += 1;
+    removedDuringFetch = new Set();
+    patchedDuringFetch = new Set();
+    set({ communities: [], loaded: false, selectedCommunityId: null, isLoading: false, error: null, pagination: null });
+  },
+
   fetchCommunities: async (page = 1, perPage = 50) => {
+    const gen = communitySessionGen;
+    const current = () => gen === communitySessionGen;
     set({ isLoading: true, error: null });
     try {
       const loaded: Community[] = [];
@@ -93,6 +108,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
           .filter((s) => !removedDuringFetch.has(s.id))
           .map((s) => (patchedDuringFetch.has(s.id) ? (current.find((c) => c.id === s.id) ?? s) : s));
       const mergeWithCached = () =>
+        current() &&
         set((state) => {
           const fresh = alive(state.communities);
           const seen = new Set(fresh.map((s) => s.id));
@@ -100,23 +116,27 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
           return { communities: [...fresh, ...cached] };
         });
       const first = await communityAPI.listCommunities(page, perPage);
+      if (!current()) return;
       loaded.push(...first.communities);
       set({ pagination: first.pagination });
       mergeWithCached();
       const totalPages = first.pagination?.totalPages ?? 1;
       for (let p = page + 1; p <= totalPages; p++) {
         const next = await communityAPI.listCommunities(p, perPage);
+        if (!current()) return;
         const known = new Set(loaded.map((s) => s.id));
         loaded.push(...next.communities.filter((s) => !known.has(s.id)));
         mergeWithCached();
       }
+      if (!current()) return;
       set((state) => {
         const fresh = alive(state.communities);
         const seen = new Set(fresh.map((s) => s.id));
         const addedMeanwhile = state.communities.filter((s) => !seen.has(s.id) && !before.has(s.id));
-        return { communities: [...addedMeanwhile, ...fresh], isLoading: false };
+        return { communities: [...addedMeanwhile, ...fresh], isLoading: false, loaded: true };
       });
     } catch (error) {
+      if (!current()) return;
       set({
         error: error instanceof Error ? error.message : "Failed to fetch communities",
         isLoading: false,
@@ -129,6 +149,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     description?: string,
     accentColor?: string,
   ) => {
+    const gen = communitySessionGen;
     set({ isLoading: true, error: null });
     try {
       const community = await communityAPI.createCommunity({
@@ -136,10 +157,12 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         description,
         accentColor,
       });
+      if (gen !== communitySessionGen) return community;
       get().addCommunity(community);
       set({ isLoading: false });
       return community;
     } catch (error) {
+      if (gen !== communitySessionGen) throw error;
       set({
         error: error instanceof Error ? error.message : "Failed to create community",
         isLoading: false,
@@ -149,12 +172,15 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   },
 
   deleteCommunity: async (communityId: string) => {
+    const gen = communitySessionGen;
     set({ isLoading: true, error: null });
     try {
       await communityAPI.deleteCommunity(communityId);
+      if (gen !== communitySessionGen) return;
       get().removeCommunity(communityId);
       set({ isLoading: false });
     } catch (error) {
+      if (gen !== communitySessionGen) throw error;
       set({
         error: error instanceof Error ? error.message : "Failed to delete community",
         isLoading: false,

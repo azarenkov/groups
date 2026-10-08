@@ -2,35 +2,34 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { UserAvatar } from "../../../../shared/ui/Avatar";
 import { homeAPI, type PrivacySettings } from "../../../home/api/home";
+import { queryClient, queryKeys } from "../../../../shared/query/queryClient";
+import { useQuery } from "@tanstack/react-query";
+import { useAuthStore } from "../../../auth/store/authStore";
 import { useBlockStore } from "../../../social/store/blockStore";
 
 import { SettingsRow, Switch } from "../controls";
 
 export function PrivacySection() {
   const { t } = useTranslation("settings");
-  const [settings, setSettings] = React.useState<PrivacySettings | null>(null);
-  const [failed, setFailed] = React.useState(false);
+  const privacyQuery = useQuery(
+    { queryKey: queryKeys.privacySettings(), queryFn: () => homeAPI.privacy() },
+    queryClient,
+  );
+  const settings: PrivacySettings | null = privacyQuery.data ?? null;
+  const failed = privacyQuery.isError && !settings;
   const [busy, setBusy] = React.useState(false);
-  React.useEffect(() => {
-    let cancelled = false;
-    homeAPI
-      .privacy()
-      .then((s) => {
-        if (!cancelled) setSettings(s);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
   const apply = (patch: Partial<PrivacySettings>) => {
     if (busy) return;
     setBusy(true);
+    const session = useAuthStore.getState().user?.id;
     homeAPI
       .updatePrivacy(patch)
-      .then(setSettings)
+      .then(async (saved) => {
+        if (!session || useAuthStore.getState().user?.id !== session) return;
+        await queryClient.cancelQueries({ queryKey: queryKeys.privacySettings() });
+        if (useAuthStore.getState().user?.id !== session) return;
+        queryClient.setQueryData(queryKeys.privacySettings(), saved);
+      })
       .catch((err) => console.warn("[privacy] update failed:", err))
       .finally(() => setBusy(false));
   };

@@ -6,9 +6,39 @@ import { PAGE_LIMIT } from "../constants";
 import { mergeWithLive } from "../lib/messageFormat";
 import { appendedOwnMessage, shouldStickToBottom } from "../lib/scrollRules";
 import type { Messenger } from "./useMessenger";
+import {
+  dropConversation,
+  readConversation,
+  reconcileLatestPage,
+  saveConversation,
+  type ScrollMemory,
+} from "../lib/messageCache";
+
+export function captureScroll(body: HTMLDivElement | null, atBottom: boolean): ScrollMemory {
+  if (!body || atBottom) return { atBottom: true, anchorId: null, offset: 0 };
+  const top = body.getBoundingClientRect().top;
+  const nodes = body.querySelectorAll<HTMLElement>("[data-msg-id]");
+  for (const node of Array.from(nodes)) {
+    const offset = node.getBoundingClientRect().top - top;
+    if (offset >= 0) return { atBottom: false, anchorId: node.dataset.msgId ?? null, offset };
+  }
+  return { atBottom: true, anchorId: null, offset: 0 };
+}
 
 const HIGHLIGHT_MS = 2500;
 const JUMP_CONTEXT = 25;
+
+const CHANNEL_ACCESS_ERRORS = new Set([
+  "CHANNEL_NOT_MEMBER",
+  "CHANNEL_PASSWORD_REQUIRED",
+  "INVALID_CHANNEL_PASSWORD",
+  "CHANNEL_NOT_FOUND",
+  "CHANNEL_NOT_TEXT",
+  "COMMUNITY_NOT_MEMBER",
+  "COMMUNITY_NOT_FOUND",
+]);
+
+const DM_ACCESS_ERRORS = new Set(["USER_BLOCKED", "USER_NOT_FOUND", "TARGET_USER_NOT_FOUND", "DM_SELF", "SELF_DM"]);
 
 export function useMessages(params: {
   messenger: Messenger | null;
@@ -64,57 +94,130 @@ export function useMessages(params: {
     isConversation && loadedChannelIdRef.current !== convId;
   const showInitialLoader = loadingInitial || conversationNotReady;
 
-  React.useEffect(() => {
-    setMessages([]);
-    setHasMore(false);
+  const hasMoreRef = React.useRef(hasMore);
+  hasMoreRef.current = hasMore;
+  const accessErrorRef = React.useRef(accessError);
+  accessErrorRef.current = accessError;
+  const restoredFromCacheRef = React.useRef<ChannelMessage[] | null>(null);
+  const revalidatingRef = React.useRef(false);
+  const revalidationRef = React.useRef<{ done: Promise<void>; finish: () => void } | null>(null);
+  const historySyncPendingRef = React.useRef(false);
+  const [historySyncNonce, setHistorySyncNonce] = React.useState(0);
+
+  React.useLayoutEffect(() => {
+    const body = bodyRef.current;
+    const cached = convId ? readConversation(convId) : undefined;
+    restoredFromCacheRef.current = cached ? cached.messages : null;
     setAccessError(null);
-    nearBottomRef.current = true;
     restoreScrollRef.current = null;
     tailIdRef.current = null;
     if (bodyRef.current) bodyRef.current.style.overflowAnchor = "";
+    if (cached && convId) {
+      setMessages(cached.messages);
+      setHasMore(cached.hasMore);
+      nearBottomRef.current = cached.scroll.atBottom;
+      if (!cached.scroll.atBottom && cached.scroll.anchorId) {
+        if (bodyRef.current) bodyRef.current.style.overflowAnchor = "none";
+        restoreScrollRef.current = { anchorId: cached.scroll.anchorId, offset: cached.scroll.offset };
+      }
+      loadedChannelIdRef.current = convId;
+      setLoadingInitial(false);
+    } else {
+      setMessages([]);
+      setHasMore(false);
+      nearBottomRef.current = true;
+    }
+    return () => {
+      if (!convId || loadedChannelIdRef.current !== convId || accessErrorRef.current) return;
+      saveConversation(convId, {
+        messages: messagesRef.current,
+        hasMore: hasMoreRef.current,
+        scroll: captureScroll(body, nearBottomRef.current),
+      });
+    };
+  }, [convId]);
+
+  React.useEffect(() => {
     const messengerNow = messengerRef.current;
     if (!messengerNow || !convId) return;
 
     let cancelled = false;
-    setLoadingInitial(true);
+    const restored = restoredFromCacheRef.current;
+    const fromCache = restored !== null;
+    if (!fromCache) setLoadingInitial(true);
     const targetId = convId;
+    const knownBefore = new Set((restored ?? []).map((m) => m.id));
+    revalidatingRef.current = fromCache;
+    if (fromCache) {
+      let finish: () => void = () => undefined;
+      const done = new Promise<void>((resolve) => (finish = resolve));
+      revalidationRef.current = { done, finish };
+    }
+    const endRevalidation = () => {
+      const current = revalidationRef.current;
+      revalidationRef.current = null;
+      current?.finish();
+    };
     messengerNow
       .listMessages({ limit: PAGE_LIMIT })
       .then((res) => {
         if (cancelled) return;
         const ordered = [...res.messages].reverse();
-        setMessages((prev) => mergeWithLive(ordered, prev));
-        setHasMore(res.messages.length >= PAGE_LIMIT);
+        const fullPage = res.messages.length >= PAGE_LIMIT;
+        if (!fromCache) {
+          setMessages((prev) => mergeWithLive(ordered, prev));
+          setHasMore(fullPage);
+          return;
+        }
+        const reconciled = reconcileLatestPage(restored ?? [], ordered, fullPage, knownBefore);
+        setMessages((prev) => reconcileLatestPage(prev, ordered, fullPage, knownBefore).messages);
+        if (!fullPage) setHasMore(false);
+        else if (reconciled.gap) setHasMore(true);
       })
       .catch((err) => {
         if (cancelled) return;
         const apiErr = err instanceof ApiError ? err : null;
-        if (
-          isText &&
-          (apiErr?.code === "CHANNEL_NOT_MEMBER" ||
-            apiErr?.code === "CHANNEL_PASSWORD_REQUIRED" ||
-            apiErr?.code === "INVALID_CHANNEL_PASSWORD")
-        ) {
+        if (isText && apiErr?.code && CHANNEL_ACCESS_ERRORS.has(apiErr.code)) {
+          dropConversation(targetId);
+          setMessages([]);
           setAccessError(apiErr.message || "You haven't joined this channel yet.");
         } else if (isDm && apiErr?.code === "NOT_FRIENDS") {
+          dropConversation(targetId);
+          setMessages([]);
           setAccessError(i18n.t("notFriends", { ns: "chat" }));
+        } else if (isDm && apiErr?.code && DM_ACCESS_ERRORS.has(apiErr.code)) {
+          dropConversation(targetId);
+          setMessages([]);
+          setAccessError(apiErr.message || i18n.t("notFriends", { ns: "chat" }));
         } else {
           console.warn("[ChatView] failed to load messages:", err);
         }
       })
       .finally(() => {
         if (cancelled) return;
+        endRevalidation();
+        revalidatingRef.current = false;
         loadedChannelIdRef.current = targetId;
         setLoadingInitial(false);
+        if (historySyncPendingRef.current) {
+          historySyncPendingRef.current = false;
+          setHistorySyncNonce((n) => n + 1);
+        }
       });
     return () => {
       cancelled = true;
+      revalidatingRef.current = false;
+      endRevalidation();
     };
   }, [convId, isText, isDm]);
 
   React.useEffect(() => {
     const messengerNow = messengerRef.current;
     if (nameSyncTick === 0 || !messengerNow || !convIdRef.current) return;
+    if (revalidatingRef.current) {
+      historySyncPendingRef.current = true;
+      return;
+    }
     let cancelled = false;
     const targetId = convIdRef.current;
     const oldestLoadedAt = messagesRef.current[0]?.createdAt;
@@ -154,7 +257,7 @@ export function useMessages(params: {
     return () => {
       cancelled = true;
     };
-  }, [nameSyncTick]);
+  }, [nameSyncTick, historySyncNonce]);
 
   React.useLayoutEffect(() => {
     const body = bodyRef.current;
@@ -180,12 +283,12 @@ export function useMessages(params: {
     if (!nearBottomRef.current && !own) return;
     body.scrollTop = body.scrollHeight;
     nearBottomRef.current = true;
-  }, [messages.length, loadingInitial]);
+  }, [messages.length, loadingInitial, convId]);
 
   const loadOlder = React.useCallback(async () => {
     const messengerNow = messengerRef.current;
     if (!messengerNow || !convId) return;
-    if (loadingOlderRef.current) return;
+    if (loadingOlderRef.current || revalidatingRef.current) return;
     if (!hasMore) return;
     if (messages.length === 0) return;
     const oldestId = messages[0].id;
@@ -254,6 +357,11 @@ export function useMessages(params: {
     const messengerNow = messengerRef.current;
     const targetId = convIdRef.current;
     if (!messengerNow || !targetId) return;
+    const pendingRevalidation = revalidationRef.current;
+    if (pendingRevalidation) {
+      await pendingRevalidation.done;
+      if (convIdRef.current !== targetId) return;
+    }
     setLoadingInitial(true);
     try {
       const [olderRes, newerRes] = await Promise.all([

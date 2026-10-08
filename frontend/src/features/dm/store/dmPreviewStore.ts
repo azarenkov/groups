@@ -35,6 +35,7 @@ interface DmPreviewState {
   ) => void;
   hasMessage: (messageId: string) => boolean;
   clear: () => void;
+  hydrate: (items: (DmPreview & { peerId: string })[]) => void;
 }
 
 let previewGen = 0;
@@ -138,6 +139,14 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
 
   hasMessage: (messageId) =>
     Object.values(get().byFriend).some((p) => p.messageId === messageId),
+
+  hydrate: (items) => {
+    if (get().loaded || Object.keys(get().byFriend).length > 0) return;
+    const byFriend: Record<string, DmPreview> = {};
+    for (const { peerId, ...preview } of items) byFriend[peerId] = preview;
+    pendingReplace = true;
+    set({ byFriend });
+  },
 
   clear: () => {
     previewGen += 1;

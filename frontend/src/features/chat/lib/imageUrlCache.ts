@@ -1,4 +1,5 @@
 import { attachmentAPI } from "../api/attachment";
+import { blobCacheGeneration, deleteCachedBlob, readCachedBlob, writeCachedBlob } from "../../../shared/lib/blobCache";
 
 export const IMAGE_CACHE_LIMIT = 40;
 export interface CachedImage {
@@ -35,13 +36,36 @@ export const cacheImageUrl = (id: string, url: string): string => {
 
 export const pendingImageDownloads = new Map<string, Promise<string>>();
 
+let imageSession = 0;
+
+export const clearImageUrlCache = (): void => {
+  imageSession += 1;
+  for (const entry of imageUrlCache.values()) URL.revokeObjectURL(entry.url);
+  imageUrlCache.clear();
+  pendingImageDownloads.clear();
+};
+
 const downloadCachedUrl = (key: string, load: () => Promise<Blob>): Promise<string> => {
   const existing = pendingImageDownloads.get(key);
   if (existing) return existing;
-  const promise = load()
-    .then((blob) => cacheImageUrl(key, URL.createObjectURL(blob)))
+  const storeKey = `img:${key}`;
+  const startedAt = blobCacheGeneration();
+  const session = imageSession;
+  const promise: Promise<string> = readCachedBlob(storeKey)
+    .then(
+      (cached) =>
+        cached ??
+        load().then((blob) => {
+          void writeCachedBlob(storeKey, blob, startedAt);
+          return blob;
+        }),
+    )
+    .then((blob) => {
+      if (session !== imageSession) throw new Error("image session ended");
+      return cacheImageUrl(key, URL.createObjectURL(blob));
+    })
     .finally(() => {
-      pendingImageDownloads.delete(key);
+      if (pendingImageDownloads.get(key) === promise) pendingImageDownloads.delete(key);
     });
   pendingImageDownloads.set(key, promise);
   return promise;
@@ -84,6 +108,7 @@ export const releaseImageUrl = (id: string, url: string | null) => {
 };
 
 export const discardBrokenImageUrl = (id: string, url: string) => {
+  void deleteCachedBlob(`img:${id}`);
   const entry = imageUrlCache.get(id);
   if (entry && entry.url === url) {
     if (entry.refs > 0) entry.refs -= 1;

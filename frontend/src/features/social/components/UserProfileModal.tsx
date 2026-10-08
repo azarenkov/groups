@@ -1,4 +1,6 @@
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { queryClient, queryKeys } from "../../../shared/query/queryClient";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
@@ -82,9 +84,6 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   }, [userId]);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const cachedBio = useUserProfileStore((s) => (userId ? s.bios[userId]?.bio : undefined));
-  const [profile, setProfile] = React.useState<PublicProfile | null>(null);
-  const [connections, setConnections] = React.useState<Connection[]>([]);
-  const [failed, setFailed] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const badge = useBadge(userId);
   const bannerUrl = useAvatarUrl("banner", badge && !blockedMe ? userId : null);
@@ -99,53 +98,41 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const friendshipStatus = userId ? friendStatuses[userId] : undefined;
 
   React.useEffect(() => {
-    setProfile(null);
-    setConnections([]);
-    setFailed(false);
     setMenuOpen(false);
     setCopied(false);
     setAvatarOpen(false);
   }, [userId]);
 
-  React.useEffect(() => {
-    if (!userId || blockedMe) {
-      setConnections([]);
-      return;
-    }
-    let cancelled = false;
-    userAPI
-      .userConnections(userId)
-      .then((items) => {
-        if (!cancelled) setConnections(items);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, blockedMe]);
+  const connectionsQuery = useQuery(
+    {
+      queryKey: queryKeys.userConnections(userId ?? ""),
+      queryFn: () => userAPI.userConnections(userId as string),
+      enabled: !!userId && !blockedMe,
+    },
+    queryClient,
+  );
+  const connections: Connection[] = userId && !blockedMe ? (connectionsQuery.data ?? []) : [];
 
-  React.useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    const gen = blockGeneration(userId);
-    homeAPI
-      .profile(userId)
-      .then((p) => {
-        if (cancelled) return;
-        useUserProfileStore.getState().apply(userId, p.bio, profileVersion(p.profileUpdatedAt));
-        useBlockStore
-          .getState()
-          .applyRelation(userId, { blocked: p.blocked, blockedBy: p.blockedBy }, gen);
-        setProfile(p);
-        setFailed(false);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, friendshipStatus, blockedByMe, blockedMe]);
+  const profileQuery = useQuery(
+    {
+      queryKey: [...queryKeys.publicProfile(userId ?? ""), friendshipStatus ?? null, blockedByMe, blockedMe],
+      queryFn: async () => {
+        const id = userId as string;
+        const gen = blockGeneration(id);
+        const session = useAuthStore.getState().user?.id;
+        const p = await homeAPI.profile(id);
+        if (!session || useAuthStore.getState().user?.id !== session) throw new Error("SESSION_CHANGED");
+        useUserProfileStore.getState().apply(id, p.bio, profileVersion(p.profileUpdatedAt));
+        useBlockStore.getState().applyRelation(id, { blocked: p.blocked, blockedBy: p.blockedBy }, gen);
+        return p;
+      },
+      enabled: !!userId,
+      staleTime: 0,
+    },
+    queryClient,
+  );
+  const profile: PublicProfile | null = userId ? (profileQuery.data ?? null) : null;
+  const failed = profileQuery.isError && !profile;
 
   React.useEffect(() => {
     if (!userId) return;

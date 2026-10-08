@@ -22,6 +22,7 @@ interface ConversationPinsState extends PinLists {
   ) => Promise<void>;
   applyRemote: (lists: Partial<PinLists>) => void;
   remoteChanged: () => void;
+  hydrate: (lists: PinLists) => void;
   ensureLoaded: () => void;
   forget: (kind: ConversationPinKind, id: string) => void;
   clearAll: () => void;
@@ -221,6 +222,13 @@ export const useConversationPinsStore = create<ConversationPinsState>((set, get)
         }
         if (gen === sessionGen) ensureLoop = false;
       })();
+    },
+
+    hydrate: (lists) => {
+      if (get().loaded || inflightFetches.size > 0 || get().dms.length > 0 || get().communities.length > 0) return;
+      const dms = ids(lists.dms);
+      const communities = ids(lists.communities);
+      set({ dms: dms ?? [], communities: communities ?? [] });
     },
 
     remoteChanged: () => {

@@ -6,7 +6,7 @@ import { CommunityLogo, UserAvatar } from "../../../shared/ui/Avatar";
 import { ApiError } from "../../../shared/lib/apiError";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useCommunityStore } from "../../communities/store/communityStore";
-import { useChannelStore } from "../../communities/store/channelStore";
+import { channelsFullyLoaded, useChannelStore } from "../../communities/store/channelStore";
 import { forwardMessage } from "../api/forward";
 import type { ForwardTarget } from "../api/forward";
 import {
@@ -65,9 +65,8 @@ const ForwardModal: React.FC = () => {
   React.useEffect(() => {
     if (!source) return;
     if (!friendsLoaded) void useFriendshipStore.getState().loadAll();
-    const loaded = useChannelStore.getState().channelsByCommunity;
     for (const c of useCommunityStore.getState().communities) {
-      if (!loaded[c.id]) void useChannelStore.getState().fetchChannels(c.id);
+      if (!channelsFullyLoaded(c.id)) void useChannelStore.getState().fetchChannels(c.id);
     }
   }, [source, friendsLoaded]);
 

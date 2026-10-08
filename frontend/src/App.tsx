@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { clearPersistentSessionData } from "./shared/lib/persistentSessionData";
 import {
   BrowserRouter as Router,
   Routes,
@@ -171,7 +172,10 @@ const App: React.FC = () => {
     const hydrate = async () => {
       try {
         const refreshToken = await getRefreshToken();
-        if (!refreshToken) return;
+        if (!refreshToken) {
+          clearPersistentSessionData();
+          return;
+        }
         const fresh = await authAPI.refreshWith(refreshToken);
         if (cancelled) return;
         const claims = decodeAccessToken(fresh.accessToken);
@@ -209,6 +213,7 @@ const App: React.FC = () => {
           status === 422;
         if (sessionDead) {
           await clearRefreshToken();
+          clearPersistentSessionData();
         }
       } finally {
         if (!cancelled) useAuthStore.getState().setHydrating(false);

@@ -1,4 +1,5 @@
 import React from "react";
+import { queryClient, queryKeys } from "../../../shared/query/queryClient";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
@@ -190,12 +191,17 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
       setView({ kind: "pack", id: created.id });
     });
 
+  const cachePack = (next: StickerPack) => {
+    queryClient.setQueryData(queryKeys.stickerPack(next.id), next);
+  };
+
   const addSticker = (file: File) =>
     run(async (sameSession) => {
       if (!pack) return;
       const updated = await stickersAPI.addSticker(pack.id, file, emoji.trim());
       if (!sameSession()) return;
       setPack(updated);
+      cachePack(updated);
       useStickerStore.getState().upsertPack(updated);
     });
 
@@ -204,11 +210,13 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
       if (!pack) return;
       await stickersAPI.removeSticker(pack.id, stickerId);
       if (!sameSession()) return;
-      setPack({
+      const next = {
         ...pack,
         stickers: pack.stickers.filter((s) => s.id !== stickerId),
         stickerCount: Math.max(0, pack.stickerCount - 1),
-      });
+      };
+      setPack(next);
+      cachePack(next);
       useStickerStore.getState().forgetSticker(stickerId);
     });
 
@@ -218,11 +226,13 @@ const StickerPacksModal: React.FC<StickerPacksModalProps> = ({ onClose, packId }
       await stickersAPI.remove(pack.id);
       if (!sameSession()) return;
       useStickerStore.getState().dropPack(pack.id);
+      queryClient.removeQueries({ queryKey: queryKeys.stickerPack(pack.id) });
       setView({ kind: "mine" });
     });
 
   const updatePack = (next: StickerPack) => {
     setPack(next);
+    cachePack(next);
     if (useStickerStore.getState().packs.some((p) => p.id === next.id)) useStickerStore.getState().upsertPack(next);
   };
 

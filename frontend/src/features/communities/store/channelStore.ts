@@ -13,6 +13,8 @@ interface ChannelState {
   error: string | null;
 
   setChannels: (communityId: string, channels: Channel[]) => void;
+  hydrate: (byCommunity: Record<string, Channel[]>) => void;
+  clearAll: () => void;
   setSelectedChannel: (channelId: string | null) => void;
   addChannel: (communityId: string, channel: Channel) => void;
   removeChannel: (communityId: string, channelId: string) => void;
@@ -35,6 +37,7 @@ interface ChannelState {
 
 const removedDuringFetch = new Map<string, Set<string>>();
 const clearGen = new Map<string, number>();
+let channelSessionGen = 0;
 const inFlight = new Map<string, Promise<boolean>>();
 const complete = new Set<string>();
 
@@ -129,6 +132,19 @@ export const useChannelStore = create<ChannelState>((set, get) => {
     isLoading: false,
     error: null,
 
+    hydrate: (byCommunity) => {
+      set((state) => {
+        const next = { ...state.channelsByCommunity };
+        let changed = false;
+        for (const [communityId, channels] of Object.entries(byCommunity)) {
+          if (next[communityId] || complete.has(communityId) || inFlight.has(communityId) || !Array.isArray(channels)) continue;
+          next[communityId] = channels;
+          changed = true;
+        }
+        return changed ? { channelsByCommunity: next } : {};
+      });
+    },
+
     setChannels: (communityId, channels) =>
       set((state) => ({
         channelsByCommunity: {
@@ -181,6 +197,19 @@ export const useChannelStore = create<ChannelState>((set, get) => {
 
     clearError: () => set({ error: null }),
 
+    clearAll: () => {
+      channelSessionGen += 1;
+      const ids = new Set([...Object.keys(get().channelsByCommunity), ...inFlight.keys(), ...complete]);
+      for (const communityId of ids) {
+        clearGen.set(communityId, (clearGen.get(communityId) ?? 0) + 1);
+        removedDuringFetch.delete(communityId);
+        patchedDuringFetch.delete(communityId);
+      }
+      inFlight.clear();
+      complete.clear();
+      set({ channelsByCommunity: {}, selectedChannelId: null, isLoading: false, error: null });
+    },
+
     clearChannels: (communityId) => {
       clearGen.set(communityId, (clearGen.get(communityId) ?? 0) + 1);
       inFlight.delete(communityId);
@@ -210,6 +239,7 @@ export const useChannelStore = create<ChannelState>((set, get) => {
       visibility: ChannelVisibility,
       password?: string,
     ) => {
+      const gen = channelSessionGen;
       set({ isLoading: true, error: null });
       try {
         const channel = await channelAPI.create(communityId, {
@@ -218,9 +248,11 @@ export const useChannelStore = create<ChannelState>((set, get) => {
           visibility,
           password,
         });
+        if (gen !== channelSessionGen) return;
         get().addChannel(communityId, channel);
         set({ isLoading: false });
       } catch (error) {
+        if (gen !== channelSessionGen) throw error;
         set({
           error:
             error instanceof Error ? error.message : "Failed to create channel",
@@ -231,12 +263,15 @@ export const useChannelStore = create<ChannelState>((set, get) => {
     },
 
     deleteChannel: async (communityId: string, channelId: string) => {
+      const gen = channelSessionGen;
       set({ isLoading: true, error: null });
       try {
         await channelAPI.delete(communityId, channelId);
+        if (gen !== channelSessionGen) return;
         get().removeChannel(communityId, channelId);
         set({ isLoading: false });
       } catch (error) {
+        if (gen !== channelSessionGen) throw error;
         set({
           error:
             error instanceof Error ? error.message : "Failed to delete channel",

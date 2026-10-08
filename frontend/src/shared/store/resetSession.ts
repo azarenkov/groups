@@ -4,6 +4,10 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
   );
   void import("../lib/avatarCache").then((m) => m.clearAvatarCache());
   void import("../../features/chat/lib/mentionTargets").then((m) => m.clearMentionTargets());
+  void import("../../features/chat/lib/messageCache").then((m) => m.clearMessageCache());
+  void import("../../features/chat/lib/imageUrlCache").then((m) => m.clearImageUrlCache());
+  void import("../query/queryClient").then((m) => m.resetQueryCache());
+  void import("../../features/chat/hooks/usePinnedMessages").then((m) => m.clearPinTombstones());
 
   void import("../../features/social/store/activityStore").then((m) => m.useActivityStore.getState().clearAll());
   void import("../../features/social/store/blockStore").then((m) => m.useBlockStore.getState().clearAll());
@@ -16,6 +20,8 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
   void import("../../features/social/store/presenceStore").then((m) => m.usePresenceStore.getState().clearAll());
   void import("../../features/chat/store/readReceiptStore").then((m) => m.useReadReceiptStore.getState().clear());
   void import("../../features/communities/store/rolesStore").then((m) => m.useRolesStore.getState().clearAll());
+  void import("../../features/communities/store/communityStore").then((m) => m.useCommunityStore.getState().clearAll());
+  void import("../../features/communities/store/channelStore").then((m) => m.useChannelStore.getState().clearAll());
   void import("../../features/communities/store/conversationPinsStore").then((m) =>
     m.useConversationPinsStore.getState().clearAll(),
   );
