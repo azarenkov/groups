@@ -113,3 +113,21 @@ export const AppleGlyph: React.FC = () => (
     <path d="M16.365 1.43c0 1.14-.43 2.22-1.14 3.01-.75.85-1.94 1.51-3.1 1.42-.13-1.1.42-2.26 1.1-3 .76-.83 2-1.46 3.14-1.43zM20.5 17.3c-.55 1.27-.82 1.84-1.53 2.96-.99 1.55-2.39 3.48-4.12 3.49-1.54.01-1.93-1-4.02-1-2.1 0-2.52 1-4.06.99-1.73-.01-3.05-1.76-4.04-3.31-2.77-4.33-3.06-9.4-1.35-12.1 1.21-1.92 3.12-3.04 4.9-3.04 1.82 0 2.96 1 4.47 1 1.46 0 2.35-1 4.45-1 1.59 0 3.27.87 4.47 2.36-3.93 2.15-3.29 7.76 0 8.65z" />
   </svg>
 );
+
+export const FormError: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div
+    className="error-text"
+    role="alert"
+    style={{
+      fontSize: 12,
+      color: "var(--danger)",
+      background: "var(--danger-tint)",
+      padding: "8px 12px",
+      borderRadius: 8,
+      marginTop: 10,
+      textAlign: "center",
+    }}
+  >
+    {children}
+  </div>
+);

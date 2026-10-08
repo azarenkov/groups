@@ -1,14 +1,16 @@
 use crate::config::mailer::MailerConfig;
 use domain::{user::email::Email, user::locale::Locale};
-use ports::{mailer::Mailer, mailer::MailerError};
+use ports::{mailer::CodePurpose, mailer::Mailer, mailer::MailerError};
 use async_trait::async_trait;
-use chrono::{DateTime, Datelike, Utc};
-use lettre::message::{Mailbox, header::ContentType};
+use chrono::{DateTime, Utc};
+use lettre::message::{Mailbox, MultiPart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
 use std::sync::{Arc, Mutex};
 
 use urlencoding::encode;
+
+use super::templates::{self, RenderedEmail};
 
 #[derive(Clone)]
 pub struct SmtpMailer {
@@ -48,12 +50,7 @@ impl SmtpMailer {
         })
     }
 
-    fn send_html(
-        &self,
-        to: &Email,
-        subject: &str,
-        body: String,
-    ) -> Result<(), MailerError> {
+    fn send(&self, to: &Email, rendered: RenderedEmail) -> Result<(), MailerError> {
         let to_mailbox: Mailbox = to
             .as_str()
             .parse()
@@ -61,9 +58,8 @@ impl SmtpMailer {
         let email = Message::builder()
             .from(self.inner.from_mailbox.clone())
             .to(to_mailbox)
-            .subject(subject)
-            .header(ContentType::TEXT_HTML)
-            .body(body)
+            .subject(rendered.subject)
+            .multipart(MultiPart::alternative_plain_html(rendered.text, rendered.html))
             .map_err(|e| MailerError::Sending(format!("failed to build message: {}", e)))?;
         let mailer = self
             .inner
@@ -90,63 +86,20 @@ impl Mailer for SmtpMailer {
             self.inner.reset_base_url.trim_end_matches('/'),
             encode(token).into_owned()
         );
-
-        let (subject, html_body) = match locale {
-            Locale::Ru => (
-                "Сброс пароля",
-                format!(
-                    r#"<p>Здравствуйте,</p>
-                    <p>Вы запросили сброс пароля. Перейдите по ссылке ниже:</p>
-                    <p><a href="{link}">{link}</a></p>
-                    <p>Если вы не запрашивали сброс пароля, проигнорируйте это сообщение.</p>"#,
-                    link = reset_link
-                ),
-            ),
-            Locale::En => (
-                "Password reset",
-                format!(
-                    r#"<p>Hello,</p>
-                    <p>You requested a password reset. Follow the link below:</p>
-                    <p><a href="{link}">{link}</a></p>
-                    <p>If you did not request a reset, please ignore this message.</p>"#,
-                    link = reset_link
-                ),
-            ),
-        };
-
-        self.send_html(email, subject, html_body)
+        self.send(email, templates::password_reset(&reset_link, locale, self.inner.app_url.as_deref()))
     }
 
     async fn send_verification_code(
         &self,
         email: &Email,
         verification_code: &str,
+        purpose: CodePurpose,
         locale: Locale,
     ) -> Result<(), MailerError> {
-        let (subject, html_body) = match locale {
-            Locale::Ru => (
-                "Код подтверждения",
-                format!(
-                    r#"<p>Здравствуйте,</p>
-                    <p>Ваш код подтверждения:</p>
-                    <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">{code}</p>
-                    <p>Если вы не запрашивали этот код, проигнорируйте это сообщение.</p>"#,
-                    code = verification_code
-                ),
-            ),
-            Locale::En => (
-                "Verification code",
-                format!(
-                    r#"<p>Hello,</p>
-                    <p>Your verification code:</p>
-                    <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">{code}</p>
-                    <p>If you did not request this code, please ignore this message.</p>"#,
-                    code = verification_code
-                ),
-            ),
-        };
-
-        self.send_html(email, subject, html_body)
+        self.send(
+            email,
+            templates::verification_code(verification_code, purpose, locale, self.inner.app_url.as_deref()),
+        )
     }
 
     async fn send_trial_ending(
@@ -155,63 +108,6 @@ impl Mailer for SmtpMailer {
         ends_at: DateTime<Utc>,
         locale: Locale,
     ) -> Result<(), MailerError> {
-        let link = self
-            .inner
-            .app_url
-            .as_deref()
-            .map(|url| format!(r#"<p><a href="{url}">{url}</a></p>"#))
-            .unwrap_or_default();
-        let date = trial_end_date(ends_at, locale);
-        let (subject, html_body) = match locale {
-            Locale::Ru => (
-                "Пробный Rift Pro заканчивается завтра",
-                format!(
-                    r#"<p>Здравствуйте,</p>
-                    <p>Пробный период Rift Pro закончится {date}.</p>
-                    <p>После этого аккаунт вернётся на Free. Баннер и анимированный аватар скроются, но не удалятся, а сообщения и вложения останутся на месте.</p>
-                    {link}"#,
-                    date = date,
-                    link = link
-                ),
-            ),
-            Locale::En => (
-                "Your Rift Pro trial ends tomorrow",
-                format!(
-                    r#"<p>Hello,</p>
-                    <p>Your Rift Pro trial ends on {date}.</p>
-                    <p>After that the account goes back to Free. Your banner and animated avatar are hidden but kept, and messages and attachments stay as they are.</p>
-                    {link}"#,
-                    date = date,
-                    link = link
-                ),
-            ),
-        };
-
-        self.send_html(email, subject, html_body)
-    }
-}
-
-pub(crate) fn trial_end_date(ends_at: DateTime<Utc>, locale: Locale) -> String {
-    const RU_MONTHS: [&str; 12] = [
-        "января", "февраля", "марта", "апреля", "мая", "июня",
-        "июля", "августа", "сентября", "октября", "ноября", "декабря",
-    ];
-    let month = ends_at.month0() as usize;
-    match locale {
-        Locale::Ru => format!("{} {} в {} UTC", ends_at.day(), RU_MONTHS[month], ends_at.format("%H:%M")),
-        Locale::En => format!("{} at {} UTC", ends_at.format("%B %-d"), ends_at.format("%H:%M")),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::TimeZone;
-
-    #[test]
-    fn trial_end_date_reads_naturally_in_both_languages() {
-        let at = Utc.with_ymd_and_hms(2026, 10, 6, 9, 5, 0).unwrap();
-        assert_eq!(trial_end_date(at, Locale::Ru), "6 октября в 09:05 UTC");
-        assert_eq!(trial_end_date(at, Locale::En), "October 6 at 09:05 UTC");
+        self.send(email, templates::trial_ending(ends_at, locale, self.inner.app_url.as_deref()))
     }
 }

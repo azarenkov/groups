@@ -5,5 +5,6 @@ pub mod issue_verification_code;
 pub mod login;
 pub mod reactivation;
 pub mod logout;
+pub mod password_reset;
 pub mod refresh_tokens;
 pub mod register;

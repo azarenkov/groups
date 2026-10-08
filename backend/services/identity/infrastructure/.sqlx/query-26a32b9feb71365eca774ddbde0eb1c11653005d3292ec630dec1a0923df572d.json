@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE verification_codes\n                SET consumed_at = $3\n                WHERE user_id = $1 AND purpose = $2 AND consumed_at IS NULL\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "verification_purpose",
+            "kind": {
+              "Enum": [
+                "registration",
+                "password_reset",
+                "email_change",
+                "phone_change"
+              ]
+            }
+          }
+        },
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "26a32b9feb71365eca774ddbde0eb1c11653005d3292ec630dec1a0923df572d"
+}

@@ -122,7 +122,10 @@ let pendingDeepLink = null;
 const DEEP_LINK_PROTOCOL = 'rift';
 
 function isInviteDeepLink(value) {
-  return typeof value === 'string' && /^rift:\/\/join\/[A-Za-z0-9_-]{22,64}\/?$/.test(value.trim());
+  if (typeof value !== 'string') return false;
+  const url = value.trim();
+  return /^rift:\/\/join\/[A-Za-z0-9_-]{22,64}\/?$/.test(url)
+    || /^rift:\/\/reset-password\/?\?token=[0-9a-f]{32}\.[0-9a-f]{64}$/.test(url);
 }
 
 function deepLinkFromArgv(argv) {

@@ -1,16 +1,19 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
-import { ArrowLeft } from "../authHelpers";
+import { ArrowLeft, FormError } from "../authHelpers";
+import { useForgotPassword } from "../../lib/useForgotPassword";
 
 
 export const Forgot: React.FC<{
   email: string;
   onEmailChange: (e: string) => void;
-  onSubmit: () => void;
+  onSent: () => void;
   onBack: () => void;
-}> = ({ email, onEmailChange, onSubmit, onBack }) => {
+}> = ({ email, onEmailChange, onSent, onBack }) => {
   const { t } = useTranslation("auth");
+  const { send, sending, solving, error } = useForgotPassword();
+  const canSubmit = email.trim().length > 0 && !sending;
   return (
     <>
       <button type="button" className="auth-back" onClick={onBack}>
@@ -21,7 +24,10 @@ export const Forgot: React.FC<{
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          onSubmit();
+          if (!canSubmit) return;
+          void send(email).then((ok) => {
+            if (ok) onSent();
+          });
         }}
         autoComplete="off"
       >
@@ -32,14 +38,24 @@ export const Forgot: React.FC<{
             <input
               type="email"
               autoFocus
+              required
               placeholder={t("emailPlaceholder")}
               value={email}
               onChange={(e) => onEmailChange(e.target.value)}
             />
           </div>
         </div>
-        <button type="submit" className="btn primary" style={{ marginTop: 14 }}>
-          {t("sendResetLink")}
+        {error && <FormError>{error}</FormError>}
+        <button type="submit" className="btn primary" disabled={!canSubmit} style={{ marginTop: 14 }}>
+          {solving ? (
+            <>
+              <span className="loading-spinner" /> {t("captchaChecking")}
+            </>
+          ) : sending ? (
+            <span className="loading-spinner" />
+          ) : (
+            t("sendResetLink")
+          )}
         </button>
       </form>
       <div className="auth-foot">
