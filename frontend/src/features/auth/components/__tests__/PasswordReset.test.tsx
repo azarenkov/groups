@@ -54,11 +54,13 @@ it("sends the reset email and lets the user resend it after a minute", async () 
   expect(await screen.findByText("Check your inbox")).toBeInTheDocument();
   expect(forgotPassword).toHaveBeenCalledWith("T@example.com", null);
   expect(screen.queryByRole("button", { name: "Resend the email" })).toBeNull();
-  for (let i = 0; i < 60; i++) {
-    await act(async () => {
-      jest.advanceTimersByTime(1000);
-    });
-  }
+  await act(async () => {
+    jest.advanceTimersByTime(59_000);
+  });
+  expect(screen.queryByRole("button", { name: "Resend the email" })).toBeNull();
+  await act(async () => {
+    jest.advanceTimersByTime(1_000);
+  });
   fireEvent.click(screen.getByRole("button", { name: "Resend the email" }));
   await waitFor(() => expect(forgotPassword).toHaveBeenCalledTimes(2));
 });

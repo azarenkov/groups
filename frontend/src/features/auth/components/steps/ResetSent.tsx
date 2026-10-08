@@ -12,12 +12,15 @@ export const ResetSent: React.FC<{
 }> = ({ email, onBack }) => {
   const { t } = useTranslation("auth");
   const { send, sending, error } = useForgotPassword();
-  const [secondsLeft, setSecondsLeft] = useState(RESEND_RESET_AFTER_S);
+  const [resendAt, setResendAt] = useState(() => Date.now() + RESEND_RESET_AFTER_S * 1000);
+  const [now, setNow] = useState(() => Date.now());
+  const secondsLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
+  const counting = secondsLeft > 0;
   useEffect(() => {
-    if (secondsLeft <= 0) return;
-    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [secondsLeft]);
+    if (!counting) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [counting]);
 
   return (
     <>
@@ -50,7 +53,10 @@ export const ResetSent: React.FC<{
             disabled={sending}
             onClick={() => {
               void send(email).then((ok) => {
-                if (ok) setSecondsLeft(RESEND_RESET_AFTER_S);
+                if (!ok) return;
+                const sentAt = Date.now();
+                setNow(sentAt);
+                setResendAt(sentAt + RESEND_RESET_AFTER_S * 1000);
               });
             }}
           >
