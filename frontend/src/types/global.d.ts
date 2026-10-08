@@ -14,9 +14,6 @@ declare global {
       secureSet: (value: string) => Promise<boolean>;
       secureClear: () => Promise<boolean>;
 
-      googleOAuth?: () => Promise<string>;
-      googleOAuthAvailable?: () => Promise<boolean>;
-
       onScreenShareSources?: (
         callback: (data: {
           requestId: number;

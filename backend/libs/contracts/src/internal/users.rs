@@ -3,12 +3,6 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StateResponseV1 {
-    pub has_state: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ResolveUsersRequestV1 {
     pub names: Vec<String>,
 }

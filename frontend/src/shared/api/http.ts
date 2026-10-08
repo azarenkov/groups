@@ -20,8 +20,6 @@ const REFRESH_EXEMPT_PATHS = [
   "/v1/auth/login",
   "/v1/auth/register",
   "/v1/auth/challenge",
-  "/v1/auth/google",
-  "/v1/auth/google/complete",
 ];
 
 type RetriableConfig = AxiosRequestConfig & { _retry?: boolean };

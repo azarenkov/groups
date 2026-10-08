@@ -7,13 +7,10 @@ import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/authStore";
 import { currentLocale } from "../../../../i18n";
 import { authAPI, TokenPair } from "../../api/auth";
-import { userAPI } from "../../../social/api/user";
-import { bustAvatar } from "../../../../shared/lib/avatarCache";
 import { ApiError } from "../../../../shared/lib/apiError";
 import { validateUsername, UsernameIssue } from "../../../../shared/lib/username";
 import { isAccessTokenVerified, decodeAccessToken } from "../../../../shared/lib/jwt";
 import Icon from "../../../../shared/ui/Icon";
-import GoogleSignInButton from "../GoogleSignInButton";
 import { CaptchaSolveError } from "../../lib/captcha";
 import { isCaptchaError, useCaptcha } from "../../lib/useCaptcha";
 
@@ -104,9 +101,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
 
   const usernameServerError = (err: any): string | null => {
     if (!(err instanceof ApiError)) return null;
-    if (err.code === "NAME_TAKEN" || err.code === "GOOGLE_USERNAME_TAKEN") {
-      return t("usernameTaken");
-    }
+    if (err.code === "NAME_TAKEN") return t("usernameTaken");
     if (err.code === "NAME_NOT_ALLOWED") return t("usernameNotAllowed");
     if (err.code === "NAME_INVALID_FORMAT") return t("usernameInvalid");
     if (err.code === "MODERATION_UNAVAILABLE") {
@@ -123,14 +118,10 @@ export const SignInUp: React.FC<SignInUpProps> = ({
   });
 
   const [showPw, setShowPw] = useState(false);
-  const [pendingGoogleToken, setPendingGoogleToken] = useState<string | null>(
-    null,
-  );
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const { requestCrop, cropModal } = useImageCrop();
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const avatarInputRef = React.useRef<HTMLInputElement>(null);
-  const [googleUsername, setGoogleUsername] = useState("");
   const captcha = useCaptcha();
   const { warmUp: warmUpCaptcha } = captcha;
   const loginCaptchaRef = React.useRef(false);
@@ -142,32 +133,6 @@ export const SignInUp: React.FC<SignInUpProps> = ({
   const captchaMessage = (err: unknown): string | null => {
     if (err instanceof CaptchaSolveError || isCaptchaError(err)) return t("captchaFailed");
     return null;
-  };
-
-  const finishGoogleSession = async (response: TokenPair) => {
-    const tokens = {
-      accessToken: response.accessToken,
-      refreshToken: response.refreshToken,
-      tokenType: response.tokenType,
-      expiresIn: response.expiresIn,
-    };
-    const claims = decodeAccessToken(response.accessToken);
-    login(tokens, { id: claims?.sub ?? "", name: "", email: "" });
-    try {
-      await useAuthStore.getState().fetchMe();
-    } catch (meErr) {
-      console.warn("[Auth] fetchMe failed:", meErr);
-    }
-    if (isSignup && avatarFile) {
-      try {
-        await userAPI.uploadAvatar(avatarFile);
-        const uid = useAuthStore.getState().user?.id;
-        if (uid) bustAvatar("user", uid);
-      } catch (avatarErr) {
-        console.warn("[Auth] avatar upload failed:", avatarErr);
-      }
-    }
-    onSignedIn();
   };
 
   const handleSignIn = async (data: SignInData) => {
@@ -269,50 +234,6 @@ export const SignInUp: React.FC<SignInUpProps> = ({
     }
   };
 
-  const handleGoogleToken = async (idToken: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await authAPI.googleLogin(idToken, locale);
-      if (response.needsUsername) {
-        setGoogleUsername("");
-        setPendingGoogleToken(idToken);
-        return;
-      }
-      await finishGoogleSession(response);
-    } catch (err: any) {
-      setError(err.message || t("couldNotSignIn"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleComplete = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pendingGoogleToken) return;
-    const name = googleUsername.trim();
-    const issue = validateUsername(name);
-    if (issue !== null) {
-      setError(usernameIssueMessage(issue));
-      return;
-    }
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await authAPI.googleComplete(
-        pendingGoogleToken,
-        name,
-        locale,
-      );
-      setPendingGoogleToken(null);
-      await finishGoogleSession(response);
-    } catch (err: any) {
-      setError(usernameServerError(err) || err.message || t("couldNotSignIn"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const submit = isSignup
     ? signUpForm.handleSubmit(handleSignUp)
     : signInForm.handleSubmit(handleSignIn);
@@ -326,65 +247,6 @@ export const SignInUp: React.FC<SignInUpProps> = ({
     ? (signUpForm.register as unknown as AnyRegister)
     : (signInForm.register as unknown as AnyRegister);
   const registerPassword: AnyRegister = registerEmail;
-
-  if (pendingGoogleToken) {
-    return (
-      <>
-        <h1>{t("chooseUsernameTitle")}</h1>
-        <p className="sub">{t("chooseUsernameSubtitle")}</p>
-
-        <form onSubmit={handleGoogleComplete} autoComplete="off">
-          <div className="field">
-            <label>{t("displayName")}</label>
-            <div className="field-input">
-              <span className="lead"><Icon name="user" size={15} /></span>
-              <input
-                type="text"
-                autoFocus
-                placeholder={t("displayNamePlaceholder")}
-                value={googleUsername}
-                onChange={(e) => setGoogleUsername(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {error && (
-            <div
-              className="error-text"
-              style={{
-                fontSize: 12,
-                color: "var(--danger)",
-                background: "var(--danger-tint)",
-                padding: "8px 12px",
-                borderRadius: 8,
-                marginBottom: 10,
-                textAlign: "center",
-              }}
-            >
-              {error}
-            </div>
-          )}
-
-          <button type="submit" className="btn primary" disabled={isLoading}>
-            {isLoading ? <span className="loading-spinner" /> : t("continue")}
-          </button>
-        </form>
-
-        <div className="auth-foot">
-          <button
-            type="button"
-            className="auth-link"
-            onClick={() => {
-              setPendingGoogleToken(null);
-              setError(null);
-            }}
-          >
-            {t("backToSignIn")}
-          </button>
-        </div>
-      </>
-    );
-  }
 
   return (
     <>
@@ -577,11 +439,6 @@ export const SignInUp: React.FC<SignInUpProps> = ({
           )}
         </button>
       </form>
-
-      <GoogleSignInButton
-        onToken={handleGoogleToken}
-        text={isSignup ? "signup_with" : "signin_with"}
-      />
 
       <div className="auth-foot">
         {isSignup ? (

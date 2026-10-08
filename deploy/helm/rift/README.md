@@ -6,7 +6,7 @@ Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: po
 
 ## Web
 
-`web` deploys the React app from `ghcr.io/rift-space/rift/web` (built by `docker/web/Dockerfile`). The image serves the bundle with nginx and writes `config.js` at start from `web.apiUrl`, `web.wsUrl` and `config.GOOGLE_CLIENT_ID`, so one image works for every environment. With `web.enabled` the Ingress sends `gateway.ingress.apiPaths` (`/api`, `/ws`, `/presence`, `/healthz`) to the gateway and everything else to the web service; `PUBLIC_APP_URL` and `PUBLIC_API_URL` are then the same origin.
+`web` deploys the React app from `ghcr.io/rift-space/rift/web` (built by `docker/web/Dockerfile`). The image serves the bundle with nginx and writes `config.js` at start from `web.apiUrl` and `web.wsUrl`, so one image works for every environment. With `web.enabled` the Ingress sends `gateway.ingress.apiPaths` (`/api`, `/ws`, `/presence`, `/healthz`) to the gateway and everything else to the web service; `PUBLIC_APP_URL` and `PUBLIC_API_URL` are then the same origin.
 
 ## Scaling and policies
 

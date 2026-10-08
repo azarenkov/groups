@@ -181,7 +181,6 @@ variable "mailer" {
 
 variable "oauth" {
   type = object({
-    google_client_id     = optional(string, "")
     github_client_id     = optional(string, "")
     github_client_secret = optional(string, "")
     steam_api_key        = optional(string, "")

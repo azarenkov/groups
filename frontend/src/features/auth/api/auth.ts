@@ -10,10 +10,6 @@ export interface TokenPair {
   requiresVerification?: boolean;
 }
 
-export type GoogleAuthResult =
-  | ({ needsUsername: false } & TokenPair)
-  | { needsUsername: true };
-
 class AuthAPI {
   private client = http;
   private refreshInProgress: boolean = false;
@@ -32,30 +28,6 @@ class AuthAPI {
       password,
       ...(locale ? { locale } : {}),
       ...(altcha ? { altcha } : {}),
-    });
-    return response.data.data;
-  }
-
-  async googleLogin(
-    idToken: string,
-    locale?: string,
-  ): Promise<GoogleAuthResult> {
-    const response = await this.client.post("/v1/auth/google", {
-      idToken,
-      ...(locale ? { locale } : {}),
-    });
-    return response.data.data;
-  }
-
-  async googleComplete(
-    idToken: string,
-    username: string,
-    locale?: string,
-  ): Promise<TokenPair> {
-    const response = await this.client.post("/v1/auth/google/complete", {
-      idToken,
-      username,
-      ...(locale ? { locale } : {}),
     });
     return response.data.data;
   }

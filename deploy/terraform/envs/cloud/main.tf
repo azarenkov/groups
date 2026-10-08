@@ -129,7 +129,6 @@ module "rift" {
   mailer = var.mailer
 
   oauth = {
-    google_client_id     = var.google_client_id
     github_client_id     = var.github_client_id
     github_client_secret = var.github_client_secret
     steam_api_key        = var.steam_api_key

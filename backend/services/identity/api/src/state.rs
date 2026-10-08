@@ -18,7 +18,7 @@ use identity::usecases::{
         remove_connection::RemoveConnection, start_connection::StartConnection,
     },
     auth::{
-        confirm_registration::ConfirmRegistration, google_login::GoogleLogin,
+        confirm_registration::ConfirmRegistration,
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
         password_reset::{RequestPasswordReset, ResetPassword},
         refresh_tokens::RefreshTokens, register::RegisterUser,
@@ -38,12 +38,11 @@ use infrastructure_common::{
     hasher::bcrypt_hasher::BcryptHasher,
 };
 use identity_infrastructure::{
-    auth::{github_connector::GithubOAuthConnector, google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker, steam_connector::SteamOpenIdConnector},
+    auth::{github_connector::GithubOAuthConnector, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker, steam_connector::SteamOpenIdConnector},
     database::postgres::repositories::{
         identity_unit_of_work::PostgresIdentityUnitOfWork,
         user::PostgresUserRepository,
     },
-    media_client::user_state::MessagingStateClient,
     moderation::nsfw_detector::NsfwDetector,
 };
 
@@ -73,15 +72,6 @@ pub struct AppState {
         PostgresIdentityUnitOfWork,
         JwtTokenIssuer,
     >,
-    pub google_login_usecase: GoogleLogin<
-        PostgresUserRepository,
-        PostgresIdentityUnitOfWork,
-        JwtTokenIssuer,
-        GoogleIdTokenVerifier,
-        BcryptHasher,
-        NsfwDetector,
-        MessagingStateClient,
-    >,
     pub confirm_registration_usecase: ConfirmRegistration<BcryptHasher, PostgresIdentityUnitOfWork>,
     pub refresh_tokens_usecase:
         RefreshTokens<PostgresIdentityUnitOfWork, JwtTokenIssuer>,
@@ -97,14 +87,12 @@ pub struct AppState {
         PostgresIdentityUnitOfWork,
         BcryptHasher,
         JwtTokenIssuer,
-        GoogleIdTokenVerifier,
         RedisAccessRevoker,
     >,
     pub request_email_change_usecase: RequestEmailChange<
         PostgresUserRepository,
         PostgresIdentityUnitOfWork,
         BcryptHasher,
-        GoogleIdTokenVerifier,
     >,
     pub confirm_email_change_usecase: ConfirmEmailChange<PostgresIdentityUnitOfWork, BcryptHasher, JwtTokenIssuer, RedisAccessRevoker>,
     pub disable_account_usecase: DisableAccount<
@@ -112,7 +100,6 @@ pub struct AppState {
         PostgresIdentityUnitOfWork,
         BcryptHasher,
         RedisAccessRevoker,
-        GoogleIdTokenVerifier,
         RedisActivityStore,
     >,
     pub delete_account_usecase: DeleteAccount<
@@ -120,7 +107,6 @@ pub struct AppState {
         PostgresIdentityUnitOfWork,
         BcryptHasher,
         RedisAccessRevoker,
-        GoogleIdTokenVerifier,
         RedisActivityStore,
     >,
     pub get_entitlements_usecase: GetEntitlements<PostgresEntitlementsRepository>,

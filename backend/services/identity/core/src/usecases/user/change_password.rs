@@ -9,7 +9,6 @@ use crate::{
     ports::{
         access_revoker::{AccessRevoker, AccessRevokerError},
         hasher::{HashError, Hasher},
-        oauth_verifier::OAuthIdentityVerifier,
         token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
     },
     usecases::auth::reactivation::wait_past_cutoff,
@@ -42,30 +41,28 @@ pub struct ChangePasswordRequest {
     pub request_id: Option<String>,
 }
 
-pub struct ChangePassword<U, W, H, I, V, R>
+pub struct ChangePassword<U, W, H, I, R>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     I: TokenIssuer,
-    V: OAuthIdentityVerifier,
     R: AccessRevoker,
 {
     user_repository: Arc<U>,
     unit_of_work: Arc<W>,
     hasher: Arc<H>,
     token_issuer: Arc<I>,
-    reauthenticator: Arc<Reauthenticator<U, H, V>>,
+    reauthenticator: Arc<Reauthenticator<H>>,
     access_revoker: Arc<R>,
 }
 
-impl<U, W, H, I, V, R> ChangePassword<U, W, H, I, V, R>
+impl<U, W, H, I, R> ChangePassword<U, W, H, I, R>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     I: TokenIssuer,
-    V: OAuthIdentityVerifier,
     R: AccessRevoker,
 {
     pub fn new(
@@ -73,7 +70,7 @@ where
         unit_of_work: Arc<W>,
         hasher: Arc<H>,
         token_issuer: Arc<I>,
-        reauthenticator: Arc<Reauthenticator<U, H, V>>,
+        reauthenticator: Arc<Reauthenticator<H>>,
         access_revoker: Arc<R>,
     ) -> Self {
         Self {

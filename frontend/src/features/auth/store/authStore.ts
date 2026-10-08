@@ -9,7 +9,6 @@ interface User {
   email: string;
   emailVerified?: boolean;
   passwordChangedAt?: string | null;
-  linkedProviders?: string[];
   bio?: string;
   showActivity?: boolean;
   showGameActivity?: boolean;
@@ -95,7 +94,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         email: me.email,
         emailVerified: me.emailVerified,
         passwordChangedAt: me.passwordChangedAt,
-        linkedProviders: me.linkedProviders,
         bio: stale && current?.id === me.id ? current.bio : me.bio,
         showActivity: stale && current?.id === me.id ? current.showActivity : me.showActivity,
         showGameActivity: stale && current?.id === me.id ? current.showGameActivity : me.showGameActivity,
