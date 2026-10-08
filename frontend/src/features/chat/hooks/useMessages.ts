@@ -88,6 +88,7 @@ export function useMessages(params: {
   accessErrorRef.current = accessError;
   const restoredFromCacheRef = React.useRef<ChannelMessage[] | null>(null);
   const revalidatingRef = React.useRef(false);
+  const revalidationRef = React.useRef<{ done: Promise<void>; finish: () => void } | null>(null);
   const historySyncPendingRef = React.useRef(false);
   const [historySyncNonce, setHistorySyncNonce] = React.useState(0);
 
@@ -135,6 +136,16 @@ export function useMessages(params: {
     const targetId = convId;
     const knownBefore = new Set((restored ?? []).map((m) => m.id));
     revalidatingRef.current = fromCache;
+    if (fromCache) {
+      let finish: () => void = () => undefined;
+      const done = new Promise<void>((resolve) => (finish = resolve));
+      revalidationRef.current = { done, finish };
+    }
+    const endRevalidation = () => {
+      const current = revalidationRef.current;
+      revalidationRef.current = null;
+      current?.finish();
+    };
     messengerNow
       .listMessages({ limit: PAGE_LIMIT })
       .then((res) => {
@@ -173,6 +184,7 @@ export function useMessages(params: {
       })
       .finally(() => {
         if (cancelled) return;
+        endRevalidation();
         revalidatingRef.current = false;
         loadedChannelIdRef.current = targetId;
         setLoadingInitial(false);
@@ -184,6 +196,7 @@ export function useMessages(params: {
     return () => {
       cancelled = true;
       revalidatingRef.current = false;
+      endRevalidation();
     };
   }, [convId, isText, isDm]);
 
@@ -333,6 +346,11 @@ export function useMessages(params: {
     const messengerNow = messengerRef.current;
     const targetId = convIdRef.current;
     if (!messengerNow || !targetId) return;
+    const pendingRevalidation = revalidationRef.current;
+    if (pendingRevalidation) {
+      await pendingRevalidation.done;
+      if (convIdRef.current !== targetId) return;
+    }
     setLoadingInitial(true);
     try {
       const [olderRes, newerRes] = await Promise.all([

@@ -125,3 +125,24 @@ it("waits for the quiet refresh before syncing history after a reconnect", async
   await answer("a", [msg("a1", 1), msg("a2", 2)]);
   await waitFor(() => expect(callCount.a).toBe(2));
 });
+
+it("jumps to a message only after a cached chat has been reconciled", async () => {
+  const { rerender } = render(<Harness convId="a" />);
+  await answer("a", [msg("a1", 1)]);
+  rerender(<Harness convId="b" />);
+  await answer("b", [msg("b1", 1)]);
+  callCount.a = 0;
+  rerender(<Harness convId="a" />);
+  expect(callCount.a).toBe(1);
+  let jumped = false;
+  act(() => {
+    void latest!.jumpToMessage(msg("old", 0)).then(() => (jumped = true));
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(callCount.a).toBe(1);
+  await answer("a", [msg("a1", 1), msg("a2", 2)]);
+  await waitFor(() => expect(callCount.a).toBeGreaterThan(1));
+  expect(jumped).toBe(false);
+});
