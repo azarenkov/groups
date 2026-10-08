@@ -53,8 +53,11 @@ where
         let secret = VerificationCode::generate_secret();
         let code_hash = CodeHash::new(self.hasher.hash(&secret)?);
         let mut found = self.user_repository.find_by_email(&Email::new(typed.to_string())).await?;
-        if found.is_none() && typed != typed.to_lowercase() {
-            found = self.user_repository.find_by_email(&Email::new(typed.to_lowercase())).await?;
+        if found.is_none() {
+            found = self
+                .user_repository
+                .find_by_email_ignoring_case(&Email::new(typed.to_string()))
+                .await?;
         }
         let Some(user) = found else {
             return Ok(());
