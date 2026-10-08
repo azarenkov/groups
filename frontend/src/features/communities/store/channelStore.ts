@@ -37,6 +37,7 @@ interface ChannelState {
 
 const removedDuringFetch = new Map<string, Set<string>>();
 const clearGen = new Map<string, number>();
+let channelSessionGen = 0;
 const inFlight = new Map<string, Promise<boolean>>();
 const complete = new Set<string>();
 
@@ -197,6 +198,7 @@ export const useChannelStore = create<ChannelState>((set, get) => {
     clearError: () => set({ error: null }),
 
     clearAll: () => {
+      channelSessionGen += 1;
       const ids = new Set([...Object.keys(get().channelsByCommunity), ...inFlight.keys(), ...complete]);
       for (const communityId of ids) {
         clearGen.set(communityId, (clearGen.get(communityId) ?? 0) + 1);
@@ -237,6 +239,7 @@ export const useChannelStore = create<ChannelState>((set, get) => {
       visibility: ChannelVisibility,
       password?: string,
     ) => {
+      const gen = channelSessionGen;
       set({ isLoading: true, error: null });
       try {
         const channel = await channelAPI.create(communityId, {
@@ -245,9 +248,11 @@ export const useChannelStore = create<ChannelState>((set, get) => {
           visibility,
           password,
         });
+        if (gen !== channelSessionGen) return;
         get().addChannel(communityId, channel);
         set({ isLoading: false });
       } catch (error) {
+        if (gen !== channelSessionGen) throw error;
         set({
           error:
             error instanceof Error ? error.message : "Failed to create channel",
@@ -258,12 +263,15 @@ export const useChannelStore = create<ChannelState>((set, get) => {
     },
 
     deleteChannel: async (communityId: string, channelId: string) => {
+      const gen = channelSessionGen;
       set({ isLoading: true, error: null });
       try {
         await channelAPI.delete(communityId, channelId);
+        if (gen !== channelSessionGen) return;
         get().removeChannel(communityId, channelId);
         set({ isLoading: false });
       } catch (error) {
+        if (gen !== channelSessionGen) throw error;
         set({
           error:
             error instanceof Error ? error.message : "Failed to delete channel",

@@ -42,6 +42,8 @@ let removedDuringFetch = new Set<string>();
 let patchedDuringFetch = new Set<string>();
 let communitySessionGen = 0;
 
+export const communitySession = (): number => communitySessionGen;
+
 export const useCommunityStore = create<CommunityState>((set, get) => ({
   communities: [],
   loaded: false,
@@ -147,6 +149,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     description?: string,
     accentColor?: string,
   ) => {
+    const gen = communitySessionGen;
     set({ isLoading: true, error: null });
     try {
       const community = await communityAPI.createCommunity({
@@ -154,10 +157,12 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         description,
         accentColor,
       });
+      if (gen !== communitySessionGen) return community;
       get().addCommunity(community);
       set({ isLoading: false });
       return community;
     } catch (error) {
+      if (gen !== communitySessionGen) throw error;
       set({
         error: error instanceof Error ? error.message : "Failed to create community",
         isLoading: false,
@@ -167,12 +172,15 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   },
 
   deleteCommunity: async (communityId: string) => {
+    const gen = communitySessionGen;
     set({ isLoading: true, error: null });
     try {
       await communityAPI.deleteCommunity(communityId);
+      if (gen !== communitySessionGen) return;
       get().removeCommunity(communityId);
       set({ isLoading: false });
     } catch (error) {
+      if (gen !== communitySessionGen) throw error;
       set({
         error: error instanceof Error ? error.message : "Failed to delete community",
         isLoading: false,

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../auth/store/authStore";
-import { useCommunityStore } from "../store/communityStore";
+import { communitySession, useCommunityStore } from "../store/communityStore";
 import { channelsFullyLoaded, useChannelStore } from "../store/channelStore";
 import { pinnedFirst, useConversationPinsStore } from "../store/conversationPinsStore";
 import { hydrateSidebar, readSidebarSnapshot, clearSidebarSnapshot, startSidebarSnapshots } from "../lib/sidebarSnapshot";
@@ -306,7 +306,9 @@ const CommunitiesPage: React.FC = () => {
     accentColor?: string,
     logoFile?: File,
   ): Promise<void | { logoError?: string }> => {
+    const session = communitySession();
     const community = await createCommunity(name, description, accentColor);
+    if (session !== communitySession()) return;
     let logoError: string | undefined;
     if (logoFile) {
       try {
@@ -327,6 +329,7 @@ const CommunitiesPage: React.FC = () => {
     } catch (err) {
       console.error("[CommunitiesPage] failed to create default voice channel:", err);
     }
+    if (session !== communitySession()) return;
     openCommunity(community.id);
     if (logoError) return { logoError };
   };
@@ -480,7 +483,9 @@ const CommunitiesPage: React.FC = () => {
   ]);
 
   const handleJoinByLink = async (token: string) => {
+    const session = communitySession();
     const { community } = await communityAPI.joinByInvite(token);
+    if (session !== communitySession()) return;
     useCommunityStore.getState().addCommunity(community);
     openCommunity(community.id);
   };
