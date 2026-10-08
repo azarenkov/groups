@@ -19,9 +19,11 @@ const pages: Record<string, ChannelMessage[]> = {};
 const pending: Record<string, ((messages: ChannelMessage[]) => void) | undefined> = {};
 
 const olderCalls: string[] = [];
+const callCount: Record<string, number> = {};
 const messengerFor = (convId: string): Messenger =>
   ({
     listMessages: (opts: { before?: string }) => {
+      callCount[convId] = (callCount[convId] ?? 0) + 1;
       if (opts.before) olderCalls.push(`${convId}:${opts.before}`);
       return new Promise((resolve) => {
         pending[convId] = (messages) => resolve({ messages: [...messages].reverse() });
@@ -30,14 +32,14 @@ const messengerFor = (convId: string): Messenger =>
   }) as unknown as Messenger;
 
 let latest: ReturnType<typeof useMessages> | null = null;
-const Harness: React.FC<{ convId: string }> = ({ convId }) => {
+const Harness: React.FC<{ convId: string; tick?: number }> = ({ convId, tick = 0 }) => {
   const messenger = React.useMemo(() => messengerFor(convId), [convId]);
   latest = useMessages({
     messenger,
     convId,
     isText: true,
     isDm: false,
-    nameSyncTick: 0,
+    nameSyncTick: tick,
     reseedChannelReads: () => undefined,
     currentUserId: "me",
   });
@@ -100,4 +102,26 @@ it("waits for the quiet refresh before loading older messages", async () => {
     await latest!.handleScroll();
   });
   expect(olderCalls).toEqual([]);
+});
+
+it("does not keep the loader of an abandoned chat over a cached one", async () => {
+  const { rerender } = render(<Harness convId="a" />);
+  await answer("a", [msg("a1", 1)]);
+  rerender(<Harness convId="b" />);
+  expect(latest!.showInitialLoader).toBe(true);
+  rerender(<Harness convId="a" />);
+  expect(latest!.showInitialLoader).toBe(false);
+  expect(latest!.messages.map((m) => m.id)).toEqual(["a1"]);
+});
+
+it("waits for the quiet refresh before syncing history after a reconnect", async () => {
+  const { rerender } = render(<Harness convId="a" />);
+  await answer("a", [msg("a1", 1)]);
+  rerender(<Harness convId="b" />);
+  await answer("b", [msg("b1", 1)]);
+  callCount.a = 0;
+  rerender(<Harness convId="a" tick={1} />);
+  expect(callCount.a).toBe(1);
+  await answer("a", [msg("a1", 1), msg("a2", 2)]);
+  await waitFor(() => expect(callCount.a).toBe(2));
 });
