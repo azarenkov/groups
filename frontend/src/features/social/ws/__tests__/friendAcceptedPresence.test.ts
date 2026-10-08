@@ -58,3 +58,15 @@ it("does not let a slow status check undo a newer offline event", async () => {
   await settle();
   expect(usePresenceStore.getState().online.friend).toBeUndefined();
 });
+
+it("does not restore a status checked before presence was reset", async () => {
+  let resolve: (v: { online: string[] }) => void = () => undefined;
+  snapshot.mockImplementation(() => new Promise((r) => (resolve = r)));
+  socialHandlers["friendship.requestAccepted"]!({ accepterId: "friend", senderId: "me" }, {} as never);
+  await settle();
+  usePresenceStore.getState().clearAll();
+  resolve({ online: ["friend"] });
+  await settle();
+  await settle();
+  expect(usePresenceStore.getState().online.friend).toBeUndefined();
+});
