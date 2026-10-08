@@ -425,6 +425,17 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         Ok(())
     }
 
+    async fn verification_code_owner(&mut self, id: &VerificationCodeId) -> Result<Option<UserId>, RepositoryError> {
+        let owner = sqlx::query_scalar!(
+            r#"SELECT user_id FROM verification_codes WHERE id = $1"#,
+            id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(owner.map(UserId::new))
+    }
+
     async fn load_verification_code_for_update(&mut self, id: &VerificationCodeId) -> Result<Option<VerificationCode>, RepositoryError> {
         let row = sqlx::query!(
             r#"

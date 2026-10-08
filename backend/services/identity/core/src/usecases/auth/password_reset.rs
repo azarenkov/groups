@@ -49,10 +49,14 @@ where
     }
 
     pub async fn execute(&self, request: RequestPasswordResetRequest) -> Result<(), RequestPasswordResetError> {
-        let email = Email::new(request.email.trim().to_lowercase());
+        let typed = request.email.trim();
         let secret = VerificationCode::generate_secret();
         let code_hash = CodeHash::new(self.hasher.hash(&secret)?);
-        let Some(user) = self.user_repository.find_by_email(&email).await? else {
+        let mut found = self.user_repository.find_by_email(&Email::new(typed.to_string())).await?;
+        if found.is_none() && typed != typed.to_lowercase() {
+            found = self.user_repository.find_by_email(&Email::new(typed.to_lowercase())).await?;
+        }
+        let Some(user) = found else {
             return Ok(());
         };
         if user.is_deleted() {
@@ -136,13 +140,16 @@ where
         let (code_id, secret) = parse_reset_token(&request.token).ok_or(ResetPasswordError::InvalidToken)?;
 
         let mut tx = self.unit_of_work.begin().await?;
-        let mut code = tx
-            .load_verification_code_for_update(&code_id)
+        let user_id = tx
+            .verification_code_owner(&code_id)
             .await?
             .ok_or(ResetPasswordError::InvalidToken)?;
-        let user_id = *code.user_id();
         let mut user = tx
             .load_user_for_update(&user_id)
+            .await?
+            .ok_or(ResetPasswordError::InvalidToken)?;
+        let mut code = tx
+            .load_verification_code_for_update(&code_id)
             .await?
             .ok_or(ResetPasswordError::InvalidToken)?;
         let now = Utc::now();

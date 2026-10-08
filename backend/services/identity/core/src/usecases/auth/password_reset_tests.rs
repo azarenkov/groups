@@ -78,9 +78,13 @@ fn restore_code(code: &StoredCode) -> VerificationCode {
 
 impl Fake {
     fn with_user() -> (Self, UserId) {
+        Self::with_email("t@example.com")
+    }
+
+    fn with_email(email: &str) -> (Self, UserId) {
         let mut user = User::create(
             UserName::new("tester".to_string()),
-            Email::new("t@example.com".to_string()),
+            Email::new(email.to_string()),
             PasswordHash::new("h:old".to_string()),
             None,
             None,
@@ -161,6 +165,9 @@ impl IdentityTransaction for Fake {
         stored.attempts = code.attempts();
         stored.consumed_at = code.consumed_at();
         Ok(())
+    }
+    async fn verification_code_owner(&mut self, id: &VerificationCodeId) -> Result<Option<UserId>, RepositoryError> {
+        Ok(self.0.lock().unwrap().codes.iter().find(|c| c.id.uuid() == id.uuid()).map(|c| c.user_id))
     }
     async fn load_verification_code_for_update(&mut self, id: &VerificationCodeId) -> Result<Option<VerificationCode>, RepositoryError> {
         Ok(self.0.lock().unwrap().codes.iter().find(|c| c.id.uuid() == id.uuid()).map(restore_code))
@@ -369,4 +376,29 @@ async fn a_wrong_secret_for_the_emailed_link_locks_it() {
     }
     assert!(matches!(apply.execute(reset(&token, "new-pass")).await, Err(ResetPasswordError::InvalidToken)));
     assert_eq!(fake.password(), "h:old");
+}
+
+#[tokio::test]
+async fn accounts_stored_with_capitals_can_reset() {
+    let (fake, _) = Fake::with_email("Tester@Example.com");
+    let (request, apply) = usecases(&fake);
+    request.execute(forgot(" Tester@Example.com ")).await.unwrap();
+    let token = fake.tokens().pop().unwrap();
+    apply.execute(reset(&token, "new-pass")).await.unwrap();
+    assert_eq!(fake.password(), "h:new-pass");
+}
+
+#[tokio::test]
+async fn a_password_change_after_the_email_retires_the_link() {
+    let (fake, _) = Fake::with_user();
+    let (request, apply) = usecases(&fake);
+    request.execute(forgot("t@example.com")).await.unwrap();
+    let token = fake.tokens().pop().unwrap();
+    {
+        let mut state = fake.0.lock().unwrap();
+        let user = state.user.as_mut().unwrap();
+        user.change_password(PasswordHash::new("h:changed".into()), Utc::now());
+    }
+    assert!(matches!(apply.execute(reset(&token, "new-pass")).await, Err(ResetPasswordError::InvalidToken)));
+    assert_eq!(fake.password(), "h:changed");
 }

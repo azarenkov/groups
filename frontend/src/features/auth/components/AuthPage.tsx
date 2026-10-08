@@ -114,6 +114,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
           )}
           {mode === "reset-password" && (
             <ResetPassword
+              key={resetToken ?? ""}
               token={resetToken}
               onDone={() => {
                 if (useAuthStore.getState().tokens) useAuthStore.getState().logout();

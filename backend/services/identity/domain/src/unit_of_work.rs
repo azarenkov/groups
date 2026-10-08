@@ -31,6 +31,7 @@ pub trait IdentityTransaction: Send {
     async fn save_refresh_token(&mut self, refresh_token: &RefreshToken) -> Result<(), RepositoryError>;
     async fn insert_verification_code(&mut self, verification_code: &VerificationCode) -> Result<(), RepositoryError>;
     async fn save_verification_code(&mut self, verification_code: &VerificationCode) -> Result<(), RepositoryError>;
+    async fn verification_code_owner(&mut self, id: &VerificationCodeId) -> Result<Option<UserId>, RepositoryError>;
     async fn load_verification_code_for_update(&mut self, id: &VerificationCodeId) -> Result<Option<VerificationCode>, RepositoryError>;
     async fn consume_pending_verifications(&mut self, user_id: &UserId, purpose: VerificationPurpose, now: DateTime<Utc>) -> Result<(), RepositoryError>;
     async fn lock_user(&mut self, user_id: &UserId) -> Result<bool, RepositoryError>;
