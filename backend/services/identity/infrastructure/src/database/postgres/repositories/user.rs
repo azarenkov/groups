@@ -101,6 +101,36 @@ impl UserRepository for PostgresUserRepository {
         Ok(dto.map(User::from))
     }
 
+    async fn find_by_email_ignoring_case(&self, email: &Email) -> Result<Option<User>, RepositoryError> {
+        let dtos = sqlx::query_as!(
+            UserDto,
+            r#"
+            SELECT
+                id,
+                name,
+                email,
+                password_hash,
+                created_at,
+                updated_at,
+                email_verified_at,
+                phone_verified_at,
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone
+            FROM users
+            WHERE lower(email) = lower($1)
+            LIMIT 2
+            "#,
+            email.as_str(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if dtos.len() != 1 {
+            return Ok(None);
+        }
+        Ok(dtos.into_iter().next().map(User::from))
+    }
+
     async fn ids_by_names(
         &self,
         lowercase_names: &[String],

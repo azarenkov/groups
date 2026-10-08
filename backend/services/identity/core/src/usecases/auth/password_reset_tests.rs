@@ -233,6 +233,9 @@ impl UserRepository for Fake {
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepositoryError> {
         Ok(self.0.lock().unwrap().user.as_ref().filter(|u| u.email().as_str() == email.as_str()).map(copy_user))
     }
+    async fn find_by_email_ignoring_case(&self, email: &Email) -> Result<Option<User>, RepositoryError> {
+        Ok(self.0.lock().unwrap().user.as_ref().filter(|u| u.email().as_str().eq_ignore_ascii_case(email.as_str())).map(copy_user))
+    }
     async fn save_user(&self, _: &User) -> Result<(), RepositoryError> { unimplemented!() }
     async fn find_by_id(&self, _: &UserId) -> Result<Option<User>, RepositoryError> { unimplemented!() }
     async fn find_by_name(&self, _: &UserName) -> Result<Option<User>, RepositoryError> { unimplemented!() }
@@ -378,6 +381,16 @@ async fn accounts_stored_with_capitals_can_reset() {
     let (fake, _) = Fake::with_email("Tester@Example.com");
     let (request, apply) = usecases(&fake);
     request.execute(forgot(" Tester@Example.com ")).await.unwrap();
+    let token = fake.tokens().pop().unwrap();
+    apply.execute(reset(&token, "new-pass")).await.unwrap();
+    assert_eq!(fake.password(), "h:new-pass");
+}
+
+#[tokio::test]
+async fn emails_typed_in_another_case_still_find_the_account() {
+    let (fake, _) = Fake::with_email("Tester@Example.com");
+    let (request, apply) = usecases(&fake);
+    request.execute(forgot("tester@example.com")).await.unwrap();
     let token = fake.tokens().pop().unwrap();
     apply.execute(reset(&token, "new-pass")).await.unwrap();
     assert_eq!(fake.password(), "h:new-pass");
