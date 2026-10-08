@@ -66,7 +66,7 @@ it("sends the reset email and lets the user resend it after a minute", async () 
 it("sets a new password from the emailed link and signs out the old session", async () => {
   useAuthStore.setState({ tokens: { accessToken: "a", refreshToken: "r", tokenType: "Bearer", expiresIn: 1 }, isAuthenticated: true });
   renderAt(`/reset-password?token=${TOKEN}`, "reset-password");
-  await waitFor(() => expect(path).toBe("/reset-password"));
+  expect(path).toBe(`/reset-password?token=${TOKEN}`);
   const [first] = document.querySelectorAll<HTMLInputElement>("input[autocomplete=new-password]");
   fireEvent.change(first, { target: { value: "secret1" } });
   fireEvent.change(screen.getByPlaceholderText("Repeat your password"), { target: { value: "secret1" } });
@@ -74,6 +74,7 @@ it("sets a new password from the emailed link and signs out the old session", as
   expect(await screen.findByText("Password updated")).toBeInTheDocument();
   expect(resetPassword).toHaveBeenCalledWith(TOKEN, "secret1");
   expect(useAuthStore.getState().tokens).toBeNull();
+  expect(path).toBe("/reset-password");
   fireEvent.click(screen.getByRole("button", { name: "Continue to sign in" }));
   expect(path).toBe("/login");
 });
@@ -93,4 +94,12 @@ it("offers a new link when the emailed one has expired", async () => {
 it("explains a link without a token instead of showing the form", () => {
   renderAt("/reset-password", "reset-password");
   expect(screen.getByText("This link doesn't work")).toBeInTheDocument();
+});
+
+it("keeps the emailed link usable after a reload", () => {
+  const first = renderAt(`/reset-password?token=${TOKEN}`, "reset-password");
+  expect(path).toBe(`/reset-password?token=${TOKEN}`);
+  first.unmount();
+  renderAt(path, "reset-password");
+  expect(screen.getByRole("button", { name: "Update password" })).toBeInTheDocument();
 });

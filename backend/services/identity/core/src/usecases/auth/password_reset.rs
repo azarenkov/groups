@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{password_hash::PasswordHash, user::email::Email, user::id::UserId};
-use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError, user::repository::UserRepository, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose, verification::throttle::IssuedCodes};
+use domain::{password_hash::PasswordHash, user::email::Email};
+use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError, user::repository::UserRepository, verification::code::VerificationCode, verification::id::VerificationCodeId, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose, verification::throttle::IssuedCodes};
 use ports::repository::RepositoryError;
 
 use crate::ports::{
@@ -72,8 +72,9 @@ where
             tracing::info!(user_id = %user_id.uuid(), "Password reset requested too often; skipping");
             return Ok(());
         }
-        let token = reset_token(&user_id, &secret);
-        let mut code = match user.issue_verification(VerificationChannel::Email, VerificationPurpose::PasswordReset, token, code_hash) {
+        let code_id = VerificationCodeId::generate();
+        let token = reset_token(&code_id, &secret);
+        let mut code = match user.issue_password_reset(code_id, token, code_hash) {
             Ok(code) => code,
             Err(_) => return Ok(()),
         };
@@ -132,21 +133,26 @@ where
     }
 
     pub async fn execute(&self, request: ResetPasswordRequest) -> Result<(), ResetPasswordError> {
-        let (user_id, secret) = parse_reset_token(&request.token).ok_or(ResetPasswordError::InvalidToken)?;
-        let new_hash = PasswordHash::new(self.hasher.hash(&request.new_password)?);
+        let (code_id, secret) = parse_reset_token(&request.token).ok_or(ResetPasswordError::InvalidToken)?;
 
         let mut tx = self.unit_of_work.begin().await?;
-        let mut user = tx
-            .load_user_for_update(&user_id)
+        let mut code = tx
+            .load_verification_code_for_update(&code_id)
             .await?
             .ok_or(ResetPasswordError::InvalidToken)?;
-        let mut code = tx
-            .load_pending_verification_for_purpose_for_update(&user_id, VerificationPurpose::PasswordReset)
+        let user_id = *code.user_id();
+        let mut user = tx
+            .load_user_for_update(&user_id)
             .await?
             .ok_or(ResetPasswordError::InvalidToken)?;
         let now = Utc::now();
         user.ensure_can_reset_password(&code, now).map_err(reset_error)?;
         let matches = self.hasher.verify(secret, code.code_hash().as_str())?;
+        let new_hash = if matches {
+            PasswordHash::new(self.hasher.hash(&request.new_password)?)
+        } else {
+            PasswordHash::new(String::new())
+        };
         match user.reset_password(&mut code, matches, new_hash, now) {
             Ok(()) => {}
             Err(err @ (UserError::BadCode | UserError::TooManyAttempts)) => {
@@ -174,16 +180,16 @@ fn reset_error(err: UserError) -> ResetPasswordError {
     }
 }
 
-pub fn reset_token(user_id: &UserId, secret: &str) -> String {
-    format!("{}.{}", user_id.uuid().simple(), secret)
+pub fn reset_token(code_id: &VerificationCodeId, secret: &str) -> String {
+    format!("{}.{}", code_id.uuid().simple(), secret)
 }
 
-fn parse_reset_token(token: &str) -> Option<(UserId, &str)> {
-    let (user, secret) = token.trim().split_once('.')?;
-    if secret.len() != 64 || !secret.bytes().all(|b| b.is_ascii_hexdigit()) {
+fn parse_reset_token(token: &str) -> Option<(VerificationCodeId, &str)> {
+    let (id, secret) = token.trim().split_once('.')?;
+    if id.len() != 32 || secret.len() != 64 || !secret.bytes().all(|b| b.is_ascii_hexdigit()) {
         return None;
     }
-    UserId::from_string(user).ok().map(|id| (id, secret))
+    VerificationCodeId::from_string(id).ok().map(|id| (id, secret))
 }
 
 #[cfg(test)]

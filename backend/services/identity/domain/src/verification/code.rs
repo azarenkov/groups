@@ -30,8 +30,21 @@ impl VerificationCode {
         purpose: VerificationPurpose,
         locale: Locale,
     ) -> Self {
+        Self::issue_with_id(VerificationCodeId::generate(), user_id, email, plain_code, channel, code_hash, purpose, locale)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn issue_with_id(
+        id: VerificationCodeId,
+        user_id: UserId,
+        email: Email,
+        plain_code: String,
+        channel: VerificationChannel,
+        code_hash: CodeHash,
+        purpose: VerificationPurpose,
+        locale: Locale,
+    ) -> Self {
         let now = Utc::now();
-        let id = VerificationCodeId::generate();
         let event = VerificationEvent::Issued(VerificationCodeIssued::record(
             user_id,
             id,
