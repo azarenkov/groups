@@ -72,7 +72,7 @@ mod tests {
             Ok(())
         }
 
-        async fn send_verification_code(&self, _: &Email, _: &str, _: Locale) -> Result<(), MailerError> {
+        async fn send_verification_code(&self, _: &Email, _: &str, _: ports::mailer::CodePurpose, _: Locale) -> Result<(), MailerError> {
             Ok(())
         }
 

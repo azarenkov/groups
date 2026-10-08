@@ -2,6 +2,12 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::{user::email::Email, user::locale::Locale};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CodePurpose {
+    Registration,
+    EmailChange,
+}
+
 #[async_trait]
 pub trait Mailer {
     async fn send_password_reset(
@@ -14,6 +20,7 @@ pub trait Mailer {
         &self,
         email: &Email,
         verification_code: &str,
+        purpose: CodePurpose,
         locale: Locale,
     ) -> Result<(), MailerError>;
     async fn send_trial_ending(

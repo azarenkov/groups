@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use domain::user::{email::Email, locale::Locale};
-use ports::mailer::{Mailer, MailerError};
+use ports::mailer::{CodePurpose, Mailer, MailerError};
 
 #[derive(Debug, Clone)]
 pub struct VerificationIssued {
@@ -27,8 +27,13 @@ impl<M: Mailer> SendVerificationEmail<M> {
                 .send_password_reset(&issued.email, &issued.code, issued.locale)
                 .await;
         }
+        let purpose = if issued.purpose == "email_change" {
+            CodePurpose::EmailChange
+        } else {
+            CodePurpose::Registration
+        };
         self.mailer
-            .send_verification_code(&issued.email, &issued.code, issued.locale)
+            .send_verification_code(&issued.email, &issued.code, purpose, issued.locale)
             .await
     }
 }
@@ -49,8 +54,8 @@ mod tests {
             self.0.lock().unwrap().push(format!("reset:{token}"));
             Ok(())
         }
-        async fn send_verification_code(&self, _: &Email, code: &str, _: Locale) -> Result<(), MailerError> {
-            self.0.lock().unwrap().push(format!("code:{code}"));
+        async fn send_verification_code(&self, _: &Email, code: &str, purpose: CodePurpose, _: Locale) -> Result<(), MailerError> {
+            self.0.lock().unwrap().push(format!("code:{code}:{purpose:?}"));
             Ok(())
         }
         async fn send_trial_ending(&self, _: &Email, _: DateTime<Utc>, _: Locale) -> Result<(), MailerError> {
@@ -68,12 +73,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn password_resets_get_a_link_and_other_purposes_get_a_code() {
+    async fn each_purpose_gets_its_own_email() {
         let mailer = Arc::new(Recorder::default());
         let usecase = SendVerificationEmail::new(mailer.clone());
         usecase.execute(issued("password_reset", "tok")).await.unwrap();
         usecase.execute(issued("registration", "123456")).await.unwrap();
         usecase.execute(issued("email_change", "654321")).await.unwrap();
-        assert_eq!(*mailer.0.lock().unwrap(), vec!["reset:tok", "code:123456", "code:654321"]);
+        assert_eq!(*mailer.0.lock().unwrap(), vec!["reset:tok", "code:123456:Registration", "code:654321:EmailChange"]);
     }
 }
