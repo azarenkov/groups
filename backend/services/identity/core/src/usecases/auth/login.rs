@@ -65,12 +65,12 @@ where
     }
 
     pub async fn execute(&self, request: LoginUserRequest) -> Result<LoginOutcome, LoginError> {
-        let email = Email::new(request.email);
-        let user = self
-            .user_repository
-            .find_by_email(&email)
-            .await?
-            .ok_or(LoginError::InvalidCredentials)?;
+        let email = Email::new(request.email.trim().to_string());
+        let mut found = self.user_repository.find_by_email(&email).await?;
+        if found.is_none() {
+            found = self.user_repository.find_by_email_ignoring_case(&email).await?;
+        }
+        let user = found.ok_or(LoginError::InvalidCredentials)?;
 
         if user.is_deleted() {
             return Err(LoginError::InvalidCredentials);

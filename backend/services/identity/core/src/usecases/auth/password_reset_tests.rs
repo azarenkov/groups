@@ -208,7 +208,7 @@ impl IdentityTransaction for Fake {
     async fn delete_oauth_identities(&mut self, _: &UserId) -> Result<(), RepositoryError> { unimplemented!() }
     async fn load_refresh_token_for_update(&mut self, _: &RefreshTokenId) -> Result<Option<RefreshToken>, RepositoryError> { unimplemented!() }
     async fn insert_user(&mut self, _: &User) -> Result<(), RepositoryError> { unimplemented!() }
-    async fn insert_refresh_token(&mut self, _: &RefreshToken) -> Result<(), RepositoryError> { unimplemented!() }
+    async fn insert_refresh_token(&mut self, _: &RefreshToken) -> Result<(), RepositoryError> { Ok(()) }
     async fn save_refresh_token(&mut self, _: &RefreshToken) -> Result<(), RepositoryError> { unimplemented!() }
     async fn lock_user(&mut self, _: &UserId) -> Result<bool, RepositoryError> { unimplemented!() }
     async fn load_entitlements(&mut self, _: &UserId) -> Result<Entitlements, RepositoryError> { unimplemented!() }
@@ -394,6 +394,42 @@ async fn emails_typed_in_another_case_still_find_the_account() {
     let token = fake.tokens().pop().unwrap();
     apply.execute(reset(&token, "new-pass")).await.unwrap();
     assert_eq!(fake.password(), "h:new-pass");
+}
+
+struct FixedTokens;
+
+#[async_trait]
+impl crate::ports::token_issuer::TokenIssuer for FixedTokens {
+    async fn issue(&self, _: &UserId, _: bool) -> Result<crate::ports::token_issuer::IssuedTokens, crate::ports::token_issuer::TokenIssuerError> {
+        Ok(crate::ports::token_issuer::IssuedTokens {
+            access_token: "a".into(),
+            refresh_token: "r".into(),
+            refresh_token_id: RefreshTokenId::generate(),
+            refresh_token_expires_at: Utc::now() + Duration::days(1),
+            access_token_expires_in: 60,
+        })
+    }
+    fn decode_refresh(&self, _: &str) -> Result<crate::ports::token_issuer::DecodedRefreshToken, crate::ports::token_issuer::TokenIssuerError> { unimplemented!() }
+}
+
+#[tokio::test]
+async fn the_new_password_works_with_the_email_in_any_case() {
+    let (fake, _) = Fake::with_email("Tester@Example.com");
+    let (request, apply) = usecases(&fake);
+    request.execute(forgot("tester@example.com")).await.unwrap();
+    let token = fake.tokens().pop().unwrap();
+    apply.execute(reset(&token, "new-pass")).await.unwrap();
+    let fake = Arc::new(fake.clone());
+    let login = crate::usecases::auth::login::LoginUser::new(fake.clone(), Arc::new(PlainHasher), fake, Arc::new(FixedTokens));
+    let outcome = login
+        .execute(crate::dto::requests::auth::login_user::LoginUserRequest {
+            email: " tester@example.com ".into(),
+            password: "new-pass".into(),
+            client: Default::default(),
+            ctx: Default::default(),
+        })
+        .await;
+    assert!(outcome.is_ok());
 }
 
 #[tokio::test]
