@@ -1,6 +1,6 @@
 import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import AuthPage from "../AuthPage";
 import { authAPI } from "../../api/auth";
@@ -20,8 +20,10 @@ const resetPassword = authAPI.resetPassword as jest.Mock;
 const TOKEN = `${"a".repeat(32)}.${"b".repeat(64)}`;
 
 let path = "";
+let go: (to: string) => void = () => undefined;
 const Where: React.FC = () => {
   path = useLocation().pathname + useLocation().search;
+  go = useNavigate();
   return null;
 };
 
@@ -104,4 +106,17 @@ it("keeps the emailed link usable after a reload", () => {
   first.unmount();
   renderAt(path, "reset-password");
   expect(screen.getByRole("button", { name: "Update password" })).toBeInTheDocument();
+});
+
+it("shows the form again when a fresh link arrives after a dead one", async () => {
+  resetPassword.mockRejectedValueOnce(new ApiError("used", 400, "RESET_TOKEN_INVALID"));
+  renderAt(`/reset-password?token=${TOKEN}`, "reset-password");
+  const [first] = document.querySelectorAll<HTMLInputElement>("input[autocomplete=new-password]");
+  fireEvent.change(first, { target: { value: "secret1" } });
+  fireEvent.change(screen.getByPlaceholderText("Repeat your password"), { target: { value: "secret1" } });
+  fireEvent.click(screen.getByRole("button", { name: "Update password" }));
+  expect(await screen.findByText("This link doesn't work")).toBeInTheDocument();
+  const fresh = `${"c".repeat(32)}.${"d".repeat(64)}`;
+  act(() => go(`/reset-password?token=${fresh}`));
+  expect(await screen.findByRole("button", { name: "Update password" })).toBeInTheDocument();
 });
