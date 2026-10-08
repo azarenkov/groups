@@ -268,7 +268,7 @@ impl User {
         if !matches!(code.purpose(), VerificationPurpose::PasswordReset) {
             return Err(UserError::NotPasswordResetCode);
         }
-        if code.consumed_at().is_some() {
+        if code.consumed_at().is_some() || self.password_changed_at.is_some_and(|at| at >= code.created_at()) {
             return Err(UserError::CodeConsumed);
         }
         if code.is_limit_attempts() {

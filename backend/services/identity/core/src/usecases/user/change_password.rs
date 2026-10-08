@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{password_hash::PasswordHash, user::id::UserId};
-use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository};
+use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository, verification::purpose::VerificationPurpose};
 use ports::repository::RepositoryError;
 
 use crate::{
@@ -120,6 +120,7 @@ where
         user.change_password(new_hash, now);
         let events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
         tx.save_user(&user).await?;
+        tx.consume_pending_verifications(&user_id, VerificationPurpose::PasswordReset, now).await?;
         tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
         wait_past_cutoff(cutoff).await;
         let tokens = self.token_issuer.issue(&user_id, user.is_verified()).await?;

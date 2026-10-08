@@ -125,6 +125,7 @@ where
                     Err(e) => return Err(e.into()),
                 }
                 let cutoff = Utc::now();
+                tx.consume_pending_verifications(&user_id, VerificationPurpose::PasswordReset, cutoff).await?;
                 tx.revoke_refresh_tokens_for_user(&user_id, None, cutoff).await?;
                 wait_past_cutoff(cutoff).await;
                 let tokens = self.token_issuer.issue(&user_id, user.is_verified()).await?;

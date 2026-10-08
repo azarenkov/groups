@@ -319,3 +319,15 @@ fn other_codes_cannot_reset_the_password() {
         UserError::NotPasswordResetCode
     );
 }
+
+#[test]
+fn a_reset_code_older_than_the_last_password_change_is_rejected() {
+    let mut user = fresh_user();
+    let mut code = reset_code(&user);
+    user.change_password(PasswordHash::new("changed".into()), Utc::now() + Duration::seconds(1));
+    assert_eq!(
+        user.reset_password(&mut code, true, PasswordHash::new("new".into()), Utc::now()).unwrap_err(),
+        UserError::CodeConsumed
+    );
+    assert_eq!(user.password_hash().as_str(), "changed");
+}
