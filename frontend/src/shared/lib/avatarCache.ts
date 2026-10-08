@@ -19,9 +19,10 @@ const fetchedAt = new Map<string, number>();
 const keyFor = (kind: AvatarKind, id: string) => `${kind}:${id}`;
 const storeKeyFor = (key: string) => `avatar:${key}`;
 const restoring = new Set<string>();
+const noDiskRestore = new Set<string>();
 
 const restoreFromDisk = (key: string, gen: number) => {
-  if (cache.has(key) || restoring.has(key)) return;
+  if (cache.has(key) || restoring.has(key) || noDiskRestore.has(key)) return;
   restoring.add(key);
   void readCachedBlob(storeKeyFor(key))
     .then((blob) => {
@@ -73,6 +74,7 @@ const load = (kind: AvatarKind, id: string) => {
         URL.revokeObjectURL(url);
         return;
       }
+      noDiskRestore.delete(key);
       void writeCachedBlob(storeKeyFor(key), blob, startedAt);
       const old = cache.get(key);
       if (old && old !== url) URL.revokeObjectURL(old);
@@ -111,6 +113,7 @@ const load = (kind: AvatarKind, id: string) => {
 export const bustAvatar = (kind: AvatarKind, id: string) => {
   const key = keyFor(kind, id);
   generations.set(key, (generations.get(key) ?? 0) + 1);
+  noDiskRestore.add(key);
   void deleteCachedBlob(storeKeyFor(key));
   const url = cache.get(key);
   cache.delete(key);
@@ -131,6 +134,7 @@ export const clearAvatarCache = () => {
   }
   cache.clear();
   fetchedAt.clear();
+  noDiskRestore.clear();
 };
 
 export function useAvatarUrl(

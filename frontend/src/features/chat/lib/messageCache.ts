@@ -86,7 +86,7 @@ export function reconcileLatestPage(
 
 const dropMessage = (key: string, id: string) =>
   patchConversation(key, (messages) =>
-    messages.some((m) => m.id === id) ? markReplyDeleted(messages.filter((m) => m.id !== id), id) : messages,
+    markReplyDeleted(messages.some((m) => m.id === id) ? messages.filter((m) => m.id !== id) : messages, id),
   );
 
 let installed = false;
@@ -101,7 +101,7 @@ export function installMessageCacheSync(): void {
     const holderOf = (messageId: string | undefined) => {
       if (!messageId) return undefined;
       for (const [key, entry] of entries) {
-        if (entry.messages.some((m) => m.id === messageId)) return key;
+        if (entry.messages.some((m) => m.id === messageId || m.replyTo?.id === messageId)) return key;
       }
       return undefined;
     };
@@ -118,18 +118,18 @@ export function installMessageCacheSync(): void {
       if (!key || !id || content === undefined) return;
       const attachments = Array.isArray(d.attachments) ? (d.attachments as ChannelMessage["attachments"]) : undefined;
       patchConversation(key, (messages) =>
-        messages.some((m) => m.id === id)
-          ? refreshReplySnippet(
-              messages.map((m) =>
+        refreshReplySnippet(
+          messages.some((m) => m.id === id)
+            ? messages.map((m) =>
                 m.id === id
                   ? { ...m, content, editedAt: str(d.occurredAt) ?? m.editedAt, ...(attachments ? { attachments } : {}) }
                   : m,
-              ),
-              id,
-              content,
-              attachments ? attachments.length > 0 : undefined,
-            )
-          : messages,
+              )
+            : messages,
+          id,
+          content,
+          attachments ? attachments.length > 0 : undefined,
+        ),
       );
     };
     switch (env.type) {
