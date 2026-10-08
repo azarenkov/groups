@@ -52,8 +52,8 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
   const [term, setTerm] = useState("");
   useEffect(() => {
     const trimmed = isOpen ? username.trim() : "";
+    setTerm((current) => (current === trimmed ? current : ""));
     if (trimmed.length === 0) {
-      setTerm("");
       setSuggestions([]);
       setShowSuggestions(false);
       return;

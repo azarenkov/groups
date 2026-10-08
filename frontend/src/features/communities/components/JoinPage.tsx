@@ -29,7 +29,7 @@ const JoinPage: React.FC = () => {
     queryClient,
   );
   const preview: InvitePreview | null = token ? (previewQuery.data ?? null) : null;
-  const failed = !!token && previewQuery.isError;
+  const failed = !!token && previewQuery.isError && !previewQuery.data;
 
   if (token && isAuthenticated && !hasUnverifiedSession) {
     return <Navigate to={`/app?join=${encodeURIComponent(token)}`} replace />;
