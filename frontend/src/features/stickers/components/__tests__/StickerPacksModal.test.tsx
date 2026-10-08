@@ -125,5 +125,9 @@ it("lets the owner rename the pack, move a sticker and pick the cover", async ()
     expect(document.querySelectorAll(".sticker-pack-cell")[1].querySelector(".sticker-pack-cover-badge")).not.toBeNull(),
   );
   expect(document.querySelectorAll(".sticker-pack-cover-badge")).toHaveLength(1);
+  const { queryClient, queryKeys } = jest.requireActual("../../../../shared/query/queryClient");
+  const cached = queryClient.getQueryData(queryKeys.stickerPack("p1"));
+  expect(cached).toMatchObject({ name: "Kittens", coverStickerId: "s3" });
+  expect(cached.stickers.map((st: { id: string }) => st.id)).toEqual(["s1", "s3", "s2"]);
 });
 

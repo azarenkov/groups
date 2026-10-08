@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { queryClient, queryKeys } from "../../../shared/query/queryClient";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Icon, { Mark } from "../../../shared/ui/Icon";
@@ -18,26 +20,16 @@ const JoinPage: React.FC = () => {
   const hasUnverifiedSession =
     !!tokens?.accessToken && !isAccessTokenVerified(tokens.accessToken);
   const token = extractInviteToken(rawToken);
-  const [preview, setPreview] = useState<InvitePreview | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setPreview(null);
-    setFailed(false);
-    if (!token) return;
-    let cancelled = false;
-    communityAPI
-      .previewInvite(token)
-      .then((res) => {
-        if (!cancelled) setPreview(res);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
+  const previewQuery = useQuery(
+    {
+      queryKey: queryKeys.invitePreview(token ?? ""),
+      queryFn: () => communityAPI.previewInvite(token as string),
+      enabled: !!token,
+    },
+    queryClient,
+  );
+  const preview: InvitePreview | null = token ? (previewQuery.data ?? null) : null;
+  const failed = !!token && previewQuery.isError && !previewQuery.data;
 
   if (token && isAuthenticated && !hasUnverifiedSession) {
     return <Navigate to={`/app?join=${encodeURIComponent(token)}`} replace />;

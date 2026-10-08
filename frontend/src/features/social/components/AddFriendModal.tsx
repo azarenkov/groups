@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { queryClient, queryKeys } from "../../../shared/query/queryClient";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "../../../shared/lib/apiError";
 import { friendshipAPI } from "../api/friendship";
@@ -47,35 +49,39 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
+  const [term, setTerm] = useState("");
   useEffect(() => {
-    if (!isOpen) return;
-    const trimmed = username.trim();
+    const trimmed = isOpen ? username.trim() : "";
+    setTerm((current) => (current === trimmed ? current : ""));
     if (trimmed.length === 0) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
-    let cancelled = false;
-    const timeout = window.setTimeout(async () => {
-      try {
-        const users = await friendshipAPI.searchUsers(trimmed, 8);
-        if (cancelled) return;
-        setSuggestions(users);
-        setShowSuggestions(true);
-        setHighlightIdx(-1);
-      } catch (err) {
-        if (!cancelled) {
-          console.warn("[AddFriendModal] user search failed:", err);
-          setSuggestions([]);
-          setShowSuggestions(false);
-        }
-      }
-    }, 200);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeout);
-    };
+    const timeout = window.setTimeout(() => setTerm(trimmed), 200);
+    return () => window.clearTimeout(timeout);
   }, [username, isOpen]);
+
+  const userSearch = useQuery(
+    {
+      queryKey: queryKeys.userSearch(term),
+      queryFn: () => friendshipAPI.searchUsers(term, 8),
+      enabled: isOpen && term.length > 0,
+    },
+    queryClient,
+  );
+  useEffect(() => {
+    if (!term) return;
+    if (userSearch.data) {
+      setSuggestions(userSearch.data);
+      setShowSuggestions(true);
+      setHighlightIdx(-1);
+    } else if (userSearch.isError) {
+      console.warn("[AddFriendModal] user search failed:", userSearch.error);
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [term, userSearch.data, userSearch.isError, userSearch.error]);
 
   if (!isOpen) return null;
 

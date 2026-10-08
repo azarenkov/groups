@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import StickerViewer from "../StickerViewer";
 import { stickersAPI } from "../../api/stickers";
 import { useStickerStore } from "../../store/stickerStore";
@@ -66,4 +66,15 @@ it("reports the pack with the sticker message as evidence", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Report" }));
   expect(onClose).toHaveBeenCalled();
   expect(useReportModalStore.getState().target).toEqual({ type: "stickerPack", id: "p1", name: "Cats", messageId: "m1" });
+});
+
+it("shows that a cached pack was deleted when a refresh says so", async () => {
+  const { queryClient, queryKeys } = jest.requireActual("../../../../shared/query/queryClient");
+  render(<StickerViewer sticker={sticker} onClose={jest.fn()} onOpenPack={jest.fn()} />);
+  await screen.findByRole("button", { name: "Add pack" });
+  (stickersAPI.pack as jest.Mock).mockRejectedValueOnce(new ApiError("gone", 404, "STICKER_PACK_NOT_FOUND"));
+  await act(async () => {
+    await queryClient.refetchQueries({ queryKey: queryKeys.stickerPack("p1") });
+  });
+  expect(await screen.findByText("Pack deleted")).toBeTruthy();
 });
