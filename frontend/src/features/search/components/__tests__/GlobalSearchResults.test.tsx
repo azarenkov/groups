@@ -201,6 +201,40 @@ describe("GlobalSearchResults cache", () => {
   });
 });
 
+describe("GlobalSearchResults retry", () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  it("retries a failed refresh instead of loading another page", async () => {
+    const { queryClient } = jest.requireActual("../../../../shared/query/queryClient");
+    jest.useFakeTimers();
+    search.mockReset();
+    search.mockImplementation((_q: string, kind: string) =>
+      kind === "files" ? page([channelHit("f1")], "next") : page([]),
+    );
+    render(<GlobalSearchResults query="report" currentUserId="u1" onOpen={jest.fn()} />);
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    search.mockImplementation((_q: string, kind: string) =>
+      kind === "files" ? Promise.reject(new Error("down")) : page([]),
+    );
+    await act(async () => {
+      await queryClient.invalidateQueries();
+    });
+    await screen.findByText("Search failed");
+    search.mockClear();
+    search.mockImplementation(() => page([]));
+    fireEvent.click(screen.getByText("Retry"));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(search.mock.calls.every((c: unknown[]) => !(c[2] as { before?: string }).before)).toBe(true);
+    jest.useRealTimers();
+  });
+});
+
 describe("global search helpers", () => {
   it("normalizes queries to the server limits", () => {
     expect(normalizeGlobalQuery("  hi ")).toBe("hi");

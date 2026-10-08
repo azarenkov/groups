@@ -80,16 +80,16 @@ function useSearchSection(kind: GlobalSearchKind, searched: string | null) {
       failed: query.isError || query.isFetchNextPageError,
     };
   }, [searched, query.data, query.isFetching, query.isError, query.isFetchNextPageError]);
-  const { fetchNextPage, refetch, hasNextPage, isFetching, data } = query;
+  const { fetchNextPage, refetch, hasNextPage, isFetching, isFetchNextPageError } = query;
   const loadMore = React.useCallback(() => {
     if (searched === null || isFetching || !hasNextPage) return;
     void fetchNextPage();
   }, [searched, isFetching, hasNextPage, fetchNextPage]);
   const retry = React.useCallback(() => {
     if (searched === null || isFetching) return;
-    if (data) void fetchNextPage();
+    if (isFetchNextPageError) void fetchNextPage();
     else void refetch();
-  }, [searched, isFetching, data, fetchNextPage, refetch]);
+  }, [searched, isFetching, isFetchNextPageError, fetchNextPage, refetch]);
   return { section, loadMore, retry };
 }
 

@@ -139,3 +139,18 @@ it("refreshes when a message is edited while the first load is still running", a
   await act(async () => resolveFirst([pin("a")]));
   await waitFor(() => expect(latest!.pins[0]?.content).toBe("edited"));
 });
+
+it("shows a pin again when it is pinned back from elsewhere", async () => {
+  list.mockResolvedValueOnce([pin("a")]);
+  unpin.mockResolvedValue(undefined);
+  render(<Harness scope={dm} />);
+  await waitFor(() => expect(ids()).toEqual(["a"]));
+  list.mockResolvedValueOnce([]);
+  await act(async () => {
+    await latest!.setPinned("a", false);
+  });
+  await waitFor(() => expect(ids()).toEqual([]));
+  list.mockResolvedValueOnce([pin("a")]);
+  emit("message.pin_changed", { messageId: "a", participants: ["u1", "u2"], pinned: true });
+  await waitFor(() => expect(ids()).toEqual(["a"]));
+});

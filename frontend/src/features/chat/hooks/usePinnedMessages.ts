@@ -87,8 +87,11 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
     return ws.on((env) => {
       const current = scopeRef.current;
       if (!current) return;
-      const data = env.data as { messageId?: unknown; channelId?: unknown; participants?: unknown };
+      const data = env.data as { messageId?: unknown; channelId?: unknown; participants?: unknown; pinned?: unknown };
       if (env.type === "message.pin_changed" && pinEventMatches(data, current, currentUserId)) {
+        if (data.pinned === true && typeof data.messageId === "string" && key) {
+          droppedFor(key).delete(data.messageId);
+        }
         void invalidate();
       } else if (env.type === "message.hidden" && typeof data.messageId === "string") {
         drop(data.messageId);
