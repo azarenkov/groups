@@ -84,7 +84,7 @@ export const setBlobCacheLimit = (bytes: number | null): void => {
 
 export const evictBlobCacheNow = async (): Promise<void> => {
   const store = current();
-  if (store) await evict(store, "");
+  if (store) await sizeChanging(() => evict(store, ""));
 };
 
 let generation = 0;
@@ -125,6 +125,14 @@ const keyVersions = new Map<string, number>();
 const keyChains = new Map<string, Promise<unknown>>();
 
 const bumpKey = (key: string) => keyVersions.set(key, (keyVersions.get(key) ?? 0) + 1);
+
+let sizeChain: Promise<unknown> = Promise.resolve();
+
+function sizeChanging<T>(task: () => Promise<T>): Promise<T> {
+  const run = sizeChain.then(task, task);
+  sizeChain = run.catch(() => undefined);
+  return run;
+}
 
 function forKey<T>(key: string, task: () => Promise<T>): Promise<T> {
   const previous = keyChains.get(key) ?? Promise.resolve();
@@ -197,7 +205,7 @@ export function writeCachedBlob(key: string, blob: Blob, startedAt: number = gen
   if (!store || disabled || blob.size > BLOB_CACHE_MAX_ITEM_BYTES || startedAt !== generation) return Promise.resolve();
   bumpKey(key);
   const gen = generation;
-  return forKey(key, () => storeBlob(store, key, blob, gen));
+  return forKey(key, () => sizeChanging(() => storeBlob(store, key, blob, gen)));
 }
 
 async function storeBlob(store: BlobBackend, key: string, blob: Blob, gen: number): Promise<void> {
@@ -235,15 +243,17 @@ export function deleteCachedBlob(key: string): Promise<void> {
   const store = current();
   if (!store) return Promise.resolve();
   bumpKey(key);
-  return forKey(key, async () => {
-    try {
-      const previous = await store.get(key);
-      await store.delete(key);
-      if (previous && knownTotal !== null) knownTotal = Math.max(0, knownTotal - previous.size);
-    } catch {
-      return;
-    }
-  });
+  return forKey(key, () =>
+    sizeChanging(async () => {
+      try {
+        const previous = await store.get(key);
+        await store.delete(key);
+        if (previous && knownTotal !== null) knownTotal = Math.max(0, knownTotal - previous.size);
+      } catch {
+        return;
+      }
+    }),
+  );
 }
 
 export async function clearBlobCache(): Promise<void> {
