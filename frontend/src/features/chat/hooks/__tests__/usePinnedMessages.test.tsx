@@ -154,3 +154,20 @@ it("shows a pin again when it is pinned back from elsewhere", async () => {
   emit("message.pin_changed", { messageId: "a", participants: ["u1", "u2"], pinned: true });
   await waitFor(() => expect(ids()).toEqual(["a"]));
 });
+
+it("shows a pin pinned back while offline once the list is refreshed", async () => {
+  list.mockResolvedValueOnce([pin("a")]);
+  unpin.mockResolvedValue(undefined);
+  render(<Harness scope={dm} />);
+  await waitFor(() => expect(ids()).toEqual(["a"]));
+  list.mockResolvedValueOnce([]);
+  await act(async () => {
+    await latest!.setPinned("a", false);
+  });
+  await waitFor(() => expect(ids()).toEqual([]));
+  list.mockResolvedValueOnce([pin("a")]);
+  await act(async () => {
+    await latest!.refresh();
+  });
+  await waitFor(() => expect(ids()).toEqual(["a"]));
+});

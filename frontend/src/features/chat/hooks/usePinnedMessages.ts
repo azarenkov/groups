@@ -17,19 +17,40 @@ export const pinEventMatches = (
   return data.participants.includes(scope.friendId) && data.participants.includes(currentUserId);
 };
 
-const droppedByScope = new Map<string, Set<string>>();
+const droppedByScope = new Map<string, Map<string, number>>();
+let dropSeq = 0;
 
 export function clearPinTombstones(): void {
   droppedByScope.clear();
 }
 
-const droppedFor = (key: string): Set<string> => {
-  let set = droppedByScope.get(key);
-  if (!set) {
-    set = new Set();
-    droppedByScope.set(key, set);
+const markDropped = (key: string, messageId: string): void => {
+  let dropped = droppedByScope.get(key);
+  if (!dropped) {
+    dropped = new Map();
+    droppedByScope.set(key, dropped);
   }
-  return set;
+  dropSeq += 1;
+  dropped.set(messageId, dropSeq);
+};
+
+const forgetDropped = (key: string, messageId: string): void => {
+  droppedByScope.get(key)?.delete(messageId);
+};
+
+const fetchPins = async (scope: SharedScope, key: string): Promise<PinnedMessage[]> => {
+  const startedAt = dropSeq;
+  const items = await pinsAPI.list(scope);
+  const dropped = droppedByScope.get(key);
+  if (!dropped) return items;
+  for (const [messageId, seq] of dropped) {
+    if (seq <= startedAt) dropped.delete(messageId);
+  }
+  if (dropped.size === 0) {
+    droppedByScope.delete(key);
+    return items;
+  }
+  return items.filter((p) => !dropped.has(p.messageId));
 };
 
 const EMPTY: PinnedMessage[] = [];
@@ -42,11 +63,7 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
   const query = useQuery(
     {
       queryKey: queryKeys.pins(key ?? ""),
-      queryFn: async () => {
-        const items = await pinsAPI.list(scopeRef.current as SharedScope);
-        const dropped = droppedByScope.get(key as string);
-        return dropped ? items.filter((p) => !dropped.has(p.messageId)) : items;
-      },
+      queryFn: () => fetchPins(scope as SharedScope, key as string),
       enabled: !!key,
     },
     queryClient,
@@ -61,7 +78,7 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
   const drop = React.useCallback(
     (messageId: string) => {
       if (!key) return;
-      droppedFor(key).add(messageId);
+      markDropped(key, messageId);
       queryClient.setQueryData<PinnedMessage[]>(queryKeys.pins(key), (prev: PinnedMessage[] | undefined) =>
         prev && prev.some((p) => p.messageId === messageId) ? prev.filter((p) => p.messageId !== messageId) : prev,
       );
@@ -90,7 +107,7 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
       const data = env.data as { messageId?: unknown; channelId?: unknown; participants?: unknown; pinned?: unknown };
       if (env.type === "message.pin_changed" && pinEventMatches(data, current, currentUserId)) {
         if (data.pinned === true && typeof data.messageId === "string" && key) {
-          droppedFor(key).delete(data.messageId);
+          forgetDropped(key, data.messageId);
         }
         void invalidate();
       } else if (env.type === "message.hidden" && typeof data.messageId === "string") {
@@ -105,11 +122,11 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
       if (!current) return;
       const scopeKey = sharedScopeKey(current);
       if (pinned) {
-        droppedFor(scopeKey).delete(messageId);
+        forgetDropped(scopeKey, messageId);
         await pinsAPI.pin(current, messageId);
       } else {
         await pinsAPI.unpin(current, messageId);
-        droppedFor(scopeKey).add(messageId);
+        markDropped(scopeKey, messageId);
         queryClient.setQueryData<PinnedMessage[]>(queryKeys.pins(scopeKey), (prev: PinnedMessage[] | undefined) =>
           prev ? prev.filter((p) => p.messageId !== messageId) : prev,
         );
