@@ -88,6 +88,8 @@ export function useMessages(params: {
   accessErrorRef.current = accessError;
   const restoredFromCacheRef = React.useRef<ChannelMessage[] | null>(null);
   const revalidatingRef = React.useRef(false);
+  const historySyncPendingRef = React.useRef(false);
+  const [historySyncNonce, setHistorySyncNonce] = React.useState(0);
 
   React.useLayoutEffect(() => {
     const body = bodyRef.current;
@@ -106,6 +108,7 @@ export function useMessages(params: {
         restoreScrollRef.current = { anchorId: cached.scroll.anchorId, offset: cached.scroll.offset };
       }
       loadedChannelIdRef.current = convId;
+      setLoadingInitial(false);
     } else {
       setMessages([]);
       setHasMore(false);
@@ -173,6 +176,10 @@ export function useMessages(params: {
         revalidatingRef.current = false;
         loadedChannelIdRef.current = targetId;
         setLoadingInitial(false);
+        if (historySyncPendingRef.current) {
+          historySyncPendingRef.current = false;
+          setHistorySyncNonce((n) => n + 1);
+        }
       });
     return () => {
       cancelled = true;
@@ -183,6 +190,10 @@ export function useMessages(params: {
   React.useEffect(() => {
     const messengerNow = messengerRef.current;
     if (nameSyncTick === 0 || !messengerNow || !convIdRef.current) return;
+    if (revalidatingRef.current) {
+      historySyncPendingRef.current = true;
+      return;
+    }
     let cancelled = false;
     const targetId = convIdRef.current;
     const oldestLoadedAt = messagesRef.current[0]?.createdAt;
@@ -222,7 +233,7 @@ export function useMessages(params: {
     return () => {
       cancelled = true;
     };
-  }, [nameSyncTick]);
+  }, [nameSyncTick, historySyncNonce]);
 
   React.useLayoutEffect(() => {
     const body = bodyRef.current;
