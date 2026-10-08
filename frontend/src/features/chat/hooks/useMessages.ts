@@ -28,6 +28,18 @@ export function captureScroll(body: HTMLDivElement | null, atBottom: boolean): S
 const HIGHLIGHT_MS = 2500;
 const JUMP_CONTEXT = 25;
 
+const CHANNEL_ACCESS_ERRORS = new Set([
+  "CHANNEL_NOT_MEMBER",
+  "CHANNEL_PASSWORD_REQUIRED",
+  "INVALID_CHANNEL_PASSWORD",
+  "CHANNEL_NOT_FOUND",
+  "CHANNEL_NOT_TEXT",
+  "COMMUNITY_NOT_MEMBER",
+  "COMMUNITY_NOT_FOUND",
+]);
+
+const DM_ACCESS_ERRORS = new Set(["USER_BLOCKED", "USER_NOT_FOUND", "TARGET_USER_NOT_FOUND", "DM_SELF", "SELF_DM"]);
+
 export function useMessages(params: {
   messenger: Messenger | null;
   convId?: string;
@@ -165,12 +177,7 @@ export function useMessages(params: {
       .catch((err) => {
         if (cancelled) return;
         const apiErr = err instanceof ApiError ? err : null;
-        if (
-          isText &&
-          (apiErr?.code === "CHANNEL_NOT_MEMBER" ||
-            apiErr?.code === "CHANNEL_PASSWORD_REQUIRED" ||
-            apiErr?.code === "INVALID_CHANNEL_PASSWORD")
-        ) {
+        if (isText && apiErr?.code && CHANNEL_ACCESS_ERRORS.has(apiErr.code)) {
           dropConversation(targetId);
           setMessages([]);
           setAccessError(apiErr.message || "You haven't joined this channel yet.");
@@ -178,6 +185,10 @@ export function useMessages(params: {
           dropConversation(targetId);
           setMessages([]);
           setAccessError(i18n.t("notFriends", { ns: "chat" }));
+        } else if (isDm && apiErr?.code && DM_ACCESS_ERRORS.has(apiErr.code)) {
+          dropConversation(targetId);
+          setMessages([]);
+          setAccessError(apiErr.message || i18n.t("notFriends", { ns: "chat" }));
         } else {
           console.warn("[ChatView] failed to load messages:", err);
         }

@@ -3,6 +3,7 @@ import { act, render, waitFor } from "@testing-library/react";
 
 import type { ChannelMessage } from "../../../../shared/types/channel";
 import { clearMessageCache, hasCachedConversation } from "../../lib/messageCache";
+import { ApiError } from "../../../../shared/lib/apiError";
 import type { Messenger } from "../useMessenger";
 import { useMessages } from "../useMessages";
 
@@ -17,6 +18,7 @@ const msg = (id: string, minute: number): ChannelMessage => ({
 
 const pages: Record<string, ChannelMessage[]> = {};
 const pending: Record<string, ((messages: ChannelMessage[]) => void) | undefined> = {};
+const failing: Record<string, ((err: unknown) => void) | undefined> = {};
 
 const olderCalls: string[] = [];
 const callCount: Record<string, number> = {};
@@ -25,8 +27,9 @@ const messengerFor = (convId: string): Messenger =>
     listMessages: (opts: { before?: string }) => {
       callCount[convId] = (callCount[convId] ?? 0) + 1;
       if (opts.before) olderCalls.push(`${convId}:${opts.before}`);
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         pending[convId] = (messages) => resolve({ messages: [...messages].reverse() });
+        failing[convId] = reject;
       });
     },
   }) as unknown as Messenger;
@@ -89,6 +92,25 @@ it("does not keep cached messages that were deleted while away", async () => {
   await answer("a", [msg("a1", 1)]);
   await waitFor(() => expect(latest!.messages.map((m) => m.id)).toEqual(["a1"]));
 });
+
+it.each(["CHANNEL_NOT_FOUND", "COMMUNITY_NOT_MEMBER"])(
+  "drops a cached chat when the quiet refresh fails with %s",
+  async (code) => {
+    const { rerender } = render(<Harness convId="a" />);
+    await answer("a", [msg("a1", 1), msg("a2", 2)]);
+    rerender(<Harness convId="b" />);
+    await answer("b", [msg("b1", 1)]);
+    rerender(<Harness convId="a" />);
+    expect(latest!.messages.map((m) => m.id)).toEqual(["a1", "a2"]);
+    await act(async () => {
+      failing.a?.(new ApiError("gone", 404, code));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(latest!.messages).toEqual([]));
+    expect(latest!.accessError).toBe("gone");
+    expect(hasCachedConversation("a")).toBe(false);
+  },
+);
 
 it("waits for the quiet refresh before loading older messages", async () => {
   const page = Array.from({ length: 50 }, (_, i) => ({ ...msg(`p${i}`, 0), createdAt: new Date(Date.UTC(2026, 9, 1, 0, i)).toISOString() }));
