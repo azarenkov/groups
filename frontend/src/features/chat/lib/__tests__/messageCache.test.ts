@@ -120,6 +120,16 @@ describe("message cache", () => {
     expect(readConversation("me-peer")!.messages[0].content).toBe("edited");
   });
 
+  it("updates quotes of messages that are not cached themselves", () => {
+    const quote = (id: string) => ({ id, authorId: "u2", content: "original", deleted: false }) as never;
+    saveConversation("c1", entry([msg("r1", 5, { replyTo: quote("gone") })]));
+    saveConversation("peer", entry([msg("r2", 5, { replyTo: quote("old-dm") })]));
+    emit("message.deleted", { id: "gone", channelId: "c1" });
+    emit("dm_message.edited", { id: "old-dm", senderId: "peer", newContent: "fixed", occurredAt: "2026-10-01T11:00:00Z" });
+    expect(readConversation("c1")!.messages[0].replyTo?.deleted).toBe(true);
+    expect(readConversation("peer")!.messages[0].replyTo?.content).toBe("fixed");
+  });
+
   it("keeps only the newest page of every chat after reconnecting", () => {
     const long = Array.from({ length: 120 }, (_, i) => msg(`m${i}`, i % 60, { createdAt: new Date(Date.UTC(2026, 9, 1, 0, i)).toISOString() }));
     saveConversation("c1", { ...entry(long), scroll: { atBottom: false, anchorId: "m3", offset: 10 } });
