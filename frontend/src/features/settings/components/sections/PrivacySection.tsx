@@ -4,6 +4,7 @@ import { UserAvatar } from "../../../../shared/ui/Avatar";
 import { homeAPI, type PrivacySettings } from "../../../home/api/home";
 import { queryClient, queryKeys } from "../../../../shared/query/queryClient";
 import { useQuery } from "@tanstack/react-query";
+import { useAuthStore } from "../../../auth/store/authStore";
 import { useBlockStore } from "../../../social/store/blockStore";
 
 import { SettingsRow, Switch } from "../controls";
@@ -20,10 +21,13 @@ export function PrivacySection() {
   const apply = (patch: Partial<PrivacySettings>) => {
     if (busy) return;
     setBusy(true);
+    const session = useAuthStore.getState().user?.id;
     homeAPI
       .updatePrivacy(patch)
       .then(async (saved) => {
+        if (!session || useAuthStore.getState().user?.id !== session) return;
         await queryClient.cancelQueries({ queryKey: queryKeys.privacySettings() });
+        if (useAuthStore.getState().user?.id !== session) return;
         queryClient.setQueryData(queryKeys.privacySettings(), saved);
       })
       .catch((err) => console.warn("[privacy] update failed:", err))
