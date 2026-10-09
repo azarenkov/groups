@@ -16,7 +16,7 @@ async fn a_pro_user_sets_a_status_for_a_while_and_others_hear_about_it() {
     let (fake, id) = Fake::with_tier(Tier::Pro);
     let sticker = Uuid::new_v4();
     let before = Utc::now();
-    let status = usecase(&fake).set(id, sticker, Some("8h"), None).await.unwrap();
+    let (status, _) = usecase(&fake).set(id, sticker, Some("8h"), None).await.unwrap();
     assert_eq!(fake.status(), Some(status));
     assert_eq!(status.sticker_id(), sticker);
     let until = status.until().unwrap();
@@ -30,7 +30,7 @@ async fn a_pro_user_sets_a_status_for_a_while_and_others_hear_about_it() {
 #[tokio::test]
 async fn a_status_without_a_duration_stays_until_removed() {
     let (fake, id) = Fake::with_tier(Tier::Pro);
-    let status = usecase(&fake).set(id, Uuid::new_v4(), None, None).await.unwrap();
+    let (status, _) = usecase(&fake).set(id, Uuid::new_v4(), None, None).await.unwrap();
     assert_eq!(status.until(), None);
     usecase(&fake).clear(id, None).await.unwrap();
     assert_eq!(fake.status(), None);

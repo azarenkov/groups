@@ -151,7 +151,7 @@ async fn set_my_emoji_status(
     body: web::Json<EmojiStatusBody>,
 ) -> Result<impl Responder, HttpError> {
     let ctx = request_context(&req);
-    let status = app_state
+    let (status, changed_at) = app_state
         .set_emoji_status_usecase
         .set(
             UserId::new(auth_token.id),
@@ -160,7 +160,17 @@ async fn set_my_emoji_status(
             ctx.request_id.as_deref(),
         )
         .await?;
-    Ok(HttpResponse::Ok().json(ApiResponse::success(EmojiStatusResponse::from(status))))
+    Ok(HttpResponse::Ok().json(ApiResponse::success(EmojiStatusChange {
+        emoji_status: Some(EmojiStatusResponse::from(status)),
+        updated_at: changed_at,
+    })))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EmojiStatusChange {
+    emoji_status: Option<EmojiStatusResponse>,
+    updated_at: DateTime<Utc>,
 }
 
 #[delete("/me/emoji-status")]
@@ -170,11 +180,14 @@ async fn clear_my_emoji_status(
     app_state: web::Data<AppState>,
 ) -> Result<impl Responder, HttpError> {
     let ctx = request_context(&req);
-    app_state
+    let changed_at = app_state
         .set_emoji_status_usecase
         .clear(UserId::new(auth_token.id), ctx.request_id.as_deref())
         .await?;
-    Ok(HttpResponse::NoContent().finish())
+    Ok(HttpResponse::Ok().json(ApiResponse::success(EmojiStatusChange {
+        emoji_status: None,
+        updated_at: changed_at,
+    })))
 }
 
 #[derive(Debug, Deserialize)]

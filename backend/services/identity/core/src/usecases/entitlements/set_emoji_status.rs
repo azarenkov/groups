@@ -72,7 +72,7 @@ impl<W: IdentityUnitOfWork, S: StickerLookup> SetEmojiStatus<W, S> {
         sticker_id: Uuid,
         duration: Option<&str>,
         request_id: Option<&str>,
-    ) -> Result<EmojiStatus, SetEmojiStatusError> {
+    ) -> Result<(EmojiStatus, DateTime<Utc>), SetEmojiStatusError> {
         let until = status_until(duration, Utc::now())?;
         if !self.has_pro(&user_id).await? {
             return Err(SetEmojiStatusError::ProRequired);
@@ -81,11 +81,11 @@ impl<W: IdentityUnitOfWork, S: StickerLookup> SetEmojiStatus<W, S> {
             return Err(SetEmojiStatusError::StickerNotFound);
         }
         let status = EmojiStatus::new(sticker_id, until);
-        self.apply(user_id, Some(status), request_id).await?;
-        Ok(status)
+        let changed_at = self.apply(user_id, Some(status), request_id).await?;
+        Ok((status, changed_at))
     }
 
-    pub async fn clear(&self, user_id: UserId, request_id: Option<&str>) -> Result<(), SetEmojiStatusError> {
+    pub async fn clear(&self, user_id: UserId, request_id: Option<&str>) -> Result<DateTime<Utc>, SetEmojiStatusError> {
         self.apply(user_id, None, request_id).await
     }
 
@@ -101,7 +101,7 @@ impl<W: IdentityUnitOfWork, S: StickerLookup> SetEmojiStatus<W, S> {
         user_id: UserId,
         status: Option<EmojiStatus>,
         request_id: Option<&str>,
-    ) -> Result<(), SetEmojiStatusError> {
+    ) -> Result<DateTime<Utc>, SetEmojiStatusError> {
         let mut tx = self.unit_of_work.begin().await?;
         let mut user = tx
             .load_user_for_update(&user_id)
@@ -116,7 +116,7 @@ impl<W: IdentityUnitOfWork, S: StickerLookup> SetEmojiStatus<W, S> {
         tx.save_user(&user).await?;
         tx.save_events(&events, request_id).await?;
         tx.commit().await?;
-        Ok(())
+        Ok(now)
     }
 }
 

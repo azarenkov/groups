@@ -27,6 +27,16 @@ export interface UserBadge {
   emojiStatus: EmojiStatus | null;
 }
 
+export interface EmojiStatusChange {
+  emojiStatus: EmojiStatus | null;
+  updatedAt: string | null;
+}
+
+const parseEmojiStatusChange = (data: { emojiStatus?: unknown; updatedAt?: unknown } | undefined): EmojiStatusChange => ({
+  emojiStatus: parseEmojiStatus(data?.emojiStatus),
+  updatedAt: typeof data?.updatedAt === "string" ? data.updatedAt : null,
+});
+
 class EntitlementsAPI {
   private client = http;
 
@@ -55,13 +65,14 @@ class EntitlementsAPI {
     return parseBadgeStyle(response.data.data.badgeStyle);
   }
 
-  async setEmojiStatus(stickerId: string): Promise<EmojiStatus | null> {
+  async setEmojiStatus(stickerId: string): Promise<EmojiStatusChange> {
     const response = await this.client.put("/v1/users/me/emoji-status", { stickerId });
-    return parseEmojiStatus(response.data.data);
+    return parseEmojiStatusChange(response.data.data);
   }
 
-  async clearEmojiStatus(): Promise<void> {
-    await this.client.delete("/v1/users/me/emoji-status");
+  async clearEmojiStatus(): Promise<EmojiStatusChange> {
+    const response = await this.client.delete("/v1/users/me/emoji-status");
+    return parseEmojiStatusChange(response.data.data);
   }
 
   async lookupBadges(userIds: string[]): Promise<UserBadge[]> {

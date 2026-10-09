@@ -4,6 +4,7 @@ import { entitlementsAPI } from "../api/entitlements";
 import { DEFAULT_BADGE_STYLE } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
 import type { EmojiStatus } from "../lib/emojiStatus";
+import { profileVersion } from "../../social/store/userProfileStore";
 
 export interface PlanWindow {
   validUntil: string | null;
@@ -39,6 +40,11 @@ let desiredBadgeStyle: BadgeStyle | null = null;
 let confirmedBadgeStyle: BadgeStyle | null = null;
 let emojiRevision = 0;
 let emojiSeenAt = "";
+
+const advanceEmojiSeen = (updatedAt: string | null) => {
+  const version = profileVersion(updatedAt);
+  if (version > emojiSeenAt) emojiSeenAt = version;
+};
 
 export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   tier: "free",
@@ -129,14 +135,16 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
     const rev = ++emojiRevision;
     const saved = await entitlementsAPI.setEmojiStatus(stickerId);
     if (gen !== generation || rev !== emojiRevision) return;
-    set({ emojiStatus: saved });
+    advanceEmojiSeen(saved.updatedAt);
+    set({ emojiStatus: saved.emojiStatus });
   },
 
   clearEmojiStatus: async () => {
     const gen = generation;
     const rev = ++emojiRevision;
-    await entitlementsAPI.clearEmojiStatus();
+    const cleared = await entitlementsAPI.clearEmojiStatus();
     if (gen !== generation || rev !== emojiRevision) return;
+    advanceEmojiSeen(cleared.updatedAt);
     set({ emojiStatus: null });
   },
 

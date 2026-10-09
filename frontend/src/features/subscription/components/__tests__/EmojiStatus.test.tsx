@@ -73,8 +73,8 @@ beforeEach(() => {
 });
 
 it("lets a subscriber pick a sticker as a status and remove it", async () => {
-  api.setEmojiStatus.mockResolvedValue({ stickerId: "s2", until: null });
-  api.clearEmojiStatus.mockResolvedValue(undefined);
+  api.setEmojiStatus.mockResolvedValue({ emojiStatus: { stickerId: "s2", until: null }, updatedAt: new Date().toISOString() });
+  api.clearEmojiStatus.mockResolvedValue({ emojiStatus: null, updatedAt: new Date().toISOString() });
   act(() => useEntitlementsStore.getState().applyTier("pro"));
   render(<ProfileStyleSettings />);
   const sticker = await screen.findByRole("button", { name: "😼" });
@@ -152,8 +152,8 @@ it("updates a status live from profile events", async () => {
 });
 
 it("brings the badge back when a badge style is picked over a sticker", async () => {
-  api.setEmojiStatus.mockResolvedValue({ stickerId: "s1", until: null });
-  api.clearEmojiStatus.mockResolvedValue(undefined);
+  api.setEmojiStatus.mockResolvedValue({ emojiStatus: { stickerId: "s1", until: null }, updatedAt: new Date().toISOString() });
+  api.clearEmojiStatus.mockResolvedValue({ emojiStatus: null, updatedAt: new Date().toISOString() });
   api.setBadgeStyle.mockImplementation((style) => Promise.resolve(style));
   act(() => useEntitlementsStore.getState().applyTier("pro"));
   render(<ProfileStyleSettings />);
@@ -242,4 +242,23 @@ it("applies a delayed status event even after a newer event without status field
     });
   });
   expect(screen.getByTestId("emoji-status")).toBeInTheDocument();
+});
+
+it("does not let a delayed older event undo a status the user just picked", async () => {
+  const before = new Date(Date.now() - 60_000).toISOString();
+  api.setEmojiStatus.mockResolvedValue({ emojiStatus: { stickerId: "s2", until: null }, updatedAt: new Date().toISOString() });
+  act(() => useEntitlementsStore.getState().applyTier("pro"));
+  await act(async () => {
+    await useEntitlementsStore.getState().setEmojiStatus("s2");
+  });
+  act(() => {
+    socialHandlers["user.profileChanged"]({
+      userId: "me",
+      bio: "",
+      badgeStyle: "tint",
+      emojiStatus: { stickerId: "s1", until: null },
+      occurredAt: before,
+    });
+  });
+  expect(useEntitlementsStore.getState().emojiStatus).toEqual({ stickerId: "s2", until: null });
 });
