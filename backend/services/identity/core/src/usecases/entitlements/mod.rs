@@ -5,3 +5,5 @@ pub mod remind_trial_ending;
 pub mod set_badge_style;
 pub mod start_trial;
 pub mod set_emoji_status;
+#[cfg(test)]
+mod test_fake;

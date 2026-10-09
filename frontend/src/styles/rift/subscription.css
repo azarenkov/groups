@@ -319,3 +319,6 @@
 .emoji-status-option.on { border-color: var(--accent); }
 .emoji-status-option:disabled { opacity: 0.5; cursor: default; }
 .profile-style-sublabel { margin: 16px 0 8px; font-size: 12px; font-weight: 600; color: var(--fg-2); }
+.emoji-status-packs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 6px; }
+.emoji-status-pack { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; border: 1px solid transparent; background: var(--surface-raised); color: var(--fg-2); font: inherit; font-size: 13px; cursor: pointer; }
+.emoji-status-pack.on { border-color: var(--accent); color: var(--fg-1); }

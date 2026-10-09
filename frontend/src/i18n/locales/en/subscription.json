@@ -43,7 +43,8 @@
     "remove": "Remove status",
     "noStickers": "Install or create a sticker pack to pick a status.",
     "gone": "This sticker is no longer available.",
-    "failed": "Couldn't update your status. Try again."
+    "failed": "Couldn't update your status. Try again.",
+    "packs": "Sticker packs"
   },
   "page": {
     "title": "Subscription",

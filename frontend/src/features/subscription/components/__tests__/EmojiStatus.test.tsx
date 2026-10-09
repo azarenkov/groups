@@ -170,3 +170,21 @@ it("brings the badge back when a badge style is picked over a sticker", async ()
   expect(api.clearEmojiStatus).toHaveBeenCalled();
   expect(useEntitlementsStore.getState().emojiStatus).toBeNull();
 });
+
+it("shows one pack at a time so large libraries stay light", async () => {
+  const dogs = {
+    ...pack,
+    id: "p2",
+    name: "Dogs",
+    slug: "dogs",
+    stickers: [{ id: "d1", packId: "p2", emoji: "🐶", animated: false, width: 512, height: 512 }],
+  };
+  stickersAPI.mine.mockResolvedValue([pack, dogs]);
+  act(() => useEntitlementsStore.getState().applyTier("pro"));
+  render(<ProfileStyleSettings />);
+  expect(await screen.findByRole("button", { name: "😺" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "🐶" })).toBeNull();
+  fireEvent.click(screen.getByRole("tab", { name: "Dogs" }));
+  expect(screen.getByRole("button", { name: "🐶" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "😺" })).toBeNull();
+});

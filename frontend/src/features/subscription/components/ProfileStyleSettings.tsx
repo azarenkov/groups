@@ -16,7 +16,7 @@ import TrialOffer from "./TrialOffer";
 import { whilePlanSyncs } from "../lib/planSync";
 import { useActiveEmojiStatus } from "../lib/emojiStatus";
 import StickerImage from "../../stickers/components/StickerImage";
-import { installedPacks, useStickerStore } from "../../stickers/store/stickerStore";
+import { installedPacks, packCover, useStickerStore } from "../../stickers/store/stickerStore";
 
 const MAX_BANNER_BYTES = 8 * 1024 * 1024;
 const BANNER_TYPES = ["image/png", "image/jpeg", "image/webp"];
@@ -41,10 +41,13 @@ const ProfileStyleSettings: React.FC = () => {
   const stickersLoaded = useStickerStore((s) => s.loaded);
   const stickersOwner = useStickerStore((s) => s.userId);
   const [statusBusy, setStatusBusy] = React.useState(false);
-  const statusStickers = React.useMemo(
-    () => installedPacks(stickerPacks).flatMap((pack) => pack.stickers),
-    [stickerPacks],
-  );
+  const statusPacks = React.useMemo(() => installedPacks(stickerPacks), [stickerPacks]);
+  const [chosenPackId, setChosenPackId] = React.useState<string | null>(null);
+  const statusPack =
+    statusPacks.find((pack) => pack.id === chosenPackId) ??
+    statusPacks.find((pack) => pack.stickers.some((sticker) => sticker.id === emojiStatus?.stickerId)) ??
+    statusPacks[0] ??
+    null;
 
   React.useEffect(() => {
     if (locked || !userId) return;
@@ -244,23 +247,48 @@ const ProfileStyleSettings: React.FC = () => {
             <span className="profile-style-hint">{t("emojiStatus.none")}</span>
           )}
         </div>
-        {statusStickers.length > 0 ? (
-          <div className="emoji-status-grid">
-            {statusStickers.map((sticker) => (
-              <button
-                key={sticker.id}
-                type="button"
-                className={"emoji-status-option" + (emojiStatus?.stickerId === sticker.id ? " on" : "")}
-                aria-label={sticker.emoji || t("emojiStatus.title")}
-                disabled={locked || statusBusy}
-                onClick={() =>
-                  void runStatus(() => useEntitlementsStore.getState().setEmojiStatus(sticker.id))
-                }
-              >
-                <StickerImage id={sticker.id} emoji={sticker.emoji} size={36} animated={sticker.animated} />
-              </button>
-            ))}
-          </div>
+        {statusPack ? (
+          <>
+            {statusPacks.length > 1 && (
+              <div className="emoji-status-packs" role="tablist" aria-label={t("emojiStatus.packs")}>
+                {statusPacks.map((pack) => {
+                  const cover = packCover(pack);
+                  return (
+                    <button
+                      key={pack.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={pack.id === statusPack.id}
+                      title={pack.name}
+                      aria-label={pack.name}
+                      className={"emoji-status-pack" + (pack.id === statusPack.id ? " on" : "")}
+                      onClick={() => setChosenPackId(pack.id)}
+                    >
+                      {cover ? (
+                        <StickerImage id={cover.id} emoji={cover.emoji} size={22} />
+                      ) : (
+                        <span>{pack.name.slice(0, 1)}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <div className="emoji-status-grid">
+              {statusPack.stickers.map((sticker) => (
+                <button
+                  key={sticker.id}
+                  type="button"
+                  className={"emoji-status-option" + (emojiStatus?.stickerId === sticker.id ? " on" : "")}
+                  aria-label={sticker.emoji || t("emojiStatus.title")}
+                  disabled={locked || statusBusy}
+                  onClick={() => void runStatus(() => useEntitlementsStore.getState().setEmojiStatus(sticker.id))}
+                >
+                  <StickerImage id={sticker.id} emoji={sticker.emoji} size={36} animated={sticker.animated} />
+                </button>
+              ))}
+            </div>
+          </>
         ) : (
           <div className="profile-style-hint">{t("emojiStatus.noStickers")}</div>
         )}

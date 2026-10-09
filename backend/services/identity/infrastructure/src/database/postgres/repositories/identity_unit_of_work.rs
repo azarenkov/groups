@@ -647,7 +647,6 @@ impl IdentityTransaction for PostgresIdentityTransaction {
               AND valid_until IS NOT NULL AND valid_until > now() AND valid_until <= $1
             ORDER BY valid_until
             LIMIT $2
-            FOR UPDATE SKIP LOCKED
             "#,
             before,
             limit,
@@ -670,7 +669,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         Ok(())
     }
 
-    async fn load_expired_entitlements_for_update(&mut self, now: DateTime<Utc>, limit: i64) -> Result<Vec<UserId>, RepositoryError> {
+    async fn expired_entitlement_users(&mut self, now: DateTime<Utc>, limit: i64) -> Result<Vec<UserId>, RepositoryError> {
         let ids = sqlx::query_scalar!(
             r#"
             SELECT user_id FROM user_entitlements
