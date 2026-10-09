@@ -32,6 +32,8 @@ interface CommunityListProps {
   onInviteCommunity: (community: Community) => void;
   onOpenCommunitySettings: (community: Community) => void;
   onLeaveCommunity?: (community: Community) => void;
+  compact?: boolean;
+  activeCommunityId?: string | null;
 }
 
 const CommunityList: React.FC<CommunityListProps> = ({
@@ -50,6 +52,8 @@ const CommunityList: React.FC<CommunityListProps> = ({
   onInviteCommunity,
   onOpenCommunitySettings,
   onLeaveCommunity,
+  compact,
+  activeCommunityId,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   React.useEffect(() => {
@@ -117,6 +121,51 @@ const CommunityList: React.FC<CommunityListProps> = ({
     const community = communities.find((c) => c.id === el.dataset.communityId);
     return !!community && openContextMenu(point, communityMenu(community));
   });
+  if (compact) {
+    return (
+      <div className="sb-mini-list" role="list" aria-label={t("communities")}>
+        {communities.map((community) => {
+          const unread = unreadFor(community.id);
+          const voice = (channelsByCommunity[community.id] || []).some(
+            (c) => c.kind === "voice" && (voiceMembersByChannel?.[c.id]?.length ?? 0) > 0,
+          );
+          return (
+            <button
+              key={community.id}
+              type="button"
+              role="listitem"
+              className={"sb-mini sb-mini-community" + (activeCommunityId === community.id ? " active" : "")}
+              data-community-id={community.id}
+              title={community.name}
+              aria-label={unread > 0 ? t("unreadIn", { name: community.name, count: unread }) : community.name}
+              aria-current={activeCommunityId === community.id ? "true" : undefined}
+              {...communityLongPress}
+              onClick={() => onPick(community)}
+              onContextMenu={(e) => openContextMenu(e, communityMenu(community))}
+              onKeyDown={(e) => {
+                if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+                  e.preventDefault();
+                  openContextMenuAt(e.currentTarget, communityMenu(community));
+                }
+              }}
+            >
+              <CommunityLogo
+                communityId={community.id}
+                name={community.name}
+                className="sb-mini-ava"
+                style={{ background: community.accentColor ?? colorForId(community.id) }}
+              />
+              {voice && <span className="sb-mini-online" />}
+              {unread > 0 && <span className="sb-mini-badge">{unread > 99 ? "99+" : unread}</span>}
+            </button>
+          );
+        })}
+        <button type="button" className="sb-mini sb-mini-more" title={t("createCommunity")} aria-label={t("createCommunity")} onClick={onCreateCommunity}>
+          <Icon name="plus" size={16} />
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="sb-view">
       {!isFiltering && (

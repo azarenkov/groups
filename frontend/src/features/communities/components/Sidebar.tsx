@@ -16,6 +16,14 @@ import { pinnedFirst, useConversationPinsStore } from "../store/conversationPins
 import { useSidebarPermissions } from "./sidebar/permissions";
 import { useSidebarNavigation } from "./sidebar/useSidebarNavigation";
 import type { SidebarVoiceMember } from "./sidebar/types";
+import { useHotkey } from "../../settings/lib/hotkeys";
+import {
+  SIDEBAR_COLLAPSED_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  useSidebarLayoutStore,
+} from "../store/sidebarLayoutStore";
+
+const RESIZE_STEP = 16;
 
 interface SidebarProps {
   communities: Community[];
@@ -105,6 +113,77 @@ const Sidebar: React.FC<SidebarProps> = ({
     useSidebarNavigation({ selectedChannelId, selectedDmId, channelsByCommunity });
   const openCommunity = communities.find((s) => s.id === openCommunityId) ?? null;
   const perms = useSidebarPermissions(currentUserId, openCommunityId);
+  const collapsed = useSidebarLayoutStore((s) => s.collapsed);
+  const width = useSidebarLayoutStore((s) => s.width);
+  const [focusSearchToken, setFocusSearchToken] = React.useState(0);
+  const shownWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : width;
+
+  React.useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--w-sidebar", `${shownWidth}px`);
+    return () => {
+      root.style.removeProperty("--w-sidebar");
+    };
+  }, [shownWidth]);
+
+  const expandAndSearch = () => {
+    useSidebarLayoutStore.getState().setCollapsed(false);
+    setFocusSearchToken((n) => n + 1);
+  };
+  useHotkey("quickSwitcher", expandAndSearch);
+
+  const collapse = () => {
+    if (searchQuery) onSearchQueryChange("");
+    useSidebarLayoutStore.getState().setCollapsed(true);
+  };
+
+  const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const handle = e.currentTarget;
+    const left = (handle.parentElement ?? handle).getBoundingClientRect().left;
+    handle.setPointerCapture?.(e.pointerId);
+    document.body.classList.add("sb-resizing");
+    const move = (ev: PointerEvent) => useSidebarLayoutStore.getState().dragTo(ev.clientX - left);
+    const stop = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", stop);
+      handle.removeEventListener("pointercancel", stop);
+      document.body.classList.remove("sb-resizing");
+      const layout = useSidebarLayoutStore.getState();
+      if (layout.collapsed && searchQuery) onSearchQueryChange("");
+      layout.persist();
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", stop);
+    handle.addEventListener("pointercancel", stop);
+  };
+
+  const resizer = (
+    <div
+      className="sb-resizer"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={t("resizeSidebar")}
+      aria-valuemin={SIDEBAR_COLLAPSED_WIDTH}
+      aria-valuemax={SIDEBAR_MAX_WIDTH}
+      aria-valuenow={shownWidth}
+      tabIndex={0}
+      onPointerDown={startResize}
+      onDoubleClick={() => (collapsed ? useSidebarLayoutStore.getState().setCollapsed(false) : collapse())}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+          e.preventDefault();
+          useSidebarLayoutStore.getState().nudge(e.key === "ArrowLeft" ? -RESIZE_STEP : RESIZE_STEP);
+          if (useSidebarLayoutStore.getState().collapsed && searchQuery) onSearchQueryChange("");
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          if (collapsed) useSidebarLayoutStore.getState().setCollapsed(false);
+          else collapse();
+        }
+      }}
+    />
+  );
 
   const q = searchQuery.trim().toLowerCase();
   const match = (s: string) => s.toLowerCase().includes(q);
@@ -240,6 +319,104 @@ const Sidebar: React.FC<SidebarProps> = ({
       />
     );
 
+  if (collapsed) {
+    const otherTab = tab === "dms" ? "communities" : "dms";
+    const otherDot = otherTab === "dms" ? totalDmUnread + pendingCount > 0 : totalCommunityUnread > 0;
+    const switchLabel = t(otherTab === "dms" ? "showDirects" : "showCommunities");
+    return (
+      <div className="sb sb-collapsed">
+        <div className="sb-rail">
+          <button type="button" className="sb-rail-btn" title={switchLabel} aria-label={switchLabel} onClick={() => setTab(otherTab)}>
+            <Icon name={otherTab === "dms" ? "message" : "users"} size={17} />
+            {otherDot && <span className="sb-rail-dot" />}
+          </button>
+          <button type="button" className="sb-rail-btn" title={t("addFriend")} aria-label={t("addFriend")} onClick={onAddFriend}>
+            <Icon name="user-plus" size={17} />
+          </button>
+          <button
+            type="button"
+            className="sb-rail-btn"
+            title={t("pendingRequests")}
+            aria-label={pendingCount > 0 ? `${t("pendingRequests")}: ${pendingCount}` : t("pendingRequests")}
+            onClick={onOpenPending}
+          >
+            <Icon name="mail" size={17} />
+            {pendingCount > 0 && <span className="sb-rail-badge">{pendingCount > 99 ? "99+" : pendingCount}</span>}
+          </button>
+          <button
+            type="button"
+            className={"sb-rail-btn" + (homeActive ? " active" : "")}
+            title={t("home")}
+            aria-label={t("home")}
+            onClick={onGoHome}
+          >
+            <Icon name="home" size={17} />
+          </button>
+          <button type="button" className="sb-rail-btn" title={t("searchPlaceholder")} aria-label={t("searchPlaceholder")} onClick={expandAndSearch}>
+            <Icon name="search" size={16} />
+          </button>
+        </div>
+        <div className="sb-scroll sb-scroll-mini">
+          {tab === "dms" ? (
+            <DmList
+              compact
+              directs={pinnedFirst(directs, dmPins)}
+              isFiltering={false}
+              selectedDmId={selectedDmId}
+              unreadByDm={unreadByDm}
+              pendingCount={pendingCount}
+              hasMoreDirects={hasMoreDirects}
+              onLoadMoreDirects={onLoadMoreDirects}
+              onAddFriend={onAddFriend}
+              onOpenPending={onOpenPending}
+              onPick={pickDm}
+              onCall={onCallDm}
+            />
+          ) : (
+            <CommunityList
+              compact
+              activeCommunityId={openCommunityId}
+              communities={pinnedFirst(communities, communityPins)}
+              isFiltering={false}
+              channelsByCommunity={channelsByCommunity}
+              voiceMembersByChannel={voiceMembersByChannel}
+              unreadFor={communityUnreadFor}
+              visibleChannelsFor={visibleChannelsFor}
+              onCreateCommunity={onCreateCommunity}
+              onJoinCommunity={onJoinCommunity}
+              onPick={pickCommunity}
+              renderChannel={renderChannel}
+              perms={perms}
+              currentUserId={currentUserId}
+              onInviteCommunity={onInviteCommunity}
+              onOpenCommunitySettings={onOpenCommunitySettings}
+              onLeaveCommunity={onLeaveCommunity}
+            />
+          )}
+        </div>
+        <div id="voice-dock-slot" className="sb-voice-dock" />
+        <button
+          type="button"
+          className="sb-rail-btn sb-rail-expand"
+          title={t("expandSidebar")}
+          aria-label={t("expandSidebar")}
+          onClick={() => useSidebarLayoutStore.getState().setCollapsed(false)}
+        >
+          <Icon name="expand" size={15} />
+        </button>
+        <SidebarFooter
+          compact
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          currentUserStatus={currentUserStatus}
+          onOpenSettings={onOpenSettings}
+          onSetStatus={onSetStatus}
+        />
+        {resizer}
+      </div>
+    );
+  }
+
   return (
     <div className="sb">
       <SidebarHeader
@@ -255,6 +432,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         onCloseCommunity={() => setOpenCommunityId(null)}
         dmDotVisible={totalDmUnread + pendingCount > 0}
         communityDotVisible={totalCommunityUnread > 0}
+        onCollapse={collapse}
+        focusSearchToken={focusSearchToken}
       />
 
       <div className="sb-scroll">
@@ -294,6 +473,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         onOpenSettings={onOpenSettings}
         onSetStatus={onSetStatus}
       />
+      {resizer}
     </div>
   );
 };

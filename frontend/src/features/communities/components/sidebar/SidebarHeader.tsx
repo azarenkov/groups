@@ -1,7 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
-import { effectiveBinding, useActiveBindings, useHotkey } from "../../../settings/lib/hotkeys";
+import { effectiveBinding, useActiveBindings } from "../../../settings/lib/hotkeys";
 import { IS_MAC, bindingKeycaps } from "../../../settings/lib/hotkeyMatching";
 
 interface SidebarHeaderProps {
@@ -17,6 +17,8 @@ interface SidebarHeaderProps {
   onCloseCommunity: () => void;
   dmDotVisible: boolean;
   communityDotVisible: boolean;
+  onCollapse: () => void;
+  focusSearchToken: number;
 }
 
 const SidebarHeader: React.FC<SidebarHeaderProps> = ({
@@ -32,15 +34,18 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
   onCloseCommunity,
   dmDotVisible,
   communityDotVisible,
+  onCollapse,
+  focusSearchToken,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const switcherBinding = effectiveBinding(useActiveBindings(), "quickSwitcher");
   const switcherLabel = switcherBinding ? bindingKeycaps(switcherBinding).join(IS_MAC ? "" : "+") : null;
-  useHotkey("quickSwitcher", () => {
+  React.useEffect(() => {
+    if (focusSearchToken === 0) return;
     searchInputRef.current?.focus();
     searchInputRef.current?.select();
-  });
+  }, [focusSearchToken]);
   return (
     <>
       <div className="sb-nav">
@@ -69,6 +74,15 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
           onClick={() => goHistory(1)}
         >
           <Icon name="chev-left" size={15} className="flip-x" />
+        </button>
+        <button
+          type="button"
+          className="sb-nav-btn sb-nav-collapse"
+          title={t("collapseSidebar")}
+          aria-label={t("collapseSidebar")}
+          onClick={onCollapse}
+        >
+          <Icon name="shrink" size={14} />
         </button>
       </div>
       <div className="sb-search">

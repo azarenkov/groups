@@ -11,6 +11,7 @@ interface SidebarFooterProps {
   currentUserStatus: string;
   onOpenSettings: () => void;
   onSetStatus?: (status: "online" | "offline") => void;
+  compact?: boolean;
 }
 
 const SidebarFooter: React.FC<SidebarFooterProps> = ({
@@ -19,6 +20,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({
   currentUserStatus,
   onOpenSettings,
   onSetStatus,
+  compact,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   const [statusMenuOpen, setStatusMenuOpen] = React.useState(false);
@@ -43,6 +45,62 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({
       window.removeEventListener("keydown", onKey);
     };
   }, [statusMenuOpen]);
+
+  const statusMenu = statusMenuOpen && onSetStatus ? (
+    <div
+      className="sb-status-menu"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        className="sb-status-menu-item"
+        onClick={() => {
+          onSetStatus("online");
+          setStatusMenuOpen(false);
+        }}
+      >
+        <span className="sb-status-dot online" />
+        <span>{t("statusOnline")}</span>
+      </button>
+      <button
+        type="button"
+        className="sb-status-menu-item"
+        onClick={() => {
+          onSetStatus("offline");
+          setStatusMenuOpen(false);
+        }}
+      >
+        <span className="sb-status-dot offline" />
+        <span>{t("statusOffline")}</span>
+      </button>
+      <PlanUntil className="sb-status-menu-plan" />
+    </div>
+  ) : null;
+
+  if (compact) {
+    return (
+      <div className="sb-footer sb-footer-compact">
+        <div className="sb-mini-me" ref={statusMenuRef}>
+          <button
+            type="button"
+            className="sb-mini"
+            title={t("changeStatus")}
+            aria-label={`${currentUserName}, ${t("changeStatus")}`}
+            aria-expanded={statusMenuOpen}
+            onClick={() => setStatusMenuOpen((v) => !v)}
+          >
+            <UserAvatar userId={currentUserId} name={currentUserName} className="sb-mini-ava ava">
+              <span className={"dot" + (currentUserStatus === "offline" ? " offline" : "")} />
+            </UserAvatar>
+          </button>
+          {statusMenu}
+        </div>
+        <button type="button" className="icon-btn" title={t("settings")} aria-label={t("settings")} onClick={onOpenSettings}>
+          <Icon name="settings" size={14} />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="sb-footer">
@@ -88,36 +146,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({
               className={"user-pill-chev" + (statusMenuOpen ? " up" : "")}
             />
           </div>
-          {statusMenuOpen && onSetStatus && (
-            <div
-              className="sb-status-menu"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                className="sb-status-menu-item"
-                onClick={() => {
-                  onSetStatus("online");
-                  setStatusMenuOpen(false);
-                }}
-              >
-                <span className="sb-status-dot online" />
-                <span>{t("statusOnline")}</span>
-              </button>
-              <button
-                type="button"
-                className="sb-status-menu-item"
-                onClick={() => {
-                  onSetStatus("offline");
-                  setStatusMenuOpen(false);
-                }}
-              >
-                <span className="sb-status-dot offline" />
-                <span>{t("statusOffline")}</span>
-              </button>
-              <PlanUntil className="sb-status-menu-plan" />
-            </div>
-          )}
+          {statusMenu}
         </div>
         <button
           type="button"
