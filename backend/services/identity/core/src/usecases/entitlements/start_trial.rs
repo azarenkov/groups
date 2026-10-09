@@ -91,7 +91,8 @@ impl<W: IdentityUnitOfWork> StartTrial<W> {
             )
             .trial(),
         ))];
-        if user.fit_to_tier(Tier::Pro, changed_at) {
+        let lapsed = user.fit_to_tier(entitlements.active_at(now), changed_at);
+        if user.fit_to_tier(Tier::Pro, changed_at) || lapsed {
             events.extend(user.pull_events().into_iter().map(IdentityEvent::from));
             tx.save_user(&user).await?;
         }

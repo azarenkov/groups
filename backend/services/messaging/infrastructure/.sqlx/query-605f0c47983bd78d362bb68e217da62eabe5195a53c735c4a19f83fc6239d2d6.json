@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO messaging_user_profiles AS p (\n                user_id, name, updated_at, badge_style, badge_updated_at,\n                emoji_status_sticker_id, emoji_status_until, emoji_status_updated_at\n            )\n            VALUES ($1, '', to_timestamp(0), $2, $5::timestamptz, $3, $4, CASE WHEN $6::boolean THEN $5::timestamptz END)\n            ON CONFLICT (user_id) DO UPDATE\n                SET badge_style = CASE\n                        WHEN p.badge_updated_at IS NULL OR p.badge_updated_at <= $5::timestamptz THEN EXCLUDED.badge_style\n                        ELSE p.badge_style END,\n                    badge_updated_at = GREATEST(p.badge_updated_at, $5::timestamptz),\n                    emoji_status_sticker_id = CASE\n                        WHEN $6::boolean AND (p.emoji_status_updated_at IS NULL OR p.emoji_status_updated_at <= $5::timestamptz)\n                            THEN EXCLUDED.emoji_status_sticker_id\n                        ELSE p.emoji_status_sticker_id END,\n                    emoji_status_until = CASE\n                        WHEN $6::boolean AND (p.emoji_status_updated_at IS NULL OR p.emoji_status_updated_at <= $5::timestamptz)\n                            THEN EXCLUDED.emoji_status_until\n                        ELSE p.emoji_status_until END,\n                    emoji_status_updated_at = CASE\n                        WHEN $6::boolean AND (p.emoji_status_updated_at IS NULL OR p.emoji_status_updated_at <= $5::timestamptz) THEN $5::timestamptz\n                        ELSE p.emoji_status_updated_at END\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "605f0c47983bd78d362bb68e217da62eabe5195a53c735c4a19f83fc6239d2d6"
+}

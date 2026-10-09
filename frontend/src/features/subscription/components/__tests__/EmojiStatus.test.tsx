@@ -207,3 +207,21 @@ it("offers stickers from the user's own packs even when they are not installed",
   expect(screen.queryByRole("tab", { name: "Removed" })).toBeNull();
   expect(screen.queryByRole("button", { name: "🐸" })).toBeNull();
 });
+
+it("ignores a status from a profile event older than what is already known", () => {
+  act(() => useBadgeStore.getState().apply("u3", { tier: "pro", badgeStyle: "tint", memberNumber: null }));
+  render(<UserBadge userId="u3" />);
+  const newer = new Date().toISOString();
+  const older = new Date(Date.now() - 60_000).toISOString();
+  act(() => {
+    socialHandlers["user.profileChanged"]({ userId: "u3", bio: "", badgeStyle: "tint", emojiStatus: null, occurredAt: newer });
+    socialHandlers["user.profileChanged"]({
+      userId: "u3",
+      bio: "",
+      badgeStyle: "tint",
+      emojiStatus: { stickerId: "s1", until: null },
+      occurredAt: older,
+    });
+  });
+  expect(screen.queryByTestId("emoji-status")).toBeNull();
+});

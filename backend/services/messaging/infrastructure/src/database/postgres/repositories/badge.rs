@@ -63,17 +63,27 @@ impl BadgeRepository for PostgresBadgeRepository {
         let emoji_status = emoji_status.flatten();
         sqlx::query!(
             r#"
-            INSERT INTO messaging_user_profiles (user_id, name, updated_at, badge_style, emoji_status_sticker_id, emoji_status_until, badge_updated_at)
-            VALUES ($1, '', to_timestamp(0), $2, $3, $4, $5)
+            INSERT INTO messaging_user_profiles AS p (
+                user_id, name, updated_at, badge_style, badge_updated_at,
+                emoji_status_sticker_id, emoji_status_until, emoji_status_updated_at
+            )
+            VALUES ($1, '', to_timestamp(0), $2, $5::timestamptz, $3, $4, CASE WHEN $6::boolean THEN $5::timestamptz END)
             ON CONFLICT (user_id) DO UPDATE
-                SET badge_style = EXCLUDED.badge_style,
-                    emoji_status_sticker_id = CASE WHEN $6 THEN EXCLUDED.emoji_status_sticker_id
-                                                   ELSE messaging_user_profiles.emoji_status_sticker_id END,
-                    emoji_status_until = CASE WHEN $6 THEN EXCLUDED.emoji_status_until
-                                              ELSE messaging_user_profiles.emoji_status_until END,
-                    badge_updated_at = EXCLUDED.badge_updated_at
-                WHERE messaging_user_profiles.badge_updated_at IS NULL
-                   OR messaging_user_profiles.badge_updated_at <= EXCLUDED.badge_updated_at
+                SET badge_style = CASE
+                        WHEN p.badge_updated_at IS NULL OR p.badge_updated_at <= $5::timestamptz THEN EXCLUDED.badge_style
+                        ELSE p.badge_style END,
+                    badge_updated_at = GREATEST(p.badge_updated_at, $5::timestamptz),
+                    emoji_status_sticker_id = CASE
+                        WHEN $6::boolean AND (p.emoji_status_updated_at IS NULL OR p.emoji_status_updated_at <= $5::timestamptz)
+                            THEN EXCLUDED.emoji_status_sticker_id
+                        ELSE p.emoji_status_sticker_id END,
+                    emoji_status_until = CASE
+                        WHEN $6::boolean AND (p.emoji_status_updated_at IS NULL OR p.emoji_status_updated_at <= $5::timestamptz)
+                            THEN EXCLUDED.emoji_status_until
+                        ELSE p.emoji_status_until END,
+                    emoji_status_updated_at = CASE
+                        WHEN $6::boolean AND (p.emoji_status_updated_at IS NULL OR p.emoji_status_updated_at <= $5::timestamptz) THEN $5::timestamptz
+                        ELSE p.emoji_status_updated_at END
             "#,
             user_id.uuid(),
             badge_style,

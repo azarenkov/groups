@@ -200,6 +200,9 @@ export const socialHandlers: WsHandlers = {
   "user.profileChanged": (d) => {
       const userId = asString(d.userId);
       if (!userId) return;
+      const version = profileVersion(asString(d.occurredAt));
+      const cached = useUserProfileStore.getState().bios[userId];
+      if (cached && cached.at > version) return;
       if ("emojiStatus" in d) {
         const emojiStatus = parseEmojiStatus(d.emojiStatus);
         if (useAuthStore.getState().user?.id === userId) {
@@ -220,9 +223,6 @@ export const socialHandlers: WsHandlers = {
       const bio = asString(d.bio) ?? "";
       const showActivity = d.showActivity === true;
       const showGameActivity = d.showGameActivity !== false;
-      const version = profileVersion(asString(d.occurredAt));
-      const cached = useUserProfileStore.getState().bios[userId];
-      if (cached && cached.at > version) return;
       useUserProfileStore.getState().apply(userId, bio, version);
       const auth = useAuthStore.getState();
       if (!showGameActivity && auth.user?.id !== userId) {
