@@ -831,20 +831,13 @@ body.electron .body-area::before {
   overflow: hidden;
 }
 
+.auth-mark { display: flex; justify-content: center; margin-bottom: 20px; color: var(--fg-1); }
 .auth-topbar {
   height: 52px;
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: flex-end;
   padding: 0 24px;
   flex-shrink: 0;
   -webkit-app-region: drag;
-}
-body.electron:not(.electron-fullscreen) .auth-topbar { padding-left: 80px; }
-.auth-brand {
-  display: inline-flex; align-items: center; gap: 10px;
-  font-size: 20px; font-weight: 700; line-height: 1;
-  letter-spacing: -0.3px;
-  color: var(--fg-1);
-  -webkit-app-region: no-drag;
 }
 
 .auth-lang {
@@ -924,31 +917,6 @@ body.electron:not(.electron-fullscreen) .auth-topbar { padding-left: 80px; }
   display: flex; flex-direction: column;
 }
 
-.auth-tabs {
-  display: flex;
-  background: var(--surface-sunken);
-  border-radius: 10px;
-  padding: 3px;
-  gap: 2px;
-  margin-bottom: 32px;
-}
-.auth-tabs button {
-  flex: 1;
-  border: 0;
-  background: transparent;
-  color: var(--fg-3);
-  padding: 8px 6px;
-  border-radius: 7px;
-  font-size: 13px; font-weight: 500;
-  cursor: pointer;
-  transition: all var(--dur-fast);
-}
-.auth-tabs button:hover { color: var(--fg-2); }
-.auth-tabs button.on {
-  background: var(--surface-panel);
-  color: var(--fg-1);
-  box-shadow: var(--shadow-xs);
-}
 
 .auth-card h1 {
   font-size: 26px; font-weight: 600;
@@ -1083,8 +1051,6 @@ body.electron:not(.electron-fullscreen) .auth-topbar { padding-left: 80px; }
 
 .dark .field input { background: rgba(255,255,255,0.04); }
 .dark .field input:focus { background: rgba(255,255,255,0.06); }
-.dark .auth-tabs { background: rgba(255,255,255,0.04); }
-.dark .auth-tabs button.on { background: rgba(255,255,255,0.10); }
 
 .auth-back {
   display: inline-flex; align-items: center; gap: 6px;
@@ -1181,31 +1147,6 @@ body.electron:not(.electron-fullscreen) .auth-topbar { padding-left: 80px; }
   font-feature-settings: "tnum";
 }
 
-.auth-tabs {
-  display: flex;
-  background: var(--surface-sunken);
-  border-radius: 10px;
-  padding: 3px;
-  gap: 2px;
-  margin-bottom: 28px;
-}
-.auth-tabs button {
-  flex: 1;
-  border: 0;
-  background: transparent;
-  color: var(--fg-3);
-  padding: 8px 6px;
-  border-radius: 7px;
-  font-size: 13px; font-weight: 500;
-  cursor: pointer;
-  transition: all var(--dur-fast);
-}
-.auth-tabs button:hover { color: var(--fg-2); }
-.auth-tabs button.on {
-  background: var(--surface-panel);
-  color: var(--fg-1);
-  box-shadow: var(--shadow-xs);
-}
 
 .auth-card h1 {
   font-size: 28px; font-weight: 600;
