@@ -738,16 +738,6 @@ const CommunitiesPage: React.FC = () => {
           onSetStatus={handleSetStatus}
         />
 
-        <PanelResizer
-          cssVar="--w-sidebar"
-          otherSelector=".members-panel"
-          side="start"
-          min={240}
-          max={420}
-          fallback={320}
-          storageKey="rift.panel.sidebar"
-          label={i18n.t("resizeSidebar", { ns: "common" })}
-        />
         <main className="main">
           <div className="main-inner">
             <CallReturnBar />

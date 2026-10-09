@@ -32,6 +32,7 @@ interface DmListProps {
   onOpenPending: () => void;
   onPick: (dm: DirectConversation) => void;
   onCall?: (dm: DirectConversation) => void;
+  compact?: boolean;
 }
 
 const DmList: React.FC<DmListProps> = ({
@@ -46,6 +47,7 @@ const DmList: React.FC<DmListProps> = ({
   onOpenPending,
   onPick,
   onCall,
+  compact,
 }) => {
   const { t, i18n } = useTranslation(["sidebar", "common"]);
   const activities = useActivityStore((s) => s.byUser);
@@ -99,6 +101,48 @@ const DmList: React.FC<DmListProps> = ({
     const dm = directs.find((d) => d.id === el.dataset.dmId);
     return !!dm && openContextMenu(point, dmMenu(dm));
   });
+  if (compact) {
+    return (
+      <div className="sb-mini-list" role="list" aria-label={t("directMessages")}>
+        {directs.map((d) => {
+          const unread = unreadByDm[d.id] ?? 0;
+          const muted = dmLevelOf(dmLevels, d.id, globalMentions) === "none";
+          return (
+            <button
+              key={d.id}
+              type="button"
+              role="listitem"
+              className={"sb-mini" + (selectedDmId === d.id ? " active" : "")}
+              data-dm-id={d.id}
+              title={d.name}
+              aria-label={unread > 0 ? t("unreadIn", { name: d.name, count: unread }) : d.name}
+              aria-current={selectedDmId === d.id ? "true" : undefined}
+              {...dmLongPress}
+              onClick={() => onPick(d)}
+              onContextMenu={(e) => openContextMenu(e, dmMenu(d))}
+              onKeyDown={(e) => {
+                if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+                  e.preventDefault();
+                  openContextMenuAt(e.currentTarget, dmMenu(d));
+                }
+              }}
+            >
+              <UserAvatar userId={d.id} name={d.name} className="sb-mini-ava" style={{ background: d.color }} />
+              {d.online && <span className="sb-mini-online" />}
+              {unread > 0 && (
+                <span className={"sb-mini-badge" + (muted ? " muted" : "")}>{unread > 99 ? "99+" : unread}</span>
+              )}
+            </button>
+          );
+        })}
+        {hasMoreDirects && onLoadMoreDirects && (
+          <button type="button" className="sb-mini sb-mini-more" title={t("loadMore")} aria-label={t("loadMore")} onClick={onLoadMoreDirects}>
+            <Icon name="more" size={16} />
+          </button>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="sb-view">
       {!isFiltering && (

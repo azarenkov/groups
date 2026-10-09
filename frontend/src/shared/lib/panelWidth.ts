@@ -16,3 +16,8 @@ export function clampPanelWidth(
   const upper = Math.max(bounds.min, Math.min(bounds.max, room));
   return Math.round(Math.min(upper, Math.max(bounds.min, requested)));
 }
+
+export const PANELS_CHANGED = "rift:panels-changed";
+
+export const announcePanels = (source: string) =>
+  window.dispatchEvent(new CustomEvent<string>(PANELS_CHANGED, { detail: source }));

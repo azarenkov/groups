@@ -75,5 +75,11 @@
   "unpinChat": "Unpin chat",
   "pinCommunity": "Pin community",
   "unpinCommunity": "Unpin community",
-  "pinned": "Pinned"
+  "pinned": "Pinned",
+  "collapseSidebar": "Collapse sidebar",
+  "expandSidebar": "Expand sidebar",
+  "resizeSidebar": "Resize sidebar",
+  "showDirects": "Show direct messages",
+  "showCommunities": "Show communities",
+  "unreadIn": "{{name}}, {{count}} unread"
 }

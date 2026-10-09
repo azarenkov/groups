@@ -75,5 +75,11 @@
   "unpinChat": "Открепить чат",
   "pinCommunity": "Закрепить сообщество",
   "unpinCommunity": "Открепить сообщество",
-  "pinned": "Закреплено"
+  "pinned": "Закреплено",
+  "collapseSidebar": "Свернуть панель",
+  "expandSidebar": "Развернуть панель",
+  "resizeSidebar": "Изменить ширину панели",
+  "showDirects": "Показать личные сообщения",
+  "showCommunities": "Показать сообщества",
+  "unreadIn": "{{name}}, непрочитанных: {{count}}"
 }
