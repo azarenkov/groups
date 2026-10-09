@@ -262,3 +262,26 @@ it("does not let a delayed older event undo a status the user just picked", asyn
   });
   expect(useEntitlementsStore.getState().emojiStatus).toEqual({ stickerId: "s2", until: null });
 });
+
+it("keeps a status from an event that lands while a badge lookup is in flight", async () => {
+  let answer: (value: unknown) => void = () => undefined;
+  api.lookupBadges.mockImplementation(() => new Promise((resolve) => (answer = resolve)));
+  render(<UserBadge userId="u5" />);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+  });
+  expect(api.lookupBadges).toHaveBeenCalledWith(["u5"]);
+  act(() => {
+    socialHandlers["user.profileChanged"]({
+      userId: "u5",
+      bio: "",
+      badgeStyle: "tint",
+      emojiStatus: { stickerId: "s1", until: null },
+      occurredAt: new Date().toISOString(),
+    });
+  });
+  await act(async () => {
+    answer([{ userId: "u5", tier: "pro", badgeStyle: "tint", memberNumber: null, emojiStatus: null }]);
+  });
+  expect(screen.getByTestId("emoji-status")).toBeInTheDocument();
+});

@@ -35,6 +35,7 @@ const queued = new Set<string>();
 const fetchedAt = new Map<string, number>();
 const retries = new Map<string, number>();
 const statusSeenAt = new Map<string, string>();
+const statusFromEvents = new Map<string, EmojiStatus | null>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let generation = 0;
 
@@ -45,6 +46,7 @@ const flush = () => {
   if (queued.size > 0) timer = setTimeout(flush, BATCH_DELAY_MS);
   if (ids.length === 0) return;
   const gen = generation;
+  const statusMarks = new Map(ids.map((id) => [id, statusSeenAt.get(id)]));
   entitlementsAPI
     .lookupBadges(ids)
     .then((badges) => {
@@ -55,12 +57,13 @@ const flush = () => {
         const byUser = { ...state.byUser };
         for (const id of ids) {
           const badge = found.get(id);
+          const statusMoved = statusSeenAt.get(id) !== statusMarks.get(id);
           byUser[id] = badge
             ? {
                 tier: badge.tier,
                 badgeStyle: badge.badgeStyle,
                 memberNumber: badge.memberNumber,
-                emojiStatus: badge.emojiStatus,
+                emojiStatus: statusMoved ? (statusFromEvents.get(id) ?? null) : badge.emojiStatus,
               }
             : null;
           fetchedAt.set(id, now);
@@ -114,6 +117,7 @@ export const useBadgeStore = create<BadgeState>()((set) => ({
   applyEmojiStatus: (userId, emojiStatus, version) => {
     if ((statusSeenAt.get(userId) ?? "") > version) return;
     statusSeenAt.set(userId, version);
+    statusFromEvents.set(userId, emojiStatus);
     set((state) => {
       const current = state.byUser[userId];
       if (!current) return state;
@@ -152,6 +156,7 @@ export const useBadgeStore = create<BadgeState>()((set) => ({
     fetchedAt.clear();
     retries.clear();
     statusSeenAt.clear();
+    statusFromEvents.clear();
     if (timer) {
       clearTimeout(timer);
       timer = null;
