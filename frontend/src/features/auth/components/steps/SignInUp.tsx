@@ -23,6 +23,7 @@ interface SignUpData {
   name: string;
   email: string;
   password: string;
+  confirmPassword: string;
 }
 
 interface SignInUpProps {
@@ -114,7 +115,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
     defaultValues: { email, password: "" },
   });
   const signUpForm = useForm<SignUpData>({
-    defaultValues: { name: "", email, password: "" },
+    defaultValues: { name: "", email, password: "", confirmPassword: "" },
   });
 
   const [showPw, setShowPw] = useState(false);
@@ -390,6 +391,29 @@ export const SignInUp: React.FC<SignInUpProps> = ({
             </span>
           )}
         </div>
+
+        {isSignup && (
+          <div className="field">
+            <label>{t("confirmNewPassword")}</label>
+            <div className="field-input">
+              <span className="lead"><Icon name="lock2" size={15} /></span>
+              <input
+                type={showPw ? "text" : "password"}
+                placeholder={t("repeatPassword")}
+                autoComplete="new-password"
+                {...signUpForm.register("confirmPassword", {
+                  required: t("passwordsDontMatch"),
+                  validate: (value) => value === signUpForm.getValues("password") || t("passwordsDontMatch"),
+                })}
+              />
+            </div>
+            {errors.confirmPassword && (
+              <span className="error-text" style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>
+                {errors.confirmPassword.message}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="auth-row">
           {isSignup ? (

@@ -22,7 +22,7 @@ export const ResetPassword: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const [linkDead, setLinkDead] = useState(!token);
 
-  const { score, label } = passwordStrength(pw);
+  const { score, level } = passwordStrength(pw);
   const tooShort = pw.length > 0 && pw.length < RESET_PASSWORD_MIN;
   const mismatch = pw2.length > 0 && pw !== pw2;
   const canSubmit = !!token && !saving && pw.length >= RESET_PASSWORD_MIN && pw === pw2;
@@ -106,7 +106,7 @@ export const ResetPassword: React.FC<{
                 <i /><i /><i /><i />
               </div>
               <div className="pw-strength-label">
-                <span>{label}</span>
+                <span>{level ? t(`strength.${level}`) : ""}</span>
                 {tooShort && <span style={{ color: "#ff453a" }}>{t("tooShort")}</span>}
               </div>
             </>

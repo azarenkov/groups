@@ -71,20 +71,23 @@ export const OtpInput: React.FC<OtpInputProps> = ({ value, onChange, autoFocus }
   );
 };
 
+export type StrengthLevel = "veryWeak" | "weak" | "okay" | "strong" | "excellent";
+
 export interface PasswordStrength {
   score: 0 | 1 | 2 | 3 | 4;
-  label: string;
+  level: StrengthLevel | null;
 }
 
+const LEVELS: StrengthLevel[] = ["veryWeak", "weak", "okay", "strong", "excellent"];
+
 export const passwordStrength = (pw: string): PasswordStrength => {
-  if (!pw) return { score: 0, label: "" };
+  if (!pw) return { score: 0, level: null };
   let s = 0;
   if (pw.length >= 8) s++;
   if (pw.length >= 12) s++;
   if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) s++;
   if (/[0-9]/.test(pw) && /[^A-Za-z0-9]/.test(pw)) s++;
-  const labels = ["Too short", "Weak", "Okay", "Strong", "Excellent"];
-  return { score: s as PasswordStrength["score"], label: labels[s] || "" };
+  return { score: s as PasswordStrength["score"], level: LEVELS[s] };
 };
 
 export const FormError: React.FC<{ children: React.ReactNode }> = ({ children }) => (
