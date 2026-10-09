@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { entitlementsAPI } from "../api/entitlements";
 import { DEFAULT_BADGE_STYLE } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
-import type { EmojiStatus, EmojiStatusDuration } from "../lib/emojiStatus";
+import type { EmojiStatus } from "../lib/emojiStatus";
 
 export interface PlanWindow {
   validUntil: string | null;
@@ -26,7 +26,7 @@ interface EntitlementsState {
   applyBadgeStyle: (style: BadgeStyle) => void;
   setBadgeStyle: (style: BadgeStyle) => Promise<void>;
   applyEmojiStatus: (status: EmojiStatus | null) => void;
-  setEmojiStatus: (stickerId: string, duration: EmojiStatusDuration) => Promise<void>;
+  setEmojiStatus: (stickerId: string) => Promise<void>;
   clearEmojiStatus: () => Promise<void>;
   clear: () => void;
 }
@@ -121,10 +121,10 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
     set({ emojiStatus });
   },
 
-  setEmojiStatus: async (stickerId, duration) => {
+  setEmojiStatus: async (stickerId) => {
     const gen = generation;
     const rev = ++emojiRevision;
-    const saved = await entitlementsAPI.setEmojiStatus(stickerId, duration);
+    const saved = await entitlementsAPI.setEmojiStatus(stickerId);
     if (gen !== generation || rev !== emojiRevision) return;
     set({ emojiStatus: saved });
   },

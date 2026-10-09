@@ -72,18 +72,16 @@ beforeEach(() => {
   userAPI.downloadAvatar.mockRejectedValue(new Error("none"));
 });
 
-it("lets a subscriber pick a sticker as a status for a chosen time and remove it", async () => {
-  api.setEmojiStatus.mockResolvedValue({ stickerId: "s2", until: new Date(Date.now() + 8 * 3600_000).toISOString() });
+it("lets a subscriber pick a sticker as a status and remove it", async () => {
+  api.setEmojiStatus.mockResolvedValue({ stickerId: "s2", until: null });
   api.clearEmojiStatus.mockResolvedValue(undefined);
   act(() => useEntitlementsStore.getState().applyTier("pro"));
   render(<ProfileStyleSettings />);
-  const durations = within(screen.getByRole("radiogroup", { name: i18n.t("subscription:emojiStatus.duration") }));
-  fireEvent.click(durations.getByRole("radio", { name: i18n.t("subscription:emojiStatus.durations.8h") }));
   const sticker = await screen.findByRole("button", { name: "😼" });
   await act(async () => {
     fireEvent.click(sticker);
   });
-  expect(api.setEmojiStatus).toHaveBeenCalledWith("s2", "8h");
+  expect(api.setEmojiStatus).toHaveBeenCalledWith("s2");
   expect(useEntitlementsStore.getState().emojiStatus?.stickerId).toBe("s2");
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: i18n.t("subscription:emojiStatus.remove") }));
@@ -94,11 +92,7 @@ it("lets a subscriber pick a sticker as a status for a chosen time and remove it
 
 it("does not let a free user set a status", () => {
   render(<ProfileStyleSettings />);
-  for (const option of within(
-    screen.getByRole("radiogroup", { name: i18n.t("subscription:emojiStatus.duration") }),
-  ).getAllByRole("radio")) {
-    expect(option).toBeDisabled();
-  }
+  expect(screen.queryByRole("button", { name: "😺" })).toBeNull();
   expect(stickersAPI.mine).not.toHaveBeenCalled();
 });
 

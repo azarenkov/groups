@@ -40,17 +40,7 @@
   "emojiStatus": {
     "title": "Or a sticker instead of the badge",
     "none": "Pick a sticker to show it next to your name instead of the badge. Picking a badge style brings the badge back.",
-    "noEnd": "No end date",
-    "until": "Until {{time}}",
     "remove": "Remove status",
-    "duration": "Status duration",
-    "durations": {
-      "1h": "1 hour",
-      "8h": "8 hours",
-      "1d": "1 day",
-      "7d": "1 week",
-      "forever": "No end"
-    },
     "noStickers": "Install or create a sticker pack to pick a status.",
     "gone": "This sticker is no longer available.",
     "failed": "Couldn't update your status. Try again."

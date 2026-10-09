@@ -2,7 +2,7 @@ import { http } from "../../../shared/api/http";
 import { parseBadgeStyle, parseMemberNumber, parseTier, parseValidUntil } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
 import { parseEmojiStatus } from "../lib/emojiStatus";
-import type { EmojiStatus, EmojiStatusDuration } from "../lib/emojiStatus";
+import type { EmojiStatus } from "../lib/emojiStatus";
 
 export interface MyEntitlements {
   tier: Tier;
@@ -55,11 +55,8 @@ class EntitlementsAPI {
     return parseBadgeStyle(response.data.data.badgeStyle);
   }
 
-  async setEmojiStatus(stickerId: string, duration: EmojiStatusDuration): Promise<EmojiStatus | null> {
-    const response = await this.client.put("/v1/users/me/emoji-status", {
-      stickerId,
-      duration: duration === "forever" ? null : duration,
-    });
+  async setEmojiStatus(stickerId: string): Promise<EmojiStatus | null> {
+    const response = await this.client.put("/v1/users/me/emoji-status", { stickerId });
     return parseEmojiStatus(response.data.data);
   }
 

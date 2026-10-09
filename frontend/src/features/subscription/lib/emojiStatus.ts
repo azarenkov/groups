@@ -5,9 +5,6 @@ export interface EmojiStatus {
   until: string | null;
 }
 
-export const EMOJI_STATUS_DURATIONS = ["1h", "8h", "1d", "7d", "forever"] as const;
-export type EmojiStatusDuration = (typeof EMOJI_STATUS_DURATIONS)[number];
-
 export function parseEmojiStatus(raw: unknown): EmojiStatus | null {
   if (!raw || typeof raw !== "object") return null;
   const value = raw as { stickerId?: unknown; until?: unknown };

@@ -313,11 +313,6 @@
 .emoji-status .sticker-img { display: inline-flex; }
 .emoji-status .sticker-img img { width: 100%; height: 100%; object-fit: contain; }
 .emoji-status-current { display: flex; align-items: center; gap: 10px; min-height: 36px; margin-bottom: 10px; }
-.emoji-status-until { font-size: 13px; color: var(--fg-2); flex: 1; }
-.emoji-status-durations { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.emoji-status-duration { height: 28px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--hairline-strong); background: var(--surface-raised); color: var(--fg-2); font: inherit; font-size: 12px; cursor: pointer; }
-.emoji-status-duration.on { color: var(--fg-1); border-color: var(--accent); }
-.emoji-status-duration:disabled { opacity: 0.5; cursor: default; }
 .emoji-status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 6px; max-height: 220px; overflow-y: auto; padding: 2px; }
 .emoji-status-option { display: flex; align-items: center; justify-content: center; height: 48px; border-radius: 10px; border: 1px solid transparent; background: var(--surface-raised); cursor: pointer; }
 .emoji-status-option:hover:not(:disabled) { background: var(--surface-hover); }
