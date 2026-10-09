@@ -3,6 +3,8 @@
   "userSettings": "User Settings",
   "appSettings": "App Settings",
   "logOut": "Log Out",
+  "logOutConfirmTitle": "Log out?",
+  "logOutConfirmSubtitle": "You'll need your email and password to sign back in.",
   "esc": "ESC",
   "sections": {
     "account": "My Account",
