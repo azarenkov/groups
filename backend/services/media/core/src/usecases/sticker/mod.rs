@@ -351,7 +351,11 @@ where
         if !self.stickers.sticker_usable_by(sticker_id, &user_id).await? {
             return Err(StickerError::StickerNotFound);
         }
-        self.claim_for_message(sticker_id).await
+        let claimed = self.claim_for_message(sticker_id).await?;
+        if claimed.deleted {
+            return Err(StickerError::StickerNotFound);
+        }
+        Ok(claimed)
     }
 
     pub async fn sticker_file(&self, sticker_id: Uuid) -> Result<(ByteStream, &'static str), StickerError> {
