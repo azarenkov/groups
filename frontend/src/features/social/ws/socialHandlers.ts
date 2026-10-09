@@ -201,16 +201,16 @@ export const socialHandlers: WsHandlers = {
       const userId = asString(d.userId);
       if (!userId) return;
       const version = profileVersion(asString(d.occurredAt));
-      const cached = useUserProfileStore.getState().bios[userId];
-      if (cached && cached.at > version) return;
       if ("emojiStatus" in d) {
         const emojiStatus = parseEmojiStatus(d.emojiStatus);
         if (useAuthStore.getState().user?.id === userId) {
-          useEntitlementsStore.getState().applyEmojiStatus(emojiStatus);
+          useEntitlementsStore.getState().applyEmojiStatus(emojiStatus, version);
         } else {
-          useBadgeStore.getState().applyEmojiStatus(userId, emojiStatus);
+          useBadgeStore.getState().applyEmojiStatus(userId, emojiStatus, version);
         }
       }
+      const cached = useUserProfileStore.getState().bios[userId];
+      if (cached && cached.at > version) return;
       if (typeof d.badgeStyle === "string") {
         const badgeStyle = parseBadgeStyle(d.badgeStyle);
         if (useAuthStore.getState().user?.id === userId) {

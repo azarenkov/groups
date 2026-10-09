@@ -43,6 +43,7 @@ async fn free_users_cannot_set_a_status_but_can_clear_one() {
     let err = usecase(&fake).set(id, Uuid::new_v4(), None, None).await.unwrap_err();
     assert!(matches!(err, SetEmojiStatusError::ProRequired));
     assert_eq!(fake.status(), None);
+    assert_eq!(fake.0.lock().unwrap().sticker_lookups, 0);
     usecase(&fake).clear(id, None).await.unwrap();
     assert!(fake.events().is_empty());
 }

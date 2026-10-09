@@ -25,6 +25,7 @@ pub(super) struct State {
     pub(super) entitlements: Entitlements,
     pub(super) events: Vec<String>,
     pub(super) unusable_sticker: bool,
+    pub(super) sticker_lookups: usize,
 }
 
 #[derive(Clone, Default)]
@@ -157,6 +158,8 @@ impl IdentityTransaction for Fake {
 #[async_trait]
 impl StickerLookup for Fake {
     async fn usable_sticker(&self, _: &UserId, _: Uuid) -> Result<bool, StickerLookupError> {
-        Ok(!self.0.lock().unwrap().unusable_sticker)
+        let mut state = self.0.lock().unwrap();
+        state.sticker_lookups += 1;
+        Ok(!state.unusable_sticker)
     }
 }

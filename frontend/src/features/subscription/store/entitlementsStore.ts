@@ -25,7 +25,7 @@ interface EntitlementsState {
   startTrial: () => Promise<void>;
   applyBadgeStyle: (style: BadgeStyle) => void;
   setBadgeStyle: (style: BadgeStyle) => Promise<void>;
-  applyEmojiStatus: (status: EmojiStatus | null) => void;
+  applyEmojiStatus: (status: EmojiStatus | null, version: string) => void;
   setEmojiStatus: (stickerId: string) => Promise<void>;
   clearEmojiStatus: () => Promise<void>;
   clear: () => void;
@@ -38,6 +38,7 @@ let badgeInFlight: Promise<void> | null = null;
 let desiredBadgeStyle: BadgeStyle | null = null;
 let confirmedBadgeStyle: BadgeStyle | null = null;
 let emojiRevision = 0;
+let emojiSeenAt = "";
 
 export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   tier: "free",
@@ -116,7 +117,9 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
     set({ badgeStyle });
   },
 
-  applyEmojiStatus: (emojiStatus) => {
+  applyEmojiStatus: (emojiStatus, version) => {
+    if (emojiSeenAt > version) return;
+    emojiSeenAt = version;
     emojiRevision += 1;
     set({ emojiStatus });
   },
@@ -183,6 +186,7 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   clear: () => {
     generation += 1;
     emojiRevision += 1;
+    emojiSeenAt = "";
     clearExpiryTimer();
     badgeInFlight = null;
     desiredBadgeStyle = null;

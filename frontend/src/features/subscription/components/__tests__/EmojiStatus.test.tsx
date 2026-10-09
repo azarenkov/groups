@@ -225,3 +225,21 @@ it("ignores a status from a profile event older than what is already known", () 
   });
   expect(screen.queryByTestId("emoji-status")).toBeNull();
 });
+
+it("applies a delayed status event even after a newer event without status fields", () => {
+  act(() => useBadgeStore.getState().apply("u4", { tier: "pro", badgeStyle: "tint", memberNumber: null }));
+  render(<UserBadge userId="u4" />);
+  const newer = new Date().toISOString();
+  const older = new Date(Date.now() - 60_000).toISOString();
+  act(() => {
+    socialHandlers["user.profileChanged"]({ userId: "u4", bio: "", badgeStyle: "tint", occurredAt: newer });
+    socialHandlers["user.profileChanged"]({
+      userId: "u4",
+      bio: "",
+      badgeStyle: "tint",
+      emojiStatus: { stickerId: "s1", until: null },
+      occurredAt: older,
+    });
+  });
+  expect(screen.getByTestId("emoji-status")).toBeInTheDocument();
+});

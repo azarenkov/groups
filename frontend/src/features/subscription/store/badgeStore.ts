@@ -24,7 +24,7 @@ interface BadgeState {
   request: (userId: string) => void;
   apply: (userId: string, badge: Badge | null) => void;
   applyStyle: (userId: string, badgeStyle: BadgeStyle) => void;
-  applyEmojiStatus: (userId: string, emojiStatus: EmojiStatus | null) => void;
+  applyEmojiStatus: (userId: string, emojiStatus: EmojiStatus | null, version: string) => void;
   applyTier: (userId: string, tier: Tier, memberNumber: number | null) => void;
   forget: (userId: string) => void;
   revalidateLater: (userId: string) => void;
@@ -34,6 +34,7 @@ interface BadgeState {
 const queued = new Set<string>();
 const fetchedAt = new Map<string, number>();
 const retries = new Map<string, number>();
+const statusSeenAt = new Map<string, string>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let generation = 0;
 
@@ -110,12 +111,15 @@ export const useBadgeStore = create<BadgeState>()((set) => ({
       return { byUser: { ...state.byUser, [userId]: { ...current, badgeStyle } } };
     }),
 
-  applyEmojiStatus: (userId, emojiStatus) =>
+  applyEmojiStatus: (userId, emojiStatus, version) => {
+    if ((statusSeenAt.get(userId) ?? "") > version) return;
+    statusSeenAt.set(userId, version);
     set((state) => {
       const current = state.byUser[userId];
       if (!current) return state;
       return { byUser: { ...state.byUser, [userId]: { ...current, emojiStatus } } };
-    }),
+    });
+  },
 
   applyTier: (userId, tier, memberNumber) => {
     fetchedAt.set(userId, Date.now());
@@ -147,6 +151,7 @@ export const useBadgeStore = create<BadgeState>()((set) => ({
     queued.clear();
     fetchedAt.clear();
     retries.clear();
+    statusSeenAt.clear();
     if (timer) {
       clearTimeout(timer);
       timer = null;

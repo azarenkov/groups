@@ -74,6 +74,9 @@ impl<W: IdentityUnitOfWork, S: StickerLookup> SetEmojiStatus<W, S> {
         request_id: Option<&str>,
     ) -> Result<EmojiStatus, SetEmojiStatusError> {
         let until = status_until(duration, Utc::now())?;
+        if !self.has_pro(&user_id).await? {
+            return Err(SetEmojiStatusError::ProRequired);
+        }
         if !self.stickers.usable_sticker(&user_id, sticker_id).await? {
             return Err(SetEmojiStatusError::StickerNotFound);
         }
@@ -84,6 +87,13 @@ impl<W: IdentityUnitOfWork, S: StickerLookup> SetEmojiStatus<W, S> {
 
     pub async fn clear(&self, user_id: UserId, request_id: Option<&str>) -> Result<(), SetEmojiStatusError> {
         self.apply(user_id, None, request_id).await
+    }
+
+    async fn has_pro(&self, user_id: &UserId) -> Result<bool, SetEmojiStatusError> {
+        let mut tx = self.unit_of_work.begin().await?;
+        let entitlements = tx.load_entitlements(user_id).await?;
+        tx.commit().await?;
+        Ok(entitlements.active_at(Utc::now()).includes(Tier::Pro))
     }
 
     async fn apply(
