@@ -43,6 +43,11 @@ beforeAll(async () => {
   await i18n.changeLanguage("en");
 });
 
+beforeEach(() => {
+  register.mockReset();
+  login.mockReset();
+});
+
 it("asks to repeat the password and stops when it differs", async () => {
   register.mockRejectedValue(new Error("stop"));
   renderSignUp();
