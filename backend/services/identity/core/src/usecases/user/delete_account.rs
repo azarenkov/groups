@@ -10,7 +10,6 @@ use crate::{
         access_revoker::{AccessRevoker, AccessRevokerError},
         activity_store::{ActivityStore, ActivityStoreError},
         hasher::{HashError, Hasher},
-        oauth_verifier::OAuthIdentityVerifier,
     },
     usecases::user::account_deletion::{
         AccountDeletionError, apply_account_deletion, clear_deleted_user_caches,
@@ -45,36 +44,34 @@ impl From<AccountDeletionError> for DeleteAccountError {
     }
 }
 
-pub struct DeleteAccount<U, W, H, R, V, S>
+pub struct DeleteAccount<U, W, H, R, S>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     R: AccessRevoker,
-    V: OAuthIdentityVerifier,
     S: ActivityStore,
 {
     user_repository: Arc<U>,
     unit_of_work: Arc<W>,
     access_revoker: Arc<R>,
-    reauthenticator: Arc<Reauthenticator<U, H, V>>,
+    reauthenticator: Arc<Reauthenticator<H>>,
     activity_store: Arc<S>,
 }
 
-impl<U, W, H, R, V, S> DeleteAccount<U, W, H, R, V, S>
+impl<U, W, H, R, S> DeleteAccount<U, W, H, R, S>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     R: AccessRevoker,
-    V: OAuthIdentityVerifier,
     S: ActivityStore,
 {
     pub fn new(
         user_repository: Arc<U>,
         unit_of_work: Arc<W>,
         access_revoker: Arc<R>,
-        reauthenticator: Arc<Reauthenticator<U, H, V>>,
+        reauthenticator: Arc<Reauthenticator<H>>,
         activity_store: Arc<S>,
     ) -> Self {
         Self {

@@ -1,9 +1,9 @@
 pub mod captcha;
 pub mod confirm_registration;
-pub mod google_login;
 pub mod issue_verification_code;
 pub mod login;
 pub mod reactivation;
 pub mod logout;
+pub mod password_reset;
 pub mod refresh_tokens;
 pub mod register;

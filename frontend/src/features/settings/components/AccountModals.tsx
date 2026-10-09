@@ -2,7 +2,6 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import { userAPI, type Reauth } from "../../social/api/user";
-import GoogleSignInButton from "../../auth/components/GoogleSignInButton";
 import { useAuthStore } from "../../auth/store/authStore";
 import { ApiError } from "../../../shared/lib/apiError";
 
@@ -76,80 +75,18 @@ function AccountDialog({
   );
 }
 
-function useGoogleLinked() {
-  return useAuthStore((s) => s.user?.linkedProviders?.includes("google") ?? false);
-}
-
-function ReauthField({
-  password,
-  onPassword,
-  onGoogleToken,
-  googleToken,
-}: {
-  password: string;
-  onPassword: (v: string) => void;
-  onGoogleToken: (token: string) => void;
-  googleToken: string | null;
-}) {
+function ReauthField({ password, onPassword }: { password: string; onPassword: (v: string) => void }) {
   const { t } = useTranslation("settings");
-  const googleLinked = useGoogleLinked();
-  const [mode, setMode] = React.useState<"password" | "google">("password");
-  if (!googleLinked) {
-    return (
-      <div className="m-field">
-        <label>{t("account.currentPassword")}</label>
-        <input type="password" autoComplete="current-password" value={password} onChange={(e) => onPassword(e.target.value)} />
-      </div>
-    );
-  }
   return (
     <div className="m-field">
-      <div className="reauth-switch">
-        <button
-          type="button"
-          className={mode === "password" ? "on" : ""}
-          onClick={() => {
-            setMode("password");
-            onGoogleToken("");
-          }}
-        >
-          {t("account.reauthPassword")}
-        </button>
-        <button
-          type="button"
-          className={mode === "google" ? "on" : ""}
-          onClick={() => {
-            setMode("google");
-            onPassword("");
-          }}
-        >
-          {t("account.reauthGoogle")}
-        </button>
-      </div>
-      {mode === "password" ? (
-        <>
-          <label>{t("account.currentPassword")}</label>
-          <input type="password" autoComplete="current-password" value={password} onChange={(e) => onPassword(e.target.value)} />
-        </>
-      ) : googleToken ? (
-        <div className="reauth-ok">
-          <Icon name="check" size={13} />
-          {t("account.googleConfirmed")}
-        </div>
-      ) : (
-        <>
-          <label>{t("account.reauthGoogleHint")}</label>
-          <GoogleSignInButton onToken={onGoogleToken} text="continue_with" />
-        </>
-      )}
+      <label>{t("account.currentPassword")}</label>
+      <input type="password" autoComplete="current-password" value={password} onChange={(e) => onPassword(e.target.value)} />
+      <div className="reauth-hint">{t("account.noPasswordHint")}</div>
     </div>
   );
 }
 
-const reauthOf = (password: string, googleToken: string | null): Reauth | null =>
-  googleToken ? { googleIdToken: googleToken } : password ? { password } : null;
-
-const tokenOrNull = (token: string): string | null => (token ? token : null);
+const reauthOf = (password: string): Reauth | null => (password ? { password } : null);
 
 const messageOf = (err: unknown, fallback: string) =>
   err instanceof ApiError ? err.message || fallback : fallback;
@@ -157,14 +94,13 @@ const messageOf = (err: unknown, fallback: string) =>
 export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation("settings");
   const [current, setCurrent] = React.useState("");
-  const [googleToken, setGoogleToken] = React.useState<string | null>(null);
   const [next, setNext] = React.useState("");
   const [repeat, setRepeat] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const submit = async () => {
-    const reauth = reauthOf(current, googleToken);
+    const reauth = reauthOf(current);
     if (!reauth) return;
     if (next.length < 4 || next.length > 30) {
       setError(t("account.passwordLength"));
@@ -205,11 +141,11 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       onSubmit={() => void submit()}
       submitLabel={t("actions.change")}
-      submitDisabled={!reauthOf(current, googleToken) || !next || !repeat}
+      submitDisabled={!reauthOf(current) || !next || !repeat}
       busy={busy}
       error={error}
     >
-      <ReauthField password={current} onPassword={setCurrent} googleToken={googleToken} onGoogleToken={(t) => setGoogleToken(tokenOrNull(t))} />
+      <ReauthField password={current} onPassword={setCurrent} />
       <div className="m-field">
         <label>{t("account.newPassword")}</label>
         <input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
@@ -226,14 +162,13 @@ export function ChangeEmailDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation("settings");
   const [step, setStep] = React.useState<"form" | "code">("form");
   const [password, setPassword] = React.useState("");
-  const [googleToken, setGoogleToken] = React.useState<string | null>(null);
   const [email, setEmail] = React.useState("");
   const [code, setCode] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const request = async () => {
-    const reauth = reauthOf(password, googleToken);
+    const reauth = reauthOf(password);
     if (!reauth) return;
     setBusy(true);
     setError(null);
@@ -320,7 +255,7 @@ export function ChangeEmailDialog({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       onSubmit={() => void request()}
       submitLabel={t("account.sendCode")}
-      submitDisabled={!reauthOf(password, googleToken) || !email.includes("@")}
+      submitDisabled={!reauthOf(password) || !email.includes("@")}
       busy={busy}
       error={error}
     >
@@ -328,7 +263,7 @@ export function ChangeEmailDialog({ onClose }: { onClose: () => void }) {
         <label>{t("account.newEmail")}</label>
         <input type="email" autoFocus autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
-      <ReauthField password={password} onPassword={setPassword} googleToken={googleToken} onGoogleToken={(t) => setGoogleToken(tokenOrNull(t))} />
+      <ReauthField password={password} onPassword={setPassword} />
     </AccountDialog>
   );
 }
@@ -344,12 +279,11 @@ export function DangerPasswordDialog({
 }) {
   const { t } = useTranslation("settings");
   const [password, setPassword] = React.useState("");
-  const [googleToken, setGoogleToken] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const submit = async () => {
-    const reauth = reauthOf(password, googleToken);
+    const reauth = reauthOf(password);
     if (!reauth) return;
     setBusy(true);
     setError(null);
@@ -362,9 +296,7 @@ export function DangerPasswordDialog({
       setError(
         apiErr?.code === "INVALID_PASSWORD"
           ? t("account.wrongPassword")
-          : apiErr?.code === "OAUTH_NOT_LINKED"
-            ? t("account.googleNotLinked")
-            : messageOf(err, t("account.genericError")),
+          : messageOf(err, t("account.genericError")),
       );
     } finally {
       setBusy(false);
@@ -378,12 +310,12 @@ export function DangerPasswordDialog({
       onClose={onClose}
       onSubmit={() => void submit()}
       submitLabel={mode === "disable" ? t("actions.disable") : t("actions.delete")}
-      submitDisabled={!reauthOf(password, googleToken)}
+      submitDisabled={!reauthOf(password)}
       danger
       busy={busy}
       error={error}
     >
-      <ReauthField password={password} onPassword={setPassword} googleToken={googleToken} onGoogleToken={(t) => setGoogleToken(tokenOrNull(t))} />
+      <ReauthField password={password} onPassword={setPassword} />
     </AccountDialog>
   );
 }

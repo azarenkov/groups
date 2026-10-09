@@ -18,8 +18,9 @@ use identity::usecases::{
         remove_connection::RemoveConnection, start_connection::StartConnection,
     },
     auth::{
-        confirm_registration::ConfirmRegistration, google_login::GoogleLogin,
+        confirm_registration::ConfirmRegistration,
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
+        password_reset::{RequestPasswordReset, ResetPassword},
         refresh_tokens::RefreshTokens, register::RegisterUser,
     },
     user::{
@@ -39,7 +40,7 @@ use identity::usecases::{
 use domain::user::name::ReservedNames;
 use infrastructure_common::{
     config::{
-        google::GoogleOAuthConfig, nsfw::NsfwConfig, postgres::PostgresConfig,
+        nsfw::NsfwConfig, postgres::PostgresConfig,
         trial::TrialConfig, unverified_cleanup::UnverifiedCleanupConfig, username::UsernameConfig,
     },
     hasher::bcrypt_hasher::BcryptHasher,
@@ -48,7 +49,7 @@ use identity::usecases::auth::captcha::CaptchaGate;
 use identity::usecases::entitlements::{expire_entitlements::ExpireEntitlements, remind_trial_ending::RemindTrialEnding, start_trial::StartTrial};
 use identity_infrastructure::auth::{altcha::{AltchaConfig, AltchaVerifier}, redis_captcha_store::RedisCaptchaStore};
 use identity_infrastructure::{
-    auth::{github_connector::GithubOAuthConnector, google_verifier::GoogleIdTokenVerifier, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker, steam_connector::SteamOpenIdConnector},
+    auth::{github_connector::GithubOAuthConnector, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker, steam_connector::SteamOpenIdConnector},
     database::postgres::{
         MIGRATOR, SCHEMA,
         connection::{create_postgres_pool, ping_pool},
@@ -57,7 +58,6 @@ use identity_infrastructure::{
             user::PostgresUserRepository,
         },
     },
-    media_client::user_state::MessagingStateClient,
     moderation::nsfw_detector::NsfwDetector,
 };
 use api_common::{
@@ -75,7 +75,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let server_config = ServerConfig::from_env()?;
     let postgres_config = PostgresConfig::from_env_for(SCHEMA)?;
-    let google_config = GoogleOAuthConfig::from_env()?;
     let rate_limiting_config = RateLimitingConfig::from_env()?;
     let altcha_config = AltchaConfig::from_env()?;
     let nsfw_config = NsfwConfig::from_env()?;
@@ -105,16 +104,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let nsfw_detector = Arc::new(NsfwDetector::new(&nsfw_config));
     let reserved_names = Arc::new(ReservedNames::new(username_config.extra_reserved()));
 
-    let google_audiences = google_config.audiences();
-    if google_audiences.is_empty() {
-        tracing::warn!(
-            "GOOGLE_CLIENT_ID is not set; /v1/auth/google will reject requests with GOOGLE_NOT_CONFIGURED"
-        );
-    }
-    let google_token_verifier = Arc::new(GoogleIdTokenVerifier::new(google_audiences));
-    let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
-        .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
-    let user_state_lookup = Arc::new(MessagingStateClient::new(&messaging_internal_url));
     let github_connector = Arc::new(GithubOAuthConnector::new(
         std::env::var("GITHUB_CLIENT_ID").unwrap_or_default(),
         std::env::var("GITHUB_CLIENT_SECRET").unwrap_or_default(),
@@ -130,6 +119,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let access_revocations_data = web::Data::new(access_revocations.clone());
     let access_revoker = Arc::new(RedisAccessRevoker::new(access_revocations));
     let activity_store = Arc::new(RedisActivityStore::from_env());
+    let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
+        .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
     let activity_audience = Arc::new(MessagingAudienceClient::new(&messaging_internal_url));
     let block_lookup = Arc::new(MessagingBlockClient::new(&messaging_internal_url));
     if unverified_cleanup_config.enabled() {
@@ -183,11 +174,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    let reauthenticator = Arc::new(Reauthenticator::new(
-        user_repository.clone(),
-        hasher.clone(),
-        google_token_verifier.clone(),
-    ));
+    let reauthenticator = Arc::new(Reauthenticator::new(hasher.clone()));
 
     let captcha_gate = CaptchaGate::new(
         Arc::new(AltchaVerifier::from_config(&altcha_config)),
@@ -212,21 +199,17 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             unit_of_work.clone(),
             hasher.clone(),
         ),
+        request_password_reset_usecase: RequestPasswordReset::new(
+            user_repository.clone(),
+            unit_of_work.clone(),
+            hasher.clone(),
+        ),
+        reset_password_usecase: ResetPassword::new(unit_of_work.clone(), hasher.clone(), access_revoker.clone()),
         login_user_usecase: LoginUser::new(
             user_repository.clone(),
             hasher.clone(),
             unit_of_work.clone(),
             token_issuer.clone(),
-        ),
-        google_login_usecase: GoogleLogin::new(
-            user_repository.clone(),
-            unit_of_work.clone(),
-            token_issuer.clone(),
-            google_token_verifier.clone(),
-            hasher.clone(),
-            nsfw_detector.clone(),
-            reserved_names.clone(),
-            user_state_lookup.clone(),
         ),
         confirm_registration_usecase: ConfirmRegistration::new(hasher.clone(), unit_of_work.clone()),
         refresh_tokens_usecase: RefreshTokens::new(unit_of_work.clone(), token_issuer.clone()),

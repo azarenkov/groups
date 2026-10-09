@@ -12,6 +12,7 @@ import {
 import { AnimatePresence } from "framer-motion";
 import LoginPage from "./features/auth/components/LoginPage";
 import RegisterPage from "./features/auth/components/RegisterPage";
+import ResetPasswordPage from "./features/auth/components/ResetPasswordPage";
 import CommunitiesPage from "./features/communities/components/CommunitiesPage";
 import JoinPage from "./features/communities/components/JoinPage";
 import ScreenSharePicker from "./features/voice/components/ScreenSharePicker";
@@ -28,7 +29,7 @@ import { ws } from "./shared/ws/websocket";
 import { installWsBootstrap } from "./shared/ws/websocketBootstrap";
 import { initGameActivity } from "./features/social/lib/gameActivity";
 import { initHotkeys } from "./features/settings/lib/hotkeys";
-import { authRedirectTarget, extractInviteToken, extractPackSlug } from "./shared/lib/inviteLinks";
+import { authRedirectTarget, extractInviteToken, extractPackSlug, extractResetToken } from "./shared/lib/inviteLinks";
 import "styles/App.css";
 
 const AuthRedirect: React.FC = () => {
@@ -52,6 +53,11 @@ const DeepLinkListener: React.FC = () => {
     const bridge = window.electron;
     if (!bridge?.onDeepLink) return;
     const open = (url: string | null) => {
+      const resetToken = url ? extractResetToken(url) : null;
+      if (resetToken) {
+        navigate(`/reset-password?token=${encodeURIComponent(resetToken)}`);
+        return;
+      }
       const token = url ? extractInviteToken(url) : null;
       if (!token) return;
       const { isAuthenticated: signedIn, tokens: current } = useAuthStore.getState();
@@ -266,6 +272,7 @@ const App: React.FC = () => {
                 )
               }
             />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/join/:token" element={<JoinPage />} />
             <Route path="/stickers/:slug" element={<StickerPackLink />} />
             <Route

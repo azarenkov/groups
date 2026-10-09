@@ -21,7 +21,6 @@ pub struct MeProfile {
     pub locale: Locale,
     pub email_verified: bool,
     pub password_changed_at: Option<chrono::DateTime<chrono::Utc>>,
-    pub linked_providers: Vec<String>,
     pub bio: String,
     pub show_activity: bool,
     pub show_game_activity: bool,
@@ -51,14 +50,6 @@ where
             .await?
             .ok_or(GetMeError::NotFound)?;
 
-        let linked_providers = self
-            .user_repository
-            .list_oauth_connections(&user_id)
-            .await?
-            .into_iter()
-            .map(|(provider, _, _)| provider)
-            .collect();
-
         Ok(MeProfile {
             id: user.id().uuid(),
             name: user.name().as_str().to_string(),
@@ -66,7 +57,6 @@ where
             locale: user.locale(),
             email_verified: user.is_email_verified(),
             password_changed_at: user.password_changed_at(),
-            linked_providers,
             bio: user.bio().to_string(),
             show_activity: user.show_activity(),
             show_game_activity: user.show_game_activity(),

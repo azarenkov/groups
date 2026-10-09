@@ -1,6 +1,7 @@
-import { authRedirectTarget } from "../../../shared/lib/inviteLinks";
+import { authRedirectTarget, resetPasswordDeepLink } from "../../../shared/lib/inviteLinks";
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/authStore";
 import { isAccessTokenVerified } from "../../../shared/lib/jwt";
 import { Mark } from "../../../shared/ui/Icon";
@@ -26,11 +27,12 @@ type Mode =
   | "2fa";
 
 interface AuthPageProps {
-  defaultMode?: "signin" | "signup";
+  defaultMode?: "signin" | "signup" | "reset-password";
 }
 
 const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation("auth");
   const { search } = useLocation();
   const tokens = useAuthStore((s) => s.tokens);
   const storedUser = useAuthStore((s) => s.user);
@@ -38,16 +40,29 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
     !!tokens?.accessToken && !isAccessTokenVerified(tokens.accessToken);
 
   const [mode, setMode] = useState<Mode>(
-    hasUnverifiedSession ? "verify-email" : defaultMode,
+    hasUnverifiedSession && defaultMode !== "reset-password" ? "verify-email" : defaultMode,
   );
   const [email, setEmail] = useState(storedUser?.email ?? "");
+  const [resetToken, setResetToken] = useState(() =>
+    defaultMode === "reset-password" ? new URLSearchParams(search).get("token") : null,
+  );
+  const resetFlow = mode === "reset-password" || mode === "reset-success";
+  const isDesktop = typeof window !== "undefined" && !!window.electron;
 
   useEffect(() => {
-    if (hasUnverifiedSession) {
+    if (defaultMode !== "reset-password") return;
+    const token = new URLSearchParams(search).get("token");
+    if (token === null) return;
+    setResetToken(token);
+    setMode("reset-password");
+  }, [defaultMode, search]);
+
+  useEffect(() => {
+    if (hasUnverifiedSession && !resetFlow) {
       setMode("verify-email");
       if (storedUser?.email) setEmail(storedUser.email);
     }
-  }, [hasUnverifiedSession, storedUser?.email]);
+  }, [hasUnverifiedSession, storedUser?.email, resetFlow]);
 
   const onSignedIn = () => navigate(authRedirectTarget(search));
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
@@ -90,26 +105,35 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
             <Forgot
               email={email}
               onEmailChange={setEmail}
-              onSubmit={() => setMode("reset-sent")}
-              onBack={() => setMode("signin")}
+              onSent={() => setMode("reset-sent")}
+              onBack={() => switchTab("signin")}
             />
           )}
           {mode === "reset-sent" && (
-            <ResetSent
-              email={email}
-              onResend={() => {}}
-              onOpenLink={() => setMode("reset-password")}
-              onBack={() => setMode("signin")}
-            />
+            <ResetSent email={email} onBack={() => switchTab("signin")} />
           )}
           {mode === "reset-password" && (
             <ResetPassword
-              onSubmit={() => setMode("reset-success")}
-              onBack={() => setMode("signin")}
+              key={resetToken ?? ""}
+              token={resetToken}
+              onDone={() => {
+                if (useAuthStore.getState().tokens) useAuthStore.getState().logout();
+                navigate("/reset-password", { replace: true });
+                setMode("reset-success");
+              }}
+              onRequestNew={() => setMode("forgot")}
+              onBack={() => switchTab("signin")}
             />
           )}
+          {mode === "reset-password" && resetToken && !isDesktop && (
+            <div className="auth-foot">
+              <a className="auth-link" href={resetPasswordDeepLink(resetToken)}>
+                {t("openResetInApp")}
+              </a>
+            </div>
+          )}
           {mode === "reset-success" && (
-            <ResetSuccess onContinue={() => setMode("signin")} />
+            <ResetSuccess onContinue={() => switchTab("signin")} />
           )}
           {mode === "verify-email" && (
             <VerifyEmail

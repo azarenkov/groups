@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use domain::password_hash::PasswordHash;
-use crate::{user::email::Email, user::tier::BadgeStyle, user::tier::Tier, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose};
+use crate::{user::email::Email, user::tier::BadgeStyle, user::tier::Tier, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 
 pub const BIO_MAX_CHARS: usize = 190;
 
@@ -40,6 +40,8 @@ pub enum UserError {
     Deleted,
     #[error("Bio is too long")]
     BioTooLong,
+    #[error("Verification code not for password reset")]
+    NotPasswordResetCode,
 }
 
 #[derive(Debug, Serialize)]
@@ -182,6 +184,25 @@ impl User {
         ))
     }
 
+    pub fn issue_password_reset(
+        &self,
+        id: VerificationCodeId,
+        token: String,
+        code_hash: CodeHash,
+    ) -> Result<VerificationCode, UserError> {
+        self.ensure_can_request_verification(VerificationPurpose::PasswordReset)?;
+        Ok(VerificationCode::issue_with_id(
+            id,
+            self.id,
+            self.email.clone(),
+            token,
+            VerificationChannel::Email,
+            code_hash,
+            VerificationPurpose::PasswordReset,
+            self.locale,
+        ))
+    }
+
     pub fn ensure_can_confirm(&self, code: &VerificationCode, now: DateTime<Utc>) -> Result<(), UserError> {
         if self.deleted_at.is_some() {
             return Err(UserError::Deleted);
@@ -235,6 +256,52 @@ impl User {
         self.password_changed_at = Some(now);
         self.updated_at = now;
         self.record(UserEvent::PasswordChanged(UserPasswordChanged::record(self.id, now)));
+    }
+
+    pub fn ensure_can_reset_password(&self, code: &VerificationCode, now: DateTime<Utc>) -> Result<(), UserError> {
+        if self.deleted_at.is_some() {
+            return Err(UserError::Deleted);
+        }
+        if *code.user_id() != self.id {
+            return Err(UserError::ForeignCode);
+        }
+        if !matches!(code.purpose(), VerificationPurpose::PasswordReset) {
+            return Err(UserError::NotPasswordResetCode);
+        }
+        if code.consumed_at().is_some() || self.password_changed_at.is_some_and(|at| at >= code.created_at()) {
+            return Err(UserError::CodeConsumed);
+        }
+        if code.is_limit_attempts() {
+            return Err(UserError::TooManyAttempts);
+        }
+        if code.expires_at() < now {
+            return Err(UserError::CodeExpired);
+        }
+        Ok(())
+    }
+
+    pub fn reset_password(
+        &mut self,
+        code: &mut VerificationCode,
+        code_matches: bool,
+        password_hash: PasswordHash,
+        now: DateTime<Utc>,
+    ) -> Result<(), UserError> {
+        self.ensure_can_reset_password(code, now)?;
+        if !code_matches {
+            code.register_failed_attempt();
+            return Err(if code.is_limit_attempts() {
+                UserError::TooManyAttempts
+            } else {
+                UserError::BadCode
+            });
+        }
+        code.consume(now);
+        if self.email_verified_at.is_none() {
+            self.verify_email(now);
+        }
+        self.change_password(password_hash, now);
+        Ok(())
     }
 
     pub fn request_email_change(
@@ -475,14 +542,6 @@ impl User {
         self.updated_at = now;
         self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
         Ok(())
-    }
-
-    pub fn claim_with_oauth(&mut self, password_hash: PasswordHash, now: DateTime<Utc>) {
-        self.password_hash = password_hash;
-        self.updated_at = now;
-        if self.email_verified_at.is_none() {
-            self.verify_email(now);
-        }
     }
 
     pub fn verify_email(&mut self, now: DateTime<Utc>) {

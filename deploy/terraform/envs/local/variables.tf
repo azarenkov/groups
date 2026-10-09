@@ -84,12 +84,6 @@ variable "git_revision" {
   default = "main"
 }
 
-variable "google_client_id" {
-  description = "Google OAuth web client id; https://rift.localtest.me must be among its authorized JavaScript origins"
-  type        = string
-  default     = ""
-}
-
 variable "github_client_id" {
   description = "GitHub OAuth app for profile connections; its callback URL must be https://<app_host>/api/v1/connections/github/callback"
   type        = string

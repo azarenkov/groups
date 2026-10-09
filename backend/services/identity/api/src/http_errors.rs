@@ -80,15 +80,14 @@ impl<E: HttpMapping + std::fmt::Debug> From<E> for HttpError {
     }
 }
 
-use identity::ports::oauth_verifier::OAuthVerifyError;
 use identity::ports::token_issuer::TokenIssuerError;
 use identity::usecases::auth::captcha::CaptchaError;
 use identity::usecases::entitlements::start_trial::StartTrialError;
 use identity::usecases::auth::confirm_registration::ConfirmRegistrationError;
-use identity::usecases::auth::google_login::GoogleLoginError;
 use identity::usecases::auth::issue_verification_code::IssueVerificationCodeError;
 use identity::usecases::auth::login::LoginError;
 use identity::usecases::auth::logout::LogoutError;
+use identity::usecases::auth::password_reset::{RequestPasswordResetError, ResetPasswordError};
 use identity::usecases::auth::refresh_tokens::RefreshTokensError;
 use identity::usecases::auth::register::RegistrationError;
 use identity::usecases::user::change_password::ChangePasswordError;
@@ -221,88 +220,6 @@ impl HttpMapping for LoginError {
             LoginError::Hash(e) => e.to_error_code(),
             LoginError::TokenIssuer(e) => e.to_error_code(),
             LoginError::InvalidCredentials => "INVALID_CREDENTIALS",
-        }
-    }
-}
-
-impl HttpMapping for GoogleLoginError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            GoogleLoginError::Repository(e) => e.to_http_status(),
-            GoogleLoginError::Hash(e) => e.to_http_status(),
-            GoogleLoginError::TokenIssuer(e) => e.to_http_status(),
-            GoogleLoginError::Verify(OAuthVerifyError::NotConfigured(_)) => {
-                StatusCode::SERVICE_UNAVAILABLE
-            }
-            GoogleLoginError::Verify(OAuthVerifyError::Transport(_)) => StatusCode::BAD_GATEWAY,
-            GoogleLoginError::Verify(_) => StatusCode::UNAUTHORIZED,
-            GoogleLoginError::EmailNotVerified => StatusCode::FORBIDDEN,
-            GoogleLoginError::AccountConflict => StatusCode::CONFLICT,
-            GoogleLoginError::AccountDeleted => StatusCode::FORBIDDEN,
-            GoogleLoginError::UsernameTaken => StatusCode::CONFLICT,
-            GoogleLoginError::InvalidName(UserNameError::Reserved) => {
-                StatusCode::UNPROCESSABLE_ENTITY
-            }
-            GoogleLoginError::InvalidName(_) => StatusCode::BAD_REQUEST,
-            GoogleLoginError::NameNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
-            GoogleLoginError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
-            GoogleLoginError::StateLookupUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        match self {
-            GoogleLoginError::Repository(e) => e.to_user_message(),
-            GoogleLoginError::Hash(e) => e.to_user_message(),
-            GoogleLoginError::TokenIssuer(e) => e.to_user_message(),
-            GoogleLoginError::Verify(OAuthVerifyError::NotConfigured(_)) => {
-                "Google login is not configured".to_string()
-            }
-            GoogleLoginError::Verify(OAuthVerifyError::Transport(_)) => {
-                "Could not reach Google to verify the token".to_string()
-            }
-            GoogleLoginError::Verify(_) => "Invalid Google token".to_string(),
-            GoogleLoginError::EmailNotVerified => {
-                "Google account email is not verified".to_string()
-            }
-            GoogleLoginError::AccountConflict => {
-                "This email is already linked to a different Google account".to_string()
-            }
-            GoogleLoginError::AccountDeleted => "This account has been deleted".to_string(),
-            GoogleLoginError::UsernameTaken => "This username is already taken".to_string(),
-            GoogleLoginError::InvalidName(UserNameError::Reserved)
-            | GoogleLoginError::NameNotAllowed => "This username is not allowed.".to_string(),
-            GoogleLoginError::InvalidName(e) => e.to_string(),
-            GoogleLoginError::ModerationUnavailable(_) => {
-                "Username moderation is temporarily unavailable. Try again later.".to_string()
-            }
-            GoogleLoginError::StateLookupUnavailable(_) => {
-                "Account linking is temporarily unavailable. Try again later.".to_string()
-            }
-        }
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            GoogleLoginError::Repository(e) => e.to_error_code(),
-            GoogleLoginError::Hash(e) => e.to_error_code(),
-            GoogleLoginError::TokenIssuer(e) => e.to_error_code(),
-            GoogleLoginError::Verify(OAuthVerifyError::NotConfigured(_)) => {
-                "GOOGLE_NOT_CONFIGURED"
-            }
-            GoogleLoginError::Verify(OAuthVerifyError::Transport(_)) => {
-                "GOOGLE_VERIFY_UNAVAILABLE"
-            }
-            GoogleLoginError::Verify(_) => "GOOGLE_TOKEN_INVALID",
-            GoogleLoginError::EmailNotVerified => "GOOGLE_EMAIL_NOT_VERIFIED",
-            GoogleLoginError::AccountConflict => "GOOGLE_ACCOUNT_CONFLICT",
-            GoogleLoginError::AccountDeleted => "ACCOUNT_DELETED",
-            GoogleLoginError::UsernameTaken => "GOOGLE_USERNAME_TAKEN",
-            GoogleLoginError::InvalidName(UserNameError::Reserved)
-            | GoogleLoginError::NameNotAllowed => "NAME_NOT_ALLOWED",
-            GoogleLoginError::InvalidName(_) => "NAME_INVALID_FORMAT",
-            GoogleLoginError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
-            GoogleLoginError::StateLookupUnavailable(_) => "STATE_LOOKUP_UNAVAILABLE",
         }
     }
 }
@@ -564,6 +481,60 @@ impl HttpMapping for IssueVerificationCodeError {
             IssueVerificationCodeError::UserAlreadyVerified => "USER_ALREADY_VERIFIED",
             IssueVerificationCodeError::UserNotFound => "USER_NOT_FOUND",
             IssueVerificationCodeError::TooSoon(_) => "VERIFICATION_RESEND_TOO_SOON",
+        }
+    }
+}
+
+impl HttpMapping for RequestPasswordResetError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            RequestPasswordResetError::Repository(e) => e.to_http_status(),
+            RequestPasswordResetError::Hash(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            RequestPasswordResetError::Repository(e) => e.to_user_message(),
+            RequestPasswordResetError::Hash(e) => e.to_user_message(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            RequestPasswordResetError::Repository(e) => e.to_error_code(),
+            RequestPasswordResetError::Hash(e) => e.to_error_code(),
+        }
+    }
+}
+
+impl HttpMapping for ResetPasswordError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            ResetPasswordError::Repository(e) => e.to_http_status(),
+            ResetPasswordError::Hash(e) => e.to_http_status(),
+            ResetPasswordError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
+            ResetPasswordError::InvalidToken | ResetPasswordError::Expired => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            ResetPasswordError::Repository(e) => e.to_user_message(),
+            ResetPasswordError::Hash(e) => e.to_user_message(),
+            ResetPasswordError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
+            ResetPasswordError::InvalidToken => "This reset link is invalid or has already been used".to_string(),
+            ResetPasswordError::Expired => "This reset link has expired".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            ResetPasswordError::Repository(e) => e.to_error_code(),
+            ResetPasswordError::Hash(e) => e.to_error_code(),
+            ResetPasswordError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
+            ResetPasswordError::InvalidToken => "RESET_TOKEN_INVALID",
+            ResetPasswordError::Expired => "RESET_TOKEN_EXPIRED",
         }
     }
 }
@@ -935,34 +906,22 @@ impl HttpMapping for DeleteAccountError {
 impl HttpMapping for ReauthError {
     fn to_http_status(&self) -> StatusCode {
         match self {
-            ReauthError::Repository(e) => e.to_http_status(),
             ReauthError::Hash(e) => e.to_http_status(),
-            ReauthError::Verify(OAuthVerifyError::NotConfigured(_)) => StatusCode::SERVICE_UNAVAILABLE,
-            ReauthError::Verify(OAuthVerifyError::Transport(_)) => StatusCode::BAD_GATEWAY,
-            ReauthError::Verify(_) => StatusCode::UNAUTHORIZED,
-            ReauthError::InvalidPassword | ReauthError::OAuthNotLinked => StatusCode::FORBIDDEN,
+            ReauthError::InvalidPassword => StatusCode::FORBIDDEN,
         }
     }
+
     fn to_user_message(&self) -> String {
         match self {
-            ReauthError::Repository(e) => e.to_user_message(),
             ReauthError::Hash(e) => e.to_user_message(),
-            ReauthError::Verify(OAuthVerifyError::NotConfigured(_)) => "Google sign-in is not configured".to_string(),
-            ReauthError::Verify(OAuthVerifyError::Transport(_)) => "Could not verify the Google token".to_string(),
-            ReauthError::Verify(_) => "Invalid Google token".to_string(),
             ReauthError::InvalidPassword => "Password is incorrect".to_string(),
-            ReauthError::OAuthNotLinked => "This Google account is not linked to your profile".to_string(),
         }
     }
+
     fn to_error_code(&self) -> &'static str {
         match self {
-            ReauthError::Repository(e) => e.to_error_code(),
             ReauthError::Hash(e) => e.to_error_code(),
-            ReauthError::Verify(OAuthVerifyError::NotConfigured(_)) => "GOOGLE_NOT_CONFIGURED",
-            ReauthError::Verify(OAuthVerifyError::Transport(_)) => "GOOGLE_VERIFY_UNAVAILABLE",
-            ReauthError::Verify(_) => "GOOGLE_TOKEN_INVALID",
             ReauthError::InvalidPassword => "INVALID_PASSWORD",
-            ReauthError::OAuthNotLinked => "OAUTH_NOT_LINKED",
         }
     }
 }

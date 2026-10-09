@@ -4,7 +4,7 @@ use contracts::internal::{
     calls::CallPermitResponseV1,
     friendships::{BlockRelationResponseV1, BlockRelationsRequestV1, BlockRelationsResponseV1, FriendsResponseV1},
     communities::{CanManageResponseV1, OwnerResponseV1},
-    users::{ActivityAudienceRequestV1, ActivityAudienceResponseV1, DmPeersRequestV1, DmPeersResponseV1, StateResponseV1},
+    users::{ActivityAudienceRequestV1, ActivityAudienceResponseV1, DmPeersRequestV1, DmPeersResponseV1},
 };
 use messaging_domain::{dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::repository::MessageRepository, privacy::ContactPolicy, privacy::PrivacyRepository, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::user::id::UserId;
@@ -44,19 +44,6 @@ async fn community_owner(
         })),
         None => Ok(HttpResponse::NotFound().finish()),
     }
-}
-
-#[get("/users/{user_id}/has-state")]
-async fn user_has_state(
-    app_state: web::Data<AppState>,
-    path: web::Path<Uuid>,
-) -> Result<impl Responder, HttpError> {
-    let has_state = app_state
-        .community_repository
-        .has_user_messaging_state(path.into_inner())
-        .await
-        .map_err(HttpError::from)?;
-    Ok(HttpResponse::Ok().json(StateResponseV1 { has_state }))
 }
 
 #[get("/friendships/{a}/{b}")]
@@ -206,7 +193,6 @@ pub fn internal_routes(cfg: &mut web::ServiceConfig) {
             .service(activity_audience)
             .service(community_can_manage)
             .service(community_owner)
-            .service(user_has_state)
             .service(friendship_pair)
             .service(block_pair)
             .service(block_relations)

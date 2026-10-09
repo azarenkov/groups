@@ -43,7 +43,6 @@ config:
   ALTCHA_LOGIN_FAILURES: "3"
   ALTCHA_LOGIN_WINDOW_SECS: "900"
   RESERVED_USERNAMES: ""
-  GOOGLE_CLIENT_ID: ""
   MAILER_HOST: smtp.example.com
   MAILER_PORT: "465"
   MAILER_FROM: noreply@example.com

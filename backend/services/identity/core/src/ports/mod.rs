@@ -4,7 +4,5 @@ pub mod activity_store;
 pub mod block_lookup;
 pub mod captcha;
 pub mod connections;
-pub mod oauth_verifier;
 pub mod token_issuer;
-pub mod user_state_lookup;
 pub use ports::{event_consumer, file_storage, hasher, mailer, outbox_publisher, outbox_writer, text_moderation, voice_service};

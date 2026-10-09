@@ -101,6 +101,36 @@ impl UserRepository for PostgresUserRepository {
         Ok(dto.map(User::from))
     }
 
+    async fn find_by_email_ignoring_case(&self, email: &Email) -> Result<Option<User>, RepositoryError> {
+        let dtos = sqlx::query_as!(
+            UserDto,
+            r#"
+            SELECT
+                id,
+                name,
+                email,
+                password_hash,
+                created_at,
+                updated_at,
+                email_verified_at,
+                phone_verified_at,
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone
+            FROM users
+            WHERE lower(email) = lower($1)
+            LIMIT 2
+            "#,
+            email.as_str(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        if dtos.len() != 1 {
+            return Ok(None);
+        }
+        Ok(dtos.into_iter().next().map(User::from))
+    }
+
     async fn ids_by_names(
         &self,
         lowercase_names: &[String],
@@ -242,135 +272,6 @@ impl UserRepository for PostgresUserRepository {
             Some(row) => Ok(UserId::new(row.id)),
             None => Err(RepositoryError::NotFound),
         }
-    }
-
-    async fn claim_with_oauth(
-        &self,
-        user_id: &UserId,
-        password_hash: &PasswordHash,
-        verified_at: chrono::DateTime<chrono::Utc>,
-        provider: &str,
-        subject: &str,
-        email: &Email,
-    ) -> Result<(), RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-
-        let linked = sqlx::query(
-            r#"
-                INSERT INTO oauth_identities (provider, subject, user_id, email)
-                VALUES ($1, $2, $3, $4)
-                ON CONFLICT (provider, subject) DO NOTHING
-            "#,
-        )
-        .bind(provider)
-        .bind(subject)
-        .bind(user_id.uuid())
-        .bind(email.as_str())
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        if linked.rows_affected() == 0 {
-            return Err(RepositoryError::AlreadyExists);
-        }
-
-        let updated = sqlx::query(
-            r#"
-                UPDATE users
-                SET password_hash = $2,
-                    email_verified_at = $3,
-                    updated_at = now()
-                WHERE id = $1
-            "#,
-        )
-        .bind(user_id.uuid())
-        .bind(password_hash.as_str())
-        .bind(verified_at)
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        if updated.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound);
-        }
-
-        sqlx::query(
-            r#"
-                UPDATE refresh_tokens
-                SET revoked_at = now()
-                WHERE user_id = $1 AND revoked_at IS NULL
-            "#,
-        )
-        .bind(user_id.uuid())
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
-    }
-
-    async fn find_user_id_by_oauth(
-        &self,
-        provider: &str,
-        subject: &str,
-    ) -> Result<Option<UserId>, RepositoryError> {
-        let row: Option<(uuid::Uuid,)> = sqlx::query_as(
-            "SELECT user_id FROM oauth_identities WHERE provider = $1 AND subject = $2",
-        )
-        .bind(provider)
-        .bind(subject)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(row.map(|(id,)| UserId::new(id)))
-    }
-
-    async fn find_oauth_subject_for_user(
-        &self,
-        provider: &str,
-        user_id: &UserId,
-    ) -> Result<Option<String>, RepositoryError> {
-        let row: Option<(String,)> = sqlx::query_as(
-            "SELECT subject FROM oauth_identities WHERE provider = $1 AND user_id = $2",
-        )
-        .bind(provider)
-        .bind(user_id.uuid())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(row.map(|(subject,)| subject))
-    }
-
-    async fn link_oauth_identity(
-        &self,
-        provider: &str,
-        subject: &str,
-        user_id: &UserId,
-        email: &Email,
-    ) -> Result<(), RepositoryError> {
-        sqlx::query(
-            r#"
-                INSERT INTO oauth_identities (provider, subject, user_id, email)
-                VALUES ($1, $2, $3, $4)
-                ON CONFLICT (provider, subject) DO NOTHING
-            "#,
-        )
-        .bind(provider)
-        .bind(subject)
-        .bind(user_id.uuid())
-        .bind(email.as_str())
-        .execute(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(())
     }
 
 

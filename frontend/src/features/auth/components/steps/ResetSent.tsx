@@ -1,22 +1,26 @@
 import React, { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
-import { ArrowLeft } from "../authHelpers";
+import { ArrowLeft, FormError } from "../authHelpers";
+import { useForgotPassword } from "../../lib/useForgotPassword";
 
+export const RESEND_RESET_AFTER_S = 60;
 
 export const ResetSent: React.FC<{
   email: string;
-  onResend: () => void;
-  onOpenLink: () => void;
   onBack: () => void;
-}> = ({ email, onResend, onOpenLink, onBack }) => {
+}> = ({ email, onBack }) => {
   const { t } = useTranslation("auth");
-  const [secondsLeft, setSecondsLeft] = useState(30);
+  const { send, sending, error } = useForgotPassword();
+  const [resendAt, setResendAt] = useState(() => Date.now() + RESEND_RESET_AFTER_S * 1000);
+  const [now, setNow] = useState(() => Date.now());
+  const secondsLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
+  const counting = secondsLeft > 0;
   useEffect(() => {
-    if (secondsLeft <= 0) return;
-    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [secondsLeft]);
+    if (!counting) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [counting]);
 
   return (
     <>
@@ -36,9 +40,7 @@ export const ResetSent: React.FC<{
         </span>
         <span>{t("checkInboxHint")}</span>
       </div>
-      <button type="button" className="btn primary" onClick={onOpenLink}>
-        {t("clickedLink")}
-      </button>
+      {error && <FormError>{error}</FormError>}
       <div className="auth-resend">
         {secondsLeft > 0 ? (
           <>
@@ -48,9 +50,14 @@ export const ResetSent: React.FC<{
           <button
             type="button"
             className="auth-link muted"
+            disabled={sending}
             onClick={() => {
-              setSecondsLeft(30);
-              onResend();
+              void send(email).then((ok) => {
+                if (!ok) return;
+                const sentAt = Date.now();
+                setNow(sentAt);
+                setResendAt(sentAt + RESEND_RESET_AFTER_S * 1000);
+              });
             }}
           >
             {t("resendEmail")}

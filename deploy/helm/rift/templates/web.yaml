@@ -43,8 +43,6 @@ spec:
               value: {{ .Values.web.apiUrl | quote }}
             - name: RIFT_WS_URL
               value: {{ .Values.web.wsUrl | quote }}
-            - name: RIFT_GOOGLE_CLIENT_ID
-              value: {{ .Values.config.GOOGLE_CLIENT_ID | default "" | quote }}
           securityContext:
             {{- include "rift.containerSecurityContext" . | nindent 12 }}
           ports:

@@ -16,9 +16,6 @@ contextBridge.exposeInMainWorld('electron', {
   secureSet: (value) => ipcRenderer.invoke('secure:set', value),
   secureClear: () => ipcRenderer.invoke('secure:clear'),
 
-  googleOAuth: () => ipcRenderer.invoke('oauth:google'),
-  googleOAuthAvailable: () => ipcRenderer.invoke('oauth:google-available'),
-
   onScreenShareSources: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('screen-share:sources', handler);

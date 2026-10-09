@@ -2,14 +2,13 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{password_hash::PasswordHash, user::id::UserId};
-use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository};
+use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository, verification::purpose::VerificationPurpose};
 use ports::repository::RepositoryError;
 
 use crate::{
     ports::{
         access_revoker::{AccessRevoker, AccessRevokerError},
         hasher::{HashError, Hasher},
-        oauth_verifier::OAuthIdentityVerifier,
         token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
     },
     usecases::auth::reactivation::wait_past_cutoff,
@@ -42,30 +41,28 @@ pub struct ChangePasswordRequest {
     pub request_id: Option<String>,
 }
 
-pub struct ChangePassword<U, W, H, I, V, R>
+pub struct ChangePassword<U, W, H, I, R>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     I: TokenIssuer,
-    V: OAuthIdentityVerifier,
     R: AccessRevoker,
 {
     user_repository: Arc<U>,
     unit_of_work: Arc<W>,
     hasher: Arc<H>,
     token_issuer: Arc<I>,
-    reauthenticator: Arc<Reauthenticator<U, H, V>>,
+    reauthenticator: Arc<Reauthenticator<H>>,
     access_revoker: Arc<R>,
 }
 
-impl<U, W, H, I, V, R> ChangePassword<U, W, H, I, V, R>
+impl<U, W, H, I, R> ChangePassword<U, W, H, I, R>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     I: TokenIssuer,
-    V: OAuthIdentityVerifier,
     R: AccessRevoker,
 {
     pub fn new(
@@ -73,7 +70,7 @@ where
         unit_of_work: Arc<W>,
         hasher: Arc<H>,
         token_issuer: Arc<I>,
-        reauthenticator: Arc<Reauthenticator<U, H, V>>,
+        reauthenticator: Arc<Reauthenticator<H>>,
         access_revoker: Arc<R>,
     ) -> Self {
         Self {
@@ -123,6 +120,7 @@ where
         user.change_password(new_hash, now);
         let events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
         tx.save_user(&user).await?;
+        tx.consume_pending_verifications(&user_id, VerificationPurpose::PasswordReset, now).await?;
         tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
         wait_past_cutoff(cutoff).await;
         let tokens = self.token_issuer.issue(&user_id, user.is_verified()).await?;

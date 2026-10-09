@@ -114,6 +114,7 @@ async fn handle<M: Mailer>(usecase: &SendVerificationEmail<M>, msg: ConsumedMess
     let issued = VerificationIssued {
         email: Email::new(issued.email),
         code: issued.code,
+        purpose: issued.purpose,
         locale: issued
             .locale
             .as_deref()

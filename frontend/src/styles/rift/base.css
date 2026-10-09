@@ -1063,44 +1063,6 @@ body.electron .body-area::before {
 .btn.ghost { background: transparent; color: var(--fg-2); }
 .btn.ghost:hover { background: var(--surface-hover); color: var(--fg-1); }
 
-.btn.social {
-  background: var(--surface-panel);
-  color: var(--fg-1);
-  width: 100%;
-  box-shadow: inset 0 0 0 1px var(--hairline-strong);
-}
-.btn.social:hover { background: var(--surface-sunken); }
-
-.auth-divider {
-  display: flex; align-items: center; gap: 12px;
-  margin: 22px 0 16px;
-  font-size: 11px; font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-4);
-}
-.auth-divider::before, .auth-divider::after {
-  content: ""; flex: 1;
-  height: 1px; background: var(--hairline);
-}
-
-.auth-social { display: flex; flex-direction: column; gap: 8px; }
-.google-gis-wrap { position: relative; }
-.google-gis-wrap .btn.social { width: 100%; pointer-events: none; }
-.google-gis-overlay {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  overflow: hidden;
-  cursor: pointer;
-  color-scheme: light;
-}
-.google-gis-overlay > div,
-.google-gis-overlay iframe {
-  width: 100% !important;
-  height: 100% !important;
-}
-
 .auth-foot {
   margin-top: 28px;
   text-align: center;
@@ -1120,8 +1082,6 @@ body.electron .body-area::before {
 
 .dark .field input { background: rgba(255,255,255,0.04); }
 .dark .field input:focus { background: rgba(255,255,255,0.06); }
-.dark .btn.social { background: rgba(255,255,255,0.04); }
-.dark .btn.social:hover { background: rgba(255,255,255,0.08); }
 .dark .auth-tabs { background: rgba(255,255,255,0.04); }
 .dark .auth-tabs button.on { background: rgba(255,255,255,0.10); }
 
@@ -1362,29 +1322,6 @@ body.electron .body-area::before {
 .btn.primary:active { transform: translateY(0); }
 .btn.ghost { background: transparent; color: var(--fg-2); }
 .btn.ghost:hover { background: var(--surface-hover); color: var(--fg-1); }
-
-.btn.social {
-  background: var(--surface-panel);
-  color: var(--fg-1);
-  width: 100%;
-  box-shadow: inset 0 0 0 1px var(--hairline-strong);
-}
-.btn.social:hover { background: var(--surface-sunken); }
-
-.auth-divider {
-  display: flex; align-items: center; gap: 12px;
-  margin: 22px 0 16px;
-  font-size: 11px; font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-4);
-}
-.auth-divider::before, .auth-divider::after {
-  content: ""; flex: 1;
-  height: 1px; background: var(--hairline);
-}
-
-.auth-social { display: flex; flex-direction: column; gap: 8px; }
 
 .auth-foot {
   margin-top: 28px;
@@ -2143,10 +2080,7 @@ button.ssv-row-delete:focus-visible {
 .account-dialog-error { margin-top: 4px; }
 .account-dialog-link { border: 0; background: transparent; padding: 0; font: inherit; font-size: 13px; color: var(--accent); cursor: pointer; }
 .account-dialog-link:disabled { opacity: 0.5; cursor: default; }
-.reauth-switch { display: inline-flex; gap: 2px; padding: 2px; margin-bottom: 10px; border-radius: 8px; background: var(--surface-sunken); }
-.reauth-switch button { border: 0; background: transparent; font: inherit; font-size: 12px; font-weight: 500; color: var(--fg-2); padding: 4px 10px; border-radius: 6px; cursor: pointer; }
-.reauth-switch button.on { background: var(--surface-panel); color: var(--fg-1); box-shadow: var(--shadow-xs); }
-.reauth-ok { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--voice-live); }
+.reauth-hint { margin-top: 6px; font-size: 12px; color: var(--fg-3); line-height: 1.45; }
 .verify-wrong-email { margin-top: 0; margin-bottom: 14px; }
 .verify-change-email { margin-bottom: 14px; }
 .verify-change-email-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 2px; }
