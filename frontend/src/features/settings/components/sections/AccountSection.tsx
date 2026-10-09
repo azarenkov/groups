@@ -17,6 +17,7 @@ import { ChangeEmailDialog, ChangePasswordDialog, DangerPasswordDialog } from ".
 import { profileVersion, useUserProfileStore } from "../../../social/store/userProfileStore";
 
 import { SettingsRow, Switch } from "../controls";
+import { prefersNativeShare, profileLink, shareProfile } from "../../../social/lib/profileLink";
 
 export function AccountSection({ onAccountGone }: { onAccountGone: () => void }) {
   const { t } = useTranslation("settings");
@@ -117,6 +118,22 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
   const [nameValue, setNameValue] = React.useState("");
   const [nameBusy, setNameBusy] = React.useState(false);
   const [nameError, setNameError] = React.useState<string | null>(null);
+  const [linkState, setLinkState] = React.useState<"idle" | "copied" | "failed">("idle");
+  const linkTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => {
+    if (linkTimer.current) clearTimeout(linkTimer.current);
+  }, []);
+  const shareMyProfile = async () => {
+    if (!user?.id) return;
+    if (linkTimer.current) clearTimeout(linkTimer.current);
+    try {
+      const outcome = await shareProfile(user.id, user.name);
+      setLinkState(outcome === "copied" ? "copied" : "idle");
+      if (outcome === "copied") linkTimer.current = setTimeout(() => setLinkState("idle"), 1500);
+    } catch {
+      setLinkState("failed");
+    }
+  };
 
   const usernameIssueMessage = (issue: UsernameIssue): string => {
     switch (issue) {
@@ -364,6 +381,18 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
         <SettingsRow label={t("account.email")} hint={emailHint} hintClassName={user?.email ? "s-data" : undefined}>
           <button className="s-btn secondary" onClick={() => setDialog("email")}>{t("actions.edit")}</button>
         </SettingsRow>
+        {user?.id && (
+          <SettingsRow label={t("account.profileLink")} hint={profileLink(user.id)} hintClassName="s-data">
+            <button className="s-btn secondary" onClick={() => void shareMyProfile()}>
+              {linkState === "copied"
+                ? t("account.profileLinkCopied")
+                : prefersNativeShare()
+                  ? t("account.shareProfileLink")
+                  : t("account.copyProfileLink")}
+            </button>
+          </SettingsRow>
+        )}
+        {linkState === "failed" && <div className="s-error">{t("account.profileLinkError")}</div>}
       </div>
 
       <div className="s-section">

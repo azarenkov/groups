@@ -24,6 +24,11 @@ export function authRedirectTarget(search: string): string {
     const slug = extractPackSlug(pack[1]);
     return slug ? `/stickers/${slug}` : "/app";
   }
+  const profile = /^\/u\/([^/?#]+)$/.exec(next);
+  if (profile) {
+    const id = extractProfileId(profile[1]);
+    return id ? `/u/${id}` : "/app";
+  }
   const match = /^\/join\/([^/?#]+)$/.exec(next);
   if (!match) return "/app";
   const token = extractInviteToken(match[1]);
@@ -45,4 +50,20 @@ export function extractResetToken(url: string): string | null {
   if (!match) return null;
   const token = decodeURIComponent(match[1]);
   return RESET_TOKEN_RE.test(token) ? token : null;
+}
+
+const PROFILE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export function extractProfileId(input: string): string | null {
+  const id = input.trim().toLowerCase();
+  return PROFILE_ID_RE.test(id) ? id : null;
+}
+
+export function profileDeepLink(userId: string): string {
+  return `rift://u/${userId}`;
+}
+
+export function extractProfileDeepLink(url: string): string | null {
+  const match = /^rift:\/\/u\/([^/?#]+)\/?$/.exec(url.trim());
+  return match ? extractProfileId(match[1]) : null;
 }

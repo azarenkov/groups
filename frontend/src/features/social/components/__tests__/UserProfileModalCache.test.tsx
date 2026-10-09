@@ -42,7 +42,7 @@ beforeEach(() => {
 it("shows a profile opened before right away while refreshing it", async () => {
   await i18n.changeLanguage("en");
   profile.mockResolvedValueOnce(publicProfile("Bobby")).mockImplementation(() => new Promise(() => undefined));
-  render(<UserProfileModal onOpenDm={jest.fn()} onCall={jest.fn()} onRemoveFriend={jest.fn()} onBlockUser={jest.fn()} />);
+  render(<UserProfileModal onOpenDm={jest.fn()} onCall={jest.fn()} onRemoveFriend={jest.fn()} onBlockUser={jest.fn()} onEditProfile={jest.fn()} />);
   await act(async () => {
     useProfileModalStore.getState().open("u2");
   });
@@ -59,7 +59,7 @@ it("drops a profile answer that arrives after signing out", async () => {
   let finish: (v: unknown) => void = () => undefined;
   profile.mockReset();
   profile.mockImplementation(() => new Promise((resolve) => (finish = resolve)));
-  render(<UserProfileModal onOpenDm={jest.fn()} onCall={jest.fn()} onRemoveFriend={jest.fn()} onBlockUser={jest.fn()} />);
+  render(<UserProfileModal onOpenDm={jest.fn()} onCall={jest.fn()} onRemoveFriend={jest.fn()} onBlockUser={jest.fn()} onEditProfile={jest.fn()} />);
   await act(async () => {
     useProfileModalStore.getState().open("u9");
   });

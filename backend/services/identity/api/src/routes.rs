@@ -10,6 +10,7 @@ use crate::connections::{
     connection_callback, list_connections, remove_connection, start_connection, user_connections,
 };
 use crate::internal::internal_routes;
+use crate::link_preview::user_link_preview;
 use crate::hotkey_settings::{get_me_hotkey_settings, update_me_hotkey_settings};
 use crate::notification_settings::{
     get_me_notification_settings, update_me_notification_settings,
@@ -70,6 +71,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(remove_connection)
                         .service(user_connections),
                 )
-                .service(web::scope("/v1/connections").service(connection_callback)),
+                .service(web::scope("/v1/connections").service(connection_callback))
+                .service(web::scope("/v1/link-previews").service(user_link_preview)),
         );
 }

@@ -91,7 +91,12 @@
     "showGameActivity": "Show game activity",
     "showGameActivityHint": "Show friends and members of shared communities which game you are playing. Running games are detected by the desktop app only.",
     "aboutEmpty": "Tell others a bit about yourself.",
-    "resendTooSoon": "A code was sent recently. Wait a bit and try again."
+    "resendTooSoon": "A code was sent recently. Wait a bit and try again.",
+    "profileLink": "Profile link",
+    "copyProfileLink": "Copy",
+    "shareProfileLink": "Share",
+    "profileLinkCopied": "Copied",
+    "profileLinkError": "Couldn't copy the link"
   },
   "privacy": {
     "title": "Privacy & Safety",
