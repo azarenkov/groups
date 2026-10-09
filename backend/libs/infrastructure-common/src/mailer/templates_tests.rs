@@ -48,7 +48,8 @@ fn every_email_has_the_layout_and_a_text_version() {
     for email in &emails {
         assert!(email.html.starts_with("<!DOCTYPE html>"));
         assert!(email.html.contains("max-width:560px"));
-        assert!(email.html.contains("https://rift.example.com/icons/rift-icon-128.png"));
+        assert!(email.html.contains("src=\"cid:rift-logo\""));
+        assert!(!email.html.contains("/icons/"));
         assert!(!email.html.contains("<style"));
         assert!(!email.html.contains("<script"));
         assert!(!email.text.contains('<'));
@@ -76,7 +77,7 @@ fn unsafe_links_are_dropped() {
     let reset = password_reset("javascript:alert(1)", Locale::En, Some("javascript:alert(2)"));
     assert!(!reset.html.contains("javascript:"));
     assert!(!reset.text.contains("javascript:"));
-    assert!(!reset.html.contains("<img"));
+    assert!(reset.html.contains("src=\"cid:rift-logo\""));
 }
 
 #[test]
