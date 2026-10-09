@@ -73,3 +73,25 @@ it("needs at least eight characters for a new password", async () => {
   expect(screen.getByText(i18n.t("auth:passwordMin"))).toBeInTheDocument();
   expect(register).not.toHaveBeenCalled();
 });
+
+it("clears the mismatch once the first password is fixed", async () => {
+  register.mockRejectedValue(new Error("stop"));
+  renderSignUp();
+  fill("secret-1", "secret-2");
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: i18n.t("auth:createAccount") }));
+  });
+  expect(screen.getByText(i18n.t("auth:passwordsDontMatch"))).toBeInTheDocument();
+  await act(async () => {
+    fireEvent.change(screen.getByPlaceholderText(i18n.t("auth:passwordPlaceholderSignup")), { target: { value: "secret-2" } });
+  });
+  expect(screen.queryByText(i18n.t("auth:passwordsDontMatch"))).toBeNull();
+});
+
+it("does not complain about the confirmation before it is filled in", async () => {
+  renderSignUp();
+  await act(async () => {
+    fireEvent.change(screen.getByPlaceholderText(i18n.t("auth:passwordPlaceholderSignup")), { target: { value: "secret-1" } });
+  });
+  expect(screen.queryByText(i18n.t("auth:passwordsDontMatch"))).toBeNull();
+});
