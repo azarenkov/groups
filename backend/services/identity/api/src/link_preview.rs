@@ -94,6 +94,7 @@ pub async fn user_link_preview(
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
         .insert_header(("Cache-Control", "public, max-age=300"))
+        .insert_header(("Vary", "Accept-Language"))
         .insert_header(("X-Robots-Tag", "noindex"))
         .body(render(name.as_deref(), &user_id, lang_ru, &app_state.public_app_url))
 }

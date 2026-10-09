@@ -21,6 +21,7 @@ if [ -n "$upstream" ]; then
     if printf '%s' "$upstream" | grep -Eq '^https?://[A-Za-z0-9.-]+(:[0-9]+)?$'; then
         cat > /tmp/rift/link-preview.d/upstream.conf <<PREVIEW
 if (\$rift_link_preview_bot) {
+    include /etc/nginx/snippets/security-headers.conf;
     rewrite ^/u/([^/]+)/?\$ /api/v1/link-previews/users/\$1 break;
     proxy_pass $upstream;
 }
