@@ -1,6 +1,6 @@
 import React from "react";
 
-import { clampPanelWidth } from "../lib/panelWidth";
+import { PANELS_CHANGED, announcePanels, clampPanelWidth } from "../lib/panelWidth";
 
 interface PanelResizerProps {
   cssVar: string;
@@ -12,11 +12,6 @@ interface PanelResizerProps {
   storageKey: string;
   label: string;
 }
-
-const PANELS_CHANGED = "rift:panels-changed";
-
-const announcePanels = (source: string) =>
-  window.dispatchEvent(new CustomEvent<string>(PANELS_CHANGED, { detail: source }));
 
 const KEY_STEP = 16;
 const KEY_STEP_LARGE = 48;

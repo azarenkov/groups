@@ -6,6 +6,7 @@ export const SIDEBAR_MAX_WIDTH = 420;
 export const SIDEBAR_DEFAULT_WIDTH = 320;
 export const SIDEBAR_SNAP_WIDTH = 160;
 const STORAGE_KEY = "rift.sidebarLayout";
+const LEGACY_WIDTH_KEY = "rift.panel.sidebar";
 
 interface SidebarLayoutState {
   width: number;
@@ -29,6 +30,8 @@ const readStored = (): { width: number; collapsed: boolean } => {
         collapsed: parsed.collapsed === true,
       };
     }
+    const legacy = Number(window.localStorage.getItem(LEGACY_WIDTH_KEY));
+    if (Number.isFinite(legacy) && legacy > 0) return { width: clampWidth(legacy), collapsed: false };
   } catch {
     return { width: SIDEBAR_DEFAULT_WIDTH, collapsed: false };
   }

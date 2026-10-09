@@ -20,10 +20,13 @@ import { useHotkey } from "../../settings/lib/hotkeys";
 import {
   SIDEBAR_COLLAPSED_WIDTH,
   SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
   useSidebarLayoutStore,
 } from "../store/sidebarLayoutStore";
+import { PANELS_CHANGED, announcePanels, clampPanelWidth } from "../../../shared/lib/panelWidth";
 
 const RESIZE_STEP = 16;
+const SIDEBAR_CSS_VAR = "--w-sidebar";
 
 interface SidebarProps {
   communities: Community[];
@@ -116,15 +119,44 @@ const Sidebar: React.FC<SidebarProps> = ({
   const collapsed = useSidebarLayoutStore((s) => s.collapsed);
   const width = useSidebarLayoutStore((s) => s.width);
   const [focusSearchToken, setFocusSearchToken] = React.useState(0);
-  const shownWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : width;
+  const [roomyWidth, setRoomyWidth] = React.useState(width);
+  const shownWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : roomyWidth;
+
+  React.useEffect(() => {
+    const fit = () =>
+      setRoomyWidth(
+        clampPanelWidth(
+          width,
+          { min: SIDEBAR_MIN_WIDTH, max: SIDEBAR_MAX_WIDTH },
+          window.innerWidth,
+          document.querySelector(".members-panel")?.getBoundingClientRect().width ?? 0,
+        ),
+      );
+    const onPanels = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== SIDEBAR_CSS_VAR) fit();
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    window.addEventListener(PANELS_CHANGED, onPanels);
+    return () => {
+      window.removeEventListener("resize", fit);
+      window.removeEventListener(PANELS_CHANGED, onPanels);
+    };
+  }, [width]);
 
   React.useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--w-sidebar", `${shownWidth}px`);
-    return () => {
-      root.style.removeProperty("--w-sidebar");
-    };
+    root.style.setProperty(SIDEBAR_CSS_VAR, `${shownWidth}px`);
+    announcePanels(SIDEBAR_CSS_VAR);
   }, [shownWidth]);
+
+  React.useEffect(
+    () => () => {
+      document.documentElement.style.removeProperty(SIDEBAR_CSS_VAR);
+      requestAnimationFrame(() => announcePanels(SIDEBAR_CSS_VAR));
+    },
+    [],
+  );
 
   const expandAndSearch = () => {
     useSidebarLayoutStore.getState().setCollapsed(false);

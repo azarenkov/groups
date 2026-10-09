@@ -35,3 +35,11 @@ it("remembers the width and mode", () => {
   useSidebarLayoutStore.getState().setCollapsed(true);
   expect(JSON.parse(window.localStorage.getItem("rift.sidebarLayout") ?? "{}")).toEqual({ width: 360, collapsed: true });
 });
+
+it("picks up the width saved by the old sidebar resizer", () => {
+  window.localStorage.setItem("rift.panel.sidebar", "380");
+  jest.isolateModules(() => {
+    const { useSidebarLayoutStore: fresh } = require("../sidebarLayoutStore");
+    expect(fresh.getState()).toMatchObject({ width: 380, collapsed: false });
+  });
+});
