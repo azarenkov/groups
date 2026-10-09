@@ -38,19 +38,12 @@ let remoteBadgeRevision = 0;
 let badgeInFlight: Promise<void> | null = null;
 let desiredBadgeStyle: BadgeStyle | null = null;
 let confirmedBadgeStyle: BadgeStyle | null = null;
-let emojiRevision = 0;
 let emojiSeenAt = "";
-
-const advanceEmojiSeen = (updatedAt: string | null) => {
-  const version = profileVersion(updatedAt);
-  if (version > emojiSeenAt) emojiSeenAt = version;
-};
 
 const acceptEmojiWrite = (updatedAt: string | null): boolean => {
   const version = profileVersion(updatedAt);
   if (version < emojiSeenAt) return false;
   emojiSeenAt = version;
-  emojiRevision += 1;
   return true;
 };
 
@@ -68,16 +61,15 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   fetch: async () => {
     const gen = generation;
     const rev = revision;
-    const emojiRev = emojiRevision;
     try {
       const mine = await entitlementsAPI.getMine();
       if (gen !== generation) return false;
+      if (acceptEmojiWrite(mine.profileUpdatedAt)) set({ emojiStatus: mine.emojiStatus });
       if (rev !== revision) {
         set({ loaded: true });
         return false;
       }
       confirmedBadgeStyle = mine.badgeStyle;
-      if (emojiRev === emojiRevision) advanceEmojiSeen(mine.profileUpdatedAt);
       set({
         tier: mine.tier,
         badgeStyle: mine.badgeStyle,
@@ -85,7 +77,6 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
         validUntil: mine.validUntil,
         trial: mine.trial,
         trialAvailable: mine.trialAvailable,
-        emojiStatus: emojiRev === emojiRevision ? mine.emojiStatus : get().emojiStatus,
         planVersion: get().planVersion + 1,
         loaded: true,
       });
@@ -135,13 +126,11 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   applyEmojiStatus: (emojiStatus, version) => {
     if (emojiSeenAt > version) return;
     emojiSeenAt = version;
-    emojiRevision += 1;
     set({ emojiStatus });
   },
 
   setEmojiStatus: async (stickerId) => {
     const gen = generation;
-    emojiRevision += 1;
     const saved = await entitlementsAPI.setEmojiStatus(stickerId);
     if (gen !== generation) return;
     if (acceptEmojiWrite(saved.updatedAt)) set({ emojiStatus: saved.emojiStatus });
@@ -149,7 +138,6 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
 
   clearEmojiStatus: async () => {
     const gen = generation;
-    emojiRevision += 1;
     const cleared = await entitlementsAPI.clearEmojiStatus();
     if (gen !== generation) return;
     if (acceptEmojiWrite(cleared.updatedAt)) set({ emojiStatus: null });
@@ -200,7 +188,6 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
 
   clear: () => {
     generation += 1;
-    emojiRevision += 1;
     emojiSeenAt = "";
     clearExpiryTimer();
     badgeInFlight = null;

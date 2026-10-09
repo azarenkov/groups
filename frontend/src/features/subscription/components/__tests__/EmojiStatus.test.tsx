@@ -384,3 +384,28 @@ it("keeps a saved status when an older event lands while the request is in fligh
   });
   expect(useEntitlementsStore.getState().emojiStatus).toEqual({ stickerId: "s2", until: null });
 });
+
+it("keeps the loaded status when a plan change lands during the first fetch", async () => {
+  let respond: (value: unknown) => void = () => undefined;
+  api.getMine.mockImplementation(() => new Promise((resolve) => (respond = resolve)));
+  let loading: Promise<boolean> = Promise.resolve(false);
+  act(() => {
+    loading = useEntitlementsStore.getState().fetch();
+  });
+  act(() => useEntitlementsStore.getState().applyTier("premium"));
+  await act(async () => {
+    respond({
+      tier: "pro",
+      badgeStyle: "tint",
+      memberNumber: null,
+      validUntil: null,
+      trial: false,
+      trialAvailable: false,
+      emojiStatus: { stickerId: "s2", until: null },
+      profileUpdatedAt: new Date().toISOString(),
+    });
+    await loading;
+  });
+  expect(useEntitlementsStore.getState().emojiStatus).toEqual({ stickerId: "s2", until: null });
+  expect(useEntitlementsStore.getState().tier).toBe("premium");
+});
