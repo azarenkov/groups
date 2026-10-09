@@ -156,7 +156,7 @@ impl IdentityTransaction for Fake {
 
 #[async_trait]
 impl StickerLookup for Fake {
-    async fn usable_sticker(&self, _: Uuid) -> Result<bool, StickerLookupError> {
+    async fn usable_sticker(&self, _: &UserId, _: Uuid) -> Result<bool, StickerLookupError> {
         Ok(!self.0.lock().unwrap().unusable_sticker)
     }
 }

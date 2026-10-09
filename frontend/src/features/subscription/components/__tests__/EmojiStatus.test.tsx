@@ -188,3 +188,22 @@ it("shows one pack at a time so large libraries stay light", async () => {
   expect(screen.getByRole("button", { name: "🐶" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "😺" })).toBeNull();
 });
+
+it("offers stickers from the user's own packs even when they are not installed", async () => {
+  const mine = {
+    ...pack,
+    id: "p3",
+    name: "Mine",
+    slug: "mine",
+    ownerId: "me",
+    installed: false,
+    stickers: [{ id: "m1", packId: "p3", emoji: "🦊", animated: false, width: 512, height: 512 }],
+  };
+  const removed = { ...mine, id: "p4", name: "Removed", ownerId: "someone", stickers: [{ ...mine.stickers[0], id: "r1", packId: "p4", emoji: "🐸" }] };
+  stickersAPI.mine.mockResolvedValue([mine, removed]);
+  act(() => useEntitlementsStore.getState().applyTier("pro"));
+  render(<ProfileStyleSettings />);
+  expect(await screen.findByRole("button", { name: "🦊" })).toBeInTheDocument();
+  expect(screen.queryByRole("tab", { name: "Removed" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "🐸" })).toBeNull();
+});

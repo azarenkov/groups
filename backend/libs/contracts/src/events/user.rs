@@ -41,6 +41,8 @@ pub struct UserProfileChangedV1 {
     pub emoji_status_sticker_id: Option<Uuid>,
     #[serde(default)]
     pub emoji_status_until: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub emoji_status_included: bool,
     pub occurred_at: DateTime<Utc>,
 }
 

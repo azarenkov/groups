@@ -42,7 +42,7 @@ pub trait BadgeRepository: Send + Sync {
         &self,
         user_id: &UserId,
         badge_style: &str,
-        emoji_status: Option<BadgeEmojiStatus>,
+        emoji_status: Option<Option<BadgeEmojiStatus>>,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
     async fn tier_of(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<String, RepositoryError>;

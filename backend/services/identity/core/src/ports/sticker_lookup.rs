@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use domain::user::id::UserId;
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
@@ -9,5 +10,5 @@ pub enum StickerLookupError {
 
 #[async_trait]
 pub trait StickerLookup: Send + Sync {
-    async fn usable_sticker(&self, sticker_id: Uuid) -> Result<bool, StickerLookupError>;
+    async fn usable_sticker(&self, user_id: &UserId, sticker_id: Uuid) -> Result<bool, StickerLookupError>;
 }

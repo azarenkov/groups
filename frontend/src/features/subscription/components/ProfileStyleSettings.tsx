@@ -41,7 +41,10 @@ const ProfileStyleSettings: React.FC = () => {
   const stickersLoaded = useStickerStore((s) => s.loaded);
   const stickersOwner = useStickerStore((s) => s.userId);
   const [statusBusy, setStatusBusy] = React.useState(false);
-  const statusPacks = React.useMemo(() => installedPacks(stickerPacks), [stickerPacks]);
+  const statusPacks = React.useMemo(
+    () => stickerPacks.filter((pack) => pack.ownerId === userId || installedPacks([pack]).length > 0),
+    [stickerPacks, userId],
+  );
   const [chosenPackId, setChosenPackId] = React.useState<string | null>(null);
   const statusPack =
     statusPacks.find((pack) => pack.id === chosenPackId) ??

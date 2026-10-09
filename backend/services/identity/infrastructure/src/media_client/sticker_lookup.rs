@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use contracts::internal::stickers::StickerInfoV1;
+use domain::user::id::UserId;
 use identity::ports::sticker_lookup::{StickerLookup, StickerLookupError};
 use uuid::Uuid;
 
@@ -22,25 +22,21 @@ impl MediaStickerClient {
 
 #[async_trait]
 impl StickerLookup for MediaStickerClient {
-    async fn usable_sticker(&self, sticker_id: Uuid) -> Result<bool, StickerLookupError> {
-        let response = super::with_request_id(
-            self.client
-                .get(format!("{}/internal/stickers/{}", self.base_url, sticker_id)),
-        )
+    async fn usable_sticker(&self, user_id: &UserId, sticker_id: Uuid) -> Result<bool, StickerLookupError> {
+        let response = super::with_request_id(self.client.post(format!(
+            "{}/internal/users/{}/status-stickers/{}",
+            self.base_url,
+            user_id.uuid(),
+            sticker_id
+        )))
         .send()
         .await
         .map_err(|e| StickerLookupError::Unavailable(e.to_string()))?;
         match response.status().as_u16() {
-            200 => {
-                let info: StickerInfoV1 = response
-                    .json()
-                    .await
-                    .map_err(|e| StickerLookupError::Unavailable(e.to_string()))?;
-                Ok(!info.deleted)
-            }
+            200..=299 => Ok(true),
             404 => Ok(false),
             status => Err(StickerLookupError::Unavailable(format!(
-                "sticker lookup endpoint returned status {status}"
+                "status sticker endpoint returned status {status}"
             ))),
         }
     }

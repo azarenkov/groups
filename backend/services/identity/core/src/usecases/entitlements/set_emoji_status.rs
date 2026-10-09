@@ -74,7 +74,7 @@ impl<W: IdentityUnitOfWork, S: StickerLookup> SetEmojiStatus<W, S> {
         request_id: Option<&str>,
     ) -> Result<EmojiStatus, SetEmojiStatusError> {
         let until = status_until(duration, Utc::now())?;
-        if !self.stickers.usable_sticker(sticker_id).await? {
+        if !self.stickers.usable_sticker(&user_id, sticker_id).await? {
             return Err(SetEmojiStatusError::StickerNotFound);
         }
         let status = EmojiStatus::new(sticker_id, until);

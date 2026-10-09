@@ -56,17 +56,21 @@ impl BadgeRepository for PostgresBadgeRepository {
         &self,
         user_id: &UserId,
         badge_style: &str,
-        emoji_status: Option<BadgeEmojiStatus>,
+        emoji_status: Option<Option<BadgeEmojiStatus>>,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError> {
+        let replace_status = emoji_status.is_some();
+        let emoji_status = emoji_status.flatten();
         sqlx::query!(
             r#"
             INSERT INTO messaging_user_profiles (user_id, name, updated_at, badge_style, emoji_status_sticker_id, emoji_status_until, badge_updated_at)
             VALUES ($1, '', to_timestamp(0), $2, $3, $4, $5)
             ON CONFLICT (user_id) DO UPDATE
                 SET badge_style = EXCLUDED.badge_style,
-                    emoji_status_sticker_id = EXCLUDED.emoji_status_sticker_id,
-                    emoji_status_until = EXCLUDED.emoji_status_until,
+                    emoji_status_sticker_id = CASE WHEN $6 THEN EXCLUDED.emoji_status_sticker_id
+                                                   ELSE messaging_user_profiles.emoji_status_sticker_id END,
+                    emoji_status_until = CASE WHEN $6 THEN EXCLUDED.emoji_status_until
+                                              ELSE messaging_user_profiles.emoji_status_until END,
                     badge_updated_at = EXCLUDED.badge_updated_at
                 WHERE messaging_user_profiles.badge_updated_at IS NULL
                    OR messaging_user_profiles.badge_updated_at <= EXCLUDED.badge_updated_at
@@ -76,6 +80,7 @@ impl BadgeRepository for PostgresBadgeRepository {
             emoji_status.map(|status| status.sticker_id),
             emoji_status.and_then(|status| status.until),
             occurred_at,
+            replace_status,
         )
         .execute(&self.pool)
         .await
