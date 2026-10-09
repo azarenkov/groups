@@ -6,7 +6,7 @@ import { SignInUp } from "../steps/SignInUp";
 import { authAPI } from "../../api/auth";
 
 jest.mock("../../api/auth", () => ({
-  authAPI: { register: jest.fn(), captchaChallenge: jest.fn() },
+  authAPI: { register: jest.fn(), login: jest.fn(), captchaChallenge: jest.fn() },
 }));
 
 jest.mock("../../lib/useCaptcha", () => ({
@@ -15,6 +15,7 @@ jest.mock("../../lib/useCaptcha", () => ({
 }));
 
 const register = authAPI.register as jest.Mock;
+const login = authAPI.login as jest.Mock;
 
 const renderSignUp = () =>
   render(
@@ -94,4 +95,35 @@ it("does not complain about the confirmation before it is filled in", async () =
     fireEvent.change(screen.getByPlaceholderText(i18n.t("auth:passwordPlaceholderSignup")), { target: { value: "secret-1" } });
   });
   expect(screen.queryByText(i18n.t("auth:passwordsDontMatch"))).toBeNull();
+});
+
+it("keeps the four-character minimum for signing in with an older password", async () => {
+  login.mockRejectedValue(new Error("stop"));
+  render(
+    <SignInUp
+      mode="signin"
+      email=""
+      onEmailChange={jest.fn()}
+      onSwitchMode={jest.fn()}
+      onSignedIn={jest.fn()}
+      go2fa={jest.fn()}
+      goVerify={jest.fn()}
+      goForgot={jest.fn()}
+      onAvatarPicked={jest.fn()}
+    />,
+  );
+  fireEvent.change(screen.getByPlaceholderText(i18n.t("auth:emailPlaceholder")), { target: { value: "alice@rift.app" } });
+  const password = screen.getByPlaceholderText(i18n.t("auth:passwordPlaceholder"));
+  fireEvent.change(password, { target: { value: "abc" } });
+  const submit = () => fireEvent.submit(password.closest("form") as HTMLFormElement);
+  await act(async () => {
+    submit();
+  });
+  expect(screen.getByText(i18n.t("auth:passwordMinSignIn"))).toBeInTheDocument();
+  expect(login).not.toHaveBeenCalled();
+  fireEvent.change(password, { target: { value: "abcd" } });
+  await act(async () => {
+    submit();
+  });
+  expect(login).toHaveBeenCalledWith("alice@rift.app", "abcd", null);
 });

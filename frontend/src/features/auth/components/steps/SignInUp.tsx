@@ -373,7 +373,9 @@ export const SignInUp: React.FC<SignInUpProps> = ({
               placeholder={isSignup ? t("passwordPlaceholderSignup") : t("passwordPlaceholder")}
               {...registerPassword("password", {
                 required: t("passwordRequired"),
-                ...(isSignup ? { minLength: { value: 8, message: t("passwordMin") }, deps: ["confirmPassword"] } : {}),
+                ...(isSignup
+                  ? { minLength: { value: 8, message: t("passwordMin") }, deps: ["confirmPassword"] }
+                  : { minLength: { value: 4, message: t("passwordMinSignIn") } }),
               })}
             />
             <button
