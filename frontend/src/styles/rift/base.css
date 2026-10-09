@@ -839,9 +839,9 @@ body.electron .body-area::before {
   -webkit-app-region: drag;
 }
 .auth-brand {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-size: 14px; font-weight: 600;
-  letter-spacing: -0.005em;
+  display: inline-flex; align-items: center; gap: 10px;
+  font-size: 20px; font-weight: 700; line-height: 1;
+  letter-spacing: -0.3px;
   color: var(--fg-1);
   -webkit-app-region: no-drag;
 }
@@ -1180,11 +1180,6 @@ body.electron .body-area::before {
   font-feature-settings: "tnum";
 }
 
-.auth-brand {
-  display: flex; align-items: center; gap: 12px;
-  font-size: 15px; font-weight: 600;
-  letter-spacing: -0.005em;
-}
 .auth-tabs {
   display: flex;
   background: var(--surface-sunken);

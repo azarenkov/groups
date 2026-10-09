@@ -48,7 +48,7 @@ const JoinPage: React.FC = () => {
     <div className="auth-page">
       <div className="auth-topbar">
         <span className="auth-brand">
-          <Mark size={22} />
+          <Mark size={36} />
           <span>Rift</span>
         </span>
         <LanguageSwitcher />
