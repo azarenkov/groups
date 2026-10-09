@@ -10,6 +10,8 @@ import { useAuthStore } from "../../auth/store/authStore";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { blockGeneration, useBlockStore } from "../store/blockStore";
 import ProBadge from "../../subscription/components/ProBadge";
+import EmojiStatusIcon from "../../subscription/components/EmojiStatusIcon";
+import { useActiveEmojiStatus } from "../../subscription/lib/emojiStatus";
 import { useBadge } from "../../subscription/hooks/useBadge";
 import { useAvatarUrl } from "../../../shared/lib/avatarCache";
 import { openReport } from "../../moderation/store/reportModalStore";
@@ -89,6 +91,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const cachedBio = useUserProfileStore((s) => (userId ? s.bios[userId]?.bio : undefined));
   const [menuOpen, setMenuOpen] = React.useState(false);
   const badge = useBadge(userId);
+  const emojiStatus = useActiveEmojiStatus(badge?.emojiStatus);
   const bannerUrl = useAvatarUrl("banner", badge && !blockedMe ? userId : null);
   const avatarUrl = useAvatarUrl("user", userId);
   const [avatarOpen, setAvatarOpen] = React.useState(false);
@@ -283,7 +286,11 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
               <div className="profile-name-row">
                 <div className="profile-name">{name || (inactive ? t("deletedUser") : "…")}</div>
                 {badge && !inactive && !blockedMe && (
-                  <ProBadge tier={badge.tier} badgeStyle={badge.badgeStyle} memberNumber={badge.memberNumber} size="md" />
+                  emojiStatus ? (
+                    <EmojiStatusIcon status={emojiStatus} size="lg" />
+                  ) : (
+                    <ProBadge tier={badge.tier} badgeStyle={badge.badgeStyle} memberNumber={badge.memberNumber} size="md" />
+                  )
                 )}
               </div>
               <div className="profile-handle">

@@ -375,6 +375,19 @@ pub fn sticker_routes(cfg: &mut web::ServiceConfig) {
     .service(web::scope("/v1/stickers").service(sticker_file));
 }
 
+#[post("/users/{user_id}/status-stickers/{sticker_id}")]
+async fn internal_status_sticker(
+    app_state: web::Data<AppState>,
+    path: web::Path<(Uuid, Uuid)>,
+) -> Result<impl Responder, HttpError> {
+    let (user_id, sticker_id) = path.into_inner();
+    match app_state.sticker_packs.claim_for_status(UserId::new(user_id), sticker_id).await {
+        Ok(_) => Ok(HttpResponse::NoContent().finish()),
+        Err(media::usecases::sticker::StickerError::StickerNotFound) => Ok(HttpResponse::NotFound().finish()),
+        Err(e) => Err(e.into()),
+    }
+}
+
 #[get("/sticker-packs/{pack_id}")]
 async fn internal_sticker_pack(
     app_state: web::Data<AppState>,
@@ -392,7 +405,9 @@ async fn internal_sticker_pack(
 }
 
 pub fn internal_sticker_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(internal_sticker).service(internal_sticker_pack);
+    cfg.service(internal_sticker)
+        .service(internal_sticker_pack)
+        .service(internal_status_sticker);
 }
 
 async fn read_sticker_upload(payload: &mut Multipart) -> Result<(Vec<u8>, String), HttpError> {

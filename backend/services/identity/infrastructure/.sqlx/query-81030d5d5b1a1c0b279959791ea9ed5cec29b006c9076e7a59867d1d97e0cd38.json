@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, name, email, password_hash, created_at, updated_at,\n                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE email_verified_at IS NULL\n              AND phone_verified_at IS NULL\n              AND deleted_at IS NULL\n              AND created_at < $1\n            ORDER BY created_at\n            LIMIT $2\n            FOR UPDATE SKIP LOCKED\n            ",
+  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until\n            FROM users\n            WHERE LOWER(name COLLATE \"C\") = LOWER($1 COLLATE \"C\")\n            ",
   "describe": {
     "columns": [
       {
@@ -92,12 +92,21 @@
         "ordinal": 17,
         "name": "timezone",
         "type_info": "Varchar"
+      },
+      {
+        "ordinal": 18,
+        "name": "emoji_status_sticker_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 19,
+        "name": "emoji_status_until",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Timestamptz",
-        "Int8"
+        "Text"
       ]
     },
     "nullable": [
@@ -118,8 +127,10 @@
       false,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "e2dbe26b26add92e92b37be88d1be640be0fca2666d465198517846bcd1822f5"
+  "hash": "81030d5d5b1a1c0b279959791ea9ed5cec29b006c9076e7a59867d1d97e0cd38"
 }

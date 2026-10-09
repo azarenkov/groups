@@ -59,6 +59,7 @@ fn copy_user(user: &User) -> User {
         user.show_activity(),
         user.show_game_activity(),
         user.timezone().to_string(),
+        user.emoji_status(),
     )
 }
 
@@ -217,7 +218,7 @@ impl IdentityTransaction for Fake {
     async fn start_trial(&mut self, _: &UserId, _: &Email, _: Option<&str>, _: DateTime<Utc>, _: DateTime<Utc>) -> Result<(), RepositoryError> { unimplemented!() }
     async fn load_trials_ending_for_update(&mut self, _: DateTime<Utc>, _: i64) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
     async fn mark_trial_reminded(&mut self, _: &UserId, _: DateTime<Utc>) -> Result<(), RepositoryError> { unimplemented!() }
-    async fn load_expired_entitlements_for_update(&mut self, _: DateTime<Utc>, _: i64) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
+    async fn expired_entitlement_users(&mut self, _: DateTime<Utc>, _: i64) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
     async fn load_appearance_for_update(&mut self, _: &UserId) -> Result<Option<AppearanceSettings>, RepositoryError> { unimplemented!() }
     async fn save_appearance(&mut self, _: &UserId, _: &AppearanceSettings) -> Result<(), RepositoryError> { unimplemented!() }
     async fn load_voice_settings_for_update(&mut self, _: &UserId) -> Result<Option<VoiceSettings>, RepositoryError> { unimplemented!() }

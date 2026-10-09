@@ -35,6 +35,7 @@ impl UserRepository for Users {
                 u.show_activity(),
                 u.show_game_activity(),
                 u.timezone().to_string(),
+                u.emoji_status(),
             )
         }))
     }

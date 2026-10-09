@@ -5,6 +5,7 @@ import { desktopNotifAllowed } from "../../settings/store/notificationSettingsSt
 import { formatPlanDate } from "../../subscription/components/PlanUntil";
 import { bustAvatar } from "../../../shared/lib/avatarCache";
 import { parseBadgeStyle, parseMemberNumber, parseTier, parseValidUntil } from "../../subscription/lib/plans";
+import { parseEmojiStatus } from "../../subscription/lib/emojiStatus";
 import { useBadgeStore } from "../../subscription/store/badgeStore";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 import { loadActivitiesFor, loadFriendActivities, useActivityStore } from "../store/activityStore";
@@ -199,6 +200,17 @@ export const socialHandlers: WsHandlers = {
   "user.profileChanged": (d) => {
       const userId = asString(d.userId);
       if (!userId) return;
+      const version = profileVersion(asString(d.occurredAt));
+      if ("emojiStatus" in d) {
+        const emojiStatus = parseEmojiStatus(d.emojiStatus);
+        if (useAuthStore.getState().user?.id === userId) {
+          useEntitlementsStore.getState().applyEmojiStatus(emojiStatus, version);
+        } else {
+          useBadgeStore.getState().applyEmojiStatus(userId, emojiStatus, version);
+        }
+      }
+      const cached = useUserProfileStore.getState().bios[userId];
+      if (cached && cached.at > version) return;
       if (typeof d.badgeStyle === "string") {
         const badgeStyle = parseBadgeStyle(d.badgeStyle);
         if (useAuthStore.getState().user?.id === userId) {
@@ -211,9 +223,6 @@ export const socialHandlers: WsHandlers = {
       const bio = asString(d.bio) ?? "";
       const showActivity = d.showActivity === true;
       const showGameActivity = d.showGameActivity !== false;
-      const version = profileVersion(asString(d.occurredAt));
-      const cached = useUserProfileStore.getState().bios[userId];
-      if (cached && cached.at > version) return;
       useUserProfileStore.getState().apply(userId, bio, version);
       const auth = useAuthStore.getState();
       if (!showGameActivity && auth.user?.id !== userId) {

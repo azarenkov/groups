@@ -1,6 +1,6 @@
 use identity::usecases::entitlements::{
     get_entitlements::GetEntitlements, grant_entitlements::GrantEntitlements,
-    set_badge_style::SetBadgeStyle,
+    set_badge_style::SetBadgeStyle, set_emoji_status::SetEmojiStatus,
 };
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
 use identity_infrastructure::database::postgres::repositories::entitlements::PostgresEntitlementsRepository;
@@ -11,6 +11,7 @@ use identity_infrastructure::auth::{altcha::AltchaVerifier, redis_captcha_store:
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
 use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
 use identity_infrastructure::media_client::block_lookup::MessagingBlockClient;
+use identity_infrastructure::media_client::sticker_lookup::MediaStickerClient;
 use identity::usecases::{
     connections::{
         complete_connection::CompleteConnection, list_connections::ListConnections,
@@ -114,6 +115,7 @@ pub struct AppState {
     pub grant_entitlements_usecase: GrantEntitlements<PostgresIdentityUnitOfWork>,
     pub start_trial_usecase: StartTrial<PostgresIdentityUnitOfWork>,
     pub set_badge_style_usecase: SetBadgeStyle<PostgresIdentityUnitOfWork>,
+    pub set_emoji_status_usecase: SetEmojiStatus<PostgresIdentityUnitOfWork, MediaStickerClient>,
     pub get_appearance_usecase: GetAppearance<PostgresUserRepository>,
     pub update_appearance_usecase: UpdateAppearance<PostgresIdentityUnitOfWork>,
     pub set_activity_usecase: SetActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,

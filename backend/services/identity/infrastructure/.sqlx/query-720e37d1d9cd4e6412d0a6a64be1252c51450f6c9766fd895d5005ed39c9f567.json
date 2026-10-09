@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone\n            FROM users\n            WHERE email = $1\n            ",
+  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until\n            FROM users\n            WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -92,11 +92,21 @@
         "ordinal": 17,
         "name": "timezone",
         "type_info": "Varchar"
+      },
+      {
+        "ordinal": 18,
+        "name": "emoji_status_sticker_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 19,
+        "name": "emoji_status_until",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -117,8 +127,10 @@
       false,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "f2c8b1435bf5dd814bbb4e0b33bee0ccc5d0fa0735d3f1f95fa569fe48fccf03"
+  "hash": "720e37d1d9cd4e6412d0a6a64be1252c51450f6c9766fd895d5005ed39c9f567"
 }

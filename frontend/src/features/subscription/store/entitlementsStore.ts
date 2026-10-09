@@ -3,6 +3,8 @@ import { create } from "zustand";
 import { entitlementsAPI } from "../api/entitlements";
 import { DEFAULT_BADGE_STYLE } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
+import type { EmojiStatus } from "../lib/emojiStatus";
+import { profileVersion } from "../../social/store/userProfileStore";
 
 export interface PlanWindow {
   validUntil: string | null;
@@ -16,6 +18,7 @@ interface EntitlementsState {
   validUntil: string | null;
   trial: boolean;
   trialAvailable: boolean;
+  emojiStatus: EmojiStatus | null;
   planVersion: number;
   loaded: boolean;
   fetch: () => Promise<boolean>;
@@ -23,6 +26,9 @@ interface EntitlementsState {
   startTrial: () => Promise<void>;
   applyBadgeStyle: (style: BadgeStyle) => void;
   setBadgeStyle: (style: BadgeStyle) => Promise<void>;
+  applyEmojiStatus: (status: EmojiStatus | null, version: string) => void;
+  setEmojiStatus: (stickerId: string) => Promise<void>;
+  clearEmojiStatus: () => Promise<void>;
   clear: () => void;
 }
 
@@ -32,6 +38,14 @@ let remoteBadgeRevision = 0;
 let badgeInFlight: Promise<void> | null = null;
 let desiredBadgeStyle: BadgeStyle | null = null;
 let confirmedBadgeStyle: BadgeStyle | null = null;
+let emojiSeenAt = "";
+
+const acceptEmojiWrite = (updatedAt: string | null): boolean => {
+  const version = profileVersion(updatedAt);
+  if (version < emojiSeenAt) return false;
+  emojiSeenAt = version;
+  return true;
+};
 
 export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   tier: "free",
@@ -40,6 +54,7 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   validUntil: null,
   trial: false,
   trialAvailable: false,
+  emojiStatus: null,
   planVersion: 0,
   loaded: false,
 
@@ -49,6 +64,7 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
     try {
       const mine = await entitlementsAPI.getMine();
       if (gen !== generation) return false;
+      if (acceptEmojiWrite(mine.profileUpdatedAt)) set({ emojiStatus: mine.emojiStatus });
       if (rev !== revision) {
         set({ loaded: true });
         return false;
@@ -107,6 +123,26 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
     set({ badgeStyle });
   },
 
+  applyEmojiStatus: (emojiStatus, version) => {
+    if (emojiSeenAt > version) return;
+    emojiSeenAt = version;
+    set({ emojiStatus });
+  },
+
+  setEmojiStatus: async (stickerId) => {
+    const gen = generation;
+    const saved = await entitlementsAPI.setEmojiStatus(stickerId);
+    if (gen !== generation) return;
+    if (acceptEmojiWrite(saved.updatedAt)) set({ emojiStatus: saved.emojiStatus });
+  },
+
+  clearEmojiStatus: async () => {
+    const gen = generation;
+    const cleared = await entitlementsAPI.clearEmojiStatus();
+    if (gen !== generation) return;
+    if (acceptEmojiWrite(cleared.updatedAt)) set({ emojiStatus: null });
+  },
+
   setBadgeStyle: (style) => {
     revision += 1;
     if (confirmedBadgeStyle === null) confirmedBadgeStyle = get().badgeStyle;
@@ -152,6 +188,7 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
 
   clear: () => {
     generation += 1;
+    emojiSeenAt = "";
     clearExpiryTimer();
     badgeInFlight = null;
     desiredBadgeStyle = null;
@@ -163,6 +200,7 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
       validUntil: null,
       trial: false,
       trialAvailable: false,
+      emojiStatus: null,
       planVersion: 0,
       loaded: false,
     });

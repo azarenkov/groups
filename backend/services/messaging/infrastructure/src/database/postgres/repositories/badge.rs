@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
-use messaging_domain::badge::{BadgeRepository, UserBadge};
+use messaging_domain::badge::{BadgeEmojiStatus, BadgeRepository, UserBadge};
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
@@ -52,25 +52,45 @@ impl BadgeRepository for PostgresBadgeRepository {
         Ok(())
     }
 
-    async fn apply_badge_style(
+    async fn apply_profile_perks(
         &self,
         user_id: &UserId,
         badge_style: &str,
+        emoji_status: Option<Option<BadgeEmojiStatus>>,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError> {
+        let replace_status = emoji_status.is_some();
+        let emoji_status = emoji_status.flatten();
         sqlx::query!(
             r#"
-            INSERT INTO messaging_user_profiles (user_id, name, updated_at, badge_style, badge_updated_at)
-            VALUES ($1, '', to_timestamp(0), $2, $3)
+            INSERT INTO messaging_user_profiles AS p (
+                user_id, name, updated_at, badge_style, badge_updated_at,
+                emoji_status_sticker_id, emoji_status_until, emoji_status_updated_at
+            )
+            VALUES ($1, '', to_timestamp(0), $2, $5::timestamptz, $3, $4, CASE WHEN $6::boolean THEN $5::timestamptz END)
             ON CONFLICT (user_id) DO UPDATE
-                SET badge_style = EXCLUDED.badge_style,
-                    badge_updated_at = EXCLUDED.badge_updated_at
-                WHERE messaging_user_profiles.badge_updated_at IS NULL
-                   OR messaging_user_profiles.badge_updated_at <= EXCLUDED.badge_updated_at
+                SET badge_style = CASE
+                        WHEN p.badge_updated_at IS NULL OR p.badge_updated_at <= $5::timestamptz THEN EXCLUDED.badge_style
+                        ELSE p.badge_style END,
+                    badge_updated_at = GREATEST(p.badge_updated_at, $5::timestamptz),
+                    emoji_status_sticker_id = CASE
+                        WHEN $6::boolean AND (p.emoji_status_updated_at IS NULL OR p.emoji_status_updated_at <= $5::timestamptz)
+                            THEN EXCLUDED.emoji_status_sticker_id
+                        ELSE p.emoji_status_sticker_id END,
+                    emoji_status_until = CASE
+                        WHEN $6::boolean AND (p.emoji_status_updated_at IS NULL OR p.emoji_status_updated_at <= $5::timestamptz)
+                            THEN EXCLUDED.emoji_status_until
+                        ELSE p.emoji_status_until END,
+                    emoji_status_updated_at = CASE
+                        WHEN $6::boolean AND (p.emoji_status_updated_at IS NULL OR p.emoji_status_updated_at <= $5::timestamptz) THEN $5::timestamptz
+                        ELSE p.emoji_status_updated_at END
             "#,
             user_id.uuid(),
             badge_style,
+            emoji_status.map(|status| status.sticker_id),
+            emoji_status.and_then(|status| status.until),
             occurred_at,
+            replace_status,
         )
         .execute(&self.pool)
         .await
@@ -102,7 +122,8 @@ impl BadgeRepository for PostgresBadgeRepository {
         let ids: Vec<Uuid> = user_ids.iter().map(|id| id.uuid()).collect();
         let rows = sqlx::query!(
             r#"
-            SELECT user_id, tier, badge_style, member_number
+            SELECT user_id, tier, badge_style, member_number, emoji_status_sticker_id, emoji_status_until,
+                   emoji_status_updated_at
             FROM messaging_user_profiles
             WHERE user_id = ANY($1)
               AND active
@@ -122,6 +143,11 @@ impl BadgeRepository for PostgresBadgeRepository {
                 tier: r.tier,
                 badge_style: r.badge_style,
                 member_number: r.member_number,
+                emoji_status: r
+                    .emoji_status_sticker_id
+                    .filter(|_| r.emoji_status_until.is_none_or(|until| until > now))
+                    .map(|sticker_id| BadgeEmojiStatus { sticker_id, until: r.emoji_status_until }),
+                emoji_status_updated_at: r.emoji_status_updated_at,
             })
             .collect())
     }

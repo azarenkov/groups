@@ -14,6 +14,9 @@ import { useEntitlementsStore } from "../store/entitlementsStore";
 import ProBadge from "./ProBadge";
 import TrialOffer from "./TrialOffer";
 import { whilePlanSyncs } from "../lib/planSync";
+import { useActiveEmojiStatus } from "../lib/emojiStatus";
+import StickerImage from "../../stickers/components/StickerImage";
+import { installedPacks, packCover, useStickerStore } from "../../stickers/store/stickerStore";
 
 const MAX_BANNER_BYTES = 8 * 1024 * 1024;
 const BANNER_TYPES = ["image/png", "image/jpeg", "image/webp"];
@@ -33,6 +36,26 @@ const ProfileStyleSettings: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const locked = tier === "free";
   const shownTier = locked ? "pro" : tier;
+  const emojiStatus = useActiveEmojiStatus(useEntitlementsStore((s) => s.emojiStatus));
+  const stickerPacks = useStickerStore((s) => s.packs);
+  const stickersLoaded = useStickerStore((s) => s.loaded);
+  const stickersOwner = useStickerStore((s) => s.userId);
+  const [statusBusy, setStatusBusy] = React.useState(false);
+  const statusPacks = React.useMemo(
+    () => stickerPacks.filter((pack) => pack.ownerId === userId || installedPacks([pack]).length > 0),
+    [stickerPacks, userId],
+  );
+  const [chosenPackId, setChosenPackId] = React.useState<string | null>(null);
+  const statusPack =
+    statusPacks.find((pack) => pack.id === chosenPackId) ??
+    statusPacks.find((pack) => pack.stickers.some((sticker) => sticker.id === emojiStatus?.stickerId)) ??
+    statusPacks[0] ??
+    null;
+
+  React.useEffect(() => {
+    if (locked || !userId) return;
+    if (!stickersLoaded || stickersOwner !== userId) void useStickerStore.getState().load(userId);
+  }, [locked, userId, stickersLoaded, stickersOwner]);
 
   const describe = (err: unknown) => {
     const apiErr = err instanceof ApiError ? err : null;
@@ -51,15 +74,33 @@ const ProfileStyleSettings: React.FC = () => {
         return t("banner.badType");
       case "IMAGE_CONTENT_REJECTED":
         return t("banner.rejected");
+      case "STICKER_NOT_FOUND":
+        return t("emojiStatus.gone");
+      case "STICKERS_UNAVAILABLE":
+        return t("emojiStatus.failed");
       default:
         return apiErr?.message || t("banner.failed");
     }
   };
 
-  const pickStyle = (style: BadgeStyle) => {
-    if (locked || style === badgeStyle) return;
+  const runStatus = async (action: () => Promise<void>) => {
+    if (locked || statusBusy) return;
+    setStatusBusy(true);
     setError(null);
-    setBadgeStyle(style).catch((err) => setError(describe(err)));
+    try {
+      await action();
+    } catch (err) {
+      setError(describe(err));
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
+  const pickStyle = (style: BadgeStyle) => {
+    if (locked || (style === badgeStyle && !emojiStatus)) return;
+    setError(null);
+    if (style !== badgeStyle) setBadgeStyle(style).catch((err) => setError(describe(err)));
+    if (emojiStatus) void runStatus(() => useEntitlementsStore.getState().clearEmojiStatus());
   };
 
   const upload = async (file: File | undefined) => {
@@ -175,13 +216,13 @@ const ProfileStyleSettings: React.FC = () => {
                 key={style}
                 type="button"
                 role="radio"
-                aria-checked={allowed && badgeStyle === style}
+                aria-checked={allowed && badgeStyle === style && !emojiStatus}
                 className={
                   "badge-style-option" +
-                  (allowed && badgeStyle === style ? " on" : "") +
+                  (allowed && badgeStyle === style && !emojiStatus ? " on" : "") +
                   (allowed ? "" : " locked")
                 }
-                disabled={!allowed}
+                disabled={!allowed || statusBusy}
                 title={allowed ? undefined : t(`needs.${required}`)}
                 onClick={() => pickStyle(style)}
               >
@@ -191,6 +232,69 @@ const ProfileStyleSettings: React.FC = () => {
             );
           })}
         </div>
+        <div className="profile-style-sublabel">{t("emojiStatus.title")}</div>
+        <div className="emoji-status-current">
+          {emojiStatus ? (
+            <>
+              <StickerImage id={emojiStatus.stickerId} emoji="" size={32} animated />
+              <button
+                type="button"
+                className="s-btn secondary"
+                disabled={locked || statusBusy}
+                onClick={() => void runStatus(() => useEntitlementsStore.getState().clearEmojiStatus())}
+              >
+                {t("emojiStatus.remove")}
+              </button>
+            </>
+          ) : (
+            <span className="profile-style-hint">{t("emojiStatus.none")}</span>
+          )}
+        </div>
+        {statusPack ? (
+          <>
+            {statusPacks.length > 1 && (
+              <div className="emoji-status-packs" role="tablist" aria-label={t("emojiStatus.packs")}>
+                {statusPacks.map((pack) => {
+                  const cover = packCover(pack);
+                  return (
+                    <button
+                      key={pack.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={pack.id === statusPack.id}
+                      title={pack.name}
+                      aria-label={pack.name}
+                      className={"emoji-status-pack" + (pack.id === statusPack.id ? " on" : "")}
+                      onClick={() => setChosenPackId(pack.id)}
+                    >
+                      {cover ? (
+                        <StickerImage id={cover.id} emoji={cover.emoji} size={22} />
+                      ) : (
+                        <span>{pack.name.slice(0, 1)}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <div className="emoji-status-grid">
+              {statusPack.stickers.map((sticker) => (
+                <button
+                  key={sticker.id}
+                  type="button"
+                  className={"emoji-status-option" + (emojiStatus?.stickerId === sticker.id ? " on" : "")}
+                  aria-label={sticker.emoji || t("emojiStatus.title")}
+                  disabled={locked || statusBusy}
+                  onClick={() => void runStatus(() => useEntitlementsStore.getState().setEmojiStatus(sticker.id))}
+                >
+                  <StickerImage id={sticker.id} emoji={sticker.emoji} size={36} animated={sticker.animated} />
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="profile-style-hint">{t("emojiStatus.noStickers")}</div>
+        )}
       </div>
 
       {error && <div className="profile-style-error">{error}</div>}

@@ -1,6 +1,6 @@
 use identity::usecases::entitlements::{
     get_entitlements::GetEntitlements, grant_entitlements::GrantEntitlements,
-    set_badge_style::SetBadgeStyle,
+    set_badge_style::SetBadgeStyle, set_emoji_status::SetEmojiStatus,
 };
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
 use identity_infrastructure::database::postgres::repositories::entitlements::PostgresEntitlementsRepository;
@@ -8,6 +8,7 @@ use api_common::shutdown::{self, ShutdownConfig};
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
 use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
 use identity_infrastructure::media_client::block_lookup::MessagingBlockClient;
+use identity_infrastructure::media_client::sticker_lookup::MediaStickerClient;
 use std::{error::Error, sync::Arc};
 
 use actix_web::{App, HttpServer, middleware::Logger, web};
@@ -123,6 +124,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
     let activity_audience = Arc::new(MessagingAudienceClient::new(&messaging_internal_url));
     let block_lookup = Arc::new(MessagingBlockClient::new(&messaging_internal_url));
+    let media_internal_url = std::env::var("MEDIA_INTERNAL_URL")
+        .unwrap_or_else(|_| "http://media-service:8080".to_string());
+    let sticker_lookup = Arc::new(MediaStickerClient::new(&media_internal_url));
     if unverified_cleanup_config.enabled() {
         let purge_unverified = Arc::new(PurgeUnverifiedAccounts::new(
             unit_of_work.clone(),
@@ -271,6 +275,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             trial_config.ip_window(),
         ),
         set_badge_style_usecase: SetBadgeStyle::new(unit_of_work.clone()),
+        set_emoji_status_usecase: SetEmojiStatus::new(unit_of_work.clone(), sticker_lookup),
         get_appearance_usecase: GetAppearance::new(user_repository.clone()),
         update_appearance_usecase: UpdateAppearance::new(unit_of_work.clone()),
         set_activity_usecase: SetActivity::new(activity_store.clone(), unit_of_work.clone()),

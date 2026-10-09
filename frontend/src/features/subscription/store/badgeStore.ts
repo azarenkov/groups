@@ -3,6 +3,8 @@ import { create } from "zustand";
 import { entitlementsAPI } from "../api/entitlements";
 import { DEFAULT_BADGE_STYLE } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
+import type { EmojiStatus } from "../lib/emojiStatus";
+import { profileVersion } from "../../social/store/userProfileStore";
 
 const BATCH_LIMIT = 200;
 const BATCH_DELAY_MS = 40;
@@ -15,6 +17,7 @@ export interface Badge {
   tier: Tier;
   badgeStyle: BadgeStyle;
   memberNumber: number | null;
+  emojiStatus?: EmojiStatus | null;
 }
 
 interface BadgeState {
@@ -22,6 +25,7 @@ interface BadgeState {
   request: (userId: string) => void;
   apply: (userId: string, badge: Badge | null) => void;
   applyStyle: (userId: string, badgeStyle: BadgeStyle) => void;
+  applyEmojiStatus: (userId: string, emojiStatus: EmojiStatus | null, version: string) => void;
   applyTier: (userId: string, tier: Tier, memberNumber: number | null) => void;
   forget: (userId: string) => void;
   revalidateLater: (userId: string) => void;
@@ -31,8 +35,18 @@ interface BadgeState {
 const queued = new Set<string>();
 const fetchedAt = new Map<string, number>();
 const retries = new Map<string, number>();
+const statusSeenAt = new Map<string, string>();
+const statusFromEvents = new Map<string, EmojiStatus | null>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let generation = 0;
+
+const freshestStatus = (userId: string, fetched: EmojiStatus | null, version: string): EmojiStatus | null => {
+  const seen = statusSeenAt.get(userId);
+  if (seen !== undefined && seen > version) return statusFromEvents.get(userId) ?? null;
+  statusSeenAt.set(userId, version);
+  statusFromEvents.set(userId, fetched);
+  return fetched;
+};
 
 const flush = () => {
   timer = null;
@@ -52,7 +66,12 @@ const flush = () => {
         for (const id of ids) {
           const badge = found.get(id);
           byUser[id] = badge
-            ? { tier: badge.tier, badgeStyle: badge.badgeStyle, memberNumber: badge.memberNumber }
+            ? {
+                tier: badge.tier,
+                badgeStyle: badge.badgeStyle,
+                memberNumber: badge.memberNumber,
+                emojiStatus: freshestStatus(id, badge.emojiStatus, profileVersion(badge.emojiStatusUpdatedAt)),
+              }
             : null;
           fetchedAt.set(id, now);
           retries.delete(id);
@@ -102,6 +121,17 @@ export const useBadgeStore = create<BadgeState>()((set) => ({
       return { byUser: { ...state.byUser, [userId]: { ...current, badgeStyle } } };
     }),
 
+  applyEmojiStatus: (userId, emojiStatus, version) => {
+    if ((statusSeenAt.get(userId) ?? "") > version) return;
+    statusSeenAt.set(userId, version);
+    statusFromEvents.set(userId, emojiStatus);
+    set((state) => {
+      const current = state.byUser[userId];
+      if (!current) return state;
+      return { byUser: { ...state.byUser, [userId]: { ...current, emojiStatus } } };
+    });
+  },
+
   applyTier: (userId, tier, memberNumber) => {
     fetchedAt.set(userId, Date.now());
     set((state) => {
@@ -109,7 +139,7 @@ export const useBadgeStore = create<BadgeState>()((set) => ({
       const current = state.byUser[userId];
       const badgeStyle = current?.badgeStyle ?? DEFAULT_BADGE_STYLE;
       const number = memberNumber ?? current?.memberNumber ?? null;
-      return { byUser: { ...state.byUser, [userId]: { tier, badgeStyle, memberNumber: number } } };
+      return { byUser: { ...state.byUser, [userId]: { ...current, tier, badgeStyle, memberNumber: number } } };
     });
   },
 
@@ -132,6 +162,8 @@ export const useBadgeStore = create<BadgeState>()((set) => ({
     queued.clear();
     fetchedAt.clear();
     retries.clear();
+    statusSeenAt.clear();
+    statusFromEvents.clear();
     if (timer) {
       clearTimeout(timer);
       timer = null;

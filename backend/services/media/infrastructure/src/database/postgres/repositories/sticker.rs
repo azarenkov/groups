@@ -555,6 +555,26 @@ impl StickerRepository for PostgresStickerRepository {
         self.find_sticker(sticker_id).await
     }
 
+    async fn sticker_usable_by(&self, sticker_id: Uuid, user_id: &UserId) -> Result<bool, RepositoryError> {
+        sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                FROM media_stickers s
+                JOIN media_sticker_packs p ON p.id = s.pack_id
+                LEFT JOIN media_sticker_installs i ON i.pack_id = p.id AND i.user_id = $2
+                WHERE s.id = $1 AND s.deleted_at IS NULL AND p.deleted_at IS NULL
+                  AND (p.owner_id = $2 OR i.user_id IS NOT NULL)
+            ) AS "usable!"
+            "#,
+            sticker_id,
+            user_id.uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)
+    }
+
     async fn find_sticker(&self, sticker_id: Uuid) -> Result<Option<StickerRef>, RepositoryError> {
         let row = sqlx::query!(
             r#"

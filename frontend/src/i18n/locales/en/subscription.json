@@ -37,6 +37,15 @@
       "gold": "Gold"
     }
   },
+  "emojiStatus": {
+    "title": "Or a sticker instead of the badge",
+    "none": "Pick a sticker to show it next to your name instead of the badge. Picking a badge style brings the badge back.",
+    "remove": "Remove status",
+    "noStickers": "Install or create a sticker pack to pick a status.",
+    "gone": "This sticker is no longer available.",
+    "failed": "Couldn't update your status. Try again.",
+    "packs": "Sticker packs"
+  },
   "page": {
     "title": "Subscription",
     "lead": "What each plan includes. Payments come later; for now access is granted by hand.",

@@ -965,17 +965,21 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
 
     if ends_with(subject, ".user.profile_changed") {
         let evt: UserProfileChangedDto = serde_json::from_slice(payload)?;
-        let envelope = Envelope::new(
-            "user.profileChanged",
-            json!({
-                "userId": evt.user_id,
-                "bio": evt.bio,
-                "showActivity": evt.show_activity,
-                "showGameActivity": evt.show_game_activity,
-                "badgeStyle": evt.badge_style,
-                "occurredAt": evt.occurred_at,
-            }),
-        );
+        let mut payload = json!({
+            "userId": evt.user_id,
+            "bio": evt.bio,
+            "showActivity": evt.show_activity,
+            "showGameActivity": evt.show_game_activity,
+            "badgeStyle": evt.badge_style,
+            "occurredAt": evt.occurred_at,
+        });
+        if evt.emoji_status_included {
+            payload["emojiStatus"] = json!(evt.emoji_status_sticker_id.map(|sticker_id| json!({
+                "stickerId": sticker_id,
+                "until": evt.emoji_status_until,
+            })));
+        }
+        let envelope = Envelope::new("user.profileChanged", payload);
         let mut recipients = resolver.profile_recipients(evt.user_id).await?;
         confirm_pending_dm_peers(resolver, blocks, evt.user_id, &mut recipients).await?;
         let relations = blocks.block_relations(evt.user_id, &recipients).await?;

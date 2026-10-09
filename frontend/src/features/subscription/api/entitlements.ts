@@ -1,6 +1,8 @@
 import { http } from "../../../shared/api/http";
 import { parseBadgeStyle, parseMemberNumber, parseTier, parseValidUntil } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
+import { parseEmojiStatus } from "../lib/emojiStatus";
+import type { EmojiStatus } from "../lib/emojiStatus";
 
 export interface MyEntitlements {
   tier: Tier;
@@ -9,6 +11,8 @@ export interface MyEntitlements {
   validUntil: string | null;
   trial: boolean;
   trialAvailable: boolean;
+  emojiStatus: EmojiStatus | null;
+  profileUpdatedAt: string | null;
 }
 
 export interface StartedTrial {
@@ -21,7 +25,19 @@ export interface UserBadge {
   tier: Tier;
   badgeStyle: BadgeStyle;
   memberNumber: number | null;
+  emojiStatus: EmojiStatus | null;
+  emojiStatusUpdatedAt: string | null;
 }
+
+export interface EmojiStatusChange {
+  emojiStatus: EmojiStatus | null;
+  updatedAt: string | null;
+}
+
+const parseEmojiStatusChange = (data: { emojiStatus?: unknown; updatedAt?: unknown } | undefined): EmojiStatusChange => ({
+  emojiStatus: parseEmojiStatus(data?.emojiStatus),
+  updatedAt: typeof data?.updatedAt === "string" ? data.updatedAt : null,
+});
 
 class EntitlementsAPI {
   private client = http;
@@ -36,6 +52,8 @@ class EntitlementsAPI {
       validUntil: parseValidUntil(data.validUntil),
       trial: data.trial === true,
       trialAvailable: data.trialAvailable === true,
+      emojiStatus: parseEmojiStatus(data.emojiStatus),
+      profileUpdatedAt: typeof data.profileUpdatedAt === "string" ? data.profileUpdatedAt : null,
     };
   }
 
@@ -50,6 +68,16 @@ class EntitlementsAPI {
     return parseBadgeStyle(response.data.data.badgeStyle);
   }
 
+  async setEmojiStatus(stickerId: string): Promise<EmojiStatusChange> {
+    const response = await this.client.put("/v1/users/me/emoji-status", { stickerId });
+    return parseEmojiStatusChange(response.data.data);
+  }
+
+  async clearEmojiStatus(): Promise<EmojiStatusChange> {
+    const response = await this.client.delete("/v1/users/me/emoji-status");
+    return parseEmojiStatusChange(response.data.data);
+  }
+
   async lookupBadges(userIds: string[]): Promise<UserBadge[]> {
     const response = await this.client.post("/v1/users/badges", { userIds });
     const items = (response.data.data.badges ?? []) as {
@@ -57,12 +85,16 @@ class EntitlementsAPI {
       tier: string;
       badgeStyle: string;
       memberNumber?: unknown;
+      emojiStatus?: unknown;
+      emojiStatusUpdatedAt?: unknown;
     }[];
     return items.map((item) => ({
       userId: item.userId,
       tier: parseTier(item.tier),
       badgeStyle: parseBadgeStyle(item.badgeStyle),
       memberNumber: parseMemberNumber(item.memberNumber),
+      emojiStatus: parseEmojiStatus(item.emojiStatus),
+      emojiStatusUpdatedAt: typeof item.emojiStatusUpdatedAt === "string" ? item.emojiStatusUpdatedAt : null,
     }));
   }
 }

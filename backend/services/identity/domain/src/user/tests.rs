@@ -215,14 +215,14 @@ fn a_badge_style_is_dropped_when_the_plan_no_longer_includes_it() {
     let mut user = fresh_user();
     user.set_badge_style(BadgeStyle::Gold, Utc::now()).unwrap();
     user.pull_events();
-    assert!(!user.fit_badge_style_to(Tier::Premium, Utc::now()));
-    assert!(user.fit_badge_style_to(Tier::Pro, Utc::now()));
+    assert!(!user.fit_to_tier(Tier::Premium, Utc::now()));
+    assert!(user.fit_to_tier(Tier::Pro, Utc::now()));
     assert_eq!(user.badge_style(), BadgeStyle::Default);
     assert!(user.pull_events().iter().any(|e| matches!(e, UserEvent::ProfileChanged(_))));
 
     user.set_badge_style(BadgeStyle::Ink, Utc::now()).unwrap();
-    assert!(!user.fit_badge_style_to(Tier::Pro, Utc::now()));
-    assert!(user.fit_badge_style_to(Tier::Free, Utc::now()));
+    assert!(!user.fit_to_tier(Tier::Pro, Utc::now()));
+    assert!(user.fit_to_tier(Tier::Free, Utc::now()));
 }
 
 #[test]
@@ -232,7 +232,7 @@ fn a_disabled_account_still_loses_a_badge_its_plan_dropped() {
     user.set_badge_style(BadgeStyle::Gold, Utc::now()).unwrap();
     user.disable(Utc::now()).unwrap();
     user.pull_events();
-    assert!(user.fit_badge_style_to(Tier::Pro, Utc::now()));
+    assert!(user.fit_to_tier(Tier::Pro, Utc::now()));
     assert_eq!(user.badge_style(), BadgeStyle::Default);
     assert!(!user.pull_events().iter().any(|e| matches!(e, UserEvent::ProfileChanged(_))));
 }
@@ -330,4 +330,31 @@ fn a_reset_code_older_than_the_last_password_change_is_rejected() {
         UserError::CodeConsumed
     );
     assert_eq!(user.password_hash().as_str(), "changed");
+}
+
+#[test]
+fn an_emoji_status_is_dropped_with_the_paid_plan_and_ends_on_time() {
+    use crate::user::{emoji_status::EmojiStatus, tier::Tier};
+    let now = Utc::now();
+    let mut user = fresh_user();
+    let status = EmojiStatus::new(uuid::Uuid::new_v4(), Some(now + Duration::hours(1)));
+    user.set_emoji_status(Some(status), now).unwrap();
+    assert!(user.pull_events().iter().any(|e| matches!(e, UserEvent::ProfileChanged(p) if p.emoji_status == Some(status))));
+    assert_eq!(user.active_emoji_status(now), Some(status));
+    assert_eq!(user.active_emoji_status(now + Duration::hours(2)), None);
+
+    assert!(!user.fit_to_tier(Tier::Pro, now));
+    assert!(user.fit_to_tier(Tier::Free, now));
+    assert_eq!(user.emoji_status(), None);
+    assert!(user.pull_events().iter().any(|e| matches!(e, UserEvent::ProfileChanged(p) if p.emoji_status.is_none())));
+}
+
+#[test]
+fn deleting_an_account_clears_its_emoji_status() {
+    use crate::user::emoji_status::EmojiStatus;
+    let mut user = fresh_user();
+    user.set_emoji_status(Some(EmojiStatus::new(uuid::Uuid::new_v4(), None)), Utc::now()).unwrap();
+    user.delete(Utc::now()).unwrap();
+    assert_eq!(user.emoji_status(), None);
+    assert!(user.set_emoji_status(None, Utc::now()).is_err());
 }

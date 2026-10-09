@@ -1,6 +1,6 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-import "../../../../i18n";
+import i18n from "../../../../i18n";
 import ProfileStyleSettings from "../ProfileStyleSettings";
 import { entitlementsAPI } from "../../api/entitlements";
 import { BADGE_STYLES } from "../../lib/plans";
@@ -23,7 +23,14 @@ jest.mock("../../../social/api/user", () => ({
   },
 }));
 
+jest.mock("../../../stickers/api/stickers", () => ({
+  stickersAPI: { mine: jest.fn().mockResolvedValue([]) },
+}));
+
 const mockedApi = entitlementsAPI as jest.Mocked<typeof entitlementsAPI>;
+
+const badgeRadios = () =>
+  within(screen.getByRole("radiogroup", { name: i18n.t("subscription:badge.title") })).getAllByRole("radio");
 
 describe("ProfileStyleSettings", () => {
   beforeEach(() => {
@@ -33,7 +40,7 @@ describe("ProfileStyleSettings", () => {
 
   it("shows every badge style to a free user but lets none be picked", () => {
     render(<ProfileStyleSettings />);
-    const options = screen.getAllByRole("radio");
+    const options = badgeRadios();
     expect(options).toHaveLength(BADGE_STYLES.length);
     for (const option of options) expect(option).toBeDisabled();
 
@@ -45,7 +52,7 @@ describe("ProfileStyleSettings", () => {
     act(() => useEntitlementsStore.getState().applyTier("pro"));
     render(<ProfileStyleSettings />);
 
-    const ink = screen.getAllByRole("radio")[BADGE_STYLES.indexOf("ink")];
+    const ink = badgeRadios()[BADGE_STYLES.indexOf("ink")];
     expect(ink).not.toBeDisabled();
     fireEvent.click(ink);
 
@@ -56,7 +63,7 @@ describe("ProfileStyleSettings", () => {
   it("keeps the gold badge for Premium", async () => {
     act(() => useEntitlementsStore.getState().applyTier("pro"));
     const { unmount } = render(<ProfileStyleSettings />);
-    const goldForPro = screen.getAllByRole("radio")[BADGE_STYLES.indexOf("gold")];
+    const goldForPro = badgeRadios()[BADGE_STYLES.indexOf("gold")];
     expect(goldForPro).toBeDisabled();
     expect(goldForPro).toHaveAttribute("title", expect.stringContaining("Premium"));
     expect(goldForPro.querySelector(".pro-badge-gold")).toHaveTextContent("PREMIUM");
@@ -64,7 +71,7 @@ describe("ProfileStyleSettings", () => {
 
     act(() => useEntitlementsStore.getState().applyTier("premium"));
     render(<ProfileStyleSettings />);
-    const gold = screen.getAllByRole("radio")[BADGE_STYLES.indexOf("gold")];
+    const gold = badgeRadios()[BADGE_STYLES.indexOf("gold")];
     expect(gold).not.toBeDisabled();
     fireEvent.click(gold);
     await waitFor(() => expect(mockedApi.setBadgeStyle).toHaveBeenCalledWith("gold"));
@@ -75,7 +82,7 @@ describe("ProfileStyleSettings", () => {
     act(() => useEntitlementsStore.getState().applyTier("pro"));
     render(<ProfileStyleSettings />);
 
-    fireEvent.click(screen.getAllByRole("radio")[BADGE_STYLES.indexOf("solid")]);
+    fireEvent.click(badgeRadios()[BADGE_STYLES.indexOf("solid")]);
 
     await waitFor(() => expect(mockedApi.setBadgeStyle).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(useEntitlementsStore.getState().badgeStyle).toBe("tint"));

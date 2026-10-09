@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT EXISTS (\n                SELECT 1\n                FROM media_stickers s\n                JOIN media_sticker_packs p ON p.id = s.pack_id\n                LEFT JOIN media_sticker_installs i ON i.pack_id = p.id AND i.user_id = $2\n                WHERE s.id = $1 AND s.deleted_at IS NULL AND p.deleted_at IS NULL\n                  AND (p.owner_id = $2 OR i.user_id IS NOT NULL)\n            ) AS \"usable!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "usable!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "31303eafaaa3eec371587c377ca8041ddc0b3c5f78db2fa2dc7d400b7570d9c0"
+}

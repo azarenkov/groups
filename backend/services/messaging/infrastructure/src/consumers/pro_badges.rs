@@ -5,7 +5,7 @@ use domain::user::id::UserId;
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use messaging::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
-use messaging_domain::badge::BadgeRepository;
+use messaging_domain::badge::{BadgeEmojiStatus, BadgeRepository};
 
 const MAX_DELIVER: u32 = 20;
 const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
@@ -23,7 +23,7 @@ pub fn spawn<B>(
         let consumer = NatsEventConsumer::new(jetstream, user_stream.clone());
         loop {
             let opts = SubscribeOptions {
-                consumer_name: "messaging-pro-badges".to_string(),
+                consumer_name: "messaging-pro-badges-v2".to_string(),
                 subject: format!("{prefix}.user.*.entitlements_changed"),
                 start_position: StartPosition::All,
                 max_deliver: Some(MAX_DELIVER),
@@ -89,9 +89,84 @@ async fn apply<B: BadgeRepository + ?Sized>(
             tracing::warn!(%subject, "Malformed profile event; dropping");
             return Ok(());
         };
+        let emoji_status = evt.emoji_status_included.then(|| {
+            evt.emoji_status_sticker_id.map(|sticker_id| BadgeEmojiStatus {
+                sticker_id,
+                until: evt.emoji_status_until,
+            })
+        });
         badges
-            .apply_badge_style(&UserId::new(evt.user_id), &evt.badge_style, evt.occurred_at)
+            .apply_profile_perks(&UserId::new(evt.user_id), &evt.badge_style, emoji_status, evt.occurred_at)
             .await?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use async_trait::async_trait;
+    use chrono::{DateTime, Utc};
+    use messaging_domain::badge::UserBadge;
+    use ports::repository::RepositoryError;
+    use uuid::Uuid;
+
+    use super::*;
+
+    #[derive(Default)]
+    struct Perks(Mutex<Vec<Option<Option<BadgeEmojiStatus>>>>);
+
+    #[async_trait]
+    impl BadgeRepository for Perks {
+        async fn apply_tier(&self, _: &UserId, _: &str, _: Option<DateTime<Utc>>, _: Option<i64>, _: DateTime<Utc>) -> Result<(), RepositoryError> {
+            Ok(())
+        }
+        async fn apply_profile_perks(&self, _: &UserId, _: &str, emoji_status: Option<Option<BadgeEmojiStatus>>, _: DateTime<Utc>) -> Result<(), RepositoryError> {
+            self.0.lock().unwrap().push(emoji_status);
+            Ok(())
+        }
+        async fn tier_of(&self, _: &UserId, _: DateTime<Utc>) -> Result<String, RepositoryError> {
+            Ok("free".to_string())
+        }
+        async fn paid_badges(&self, _: &[UserId], _: DateTime<Utc>) -> Result<Vec<UserBadge>, RepositoryError> {
+            Ok(Vec::new())
+        }
+    }
+
+    fn event(extra: serde_json::Value) -> Vec<u8> {
+        let mut base = serde_json::json!({
+            "user_id": Uuid::nil(),
+            "bio": "",
+            "show_activity": true,
+            "badge_style": "ink",
+            "occurred_at": Utc::now(),
+        });
+        for (k, v) in extra.as_object().unwrap() {
+            base[k] = v.clone();
+        }
+        serde_json::to_vec(&base).unwrap()
+    }
+
+    #[tokio::test]
+    async fn events_from_older_identities_keep_the_status_and_new_ones_set_or_clear_it() {
+        let perks = Perks::default();
+        let sticker = Uuid::new_v4();
+        apply(&perks, "rift.user.profile_changed", &event(serde_json::json!({}))).await.unwrap();
+        apply(
+            &perks,
+            "rift.user.profile_changed",
+            &event(serde_json::json!({ "emoji_status_included": true, "emoji_status_sticker_id": sticker })),
+        )
+        .await
+        .unwrap();
+        apply(&perks, "rift.user.profile_changed", &event(serde_json::json!({ "emoji_status_included": true })))
+            .await
+            .unwrap();
+        let seen = perks.0.lock().unwrap().clone();
+        assert_eq!(
+            seen,
+            vec![None, Some(Some(BadgeEmojiStatus { sticker_id: sticker, until: None })), Some(None)]
+        );
+    }
 }

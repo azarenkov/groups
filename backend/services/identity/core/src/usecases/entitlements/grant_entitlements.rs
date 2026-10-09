@@ -40,14 +40,17 @@ impl<W: IdentityUnitOfWork> GrantEntitlements<W> {
             .load_user_for_update(&user_id)
             .await?
             .ok_or(GrantEntitlementsError::UserNotFound)?;
+        let now = Utc::now();
+        let lapsed_to = tx.load_entitlements(&user_id).await?.active_at(now);
+        let mut profile_changed = user.fit_to_tier(lapsed_to, now);
         let member_number = tx
             .save_entitlements(&user_id, tier.as_str(), valid_until, source)
             .await?;
-        let now = Utc::now();
         let mut events = vec![IdentityEvent::from(UserEvent::EntitlementsChanged(
             UserEntitlementsChanged::record(user_id, tier.as_str().to_string(), valid_until, member_number, now),
         ))];
-        if user.fit_badge_style_to(tier, now) {
+        profile_changed |= user.fit_to_tier(tier, now);
+        if profile_changed {
             events.extend(user.pull_events().into_iter().map(IdentityEvent::from));
             tx.save_user(&user).await?;
         }
@@ -56,3 +59,7 @@ impl<W: IdentityUnitOfWork> GrantEntitlements<W> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "grant_entitlements_tests.rs"]
+mod tests;

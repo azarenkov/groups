@@ -21,6 +21,15 @@ struct BadgeItem {
     tier: String,
     badge_style: String,
     member_number: Option<i64>,
+    emoji_status: Option<EmojiStatusItem>,
+    emoji_status_updated_at: Option<chrono::DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EmojiStatusItem {
+    sticker_id: Uuid,
+    until: Option<chrono::DateTime<Utc>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -53,6 +62,11 @@ async fn lookup_badges(
                 tier: b.tier,
                 badge_style: b.badge_style,
                 member_number: b.member_number,
+                emoji_status: b.emoji_status.map(|status| EmojiStatusItem {
+                    sticker_id: status.sticker_id,
+                    until: status.until,
+                }),
+                emoji_status_updated_at: b.emoji_status_updated_at,
             })
             .collect(),
     })))

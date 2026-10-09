@@ -6,3 +6,4 @@ pub mod captcha;
 pub mod connections;
 pub mod token_issuer;
 pub use ports::{event_consumer, file_storage, hasher, mailer, outbox_publisher, outbox_writer, text_moderation, voice_service};
+pub mod sticker_lookup;

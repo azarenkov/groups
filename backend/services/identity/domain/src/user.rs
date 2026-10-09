@@ -1,6 +1,7 @@
 pub use domain::user::{email, id, locale, name};
 
 pub mod tier;
+pub mod emoji_status;
 pub mod events;
 pub mod repository;
 pub mod settings;
@@ -12,7 +13,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use domain::password_hash::PasswordHash;
-use crate::{user::email::Email, user::tier::BadgeStyle, user::tier::Tier, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
+use crate::{user::email::Email, user::emoji_status::EmojiStatus, user::tier::BadgeStyle, user::tier::Tier, user::events::UserEvent, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::id::UserId, user::locale::Locale, user::name::UserName, verification::channel::VerificationChannel, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 
 pub const BIO_MAX_CHARS: usize = 190;
 
@@ -64,6 +65,7 @@ pub struct User {
     show_activity: bool,
     show_game_activity: bool,
     timezone: String,
+    emoji_status: Option<EmojiStatus>,
     #[serde(skip)]
     events: Vec<UserEvent>,
 }
@@ -89,6 +91,7 @@ impl User {
         show_activity: bool,
         show_game_activity: bool,
         timezone: String,
+        emoji_status: Option<EmojiStatus>,
     ) -> Self {
         Self {
             badge_style,
@@ -109,6 +112,7 @@ impl User {
             show_activity,
             show_game_activity,
             timezone,
+            emoji_status,
             events: Vec::new(),
         }
     }
@@ -151,6 +155,7 @@ impl User {
             show_activity: true,
             show_game_activity: true,
             timezone: String::new(),
+            emoji_status: None,
             events: vec![event],
         }
     }
@@ -384,7 +389,7 @@ impl User {
             self.disabled_at = Some(now);
             self.updated_at = now;
             self.record(UserEvent::Disabled(UserDisabled::record(self.id, now)));
-            self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, false, self.timezone.clone(), self.badge_style.as_str().to_string(), now)));
+            self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, false, self.timezone.clone(), self.badge_style.as_str().to_string(), None, now)));
         }
         Ok(())
     }
@@ -394,16 +399,7 @@ impl User {
             self.disabled_at = None;
             self.updated_at = now;
             self.record(UserEvent::Reactivated(UserReactivated::record(self.id, now)));
-            self.record(UserEvent::ProfileChanged(UserProfileChanged::record(
-                self.id,
-                self.bio.clone(),
-                self.show_activity,
-                self.show_game_activity,
-                true,
-                self.timezone.clone(),
-                self.badge_style.as_str().to_string(),
-                now,
-            )));
+            self.record_profile(now);
         }
     }
 
@@ -423,9 +419,10 @@ impl User {
         self.show_activity = false;
         self.show_game_activity = false;
         self.timezone = String::new();
+        self.emoji_status = None;
         self.updated_at = now;
         self.record(UserEvent::Renamed(UserRenamed::record(self.id, name, now)));
-        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, false, String::new(), String::new(), now)));
+        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, String::new(), false, false, false, String::new(), String::new(), None, now)));
         self.record(UserEvent::Deleted(UserDeleted::record(self.id, now)));
         Ok(())
     }
@@ -434,11 +431,20 @@ impl User {
         self.badge_style
     }
 
-    pub fn fit_badge_style_to(&mut self, tier: Tier, now: DateTime<Utc>) -> bool {
-        if tier.includes(self.badge_style.required_tier()) {
+    pub fn fit_to_tier(&mut self, tier: Tier, now: DateTime<Utc>) -> bool {
+        let style_fits = tier.includes(self.badge_style.required_tier());
+        let status_fits = self.emoji_status.is_none() || tier.includes(Tier::Pro);
+        if style_fits && status_fits {
             return false;
         }
-        self.apply_badge_style(BadgeStyle::Default, now);
+        if !style_fits {
+            self.badge_style = BadgeStyle::Default;
+        }
+        if !status_fits {
+            self.emoji_status = None;
+        }
+        self.updated_at = now;
+        self.record_profile(now);
         true
     }
 
@@ -447,14 +453,34 @@ impl User {
             return Err(UserError::Deleted);
         }
         if self.badge_style != style {
-            self.apply_badge_style(style, now);
+            self.badge_style = style;
+            self.updated_at = now;
+            self.record_profile(now);
         }
         Ok(())
     }
 
-    fn apply_badge_style(&mut self, style: BadgeStyle, now: DateTime<Utc>) {
-        self.badge_style = style;
-        self.updated_at = now;
+    pub fn emoji_status(&self) -> Option<EmojiStatus> {
+        self.emoji_status
+    }
+
+    pub fn active_emoji_status(&self, now: DateTime<Utc>) -> Option<EmojiStatus> {
+        self.emoji_status.filter(|status| status.is_active_at(now))
+    }
+
+    pub fn set_emoji_status(&mut self, status: Option<EmojiStatus>, now: DateTime<Utc>) -> Result<(), UserError> {
+        if self.deleted_at.is_some() || self.disabled_at.is_some() {
+            return Err(UserError::Deleted);
+        }
+        if self.emoji_status != status {
+            self.emoji_status = status;
+            self.updated_at = now;
+            self.record_profile(now);
+        }
+        Ok(())
+    }
+
+    fn record_profile(&mut self, now: DateTime<Utc>) {
         if self.deleted_at.is_some() || self.disabled_at.is_some() {
             return;
         }
@@ -465,7 +491,8 @@ impl User {
             self.show_game_activity,
             true,
             self.timezone.clone(),
-            style.as_str().to_string(),
+            self.badge_style.as_str().to_string(),
+            self.emoji_status,
             now,
         )));
     }
@@ -485,12 +512,12 @@ impl User {
         if self.bio == bio && self.show_activity == show_activity && self.show_game_activity == show_game_activity && self.timezone == timezone {
             return Ok(());
         }
-        self.bio = bio.clone();
+        self.bio = bio;
         self.show_activity = show_activity;
         self.show_game_activity = show_game_activity;
-        self.timezone = timezone.clone();
+        self.timezone = timezone;
         self.updated_at = now;
-        self.record(UserEvent::ProfileChanged(UserProfileChanged::record(self.id, bio, show_activity, show_game_activity, true, timezone, self.badge_style.as_str().to_string(), now)));
+        self.record_profile(now);
         Ok(())
     }
 
