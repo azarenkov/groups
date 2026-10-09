@@ -20,6 +20,7 @@ pub struct UserBadge {
     pub badge_style: String,
     pub member_number: Option<i64>,
     pub emoji_status: Option<BadgeEmojiStatus>,
+    pub emoji_status_updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

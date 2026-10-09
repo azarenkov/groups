@@ -4,6 +4,7 @@ import { entitlementsAPI } from "../api/entitlements";
 import { DEFAULT_BADGE_STYLE } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
 import type { EmojiStatus } from "../lib/emojiStatus";
+import { profileVersion } from "../../social/store/userProfileStore";
 
 const BATCH_LIMIT = 200;
 const BATCH_DELAY_MS = 40;
@@ -39,6 +40,14 @@ const statusFromEvents = new Map<string, EmojiStatus | null>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let generation = 0;
 
+const freshestStatus = (userId: string, fetched: EmojiStatus | null, version: string): EmojiStatus | null => {
+  const seen = statusSeenAt.get(userId);
+  if (seen !== undefined && seen > version) return statusFromEvents.get(userId) ?? null;
+  statusSeenAt.set(userId, version);
+  statusFromEvents.set(userId, fetched);
+  return fetched;
+};
+
 const flush = () => {
   timer = null;
   const ids = Array.from(queued).slice(0, BATCH_LIMIT);
@@ -46,7 +55,6 @@ const flush = () => {
   if (queued.size > 0) timer = setTimeout(flush, BATCH_DELAY_MS);
   if (ids.length === 0) return;
   const gen = generation;
-  const statusMarks = new Map(ids.map((id) => [id, statusSeenAt.get(id)]));
   entitlementsAPI
     .lookupBadges(ids)
     .then((badges) => {
@@ -57,13 +65,12 @@ const flush = () => {
         const byUser = { ...state.byUser };
         for (const id of ids) {
           const badge = found.get(id);
-          const statusMoved = statusSeenAt.get(id) !== statusMarks.get(id);
           byUser[id] = badge
             ? {
                 tier: badge.tier,
                 badgeStyle: badge.badgeStyle,
                 memberNumber: badge.memberNumber,
-                emojiStatus: statusMoved ? (statusFromEvents.get(id) ?? null) : badge.emojiStatus,
+                emojiStatus: freshestStatus(id, badge.emojiStatus, profileVersion(badge.emojiStatusUpdatedAt)),
               }
             : null;
           fetchedAt.set(id, now);

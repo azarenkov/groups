@@ -311,3 +311,52 @@ it("does not let a delayed older event replace the status loaded from the server
   });
   expect(useEntitlementsStore.getState().emojiStatus).toEqual({ stickerId: "s2", until: null });
 });
+
+it("keeps a status event received before a badge lookup when the projection is still behind", async () => {
+  const eventAt = new Date().toISOString();
+  act(() => useBadgeStore.getState().apply("u6", { tier: "pro", badgeStyle: "tint", memberNumber: null }));
+  act(() => {
+    socialHandlers["user.profileChanged"]({
+      userId: "u6",
+      bio: "",
+      badgeStyle: "tint",
+      emojiStatus: { stickerId: "s1", until: null },
+      occurredAt: eventAt,
+    });
+  });
+  api.lookupBadges.mockResolvedValue([
+    {
+      userId: "u6",
+      tier: "pro",
+      badgeStyle: "tint",
+      memberNumber: null,
+      emojiStatus: null,
+      emojiStatusUpdatedAt: new Date(Date.now() - 60_000).toISOString(),
+    },
+  ]);
+  act(() => useBadgeStore.getState().forget("u6"));
+  render(<UserBadge userId="u6" />);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+  });
+  expect(api.lookupBadges).toHaveBeenCalledWith(["u6"]);
+  expect(screen.getByTestId("emoji-status")).toBeInTheDocument();
+});
+
+it("takes a newer status from a badge lookup", async () => {
+  api.lookupBadges.mockResolvedValue([
+    {
+      userId: "u7",
+      tier: "pro",
+      badgeStyle: "tint",
+      memberNumber: null,
+      emojiStatus: { stickerId: "s2", until: null },
+      emojiStatusUpdatedAt: new Date().toISOString(),
+    },
+  ]);
+  render(<UserBadge userId="u7" />);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+  });
+  expect(screen.getByTestId("emoji-status")).toBeInTheDocument();
+});

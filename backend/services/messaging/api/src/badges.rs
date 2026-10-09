@@ -22,6 +22,7 @@ struct BadgeItem {
     badge_style: String,
     member_number: Option<i64>,
     emoji_status: Option<EmojiStatusItem>,
+    emoji_status_updated_at: Option<chrono::DateTime<Utc>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -65,6 +66,7 @@ async fn lookup_badges(
                     sticker_id: status.sticker_id,
                     until: status.until,
                 }),
+                emoji_status_updated_at: b.emoji_status_updated_at,
             })
             .collect(),
     })))

@@ -122,7 +122,8 @@ impl BadgeRepository for PostgresBadgeRepository {
         let ids: Vec<Uuid> = user_ids.iter().map(|id| id.uuid()).collect();
         let rows = sqlx::query!(
             r#"
-            SELECT user_id, tier, badge_style, member_number, emoji_status_sticker_id, emoji_status_until
+            SELECT user_id, tier, badge_style, member_number, emoji_status_sticker_id, emoji_status_until,
+                   emoji_status_updated_at
             FROM messaging_user_profiles
             WHERE user_id = ANY($1)
               AND active
@@ -146,6 +147,7 @@ impl BadgeRepository for PostgresBadgeRepository {
                     .emoji_status_sticker_id
                     .filter(|_| r.emoji_status_until.is_none_or(|until| until > now))
                     .map(|sticker_id| BadgeEmojiStatus { sticker_id, until: r.emoji_status_until }),
+                emoji_status_updated_at: r.emoji_status_updated_at,
             })
             .collect())
     }

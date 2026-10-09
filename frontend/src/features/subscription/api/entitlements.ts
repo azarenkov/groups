@@ -26,6 +26,7 @@ export interface UserBadge {
   badgeStyle: BadgeStyle;
   memberNumber: number | null;
   emojiStatus: EmojiStatus | null;
+  emojiStatusUpdatedAt: string | null;
 }
 
 export interface EmojiStatusChange {
@@ -85,6 +86,7 @@ class EntitlementsAPI {
       badgeStyle: string;
       memberNumber?: unknown;
       emojiStatus?: unknown;
+      emojiStatusUpdatedAt?: unknown;
     }[];
     return items.map((item) => ({
       userId: item.userId,
@@ -92,6 +94,7 @@ class EntitlementsAPI {
       badgeStyle: parseBadgeStyle(item.badgeStyle),
       memberNumber: parseMemberNumber(item.memberNumber),
       emojiStatus: parseEmojiStatus(item.emojiStatus),
+      emojiStatusUpdatedAt: typeof item.emojiStatusUpdatedAt === "string" ? item.emojiStatusUpdatedAt : null,
     }));
   }
 }
