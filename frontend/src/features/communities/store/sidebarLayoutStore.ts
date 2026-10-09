@@ -27,15 +27,15 @@ const readStored = (): { width: number; collapsed: boolean } => {
       const parsed = JSON.parse(raw) as { width?: unknown; collapsed?: unknown };
       return {
         width: typeof parsed.width === "number" ? clampWidth(parsed.width) : SIDEBAR_DEFAULT_WIDTH,
-        collapsed: parsed.collapsed === true,
+        collapsed: parsed.collapsed !== false,
       };
     }
     const legacy = Number(window.localStorage.getItem(LEGACY_WIDTH_KEY));
-    if (Number.isFinite(legacy) && legacy > 0) return { width: clampWidth(legacy), collapsed: false };
+    if (Number.isFinite(legacy) && legacy > 0) return { width: clampWidth(legacy), collapsed: true };
   } catch {
-    return { width: SIDEBAR_DEFAULT_WIDTH, collapsed: false };
+    return { width: SIDEBAR_DEFAULT_WIDTH, collapsed: true };
   }
-  return { width: SIDEBAR_DEFAULT_WIDTH, collapsed: false };
+  return { width: SIDEBAR_DEFAULT_WIDTH, collapsed: true };
 };
 
 const writeStored = (width: number, collapsed: boolean) => {

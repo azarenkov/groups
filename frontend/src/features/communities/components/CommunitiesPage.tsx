@@ -38,6 +38,8 @@ import SettingsView from "../../settings/components/SettingsView";
 import { useHotkey } from "../../settings/lib/hotkeys";
 import CommunitySettingsView from "./CommunitySettingsView";
 import ModalsHost from "./ModalsHost";
+import AppTopBar from "./AppTopBar";
+import { useSidebarNavigation } from "./sidebar/useSidebarNavigation";
 import { useVoiceSession } from "../../voice/hooks/useVoiceSession";
 import { useHomeRefresh } from "../../home/hooks/useHomeRefresh";
 import { useActiveChatView } from "../hooks/useActiveChatView";
@@ -539,6 +541,11 @@ const CommunitiesPage: React.FC = () => {
   const homeOverview = useHomeStore((s) => s.overview);
   const homeFailed = useHomeStore((s) => s.failed);
   const homeActive = !selectedCommunity && !selectedDm;
+  const sidebarNav = useSidebarNavigation({
+    selectedChannelId,
+    selectedDmId: selectedDm?.id ?? null,
+    channelsByCommunity,
+  });
   const { fetchHome } = useHomeRefresh({
     hasSession,
     homeActive,
@@ -672,8 +679,22 @@ const CommunitiesPage: React.FC = () => {
 
   return (
     <div className="win">
+      <AppTopBar
+        navState={sidebarNav.navState}
+        goHistory={sidebarNav.goHistory}
+        homeActive={homeActive}
+        onGoHome={selection.handleGoHome}
+        query={sidebarQuery}
+        onQueryChange={setSidebarQuery}
+        currentUserId={user?.id}
+        currentUserName={userName}
+        currentUserStatus={userStatus}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onSetStatus={handleSetStatus}
+      />
       <div className="body-area">
         <Sidebar
+          nav={sidebarNav}
           communities={communities}
           channelsByCommunity={channelsByCommunity}
           expandedCommunityIds={expandedCommunityIds}
@@ -712,11 +733,8 @@ const CommunitiesPage: React.FC = () => {
               name: channel.name,
             })
           }
-          onOpenSettings={() => setSettingsOpen(true)}
           onAddFriend={() => setIsAddFriendOpen(true)}
           onOpenPending={() => setIsPendingOpen(true)}
-          onGoHome={selection.handleGoHome}
-          homeActive={homeActive}
           pendingCount={pendingCount}
           onCreateCommunity={() => {
             setCommunityModalView("create");
@@ -727,15 +745,12 @@ const CommunitiesPage: React.FC = () => {
             setIsCommunityModalOpen(true);
           }}
           currentUserId={user?.id}
-          currentUserName={userName}
-          currentUserStatus={userStatus}
           searchQuery={sidebarQuery}
           onSearchQueryChange={setSidebarQuery}
           onOpenSearchResult={setPendingMessageLink}
           unreadByChannel={unreadByChannel}
           unreadByDm={unreadByDm}
           channelToCommunity={channelToCommunity}
-          onSetStatus={handleSetStatus}
         />
 
         <main className="main">
@@ -1027,6 +1042,7 @@ const CommunitiesPage: React.FC = () => {
           />
         )}
       </div>
+      <div id="voice-dock-slot" className="call-dock" />
 
       {linkedPack && <StickerPacksModal packId={linkedPack} onClose={() => setLinkedPack(null)} />}
 

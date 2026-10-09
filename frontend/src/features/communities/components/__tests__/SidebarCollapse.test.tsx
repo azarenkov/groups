@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import i18n from "../../../../i18n";
 import Sidebar from "../Sidebar";
+import type { SidebarNav } from "../Sidebar";
 import { useSidebarLayoutStore } from "../../store/sidebarLayoutStore";
 import type { DirectConversation } from "../../../dm/types";
 
@@ -26,19 +27,25 @@ const handlers = () => ({
   onOpenCommunitySettings: jest.fn(),
   onAddChannel: jest.fn(),
   onDeleteChannel: jest.fn(),
-  onOpenSettings: jest.fn(),
   onAddFriend: jest.fn(),
   onOpenPending: jest.fn(),
-  onGoHome: jest.fn(),
   onCreateCommunity: jest.fn(),
   onJoinCommunity: jest.fn(),
   onSearchQueryChange: jest.fn(),
 });
 
-const renderSidebar = (h = handlers(), pendingCount = 0) => {
-  render(
+const Harness: React.FC<{ h: ReturnType<typeof handlers>; pendingCount: number; searchQuery: string }> = ({
+  h,
+  pendingCount,
+  searchQuery,
+}) => {
+  const [tab, setTab] = React.useState<"dms" | "communities">("dms");
+  const [openCommunityId, setOpenCommunityId] = React.useState<string | null>(null);
+  const nav: SidebarNav = { tab, setTab, openCommunityId, setOpenCommunityId };
+  return (
     <Sidebar
       {...h}
+      nav={nav}
       communities={[{ id: "c1", name: "Gamers", ownerId: "me" } as never]}
       channelsByCommunity={{}}
       expandedCommunityIds={new Set()}
@@ -46,15 +53,16 @@ const renderSidebar = (h = handlers(), pendingCount = 0) => {
       joinedChannelId={null}
       selectedDmId={null}
       directs={[dm("u1", "Alice", true), dm("u2", "Bob")]}
-      homeActive={false}
       pendingCount={pendingCount}
       currentUserId="me"
-      currentUserName="me"
-      currentUserStatus="online"
-      searchQuery=""
+      searchQuery={searchQuery}
       unreadByDm={{ u1: 4 }}
-    />,
+    />
   );
+};
+
+const renderSidebar = (h = handlers(), pendingCount = 0, searchQuery = "") => {
+  render(<Harness h={h} pendingCount={pendingCount} searchQuery={searchQuery} />);
   return h;
 };
 
@@ -102,5 +110,12 @@ it("toggles from the resize handle with a double click and the keyboard", () => 
   fireEvent.keyDown(screen.getByRole("separator"), { key: "ArrowRight" });
   expect(useSidebarLayoutStore.getState().collapsed).toBe(false);
   fireEvent.keyDown(screen.getByRole("separator"), { key: "Enter" });
+  expect(useSidebarLayoutStore.getState().collapsed).toBe(true);
+});
+
+it("starts on the rail by default and shows the full list while searching", () => {
+  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
+  renderSidebar(handlers(), 0, "ali");
+  expect(screen.getByText("Alice")).toBeInTheDocument();
   expect(useSidebarLayoutStore.getState().collapsed).toBe(true);
 });

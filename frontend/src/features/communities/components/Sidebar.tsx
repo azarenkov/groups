@@ -8,15 +8,12 @@ import ChannelRow from "./sidebar/ChannelRow";
 import DmList from "./sidebar/DmList";
 import CommunityList from "./sidebar/CommunityList";
 import CommunityPage from "./sidebar/CommunityPage";
-import SidebarFooter from "./sidebar/SidebarFooter";
 import SidebarHeader from "./sidebar/SidebarHeader";
 import GlobalSearchResults from "../../search/components/GlobalSearchResults";
 import type { OpenMessageLink } from "../../chat/lib/messageLink";
 import { pinnedFirst, useConversationPinsStore } from "../store/conversationPinsStore";
 import { useSidebarPermissions } from "./sidebar/permissions";
-import { useSidebarNavigation } from "./sidebar/useSidebarNavigation";
 import type { SidebarVoiceMember } from "./sidebar/types";
-import { useHotkey } from "../../settings/lib/hotkeys";
 import {
   SIDEBAR_COLLAPSED_WIDTH,
   SIDEBAR_MAX_WIDTH,
@@ -46,17 +43,12 @@ interface SidebarProps {
   onOpenCommunitySettings: (community: Community) => void;
   onAddChannel: (community: Community, kind: ChannelKind) => void;
   onDeleteChannel: (community: Community, channel: Channel) => void;
-  onOpenSettings: () => void;
   onAddFriend: () => void;
   onOpenPending: () => void;
-  onGoHome: () => void;
-  homeActive: boolean;
   pendingCount: number;
   onCreateCommunity: () => void;
   onJoinCommunity: () => void;
   currentUserId?: string;
-  currentUserName: string;
-  currentUserStatus: string;
   voiceMembers?: SidebarVoiceMember[];
   voiceMembersByChannel?: Record<string, SidebarVoiceMember[]>;
   searchQuery: string;
@@ -64,10 +56,17 @@ interface SidebarProps {
   unreadByChannel?: Record<string, number>;
   unreadByDm?: Record<string, number>;
   channelToCommunity?: Record<string, string>;
-  onSetStatus?: (status: "online" | "offline") => void;
   onLeaveCommunity?: (community: Community) => void;
   onCallDm?: (dm: DirectConversation) => void;
   onOpenSearchResult?: (link: OpenMessageLink) => void;
+  nav: SidebarNav;
+}
+
+export interface SidebarNav {
+  tab: "dms" | "communities";
+  setTab: (tab: "dms" | "communities") => void;
+  openCommunityId: string | null;
+  setOpenCommunityId: (id: string | null) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -88,17 +87,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenCommunitySettings,
   onAddChannel,
   onDeleteChannel,
-  onOpenSettings,
   onAddFriend,
   onOpenPending,
-  onGoHome,
-  homeActive,
   pendingCount,
   onCreateCommunity,
   onJoinCommunity,
   currentUserId,
-  currentUserName,
-  currentUserStatus,
   voiceMembers,
   voiceMembersByChannel,
   searchQuery,
@@ -106,21 +100,21 @@ const Sidebar: React.FC<SidebarProps> = ({
   unreadByChannel = {},
   unreadByDm = {},
   channelToCommunity = {},
-  onSetStatus,
   onLeaveCommunity,
   onCallDm,
   onOpenSearchResult,
+  nav,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
-  const { tab, openCommunityId, navState, goHistory, setTab, setOpenCommunityId } =
-    useSidebarNavigation({ selectedChannelId, selectedDmId, channelsByCommunity });
+  const { tab, openCommunityId, setTab, setOpenCommunityId } = nav;
   const openCommunity = communities.find((s) => s.id === openCommunityId) ?? null;
   const perms = useSidebarPermissions(currentUserId, openCommunityId);
   const collapsed = useSidebarLayoutStore((s) => s.collapsed);
   const width = useSidebarLayoutStore((s) => s.width);
-  const [focusSearchToken, setFocusSearchToken] = React.useState(0);
   const [roomyWidth, setRoomyWidth] = React.useState(width);
-  const shownWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : roomyWidth;
+  const isSearching = searchQuery.trim().length > 0;
+  const showRail = collapsed && !isSearching;
+  const shownWidth = showRail ? SIDEBAR_COLLAPSED_WIDTH : roomyWidth;
 
   React.useEffect(() => {
     const fit = () =>
@@ -158,16 +152,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     [],
   );
 
-  const expandAndSearch = () => {
-    useSidebarLayoutStore.getState().setCollapsed(false);
-    setFocusSearchToken((n) => n + 1);
-  };
-  useHotkey("quickSwitcher", expandAndSearch);
-
   const collapse = () => {
     if (searchQuery) onSearchQueryChange("");
     useSidebarLayoutStore.getState().setCollapsed(true);
   };
+  const expand = () => useSidebarLayoutStore.getState().setCollapsed(false);
 
   const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -202,7 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       aria-valuenow={shownWidth}
       tabIndex={0}
       onPointerDown={startResize}
-      onDoubleClick={() => (collapsed ? useSidebarLayoutStore.getState().setCollapsed(false) : collapse())}
+      onDoubleClick={() => (showRail ? expand() : collapse())}
       onKeyDown={(e) => {
         if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
           e.preventDefault();
@@ -210,7 +199,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           if (useSidebarLayoutStore.getState().collapsed && searchQuery) onSearchQueryChange("");
         } else if (e.key === "Enter") {
           e.preventDefault();
-          if (collapsed) useSidebarLayoutStore.getState().setCollapsed(false);
+          if (showRail) expand();
           else collapse();
         }
       }}
@@ -351,13 +340,16 @@ const Sidebar: React.FC<SidebarProps> = ({
       />
     );
 
-  if (collapsed) {
+  if (showRail) {
     const otherTab = tab === "dms" ? "communities" : "dms";
     const otherDot = otherTab === "dms" ? totalDmUnread + pendingCount > 0 : totalCommunityUnread > 0;
     const switchLabel = t(otherTab === "dms" ? "showDirects" : "showCommunities");
     return (
       <div className="sb sb-collapsed">
         <div className="sb-rail">
+          <button type="button" className="sb-rail-btn" title={t("expandSidebar")} aria-label={t("expandSidebar")} onClick={expand}>
+            <Icon name="expand" size={15} />
+          </button>
           <button type="button" className="sb-rail-btn" title={switchLabel} aria-label={switchLabel} onClick={() => setTab(otherTab)}>
             <Icon name={otherTab === "dms" ? "message" : "users"} size={17} />
             {otherDot && <span className="sb-rail-dot" />}
@@ -374,18 +366,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           >
             <Icon name="mail" size={17} />
             {pendingCount > 0 && <span className="sb-rail-badge">{pendingCount > 99 ? "99+" : pendingCount}</span>}
-          </button>
-          <button
-            type="button"
-            className={"sb-rail-btn" + (homeActive ? " active" : "")}
-            title={t("home")}
-            aria-label={t("home")}
-            onClick={onGoHome}
-          >
-            <Icon name="home" size={17} />
-          </button>
-          <button type="button" className="sb-rail-btn" title={t("searchPlaceholder")} aria-label={t("searchPlaceholder")} onClick={expandAndSearch}>
-            <Icon name="search" size={16} />
           </button>
         </div>
         <div className="sb-scroll sb-scroll-mini">
@@ -426,24 +406,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             />
           )}
         </div>
-        <div id="voice-dock-slot" className="sb-voice-dock" />
-        <button
-          type="button"
-          className="sb-rail-btn sb-rail-expand"
-          title={t("expandSidebar")}
-          aria-label={t("expandSidebar")}
-          onClick={() => useSidebarLayoutStore.getState().setCollapsed(false)}
-        >
-          <Icon name="expand" size={15} />
-        </button>
-        <SidebarFooter
-          compact
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-          currentUserStatus={currentUserStatus}
-          onOpenSettings={onOpenSettings}
-          onSetStatus={onSetStatus}
-        />
         {resizer}
       </div>
     );
@@ -452,12 +414,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div className="sb">
       <SidebarHeader
-        homeActive={homeActive}
-        onGoHome={onGoHome}
-        navState={navState}
-        goHistory={goHistory}
-        query={searchQuery}
-        onQueryChange={onSearchQueryChange}
         tab={tab}
         onSetTab={setTab}
         openCommunityId={openCommunityId}
@@ -465,7 +421,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         dmDotVisible={totalDmUnread + pendingCount > 0}
         communityDotVisible={totalCommunityUnread > 0}
         onCollapse={collapse}
-        focusSearchToken={focusSearchToken}
       />
 
       <div className="sb-scroll">
@@ -484,8 +439,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      <div id="voice-dock-slot" className="sb-voice-dock" />
-
       {openCommunityId && (
         <button
           type="button"
@@ -498,13 +451,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           <span>{t("backToCommunities")}</span>
         </button>
       )}
-      <SidebarFooter
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-        currentUserStatus={currentUserStatus}
-        onOpenSettings={onOpenSettings}
-        onSetStatus={onSetStatus}
-      />
       {resizer}
     </div>
   );
