@@ -62,3 +62,14 @@ it("signs up once both passwords match", async () => {
   });
   expect(register).toHaveBeenCalledWith("alice", "alice@rift.app", "secret-1", expect.anything(), "captcha");
 });
+
+it("needs at least eight characters for a new password", async () => {
+  register.mockRejectedValue(new Error("stop"));
+  renderSignUp();
+  fill("short-7", "short-7");
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: i18n.t("auth:createAccount") }));
+  });
+  expect(screen.getByText(i18n.t("auth:passwordMin"))).toBeInTheDocument();
+  expect(register).not.toHaveBeenCalled();
+});

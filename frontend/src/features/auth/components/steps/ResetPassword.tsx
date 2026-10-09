@@ -5,7 +5,7 @@ import { authAPI } from "../../api/auth";
 import { ApiError } from "../../../../shared/lib/apiError";
 import { ArrowLeft, FormError, passwordStrength } from "../authHelpers";
 
-export const RESET_PASSWORD_MIN = 4;
+export const RESET_PASSWORD_MIN = 8;
 export const RESET_PASSWORD_MAX = 30;
 
 export const ResetPassword: React.FC<{

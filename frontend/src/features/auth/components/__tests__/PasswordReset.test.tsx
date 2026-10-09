@@ -72,11 +72,11 @@ it("sets a new password from the emailed link and signs out the old session", as
   renderAt(`/reset-password?token=${TOKEN}`, "reset-password");
   expect(path).toBe(`/reset-password?token=${TOKEN}`);
   const [first] = document.querySelectorAll<HTMLInputElement>("input[autocomplete=new-password]");
-  fireEvent.change(first, { target: { value: "secret1" } });
-  fireEvent.change(screen.getByPlaceholderText("Repeat your password"), { target: { value: "secret1" } });
+  fireEvent.change(first, { target: { value: "secret-1" } });
+  fireEvent.change(screen.getByPlaceholderText("Repeat your password"), { target: { value: "secret-1" } });
   fireEvent.click(screen.getByRole("button", { name: "Update password" }));
   expect(await screen.findByText("Password updated")).toBeInTheDocument();
-  expect(resetPassword).toHaveBeenCalledWith(TOKEN, "secret1");
+  expect(resetPassword).toHaveBeenCalledWith(TOKEN, "secret-1");
   expect(useAuthStore.getState().tokens).toBeNull();
   expect(path).toBe("/reset-password");
   fireEvent.click(screen.getByRole("button", { name: "Continue to sign in" }));
@@ -87,8 +87,8 @@ it("offers a new link when the emailed one has expired", async () => {
   resetPassword.mockRejectedValueOnce(new ApiError("expired", 400, "RESET_TOKEN_EXPIRED"));
   renderAt(`/reset-password?token=${TOKEN}`, "reset-password");
   const [first] = document.querySelectorAll<HTMLInputElement>("input[autocomplete=new-password]");
-  fireEvent.change(first, { target: { value: "secret1" } });
-  fireEvent.change(screen.getByPlaceholderText("Repeat your password"), { target: { value: "secret1" } });
+  fireEvent.change(first, { target: { value: "secret-1" } });
+  fireEvent.change(screen.getByPlaceholderText("Repeat your password"), { target: { value: "secret-1" } });
   fireEvent.click(screen.getByRole("button", { name: "Update password" }));
   expect(await screen.findByText("This link has expired. Request a new one.")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Request a new link" }));
@@ -112,8 +112,8 @@ it("shows the form again when a fresh link arrives after a dead one", async () =
   resetPassword.mockRejectedValueOnce(new ApiError("used", 400, "RESET_TOKEN_INVALID"));
   renderAt(`/reset-password?token=${TOKEN}`, "reset-password");
   const [first] = document.querySelectorAll<HTMLInputElement>("input[autocomplete=new-password]");
-  fireEvent.change(first, { target: { value: "secret1" } });
-  fireEvent.change(screen.getByPlaceholderText("Repeat your password"), { target: { value: "secret1" } });
+  fireEvent.change(first, { target: { value: "secret-1" } });
+  fireEvent.change(screen.getByPlaceholderText("Repeat your password"), { target: { value: "secret-1" } });
   fireEvent.click(screen.getByRole("button", { name: "Update password" }));
   expect(await screen.findByText("This link doesn't work")).toBeInTheDocument();
   const fresh = `${"c".repeat(32)}.${"d".repeat(64)}`;
