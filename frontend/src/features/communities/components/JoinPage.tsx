@@ -47,15 +47,14 @@ const JoinPage: React.FC = () => {
   return (
     <div className="auth-page">
       <div className="auth-topbar">
-        <span className="auth-brand">
-          <Mark size={36} />
-          <span>Rift</span>
-        </span>
         <LanguageSwitcher />
       </div>
 
       <div className="auth-form-wrap">
         <div className="auth-card join-card">
+          <div className="auth-mark">
+            <Mark size={52} />
+          </div>
           <h1>{t("communityModal.joinPageTitle")}</h1>
           <p className="sub">{t("communityModal.joinPageSub")}</p>
           {preview?.community && <InvitePreviewCard community={preview.community} />}

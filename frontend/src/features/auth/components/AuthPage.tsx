@@ -9,7 +9,7 @@ import LanguageSwitcher from "../../../shared/ui/LanguageSwitcher";
 import "../../../styles/rift.css";
 
 import { AuthLegal } from "./steps/AuthLegal";
-import { AuthTabs, SignInUp } from "./steps/SignInUp";
+import { SignInUp } from "./steps/SignInUp";
 import { Forgot } from "./steps/Forgot";
 import { ResetSent } from "./steps/ResetSent";
 import { ResetPassword } from "./steps/ResetPassword";
@@ -72,21 +72,17 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
     navigate(`${m === "signin" ? "/login" : "/register"}${search}`, { replace: true });
   };
 
-  const showTabs = mode === "signin" || mode === "signup";
-
   return (
     <div className="auth-page">
       <div className="auth-topbar">
-        <span className="auth-brand">
-          <Mark size={36} />
-          <span>Rift</span>
-        </span>
         <LanguageSwitcher />
       </div>
 
       <div className="auth-form-wrap">
         <div className="auth-card">
-          {showTabs && <AuthTabs mode={mode} onSwitch={switchTab} />}
+          <div className="auth-mark">
+            <Mark size={52} />
+          </div>
 
           {(mode === "signin" || mode === "signup") && (
             <SignInUp

@@ -38,33 +38,6 @@ interface SignInUpProps {
   onAvatarPicked: (file: File | null) => void;
 }
 
-export const AuthTabs: React.FC<{
-  mode: "signin" | "signup";
-  onSwitch: (m: "signin" | "signup") => void;
-}> = ({ mode, onSwitch }) => {
-  const { t } = useTranslation("auth");
-  return (
-    <div className="auth-tabs" role="tablist">
-      <button
-        role="tab"
-        type="button"
-        className={mode === "signin" ? "on" : ""}
-        onClick={() => onSwitch("signin")}
-      >
-        {t("signIn")}
-      </button>
-      <button
-        role="tab"
-        type="button"
-        className={mode === "signup" ? "on" : ""}
-        onClick={() => onSwitch("signup")}
-      >
-        {t("createAccount")}
-      </button>
-    </div>
-  );
-};
-
 export const SignInUp: React.FC<SignInUpProps> = ({
   mode,
   email,
@@ -396,7 +369,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
 
         {isSignup && (
           <div className="field">
-            <label>{t("confirmNewPassword")}</label>
+            <label>{t("confirmPassword")}</label>
             <div className="field-input">
               <span className="lead"><Icon name="lock2" size={15} /></span>
               <input
