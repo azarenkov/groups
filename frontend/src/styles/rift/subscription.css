@@ -323,3 +323,4 @@
 .emoji-status-option:hover:not(:disabled) { background: var(--surface-hover); }
 .emoji-status-option.on { border-color: var(--accent); }
 .emoji-status-option:disabled { opacity: 0.5; cursor: default; }
+.profile-style-sublabel { margin: 16px 0 8px; font-size: 12px; font-weight: 600; color: var(--fg-2); }

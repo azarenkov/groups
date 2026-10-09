@@ -102,7 +102,7 @@ it("does not let a free user set a status", () => {
   expect(stickersAPI.mine).not.toHaveBeenCalled();
 });
 
-it("shows a status next to someone's badge and hides it when it runs out", async () => {
+it("shows a status instead of someone's badge and brings the badge back when it runs out", async () => {
   jest.useFakeTimers();
   try {
     act(() =>
@@ -113,12 +113,14 @@ it("shows a status next to someone's badge and hides it when it runs out", async
         emojiStatus: { stickerId: "s1", until: new Date(Date.now() + 60_000).toISOString() },
       }),
     );
-    render(<UserBadge userId="u2" />);
+    const { container } = render(<UserBadge userId="u2" />);
     expect(screen.getByTestId("emoji-status")).toBeInTheDocument();
+    expect(container.querySelector(".pro-badge")).toBeNull();
     act(() => {
       jest.advanceTimersByTime(61_000);
     });
     expect(screen.queryByTestId("emoji-status")).toBeNull();
+    expect(container.querySelector(".pro-badge")).not.toBeNull();
   } finally {
     jest.useRealTimers();
   }
@@ -153,4 +155,24 @@ it("updates a status live from profile events", async () => {
     });
   });
   expect(useEntitlementsStore.getState().emojiStatus).toEqual({ stickerId: "s2", until: null });
+});
+
+it("brings the badge back when a badge style is picked over a sticker", async () => {
+  api.setEmojiStatus.mockResolvedValue({ stickerId: "s1", until: null });
+  api.clearEmojiStatus.mockResolvedValue(undefined);
+  api.setBadgeStyle.mockImplementation((style) => Promise.resolve(style));
+  act(() => useEntitlementsStore.getState().applyTier("pro"));
+  render(<ProfileStyleSettings />);
+  const sticker = await screen.findByRole("button", { name: "😺" });
+  await act(async () => {
+    fireEvent.click(sticker);
+  });
+  const badges = within(screen.getByRole("radiogroup", { name: i18n.t("subscription:badge.title") }));
+  for (const option of badges.getAllByRole("radio")) expect(option).toHaveAttribute("aria-checked", "false");
+  await act(async () => {
+    fireEvent.click(badges.getByRole("radio", { name: new RegExp(i18n.t("subscription:badge.styles.ink")) }));
+  });
+  expect(api.setBadgeStyle).toHaveBeenCalledWith("ink");
+  expect(api.clearEmojiStatus).toHaveBeenCalled();
+  expect(useEntitlementsStore.getState().emojiStatus).toBeNull();
 });

@@ -105,9 +105,10 @@ const ProfileStyleSettings: React.FC = () => {
   };
 
   const pickStyle = (style: BadgeStyle) => {
-    if (locked || style === badgeStyle) return;
+    if (locked || (style === badgeStyle && !emojiStatus)) return;
     setError(null);
-    setBadgeStyle(style).catch((err) => setError(describe(err)));
+    if (style !== badgeStyle) setBadgeStyle(style).catch((err) => setError(describe(err)));
+    if (emojiStatus) void runStatus(() => useEntitlementsStore.getState().clearEmojiStatus());
   };
 
   const upload = async (file: File | undefined) => {
@@ -223,10 +224,10 @@ const ProfileStyleSettings: React.FC = () => {
                 key={style}
                 type="button"
                 role="radio"
-                aria-checked={allowed && badgeStyle === style}
+                aria-checked={allowed && badgeStyle === style && !emojiStatus}
                 className={
                   "badge-style-option" +
-                  (allowed && badgeStyle === style ? " on" : "") +
+                  (allowed && badgeStyle === style && !emojiStatus ? " on" : "") +
                   (allowed ? "" : " locked")
                 }
                 disabled={!allowed}
@@ -239,10 +240,7 @@ const ProfileStyleSettings: React.FC = () => {
             );
           })}
         </div>
-      </div>
-
-      <div className="profile-style-block">
-        <div className="profile-style-label">{t("emojiStatus.title")}</div>
+        <div className="profile-style-sublabel">{t("emojiStatus.title")}</div>
         <div className="emoji-status-current">
           {emojiStatus ? (
             <>

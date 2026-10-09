@@ -38,8 +38,8 @@
     }
   },
   "emojiStatus": {
-    "title": "Status",
-    "none": "No status yet. Pick a sticker below and it will show next to your name.",
+    "title": "Or a sticker instead of the badge",
+    "none": "Pick a sticker to show it next to your name instead of the badge. Picking a badge style brings the badge back.",
     "noEnd": "No end date",
     "until": "Until {{time}}",
     "remove": "Remove status",
