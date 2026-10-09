@@ -3,6 +3,8 @@
   "userSettings": "Пользователь",
   "appSettings": "Приложение",
   "logOut": "Выйти",
+  "logOutConfirmTitle": "Выйти из аккаунта?",
+  "logOutConfirmSubtitle": "Чтобы вернуться, нужно будет снова ввести почту и пароль.",
   "esc": "ESC",
   "sections": {
     "account": "Мой аккаунт",

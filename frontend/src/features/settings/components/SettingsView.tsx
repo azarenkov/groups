@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon, { type IconName } from "../../../shared/ui/Icon";
+import ConfirmModal from "../../../shared/ui/ConfirmModal";
 import { useAuthStore } from "../../auth/store/authStore";
 import type { SectionId } from "./types";
 
@@ -55,6 +56,7 @@ const ALL_RAIL_IDS: SectionId[] = SETTINGS_GROUPS.flatMap((g) => g.items.map((i)
 
 function SettingsView({ open, onClose, onSignOut, sectionRequest }: SettingsViewProps) {
   const { t } = useTranslation("settings");
+  const [confirmLogout, setConfirmLogout] = React.useState(false);
   const [activeId, setActiveId] = React.useState<SectionId>(sectionRequest?.id ?? "account");
   React.useEffect(() => {
     if (sectionRequest) setActiveId(sectionRequest.id);
@@ -63,7 +65,7 @@ function SettingsView({ open, onClose, onSignOut, sectionRequest }: SettingsView
   const railButtonRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
 
   React.useEffect(() => {
-    if (!open) return;
+    if (!open || confirmLogout) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { onClose(); return; }
       if (e.key !== 'Tab' || !overlayRef.current) return;
@@ -87,7 +89,7 @@ function SettingsView({ open, onClose, onSignOut, sectionRequest }: SettingsView
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, confirmLogout]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -146,12 +148,25 @@ function SettingsView({ open, onClose, onSignOut, sectionRequest }: SettingsView
           </React.Fragment>
         ))}
         <div style={{ height: 1, background: "var(--hairline)", margin: "12px 8px" }} />
-        <button className="rail-item danger" onClick={onSignOut}>
+        <button className="rail-item danger" onClick={() => setConfirmLogout(true)}>
           <span className="ic"><Icon name="logout" size={15} /></span>
           {t("logOut")}
         </button>
         <div id="settings-voice-dock" className="settings-voice-dock" />
       </nav>
+      {confirmLogout && (
+        <ConfirmModal
+          title={t("logOutConfirmTitle")}
+          subtitle={t("logOutConfirmSubtitle")}
+          confirmLabel={t("logOut")}
+          danger
+          onCancel={() => setConfirmLogout(false)}
+          onConfirm={() => {
+            setConfirmLogout(false);
+            onSignOut();
+          }}
+        />
+      )}
 
       <div className="settings-pane">
         <button className="settings-close" onClick={onClose} title="Close (Esc)">

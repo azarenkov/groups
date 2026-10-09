@@ -834,10 +834,11 @@ body.electron .body-area::before {
 .auth-topbar {
   height: 52px;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 24px 0 80px;
+  padding: 0 24px;
   flex-shrink: 0;
   -webkit-app-region: drag;
 }
+body.electron:not(.electron-fullscreen) .auth-topbar { padding-left: 80px; }
 .auth-brand {
   display: inline-flex; align-items: center; gap: 10px;
   font-size: 20px; font-weight: 700; line-height: 1;
