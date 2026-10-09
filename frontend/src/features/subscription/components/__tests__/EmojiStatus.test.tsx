@@ -360,3 +360,27 @@ it("takes a newer status from a badge lookup", async () => {
   });
   expect(screen.getByTestId("emoji-status")).toBeInTheDocument();
 });
+
+it("keeps a saved status when an older event lands while the request is in flight", async () => {
+  let respond: (value: unknown) => void = () => undefined;
+  api.setEmojiStatus.mockImplementation(() => new Promise((resolve) => (respond = resolve)));
+  act(() => useEntitlementsStore.getState().applyTier("pro"));
+  let saving: Promise<void> = Promise.resolve();
+  act(() => {
+    saving = useEntitlementsStore.getState().setEmojiStatus("s2");
+  });
+  act(() => {
+    socialHandlers["user.profileChanged"]({
+      userId: "me",
+      bio: "",
+      badgeStyle: "tint",
+      emojiStatus: { stickerId: "s1", until: null },
+      occurredAt: new Date(Date.now() - 60_000).toISOString(),
+    });
+  });
+  await act(async () => {
+    respond({ emojiStatus: { stickerId: "s2", until: null }, updatedAt: new Date().toISOString() });
+    await saving;
+  });
+  expect(useEntitlementsStore.getState().emojiStatus).toEqual({ stickerId: "s2", until: null });
+});

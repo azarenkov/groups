@@ -46,6 +46,14 @@ const advanceEmojiSeen = (updatedAt: string | null) => {
   if (version > emojiSeenAt) emojiSeenAt = version;
 };
 
+const acceptEmojiWrite = (updatedAt: string | null): boolean => {
+  const version = profileVersion(updatedAt);
+  if (version < emojiSeenAt) return false;
+  emojiSeenAt = version;
+  emojiRevision += 1;
+  return true;
+};
+
 export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
   tier: "free",
   badgeStyle: DEFAULT_BADGE_STYLE,
@@ -133,20 +141,18 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
 
   setEmojiStatus: async (stickerId) => {
     const gen = generation;
-    const rev = ++emojiRevision;
+    emojiRevision += 1;
     const saved = await entitlementsAPI.setEmojiStatus(stickerId);
-    if (gen !== generation || rev !== emojiRevision) return;
-    advanceEmojiSeen(saved.updatedAt);
-    set({ emojiStatus: saved.emojiStatus });
+    if (gen !== generation) return;
+    if (acceptEmojiWrite(saved.updatedAt)) set({ emojiStatus: saved.emojiStatus });
   },
 
   clearEmojiStatus: async () => {
     const gen = generation;
-    const rev = ++emojiRevision;
+    emojiRevision += 1;
     const cleared = await entitlementsAPI.clearEmojiStatus();
-    if (gen !== generation || rev !== emojiRevision) return;
-    advanceEmojiSeen(cleared.updatedAt);
-    set({ emojiStatus: null });
+    if (gen !== generation) return;
+    if (acceptEmojiWrite(cleared.updatedAt)) set({ emojiStatus: null });
   },
 
   setBadgeStyle: (style) => {

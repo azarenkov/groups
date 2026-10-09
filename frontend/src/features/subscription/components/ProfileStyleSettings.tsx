@@ -222,7 +222,7 @@ const ProfileStyleSettings: React.FC = () => {
                   (allowed && badgeStyle === style && !emojiStatus ? " on" : "") +
                   (allowed ? "" : " locked")
                 }
-                disabled={!allowed}
+                disabled={!allowed || statusBusy}
                 title={allowed ? undefined : t(`needs.${required}`)}
                 onClick={() => pickStyle(style)}
               >
