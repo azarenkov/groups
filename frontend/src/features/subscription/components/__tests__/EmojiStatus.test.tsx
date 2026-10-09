@@ -285,3 +285,29 @@ it("keeps a status from an event that lands while a badge lookup is in flight", 
   });
   expect(screen.getByTestId("emoji-status")).toBeInTheDocument();
 });
+
+it("does not let a delayed older event replace the status loaded from the server", async () => {
+  api.getMine.mockResolvedValue({
+    tier: "pro",
+    badgeStyle: "tint",
+    memberNumber: null,
+    validUntil: null,
+    trial: false,
+    trialAvailable: false,
+    emojiStatus: { stickerId: "s2", until: null },
+    profileUpdatedAt: new Date().toISOString(),
+  });
+  await act(async () => {
+    await useEntitlementsStore.getState().fetch();
+  });
+  act(() => {
+    socialHandlers["user.profileChanged"]({
+      userId: "me",
+      bio: "",
+      badgeStyle: "tint",
+      emojiStatus: { stickerId: "s1", until: null },
+      occurredAt: new Date(Date.now() - 60_000).toISOString(),
+    });
+  });
+  expect(useEntitlementsStore.getState().emojiStatus).toEqual({ stickerId: "s2", until: null });
+});

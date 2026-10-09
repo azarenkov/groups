@@ -69,6 +69,7 @@ export const useEntitlementsStore = create<EntitlementsState>()((set, get) => ({
         return false;
       }
       confirmedBadgeStyle = mine.badgeStyle;
+      if (emojiRev === emojiRevision) advanceEmojiSeen(mine.profileUpdatedAt);
       set({
         tier: mine.tier,
         badgeStyle: mine.badgeStyle,

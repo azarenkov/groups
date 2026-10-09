@@ -24,6 +24,7 @@ struct EntitlementsResponse {
     trial: bool,
     trial_available: bool,
     emoji_status: Option<EmojiStatusResponse>,
+    profile_updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -69,6 +70,7 @@ async fn get_my_entitlements(
         trial: entitlements.trial,
         trial_available: entitlements.trial_available && verified,
         emoji_status,
+        profile_updated_at: user.as_ref().map(|u| u.updated_at()),
     })))
 }
 

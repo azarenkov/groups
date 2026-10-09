@@ -12,6 +12,7 @@ export interface MyEntitlements {
   trial: boolean;
   trialAvailable: boolean;
   emojiStatus: EmojiStatus | null;
+  profileUpdatedAt: string | null;
 }
 
 export interface StartedTrial {
@@ -51,6 +52,7 @@ class EntitlementsAPI {
       trial: data.trial === true,
       trialAvailable: data.trialAvailable === true,
       emojiStatus: parseEmojiStatus(data.emojiStatus),
+      profileUpdatedAt: typeof data.profileUpdatedAt === "string" ? data.profileUpdatedAt : null,
     };
   }
 
