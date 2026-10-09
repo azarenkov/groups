@@ -3,7 +3,8 @@ use domain::{user::email::Email, user::locale::Locale};
 use ports::{mailer::CodePurpose, mailer::Mailer, mailer::MailerError};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use lettre::message::{Mailbox, MultiPart};
+use lettre::message::header::ContentType;
+use lettre::message::{Attachment, Mailbox, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
 use std::sync::{Arc, Mutex};
@@ -59,7 +60,7 @@ impl SmtpMailer {
             .from(self.inner.from_mailbox.clone())
             .to(to_mailbox)
             .subject(rendered.subject)
-            .multipart(MultiPart::alternative_plain_html(rendered.text, rendered.html))
+            .multipart(body(rendered.text, rendered.html))
             .map_err(|e| MailerError::Sending(format!("failed to build message: {}", e)))?;
         let mailer = self
             .inner
@@ -71,6 +72,18 @@ impl SmtpMailer {
             .map_err(|e| MailerError::Sending(format!("failed to send email: {}", e)))?;
         Ok(())
     }
+}
+
+fn body(text: String, html: String) -> MultiPart {
+    let logo = Attachment::new_inline(templates::LOGO_CID.to_string())
+        .body(templates::LOGO_PNG.to_vec(), ContentType::parse("image/png").expect("static content type"));
+    MultiPart::alternative()
+        .singlepart(SinglePart::plain(text))
+        .multipart(
+            MultiPart::related()
+                .singlepart(SinglePart::html(html))
+                .singlepart(logo),
+        )
 }
 
 #[async_trait]
@@ -109,5 +122,28 @@ impl Mailer for SmtpMailer {
         locale: Locale,
     ) -> Result<(), MailerError> {
         self.send(email, templates::trial_ending(ends_at, locale, self.inner.app_url.as_deref()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_logo_travels_inside_the_letter() {
+        let rendered = templates::password_reset("https://rift.app/reset-password?token=t", Locale::En, None);
+        assert!(rendered.html.contains("src=\"cid:rift-logo\""));
+        let message = Message::builder()
+            .from("Rift <noreply@rift.app>".parse().unwrap())
+            .to("user@example.com".parse().unwrap())
+            .subject(rendered.subject)
+            .multipart(body(rendered.text, rendered.html))
+            .unwrap();
+        let raw = String::from_utf8(message.formatted()).unwrap();
+        assert!(raw.contains("multipart/alternative"));
+        assert!(raw.contains("multipart/related"));
+        assert!(raw.contains("Content-ID: <rift-logo>"));
+        assert!(raw.contains("Content-Type: image/png"));
+        assert!(raw.contains("Content-Disposition: inline"));
     }
 }

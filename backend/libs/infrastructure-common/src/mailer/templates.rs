@@ -2,6 +2,9 @@ use chrono::{DateTime, Datelike, Utc};
 use domain::user::locale::Locale;
 use ports::mailer::CodePurpose;
 
+pub const LOGO_CID: &str = "rift-logo";
+pub const LOGO_PNG: &[u8] = include_bytes!("assets/rift-logo.png");
+
 const CANVAS: &str = "#0a0a0c";
 const CARD: &str = "#161619";
 const RAISED: &str = "#1c1c20";
@@ -202,13 +205,9 @@ fn render(letter: Letter<'_>, app_url: Option<&str>) -> RenderedEmail {
         )
     };
 
-    let logo = match app_url {
-        Some(url) => format!(
-            r#"<td width="36" valign="middle" style="padding-right:10px;"><img src="{}/icons/rift-icon-128.png" width="36" height="36" alt="" style="display:block;border:0;border-radius:9px;"></td>"#,
-            escape(url)
-        ),
-        None => String::new(),
-    };
+    let logo = format!(
+        r#"<td width="36" valign="middle" style="padding-right:10px;"><img src="cid:{LOGO_CID}" width="36" height="36" alt="" style="display:block;border:0;border-radius:9px;"></td>"#
+    );
 
     let action_html = match &letter.action {
         Some(Action::Code(code)) => format!(
