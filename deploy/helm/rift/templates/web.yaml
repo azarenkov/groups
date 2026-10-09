@@ -43,6 +43,10 @@ spec:
               value: {{ .Values.web.apiUrl | quote }}
             - name: RIFT_WS_URL
               value: {{ .Values.web.wsUrl | quote }}
+            {{- if .Values.gateway.enabled }}
+            - name: RIFT_LINK_PREVIEW_UPSTREAM
+              value: {{ printf "http://%s-gateway.%s.svc.%s:%v" .Release.Name .Release.Namespace .Values.gateway.clusterDomain .Values.gateway.service.port | quote }}
+            {{- end }}
           securityContext:
             {{- include "rift.containerSecurityContext" . | nindent 12 }}
           ports:

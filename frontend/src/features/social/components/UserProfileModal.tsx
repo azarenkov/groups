@@ -22,12 +22,14 @@ import { useUserNamesStore } from "../store/userNamesStore";
 import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
 import { colorForId } from "../../../shared/lib/avatar";
 import i18n, { currentLocale } from "../../../i18n";
+import { shareProfile } from "../lib/profileLink";
 
 interface Props {
   onOpenDm: (userId: string, name?: string) => void;
   onCall: (userId: string, video?: boolean) => void;
   onRemoveFriend: (userId: string, name: string) => void;
   onBlockUser: (userId: string, name: string) => void;
+  onEditProfile: () => void;
 }
 
 const useMinuteTick = () => {
@@ -66,13 +68,14 @@ const formatMemberSince = (iso: string | null, locale: string): string | null =>
   return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(d);
 };
 
-const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, onBlockUser }) => {
+const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, onBlockUser, onEditProfile }) => {
   const { t } = useTranslation("profile");
   const userId = useProfileModalStore((s) => s.userId);
   const close = useProfileModalStore((s) => s.close);
   const dialogRef = React.useRef<HTMLDivElement>(null);
   useDialogFocus(dialogRef, !!userId, userId);
   const selfId = useAuthStore((s) => s.user?.id);
+  const selfName = useAuthStore((s) => s.user?.name);
   const friendStatuses = useFriendshipStore((s) => s.statusById);
   const blockedByMe = useBlockStore((s) => (userId ? !!s.blocked[userId] : false));
   const blockedMe = useBlockStore((s) => (userId ? !!s.blockedBy[userId] : false));
@@ -92,6 +95,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const avatarOpenRef = React.useRef(avatarOpen);
   avatarOpenRef.current = avatarOpen;
   const [copied, setCopied] = React.useState(false);
+  const [linkCopied, setLinkCopied] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
   useMinuteTick();
 
@@ -100,6 +104,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   React.useEffect(() => {
     setMenuOpen(false);
     setCopied(false);
+    setLinkCopied(false);
     setAvatarOpen(false);
   }, [userId]);
 
@@ -161,7 +166,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const isSelf = userId === selfId;
   const isFriend = friendshipStatus === "accepted";
   const online = isSelf ? selfOnline : !blockedByMe && !blockedMe && !!onlineUsers[userId];
-  const name = nameOverrides[userId] ?? profile?.name ?? "";
+  const name = nameOverrides[userId] ?? profile?.name ?? (isSelf ? (selfName ?? "") : "");
   const bio = blockedMe ? "" : (cachedBio ?? profile?.bio ?? "");
   const locale = currentLocale();
   const localTime = profile && !blockedMe ? formatLocalTime(profile.timezone, locale) : null;
@@ -196,6 +201,18 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
       setTimeout(() => setCopied(false), 1500);
     }
     setMenuOpen(false);
+  };
+
+  const shareLink = async () => {
+    setMenuOpen(false);
+    try {
+      const outcome = await shareProfile(userId, name || undefined);
+      if (outcome !== "copied") return;
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    } catch {
+      setLinkCopied(false);
+    }
   };
 
   return (
@@ -282,6 +299,19 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
             </>
           )}
 
+          {isSelf && !failed && (
+            <div className="profile-actions">
+              <button type="button" className="profile-btn primary" onClick={() => { close(); onEditProfile(); }}>
+                <Icon name="edit" size={15} />
+                <span className="profile-btn-label">{t("editProfile")}</span>
+              </button>
+              <button type="button" className="profile-btn" onClick={() => void shareLink()}>
+                <Icon name="link" size={15} />
+                <span className="profile-btn-label">{linkCopied ? t("linkCopied") : t("shareProfile")}</span>
+              </button>
+            </div>
+          )}
+
           {!isSelf && !inactive && !failed && (
             <div className="profile-actions">
               {!isFriend && !blockedEitherWay && (
@@ -331,6 +361,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
                 {menuOpen && (
                   <div className="profile-menu">
                     <button type="button" onClick={() => void copyLogin()} disabled={!name}>{copied ? t("copied") : t("copyLogin")}</button>
+                    <button type="button" onClick={() => void shareLink()}>{t("shareProfile")}</button>
                     <button
                       type="button"
                       onClick={() => {
@@ -358,6 +389,13 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {!isSelf && linkCopied && (
+            <div className="profile-link-note" role="status">
+              <Icon name="check" size={13} />
+              <span>{t("linkCopied")}</span>
             </div>
           )}
 

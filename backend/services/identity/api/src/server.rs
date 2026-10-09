@@ -28,7 +28,7 @@ use identity::usecases::{
         hotkey_settings::{GetHotkeySettings, UpdateHotkeySettings},
         notification_settings::{GetNotificationSettings, UpdateNotificationSettings},
         voice_settings::{GetVoiceSettings, UpdateVoiceSettings},
-        get_me::GetMe, rename::RenameUser, search_users::SearchUsers,
+        get_me::GetMe, link_preview::GetLinkPreview, rename::RenameUser, search_users::SearchUsers,
         update_locale::UpdateUserLocale,
         change_password::ChangePassword, confirm_email_change::ConfirmEmailChange,
         delete_account::DeleteAccount, disable_account::DisableAccount,
@@ -215,6 +215,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         refresh_tokens_usecase: RefreshTokens::new(unit_of_work.clone(), token_issuer.clone()),
         logout_usecase: Logout::new(unit_of_work.clone(), token_issuer.clone()),
         search_users_usecase: SearchUsers::new(user_repository.clone()),
+        get_link_preview_usecase: GetLinkPreview::new(user_repository.clone()),
         get_me_usecase: GetMe::new(user_repository.clone()),
         update_user_locale_usecase: UpdateUserLocale::new(unit_of_work.clone()),
         update_profile_usecase: UpdateProfile::new(

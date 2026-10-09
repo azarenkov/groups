@@ -63,6 +63,7 @@ interface ModalsHostProps {
   onCall: (friendId: string, video?: boolean) => void;
   onRemoveFriend: (id: string, name: string) => void;
   onBlockUser: (id: string, name: string) => void;
+  onEditProfile: () => void;
   callBar: { dockId: string; onOpen: () => void };
 }
 
@@ -89,6 +90,7 @@ const ModalsHost: React.FC<ModalsHostProps> = ({
   onCall,
   onRemoveFriend,
   onBlockUser,
+  onEditProfile,
   callBar,
 }) => {
   const { t: tModals } = useTranslation("modals");
@@ -129,6 +131,7 @@ const ModalsHost: React.FC<ModalsHostProps> = ({
         onCall={onCall}
         onRemoveFriend={onRemoveFriend}
         onBlockUser={onBlockUser}
+        onEditProfile={onEditProfile}
       />
 
       <AddFriendModal

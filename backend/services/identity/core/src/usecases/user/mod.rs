@@ -17,3 +17,4 @@ pub mod notification_settings;
 pub mod purge_unverified_accounts;
 pub mod hotkey_settings;
 pub mod voice_settings;
+pub mod link_preview;

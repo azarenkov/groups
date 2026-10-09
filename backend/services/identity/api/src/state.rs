@@ -30,7 +30,7 @@ use identity::usecases::{
         voice_settings::{GetVoiceSettings, UpdateVoiceSettings},
         change_password::ChangePassword, confirm_email_change::ConfirmEmailChange,
         delete_account::DeleteAccount, disable_account::DisableAccount, get_me::GetMe,
-        rename::RenameUser, request_email_change::RequestEmailChange,
+        link_preview::GetLinkPreview, rename::RenameUser, request_email_change::RequestEmailChange,
         search_users::SearchUsers, update_locale::UpdateUserLocale, update_profile::UpdateProfile,
     },
 };
@@ -77,6 +77,7 @@ pub struct AppState {
         RefreshTokens<PostgresIdentityUnitOfWork, JwtTokenIssuer>,
     pub logout_usecase: Logout<PostgresIdentityUnitOfWork, JwtTokenIssuer>,
     pub search_users_usecase: SearchUsers<PostgresUserRepository>,
+    pub get_link_preview_usecase: GetLinkPreview<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresIdentityUnitOfWork>,
     pub activity_store: Arc<RedisActivityStore>,

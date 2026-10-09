@@ -7,7 +7,8 @@ import { channelsFullyLoaded, useChannelStore } from "../store/channelStore";
 import { pinnedFirst, useConversationPinsStore } from "../store/conversationPinsStore";
 import { hydrateSidebar, readSidebarSnapshot, clearSidebarSnapshot, startSidebarSnapshots } from "../lib/sidebarSnapshot";
 import { communityAPI } from "../api/community";
-import { extractInviteToken, extractPackSlug } from "../../../shared/lib/inviteLinks";
+import { extractInviteToken, extractPackSlug, extractProfileId } from "../../../shared/lib/inviteLinks";
+import { useProfileModalStore } from "../../social/store/profileModalStore";
 import StickerPacksModal from "../../stickers/components/StickerPacksModal";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useBlockStore } from "../../social/store/blockStore";
@@ -124,6 +125,13 @@ const CommunitiesPage: React.FC = () => {
     setSearchParams({}, { replace: true });
     setLinkedPack(extractPackSlug(raw));
   }, [searchParams, setSearchParams]);
+  useEffect(() => {
+    const raw = searchParams.get("profile");
+    if (!raw) return;
+    setSearchParams({}, { replace: true });
+    const id = extractProfileId(raw);
+    if (id) useProfileModalStore.getState().open(id);
+  }, [searchParams, setSearchParams]);
   const [pendingMessageLink, setPendingMessageLink] = useState<OpenMessageLink | null>(null);
   const linkRefreshRef = React.useRef<{ link: OpenMessageLink | null; communities: boolean; channels: boolean }>({
     link: null,
@@ -157,7 +165,7 @@ const CommunitiesPage: React.FC = () => {
   const [channelModal, setChannelModal] = useState<{ communityId: string; kind: ChannelKind } | null>(null);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsRequest, setSettingsRequest] = useState<{ id: "subscription"; seq: number } | undefined>();
+  const [settingsRequest, setSettingsRequest] = useState<{ id: "subscription" | "account"; seq: number } | undefined>();
   useEffect(() => {
     if (!settingsOpen) setSettingsRequest(undefined);
   }, [settingsOpen]);
@@ -1065,6 +1073,11 @@ const CommunitiesPage: React.FC = () => {
         onCall={handleCallFromHome}
         onRemoveFriend={(id, name) => setDeleteConfirm({ type: "friend", id, name })}
         onBlockUser={(id, name) => setDeleteConfirm({ type: "block", id, name })}
+        onEditProfile={() => {
+          setCommunitySettings(null);
+          setSettingsRequest((prev) => ({ id: "account", seq: (prev?.seq ?? 0) + 1 }));
+          setSettingsOpen(true);
+        }}
         callBar={{
           dockId: settingsOpen
             ? "settings-voice-dock"

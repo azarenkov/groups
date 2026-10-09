@@ -29,7 +29,14 @@ import { ws } from "./shared/ws/websocket";
 import { installWsBootstrap } from "./shared/ws/websocketBootstrap";
 import { initGameActivity } from "./features/social/lib/gameActivity";
 import { initHotkeys } from "./features/settings/lib/hotkeys";
-import { authRedirectTarget, extractInviteToken, extractPackSlug, extractResetToken } from "./shared/lib/inviteLinks";
+import {
+  authRedirectTarget,
+  extractInviteToken,
+  extractPackSlug,
+  extractProfileDeepLink,
+  extractProfileId,
+  extractResetToken,
+} from "./shared/lib/inviteLinks";
 import "styles/App.css";
 
 const AuthRedirect: React.FC = () => {
@@ -47,6 +54,16 @@ const StickerPackLink: React.FC = () => {
   return <Navigate to={`/login?next=${encodeURIComponent(`/stickers/${slug}`)}`} replace />;
 };
 
+const ProfileLink: React.FC = () => {
+  const { id: raw = "" } = useParams();
+  const { isAuthenticated, tokens } = useAuthStore();
+  const id = extractProfileId(raw);
+  const verified = !!tokens?.accessToken && isAccessTokenVerified(tokens.accessToken);
+  if (!id) return <Navigate to="/app" replace />;
+  if (isAuthenticated && verified) return <Navigate to={`/app?profile=${id}`} replace />;
+  return <Navigate to={`/login?next=${encodeURIComponent(`/u/${id}`)}`} replace />;
+};
+
 const DeepLinkListener: React.FC = () => {
   const navigate = useNavigate();
   useEffect(() => {
@@ -56,6 +73,11 @@ const DeepLinkListener: React.FC = () => {
       const resetToken = url ? extractResetToken(url) : null;
       if (resetToken) {
         navigate(`/reset-password?token=${encodeURIComponent(resetToken)}`);
+        return;
+      }
+      const profileId = url ? extractProfileDeepLink(url) : null;
+      if (profileId) {
+        navigate(`/u/${profileId}`);
         return;
       }
       const token = url ? extractInviteToken(url) : null;
@@ -275,6 +297,7 @@ const App: React.FC = () => {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/join/:token" element={<JoinPage />} />
             <Route path="/stickers/:slug" element={<StickerPackLink />} />
+            <Route path="/u/:id" element={<ProfileLink />} />
             <Route
               path="/app"
               element={

@@ -51,6 +51,14 @@ spec:
       ports:
         - port: 8080
         - port: 7880
+    {{- if and $fromIngress .Values.web.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "rift.selectorLabels" (dict "root" . "component" "web") | nindent 14 }}
+      ports:
+        - port: 8080
+    {{- end }}
 {{- end }}
 {{- if .Values.web.enabled }}
 ---
