@@ -158,7 +158,7 @@ async fn update_me_name(
 pub struct UpdatePasswordBody {
     #[validate(length(min = 1, max = 128))]
     pub current_password: Option<String>,
-    #[validate(length(min = 4, max = 30))]
+    #[validate(length(min = 8, max = 30))]
     pub new_password: String,
 }
 

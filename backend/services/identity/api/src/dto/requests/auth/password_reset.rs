@@ -16,6 +16,6 @@ pub struct ForgotPasswordRequestBody {
 pub struct ResetPasswordRequestBody {
     #[validate(length(min = 1, max = 200))]
     pub token: String,
-    #[validate(length(min = 4, max = 30))]
+    #[validate(length(min = 8, max = 30))]
     pub new_password: String,
 }

@@ -57,7 +57,7 @@
     "noPasswordHint": "Never set a password? Sign out and use “Forgot password?” on the sign-in screen — we'll email you a link to set one.",
     "newPassword": "New password",
     "repeatPassword": "Repeat new password",
-    "passwordLength": "Password must be 4–30 characters.",
+    "passwordLength": "Password must be 8–30 characters.",
     "passwordMismatch": "Passwords don't match.",
     "wrongPassword": "Password is incorrect.",
     "samePassword": "New password must differ from the current one.",

@@ -15,7 +15,7 @@ pub struct RegisterUserRequestBody {
     pub name: String,
     #[validate(email)]
     pub email: String,
-    #[validate(length(min = 4, max = 30))]
+    #[validate(length(min = 8, max = 30))]
     pub password: String,
     #[serde(default)]
     pub locale: Option<String>,

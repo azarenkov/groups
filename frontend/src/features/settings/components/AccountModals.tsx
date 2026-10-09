@@ -102,7 +102,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
   const submit = async () => {
     const reauth = reauthOf(current);
     if (!reauth) return;
-    if (next.length < 4 || next.length > 30) {
+    if (next.length < 8 || next.length > 30) {
       setError(t("account.passwordLength"));
       return;
     }
