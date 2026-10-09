@@ -5,7 +5,7 @@ use domain::user::id::UserId;
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use messaging::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
-use messaging_domain::badge::BadgeRepository;
+use messaging_domain::badge::{BadgeEmojiStatus, BadgeRepository};
 
 const MAX_DELIVER: u32 = 20;
 const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
@@ -89,8 +89,12 @@ async fn apply<B: BadgeRepository + ?Sized>(
             tracing::warn!(%subject, "Malformed profile event; dropping");
             return Ok(());
         };
+        let emoji_status = evt.emoji_status_sticker_id.map(|sticker_id| BadgeEmojiStatus {
+            sticker_id,
+            until: evt.emoji_status_until,
+        });
         badges
-            .apply_badge_style(&UserId::new(evt.user_id), &evt.badge_style, evt.occurred_at)
+            .apply_profile_perks(&UserId::new(evt.user_id), &evt.badge_style, emoji_status, evt.occurred_at)
             .await?;
     }
     Ok(())

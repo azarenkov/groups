@@ -97,6 +97,8 @@ fn user_payload(event: &UserEvent) -> Result<serde_json::Value, RepositoryError>
             show_game_activity: e.show_game_activity,
             active: e.active,
             timezone: e.timezone.clone(),
+            emoji_status_sticker_id: e.emoji_status.map(|status| status.sticker_id()),
+            emoji_status_until: e.emoji_status.and_then(|status| status.until()),
             occurred_at: e.occurred_at,
         }),
         UserEvent::ActivityChanged(e) => encode(&UserActivityChangedV1 {

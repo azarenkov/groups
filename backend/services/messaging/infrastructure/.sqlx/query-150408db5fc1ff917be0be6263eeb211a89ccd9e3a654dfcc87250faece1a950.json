@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO messaging_user_profiles (user_id, name, updated_at, badge_style, emoji_status_sticker_id, emoji_status_until, badge_updated_at)\n            VALUES ($1, '', to_timestamp(0), $2, $3, $4, $5)\n            ON CONFLICT (user_id) DO UPDATE\n                SET badge_style = EXCLUDED.badge_style,\n                    emoji_status_sticker_id = EXCLUDED.emoji_status_sticker_id,\n                    emoji_status_until = EXCLUDED.emoji_status_until,\n                    badge_updated_at = EXCLUDED.badge_updated_at\n                WHERE messaging_user_profiles.badge_updated_at IS NULL\n                   OR messaging_user_profiles.badge_updated_at <= EXCLUDED.badge_updated_at\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "150408db5fc1ff917be0be6263eeb211a89ccd9e3a654dfcc87250faece1a950"
+}

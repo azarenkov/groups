@@ -10,6 +10,7 @@ export function useBadge(userId: string | null | undefined): Badge | null {
   const myTier = useEntitlementsStore((s) => s.tier);
   const myStyle = useEntitlementsStore((s) => s.badgeStyle);
   const myNumber = useEntitlementsStore((s) => s.memberNumber);
+  const myStatus = useEntitlementsStore((s) => s.emojiStatus);
   const isSelf = !!userId && userId === selfId;
   const cached = useBadgeStore((s) => (userId && !isSelf ? s.byUser[userId] : undefined));
 
@@ -19,6 +20,9 @@ export function useBadge(userId: string | null | undefined): Badge | null {
   }, [userId, isSelf]);
 
   if (!userId) return null;
-  if (isSelf) return myTier === "free" ? null : { tier: myTier, badgeStyle: myStyle, memberNumber: myNumber };
+  if (isSelf)
+    return myTier === "free"
+      ? null
+      : { tier: myTier, badgeStyle: myStyle, memberNumber: myNumber, emojiStatus: myStatus };
   return cached ?? null;
 }

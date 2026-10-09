@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT user_id, tier, badge_style, member_number, emoji_status_sticker_id, emoji_status_until\n            FROM messaging_user_profiles\n            WHERE user_id = ANY($1)\n              AND active\n              AND tier <> 'free'\n              AND (tier_valid_until IS NULL OR tier_valid_until > $2)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "tier",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "badge_style",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "member_number",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "emoji_status_sticker_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
+        "name": "emoji_status_until",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "0f7b50ba4f76f14eb376935b845e8e6284d103b442feca0f26d849303e7cb357"
+}

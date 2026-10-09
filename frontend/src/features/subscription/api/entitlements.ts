@@ -1,6 +1,8 @@
 import { http } from "../../../shared/api/http";
 import { parseBadgeStyle, parseMemberNumber, parseTier, parseValidUntil } from "../lib/plans";
 import type { BadgeStyle, Tier } from "../lib/plans";
+import { parseEmojiStatus } from "../lib/emojiStatus";
+import type { EmojiStatus, EmojiStatusDuration } from "../lib/emojiStatus";
 
 export interface MyEntitlements {
   tier: Tier;
@@ -9,6 +11,7 @@ export interface MyEntitlements {
   validUntil: string | null;
   trial: boolean;
   trialAvailable: boolean;
+  emojiStatus: EmojiStatus | null;
 }
 
 export interface StartedTrial {
@@ -21,6 +24,7 @@ export interface UserBadge {
   tier: Tier;
   badgeStyle: BadgeStyle;
   memberNumber: number | null;
+  emojiStatus: EmojiStatus | null;
 }
 
 class EntitlementsAPI {
@@ -36,6 +40,7 @@ class EntitlementsAPI {
       validUntil: parseValidUntil(data.validUntil),
       trial: data.trial === true,
       trialAvailable: data.trialAvailable === true,
+      emojiStatus: parseEmojiStatus(data.emojiStatus),
     };
   }
 
@@ -50,6 +55,18 @@ class EntitlementsAPI {
     return parseBadgeStyle(response.data.data.badgeStyle);
   }
 
+  async setEmojiStatus(stickerId: string, duration: EmojiStatusDuration): Promise<EmojiStatus | null> {
+    const response = await this.client.put("/v1/users/me/emoji-status", {
+      stickerId,
+      duration: duration === "forever" ? null : duration,
+    });
+    return parseEmojiStatus(response.data.data);
+  }
+
+  async clearEmojiStatus(): Promise<void> {
+    await this.client.delete("/v1/users/me/emoji-status");
+  }
+
   async lookupBadges(userIds: string[]): Promise<UserBadge[]> {
     const response = await this.client.post("/v1/users/badges", { userIds });
     const items = (response.data.data.badges ?? []) as {
@@ -57,12 +74,14 @@ class EntitlementsAPI {
       tier: string;
       badgeStyle: string;
       memberNumber?: unknown;
+      emojiStatus?: unknown;
     }[];
     return items.map((item) => ({
       userId: item.userId,
       tier: parseTier(item.tier),
       badgeStyle: parseBadgeStyle(item.badgeStyle),
       memberNumber: parseMemberNumber(item.memberNumber),
+      emojiStatus: parseEmojiStatus(item.emojiStatus),
     }));
   }
 }

@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::{refresh_token::id::RefreshTokenId, user::email::Email, user::id::UserId, user::name::UserName};
+use crate::{refresh_token::id::RefreshTokenId, user::email::Email, user::emoji_status::EmojiStatus, user::id::UserId, user::name::UserName};
 use domain::event::EventId;
 
 #[derive(Debug)]
@@ -245,12 +245,13 @@ pub struct UserProfileChanged {
     pub active: bool,
     pub timezone: String,
     pub badge_style: String,
+    pub emoji_status: Option<EmojiStatus>,
     pub occurred_at: DateTime<Utc>,
 }
 
 impl UserProfileChanged {
     #[allow(clippy::too_many_arguments)]
-    pub fn record(user_id: UserId, bio: String, show_activity: bool, show_game_activity: bool, active: bool, timezone: String, badge_style: String, now: DateTime<Utc>) -> Self {
+    pub fn record(user_id: UserId, bio: String, show_activity: bool, show_game_activity: bool, active: bool, timezone: String, badge_style: String, emoji_status: Option<EmojiStatus>, now: DateTime<Utc>) -> Self {
         Self {
             id: EventId::generate(),
             user_id,
@@ -260,6 +261,7 @@ impl UserProfileChanged {
             active,
             timezone,
             badge_style,
+            emoji_status,
             occurred_at: now,
         }
     }

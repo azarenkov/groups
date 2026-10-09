@@ -1,7 +1,8 @@
-use actix_web::{HttpResponse, Responder, get, patch, post, web};
+use actix_web::{HttpResponse, Responder, delete, get, patch, post, put, web};
 use api_common::dto::responses::ApiResponse;
 use api_common::middleware::auth::RateLimitedAuthToken;
 use chrono::{DateTime, Utc};
+use identity_domain::user::emoji_status::EmojiStatus;
 use identity_domain::user::id::UserId;
 use identity_domain::user::repository::UserRepository;
 use serde::{Deserialize, Serialize};
@@ -22,6 +23,20 @@ struct EntitlementsResponse {
     valid_until: Option<DateTime<Utc>>,
     trial: bool,
     trial_available: bool,
+    emoji_status: Option<EmojiStatusResponse>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EmojiStatusResponse {
+    sticker_id: Uuid,
+    until: Option<DateTime<Utc>>,
+}
+
+impl From<EmojiStatus> for EmojiStatusResponse {
+    fn from(status: EmojiStatus) -> Self {
+        Self { sticker_id: status.sticker_id(), until: status.until() }
+    }
 }
 
 #[get("/me/entitlements")]
@@ -42,6 +57,10 @@ async fn get_my_entitlements(
         .map_err(HttpError::from_error)?;
     let badge_style = user.as_ref().map(|u| u.badge_style().as_str()).unwrap_or("");
     let verified = user.as_ref().is_some_and(|u| u.is_email_verified());
+    let emoji_status = user
+        .as_ref()
+        .and_then(|u| u.active_emoji_status(Utc::now()))
+        .map(EmojiStatusResponse::from);
     Ok(HttpResponse::Ok().json(ApiResponse::success(EntitlementsResponse {
         tier: entitlements.tier.as_str(),
         badge_style,
@@ -49,6 +68,7 @@ async fn get_my_entitlements(
         valid_until: entitlements.valid_until,
         trial: entitlements.trial,
         trial_available: entitlements.trial_available && verified,
+        emoji_status,
     })))
 }
 
@@ -118,6 +138,47 @@ async fn set_my_badge_style(
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct EmojiStatusBody {
+    sticker_id: Uuid,
+    duration: Option<String>,
+}
+
+#[put("/me/emoji-status")]
+async fn set_my_emoji_status(
+    req: actix_web::HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    body: web::Json<EmojiStatusBody>,
+) -> Result<impl Responder, HttpError> {
+    let ctx = request_context(&req);
+    let status = app_state
+        .set_emoji_status_usecase
+        .set(
+            UserId::new(auth_token.id),
+            body.sticker_id,
+            body.duration.as_deref(),
+            ctx.request_id.as_deref(),
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(EmojiStatusResponse::from(status))))
+}
+
+#[delete("/me/emoji-status")]
+async fn clear_my_emoji_status(
+    req: actix_web::HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+) -> Result<impl Responder, HttpError> {
+    let ctx = request_context(&req);
+    app_state
+        .set_emoji_status_usecase
+        .clear(UserId::new(auth_token.id), ctx.request_id.as_deref())
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct GrantBody {
     user_id: Uuid,
     tier: String,
@@ -140,6 +201,8 @@ async fn grant_entitlements(
 pub fn entitlement_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(get_my_entitlements)
         .service(set_my_badge_style)
+        .service(set_my_emoji_status)
+        .service(clear_my_emoji_status)
         .service(start_my_trial);
 }
 

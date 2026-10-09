@@ -37,6 +37,24 @@
       "gold": "Gold"
     }
   },
+  "emojiStatus": {
+    "title": "Status",
+    "none": "No status yet. Pick a sticker below and it will show next to your name.",
+    "noEnd": "No end date",
+    "until": "Until {{time}}",
+    "remove": "Remove status",
+    "duration": "Status duration",
+    "durations": {
+      "1h": "1 hour",
+      "8h": "8 hours",
+      "1d": "1 day",
+      "7d": "1 week",
+      "forever": "No end"
+    },
+    "noStickers": "Install or create a sticker pack to pick a status.",
+    "gone": "This sticker is no longer available.",
+    "failed": "Couldn't update your status. Try again."
+  },
   "page": {
     "title": "Subscription",
     "lead": "What each plan includes. Payments come later; for now access is granted by hand.",

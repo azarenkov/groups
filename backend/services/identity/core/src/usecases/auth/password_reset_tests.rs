@@ -59,6 +59,7 @@ fn copy_user(user: &User) -> User {
         user.show_activity(),
         user.show_game_activity(),
         user.timezone().to_string(),
+        user.emoji_status(),
     )
 }
 

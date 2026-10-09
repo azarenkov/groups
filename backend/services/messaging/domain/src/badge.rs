@@ -19,6 +19,13 @@ pub struct UserBadge {
     pub tier: String,
     pub badge_style: String,
     pub member_number: Option<i64>,
+    pub emoji_status: Option<BadgeEmojiStatus>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BadgeEmojiStatus {
+    pub sticker_id: uuid::Uuid,
+    pub until: Option<DateTime<Utc>>,
 }
 
 #[async_trait]
@@ -31,10 +38,11 @@ pub trait BadgeRepository: Send + Sync {
         member_number: Option<i64>,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
-    async fn apply_badge_style(
+    async fn apply_profile_perks(
         &self,
         user_id: &UserId,
         badge_style: &str,
+        emoji_status: Option<BadgeEmojiStatus>,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
     async fn tier_of(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<String, RepositoryError>;

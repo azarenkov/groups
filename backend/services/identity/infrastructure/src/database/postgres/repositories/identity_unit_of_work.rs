@@ -142,7 +142,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             UserDto,
             r#"
             SELECT id, name, email, password_hash, created_at, updated_at,
-                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone
+                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until
             FROM users
             WHERE id = $1
             FOR UPDATE
@@ -164,7 +164,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             UserDto,
             r#"
             SELECT id, name, email, password_hash, created_at, updated_at,
-                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone
+                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until
             FROM users
             WHERE email_verified_at IS NULL
               AND phone_verified_at IS NULL
@@ -337,7 +337,9 @@ impl IdentityTransaction for PostgresIdentityTransaction {
                     show_activity = $14,
                     show_game_activity = $15,
                     timezone = $16,
-                    badge_style = $17
+                    badge_style = $17,
+                    emoji_status_sticker_id = $18,
+                    emoji_status_until = $19
                 WHERE id = $1
             "#,
             user.id().uuid(),
@@ -357,6 +359,8 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             user.show_game_activity(),
             user.timezone(),
             user.badge_style().as_str(),
+            user.emoji_status().map(|status| status.sticker_id()),
+            user.emoji_status().and_then(|status| status.until()),
         )
         .execute(&mut *self.tx)
         .await

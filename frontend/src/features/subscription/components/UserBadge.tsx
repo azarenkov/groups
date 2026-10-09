@@ -1,6 +1,7 @@
 import React from "react";
 
 import { useBadge } from "../hooks/useBadge";
+import EmojiStatusIcon from "./EmojiStatusIcon";
 import ProBadge from "./ProBadge";
 
 interface UserBadgeProps {
@@ -13,13 +14,16 @@ const UserBadge: React.FC<UserBadgeProps> = ({ userId, size, className }) => {
   const badge = useBadge(userId);
   if (!badge) return null;
   return (
-    <ProBadge
-      tier={badge.tier}
-      badgeStyle={badge.badgeStyle}
-      memberNumber={badge.memberNumber}
-      size={size}
-      className={className}
-    />
+    <>
+      <ProBadge
+        tier={badge.tier}
+        badgeStyle={badge.badgeStyle}
+        memberNumber={badge.memberNumber}
+        size={size}
+        className={className}
+      />
+      <EmojiStatusIcon status={badge.emojiStatus} size={size} />
+    </>
   );
 };
 

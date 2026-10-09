@@ -324,6 +324,41 @@ impl HttpMapping for identity::usecases::entitlements::set_badge_style::SetBadge
     }
 }
 
+impl HttpMapping for identity::usecases::entitlements::set_emoji_status::SetEmojiStatusError {
+    fn to_http_status(&self) -> StatusCode {
+        use identity::usecases::entitlements::set_emoji_status::SetEmojiStatusError as E;
+        match self {
+            E::UnknownDuration => StatusCode::BAD_REQUEST,
+            E::ProRequired => StatusCode::FORBIDDEN,
+            E::StickerNotFound | E::UserNotFound => StatusCode::NOT_FOUND,
+            E::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+            E::Repository(e) => e.to_http_status(),
+        }
+    }
+    fn to_user_message(&self) -> String {
+        use identity::usecases::entitlements::set_emoji_status::SetEmojiStatusError as E;
+        match self {
+            E::UnknownDuration => "Unknown status duration.".to_string(),
+            E::ProRequired => "This needs a Rift Pro subscription.".to_string(),
+            E::StickerNotFound => "This sticker is no longer available.".to_string(),
+            E::UserNotFound => "User not found".to_string(),
+            E::Unavailable(_) => "Stickers are unavailable right now. Try again later.".to_string(),
+            E::Repository(e) => e.to_user_message(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        use identity::usecases::entitlements::set_emoji_status::SetEmojiStatusError as E;
+        match self {
+            E::UnknownDuration => "EMOJI_STATUS_DURATION_UNKNOWN",
+            E::ProRequired => "PRO_REQUIRED",
+            E::StickerNotFound => "STICKER_NOT_FOUND",
+            E::UserNotFound => "USER_NOT_FOUND",
+            E::Unavailable(_) => "STICKERS_UNAVAILABLE",
+            E::Repository(e) => e.to_error_code(),
+        }
+    }
+}
+
 impl HttpMapping for identity::usecases::entitlements::grant_entitlements::GrantEntitlementsError {
     fn to_http_status(&self) -> StatusCode {
         use identity::usecases::entitlements::grant_entitlements::GrantEntitlementsError as E;

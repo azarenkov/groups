@@ -973,6 +973,10 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "showActivity": evt.show_activity,
                 "showGameActivity": evt.show_game_activity,
                 "badgeStyle": evt.badge_style,
+                "emojiStatus": evt.emoji_status_sticker_id.map(|sticker_id| json!({
+                    "stickerId": sticker_id,
+                    "until": evt.emoji_status_until,
+                })),
                 "occurredAt": evt.occurred_at,
             }),
         );

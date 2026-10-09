@@ -5,6 +5,7 @@ import { desktopNotifAllowed } from "../../settings/store/notificationSettingsSt
 import { formatPlanDate } from "../../subscription/components/PlanUntil";
 import { bustAvatar } from "../../../shared/lib/avatarCache";
 import { parseBadgeStyle, parseMemberNumber, parseTier, parseValidUntil } from "../../subscription/lib/plans";
+import { parseEmojiStatus } from "../../subscription/lib/emojiStatus";
 import { useBadgeStore } from "../../subscription/store/badgeStore";
 import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 import { loadActivitiesFor, loadFriendActivities, useActivityStore } from "../store/activityStore";
@@ -199,6 +200,14 @@ export const socialHandlers: WsHandlers = {
   "user.profileChanged": (d) => {
       const userId = asString(d.userId);
       if (!userId) return;
+      if ("emojiStatus" in d) {
+        const emojiStatus = parseEmojiStatus(d.emojiStatus);
+        if (useAuthStore.getState().user?.id === userId) {
+          useEntitlementsStore.getState().applyEmojiStatus(emojiStatus);
+        } else {
+          useBadgeStore.getState().applyEmojiStatus(userId, emojiStatus);
+        }
+      }
       if (typeof d.badgeStyle === "string") {
         const badgeStyle = parseBadgeStyle(d.badgeStyle);
         if (useAuthStore.getState().user?.id === userId) {

@@ -10,6 +10,7 @@ import { useAuthStore } from "../../auth/store/authStore";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { blockGeneration, useBlockStore } from "../store/blockStore";
 import ProBadge from "../../subscription/components/ProBadge";
+import EmojiStatusIcon from "../../subscription/components/EmojiStatusIcon";
 import { useBadge } from "../../subscription/hooks/useBadge";
 import { useAvatarUrl } from "../../../shared/lib/avatarCache";
 import { openReport } from "../../moderation/store/reportModalStore";
@@ -285,6 +286,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
                 {badge && !inactive && !blockedMe && (
                   <ProBadge tier={badge.tier} badgeStyle={badge.badgeStyle} memberNumber={badge.memberNumber} size="md" />
                 )}
+                {badge && !inactive && !blockedMe && <EmojiStatusIcon status={badge.emojiStatus} size="lg" />}
               </div>
               <div className="profile-handle">
                 {name && !inactive ? `@${name} · ` : ""}
