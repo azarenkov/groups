@@ -157,6 +157,9 @@ const CommunityList: React.FC<CommunityListProps> = ({
         <button type="button" className="sb-mini sb-mini-more" title={t("createCommunity")} aria-label={t("createCommunity")} onClick={onCreateCommunity}>
           <Icon name="plus" size={16} />
         </button>
+        <button type="button" className="sb-mini sb-mini-more" title={t("joinCommunity")} aria-label={t("joinCommunity")} onClick={onJoinCommunity}>
+          <Icon name="link" size={16} />
+        </button>
       </div>
     );
   }

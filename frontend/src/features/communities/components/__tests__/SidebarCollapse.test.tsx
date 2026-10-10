@@ -139,3 +139,13 @@ it("closes the channel panel with Escape or a second click", () => {
   fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
   expect(screen.queryByRole("dialog")).toBeNull();
 });
+
+it("offers creating and joining a community from the rail", () => {
+  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
+  const h = renderSidebar();
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
+  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:joinCommunity") }));
+  expect(h.onJoinCommunity).toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:createCommunity") }));
+  expect(h.onCreateCommunity).toHaveBeenCalled();
+});
