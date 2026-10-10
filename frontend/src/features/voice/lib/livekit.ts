@@ -1530,11 +1530,12 @@ export class LiveKitService {
   }
 
   private addParticipant(participant: RemoteParticipant): void {
+    const mic = participant.getTrackPublication(Track.Source.Microphone);
     const info: ParticipantInfo = {
       identity: participant.identity,
       name: participant.name || participant.identity,
       isSpeaking: participant.isSpeaking,
-      isMuted: false,
+      isMuted: !mic || mic.isMuted,
       isDeafened: participant.attributes?.deafened === "1",
       isSharingScreen: false,
       audioTrack: null,

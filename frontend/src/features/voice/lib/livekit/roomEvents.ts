@@ -86,12 +86,28 @@ export function attachRoomListeners(
     },
   );
 
-  room.on(RoomEvent.TrackPublished, (publication) => {
+  room.on(RoomEvent.TrackPublished, (publication, participant) => {
     if (isScreenSource(publication.source)) handlers.onScreenSharesChanged();
+    if (publication.source === Track.Source.Microphone) {
+      handlers.onParticipantPatch(participant.identity, { isMuted: publication.isMuted });
+    }
   });
 
-  room.on(RoomEvent.TrackUnpublished, (publication) => {
+  room.on(RoomEvent.TrackUnpublished, (publication, participant) => {
     if (isScreenSource(publication.source)) handlers.onScreenSharesChanged();
+    if (publication.source === Track.Source.Microphone) {
+      handlers.onParticipantPatch(participant.identity, { isMuted: true });
+    }
+  });
+
+  room.on(RoomEvent.TrackMuted, (publication, participant) => {
+    if (participant.isLocal || publication.source !== Track.Source.Microphone) return;
+    handlers.onParticipantPatch(participant.identity, { isMuted: true });
+  });
+
+  room.on(RoomEvent.TrackUnmuted, (publication, participant) => {
+    if (participant.isLocal || publication.source !== Track.Source.Microphone) return;
+    handlers.onParticipantPatch(participant.identity, { isMuted: false });
   });
 
   room.on(
