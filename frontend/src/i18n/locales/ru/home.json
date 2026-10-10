@@ -1,9 +1,5 @@
 {
   "title": "Главная",
-  "greetingNight": "Доброй ночи",
-  "greetingMorning": "Доброе утро",
-  "greetingAfternoon": "Добрый день",
-  "greetingEvening": "Добрый вечер",
   "activeNow": "В голосовых каналах — {{count}}",
   "online": "В сети — {{count}}",
   "jumpBackIn": "Недавние комнаты",

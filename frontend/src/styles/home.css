@@ -7,7 +7,6 @@
 }
 .home button { font: inherit; border: 0; background: transparent; padding: 0; cursor: pointer; color: inherit; }
 
-.home-greeting { flex-shrink: 0; margin: 0; padding: 28px 24px 0; font-size: 32px; font-weight: 800; letter-spacing: -0.03em; color: var(--fg-1); }
 
 .home-scroll { flex: 1; min-height: 0; overflow: hidden; }
 .home-scroll { display: flex; flex-direction: column; background: var(--grain), linear-gradient(180deg, color-mix(in srgb, var(--accent) 14%, var(--surface-panel)) 0, color-mix(in srgb, var(--accent) 8%, var(--surface-panel)) 90px, color-mix(in srgb, var(--accent) 4%, var(--surface-panel)) 180px, color-mix(in srgb, var(--accent) 1%, var(--surface-panel)) 260px, var(--surface-panel) 320px); }

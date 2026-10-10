@@ -793,7 +793,6 @@ const CommunitiesPage: React.FC = () => {
               />
             ) : !selectedCommunity && !selectedDm ? (
               <HomeView
-                userName={userName}
                 overview={homeOverview}
                 overviewFailed={homeFailed}
                 onRetry={() => void fetchHome()}
