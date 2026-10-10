@@ -3,7 +3,10 @@ import { parseNoiseMode } from "../voiceSettingsStore";
 describe("parseNoiseMode", () => {
   it("keeps high suppression from the server whatever the plan", () => {
     expect(parseNoiseMode("high")).toBe("high");
-    expect(parseNoiseMode("off")).toBe("off");
+  });
+
+  it("turns the retired off setting into standard", () => {
+    expect(parseNoiseMode("off")).toBe("standard");
   });
 
   it("falls back to standard for anything else", () => {

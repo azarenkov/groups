@@ -4,7 +4,7 @@ import Icon from "../../../shared/ui/Icon";
 import { useLocalTrack } from "../hooks/useLocalTrack";
 import { usePushToTalkHeld } from "../hooks/usePushToTalkHeld";
 import { getLiveKitService, NoiseSuppressionMode } from "../lib/livekit";
-import { useVoiceSettingsStore } from "../store/voiceSettingsStore";
+import { parseNoiseMode, useVoiceSettingsStore, type NoiseMode } from "../store/voiceSettingsStore";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import StreamQualityPicker from "../../subscription/components/StreamQualityPicker";
 
@@ -83,7 +83,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
   const openRef = useRef(open);
   openRef.current = open;
 
-  const handleNoiseChange = async (next: NoiseSuppressionMode) => {
+  const handleNoiseChange = async (next: NoiseMode) => {
     setNoise(next);
     useVoiceSettingsStore.getState().update({ noiseMode: next });
     try {
@@ -95,7 +95,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
     if (actual !== next) {
       setNoise(actual);
       const store = useVoiceSettingsStore.getState();
-      if (store.noiseMode === next) store.update({ noiseMode: actual });
+      if (store.noiseMode === next) store.update({ noiseMode: parseNoiseMode(actual) });
     }
   };
 
@@ -398,12 +398,6 @@ const VoicePill: React.FC<VoicePillProps> = ({
             </div>
             <div className="vp-seg">
               <button
-                className={noise === "off" ? "on" : ""}
-                onClick={() => handleNoiseChange("off")}
-              >
-                {t("noiseOff")}
-              </button>
-              <button
                 className={noise === "standard" ? "on" : ""}
                 onClick={() => handleNoiseChange("standard")}
               >
@@ -413,7 +407,6 @@ const VoicePill: React.FC<VoicePillProps> = ({
                 className={noise === "high" ? "on" : ""}
                 onClick={() => handleNoiseChange("high")}
               >
-                <Icon name="sparkles" size={11} />
                 {t("noiseHigh")}
               </button>
             </div>

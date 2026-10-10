@@ -95,12 +95,10 @@
   transform: none;
   width: calc(100% + 16px);
   max-width: 280px;
-  background: var(--material-thick);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  backdrop-filter: blur(30px) saturate(180%);
-  border-radius: 14px;
-  box-shadow: var(--shadow-lg);
-  padding: 14px;
+  background: var(--surface-dialog);
+  border-radius: 8px;
+  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.3), 0 6px 8px rgba(0, 0, 0, 0.2);
+  padding: 16px;
   display: flex; flex-direction: column; gap: 4px;
   animation: popIn var(--dur-base) var(--ease-spring);
   z-index: 20;
@@ -184,28 +182,25 @@
 
 .vp-seg {
   display: flex;
-  background: var(--surface-sunken);
-  border-radius: 8px;
-  padding: 2px;
-  gap: 2px;
+  gap: 8px;
 }
 .vp-seg button {
-  flex: 1;
+  flex: 0 0 auto;
+  height: 32px;
   border: 0;
-  background: transparent;
-  color: var(--fg-2);
-  padding: 6px 6px;
-  border-radius: 6px;
-  font-size: 12px; font-weight: 500;
+  background: color-mix(in srgb, var(--fg-1) 8%, transparent);
+  color: var(--fg-1);
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13px; font-weight: 600;
   cursor: pointer;
-  transition: all var(--dur-fast);
+  transition: background var(--dur-fast), color var(--dur-fast);
   display: inline-flex; align-items: center; justify-content: center; gap: 5px;
 }
-.vp-seg button:hover { color: var(--fg-1); }
+.vp-seg button:hover { background: color-mix(in srgb, var(--fg-1) 14%, transparent); }
 .vp-seg button.on {
-  background: var(--surface-panel);
-  color: var(--fg-1);
-  box-shadow: var(--shadow-xs);
+  background: var(--fg-1);
+  color: var(--surface-canvas);
 }
 
 .vp-meter {
