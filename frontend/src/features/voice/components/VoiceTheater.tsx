@@ -127,7 +127,7 @@ const TileVolumeMenu: React.FC<{
       >
         <Icon
           name={vol === 0 ? "speaker-off" : vol < 40 ? "speaker-lo" : "speaker-hi"}
-          size={14}
+          size={15}
         />
         {vol !== 100 && <span className="cs-menu-btn-pct">{vol}%</span>}
       </button>
@@ -635,12 +635,12 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
                   >
                     {r.muted && (
                       <span className="call-empty-mute">
-                        <Icon name="mic-off" size={16} />
+                        <Icon name="mic-off" size={15} />
                       </span>
                     )}
                     {r.deafened && (
                       <span className="call-empty-mute deaf">
-                        <Icon name="headphones-off" size={16} />
+                        <Icon name="headphones-off" size={15} />
                       </span>
                     )}
                     {!r.isSelf && (
