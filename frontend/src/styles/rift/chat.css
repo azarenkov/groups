@@ -1470,3 +1470,52 @@
 .msg-attach-video.tile { flex-direction: column; align-items: flex-start; aspect-ratio: 4 / 3; justify-content: space-between; width: 100%; }
 .shared-media .shared-body .msg-attach-image { width: 100%; }
 
+
+.main-header { height: 64px; padding: 0 20px 0 24px; }
+.main-header .right { align-items: center; gap: 4px; }
+.main-header .right .icon-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  color: var(--fg-2);
+}
+.main-header .right .icon-btn svg { width: 18px; height: 18px; }
+.main-header .right .icon-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--fg-1); }
+.main-header .right .icon-btn.on { background: var(--surface-active, var(--surface-hover)); color: var(--fg-1); }
+.main-header .right .icon-btn:disabled { opacity: 0.4; cursor: default; }
+.header-call-group {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 3px; margin-right: 6px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.header-call-group .icon-btn { width: 34px; height: 34px; }
+
+.composer { padding: 8px 24px 20px; }
+.composer-wrap {
+  min-height: 52px;
+  padding: 0 8px 0 10px;
+  gap: 6px;
+  border-radius: 26px;
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  align-items: flex-end;
+}
+.composer-wrap:hover { background: var(--surface-hover); }
+.composer-wrap:focus-within {
+  background: var(--surface-panel);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 2px var(--fg-1);
+}
+.composer .composer-input { font-size: 15px; line-height: 22px; padding: 15px 4px; }
+.composer-wrap > .attach-btn,
+.composer-wrap > .sticker-picker { margin-bottom: 8px; }
+.composer-wrap > .send-btn { margin-bottom: 7px; }
+.composer-wrap .attach-btn { width: 36px; height: 36px; color: var(--fg-2); }
+.composer-wrap .attach-btn svg { width: 18px; height: 18px; }
+.composer-wrap .attach-btn:hover { background: var(--surface-active, var(--surface-hover)); color: var(--fg-1); }
+.composer-wrap .attach-btn:hover svg { transform: none; }
+.composer .send-btn { width: 38px; height: 38px; }
+.composer .send-btn { background: var(--accent); box-shadow: none; }
+.composer .send-btn.enabled:hover { transform: scale(1.05); filter: brightness(1.08); }
+.composer-wrap .voice-rec-btn { margin-bottom: 7px; }

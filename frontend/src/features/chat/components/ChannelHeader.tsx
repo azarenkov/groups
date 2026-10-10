@@ -236,24 +236,26 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               : i18n.t("offline", { ns: "chat" })}
         </span>
         <div className="right">
-          <button
-            type="button"
-            className="icon-btn"
-            title={i18n.t("voiceCallInvite", { ns: "chat" })}
-            disabled={blocked || blockedBy}
-            onClick={() => startDmCall(false)}
-          >
-            <Icon name="phone" size={16} />
-          </button>
-          <button
-            type="button"
-            className="icon-btn"
-            title={i18n.t("videoCallInvite", { ns: "chat" })}
-            disabled={blocked || blockedBy}
-            onClick={() => startDmCall(true)}
-          >
-            <Icon name="video" size={16} />
-          </button>
+          <div className="header-call-group">
+            <button
+              type="button"
+              className="icon-btn"
+              title={i18n.t("voiceCallInvite", { ns: "chat" })}
+              disabled={blocked || blockedBy}
+              onClick={() => startDmCall(false)}
+            >
+              <Icon name="phone" size={16} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              title={i18n.t("videoCallInvite", { ns: "chat" })}
+              disabled={blocked || blockedBy}
+              onClick={() => startDmCall(true)}
+            >
+              <Icon name="video" size={16} />
+            </button>
+          </div>
           {dm.isFriend !== false && bellPopover(
             i18n.t("notifications.dmTitle", { ns: "chat", name: dm.name }),
             [
