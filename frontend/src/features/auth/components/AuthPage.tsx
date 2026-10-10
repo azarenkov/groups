@@ -82,7 +82,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
         <div className="auth-card">
           <div className="auth-mark">
             <Mark size={52} />
-            <span className="auth-wordmark">Rift</span>
           </div>
 
           {(mode === "signin" || mode === "signup") && (
