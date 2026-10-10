@@ -12,7 +12,9 @@ const PARTIALS = [
   { ratio: 4.2, gain: 0.05, decay: 0.22 },
 ];
 
-function echoBus(ac: BaseAudioContext, dest: AudioNode): AudioNode {
+const ECHO_TAIL_S = 1.2;
+
+function echoBus(ac: BaseAudioContext, dest: AudioNode): { input: AudioNode; nodes: AudioNode[] } {
   const input = ac.createGain();
   const tone = ac.createBiquadFilter();
   tone.type = "lowpass";
@@ -36,7 +38,7 @@ function echoBus(ac: BaseAudioContext, dest: AudioNode): AudioNode {
   feedback.connect(delay);
   damp.connect(wet);
   wet.connect(dest);
-  return input;
+  return { input, nodes: [input, tone, delay, feedback, wet, damp] };
 }
 
 function mallet(ac: BaseAudioContext, dest: AudioNode, note: ChimeNote, start: number) {
@@ -66,8 +68,15 @@ export function playChime(ac: BaseAudioContext, notes: ChimeNote[], volume: numb
   const start = ac.currentTime + offset;
   let end = 0;
   for (const note of notes) {
-    mallet(ac, bus, note, start + note.at);
+    mallet(ac, bus.input, note, start + note.at);
     end = Math.max(end, note.at + (note.decay ?? 0.9));
+  }
+  const offline = typeof OfflineAudioContext !== "undefined" && ac instanceof OfflineAudioContext;
+  if (typeof window !== "undefined" && !offline) {
+    window.setTimeout(() => {
+      for (const node of bus.nodes) node.disconnect();
+      master.disconnect();
+    }, (offset + end + ECHO_TAIL_S) * 1000);
   }
   return end;
 }
