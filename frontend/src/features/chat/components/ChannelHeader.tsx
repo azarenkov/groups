@@ -10,6 +10,7 @@ import Icon from "../../../shared/ui/Icon";
 import { openReport } from "../../moderation/store/reportModalStore";
 import type { ChannelMeta, DmMeta } from "../types";
 import { useDetailsPanelStore } from "../store/detailsPanelStore";
+import UserBadge from "../../subscription/components/UserBadge";
 
 export interface ChannelHeaderProps {
   channel?: ChannelMeta;
@@ -119,6 +120,7 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             }}
           />
           <span className="ch-name">{dm.name}</span>
+          <UserBadge userId={dm.friendId} size="sm" />
           <Icon name="chev" size={10} className="dm-peer-chev" />
         </button>
         <span className="sep" />
