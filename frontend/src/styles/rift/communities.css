@@ -1593,3 +1593,18 @@ body.electron .topbar .account-status-menu { -webkit-app-region: no-drag; }
   border-bottom: 1px solid var(--hairline);
   width: 100%;
 }
+
+.sb.sb-anim {
+  min-width: 0;
+  overflow: hidden;
+  transition: width 240ms cubic-bezier(0.2, 0, 0, 1), padding 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+.sb.sb-anim > * { animation: sb-content-in 220ms ease-out both; }
+@keyframes sb-content-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb.sb-anim { transition: none; }
+  .sb.sb-anim > * { animation: none; }
+}

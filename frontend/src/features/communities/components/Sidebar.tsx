@@ -22,6 +22,7 @@ import { PANELS_CHANGED, announcePanels, clampPanelWidth } from "../../../shared
 
 const RESIZE_STEP = 16;
 const SIDEBAR_CSS_VAR = "--w-sidebar";
+const SIDEBAR_ANIMATION_MS = 260;
 
 interface SidebarProps {
   communities: Community[];
@@ -107,6 +108,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [flyoutId, setFlyoutId] = React.useState<string | null>(null);
   const flyoutRef = React.useRef<HTMLDivElement>(null);
   const showRail = collapsed;
+  const [animating, setAnimating] = React.useState(false);
+  const firstLayoutRef = React.useRef(true);
+
+  React.useEffect(() => {
+    if (firstLayoutRef.current) {
+      firstLayoutRef.current = false;
+      return;
+    }
+    setAnimating(true);
+    const timer = setTimeout(() => setAnimating(false), SIDEBAR_ANIMATION_MS);
+    return () => clearTimeout(timer);
+  }, [collapsed]);
   const shownWidth = showRail ? SIDEBAR_COLLAPSED_WIDTH : roomyWidth;
 
   React.useEffect(() => {
@@ -333,7 +346,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   if (showRail) {
     return (
-      <div className="sb sb-collapsed">
+      <div className={"sb sb-collapsed" + (animating ? " sb-anim" : "")}>
         <div className="sb-rail">
           <button type="button" className="sb-rail-btn sb-rail-open" title={t("expandSidebar")} aria-label={t("expandSidebar")} onClick={expand}>
             <Icon name="panel-open" size={20} />
@@ -446,7 +459,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   }
 
   return (
-    <div className="sb">
+    <div className={"sb" + (animating ? " sb-anim" : "")}>
       <SidebarHeader
         tab={tab}
         onSetTab={setTab}
