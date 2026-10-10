@@ -27,7 +27,7 @@ const SIDEBAR_FADE_OUT_MS = 100;
 const detailsPanelWidth = () => {
   const slot = document.querySelector<HTMLElement>(".details-slot");
   if (!slot || getComputedStyle(slot).position === "absolute") return 0;
-  return slot.getBoundingClientRect().width;
+  return slot.querySelector<HTMLElement>(".details-panel")?.getBoundingClientRect().width ?? 0;
 };
 const SIDEBAR_ANIMATION_MS = 300;
 
