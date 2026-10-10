@@ -22,7 +22,11 @@ import { PANELS_CHANGED, announcePanels, clampPanelWidth } from "../../../shared
 
 const RESIZE_STEP = 16;
 const SIDEBAR_CSS_VAR = "--w-sidebar";
-const SIDEBAR_ANIMATION_MS = 260;
+const SIDEBAR_FADE_OUT_MS = 100;
+const SIDEBAR_ANIMATION_MS = 300;
+
+const prefersMotion = () =>
+  typeof window.matchMedia === "function" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 interface SidebarProps {
   communities: Community[];
@@ -107,20 +111,39 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [roomyWidth, setRoomyWidth] = React.useState(width);
   const [flyoutId, setFlyoutId] = React.useState<string | null>(null);
   const flyoutRef = React.useRef<HTMLDivElement>(null);
-  const showRail = collapsed;
-  const [animating, setAnimating] = React.useState(false);
-  const firstLayoutRef = React.useRef(true);
+  const [showRail, setShowRail] = React.useState(collapsed);
+  const [phase, setPhase] = React.useState<"idle" | "out" | "in">("idle");
+  const showRailRef = React.useRef(showRail);
+  showRailRef.current = showRail;
 
   React.useEffect(() => {
-    if (firstLayoutRef.current) {
-      firstLayoutRef.current = false;
+    if (showRailRef.current === collapsed) {
+      setPhase("idle");
       return;
     }
-    setAnimating(true);
-    const timer = setTimeout(() => setAnimating(false), SIDEBAR_ANIMATION_MS);
-    return () => clearTimeout(timer);
+    if (!prefersMotion()) {
+      setShowRail(collapsed);
+      return;
+    }
+    setPhase("out");
+    const swap = setTimeout(() => {
+      setShowRail(collapsed);
+      setPhase("in");
+    }, SIDEBAR_FADE_OUT_MS);
+    const done = setTimeout(() => setPhase("idle"), SIDEBAR_ANIMATION_MS);
+    return () => {
+      clearTimeout(swap);
+      clearTimeout(done);
+    };
   }, [collapsed]);
-  const shownWidth = showRail ? SIDEBAR_COLLAPSED_WIDTH : roomyWidth;
+  const shownWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : roomyWidth;
+  const animClass = phase === "idle" ? "" : ` sb-anim sb-${phase}`;
+  const animStyle =
+    phase === "idle"
+      ? undefined
+      : ({
+          "--sb-content-w": `${showRail ? SIDEBAR_COLLAPSED_WIDTH - 12 : roomyWidth - 16}px`,
+        } as React.CSSProperties);
 
   React.useEffect(() => {
     const fit = () =>
@@ -197,7 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       onPointerDown={startResize}
       onDoubleClick={(e) => {
         e.currentTarget.blur();
-        if (showRail) expand();
+        if (collapsed) expand();
         else collapse();
       }}
       onKeyDown={(e) => {
@@ -206,7 +229,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           useSidebarLayoutStore.getState().nudge(e.key === "ArrowLeft" ? -RESIZE_STEP : RESIZE_STEP);
         } else if (e.key === "Enter") {
           e.preventDefault();
-          if (showRail) expand();
+          if (collapsed) expand();
           else collapse();
         }
       }}
@@ -346,7 +369,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   if (showRail) {
     return (
-      <div className={"sb sb-collapsed" + (animating ? " sb-anim" : "")}>
+      <div className={"sb sb-collapsed" + animClass} style={animStyle}>
         <div className="sb-rail">
           <button type="button" className="sb-rail-btn sb-rail-open" title={t("expandSidebar")} aria-label={t("expandSidebar")} onClick={expand}>
             <Icon name="panel-open" size={20} />
@@ -459,7 +482,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   }
 
   return (
-    <div className={"sb" + (animating ? " sb-anim" : "")}>
+    <div className={"sb" + animClass} style={animStyle}>
       <SidebarHeader
         tab={tab}
         onSetTab={setTab}
