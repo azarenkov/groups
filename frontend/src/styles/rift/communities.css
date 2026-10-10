@@ -1350,7 +1350,7 @@ textarea.ssv-input:focus-visible {
   background: transparent;
   transition: background var(--dur-fast);
 }
-.sb-resizer:hover::after, .sb-resizer:focus-visible::after, body.sb-resizing .sb-resizer::after { background: var(--accent); }
+.sb-resizer:hover::after, .sb-resizer:focus-visible::after, body.sb-resizing .sb-resizer::after { background: var(--hairline-strong); }
 .sb-resizer:focus-visible { outline: none; }
 body.sb-resizing { cursor: col-resize; user-select: none; }
 
@@ -1455,8 +1455,10 @@ body.electron .topbar button,
 body.electron .topbar input,
 body.electron .topbar .account-status-menu { -webkit-app-region: no-drag; }
 
-.sb-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.sb-head .sb-seg { flex: 1; min-width: 0; margin: 0; }
+.sb-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; padding: 0 4px; }
+.sb-head-top { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding-left: 6px; }
+.sb-head-title { font-size: 15px; font-weight: 700; color: var(--fg-1); letter-spacing: -0.01em; }
+.sb-head .sb-seg { margin: 0; }
 .sb-head-collapse { flex-shrink: 0; width: 34px; height: 34px; }
 
 .call-dock:empty { display: none; }
@@ -1506,3 +1508,73 @@ body.electron .topbar .account-status-menu { -webkit-app-region: no-drag; }
 .call-dock .voice-pill .vp-btn.leave:hover { background: var(--danger); filter: brightness(1.08); color: #fff; }
 .call-dock .vp-popover,
 .call-dock .acb-add { left: auto; right: 0; bottom: calc(100% + 8px); width: 280px; }
+
+.sb-flyout {
+  position: absolute; top: 0; bottom: 8px; left: calc(100% + 6px);
+  width: 280px; z-index: 40;
+  display: flex; flex-direction: column;
+  padding: 10px 6px;
+  overflow-y: auto;
+  background: var(--surface-panel);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg), inset 0 0 0 1px var(--hairline);
+  animation: popIn var(--dur-base) var(--ease-spring);
+}
+
+.topbar-search-wrap { position: relative; flex: 1; min-width: 0; display: flex; }
+.topbar-search-wrap .topbar-search { width: 100%; }
+.topbar-search.open { background: var(--surface-panel); box-shadow: inset 0 0 0 2px var(--fg-1); }
+.search-dd {
+  position: absolute; top: calc(100% + 8px); left: 0; right: 0;
+  z-index: 60;
+  display: flex; flex-direction: column;
+  max-height: min(70vh, 640px);
+  background: var(--surface-raised);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg), inset 0 0 0 1px var(--hairline);
+  overflow: hidden;
+  animation: popIn var(--dur-base) var(--ease-spring);
+}
+.search-dd-hint {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 16px;
+  font-size: 12px; color: var(--fg-3);
+  border-bottom: 1px solid var(--hairline);
+}
+.search-dd-hint kbd {
+  font: inherit; font-size: 11px; color: var(--fg-2);
+  min-width: 20px; padding: 1px 5px; text-align: center;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.search-dd-hint-gap { flex: 1; }
+.search-dd-list { overflow-y: auto; padding: 6px; }
+.search-dd-section + .search-dd-section, .search-dd-section + .sb-global-search { margin-top: 6px; }
+.search-dd-label {
+  padding: 8px 10px 4px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--fg-3);
+}
+.search-dd-item {
+  width: 100%;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px;
+  border: 0; border-radius: 8px;
+  background: transparent; color: var(--fg-1);
+  font: inherit; text-align: left;
+  cursor: pointer;
+}
+.search-dd-item:hover, .search-dd-item:focus-visible { background: var(--surface-hover); outline: none; }
+.search-dd-ava {
+  flex-shrink: 0;
+  width: 40px; height: 40px; border-radius: 8px;
+  color: #fff; font-weight: 600; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+}
+.search-dd-ava.round { border-radius: 50%; }
+.search-dd-icon { background: var(--surface-sunken); color: var(--fg-2); }
+.search-dd-text { display: flex; flex-direction: column; min-width: 0; }
+.search-dd-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.search-dd-name mark { background: transparent; color: var(--fg-1); font-weight: 700; }
+.search-dd-sub { font-size: 12px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.search-dd .sb-global-search .sb-view { padding: 0; }

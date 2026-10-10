@@ -8,9 +8,7 @@
   "createCommunity": "Создать сообщество",
   "addChannel": "Добавить канал",
   "noCommunities": "Сообществ пока нет. Создайте первый, чтобы начать.",
-  "noMatches": "Нет подходящих сообществ или каналов.",
   "noDirects": "Личных сообщений пока нет",
-  "noDirectMatches": "Ничего не найдено",
   "addDm": "Добавить личный чат",
   "addFriend": "Добавить друга",
   "pendingRequests": "Заявки в друзья",
@@ -82,5 +80,13 @@
   "showDirects": "Показать личные сообщения",
   "showCommunities": "Показать сообщества",
   "unreadIn": "{{name}}, непрочитанных: {{count}}",
-  "switchView": "Личные сообщения или сообщества"
+  "switchView": "Личные сообщения или сообщества",
+  "chats": "Чаты",
+  "searchNavigate": "Навигация",
+  "searchOpen": "Открыть",
+  "searchPeople": "Люди",
+  "searchCommunities": "Сообщества",
+  "searchChannels": "Каналы",
+  "searchDirect": "Личный чат",
+  "searchCommunity": "Сообщество"
 }

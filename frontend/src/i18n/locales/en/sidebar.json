@@ -8,9 +8,7 @@
   "createCommunity": "Create community",
   "addChannel": "Add channel",
   "noCommunities": "No communities yet. Create one to get started.",
-  "noMatches": "No matching communities or channels.",
   "noDirects": "No direct messages yet",
-  "noDirectMatches": "No matches",
   "addDm": "Add direct message",
   "addFriend": "Add friend",
   "pendingRequests": "Friend requests",
@@ -82,5 +80,13 @@
   "showDirects": "Show direct messages",
   "showCommunities": "Show communities",
   "unreadIn": "{{name}}, {{count}} unread",
-  "switchView": "Direct messages or communities"
+  "switchView": "Direct messages or communities",
+  "chats": "Chats",
+  "searchNavigate": "Navigate",
+  "searchOpen": "Open",
+  "searchPeople": "People",
+  "searchCommunities": "Communities",
+  "searchChannels": "Channels",
+  "searchDirect": "Direct message",
+  "searchCommunity": "Community"
 }

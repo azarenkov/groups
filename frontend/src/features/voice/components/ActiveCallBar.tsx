@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import VoicePill from "./VoicePill";
@@ -9,6 +9,7 @@ import { useSpeakingStore } from "../store/speakingStore";
 import { speakingName } from "../lib/speakingName";
 import { useAuthStore } from "../../auth/store/authStore";
 import { getLiveKitService } from "../lib/livekit";
+import { useFriendshipStore } from "../../social/store/friendshipStore";
 
 interface ActiveCallBarProps {
   dockId?: string;
@@ -34,6 +35,15 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
   const attention = useCallStore((s) => s.attention);
   const startedAt = useCallStore((s) => s.startedAt);
   const participants = useCallStore((s) => s.participants);
+  const ringing = useCallStore((s) => s.ringing);
+  const addParticipants = useCallStore((s) => s.addParticipants);
+  const friends = useFriendshipStore((s) => s.friends);
+  const candidates = useMemo(() => {
+    const busy = new Set([...Object.keys(participants), ...ringing]);
+    return friends
+      .filter((f) => f.status === "accepted" && !busy.has(f.friendId))
+      .map((f) => ({ id: f.friendId, name: f.friendName }));
+  }, [friends, participants, ringing]);
   const muted = useCallStore((s) => s.micMuted);
   const setMicMuted = useCallStore((s) => s.setMicMuted);
   const deafened = useCallStore((s) => s.deafened);
@@ -103,6 +113,18 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
       openTitle={t("openCall")}
       active={stageVisible}
       badge={attention && !focused}
+      invite={{
+        candidates,
+        onOpen: () => void useFriendshipStore.getState().loadAll(),
+        onAdd: (ids) =>
+          addParticipants(ids).catch((e) => console.warn("[call] add participants failed:", e)),
+        labels: {
+          title: t("addParticipants"),
+          add: t("add"),
+          cancel: t("cancel"),
+          empty: t("noFriendsToAdd"),
+        },
+      }}
       cameraOn={localCameraOn}
       onToggleCamera={() =>
         getLiveKitService()

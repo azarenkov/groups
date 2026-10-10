@@ -24,6 +24,18 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
   const { t } = useTranslation(["sidebar", "common"]);
   return (
     <div className="sb-head">
+      <div className="sb-head-top">
+        <span className="sb-head-title">{t("chats")}</span>
+        <button
+          type="button"
+          className="sb-rail-btn sb-head-collapse"
+          title={t("collapseSidebar")}
+          aria-label={t("collapseSidebar")}
+          onClick={onCollapse}
+        >
+          <Icon name="shrink" size={15} />
+        </button>
+      </div>
       <div className={"sb-seg " + tab}>
         <div className="sb-seg-thumb" />
         <button
@@ -72,15 +84,6 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
           {communityDotVisible && <span className="sb-seg-dot" />}
         </button>
       </div>
-      <button
-        type="button"
-        className="sb-rail-btn sb-head-collapse"
-        title={t("collapseSidebar")}
-        aria-label={t("collapseSidebar")}
-        onClick={onCollapse}
-      >
-        <Icon name="shrink" size={15} />
-      </button>
     </div>
   );
 };

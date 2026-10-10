@@ -6,6 +6,7 @@ import { usePushToTalkHeld } from "../hooks/usePushToTalkHeld";
 import { getLiveKitService, NoiseSuppressionMode } from "../lib/livekit";
 import { useVoiceSettingsStore } from "../store/voiceSettingsStore";
 import { UserAvatar } from "../../../shared/ui/Avatar";
+import StreamQualityPicker from "../../subscription/components/StreamQualityPicker";
 
 export interface VoicePillInvite {
   candidates: { id: string; name: string }[];
@@ -368,6 +369,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
             <Icon name="user-plus" size={16} />
           </button>
         )}
+        {screenOn && <StreamQualityPicker />}
         <button
           type="button"
           className={"vp-btn" + (open ? " on" : "")}

@@ -3,7 +3,6 @@ import i18nTheater from "../../../i18n";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
-import StreamQualityPicker from "../../subscription/components/StreamQualityPicker";
 import { VideoTileCell } from "./VideoStage";
 import {
   getLiveKitService,
@@ -224,24 +223,8 @@ interface VoiceTheaterProps {
   watched?: string[];
   onSetWatched?: (identity: string, on: boolean) => void;
   liveName?: string | null;
-  isMuted: boolean;
-  muteLocked?: boolean;
-  isDeafened?: boolean;
-  deafenLocked?: boolean;
-  onToggleDeafen?: () => void;
-  cameraOn: boolean;
-  screenOn: boolean;
-  onToggleMute: () => void;
-  onToggleCamera: () => void;
-  onToggleScreen: () => void;
-  onLeave: () => void;
   onMinimize?: () => void;
   minimizeTitle?: string;
-  invite?: {
-    candidates: { id: string; name: string }[];
-    onAdd: (ids: string[]) => void;
-    onOpen?: () => void;
-  };
   viewersFor?: (id: string) => number | undefined;
   onWatchChange?: (id: string, watching: boolean) => void;
   shares?: ScreenShareInfo[];
@@ -269,20 +252,8 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   watched,
   onSetWatched,
   liveName,
-  isMuted,
-  muteLocked,
-  isDeafened,
-  deafenLocked,
-  onToggleDeafen,
-  cameraOn,
-  screenOn,
-  onToggleMute,
-  onToggleCamera,
-  onToggleScreen,
-  onLeave,
   onMinimize,
   minimizeTitle,
-  invite,
   viewersFor,
   onWatchChange,
   shares,
@@ -294,49 +265,6 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
   deafenExcluded,
 }) => {
   const { t } = useTranslation(["call", "voice"]);
-  const [addOpen, setAddOpen] = useState(false);
-  const onInviteOpen = invite?.onOpen;
-  useEffect(() => {
-    if (addOpen) onInviteOpen?.();
-  }, [addOpen, onInviteOpen]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const inviteRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!addOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (inviteRef.current && !inviteRef.current.contains(e.target as Node)) {
-        setAddOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      e.stopPropagation();
-      setAddOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [addOpen]);
-
-  const toggleSelected = (id: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  const confirmAdd = () => {
-    const ids = Array.from(selected);
-    setAddOpen(false);
-    setSelected(new Set());
-    if (ids.length > 0) invite?.onAdd(ids);
-  };
-
   const available = shares ?? [];
   const sharingIds = new Set(available.map((share) => share.identity));
   const offered = watching === null || watching === undefined ? available : [];
@@ -745,128 +673,6 @@ const VoiceTheater: React.FC<VoiceTheaterProps> = ({
           </div>
         )}
 
-        <div className="call-pill">
-          <button
-            type="button"
-            className={"cp-btn" + (isMuted ? " danger" : "")}
-            disabled={muteLocked}
-            title={
-              muteLocked
-                ? t("voice:mutedByModerator")
-                : isMuted
-                  ? t("voice:unmuteSelf")
-                  : t("voice:muteSelf")
-            }
-            onClick={onToggleMute}
-          >
-            <Icon name={isMuted ? "mic-off" : "mic"} size={18} />
-          </button>
-          {onToggleDeafen && (
-            <button
-              type="button"
-              className={"cp-btn" + (isDeafened ? " danger" : "")}
-              disabled={deafenLocked}
-              title={
-                deafenLocked
-                  ? t("voice:deafenedByModerator")
-                  : isDeafened
-                    ? t("voice:undeafenSelf")
-                    : t("voice:deafenSelf")
-              }
-              onClick={onToggleDeafen}
-            >
-              <Icon name={isDeafened ? "headphones-off" : "headphones"} size={18} />
-            </button>
-          )}
-          <button
-            type="button"
-            className={"cp-btn" + (cameraOn ? " active" : "")}
-            title={cameraOn ? t("voice:stopCamera") : t("voice:startCamera")}
-            onClick={onToggleCamera}
-          >
-            <Icon name="camera" size={18} />
-          </button>
-          <button
-            type="button"
-            className={"cp-btn" + (screenOn ? " active" : "")}
-            title={
-              screenOn
-                ? t("voice:stopScreenShare")
-                : t("voice:startScreenShare")
-            }
-            onClick={onToggleScreen}
-          >
-            <Icon name="monitor" size={18} />
-          </button>
-          {screenOn && <StreamQualityPicker />}
-          {invite && (
-            <div className="call-invite" ref={inviteRef}>
-              <button
-                type="button"
-                className={"cp-btn" + (addOpen ? " active" : "")}
-                title={t("addParticipants")}
-                onClick={() => setAddOpen((v) => !v)}
-              >
-                <Icon name="user-plus" size={18} />
-              </button>
-              {addOpen && (
-                <div className="acb-add call-invite-pop">
-                  <div className="acb-add-title">{t("addParticipants")}</div>
-                  <div className="acb-add-list">
-                    {invite.candidates.length === 0 && (
-                      <div className="acb-add-empty">{t("noFriendsToAdd")}</div>
-                    )}
-                    {invite.candidates.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className={
-                          "acb-add-item" + (selected.has(c.id) ? " on" : "")
-                        }
-                        onClick={() => toggleSelected(c.id)}
-                      >
-                        <UserAvatar
-                          userId={c.id}
-                          name={c.name}
-                          className="acb-add-ava"
-                          style={{ display: "inline-flex" }}
-                        />
-                        <span className="acb-add-name">{c.name}</span>
-                        {selected.has(c.id) && <Icon name="check" size={14} />}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="acb-add-foot">
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => setAddOpen(false)}
-                    >
-                      {t("cancel")}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn primary"
-                      disabled={selected.size === 0}
-                      onClick={confirmAdd}
-                    >
-                      {t("add")}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          <span className="cp-sep" />
-          <button
-            type="button"
-            className="cp-btn leave"
-            title={t("voice:leave")}
-            onClick={onLeave}
-          >
-            <Icon name="logout" size={18} />
-          </button>
-        </div>
       </div>
 
       {(mainVideo || gridKind) && stripSource.length > 0 && (

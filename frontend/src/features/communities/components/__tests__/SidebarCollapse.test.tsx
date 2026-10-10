@@ -31,14 +31,9 @@ const handlers = () => ({
   onOpenPending: jest.fn(),
   onCreateCommunity: jest.fn(),
   onJoinCommunity: jest.fn(),
-  onSearchQueryChange: jest.fn(),
 });
 
-const Harness: React.FC<{ h: ReturnType<typeof handlers>; pendingCount: number; searchQuery: string }> = ({
-  h,
-  pendingCount,
-  searchQuery,
-}) => {
+const Harness: React.FC<{ h: ReturnType<typeof handlers>; pendingCount: number }> = ({ h, pendingCount }) => {
   const [tab, setTab] = React.useState<"dms" | "communities">("dms");
   const [openCommunityId, setOpenCommunityId] = React.useState<string | null>(null);
   const nav: SidebarNav = { tab, setTab, openCommunityId, setOpenCommunityId };
@@ -47,7 +42,12 @@ const Harness: React.FC<{ h: ReturnType<typeof handlers>; pendingCount: number; 
       {...h}
       nav={nav}
       communities={[{ id: "c1", name: "Gamers", ownerId: "me" } as never]}
-      channelsByCommunity={{}}
+      channelsByCommunity={{
+        c1: [
+          { id: "ch1", name: "general", kind: "text", communityId: "c1" } as never,
+          { id: "ch2", name: "lobby", kind: "voice", communityId: "c1" } as never,
+        ],
+      }}
       expandedCommunityIds={new Set()}
       selectedChannelId={null}
       joinedChannelId={null}
@@ -55,14 +55,13 @@ const Harness: React.FC<{ h: ReturnType<typeof handlers>; pendingCount: number; 
       directs={[dm("u1", "Alice", true), dm("u2", "Bob")]}
       pendingCount={pendingCount}
       currentUserId="me"
-      searchQuery={searchQuery}
       unreadByDm={{ u1: 4 }}
     />
   );
 };
 
-const renderSidebar = (h = handlers(), pendingCount = 0, searchQuery = "") => {
-  render(<Harness h={h} pendingCount={pendingCount} searchQuery={searchQuery} />);
+const renderSidebar = (h = handlers(), pendingCount = 0) => {
+  render(<Harness h={h} pendingCount={pendingCount} />);
   return h;
 };
 
@@ -114,9 +113,29 @@ it("toggles from the resize handle with a double click and the keyboard", () => 
   expect(useSidebarLayoutStore.getState().collapsed).toBe(true);
 });
 
-it("starts on the rail by default and shows the full list while searching", () => {
+it("opens a community's channels next to the rail and closes after picking one", () => {
   act(() => useSidebarLayoutStore.setState({ collapsed: true }));
-  renderSidebar(handlers(), 0, "ali");
-  expect(screen.getByText("Alice")).toBeInTheDocument();
+  const h = renderSidebar();
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
+  fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
+  const flyout = screen.getByRole("dialog", { name: "Gamers" });
+  expect(flyout).toHaveTextContent("general");
+  expect(flyout).toHaveTextContent("lobby");
+  fireEvent.click(screen.getByText("general"));
+  expect(h.onSelectChannel).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }), expect.objectContaining({ id: "ch1" }));
+  expect(screen.queryByRole("dialog", { name: "Gamers" })).toBeNull();
   expect(useSidebarLayoutStore.getState().collapsed).toBe(true);
+});
+
+it("closes the channel panel with Escape or a second click", () => {
+  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
+  renderSidebar();
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
+  fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
+  expect(screen.getByRole("dialog", { name: "Gamers" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
 });

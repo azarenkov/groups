@@ -1487,13 +1487,6 @@ textarea.s-input {
   background: var(--accent, #0a84ff); color: #fff;
   box-shadow: 0 4px 14px rgba(10, 132, 255, 0.5);
 }
-.cp-btn.danger { background: var(--danger, #ff453a); color: #fff; }
-.cp-btn.leave {
-  background: var(--danger, #ff453a); color: #fff;
-  box-shadow: 0 4px 14px rgba(255, 69, 58, 0.45);
-}
-.cp-btn.leave:hover { filter: brightness(1.08); background: var(--danger, #ff453a); }
-.cp-sep { width: 1px; height: 28px; background: rgba(255, 255, 255, 0.14); margin: 0 2px; }
 .cs-tile {
   position: relative; height: 100px; flex: 0 0 auto;
   border-radius: 12px; overflow: hidden;

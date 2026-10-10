@@ -17,6 +17,7 @@ interface AppTopBarProps {
   currentUserStatus: string;
   onOpenSettings: () => void;
   onSetStatus?: (status: "online" | "offline") => void;
+  renderResults?: (done: () => void) => React.ReactNode;
 }
 
 const AppTopBar: React.FC<AppTopBarProps> = ({
@@ -31,15 +32,44 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
   currentUserStatus,
   onOpenSettings,
   onSetStatus,
+  renderResults,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   const searchRef = React.useRef<HTMLInputElement>(null);
   const switcherBinding = effectiveBinding(useActiveBindings(), "quickSwitcher");
   const switcherLabel = switcherBinding ? bindingKeycaps(switcherBinding).join(IS_MAC ? "" : "+") : null;
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+  const [open, setOpen] = React.useState(false);
   useHotkey("quickSwitcher", () => {
     searchRef.current?.focus();
     searchRef.current?.select();
   });
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const items = () =>
+    Array.from(wrapRef.current?.querySelectorAll<HTMLButtonElement>(".search-dd-list button:not(:disabled)") ?? []);
+  const moveFocus = (from: Element | null, delta: 1 | -1) => {
+    const list = items();
+    if (list.length === 0) return;
+    const index = from ? list.indexOf(from as HTMLButtonElement) : -1;
+    const next = index + delta;
+    if (next < 0) searchRef.current?.focus();
+    else list[Math.min(next, list.length - 1)].focus();
+  };
+  const done = () => {
+    setOpen(false);
+    onQueryChange("");
+    searchRef.current?.blur();
+  };
+  const showResults = open && !!renderResults && query.trim().length > 0;
 
   return (
     <header className="topbar">
@@ -77,39 +107,68 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
         >
           <Icon name="home" size={20} />
         </button>
-        <div className="topbar-search">
-          <Icon name="search" size={18} />
-          <input
-            ref={searchRef}
-            placeholder={t("searchPlaceholder")}
-            aria-label={t("searchPlaceholder")}
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                e.preventDefault();
-                onQueryChange("");
-                searchRef.current?.blur();
-              }
-            }}
-          />
-          {query ? (
-            <button
-              type="button"
-              tabIndex={-1}
-              className="topbar-search-clear"
-              title={t("common:close")}
-              aria-label={t("common:close")}
-              onClick={() => {
-                onQueryChange("");
-                searchRef.current?.focus();
+        <div
+          className="topbar-search-wrap"
+          ref={wrapRef}
+          onKeyDown={(e) => {
+            if (e.target === searchRef.current) return;
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault();
+              moveFocus(document.activeElement, e.key === "ArrowDown" ? 1 : -1);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              done();
+            }
+          }}
+        >
+          <div className={"topbar-search" + (showResults ? " open" : "")}>
+            <Icon name="search" size={18} />
+            <input
+              ref={searchRef}
+              placeholder={t("searchPlaceholder")}
+              aria-label={t("searchPlaceholder")}
+              value={query}
+              onChange={(e) => {
+                onQueryChange(e.target.value);
+                setOpen(true);
               }}
-            >
-              <Icon name="x" size={12} />
-            </button>
-          ) : (
-            switcherLabel && <kbd>{switcherLabel}</kbd>
-          )}
+              onFocus={() => setOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  done();
+                } else if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setOpen(true);
+                  moveFocus(null, 1);
+                } else if (e.key === "Enter") {
+                  const first = items()[0];
+                  if (first) {
+                    e.preventDefault();
+                    first.click();
+                  }
+                }
+              }}
+            />
+            {query ? (
+              <button
+                type="button"
+                tabIndex={-1}
+                className="topbar-search-clear"
+                title={t("common:close")}
+                aria-label={t("common:close")}
+                onClick={() => {
+                  onQueryChange("");
+                  searchRef.current?.focus();
+                }}
+              >
+                <Icon name="x" size={12} />
+              </button>
+            ) : (
+              switcherLabel && <kbd>{switcherLabel}</kbd>
+            )}
+          </div>
+          {showResults && renderResults?.(done)}
         </div>
       </div>
 

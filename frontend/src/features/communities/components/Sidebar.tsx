@@ -9,8 +9,6 @@ import DmList from "./sidebar/DmList";
 import CommunityList from "./sidebar/CommunityList";
 import CommunityPage from "./sidebar/CommunityPage";
 import SidebarHeader from "./sidebar/SidebarHeader";
-import GlobalSearchResults from "../../search/components/GlobalSearchResults";
-import type { OpenMessageLink } from "../../chat/lib/messageLink";
 import { pinnedFirst, useConversationPinsStore } from "../store/conversationPinsStore";
 import { useSidebarPermissions } from "./sidebar/permissions";
 import type { SidebarVoiceMember } from "./sidebar/types";
@@ -51,14 +49,11 @@ interface SidebarProps {
   currentUserId?: string;
   voiceMembers?: SidebarVoiceMember[];
   voiceMembersByChannel?: Record<string, SidebarVoiceMember[]>;
-  searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
   unreadByChannel?: Record<string, number>;
   unreadByDm?: Record<string, number>;
   channelToCommunity?: Record<string, string>;
   onLeaveCommunity?: (community: Community) => void;
   onCallDm?: (dm: DirectConversation) => void;
-  onOpenSearchResult?: (link: OpenMessageLink) => void;
   nav: SidebarNav;
 }
 
@@ -95,14 +90,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentUserId,
   voiceMembers,
   voiceMembersByChannel,
-  searchQuery,
-  onSearchQueryChange,
   unreadByChannel = {},
   unreadByDm = {},
   channelToCommunity = {},
   onLeaveCommunity,
   onCallDm,
-  onOpenSearchResult,
   nav,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
@@ -112,8 +104,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const collapsed = useSidebarLayoutStore((s) => s.collapsed);
   const width = useSidebarLayoutStore((s) => s.width);
   const [roomyWidth, setRoomyWidth] = React.useState(width);
-  const isSearching = searchQuery.trim().length > 0;
-  const showRail = collapsed && !isSearching;
+  const [flyoutId, setFlyoutId] = React.useState<string | null>(null);
+  const flyoutRef = React.useRef<HTMLDivElement>(null);
+  const showRail = collapsed;
   const shownWidth = showRail ? SIDEBAR_COLLAPSED_WIDTH : roomyWidth;
 
   React.useEffect(() => {
@@ -153,7 +146,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const collapse = () => {
-    if (searchQuery) onSearchQueryChange("");
     useSidebarLayoutStore.getState().setCollapsed(true);
   };
   const expand = () => useSidebarLayoutStore.getState().setCollapsed(false);
@@ -171,9 +163,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       handle.removeEventListener("pointerup", stop);
       handle.removeEventListener("pointercancel", stop);
       document.body.classList.remove("sb-resizing");
-      const layout = useSidebarLayoutStore.getState();
-      if (layout.collapsed && searchQuery) onSearchQueryChange("");
-      layout.persist();
+      handle.blur();
+      useSidebarLayoutStore.getState().persist();
     };
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", stop);
@@ -191,12 +182,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       aria-valuenow={shownWidth}
       tabIndex={0}
       onPointerDown={startResize}
-      onDoubleClick={() => (showRail ? expand() : collapse())}
+      onDoubleClick={(e) => {
+        e.currentTarget.blur();
+        if (showRail) expand();
+        else collapse();
+      }}
       onKeyDown={(e) => {
         if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
           e.preventDefault();
           useSidebarLayoutStore.getState().nudge(e.key === "ArrowLeft" ? -RESIZE_STEP : RESIZE_STEP);
-          if (useSidebarLayoutStore.getState().collapsed && searchQuery) onSearchQueryChange("");
         } else if (e.key === "Enter") {
           e.preventDefault();
           if (showRail) expand();
@@ -206,56 +200,27 @@ const Sidebar: React.FC<SidebarProps> = ({
     />
   );
 
-  const q = searchQuery.trim().toLowerCase();
-  const match = (s: string) => s.toLowerCase().includes(q);
-  const isFiltering = q.length > 0;
-
   const dmPins = useConversationPinsStore((s) => s.dms);
   const communityPins = useConversationPinsStore((s) => s.communities);
-  const visibleDirects = pinnedFirst(isFiltering ? directs.filter((d) => match(d.name)) : directs, dmPins);
-
-  const filteredCommunities = pinnedFirst(
-    isFiltering
-      ? communities.filter((community) => {
-          if (match(community.name)) return true;
-          const channels = channelsByCommunity[community.id] || [];
-          return channels.some((c) => match(c.name));
-        })
-      : communities,
-    communityPins,
-  );
-
-  const visibleChannelsFor = (communityId: string) => {
-    const channels = channelsByCommunity[communityId] || [];
-    if (!isFiltering) return channels;
-    const community = communities.find((s) => s.id === communityId);
-    if (community && match(community.name)) return channels;
-    return channels.filter((c) => match(c.name));
-  };
-
-  const settleAfterPick = (target: "dms" | "communities") => {
-    if (!isFiltering) return;
-    setTab(target);
-    onSearchQueryChange("");
-  };
+  const visibleDirects = pinnedFirst(directs, dmPins);
+  const orderedCommunities = pinnedFirst(communities, communityPins);
+  const channelsOf = (communityId: string) => channelsByCommunity[communityId] || [];
 
   const pickDm = (d: DirectConversation) => {
     onSelectDm(d);
-    settleAfterPick("dms");
   };
 
   const pickCommunity = (community: Community) => {
     if (!expandedCommunityIds.has(community.id)) onToggleCommunity(community.id);
     setOpenCommunityId(community.id);
     onSelectCommunity(community.id);
-    settleAfterPick("communities");
   };
 
   const pickChannel = (community: Community, channel: Channel) => {
+    setFlyoutId(null);
     onSelectChannel(community, channel);
     if (!expandedCommunityIds.has(community.id)) onToggleCommunity(community.id);
     setOpenCommunityId(community.id);
-    settleAfterPick("communities");
   };
 
   const totalDmUnread = Object.values(unreadByDm).reduce((a, b) => a + b, 0);
@@ -296,7 +261,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const dmList = (
     <DmList
       directs={visibleDirects}
-      isFiltering={isFiltering}
       selectedDmId={selectedDmId}
       unreadByDm={unreadByDm}
       pendingCount={pendingCount}
@@ -310,10 +274,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const communityView =
-    openCommunity && !isFiltering ? (
+    openCommunity ? (
       <CommunityPage
         community={openCommunity}
-        channels={visibleChannelsFor(openCommunity.id)}
+        channels={channelsOf(openCommunity.id)}
         perms={perms}
         onInviteCommunity={onInviteCommunity}
         onOpenCommunitySettings={onOpenCommunitySettings}
@@ -322,16 +286,13 @@ const Sidebar: React.FC<SidebarProps> = ({
       />
     ) : (
       <CommunityList
-        communities={filteredCommunities}
-        isFiltering={isFiltering}
+        communities={orderedCommunities}
         channelsByCommunity={channelsByCommunity}
         voiceMembersByChannel={voiceMembersByChannel}
         unreadFor={communityUnreadFor}
-        visibleChannelsFor={visibleChannelsFor}
         onCreateCommunity={onCreateCommunity}
         onJoinCommunity={onJoinCommunity}
         onPick={pickCommunity}
-        renderChannel={renderChannel}
         perms={perms}
         currentUserId={currentUserId}
         onInviteCommunity={onInviteCommunity}
@@ -339,6 +300,36 @@ const Sidebar: React.FC<SidebarProps> = ({
         onLeaveCommunity={onLeaveCommunity}
       />
     );
+
+  const flyoutCommunity = showRail ? (communities.find((c) => c.id === flyoutId) ?? null) : null;
+
+  React.useEffect(() => {
+    if (!flyoutCommunity) return;
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (flyoutRef.current?.contains(target)) return;
+      if (target.closest?.(`[data-community-id="${flyoutCommunity.id}"]`)) return;
+      setFlyoutId(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFlyoutId(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [flyoutCommunity]);
+
+  const pickFromRail = (community: Community) => {
+    if (flyoutId === community.id) {
+      setFlyoutId(null);
+      return;
+    }
+    pickCommunity(community);
+    setFlyoutId(community.id);
+  };
 
   if (showRail) {
     return (
@@ -391,8 +382,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {tab === "dms" ? (
             <DmList
               compact
-              directs={pinnedFirst(directs, dmPins)}
-              isFiltering={false}
+              directs={visibleDirects}
               selectedDmId={selectedDmId}
               unreadByDm={unreadByDm}
               pendingCount={pendingCount}
@@ -406,17 +396,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           ) : (
             <CommunityList
               compact
-              activeCommunityId={openCommunityId}
-              communities={pinnedFirst(communities, communityPins)}
-              isFiltering={false}
+              activeCommunityId={flyoutId ?? openCommunityId}
+              communities={orderedCommunities}
               channelsByCommunity={channelsByCommunity}
               voiceMembersByChannel={voiceMembersByChannel}
               unreadFor={communityUnreadFor}
-              visibleChannelsFor={visibleChannelsFor}
               onCreateCommunity={onCreateCommunity}
               onJoinCommunity={onJoinCommunity}
-              onPick={pickCommunity}
-              renderChannel={renderChannel}
+              onPick={pickFromRail}
               perms={perms}
               currentUserId={currentUserId}
               onInviteCommunity={onInviteCommunity}
@@ -425,6 +412,19 @@ const Sidebar: React.FC<SidebarProps> = ({
             />
           )}
         </div>
+        {flyoutCommunity && (
+          <div className="sb-flyout" role="dialog" aria-label={flyoutCommunity.name} ref={flyoutRef}>
+            <CommunityPage
+              community={flyoutCommunity}
+              channels={channelsOf(flyoutCommunity.id)}
+              perms={perms}
+              onInviteCommunity={onInviteCommunity}
+              onOpenCommunitySettings={onOpenCommunitySettings}
+              onAddChannel={onAddChannel}
+              renderChannel={renderChannel}
+            />
+          </div>
+        )}
         {resizer}
       </div>
     );
@@ -443,15 +443,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       />
 
       <div className="sb-scroll">
-        {isFiltering ? (
-          <>
-            {dmList}
-            {communityView}
-            {onOpenSearchResult && (
-              <GlobalSearchResults query={searchQuery} currentUserId={currentUserId} onOpen={onOpenSearchResult} />
-            )}
-          </>
-        ) : tab === "dms" ? (
+        {tab === "dms" ? (
           dmList
         ) : (
           communityView

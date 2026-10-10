@@ -22,7 +22,6 @@ import { useLongPress } from "../../../../shared/ui/contextMenu/useLongPress";
 
 interface DmListProps {
   directs: DirectConversation[];
-  isFiltering: boolean;
   selectedDmId: string | null;
   unreadByDm: Record<string, number>;
   pendingCount: number;
@@ -37,7 +36,6 @@ interface DmListProps {
 
 const DmList: React.FC<DmListProps> = ({
   directs,
-  isFiltering,
   selectedDmId,
   unreadByDm,
   pendingCount,
@@ -145,35 +143,31 @@ const DmList: React.FC<DmListProps> = ({
   }
   return (
     <div className="sb-view">
-      {!isFiltering && (
-        <>
-          <button type="button" className="sb-add-row" onClick={onAddFriend}>
-            <span className="sb-add-row-ico">
-              <Icon name="user-plus" size={13} />
-            </span>
-            <span>{t("addFriend")}</span>
-          </button>
-          <button
-            type="button"
-            className="sb-add-row secondary"
-            onClick={onOpenPending}
-          >
-            <span className="sb-add-row-ico">
-              <Icon name="mail" size={13} />
-            </span>
-            <span>{t("pendingRequests")}</span>
-            {pendingCount > 0 && (
-              <span className="sb-add-row-badge">{pendingCount}</span>
-            )}
-          </button>
-        </>
-      )}
+      <button type="button" className="sb-add-row" onClick={onAddFriend}>
+        <span className="sb-add-row-ico">
+          <Icon name="user-plus" size={13} />
+        </span>
+        <span>{t("addFriend")}</span>
+      </button>
+      <button
+        type="button"
+        className="sb-add-row secondary"
+        onClick={onOpenPending}
+      >
+        <span className="sb-add-row-ico">
+          <Icon name="mail" size={13} />
+        </span>
+        <span>{t("pendingRequests")}</span>
+        {pendingCount > 0 && (
+          <span className="sb-add-row-badge">{pendingCount}</span>
+        )}
+      </button>
       <div className="sb-vhead">
         <span className="sb-vhead-label">{t("directMessages")}</span>
       </div>
       {directs.length === 0 && (
         <div className="sb-empty">
-          {isFiltering ? t("noDirectMatches") : t("noDirects")}
+          {t("noDirects")}
         </div>
       )}
       {directs.map((d) => {

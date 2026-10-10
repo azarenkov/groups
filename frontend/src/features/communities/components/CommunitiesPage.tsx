@@ -39,6 +39,7 @@ import { useHotkey } from "../../settings/lib/hotkeys";
 import CommunitySettingsView from "./CommunitySettingsView";
 import ModalsHost from "./ModalsHost";
 import AppTopBar from "./AppTopBar";
+import SearchDropdown from "./SearchDropdown";
 import { useSidebarNavigation } from "./sidebar/useSidebarNavigation";
 import { useVoiceSession } from "../../voice/hooks/useVoiceSession";
 import { useHomeRefresh } from "../../home/hooks/useHomeRefresh";
@@ -691,6 +692,28 @@ const CommunitiesPage: React.FC = () => {
         currentUserStatus={userStatus}
         onOpenSettings={() => setSettingsOpen(true)}
         onSetStatus={handleSetStatus}
+        renderResults={(done) => (
+          <SearchDropdown
+            query={sidebarQuery}
+            currentUserId={user?.id}
+            directs={acceptedFriends}
+            communities={communities}
+            channelsByCommunity={channelsByCommunity}
+            onPickDm={handleSelectDm}
+            onPickCommunity={(community) => {
+              if (!expandedCommunityIds.has(community.id)) selection.handleToggleCommunity(community.id);
+              sidebarNav.setOpenCommunityId(community.id);
+              selection.handleSelectCommunity(community.id);
+            }}
+            onPickChannel={(community, channel) => {
+              handleSelectChannel(community, channel);
+              if (!expandedCommunityIds.has(community.id)) selection.handleToggleCommunity(community.id);
+              sidebarNav.setOpenCommunityId(community.id);
+            }}
+            onOpenResult={setPendingMessageLink}
+            onDone={done}
+          />
+        )}
       />
       <div className="body-area">
         <Sidebar
@@ -745,9 +768,6 @@ const CommunitiesPage: React.FC = () => {
             setIsCommunityModalOpen(true);
           }}
           currentUserId={user?.id}
-          searchQuery={sidebarQuery}
-          onSearchQueryChange={setSidebarQuery}
-          onOpenSearchResult={setPendingMessageLink}
           unreadByChannel={unreadByChannel}
           unreadByDm={unreadByDm}
           channelToCommunity={channelToCommunity}
