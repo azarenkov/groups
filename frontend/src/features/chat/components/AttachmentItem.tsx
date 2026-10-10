@@ -89,7 +89,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
           setVisible(true);
         } else {
           setVisible(false);
-          if (!viewerOpenRef.current && urlRef.current) {
+          if (!hasPoster && !viewerOpenRef.current && urlRef.current) {
             releaseImageUrl(cacheKey, urlRef.current);
             setUrl(null);
           }
@@ -99,7 +99,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [cacheKey, hasPreview]);
+  }, [cacheKey, hasPreview, hasPoster]);
 
   React.useEffect(() => {
     if (!hasPreview || url || !visible) return;
