@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
+import ConfirmModal from "../../../../shared/ui/ConfirmModal";
 import { usePresenceStore } from "../../../social/store/presenceStore";
 import { useUserNamesStore } from "../../../social/store/userNamesStore";
 import { UserAvatar } from "../../../../shared/ui/Avatar";
@@ -14,6 +15,7 @@ interface MembersSectionProps {
   currentUserId?: string;
   rolesData: ReturnType<typeof useRolesStore.getState>["byCommunity"][string] | undefined;
   canKick: (memberId: string) => boolean;
+  kickBlocked: (memberId: string) => boolean;
   kickMember: (memberId: string) => Promise<void>;
   kickError: string | null;
 }
@@ -24,6 +26,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({
   currentUserId,
   rolesData,
   canKick,
+  kickBlocked,
   kickMember,
   kickError,
 }) => {
@@ -43,6 +46,7 @@ export const MembersSection: React.FC<MembersSectionProps> = ({
     : effectiveMembers;
   const online = usePresenceStore((s) => s.online);
   const selfOnline = usePresenceStore((s) => s.selfOnline);
+  const [kickTarget, setKickTarget] = React.useState<{ id: string; name: string } | null>(null);
 
   return (
             <>
@@ -109,21 +113,40 @@ export const MembersSection: React.FC<MembersSectionProps> = ({
                         >
                           {m.id === community.ownerId ? t("roleOwner") : t("roleMember")}
                         </span>
-                        {canKick(m.id) && (
+                        {canKick(m.id) ? (
                           <button
                             type="button"
                             className="ssv-row-delete"
                             title={t("kickMember")}
-                            onClick={() => void kickMember(m.id)}
+                            aria-label={t("kickMember")}
+                            onClick={() => setKickTarget({ id: m.id, name: m.name })}
                           >
                             <Icon name="logout" size={14} />
                           </button>
-                        )}
+                        ) : kickBlocked(m.id) ? (
+                          <span className="ssv-kick-blocked" title={t("kickBlockedRank")} aria-label={t("kickBlockedRank")}>
+                            <Icon name="logout" size={14} />
+                          </span>
+                        ) : null}
                       </div>
                     </React.Fragment>
                   );
                 })}
               </div>
+      {kickTarget && (
+        <ConfirmModal
+          title={t("kickConfirmTitle", { name: kickTarget.name })}
+          subtitle={t("kickConfirmSub", { community: community.name })}
+          confirmLabel={t("kickConfirm")}
+          danger
+          onCancel={() => setKickTarget(null)}
+          onConfirm={() => {
+            const target = kickTarget;
+            setKickTarget(null);
+            void kickMember(target.id);
+          }}
+        />
+      )}
             </>
   );
 };

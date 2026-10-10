@@ -92,6 +92,8 @@ const CommunitySettingsView: React.FC<CommunitySettingsViewProps> = ({
   };
   const canKick = (memberId: string) =>
     canKickMembers && memberId !== currentUserId && outranksMember(memberId);
+  const kickBlocked = (memberId: string) =>
+    canKickMembers && memberId !== currentUserId && memberId !== community.ownerId && !outranksMember(memberId);
   const [kickError, setKickError] = React.useState<string | null>(null);
   const kickMember = async (memberId: string) => {
     setKickError(null);
@@ -282,6 +284,7 @@ const CommunitySettingsView: React.FC<CommunitySettingsViewProps> = ({
               currentUserId={currentUserId}
               rolesData={rolesData}
               canKick={canKick}
+              kickBlocked={kickBlocked}
               kickMember={kickMember}
               kickError={kickError}
             />
