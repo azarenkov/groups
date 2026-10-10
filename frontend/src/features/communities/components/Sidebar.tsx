@@ -137,9 +137,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
   }, [collapsed]);
   const shownWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : roomyWidth;
-  const animClass = phase === "idle" ? "" : ` sb-anim sb-${phase}`;
+  const shownPhase = showRail !== collapsed && prefersMotion() ? "out" : phase;
+  const animClass = shownPhase === "idle" ? "" : ` sb-anim sb-${shownPhase}`;
   const animStyle =
-    phase === "idle"
+    shownPhase === "idle"
       ? undefined
       : ({
           "--sb-content-w": `${showRail ? SIDEBAR_COLLAPSED_WIDTH - 12 : roomyWidth - 16}px`,
