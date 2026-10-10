@@ -1773,7 +1773,8 @@ button.ssv-row-delete:focus-visible {
 .join-status { margin-top: 16px; }
 .join-loading { display: flex; justify-content: center; padding: 18px 0; }
 .join-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
-.join-actions .srvm-btn { width: 100%; justify-content: center; }
+.join-actions .srvm-btn { width: 100%; height: 48px; justify-content: center; font-size: 15px; }
+.join-actions .srvm-btn:not(.primary) { box-shadow: inset 0 0 0 1px var(--fg-4); color: var(--fg-1); }
 .join-open-app { text-decoration: none; }
 .image-viewer-overlay {
   position: fixed; inset: 0;

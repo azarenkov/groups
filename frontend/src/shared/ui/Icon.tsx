@@ -2,6 +2,8 @@ import React from "react";
 
 export type IconName =
   | "sticker"
+  | "arrow-up"
+  | "arrow-down"
   | "reply"
   | "forward"
   | "hash"
@@ -436,6 +438,18 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   "chev-left": <path d="m15 18-6-6 6-6" />,
+  "arrow-up": (
+    <>
+      <path d="M12 19V5" />
+      <path d="m5 12 7-7 7 7" />
+    </>
+  ),
+  "arrow-down": (
+    <>
+      <path d="M12 5v14" />
+      <path d="m19 12-7 7-7-7" />
+    </>
+  ),
   sticker: (
     <>
       <path d="M15.5 3H7a4 4 0 0 0-4 4v10a4 4 0 0 0 4 4h6.5L21 13.5V7a4 4 0 0 0-4-4h-1.5" />
