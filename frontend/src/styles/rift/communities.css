@@ -1426,7 +1426,6 @@ body.sb-resizing { cursor: col-resize; user-select: none; }
 }
 .topbar-search-clear:hover { background: var(--surface-hover); color: var(--fg-1); }
 .account-menu { display: flex; align-items: center; gap: 6px; }
-.account-settings { width: 36px; height: 36px; border-radius: 50%; }
 .account-me { position: relative; }
 .account-avatar {
   width: 44px; height: 44px; padding: 0;
@@ -1434,33 +1433,65 @@ body.sb-resizing { cursor: col-resize; user-select: none; }
   background: var(--surface-sunken);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
+  transition: transform var(--dur-fast), background var(--dur-fast);
 }
-.account-avatar:hover { background: var(--surface-hover); }
+.account-avatar:hover { background: var(--surface-hover); transform: scale(1.04); }
+.account-avatar.on { background: var(--surface-hover); }
 .account-ava {
   position: relative;
-  width: 34px; height: 34px; border-radius: 50%;
+  width: 32px; height: 32px; border-radius: 50%;
   background: linear-gradient(135deg, #a7d7f7, #0071e3);
-  color: #fff; font-weight: 600; font-size: 14px;
+  color: #fff; font-weight: 700; font-size: 14px;
   display: flex; align-items: center; justify-content: center;
 }
 .account-ava .dot {
   position: absolute; right: -1px; bottom: -1px; z-index: 1;
   width: 11px; height: 11px; border-radius: 50%;
   background: var(--voice-live);
-  box-shadow: 0 0 0 2.5px var(--surface-canvas);
+  box-shadow: 0 0 0 2.5px var(--surface-sunken);
 }
 .account-ava .dot.offline { background: #6e6e73; }
-.account-status-menu { left: auto; right: 0; bottom: auto; top: calc(100% + 8px); min-width: 180px; }
-.account-status-name {
-  padding: 6px 10px 8px;
-  font-size: 13px; font-weight: 600; color: var(--fg-1);
+.account-dropdown {
+  position: absolute; right: 0; top: calc(100% + 8px);
+  z-index: 60;
+  min-width: 220px; max-width: 280px;
+  padding: 4px;
+  background: var(--surface-raised);
+  border-radius: 6px;
+  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.3), 0 6px 8px rgba(0, 0, 0, 0.2);
+  display: flex; flex-direction: column;
+  animation: account-dropdown-in 120ms ease-out;
+}
+@keyframes account-dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.account-dropdown-name {
+  padding: 10px 12px 6px;
+  font-size: 13px; font-weight: 700; color: var(--fg-1);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.account-dropdown-label { padding: 8px 12px 4px; font-size: 12px; font-weight: 600; color: var(--fg-3); }
+.account-dropdown-item {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0; border-radius: 3px;
+  background: transparent;
+  color: var(--fg-1);
+  font: inherit; font-size: 14px; font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.account-dropdown-item:hover, .account-dropdown-item:focus-visible { background: var(--surface-hover); outline: none; }
+.account-dropdown-text { flex: 1; }
+.account-dropdown-sep { height: 1px; margin: 4px 8px; background: var(--hairline); }
+.account-dropdown-plan { padding: 6px 12px 8px; }
 body.electron .topbar { padding-left: 84px; -webkit-app-region: drag; }
 body.electron.electron-fullscreen .topbar { padding-left: 16px; }
 body.electron .topbar button,
 body.electron .topbar input,
-body.electron .topbar .account-status-menu { -webkit-app-region: no-drag; }
+body.electron .topbar .account-dropdown { -webkit-app-region: no-drag; }
 
 .sb-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; padding: 0 4px; }
 .sb-head-top { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding-left: 6px; }
@@ -1615,3 +1646,4 @@ body.electron .topbar .account-status-menu { -webkit-app-region: no-drag; }
   from { opacity: 0; }
   to { opacity: 1; }
 }
+.account-dropdown-plan { font-size: 12px; white-space: nowrap; }

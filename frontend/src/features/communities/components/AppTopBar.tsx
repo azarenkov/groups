@@ -17,6 +17,7 @@ interface AppTopBarProps {
   currentUserStatus: string;
   onOpenSettings: () => void;
   onSetStatus?: (status: "online" | "offline") => void;
+  onSignOut?: () => void;
   renderResults?: (done: () => void) => React.ReactNode;
 }
 
@@ -32,6 +33,7 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
   currentUserStatus,
   onOpenSettings,
   onSetStatus,
+  onSignOut,
   renderResults,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
@@ -179,6 +181,7 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
           currentUserStatus={currentUserStatus}
           onOpenSettings={onOpenSettings}
           onSetStatus={onSetStatus}
+          onSignOut={onSignOut}
         />
       </div>
     </header>

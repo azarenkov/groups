@@ -700,6 +700,7 @@ const CommunitiesPage: React.FC = () => {
         currentUserStatus={userStatus}
         onOpenSettings={() => setSettingsOpen(true)}
         onSetStatus={handleSetStatus}
+        onSignOut={() => void handleLogout()}
         renderResults={(done) => (
           <SearchDropdown
             query={sidebarQuery}
