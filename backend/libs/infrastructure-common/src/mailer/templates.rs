@@ -5,14 +5,12 @@ use ports::mailer::CodePurpose;
 pub const LOGO_CID: &str = "rift-logo";
 pub const LOGO_PNG: &[u8] = include_bytes!("assets/rift-logo.png");
 
-const CANVAS: &str = "#0a0a0c";
-const CARD: &str = "#161619";
-const RAISED: &str = "#1c1c20";
-const BORDER: &str = "#2a2a30";
+const CANVAS: &str = "#000000";
+const CARD: &str = "#121212";
+const RAISED: &str = "#242424";
 const FG_1: &str = "#f5f5f7";
 const FG_2: &str = "#c7c7cc";
 const FG_3: &str = "#8e8e93";
-const ACCENT: &str = "#0a84ff";
 const FONT: &str = "Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const MONO: &str = "'JetBrains Mono',SFMono-Regular,Menlo,Consolas,monospace";
 
@@ -206,17 +204,17 @@ fn render(letter: Letter<'_>, app_url: Option<&str>) -> RenderedEmail {
     };
 
     let logo = format!(
-        r#"<td width="36" valign="middle" style="padding-right:10px;"><img src="cid:{LOGO_CID}" width="36" height="36" alt="" style="display:block;border:0;border-radius:9px;"></td>"#
+        r#"<img src="cid:{LOGO_CID}" width="44" height="44" alt="Rift" style="display:block;margin:0 auto;border:0;border-radius:10px;">"#
     );
 
     let action_html = match &letter.action {
         Some(Action::Code(code)) => format!(
-            r#"<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;"><tr><td align="center" bgcolor="{RAISED}" style="background:{RAISED};border:1px solid {BORDER};border-radius:12px;padding:18px 28px;font-family:{MONO};font-size:32px;line-height:1;font-weight:600;letter-spacing:8px;color:{FG_1};">{}</td></tr></table>"#,
+            r#"<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px auto 28px;"><tr><td align="center" bgcolor="{RAISED}" style="background:{RAISED};border-radius:8px;padding:20px 32px;font-family:{MONO};font-size:34px;line-height:1;font-weight:700;letter-spacing:10px;color:{FG_1};">{}</td></tr></table>"#,
             escape(code)
         ),
         Some(Action::Button { label, url, fallback }) => match safe_url(url) {
             Some(url) => format!(
-                r#"<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 20px;"><tr><td align="center" bgcolor="{ACCENT}" style="background:{ACCENT};border-radius:10px;"><a href="{href}" target="_blank" style="display:inline-block;padding:13px 26px;font-family:{FONT};font-size:15px;line-height:1;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">{label}</a></td></tr></table><p style="margin:0 0 20px;font-family:{FONT};font-size:12px;line-height:1.6;color:{FG_3};">{fallback}<br><a href="{href}" target="_blank" style="color:{ACCENT};text-decoration:none;word-break:break-all;">{href}</a></p>"#,
+                r#"<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px auto 24px;"><tr><td align="center" bgcolor="{FG_1}" style="background:{FG_1};border-radius:999px;"><a href="{href}" target="_blank" style="display:inline-block;padding:15px 36px;font-family:{FONT};font-size:15px;line-height:1;font-weight:700;color:#000000;text-decoration:none;border-radius:999px;">{label}</a></td></tr></table><p style="margin:0 0 20px;font-family:{FONT};font-size:12px;line-height:1.6;color:{FG_3};text-align:center;">{fallback}<br><a href="{href}" target="_blank" style="color:{FG_2};text-decoration:underline;word-break:break-all;">{href}</a></p>"#,
                 href = escape(url),
                 label = escape(label),
                 fallback = escape(fallback),
@@ -253,13 +251,11 @@ fn render(letter: Letter<'_>, app_url: Option<&str>) -> RenderedEmail {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{CANVAS}" style="background:{CANVAS};">
 <tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;">
-<tr><td style="padding:0 4px 20px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>{logo}<td valign="middle" style="font-family:{FONT};font-size:20px;line-height:1;font-weight:700;letter-spacing:-0.3px;color:{FG_1};">Rift</td></tr></table>
-</td></tr>
-<tr><td bgcolor="{CARD}" style="background:{CARD};border:1px solid {BORDER};border-radius:16px;padding:32px 32px 16px;">
-<h1 style="margin:0 0 14px;font-family:{FONT};font-size:22px;line-height:1.3;font-weight:600;color:{FG_1};">{title}</h1>
+<tr><td align="center" style="padding:8px 4px 28px;">{logo}</td></tr>
+<tr><td bgcolor="{CARD}" align="center" style="background:{CARD};border-radius:8px;padding:44px 40px 24px;text-align:center;">
+<h1 style="margin:0 0 16px;font-family:{FONT};font-size:30px;line-height:1.2;font-weight:800;letter-spacing:-0.6px;color:{FG_1};">{title}</h1>
 {lead}{action_html}{notes}</td></tr>
-<tr><td style="padding:20px 8px 0;font-family:{FONT};font-size:12px;line-height:1.6;color:{FG_3};">{reason}<br>Rift{footer_link}</td></tr>
+<tr><td align="center" style="padding:24px 16px 0;font-family:{FONT};font-size:12px;line-height:1.6;color:{FG_3};text-align:center;">{reason}<br>Rift{footer_link}</td></tr>
 </table>
 </td></tr>
 </table>
