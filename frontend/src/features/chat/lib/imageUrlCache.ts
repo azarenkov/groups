@@ -1,4 +1,5 @@
 import { attachmentAPI } from "../api/attachment";
+import { extractVideoPoster } from "./videoPoster";
 import { blobCacheGeneration, deleteCachedBlob, readCachedBlob, writeCachedBlob } from "../../../shared/lib/blobCache";
 
 export const IMAGE_CACHE_LIMIT = 40;
@@ -83,6 +84,11 @@ export const downloadThumbnailUrl = (id: string, sizeBytes: number, originalMaxB
       return attachmentAPI.download(id, sizeBytes);
     }),
   );
+
+export const posterKey = (id: string) => `poster:${id}`;
+
+export const downloadVideoPosterUrl = (id: string, sizeBytes: number): Promise<string> =>
+  downloadCachedUrl(posterKey(id), () => attachmentAPI.download(id, sizeBytes).then(extractVideoPoster));
 
 export const acquireImageUrl = (id: string): string | null => {
   const entry = imageUrlCache.get(id);
