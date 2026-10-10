@@ -26,7 +26,9 @@ const SIDEBAR_FADE_OUT_MS = 100;
 const SIDEBAR_ANIMATION_MS = 300;
 
 const prefersMotion = () =>
-  typeof window.matchMedia === "function" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window.matchMedia === "function" &&
+  !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
+  !document.documentElement.classList.contains("reduce-motion");
 
 interface SidebarProps {
   communities: Community[];

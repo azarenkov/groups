@@ -3,7 +3,9 @@ import React from "react";
 export type PresenceState = "enter" | "shown" | "exit";
 
 const prefersMotion = () =>
-  typeof window.matchMedia === "function" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window.matchMedia === "function" &&
+  !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
+  !document.documentElement.classList.contains("reduce-motion");
 
 export const usePresence = (open: boolean, durationMs: number): PresenceState | null => {
   const [state, setState] = React.useState<PresenceState | null>(open ? "shown" : null);
