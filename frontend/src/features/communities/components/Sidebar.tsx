@@ -192,20 +192,23 @@ const Sidebar: React.FC<SidebarProps> = ({
     e.preventDefault();
     const handle = e.currentTarget;
     const left = (handle.parentElement ?? handle).getBoundingClientRect().left;
-    handle.setPointerCapture?.(e.pointerId);
     document.body.classList.add("sb-resizing");
     const move = (ev: PointerEvent) => useSidebarLayoutStore.getState().dragTo(ev.clientX - left);
     const stop = () => {
-      handle.removeEventListener("pointermove", move);
-      handle.removeEventListener("pointerup", stop);
-      handle.removeEventListener("pointercancel", stop);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      window.removeEventListener("blur", stop);
       document.body.classList.remove("sb-resizing");
-      handle.blur();
+      if (document.activeElement instanceof HTMLElement && document.activeElement.classList.contains("sb-resizer")) {
+        document.activeElement.blur();
+      }
       useSidebarLayoutStore.getState().persist();
     };
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", stop);
-    handle.addEventListener("pointercancel", stop);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    window.addEventListener("blur", stop);
   };
 
   const resizer = (

@@ -166,3 +166,21 @@ it("keeps the rail actions outside the scrolling list", () => {
   fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
   expect(screen.getByRole("button", { name: i18n.t("sidebar:joinCommunity") }).closest(".sb-scroll")).toBeNull();
 });
+
+it("finishes a drag that collapses the panel when the pointer is released", () => {
+  renderSidebar();
+  act(() => {
+    screen
+      .getByRole("separator", { name: i18n.t("sidebar:resizeSidebar") })
+      .dispatchEvent(new MouseEvent("pointerdown", { button: 0, bubbles: true }));
+  });
+  expect(document.body).toHaveClass("sb-resizing");
+  act(() => {
+    window.dispatchEvent(new MouseEvent("pointermove", { clientX: 10 }));
+  });
+  expect(useSidebarLayoutStore.getState().collapsed).toBe(true);
+  act(() => {
+    window.dispatchEvent(new MouseEvent("pointerup"));
+  });
+  expect(document.body).not.toHaveClass("sb-resizing");
+});
