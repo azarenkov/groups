@@ -454,15 +454,14 @@
   display: inline-flex; align-items: center; gap: 10px;
   padding: 8px 12px;
   border: 0; border-radius: 10px;
-  background: var(--surface-sunken);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+  background: color-mix(in srgb, var(--fg-1) 6%, transparent);
   cursor: pointer;
   text-align: left;
   font: inherit;
   max-width: 300px;
   transition: background var(--dur-fast);
 }
-.msg-attach-file:hover { background: var(--surface-hover); }
+.msg-attach-file:hover { background: color-mix(in srgb, var(--fg-1) 10%, transparent); }
 .msg.bubble.mine .msg-attach-file {
   background: rgba(255, 255, 255, 0.14);
   box-shadow: none;
@@ -596,12 +595,11 @@
   padding: 8px 12px;
   max-width: 340px;
   border-radius: 10px;
-  background: var(--surface-sunken);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+  background: color-mix(in srgb, var(--fg-1) 6%, transparent);
   text-decoration: none;
   transition: background var(--dur-fast);
 }
-.link-preview-card:hover { background: var(--surface-hover); }
+.link-preview-card:hover { background: color-mix(in srgb, var(--fg-1) 10%, transparent); }
 .msg.bubble.mine .link-preview-card {
   background: rgba(255, 255, 255, 0.14);
   box-shadow: none;
@@ -610,7 +608,7 @@
 .link-preview-favicon {
   width: 32px; height: 32px;
   border-radius: 8px;
-  background: var(--surface-panel);
+  background: color-mix(in srgb, var(--fg-1) 8%, transparent);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   color: var(--fg-3);
