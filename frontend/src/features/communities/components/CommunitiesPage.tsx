@@ -29,6 +29,7 @@ import ChatView from "../../chat/components/ChatView";
 import VoiceView from "../../voice/components/VoiceView";
 import CallStage from "../../voice/components/CallStage";
 import { CallErrorToast } from "../../voice/components/CallReturnBar";
+import VoiceRoomLabel from "../../voice/components/VoiceRoomLabel";
 import VoiceChannelPreview from "../../voice/components/VoiceChannelPreview";
 import type { VoicePreviewParticipant } from "../../voice/components/VoiceChannelPreview";
 import DetailsPanel from "../../chat/components/DetailsPanel";
@@ -842,6 +843,11 @@ const CommunitiesPage: React.FC = () => {
               />
             ) : joinedChannel && selectedChannelId === joinedChannel.channel.id ? (
               <div className="voice-stage-wrap">
+                <VoiceRoomLabel
+                  overlay
+                  communityName={communities.find((c) => c.id === joinedChannel.communityId)?.name}
+                  channelName={joinedChannel.channel.name}
+                />
                 <div id="voice-stage-slot" className="voice-stage-slot" />
               </div>
             ) : !selectedCommunityChannelsLoaded ? (
@@ -850,6 +856,7 @@ const CommunitiesPage: React.FC = () => {
               </div>
             ) : selectedVoiceChannelNotJoined && selectedCommunity ? (
               <VoiceChannelPreview
+                communityName={selectedCommunity.name}
                 channelId={selectedVoiceChannelNotJoined.id}
                 channelName={selectedVoiceChannelNotJoined.name}
                 participants={previewParticipants}

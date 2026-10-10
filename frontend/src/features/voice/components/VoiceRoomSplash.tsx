@@ -1,14 +1,17 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
+import VoiceRoomLabel from "./VoiceRoomLabel";
 
 interface VoiceRoomSplashProps {
+  communityName?: string;
   channelName: string;
   onConnect: () => void;
   onInvite?: () => void;
 }
 
 const VoiceRoomSplash: React.FC<VoiceRoomSplashProps> = ({
+  communityName,
   channelName,
   onConnect,
   onInvite,
@@ -16,12 +19,7 @@ const VoiceRoomSplash: React.FC<VoiceRoomSplashProps> = ({
   const { t } = useTranslation("voice");
   return (
     <div className="vrs">
-      <div className="vrs-label-wrap">
-        <div className="vrs-label">
-          <Icon name="volume" size={15} />
-          <span>{t("splashRoomLabel", { name: channelName })}</span>
-        </div>
-      </div>
+      <VoiceRoomLabel communityName={communityName} channelName={channelName} />
       <div className="vrs-center">
         <div className="vrs-motif">
           <span className="vrs-ripple" />

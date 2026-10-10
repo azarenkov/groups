@@ -43,7 +43,6 @@
   "membersConnected_few": "{{count}} участника",
   "membersConnected_many": "{{count}} участников",
   "membersConnected_other": "{{count}} участников",
-  "splashRoomLabel": "{{name}} — голосовая комната",
   "splashTitle": "Здесь пока никого нет",
   "splashSub": "Подключитесь к комнате и начните разговор первым — остальные подтянутся.",
   "splashInvite": "Пригласить людей",

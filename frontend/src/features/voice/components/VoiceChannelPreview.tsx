@@ -4,6 +4,7 @@ import Icon from "../../../shared/ui/Icon";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import { colorForId } from "../../../shared/lib/avatar";
 import VoiceRoomSplash from "./VoiceRoomSplash";
+import VoiceRoomLabel from "./VoiceRoomLabel";
 import VoiceSessionTimer from "./VoiceSessionTimer";
 import { useVoiceSessionStore } from "../store/voiceSessionStore";
 import { useSpeakingStore } from "../store/speakingStore";
@@ -17,6 +18,7 @@ export interface VoicePreviewParticipant {
 }
 
 interface VoiceChannelPreviewProps {
+  communityName?: string;
   channelId: string;
   channelName: string;
   participants: VoicePreviewParticipant[];
@@ -25,6 +27,7 @@ interface VoiceChannelPreviewProps {
 }
 
 const VoiceChannelPreview: React.FC<VoiceChannelPreviewProps> = ({
+  communityName,
   channelId,
   channelName,
   participants,
@@ -39,18 +42,14 @@ const VoiceChannelPreview: React.FC<VoiceChannelPreviewProps> = ({
       <div className="voice-preview">
         {participants.length === 0 ? (
           <VoiceRoomSplash
+            communityName={communityName}
             channelName={channelName}
             onConnect={onConnect}
             onInvite={onInvite}
           />
         ) : (
           <div className="vrs vcp">
-            <div className="vrs-label-wrap">
-              <div className="vrs-label">
-                <Icon name="volume" size={15} />
-                <span>{tVoice("splashRoomLabel", { name: channelName })}</span>
-              </div>
-            </div>
+            <VoiceRoomLabel communityName={communityName} channelName={channelName} />
             <div className="vcp-center">
               <div className="vcp-live">
                 <span className="vcp-live-dot" />

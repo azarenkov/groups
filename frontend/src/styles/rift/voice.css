@@ -1105,7 +1105,11 @@
   color: var(--fg-1);
   white-space: nowrap;
 }
-.vrs-label svg { color: var(--fg-3); }
+.vrs-label svg { color: var(--fg-2); }
+.vrs-label-community { color: var(--fg-2); font-weight: 600; }
+.vrs-label-sep { color: var(--fg-4); }
+.vrs-label-channel { color: var(--fg-1); font-weight: 800; }
+.vrs-label-wrap.overlay { top: 20px; z-index: 5; pointer-events: none; }
 .vrs-center {
   display: flex; flex-direction: column; align-items: center;
   text-align: center;
