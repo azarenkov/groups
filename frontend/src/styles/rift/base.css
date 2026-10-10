@@ -333,30 +333,30 @@ body.electron .titlebar { padding-left: 84px; }
   top: calc(100% + 6px);
   right: 0;
   min-width: 240px;
-  background: var(--surface-raised);
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  box-shadow: var(--shadow-3);
-  padding: 6px;
+  background: var(--surface-dialog);
+  border: 0;
+  border-radius: 6px;
+  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.3), 0 6px 8px rgba(0, 0, 0, 0.2);
+  padding: 4px;
   z-index: 60;
   animation: pop-in var(--dur-base) var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)) forwards;
 }
 .popover .pop-head {
-  font-size: 11px; font-weight: 600;
-  color: var(--fg-3);
-  text-transform: uppercase; letter-spacing: 0.06em;
-  padding: 8px 10px 4px;
+  font-size: 12px; font-weight: 700;
+  color: var(--fg-2);
+  padding: 10px 12px 4px;
 }
 .popover .pop-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 3px;
   cursor: pointer;
-  font-size: 13px; color: var(--fg-1);
+  font-size: 14px; font-weight: 500; color: var(--fg-1);
   border: 0; background: transparent;
   width: 100%; text-align: left;
 }
-.popover .pop-item:hover { background: var(--surface-hover); }
+.popover .pop-item:hover { background: color-mix(in srgb, var(--fg-1) 10%, transparent); }
 .popover .pop-item .check {
   width: 14px; height: 14px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -1928,11 +1928,11 @@ body:has(.panel-resizer.dragging) { cursor: col-resize; }
   z-index: 3100;
   min-width: 200px;
   max-width: 280px;
-  padding: 5px;
-  background: var(--surface-raised);
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.18);
+  padding: 4px;
+  background: var(--surface-dialog);
+  border: 0;
+  border-radius: 6px;
+  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.3), 0 6px 8px rgba(0, 0, 0, 0.2);
   animation: ctxIn 110ms var(--ease-standard);
 }
 @keyframes ctxIn {
@@ -1942,24 +1942,25 @@ body:has(.panel-resizer.dragging) { cursor: col-resize; }
 .ctx-item {
   display: flex; align-items: center; gap: 10px;
   width: 100%;
-  padding: 7px 10px;
-  border: 0; border-radius: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0; border-radius: 3px;
   background: transparent;
   color: var(--fg-1);
-  font: inherit; font-size: 13px; text-align: left;
+  font: inherit; font-size: 14px; font-weight: 500; text-align: left;
   cursor: pointer;
   outline: none;
 }
 .ctx-item:hover,
-.ctx-item:focus-visible { background: var(--surface-hover); }
+.ctx-item:focus-visible { background: color-mix(in srgb, var(--fg-1) 10%, transparent); }
 .ctx-item.danger { color: var(--danger); }
 .ctx-item.danger:hover,
 .ctx-item.danger:focus-visible { background: var(--danger-tint, rgba(229, 72, 77, 0.12)); }
 .ctx-item:disabled { opacity: 0.45; cursor: default; background: transparent; }
-.ctx-ico { width: 16px; display: inline-flex; justify-content: center; color: var(--fg-2); flex: 0 0 auto; }
+.ctx-ico { width: 18px; display: inline-flex; justify-content: center; color: var(--fg-2); flex: 0 0 auto; }
 .ctx-item.danger .ctx-ico { color: var(--danger); }
 .ctx-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ctx-sep { height: 1px; margin: 4px 6px; background: var(--hairline); }
+.ctx-sep { height: 1px; margin: 4px 8px; background: color-mix(in srgb, var(--fg-1) 10%, transparent); }
 .ctx-custom { padding: 6px 10px; }
 .ctx-custom:has(> .ctx-item) { padding: 0; }
 
