@@ -450,7 +450,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
               AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
               AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
-              AND m.search_tsv @@ plainto_tsquery('simple', $3)
+              AND m.search_tsv @@ to_tsquery('simple', (SELECT string_agg(quote_literal(t.lexeme) || ':*', ' & ') FROM unnest(to_tsvector('simple', $3)) AS t))
             "#,
             user_a.uuid(),
             user_b.uuid(),
@@ -475,8 +475,8 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
               AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
               AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
-              AND m.search_tsv @@ plainto_tsquery('simple', $3)
-            ORDER BY ts_rank(m.search_tsv, plainto_tsquery('simple', $3)) DESC,
+              AND m.search_tsv @@ to_tsquery('simple', (SELECT string_agg(quote_literal(t.lexeme) || ':*', ' & ') FROM unnest(to_tsvector('simple', $3)) AS t))
+            ORDER BY ts_rank(m.search_tsv, to_tsquery('simple', (SELECT string_agg(quote_literal(t.lexeme) || ':*', ' & ') FROM unnest(to_tsvector('simple', $3)) AS t))) DESC,
                      m.created_at DESC, m.id DESC
             LIMIT $4 OFFSET $5
             "#,

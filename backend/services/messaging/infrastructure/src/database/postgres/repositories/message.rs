@@ -391,7 +391,7 @@ impl MessageRepository for PostgresMessageRepository {
             SELECT COUNT(*) AS "count!"
             FROM messages m
             WHERE m.channel_id = $1
-              AND m.search_tsv @@ plainto_tsquery('simple', $2)
+              AND m.search_tsv @@ to_tsquery('simple', (SELECT string_agg(quote_literal(t.lexeme) || ':*', ' & ') FROM unnest(to_tsvector('simple', $2)) AS t))
               AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)
             "#,
             channel_id.uuid(),
@@ -411,9 +411,9 @@ impl MessageRepository for PostgresMessageRepository {
             FROM messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.author_id
             WHERE m.channel_id = $1
-              AND m.search_tsv @@ plainto_tsquery('simple', $2)
+              AND m.search_tsv @@ to_tsquery('simple', (SELECT string_agg(quote_literal(t.lexeme) || ':*', ' & ') FROM unnest(to_tsvector('simple', $2)) AS t))
               AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $5 AND h.message_id = m.id)
-            ORDER BY ts_rank(m.search_tsv, plainto_tsquery('simple', $2)) DESC,
+            ORDER BY ts_rank(m.search_tsv, to_tsquery('simple', (SELECT string_agg(quote_literal(t.lexeme) || ':*', ' & ') FROM unnest(to_tsvector('simple', $2)) AS t))) DESC,
                      m.created_at DESC, m.id DESC
             LIMIT $3 OFFSET $4
             "#,

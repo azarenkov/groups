@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT COUNT(*) AS \"count!\"\n            FROM messages m\n            WHERE m.channel_id = $1\n              AND m.search_tsv @@ to_tsquery('simple', (SELECT string_agg(quote_literal(t.lexeme) || ':*', ' & ') FROM unnest(to_tsvector('simple', $2)) AS t))\n              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $3 AND h.message_id = m.id)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7952ea81b99e6d1c5f88f1c2cd28edfb2fd4a8ca258f8e0be621b2fa9db5f84b"
+}
