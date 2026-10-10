@@ -18,15 +18,12 @@ import { useRolesStore } from "../../store/rolesStore";
 
 interface CommunityListProps {
   communities: Community[];
-  isFiltering: boolean;
   channelsByCommunity: Record<string, Channel[]>;
   voiceMembersByChannel?: Record<string, SidebarVoiceMember[]>;
   unreadFor: (communityId: string) => number;
-  visibleChannelsFor: (communityId: string) => Channel[];
   onCreateCommunity: () => void;
   onJoinCommunity: () => void;
   onPick: (community: Community) => void;
-  renderChannel: (community: Community, channel: Channel) => React.ReactNode;
   perms: SidebarPermissions;
   currentUserId?: string;
   onInviteCommunity: (community: Community) => void;
@@ -38,15 +35,12 @@ interface CommunityListProps {
 
 const CommunityList: React.FC<CommunityListProps> = ({
   communities,
-  isFiltering,
   channelsByCommunity,
   voiceMembersByChannel,
   unreadFor,
-  visibleChannelsFor,
   onCreateCommunity,
   onJoinCommunity,
   onPick,
-  renderChannel,
   perms,
   currentUserId,
   onInviteCommunity,
@@ -160,40 +154,33 @@ const CommunityList: React.FC<CommunityListProps> = ({
             </button>
           );
         })}
-        <button type="button" className="sb-mini sb-mini-more" title={t("createCommunity")} aria-label={t("createCommunity")} onClick={onCreateCommunity}>
-          <Icon name="plus" size={16} />
-        </button>
       </div>
     );
   }
   return (
     <div className="sb-view">
-      {!isFiltering && (
-        <>
-          <button type="button" className="sb-add-row" onClick={onCreateCommunity}>
-            <span className="sb-add-row-ico">
-              <Icon name="plus" size={13} />
-            </span>
-            <span>{t("createCommunity")}</span>
-          </button>
-          <button
-            type="button"
-            className="sb-add-row secondary"
-            onClick={onJoinCommunity}
-          >
-            <span className="sb-add-row-ico">
-              <Icon name="logout" size={13} />
-            </span>
-            <span>{t("joinCommunity")}</span>
-          </button>
-        </>
-      )}
+      <button type="button" className="sb-add-row" onClick={onCreateCommunity}>
+        <span className="sb-add-row-ico">
+          <Icon name="plus" size={13} />
+        </span>
+        <span>{t("createCommunity")}</span>
+      </button>
+      <button
+        type="button"
+        className="sb-add-row secondary"
+        onClick={onJoinCommunity}
+      >
+        <span className="sb-add-row-ico">
+          <Icon name="logout" size={13} />
+        </span>
+        <span>{t("joinCommunity")}</span>
+      </button>
       <div className="sb-vhead">
         <span className="sb-vhead-label">{t("communities")}</span>
       </div>
       {communities.length === 0 && (
         <div className="sb-empty">
-          {isFiltering ? t("noMatches") : t("noCommunities")}
+          {t("noCommunities")}
         </div>
       )}
       {communities.map((community) => {
@@ -205,7 +192,6 @@ const CommunityList: React.FC<CommunityListProps> = ({
             c.kind === "voice" &&
             (voiceMembersByChannel?.[c.id]?.length ?? 0) > 0,
         );
-        const channels = isFiltering ? visibleChannelsFor(community.id) : [];
         return (
           <div key={community.id}>
             <div
@@ -250,11 +236,6 @@ const CommunityList: React.FC<CommunityListProps> = ({
               )}
               <Icon name="chev" size={13} className="sb-srv-chev collapsed" />
             </div>
-            {isFiltering && channels.length > 0 && (
-              <div className="sb-srv-channels">
-                {channels.map((c) => renderChannel(community, c))}
-              </div>
-            )}
           </div>
         );
       })}

@@ -4,25 +4,17 @@ import { isTextEntryTarget } from "../../settings/lib/hotkeyMatching";
 import VoiceTheater, { TheaterEntry } from "./VoiceTheater";
 import { useCallStore } from "../store/callStore";
 import { useAuthStore } from "../../auth/store/authStore";
-import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useParticipants } from "../hooks/useParticipants";
 import { useVideoTiles } from "../hooks/useVideoTiles";
-import { getLiveKitService } from "../lib/livekit";
 import { colorForId, initialFor } from "../../../shared/lib/avatar";
 import { useSpeakingStore } from "../store/speakingStore";
 import { useScreenShares } from "../hooks/useScreenShares";
 
 const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
   const participants = useCallStore((s) => s.participants);
-  const ringing = useCallStore((s) => s.ringing);
-  const leave = useCallStore((s) => s.leave);
-  const addParticipants = useCallStore((s) => s.addParticipants);
   const muted = useCallStore((s) => s.micMuted);
-  const setMicMuted = useCallStore((s) => s.setMicMuted);
   const deafened = useCallStore((s) => s.deafened);
-  const setDeafened = useCallStore((s) => s.setDeafened);
   const user = useAuthStore((s) => s.user);
-  const friends = useFriendshipStore((s) => s.friends);
   const voiceParticipants = useParticipants();
   const videoTiles = useVideoTiles();
   const { t } = useTranslation("call");
@@ -46,13 +38,6 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
 
   const selfId = user?.id || "you";
   const selfName = user?.name || "You";
-
-  const localCameraOn = videoTiles.some(
-    (v) => v.isLocal && v.source === "camera",
-  );
-  const localScreenOn = videoTiles.some(
-    (v) => v.isLocal && v.source === "screen",
-  );
 
   const speakingIds = useSpeakingStore((state) => state.ids);
   const mutedIds = useMemo(
@@ -119,23 +104,9 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
     cameraByIdentity,
   ]);
 
-  const busyIds = useMemo(
-    () => new Set([...Object.keys(participants), ...ringing]),
-    [participants, ringing],
-  );
-  const candidates = useMemo(
-    () =>
-      friends
-        .filter((f) => f.status === "accepted" && !busyIds.has(f.friendId))
-        .map((f) => ({ id: f.friendId, name: f.friendName })),
-    [friends, busyIds],
-  );
-
   const sharerName = screenTile
     ? (roster.find((r) => r.id === screenTile.identity)?.name ?? selfName)
     : null;
-
-  const toggleMute = () => setMicMuted(!muted);
 
   return (
     <VoiceTheater
@@ -148,33 +119,8 @@ const CallStage: React.FC<{ onMinimize: () => void }> = ({ onMinimize }) => {
       watching={watching}
       onWatch={watch}
       liveName={sharerName}
-      isMuted={muted}
-      isDeafened={deafened}
-      onToggleDeafen={() => setDeafened(!deafened)}
-      cameraOn={localCameraOn}
-      screenOn={localScreenOn}
-      onToggleMute={toggleMute}
-      onToggleCamera={() =>
-        getLiveKitService()
-          .setCameraEnabled(!localCameraOn)
-          .catch((e) => console.error("[call] camera toggle failed:", e))
-      }
-      onToggleScreen={() =>
-        getLiveKitService()
-          .setScreenShareEnabled(!localScreenOn)
-          .catch((e) => console.error("[call] screen toggle failed:", e))
-      }
-      onLeave={() => leave()}
       onMinimize={onMinimize}
       minimizeTitle={t("minimizeCall")}
-      invite={{
-        candidates,
-        onOpen: () => void useFriendshipStore.getState().loadAll(),
-        onAdd: (ids) =>
-          addParticipants(ids).catch((e) =>
-            console.warn("[call] add participants failed:", e),
-          ),
-      }}
     />
   );
 };

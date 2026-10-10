@@ -1,16 +1,8 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
-import { effectiveBinding, useActiveBindings } from "../../../settings/lib/hotkeys";
-import { IS_MAC, bindingKeycaps } from "../../../settings/lib/hotkeyMatching";
 
 interface SidebarHeaderProps {
-  homeActive: boolean;
-  onGoHome: () => void;
-  navState: { back: boolean; forward: boolean };
-  goHistory: (delta: -1 | 1) => void;
-  query: string;
-  onQueryChange: (value: string) => void;
   tab: "dms" | "communities";
   onSetTab: (tab: "dms" | "communities") => void;
   openCommunityId: string | null;
@@ -18,16 +10,9 @@ interface SidebarHeaderProps {
   dmDotVisible: boolean;
   communityDotVisible: boolean;
   onCollapse: () => void;
-  focusSearchToken: number;
 }
 
 const SidebarHeader: React.FC<SidebarHeaderProps> = ({
-  homeActive,
-  onGoHome,
-  navState,
-  goHistory,
-  query,
-  onQueryChange,
   tab,
   onSetTab,
   openCommunityId,
@@ -35,89 +20,22 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
   dmDotVisible,
   communityDotVisible,
   onCollapse,
-  focusSearchToken,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
-  const searchInputRef = React.useRef<HTMLInputElement>(null);
-  const switcherBinding = effectiveBinding(useActiveBindings(), "quickSwitcher");
-  const switcherLabel = switcherBinding ? bindingKeycaps(switcherBinding).join(IS_MAC ? "" : "+") : null;
-  React.useEffect(() => {
-    if (focusSearchToken === 0) return;
-    searchInputRef.current?.focus();
-    searchInputRef.current?.select();
-  }, [focusSearchToken]);
   return (
-    <>
-      <div className="sb-nav">
+    <div className="sb-head">
+      <div className="sb-head-top">
+        <span className="sb-head-title">{t("chats")}</span>
         <button
           type="button"
-          className={"sb-nav-btn sb-nav-home" + (homeActive ? " active" : "")}
-          title={t("home")}
-          onClick={onGoHome}
-        >
-          <Icon name="home" size={15} />
-        </button>
-        <button
-          type="button"
-          className="sb-nav-btn"
-          title={t("common:back")}
-          disabled={!navState.back}
-          onClick={() => goHistory(-1)}
-        >
-          <Icon name="chev-left" size={15} />
-        </button>
-        <button
-          type="button"
-          className="sb-nav-btn"
-          title={t("common:forward")}
-          disabled={!navState.forward}
-          onClick={() => goHistory(1)}
-        >
-          <Icon name="chev-left" size={15} className="flip-x" />
-        </button>
-        <button
-          type="button"
-          className="sb-nav-btn sb-nav-collapse"
+          className="sb-rail-btn sb-head-collapse"
           title={t("collapseSidebar")}
           aria-label={t("collapseSidebar")}
           onClick={onCollapse}
         >
-          <Icon name="shrink" size={14} />
+          <Icon name="panel-close" size={20} />
         </button>
       </div>
-      <div className="sb-search">
-        <Icon name="search" size={14} />
-        <input
-          ref={searchInputRef}
-          placeholder={t("searchPlaceholder")}
-          value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              e.preventDefault();
-              onQueryChange("");
-              searchInputRef.current?.blur();
-            }
-          }}
-        />
-        {query ? (
-          <button
-            type="button"
-            tabIndex={-1}
-            className="sb-search-clear"
-            title={t("close", { ns: "common" })}
-            onClick={() => {
-              onQueryChange("");
-              searchInputRef.current?.focus();
-            }}
-          >
-            <Icon name="x" size={11} />
-          </button>
-        ) : (
-          switcherLabel && <kbd>{switcherLabel}</kbd>
-        )}
-      </div>
-
       <div className={"sb-seg " + tab}>
         <div className="sb-seg-thumb" />
         <button
@@ -166,7 +84,7 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
           {communityDotVisible && <span className="sb-seg-dot" />}
         </button>
       </div>
-    </>
+    </div>
   );
 };
 

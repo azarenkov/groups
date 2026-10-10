@@ -8,15 +8,10 @@ import ChannelRow from "./sidebar/ChannelRow";
 import DmList from "./sidebar/DmList";
 import CommunityList from "./sidebar/CommunityList";
 import CommunityPage from "./sidebar/CommunityPage";
-import SidebarFooter from "./sidebar/SidebarFooter";
 import SidebarHeader from "./sidebar/SidebarHeader";
-import GlobalSearchResults from "../../search/components/GlobalSearchResults";
-import type { OpenMessageLink } from "../../chat/lib/messageLink";
 import { pinnedFirst, useConversationPinsStore } from "../store/conversationPinsStore";
 import { useSidebarPermissions } from "./sidebar/permissions";
-import { useSidebarNavigation } from "./sidebar/useSidebarNavigation";
 import type { SidebarVoiceMember } from "./sidebar/types";
-import { useHotkey } from "../../settings/lib/hotkeys";
 import {
   SIDEBAR_COLLAPSED_WIDTH,
   SIDEBAR_MAX_WIDTH,
@@ -46,28 +41,27 @@ interface SidebarProps {
   onOpenCommunitySettings: (community: Community) => void;
   onAddChannel: (community: Community, kind: ChannelKind) => void;
   onDeleteChannel: (community: Community, channel: Channel) => void;
-  onOpenSettings: () => void;
   onAddFriend: () => void;
   onOpenPending: () => void;
-  onGoHome: () => void;
-  homeActive: boolean;
   pendingCount: number;
   onCreateCommunity: () => void;
   onJoinCommunity: () => void;
   currentUserId?: string;
-  currentUserName: string;
-  currentUserStatus: string;
   voiceMembers?: SidebarVoiceMember[];
   voiceMembersByChannel?: Record<string, SidebarVoiceMember[]>;
-  searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
   unreadByChannel?: Record<string, number>;
   unreadByDm?: Record<string, number>;
   channelToCommunity?: Record<string, string>;
-  onSetStatus?: (status: "online" | "offline") => void;
   onLeaveCommunity?: (community: Community) => void;
   onCallDm?: (dm: DirectConversation) => void;
-  onOpenSearchResult?: (link: OpenMessageLink) => void;
+  nav: SidebarNav;
+}
+
+export interface SidebarNav {
+  tab: "dms" | "communities";
+  setTab: (tab: "dms" | "communities") => void;
+  openCommunityId: string | null;
+  setOpenCommunityId: (id: string | null) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -88,39 +82,32 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenCommunitySettings,
   onAddChannel,
   onDeleteChannel,
-  onOpenSettings,
   onAddFriend,
   onOpenPending,
-  onGoHome,
-  homeActive,
   pendingCount,
   onCreateCommunity,
   onJoinCommunity,
   currentUserId,
-  currentUserName,
-  currentUserStatus,
   voiceMembers,
   voiceMembersByChannel,
-  searchQuery,
-  onSearchQueryChange,
   unreadByChannel = {},
   unreadByDm = {},
   channelToCommunity = {},
-  onSetStatus,
   onLeaveCommunity,
   onCallDm,
-  onOpenSearchResult,
+  nav,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
-  const { tab, openCommunityId, navState, goHistory, setTab, setOpenCommunityId } =
-    useSidebarNavigation({ selectedChannelId, selectedDmId, channelsByCommunity });
+  const { tab, openCommunityId, setTab, setOpenCommunityId } = nav;
   const openCommunity = communities.find((s) => s.id === openCommunityId) ?? null;
   const perms = useSidebarPermissions(currentUserId, openCommunityId);
   const collapsed = useSidebarLayoutStore((s) => s.collapsed);
   const width = useSidebarLayoutStore((s) => s.width);
-  const [focusSearchToken, setFocusSearchToken] = React.useState(0);
   const [roomyWidth, setRoomyWidth] = React.useState(width);
-  const shownWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : roomyWidth;
+  const [flyoutId, setFlyoutId] = React.useState<string | null>(null);
+  const flyoutRef = React.useRef<HTMLDivElement>(null);
+  const showRail = collapsed;
+  const shownWidth = showRail ? SIDEBAR_COLLAPSED_WIDTH : roomyWidth;
 
   React.useEffect(() => {
     const fit = () =>
@@ -158,16 +145,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     [],
   );
 
-  const expandAndSearch = () => {
-    useSidebarLayoutStore.getState().setCollapsed(false);
-    setFocusSearchToken((n) => n + 1);
-  };
-  useHotkey("quickSwitcher", expandAndSearch);
-
   const collapse = () => {
-    if (searchQuery) onSearchQueryChange("");
     useSidebarLayoutStore.getState().setCollapsed(true);
   };
+  const expand = () => useSidebarLayoutStore.getState().setCollapsed(false);
 
   const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -182,9 +163,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       handle.removeEventListener("pointerup", stop);
       handle.removeEventListener("pointercancel", stop);
       document.body.classList.remove("sb-resizing");
-      const layout = useSidebarLayoutStore.getState();
-      if (layout.collapsed && searchQuery) onSearchQueryChange("");
-      layout.persist();
+      handle.blur();
+      useSidebarLayoutStore.getState().persist();
     };
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", stop);
@@ -202,71 +182,45 @@ const Sidebar: React.FC<SidebarProps> = ({
       aria-valuenow={shownWidth}
       tabIndex={0}
       onPointerDown={startResize}
-      onDoubleClick={() => (collapsed ? useSidebarLayoutStore.getState().setCollapsed(false) : collapse())}
+      onDoubleClick={(e) => {
+        e.currentTarget.blur();
+        if (showRail) expand();
+        else collapse();
+      }}
       onKeyDown={(e) => {
         if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
           e.preventDefault();
           useSidebarLayoutStore.getState().nudge(e.key === "ArrowLeft" ? -RESIZE_STEP : RESIZE_STEP);
-          if (useSidebarLayoutStore.getState().collapsed && searchQuery) onSearchQueryChange("");
         } else if (e.key === "Enter") {
           e.preventDefault();
-          if (collapsed) useSidebarLayoutStore.getState().setCollapsed(false);
+          if (showRail) expand();
           else collapse();
         }
       }}
     />
   );
 
-  const q = searchQuery.trim().toLowerCase();
-  const match = (s: string) => s.toLowerCase().includes(q);
-  const isFiltering = q.length > 0;
-
   const dmPins = useConversationPinsStore((s) => s.dms);
   const communityPins = useConversationPinsStore((s) => s.communities);
-  const visibleDirects = pinnedFirst(isFiltering ? directs.filter((d) => match(d.name)) : directs, dmPins);
-
-  const filteredCommunities = pinnedFirst(
-    isFiltering
-      ? communities.filter((community) => {
-          if (match(community.name)) return true;
-          const channels = channelsByCommunity[community.id] || [];
-          return channels.some((c) => match(c.name));
-        })
-      : communities,
-    communityPins,
-  );
-
-  const visibleChannelsFor = (communityId: string) => {
-    const channels = channelsByCommunity[communityId] || [];
-    if (!isFiltering) return channels;
-    const community = communities.find((s) => s.id === communityId);
-    if (community && match(community.name)) return channels;
-    return channels.filter((c) => match(c.name));
-  };
-
-  const settleAfterPick = (target: "dms" | "communities") => {
-    if (!isFiltering) return;
-    setTab(target);
-    onSearchQueryChange("");
-  };
+  const visibleDirects = pinnedFirst(directs, dmPins);
+  const orderedCommunities = pinnedFirst(communities, communityPins);
+  const channelsOf = (communityId: string) => channelsByCommunity[communityId] || [];
 
   const pickDm = (d: DirectConversation) => {
     onSelectDm(d);
-    settleAfterPick("dms");
   };
 
   const pickCommunity = (community: Community) => {
     if (!expandedCommunityIds.has(community.id)) onToggleCommunity(community.id);
     setOpenCommunityId(community.id);
     onSelectCommunity(community.id);
-    settleAfterPick("communities");
   };
 
   const pickChannel = (community: Community, channel: Channel) => {
+    setFlyoutId(null);
     onSelectChannel(community, channel);
     if (!expandedCommunityIds.has(community.id)) onToggleCommunity(community.id);
     setOpenCommunityId(community.id);
-    settleAfterPick("communities");
   };
 
   const totalDmUnread = Object.values(unreadByDm).reduce((a, b) => a + b, 0);
@@ -307,7 +261,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const dmList = (
     <DmList
       directs={visibleDirects}
-      isFiltering={isFiltering}
       selectedDmId={selectedDmId}
       unreadByDm={unreadByDm}
       pendingCount={pendingCount}
@@ -321,10 +274,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const communityView =
-    openCommunity && !isFiltering ? (
+    openCommunity ? (
       <CommunityPage
         community={openCommunity}
-        channels={visibleChannelsFor(openCommunity.id)}
+        channels={channelsOf(openCommunity.id)}
         perms={perms}
         onInviteCommunity={onInviteCommunity}
         onOpenCommunitySettings={onOpenCommunitySettings}
@@ -333,16 +286,13 @@ const Sidebar: React.FC<SidebarProps> = ({
       />
     ) : (
       <CommunityList
-        communities={filteredCommunities}
-        isFiltering={isFiltering}
+        communities={orderedCommunities}
         channelsByCommunity={channelsByCommunity}
         voiceMembersByChannel={voiceMembersByChannel}
         unreadFor={communityUnreadFor}
-        visibleChannelsFor={visibleChannelsFor}
         onCreateCommunity={onCreateCommunity}
         onJoinCommunity={onJoinCommunity}
         onPick={pickCommunity}
-        renderChannel={renderChannel}
         perms={perms}
         currentUserId={currentUserId}
         onInviteCommunity={onInviteCommunity}
@@ -351,49 +301,103 @@ const Sidebar: React.FC<SidebarProps> = ({
       />
     );
 
-  if (collapsed) {
-    const otherTab = tab === "dms" ? "communities" : "dms";
-    const otherDot = otherTab === "dms" ? totalDmUnread + pendingCount > 0 : totalCommunityUnread > 0;
-    const switchLabel = t(otherTab === "dms" ? "showDirects" : "showCommunities");
+  const flyoutCommunity = showRail ? (communities.find((c) => c.id === flyoutId) ?? null) : null;
+
+  React.useEffect(() => {
+    if (!flyoutCommunity) return;
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (flyoutRef.current?.contains(target)) return;
+      if (target.closest?.(`[data-community-id="${flyoutCommunity.id}"]`)) return;
+      setFlyoutId(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFlyoutId(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [flyoutCommunity]);
+
+  const pickFromRail = (community: Community) => {
+    if (flyoutId === community.id) {
+      setFlyoutId(null);
+      return;
+    }
+    pickCommunity(community);
+    setFlyoutId(community.id);
+  };
+
+  if (showRail) {
     return (
       <div className="sb sb-collapsed">
         <div className="sb-rail">
-          <button type="button" className="sb-rail-btn" title={switchLabel} aria-label={switchLabel} onClick={() => setTab(otherTab)}>
-            <Icon name={otherTab === "dms" ? "message" : "users"} size={17} />
-            {otherDot && <span className="sb-rail-dot" />}
+          <button type="button" className="sb-rail-btn sb-rail-open" title={t("expandSidebar")} aria-label={t("expandSidebar")} onClick={expand}>
+            <Icon name="panel-open" size={20} />
           </button>
-          <button type="button" className="sb-rail-btn" title={t("addFriend")} aria-label={t("addFriend")} onClick={onAddFriend}>
-            <Icon name="user-plus" size={17} />
-          </button>
-          <button
-            type="button"
-            className="sb-rail-btn"
-            title={t("pendingRequests")}
-            aria-label={pendingCount > 0 ? `${t("pendingRequests")}: ${pendingCount}` : t("pendingRequests")}
-            onClick={onOpenPending}
-          >
-            <Icon name="mail" size={17} />
-            {pendingCount > 0 && <span className="sb-rail-badge">{pendingCount > 99 ? "99+" : pendingCount}</span>}
-          </button>
-          <button
-            type="button"
-            className={"sb-rail-btn" + (homeActive ? " active" : "")}
-            title={t("home")}
-            aria-label={t("home")}
-            onClick={onGoHome}
-          >
-            <Icon name="home" size={17} />
-          </button>
-          <button type="button" className="sb-rail-btn" title={t("searchPlaceholder")} aria-label={t("searchPlaceholder")} onClick={expandAndSearch}>
-            <Icon name="search" size={16} />
-          </button>
+          <div className="sb-rail-switch" role="tablist" aria-label={t("switchView")}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "dms"}
+              className={"sb-rail-switch-btn" + (tab === "dms" ? " active" : "")}
+              title={t("showDirects")}
+              aria-label={t("showDirects")}
+              onClick={() => setTab("dms")}
+            >
+              <Icon name="message" size={17} />
+              {tab !== "dms" && totalDmUnread + pendingCount > 0 && <span className="sb-rail-dot" />}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "communities"}
+              className={"sb-rail-switch-btn" + (tab === "communities" ? " active" : "")}
+              title={t("showCommunities")}
+              aria-label={t("showCommunities")}
+              onClick={() => setTab("communities")}
+            >
+              <Icon name="users" size={17} />
+              {tab !== "communities" && totalCommunityUnread > 0 && <span className="sb-rail-dot" />}
+            </button>
+          </div>
+        </div>
+        <div className="sb-rail-actions">
+          {tab === "dms" ? (
+            <>
+              <button type="button" className="sb-mini sb-mini-more" title={t("addFriend")} aria-label={t("addFriend")} onClick={onAddFriend}>
+                <Icon name="user-plus" size={17} />
+              </button>
+              <button
+                type="button"
+                className="sb-mini sb-mini-more"
+                title={t("pendingRequests")}
+                aria-label={pendingCount > 0 ? `${t("pendingRequests")}: ${pendingCount}` : t("pendingRequests")}
+                onClick={onOpenPending}
+              >
+                <Icon name="mail" size={17} />
+                {pendingCount > 0 && <span className="sb-mini-badge">{pendingCount > 99 ? "99+" : pendingCount}</span>}
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="sb-mini sb-mini-more" title={t("createCommunity")} aria-label={t("createCommunity")} onClick={onCreateCommunity}>
+                <Icon name="plus" size={16} />
+              </button>
+              <button type="button" className="sb-mini sb-mini-more" title={t("joinCommunity")} aria-label={t("joinCommunity")} onClick={onJoinCommunity}>
+                <Icon name="link" size={16} />
+              </button>
+            </>
+          )}
         </div>
         <div className="sb-scroll sb-scroll-mini">
           {tab === "dms" ? (
             <DmList
               compact
-              directs={pinnedFirst(directs, dmPins)}
-              isFiltering={false}
+              directs={visibleDirects}
               selectedDmId={selectedDmId}
               unreadByDm={unreadByDm}
               pendingCount={pendingCount}
@@ -407,17 +411,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           ) : (
             <CommunityList
               compact
-              activeCommunityId={openCommunityId}
-              communities={pinnedFirst(communities, communityPins)}
-              isFiltering={false}
+              activeCommunityId={flyoutId ?? openCommunityId}
+              communities={orderedCommunities}
               channelsByCommunity={channelsByCommunity}
               voiceMembersByChannel={voiceMembersByChannel}
               unreadFor={communityUnreadFor}
-              visibleChannelsFor={visibleChannelsFor}
               onCreateCommunity={onCreateCommunity}
               onJoinCommunity={onJoinCommunity}
-              onPick={pickCommunity}
-              renderChannel={renderChannel}
+              onPick={pickFromRail}
               perms={perms}
               currentUserId={currentUserId}
               onInviteCommunity={onInviteCommunity}
@@ -426,24 +427,19 @@ const Sidebar: React.FC<SidebarProps> = ({
             />
           )}
         </div>
-        <div id="voice-dock-slot" className="sb-voice-dock" />
-        <button
-          type="button"
-          className="sb-rail-btn sb-rail-expand"
-          title={t("expandSidebar")}
-          aria-label={t("expandSidebar")}
-          onClick={() => useSidebarLayoutStore.getState().setCollapsed(false)}
-        >
-          <Icon name="expand" size={15} />
-        </button>
-        <SidebarFooter
-          compact
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-          currentUserStatus={currentUserStatus}
-          onOpenSettings={onOpenSettings}
-          onSetStatus={onSetStatus}
-        />
+        {flyoutCommunity && (
+          <div className="sb-flyout" role="dialog" aria-label={flyoutCommunity.name} ref={flyoutRef}>
+            <CommunityPage
+              community={flyoutCommunity}
+              channels={channelsOf(flyoutCommunity.id)}
+              perms={perms}
+              onInviteCommunity={onInviteCommunity}
+              onOpenCommunitySettings={onOpenCommunitySettings}
+              onAddChannel={onAddChannel}
+              renderChannel={renderChannel}
+            />
+          </div>
+        )}
         {resizer}
       </div>
     );
@@ -452,12 +448,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div className="sb">
       <SidebarHeader
-        homeActive={homeActive}
-        onGoHome={onGoHome}
-        navState={navState}
-        goHistory={goHistory}
-        query={searchQuery}
-        onQueryChange={onSearchQueryChange}
         tab={tab}
         onSetTab={setTab}
         openCommunityId={openCommunityId}
@@ -465,26 +455,15 @@ const Sidebar: React.FC<SidebarProps> = ({
         dmDotVisible={totalDmUnread + pendingCount > 0}
         communityDotVisible={totalCommunityUnread > 0}
         onCollapse={collapse}
-        focusSearchToken={focusSearchToken}
       />
 
       <div className="sb-scroll">
-        {isFiltering ? (
-          <>
-            {dmList}
-            {communityView}
-            {onOpenSearchResult && (
-              <GlobalSearchResults query={searchQuery} currentUserId={currentUserId} onOpen={onOpenSearchResult} />
-            )}
-          </>
-        ) : tab === "dms" ? (
+        {tab === "dms" ? (
           dmList
         ) : (
           communityView
         )}
       </div>
-
-      <div id="voice-dock-slot" className="sb-voice-dock" />
 
       {openCommunityId && (
         <button
@@ -498,13 +477,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           <span>{t("backToCommunities")}</span>
         </button>
       )}
-      <SidebarFooter
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-        currentUserStatus={currentUserStatus}
-        onOpenSettings={onOpenSettings}
-        onSetStatus={onSetStatus}
-      />
       {resizer}
     </div>
   );

@@ -85,9 +85,6 @@
   text-decoration-color: rgba(255, 255, 255, 0.75);
   text-decoration-skip-ink: auto;
 }
-.voice-pill > .vp-avas { flex: 0 0 auto; margin-left: 0; }
-.voice-pill > .vp-actions { flex: 0 0 auto; display: inline-flex; gap: 4px; }
-.voice-pill > .vp-btn.leave { flex: 0 0 auto; }
 .voice-pill .vp-meta-wrap > .vp-title {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -673,17 +670,6 @@
 .call-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff453a; }
 .call-live-name { font-size: 12px; color: #e6e6e9; }
 
-.call-pill {
-  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
-  z-index: 6;
-  display: flex; align-items: center; gap: 6px;
-  padding: 6px 8px; border-radius: 999px;
-  background: rgba(20, 20, 24, 0.7);
-  backdrop-filter: blur(28px) saturate(180%);
-  box-shadow:
-    0 12px 34px rgba(0, 0, 0, 0.45),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.09);
-}
 
 .call-strip {
   width: 172px; flex: 0 0 auto;

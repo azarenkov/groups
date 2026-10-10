@@ -36,10 +36,14 @@ it("remembers the width and mode", () => {
   expect(JSON.parse(window.localStorage.getItem("rift.sidebarLayout") ?? "{}")).toEqual({ width: 360, collapsed: true });
 });
 
-it("picks up the width saved by the old sidebar resizer", () => {
+it("starts collapsed and keeps the width saved by the old sidebar resizer", () => {
+  jest.isolateModules(() => {
+    const { useSidebarLayoutStore: fresh } = require("../sidebarLayoutStore");
+    expect(fresh.getState()).toMatchObject({ width: 320, collapsed: true });
+  });
   window.localStorage.setItem("rift.panel.sidebar", "380");
   jest.isolateModules(() => {
     const { useSidebarLayoutStore: fresh } = require("../sidebarLayoutStore");
-    expect(fresh.getState()).toMatchObject({ width: 380, collapsed: false });
+    expect(fresh.getState()).toMatchObject({ width: 380, collapsed: true });
   });
 });

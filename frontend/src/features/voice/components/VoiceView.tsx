@@ -371,6 +371,10 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           onOpen={stageActive ? undefined : onOpenStage}
           openTitle={t("openChannel")}
           active={stageActive}
+          cameraOn={isCameraEnabled}
+          onToggleCamera={() => toggleCamera()}
+          screenOn={isScreenShareEnabled}
+          onToggleScreen={() => toggleScreenShare()}
           className={qualityClass(localQuality)}
           titleAttr={`${t("connected")}: ${qualityLabel(localQuality)}`}
         />,
@@ -385,17 +389,6 @@ const VoiceView: React.FC<VoiceViewProps> = ({
             watched={watched}
             onSetWatched={setWatched}
             liveName={sharerName}
-            isMuted={isMuted}
-            muteLocked={muteLocked}
-            isDeafened={isDeafened || isModeratorDeafened}
-            deafenLocked={deafenLocked}
-            onToggleDeafen={toggleDeafen}
-            cameraOn={isCameraEnabled}
-            screenOn={isScreenShareEnabled}
-            onToggleMute={toggleMute}
-            onToggleCamera={() => toggleCamera()}
-            onToggleScreen={() => toggleScreenShare()}
-            onLeave={handleLeave}
             viewersFor={viewersFor}
             onWatchChange={onStreamWatch}
             shares={shares}

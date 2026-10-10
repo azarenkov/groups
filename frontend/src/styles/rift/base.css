@@ -260,23 +260,13 @@ body.electron .titlebar { padding-left: 84px; }
 
 .sb {
   width: var(--w-sidebar);
-  min-width: 240px;
-  flex-shrink: 1;
+  min-width: 280px;
+  flex-shrink: 0;
   display: flex; flex-direction: column;
-  background: transparent;  padding: 10px 8px 8px;
+  background: transparent;  padding: 0 8px 8px;
   gap: 2px;
 }
-body.electron .sb-nav {
-  position: absolute;
-  top: 7px; left: 84px;
-  margin: 0;
-  z-index: 45;
-  transition: left var(--dur-base, 200ms) var(--ease-standard, ease);
-}
-body.electron.electron-fullscreen .sb-nav { left: 12px; }
-body.electron .sb { position: relative; }
 .flip-x { transform: scaleX(-1); }
-body.electron .sb-nav { -webkit-app-region: no-drag; }
 
 .main {
   flex: 1;
@@ -335,19 +325,6 @@ body.electron .sb-nav { -webkit-app-region: no-drag; }
   background: var(--accent);
 }
 
-body.electron .sb { padding-top: 38px; }
-body.electron .sb-search { -webkit-app-region: drag; }
-body.electron .sb-search input,
-body.electron .sb-search button { -webkit-app-region: no-drag; }
-body.electron .body-area::before {
-  content: "";
-  position: fixed;
-  top: 0; left: 0;
-  width: var(--w-sidebar);
-  height: 38px;
-  -webkit-app-region: drag;
-  pointer-events: none;
-}
 
 .popover-wrap { position: relative; display: inline-flex; }
 .popover {
@@ -1510,13 +1487,6 @@ textarea.s-input {
   background: var(--accent, #0a84ff); color: #fff;
   box-shadow: 0 4px 14px rgba(10, 132, 255, 0.5);
 }
-.cp-btn.danger { background: var(--danger, #ff453a); color: #fff; }
-.cp-btn.leave {
-  background: var(--danger, #ff453a); color: #fff;
-  box-shadow: 0 4px 14px rgba(255, 69, 58, 0.45);
-}
-.cp-btn.leave:hover { filter: brightness(1.08); background: var(--danger, #ff453a); }
-.cp-sep { width: 1px; height: 28px; background: rgba(255, 255, 255, 0.14); margin: 0 2px; }
 .cs-tile {
   position: relative; height: 100px; flex: 0 0 auto;
   border-radius: 12px; overflow: hidden;

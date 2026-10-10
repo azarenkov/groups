@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import i18n from "../../../../i18n";
 import Sidebar from "../Sidebar";
+import type { SidebarNav } from "../Sidebar";
 import { useSidebarLayoutStore } from "../../store/sidebarLayoutStore";
 import type { DirectConversation } from "../../../dm/types";
 
@@ -26,35 +27,41 @@ const handlers = () => ({
   onOpenCommunitySettings: jest.fn(),
   onAddChannel: jest.fn(),
   onDeleteChannel: jest.fn(),
-  onOpenSettings: jest.fn(),
   onAddFriend: jest.fn(),
   onOpenPending: jest.fn(),
-  onGoHome: jest.fn(),
   onCreateCommunity: jest.fn(),
   onJoinCommunity: jest.fn(),
-  onSearchQueryChange: jest.fn(),
 });
 
-const renderSidebar = (h = handlers(), pendingCount = 0) => {
-  render(
+const Harness: React.FC<{ h: ReturnType<typeof handlers>; pendingCount: number }> = ({ h, pendingCount }) => {
+  const [tab, setTab] = React.useState<"dms" | "communities">("dms");
+  const [openCommunityId, setOpenCommunityId] = React.useState<string | null>(null);
+  const nav: SidebarNav = { tab, setTab, openCommunityId, setOpenCommunityId };
+  return (
     <Sidebar
       {...h}
+      nav={nav}
       communities={[{ id: "c1", name: "Gamers", ownerId: "me" } as never]}
-      channelsByCommunity={{}}
+      channelsByCommunity={{
+        c1: [
+          { id: "ch1", name: "general", kind: "text", communityId: "c1" } as never,
+          { id: "ch2", name: "lobby", kind: "voice", communityId: "c1" } as never,
+        ],
+      }}
       expandedCommunityIds={new Set()}
       selectedChannelId={null}
       joinedChannelId={null}
       selectedDmId={null}
       directs={[dm("u1", "Alice", true), dm("u2", "Bob")]}
-      homeActive={false}
       pendingCount={pendingCount}
       currentUserId="me"
-      currentUserName="me"
-      currentUserStatus="online"
-      searchQuery=""
       unreadByDm={{ u1: 4 }}
-    />,
+    />
   );
+};
+
+const renderSidebar = (h = handlers(), pendingCount = 0) => {
+  render(<Harness h={h} pendingCount={pendingCount} />);
   return h;
 };
 
@@ -88,10 +95,11 @@ it("keeps friend actions and the tab switch on the rail", () => {
   expect(h.onOpenPending).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("listitem", { name: "Bob" }));
   expect(h.onSelectDm).toHaveBeenCalledWith(expect.objectContaining({ id: "u2" }));
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:showCommunities") }));
+  expect(screen.getByRole("tab", { name: i18n.t("sidebar:showDirects") })).toHaveAttribute("aria-selected", "true");
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
   fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
   expect(h.onSelectCommunity).toHaveBeenCalledWith("c1");
-  expect(screen.getByRole("button", { name: i18n.t("sidebar:showDirects") })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") })).toHaveAttribute("aria-selected", "true");
 });
 
 it("toggles from the resize handle with a double click and the keyboard", () => {
@@ -103,4 +111,58 @@ it("toggles from the resize handle with a double click and the keyboard", () => 
   expect(useSidebarLayoutStore.getState().collapsed).toBe(false);
   fireEvent.keyDown(screen.getByRole("separator"), { key: "Enter" });
   expect(useSidebarLayoutStore.getState().collapsed).toBe(true);
+});
+
+it("opens a community's channels next to the rail and closes after picking one", () => {
+  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
+  const h = renderSidebar();
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
+  fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
+  const flyout = screen.getByRole("dialog", { name: "Gamers" });
+  expect(flyout).toHaveTextContent("general");
+  expect(flyout).toHaveTextContent("lobby");
+  fireEvent.click(screen.getByText("general"));
+  expect(h.onSelectChannel).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }), expect.objectContaining({ id: "ch1" }));
+  expect(screen.queryByRole("dialog", { name: "Gamers" })).toBeNull();
+  expect(useSidebarLayoutStore.getState().collapsed).toBe(true);
+});
+
+it("closes the channel panel with Escape or a second click", () => {
+  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
+  renderSidebar();
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
+  fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
+  expect(screen.getByRole("dialog", { name: "Gamers" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("offers creating and joining a community from the rail", () => {
+  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
+  const h = renderSidebar();
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
+  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:joinCommunity") }));
+  expect(h.onJoinCommunity).toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:createCommunity") }));
+  expect(h.onCreateCommunity).toHaveBeenCalled();
+});
+
+it("shows friend actions only with direct messages", () => {
+  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
+  renderSidebar();
+  expect(screen.getByRole("button", { name: i18n.t("sidebar:addFriend") })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
+  expect(screen.queryByRole("button", { name: i18n.t("sidebar:addFriend") })).toBeNull();
+  expect(screen.queryByRole("button", { name: i18n.t("sidebar:pendingRequests") })).toBeNull();
+});
+
+it("keeps the rail actions outside the scrolling list", () => {
+  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
+  renderSidebar();
+  expect(screen.getByRole("button", { name: i18n.t("sidebar:addFriend") }).closest(".sb-scroll")).toBeNull();
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
+  expect(screen.getByRole("button", { name: i18n.t("sidebar:joinCommunity") }).closest(".sb-scroll")).toBeNull();
 });

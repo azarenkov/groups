@@ -6,6 +6,7 @@ import { usePushToTalkHeld } from "../hooks/usePushToTalkHeld";
 import { getLiveKitService, NoiseSuppressionMode } from "../lib/livekit";
 import { useVoiceSettingsStore } from "../store/voiceSettingsStore";
 import { UserAvatar } from "../../../shared/ui/Avatar";
+import StreamQualityPicker from "../../subscription/components/StreamQualityPicker";
 
 export interface VoicePillInvite {
   candidates: { id: string; name: string }[];
@@ -31,6 +32,10 @@ interface VoicePillProps {
   openTitle?: string;
   active?: boolean;
   badge?: boolean;
+  cameraOn?: boolean;
+  onToggleCamera?: () => void;
+  screenOn?: boolean;
+  onToggleScreen?: () => void;
 }
 
 const BARS = 12;
@@ -52,6 +57,10 @@ const VoicePill: React.FC<VoicePillProps> = ({
   openTitle,
   active,
   badge,
+  cameraOn,
+  onToggleCamera,
+  screenOn,
+  onToggleScreen,
 }) => {
   const { t } = useTranslation("voice");
   const rootRef = useRef<HTMLDivElement>(null);
@@ -278,31 +287,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
         </div>
         <div className="vp-meta">{meta}</div>
       </div>
-      <div className="vp-actions">
-        {invite && (
-          <button
-            type="button"
-            className={"vp-btn" + (inviteOpen ? " on" : "")}
-            onClick={() => {
-              setInviteOpen((v) => !v);
-              setOpen(false);
-            }}
-            title={invite.labels.title}
-          >
-            <Icon name="user-plus" size={15} />
-          </button>
-        )}
-        <button
-          type="button"
-          className={"vp-btn" + (open ? " on" : "")}
-          onClick={() => {
-            setOpen((v) => !v);
-            setInviteOpen(false);
-          }}
-          title={t("settings")}
-        >
-          <Icon name="speaker-hi" size={15} />
-        </button>
+      <div className="vp-controls">
         <button
           type="button"
           className={
@@ -320,7 +305,7 @@ const VoicePill: React.FC<VoicePillProps> = ({
                   : t("muteSelf")
           }
         >
-          <Icon name={isMuted && !pttLive ? "mic-off" : "mic"} size={15} />
+          <Icon name={isMuted && !pttLive ? "mic-off" : "mic"} size={17} />
         </button>
         {onToggleDeafen && (
           <button
@@ -336,18 +321,72 @@ const VoicePill: React.FC<VoicePillProps> = ({
                   : t("deafenSelf")
             }
           >
-            <Icon name={isDeafened ? "headphones-off" : "headphones"} size={15} />
+            <Icon name={isDeafened ? "headphones-off" : "headphones"} size={17} />
+          </button>
+        )}
+        {onToggleCamera && (
+          <button
+            type="button"
+            className={"vp-btn" + (cameraOn ? " on" : "")}
+            onClick={onToggleCamera}
+            aria-pressed={!!cameraOn}
+            title={cameraOn ? t("stopCamera") : t("startCamera")}
+          >
+            <Icon name="camera" size={17} />
+          </button>
+        )}
+        {onToggleScreen && (
+          <button
+            type="button"
+            className={"vp-btn" + (screenOn ? " on" : "")}
+            onClick={onToggleScreen}
+            aria-pressed={!!screenOn}
+            title={screenOn ? t("stopScreenShare") : t("startScreenShare")}
+          >
+            <Icon name="monitor" size={17} />
+          </button>
+        )}
+        <button
+          type="button"
+          className="vp-btn leave"
+          onClick={onLeave}
+          title={t("leave")}
+        >
+          <Icon name="logout" size={17} />
+        </button>
+      </div>
+      <div className="vp-extras">
+        {invite && (
+          <button
+            type="button"
+            className={"vp-btn" + (inviteOpen ? " on" : "")}
+            onClick={() => {
+              setInviteOpen((v) => !v);
+              setOpen(false);
+            }}
+            title={invite.labels.title}
+          >
+            <Icon name="user-plus" size={16} />
+          </button>
+        )}
+        {screenOn && <StreamQualityPicker />}
+        <button
+          type="button"
+          className={"vp-btn" + (open ? " on" : "")}
+          onClick={() => {
+            setOpen((v) => !v);
+            setInviteOpen(false);
+          }}
+          title={t("settings")}
+        >
+          <Icon name="speaker-hi" size={16} />
+        </button>
+        {onOpen && (
+          <button type="button" className="vp-btn" onClick={onOpen} title={openTitle}>
+            <Icon name="expand" size={15} />
           </button>
         )}
       </div>
-      <button
-        type="button"
-        className="vp-btn leave"
-        onClick={onLeave}
-        title={t("leave")}
-      >
-        <Icon name="logout" size={15} />
-      </button>
 
       {open && (
         <div className="vp-popover" onMouseDown={(e) => e.stopPropagation()}>
