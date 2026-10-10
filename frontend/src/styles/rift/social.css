@@ -29,7 +29,7 @@
   font-size: 13px; font-weight: 600;
   display: flex; align-items: center; justify-content: center;
 }
-.pf-name { flex: 1; font-size: 13px; }
+.pf-name { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pf-tag {
   font-size: 11px;
   color: var(--fg-3);
