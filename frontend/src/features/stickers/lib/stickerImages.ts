@@ -1,6 +1,7 @@
 import React from "react";
 
 import { stickersAPI } from "../api/stickers";
+import { blobCacheGeneration, readCachedBlob, writeCachedBlob } from "../../../shared/lib/blobCache";
 
 const CACHE_LIMIT = 300;
 
@@ -86,7 +87,16 @@ export const loadSticker = (id: string): Promise<string | null> => {
       const generation = cacheGeneration;
       try {
         if (!wanted(id)) return null;
-        const blob = await stickersAPI.download(id);
+        const storeKey = `sticker:${id}`;
+        const startedAt = blobCacheGeneration();
+        const cachedBlob = await readCachedBlob(storeKey);
+        let blob: Blob;
+        if (cachedBlob) {
+          blob = cachedBlob;
+        } else {
+          blob = await stickersAPI.download(id);
+          void writeCachedBlob(storeKey, blob, startedAt);
+        }
         if (generation !== cacheGeneration) return null;
         const url = URL.createObjectURL(blob);
         failures.delete(id);
