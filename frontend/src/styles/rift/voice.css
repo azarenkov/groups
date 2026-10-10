@@ -492,7 +492,7 @@
   min-width: 0;
   border-radius: 8px;
   overflow: hidden;
-  background: var(--grain), linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, var(--surface-panel)) 0, color-mix(in srgb, var(--accent) 10%, var(--surface-panel)) calc(60% * 0.3), color-mix(in srgb, var(--accent) 5%, var(--surface-panel)) calc(60% * 0.6), color-mix(in srgb, var(--accent) 2%, var(--surface-panel)) calc(60% * 0.85), var(--surface-panel) 60%);
+  background: var(--grain), linear-gradient(180deg, color-mix(in srgb, var(--accent) 14.00%, var(--surface-panel)) 0, color-mix(in srgb, var(--accent) 11.34%, var(--surface-panel)) calc(60% * 0.1), color-mix(in srgb, var(--accent) 8.96%, var(--surface-panel)) calc(60% * 0.2), color-mix(in srgb, var(--accent) 6.86%, var(--surface-panel)) calc(60% * 0.3), color-mix(in srgb, var(--accent) 5.04%, var(--surface-panel)) calc(60% * 0.4), color-mix(in srgb, var(--accent) 3.50%, var(--surface-panel)) calc(60% * 0.5), color-mix(in srgb, var(--accent) 2.24%, var(--surface-panel)) calc(60% * 0.6), color-mix(in srgb, var(--accent) 1.26%, var(--surface-panel)) calc(60% * 0.7), color-mix(in srgb, var(--accent) 0.56%, var(--surface-panel)) calc(60% * 0.8), color-mix(in srgb, var(--accent) 0.14%, var(--surface-panel)) calc(60% * 0.9), color-mix(in srgb, var(--accent) 0.00%, var(--surface-panel)) 60%);
   display: flex;
 }
 .call-screen {
