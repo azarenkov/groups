@@ -390,6 +390,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         onToggleSearch={search.toggleSearch}
         onRemoveFriend={onRemoveFriend}
         onBlockUser={onBlockUser}
+        callMode={callMode}
         onUnblockUser={() => {
           if (dm) void useBlockStore.getState().unblock(dm.friendId).catch(() => {});
         }}
