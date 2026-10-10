@@ -61,9 +61,6 @@ import ContextMenuHost from "../../../shared/ui/contextMenu/ContextMenuHost";
 import { useDmOpenerStore } from "../../social/store/dmOpenerStore";
 import { parseMessageLink } from "../../chat/lib/messageLink";
 import type { OpenMessageLink } from "../../chat/lib/messageLink";
-import Icon from "../../../shared/ui/Icon";
-import { useLocalQuality } from "../../voice/hooks/useLocalQuality";
-import { qualityClass, qualityLabel } from "../../voice/lib/quality";
 import { Channel, ChannelKind } from "../../../shared/types/channel";
 import { Community } from "../../../shared/types/community";
 import "../../../styles/rift.css";
@@ -73,9 +70,7 @@ const DETAILS_ANIMATION_MS = 260;
 
 const CommunitiesPage: React.FC = () => {
   const { t: tModals } = useTranslation("modals");
-  const { t: tVoice } = useTranslation("voice");
   const { t: tSidebar } = useTranslation("sidebar");
-  const localQuality = useLocalQuality();
   const streamViewerCounts = useStreamViewersStore((s) => s.counts);
   const unreadByChannel = useUnreadStore((s) => s.byChannel);
   const unreadByDm = useUnreadStore((s) => s.byDm);
@@ -847,21 +842,6 @@ const CommunitiesPage: React.FC = () => {
               />
             ) : joinedChannel && selectedChannelId === joinedChannel.channel.id ? (
               <div className="voice-stage-wrap">
-                <header className="main-header">
-                  <span className="ch-ico">
-                    <Icon name="volume" size={16} />
-                  </span>
-                  <span className="ch-name">{joinedChannel.channel.name}</span>
-                  <span className="sep" />
-                  <span className="topic voice-stage-status">
-                    <span
-                      className={`voice-stage-dot ${qualityClass(localQuality)}`}
-                      title={`Connection: ${qualityLabel(localQuality)}`}
-                    />
-                    {voiceJoinFailed ? tVoice("disconnected") : tVoice("connected")}
-                    {selectedCommunity ? ` · ${selectedCommunity.name}` : ""}
-                  </span>
-                </header>
                 <div id="voice-stage-slot" className="voice-stage-slot" />
               </div>
             ) : !selectedCommunityChannelsLoaded ? (
