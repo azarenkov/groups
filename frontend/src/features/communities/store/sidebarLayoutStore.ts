@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 export const SIDEBAR_COLLAPSED_WIDTH = 72;
-export const SIDEBAR_MIN_WIDTH = 240;
+export const SIDEBAR_MIN_WIDTH = 280;
 export const SIDEBAR_MAX_WIDTH = 420;
 export const SIDEBAR_DEFAULT_WIDTH = 320;
 export const SIDEBAR_SNAP_WIDTH = 160;

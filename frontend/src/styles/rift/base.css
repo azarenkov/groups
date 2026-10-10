@@ -260,8 +260,8 @@ body.electron .titlebar { padding-left: 84px; }
 
 .sb {
   width: var(--w-sidebar);
-  min-width: 240px;
-  flex-shrink: 1;
+  min-width: 280px;
+  flex-shrink: 0;
   display: flex; flex-direction: column;
   background: transparent;  padding: 0 8px 8px;
   gap: 2px;
