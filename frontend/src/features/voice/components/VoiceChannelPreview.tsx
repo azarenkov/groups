@@ -36,14 +36,6 @@ const VoiceChannelPreview: React.FC<VoiceChannelPreviewProps> = ({
   const speakingIds = useSpeakingStore((st) => st.ids);
   return (
     <div className="voice-stage-wrap">
-      <header className="main-header">
-        <span className="ch-ico">
-          <Icon name="volume" size={16} />
-        </span>
-        <span className="ch-name">{channelName}</span>
-        <span className="sep" />
-        <span className="topic">{tVoice("disconnected")}</span>
-      </header>
       <div className="voice-preview">
         {participants.length === 0 ? (
           <VoiceRoomSplash
