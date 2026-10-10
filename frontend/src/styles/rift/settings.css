@@ -70,7 +70,7 @@
   overflow-y: auto;
   padding: 48px 56px 80px;
   border-radius: 8px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, var(--surface-panel)) 0, var(--surface-panel) 240px);
+  background: var(--grain), linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, var(--surface-panel)) 0, color-mix(in srgb, var(--accent) 10%, var(--surface-panel)) calc(280px * 0.3), color-mix(in srgb, var(--accent) 5%, var(--surface-panel)) calc(280px * 0.6), color-mix(in srgb, var(--accent) 2%, var(--surface-panel)) calc(280px * 0.85), var(--surface-panel) 280px);
 }
 .settings-close {
   position: absolute;
@@ -147,8 +147,8 @@
 .s-input {
   width: 100%;
   height: 40px;
-  padding: 0 12px;
-  border-radius: 4px;
+  padding: 0 16px;
+  border-radius: 999px;
   border: 1px solid transparent;
   background: color-mix(in srgb, var(--fg-1) 10%, transparent);
   color: var(--fg-1);

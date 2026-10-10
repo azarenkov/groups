@@ -50,8 +50,8 @@
   width: 100%;
   background: color-mix(in srgb, var(--fg-1) 10%, transparent);
   border: 1px solid transparent;
-  border-radius: 4px;
-  padding: 10px 12px;
+  border-radius: 12px;
+  padding: 10px 14px;
   font-size: 14px; color: var(--fg-1);
   font-family: inherit;
   resize: vertical;
@@ -332,3 +332,4 @@
 }
 .forward-row.checked .forward-check { background: var(--accent); border-color: var(--accent); }
 .forward-comment { margin-top: 12px; }
+.modal .m-field input { border-radius: 999px; padding: 10px 16px; }

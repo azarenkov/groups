@@ -1371,19 +1371,20 @@
 .sticker-viewer-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
 .shared-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.shared-tabs { display: flex; gap: 4px; padding: 4px 12px 8px; flex-wrap: wrap; }
+.shared-tabs { display: flex; gap: 6px; padding: 8px 12px 10px; flex-wrap: wrap; }
 .shared-tab {
-  padding: 5px 10px;
+  padding: 5px 12px;
   border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--fg-2);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-1) 8%, transparent);
+  color: var(--fg-1);
   font: inherit;
-  font-size: 13px;
+  font-size: 13px; font-weight: 600;
   cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
 }
-.shared-tab:hover { background: var(--surface-hover); }
-.shared-tab.on { background: var(--accent-tint); color: var(--accent); font-weight: 600; }
+.shared-tab:hover { background: color-mix(in srgb, var(--fg-1) 14%, transparent); }
+.shared-tab.on { background: var(--fg-1); color: var(--surface-canvas); }
 .shared-panel .shared-search { margin: 0 12px 8px; width: auto; box-sizing: border-box; flex-shrink: 0; }
 .shared-panel .vnote { --vnote-size: 200px; max-width: 100%; max-height: none; }
 .shared-panel .vnote.active { --vnote-size: 230px; }

@@ -492,7 +492,7 @@
   min-width: 0;
   border-radius: 8px;
   overflow: hidden;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 14%, var(--surface-panel)) 0%, var(--surface-panel) 55%);
+  background: var(--grain), linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, var(--surface-panel)) 0, color-mix(in srgb, var(--accent) 10%, var(--surface-panel)) calc(60% * 0.3), color-mix(in srgb, var(--accent) 5%, var(--surface-panel)) calc(60% * 0.6), color-mix(in srgb, var(--accent) 2%, var(--surface-panel)) calc(60% * 0.85), var(--surface-panel) 60%);
   display: flex;
 }
 .call-screen {

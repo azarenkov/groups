@@ -1076,19 +1076,20 @@ textarea.ssv-input:focus-visible {
 .srvm-field input,
 .srvm-field textarea {
   width: 100%;
-  padding: 0 12px;
   height: 40px;
   font: inherit; font-size: 14px;
   color: var(--fg-1);
   background: color-mix(in srgb, var(--fg-1) 10%, transparent);
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 999px;
+  padding: 0 16px;
   outline: none;
   transition: all 0.16s;
 }
 .srvm-field textarea {
   height: auto;
-  padding: 10px 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
   resize: none;
   line-height: 1.45;
 }
