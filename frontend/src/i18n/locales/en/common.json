@@ -40,6 +40,5 @@
   "videoAvatarTooLarge": "The GIF comes out larger than 8 MB — pick a shorter clip.",
   "videoUnreadable": "This video could not be opened.",
   "cropBanner": "Crop banner",
-  "cropLogo": "Crop logo",
-  "resizeMembers": "Resize the member list"
+  "cropLogo": "Crop logo"
 }

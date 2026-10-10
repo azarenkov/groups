@@ -47,11 +47,7 @@ interface ChatViewProps {
   communityId?: string;
   currentUserId?: string;
   dm?: DmMeta;
-  membersOpen?: boolean;
   communities?: Community[];
-  onToggleMembers?: () => void;
-  sharedOpen?: boolean;
-  onToggleShared?: () => void;
   onRemoveFriend?: () => void;
   onBlockUser?: () => void;
   onGoToCommunity?: (communityId: string) => void | Promise<void>;
@@ -66,11 +62,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   communityId,
   currentUserId,
   dm,
-  membersOpen,
   communities,
-  onToggleMembers,
-  sharedOpen,
-  onToggleShared,
   onRemoveFriend,
   onBlockUser,
   onGoToCommunity,
@@ -394,12 +386,8 @@ const ChatView: React.FC<ChatViewProps> = ({
         dm={dm}
         blocked={dmBlocked}
         blockedBy={dmBlockedBy}
-        membersOpen={membersOpen}
         searchActive={search.searchOpen}
         onToggleSearch={search.toggleSearch}
-        onToggleMembers={onToggleMembers}
-        sharedOpen={sharedOpen}
-        onToggleShared={onToggleShared}
         onRemoveFriend={onRemoveFriend}
         onBlockUser={onBlockUser}
         onUnblockUser={() => {

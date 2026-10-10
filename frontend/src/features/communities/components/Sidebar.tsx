@@ -116,7 +116,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           width,
           { min: SIDEBAR_MIN_WIDTH, max: SIDEBAR_MAX_WIDTH },
           window.innerWidth,
-          document.querySelector(".members-panel")?.getBoundingClientRect().width ?? 0,
+          document.querySelector(".details-panel")?.getBoundingClientRect().width ?? 0,
         ),
       );
     const onPanels = (e: Event) => {

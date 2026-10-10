@@ -54,6 +54,7 @@ export type IconName =
   | "shrink"
   | "panel-open"
   | "panel-close"
+  | "panel-right"
   | "grid"
   | "chev-left"
   | "info"
@@ -473,6 +474,12 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <path d="M9 4v16" />
       <path d="m13.5 9.5 2.5 2.5-2.5 2.5" />
+    </>
+  ),
+  "panel-right": (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M15 4v16" />
     </>
   ),
   "panel-close": (
