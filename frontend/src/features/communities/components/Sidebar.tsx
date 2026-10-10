@@ -23,6 +23,12 @@ import { PANELS_CHANGED, announcePanels, clampPanelWidth } from "../../../shared
 const RESIZE_STEP = 16;
 const SIDEBAR_CSS_VAR = "--w-sidebar";
 const SIDEBAR_FADE_OUT_MS = 100;
+
+const detailsPanelWidth = () => {
+  const slot = document.querySelector<HTMLElement>(".details-slot");
+  if (!slot || getComputedStyle(slot).position === "absolute") return 0;
+  return slot.getBoundingClientRect().width;
+};
 const SIDEBAR_ANIMATION_MS = 300;
 
 const prefersMotion = () =>
@@ -153,7 +159,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           width,
           { min: SIDEBAR_MIN_WIDTH, max: SIDEBAR_MAX_WIDTH },
           window.innerWidth,
-          document.querySelector(".details-panel")?.getBoundingClientRect().width ?? 0,
+          detailsPanelWidth(),
         ),
       );
     const onPanels = (e: Event) => {

@@ -35,6 +35,7 @@ import type { VoicePreviewParticipant } from "../../voice/components/VoiceChanne
 import DetailsPanel from "../../chat/components/DetailsPanel";
 import { useDetailsPanelStore } from "../../chat/store/detailsPanelStore";
 import { usePresence } from "../../../shared/hooks/usePresence";
+import { announcePanels } from "../../../shared/lib/panelWidth";
 import NoTextChannel from "./NoTextChannel";
 import SettingsView from "../../settings/components/SettingsView";
 import { useHotkey } from "../../settings/lib/hotkeys";
@@ -295,12 +296,17 @@ const CommunitiesPage: React.FC = () => {
   const callStageShown = useCallStore((s) => !!s.activeCallId && s.focused);
   const detailsOpen = useDetailsPanelStore((s) => s.open);
   const detailsPresence = usePresence(detailsOpen, DETAILS_ANIMATION_MS);
+  const detailsMounted = detailsPresence !== null;
+  useEffect(() => {
+    if (!detailsMounted) announcePanels("--w-details");
+  }, [detailsMounted]);
   const detailsTarget: React.ComponentProps<typeof DetailsPanel>["target"] | null = selectedDm
     ? {
         kind: "dm",
         friendId: selectedDm.id,
         name: nameOverrides[selectedDm.id] ?? selectedDm.name,
         color: selectedDm.color,
+        isFriend: selectedDm.isFriend !== false,
       }
     : onTextChannelActive && activeTextChannel && selectedCommunity
       ? {
@@ -308,7 +314,6 @@ const CommunitiesPage: React.FC = () => {
           communityId: selectedCommunity.id,
           channelId: activeTextChannel.id,
           name: activeTextChannel.name,
-          topic: activeTextChannel.topic ?? undefined,
         }
       : null;
   useActiveChatView({
