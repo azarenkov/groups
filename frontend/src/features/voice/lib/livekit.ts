@@ -919,7 +919,7 @@ export class LiveKitService {
           };
           this.micGainNode = postGain;
           this.micGateGain = postGate;
-          this.startMicGate(denoisedAnalyser);
+          this.startMicGate(postAnalyser);
         }
         rawTrack.enabled = !this.isMicrophoneMuted();
         pipeline.setStrength(this.noiseStrength);
@@ -1667,9 +1667,9 @@ export class LiveKitService {
     const actual = this.noiseMode;
     if (actual === requested) return;
     void import("../store/voiceSettingsStore").then(
-      ({ useVoiceSettingsStore }) => {
+      ({ useVoiceSettingsStore, parseNoiseMode }) => {
         const store = useVoiceSettingsStore.getState();
-        if (store.noiseMode === requested) store.update({ noiseMode: actual });
+        if (store.noiseMode === requested) store.update({ noiseMode: parseNoiseMode(actual) });
       },
     );
   }
