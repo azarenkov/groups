@@ -18,10 +18,12 @@ import {
 } from "../lib/imageUrlCache";
 import Icon from "../../../shared/ui/Icon";
 import { OriginalImageViewer, VideoViewer } from "./MediaViewers";
+import { PosterExtractionError } from "../lib/videoPoster";
 
 export const IMAGE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
 export const THUMBNAIL_SOURCE_MAX_BYTES = 25 * 1024 * 1024;
 export const VIDEO_PLAY_MAX_BYTES = 200 * 1024 * 1024;
+export const POSTER_SOURCE_MAX_BYTES = 8 * 1024 * 1024;
 
 const playableTypes = new Map<string, boolean>();
 
@@ -49,7 +51,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
     attachment.contentType.startsWith("video/") &&
     attachment.sizeBytes <= VIDEO_PLAY_MAX_BYTES &&
     canPlayVideo(attachment.contentType);
-  const hasPoster = isVideo && attachment.sizeBytes <= THUMBNAIL_SOURCE_MAX_BYTES;
+  const hasPoster = isVideo && attachment.sizeBytes <= POSTER_SOURCE_MAX_BYTES;
   const hasPreview = isImage || hasPoster;
   const cacheKey = hasPoster
     ? posterKey(attachment.id)
@@ -125,7 +127,10 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
       })
       .catch((err) => {
         if (cancelled) return;
-        if (hasPoster || (thumbnail && err instanceof ApiError && err.status === 404)) {
+        if (
+          (hasPoster && err instanceof PosterExtractionError) ||
+          (!hasPoster && thumbnail && err instanceof ApiError && err.status === 404)
+        ) {
           setFailed(true);
           return;
         }

@@ -41,6 +41,7 @@ let imageSession = 0;
 
 export const clearImageUrlCache = (): void => {
   imageSession += 1;
+  recentVideos.clear();
   for (const entry of imageUrlCache.values()) URL.revokeObjectURL(entry.url);
   imageUrlCache.clear();
   pendingImageDownloads.clear();
@@ -87,8 +88,28 @@ export const downloadThumbnailUrl = (id: string, sizeBytes: number, originalMaxB
 
 export const posterKey = (id: string) => `poster:${id}`;
 
+const RECENT_VIDEO_LIMIT = 3;
+const recentVideos = new Map<string, Blob>();
+
+export const takeRecentVideo = (id: string): Blob | null => recentVideos.get(id) ?? null;
+
+const rememberVideo = (id: string, blob: Blob) => {
+  recentVideos.delete(id);
+  recentVideos.set(id, blob);
+  while (recentVideos.size > RECENT_VIDEO_LIMIT) {
+    const oldest = recentVideos.keys().next().value;
+    if (oldest === undefined) break;
+    recentVideos.delete(oldest);
+  }
+};
+
 export const downloadVideoPosterUrl = (id: string, sizeBytes: number): Promise<string> =>
-  downloadCachedUrl(posterKey(id), () => attachmentAPI.download(id, sizeBytes).then(extractVideoPoster));
+  downloadCachedUrl(posterKey(id), () =>
+    attachmentAPI.download(id, sizeBytes).then((video) => {
+      rememberVideo(id, video);
+      return extractVideoPoster(video);
+    }),
+  );
 
 export const acquireImageUrl = (id: string): string | null => {
   const entry = imageUrlCache.get(id);

@@ -1,17 +1,20 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import AttachmentItem from "../AttachmentItem";
 import { attachmentAPI } from "../../api/attachment";
 import { imageUrlCache } from "../../lib/imageUrlCache";
-import { extractVideoPoster } from "../../lib/videoPoster";
+import { extractVideoPoster, PosterExtractionError } from "../../lib/videoPoster";
 import { ApiError } from "../../../../shared/lib/apiError";
 
 jest.mock("../../api/attachment", () => ({
   attachmentAPI: { thumbnail: jest.fn(), download: jest.fn() },
 }));
 
-jest.mock("../../lib/videoPoster", () => ({ extractVideoPoster: jest.fn() }));
+jest.mock("../../lib/videoPoster", () => {
+  class PosterExtractionError extends Error {}
+  return { extractVideoPoster: jest.fn(), PosterExtractionError };
+});
 
 const thumbnail = attachmentAPI.thumbnail as jest.Mock;
 const download = attachmentAPI.download as jest.Mock;
@@ -32,7 +35,7 @@ beforeEach(() => {
   thumbnail.mockReset();
   download.mockReset();
   extractPoster.mockReset();
-  extractPoster.mockRejectedValue(new Error("no frames"));
+  extractPoster.mockRejectedValue(new PosterExtractionError("no frames"));
   imageUrlCache.clear();
   created = 0;
   URL.createObjectURL = () => `blob:${++created}`;
@@ -103,4 +106,21 @@ it("falls back to the video row when no frame can be extracted", async () => {
   render(<AttachmentItem attachment={attachment("vid3", "video/mp4")} />);
   expect(await screen.findByText("vid3.bin")).toBeInTheDocument();
   expect(document.querySelector(".msg-attach-video-poster")).toBeNull();
+});
+
+it("keeps the video preview and retries when the download fails for a moment", async () => {
+  jest.useFakeTimers();
+  download.mockRejectedValueOnce(new ApiError("server error", 503, "UNAVAILABLE")).mockResolvedValue(new Blob(["v"]));
+  extractPoster.mockResolvedValue(new Blob(["p"], { type: "image/jpeg" }));
+  render(<AttachmentItem attachment={attachment("vid4", "video/mp4")} />);
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(document.querySelector(".msg-attach-video-poster")).not.toBeNull();
+  await act(async () => {
+    jest.advanceTimersByTime(1600);
+  });
+  jest.useRealTimers();
+  await waitFor(() => expect(document.querySelector(".msg-attach-video-poster img")).not.toBeNull());
+  expect(download).toHaveBeenCalledTimes(2);
 });

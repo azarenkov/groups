@@ -1,4 +1,6 @@
 const POSTER_MAX_EDGE = 640;
+
+export class PosterExtractionError extends Error {}
 const POSTER_TIMEOUT_MS = 20_000;
 
 export const extractVideoPoster = (video: Blob): Promise<Blob> =>
@@ -14,7 +16,7 @@ export const extractVideoPoster = (video: Blob): Promise<Blob> =>
       el.load();
       URL.revokeObjectURL(source);
       if (result instanceof Blob) resolve(result);
-      else reject(result);
+      else reject(new PosterExtractionError(result.message));
     };
     const timer = setTimeout(() => finish(new Error("video poster timed out")), POSTER_TIMEOUT_MS);
     const capture = () => {
