@@ -121,15 +121,11 @@ const HomeView: React.FC<HomeViewProps> = ({
   }, [activeFriends]);
 
   return (
-    <div className="home">
-      <header className="home-header">
-        <span className="home-title">{t("title")}</span>
-        <span className="home-sep" />
-        <span className="home-sub">
-          {t(greetingKey(new Date(now).getHours()))}, {userName}
-        </span>
-      </header>
+    <div className="home" aria-label={t("title")}>
       <div className="home-scroll">
+        <h1 className="home-greeting">
+          {t(greetingKey(new Date(now).getHours()))}, {userName}
+        </h1>
         {!overview ? (
           <div className="home-state">
             {overviewFailed ? (

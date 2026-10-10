@@ -7,16 +7,12 @@
 }
 .home button { font: inherit; border: 0; background: transparent; padding: 0; cursor: pointer; color: inherit; }
 
-.home-header { height: var(--h-header, 52px); flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 24px; border-bottom: 1px solid var(--hairline); }
-.home-title { font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
-.home-sep { width: 1px; height: 16px; background: var(--hairline); }
-.home-sub { font-size: 13px; color: var(--fg-3); }
-.home-header .home-btn-primary { margin-left: auto; }
+.home-greeting { flex-shrink: 0; margin: 0; padding: 28px 24px 0; font-size: 32px; font-weight: 800; letter-spacing: -0.03em; color: var(--fg-1); }
 
 .home-scroll { flex: 1; min-height: 0; overflow: hidden; }
 .home-scroll { display: flex; flex-direction: column; background: var(--grain), linear-gradient(180deg, color-mix(in srgb, var(--accent) 14%, var(--surface-panel)) 0, color-mix(in srgb, var(--accent) 8%, var(--surface-panel)) 90px, color-mix(in srgb, var(--accent) 4%, var(--surface-panel)) 180px, color-mix(in srgb, var(--accent) 1%, var(--surface-panel)) 260px, var(--surface-panel) 320px); }
 .home-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--fg-3); }
-.home-grid { flex: 1; min-height: 0; height: 100%; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 34%); gap: 32px; align-items: stretch; }
+.home-grid { flex: 1; min-height: 0; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 34%); gap: 32px; align-items: stretch; }
 @media (max-width: 900px) {
   .home-scroll { overflow-y: auto; }
   .home-grid { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 100%; align-items: start; }
