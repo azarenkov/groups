@@ -22,7 +22,6 @@ export interface ChannelHeaderProps {
   onToggleSearch?: () => void;
   onRemoveFriend?: () => void;
   onBlockUser?: () => void;
-  callMode?: boolean;
 }
 
 export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
@@ -35,7 +34,6 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onToggleSearch,
   onRemoveFriend,
   onBlockUser,
-  callMode = false,
 }) => {
   const startDmCall = (video: boolean) => {
     if (!dm?.friendId) return;
@@ -131,7 +129,6 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               ? i18n.t("activeNow", { ns: "chat" })
               : i18n.t("offline", { ns: "chat" })}
         </span>
-        {!callMode && (
         <div className="right">
           <div className="header-call-group">
             <button
@@ -223,7 +220,6 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             )}
           </div>
         </div>
-        )}
       </header>
     );
   }

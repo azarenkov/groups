@@ -1666,7 +1666,7 @@ textarea.s-input {
   position: fixed;
   top: 52px; right: 16px;
   z-index: 1200;
-  width: 420px;
+  width: 480px;
   max-width: calc(100vw - 32px);
   display: flex; align-items: center;
   gap: 14px;

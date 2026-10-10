@@ -381,7 +381,7 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   return (
     <>
-      <ChannelHeader
+      {!callMode && <ChannelHeader
         channel={channel}
         dm={dm}
         blocked={dmBlocked}
@@ -390,11 +390,10 @@ const ChatView: React.FC<ChatViewProps> = ({
         onToggleSearch={search.toggleSearch}
         onRemoveFriend={onRemoveFriend}
         onBlockUser={onBlockUser}
-        callMode={callMode}
         onUnblockUser={() => {
           if (dm) void useBlockStore.getState().unblock(dm.friendId).catch(() => {});
         }}
-      />
+      />}
       {topSlot}
       {dm && !callMode && <CallJoinBanner friendId={dm.friendId} />}
       {!callMode && (
