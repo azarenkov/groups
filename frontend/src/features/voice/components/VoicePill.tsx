@@ -381,10 +381,12 @@ const VoicePill: React.FC<VoicePillProps> = ({
         >
           <Icon name="speaker-hi" size={16} />
         </button>
-        {onOpen && (
+        {onOpen ? (
           <button type="button" className="vp-btn" onClick={onOpen} title={openTitle}>
             <Icon name="expand" size={15} />
           </button>
+        ) : (
+          active && <span className="vp-btn vp-btn-placeholder" aria-hidden="true" />
         )}
       </div>
 

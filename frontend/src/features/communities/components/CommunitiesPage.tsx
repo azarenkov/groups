@@ -28,7 +28,7 @@ import Sidebar from "./Sidebar";
 import ChatView from "../../chat/components/ChatView";
 import VoiceView from "../../voice/components/VoiceView";
 import CallStage from "../../voice/components/CallStage";
-import CallReturnBar, { CallErrorToast } from "../../voice/components/CallReturnBar";
+import { CallErrorToast } from "../../voice/components/CallReturnBar";
 import VoiceChannelPreview from "../../voice/components/VoiceChannelPreview";
 import type { VoicePreviewParticipant } from "../../voice/components/VoiceChannelPreview";
 import DetailsPanel from "../../chat/components/DetailsPanel";
@@ -787,7 +787,6 @@ const CommunitiesPage: React.FC = () => {
 
         <main className="main">
           <div className="main-inner">
-            <CallReturnBar />
             <CallErrorToast />
             {activeCallId && callFocused && !selectedDm ? (
               <CallStage

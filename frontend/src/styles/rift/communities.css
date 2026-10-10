@@ -1530,6 +1530,8 @@ body.electron .topbar .account-dropdown { -webkit-app-region: no-drag; }
   background: var(--vp-tint);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--vp-tint) 25%, transparent);
 }
+.call-dock .voice-pill > .vp-meta-wrap.clickable { margin: 0; padding: 6px 10px; }
+.call-dock .vp-btn-placeholder { visibility: hidden; }
 .call-dock .vp-meta { margin-top: 3px; padding-left: 16px; font-size: 12px; color: var(--fg-3); }
 .call-dock .vp-controls { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .call-dock .vp-extras { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
