@@ -1412,8 +1412,8 @@ textarea.s-input {
 .cs-menu-pop {
   position: fixed;
   z-index: 3000;
-  width: 64px;
-  padding: 12px 8px 8px;
+  width: 48px;
+  padding: 10px 6px 6px;
   background: var(--surface-dialog);
   border-radius: 999px;
   box-shadow: 0 16px 24px rgba(0, 0, 0, 0.3), 0 6px 8px rgba(0, 0, 0, 0.2);
@@ -1425,12 +1425,12 @@ textarea.s-input {
 }
 .cs-menu-track {
   position: relative;
-  width: 32px; height: 140px;
+  width: 24px; height: 100px;
 }
 .cs-menu-track input[type="range"] {
   -webkit-appearance: none; appearance: none;
   position: absolute; left: 50%; top: 50%;
-  width: 140px; height: 6px; margin: 0;
+  width: 100px; height: 4px; margin: 0;
   transform: translate(-50%, -50%) rotate(-90deg);
   border-radius: 999px; outline: none; cursor: pointer;
   background: linear-gradient(
@@ -1452,18 +1452,18 @@ textarea.s-input {
 }
 .cs-menu-track input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
-  width: 16px; height: 16px; border-radius: 50%; background: #fff;
-  cursor: pointer; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  width: 12px; height: 12px; border-radius: 50%; background: #fff;
+  cursor: pointer; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 .cs-menu-track input[type="range"]::-moz-range-thumb {
-  width: 16px; height: 16px; border: 0; border-radius: 50%; background: #fff;
+  width: 12px; height: 12px; border: 0; border-radius: 50%; background: #fff;
 }
 .cs-menu-pct {
-  font-size: 12px; font-weight: 700; color: var(--fg-1);
+  font-size: 11px; font-weight: 700; color: var(--fg-1);
   font-variant-numeric: tabular-nums;
 }
 .cs-menu-mute {
-  width: 44px; height: 44px; border: 0; border-radius: 50%;
+  width: 36px; height: 36px; border: 0; border-radius: 50%;
   background: color-mix(in srgb, var(--fg-1) 8%, transparent);
   color: var(--fg-1);
   display: flex; align-items: center; justify-content: center;
@@ -1859,7 +1859,7 @@ button.ssv-row-delete:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px; height: 44px;
+  width: 36px; height: 36px;
   padding: 0;
   border: 0;
   border-radius: 50%;

@@ -90,8 +90,8 @@ const TileVolumeMenu: React.FC<{
     setVol(allowed);
     const r = btnRef.current?.getBoundingClientRect();
     if (r) {
-      const menuW = 64;
-      const menuH = 236 + (moderate ? 44 : 0) + (deafen ? 44 : 0);
+      const menuW = 48;
+      const menuH = 178 + (moderate ? 36 : 0) + (deafen ? 36 : 0);
       let left = r.left - menuW - 8;
       if (left < 8) left = Math.min(r.right + 8, window.innerWidth - menuW - 8);
       let top = r.top;
@@ -169,7 +169,7 @@ const TileVolumeMenu: React.FC<{
                   name={
                     vol === 0 ? "speaker-off" : vol < 40 ? "speaker-lo" : "speaker-hi"
                   }
-                  size={20}
+                  size={17}
                 />
               </button>
             </div>
@@ -184,7 +184,7 @@ const TileVolumeMenu: React.FC<{
                   setOpen(false);
                 }}
               >
-                <Icon name={moderate.muted ? "mic" : "mic-off"} size={18} />
+                <Icon name={moderate.muted ? "mic" : "mic-off"} size={16} />
               </button>
             )}
             {deafen && (
@@ -198,7 +198,7 @@ const TileVolumeMenu: React.FC<{
                   setOpen(false);
                 }}
               >
-                <Icon name={deafen.deafened ? "headphones" : "headphones-off"} size={18} />
+                <Icon name={deafen.deafened ? "headphones" : "headphones-off"} size={16} />
               </button>
             )}
           </div>,
