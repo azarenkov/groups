@@ -1635,3 +1635,13 @@ body.electron .topbar .account-dropdown { -webkit-app-region: no-drag; }
   to { opacity: 1; }
 }
 .account-dropdown-plan { font-size: 12px; white-space: nowrap; }
+
+.sb-dm-ava-wrap.in-call .sb-dm-ava,
+.sb-mini.in-call .sb-mini-ava {
+  box-shadow: 0 0 0 2px var(--surface-canvas), 0 0 0 4px var(--voice-live);
+}
+.sb-dm-call {
+  display: flex; align-items: center; gap: 5px;
+  color: var(--voice-live);
+  font-weight: 600;
+}

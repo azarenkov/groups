@@ -5,6 +5,7 @@ import i18n from "../../../../i18n";
 import Sidebar from "../Sidebar";
 import type { SidebarNav } from "../Sidebar";
 import { useSidebarLayoutStore } from "../../store/sidebarLayoutStore";
+import { useCallStore } from "../../../voice/store/callStore";
 import type { DirectConversation } from "../../../dm/types";
 
 const dm = (id: string, name: string, online = false): DirectConversation => ({
@@ -183,4 +184,11 @@ it("finishes a drag that collapses the panel when the pointer is released", () =
     window.dispatchEvent(new MouseEvent("pointerup"));
   });
   expect(document.body).not.toHaveClass("sb-resizing");
+});
+
+it("marks a chat with an ongoing call", () => {
+  act(() => useCallStore.setState({ joinableByPeer: { u2: "call-1" } }));
+  renderSidebar();
+  expect(screen.getByText(i18n.t("call:ongoingCall"))).toBeInTheDocument();
+  act(() => useCallStore.setState({ joinableByPeer: {} }));
 });
