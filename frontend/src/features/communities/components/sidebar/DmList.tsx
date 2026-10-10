@@ -145,7 +145,7 @@ const DmList: React.FC<DmListProps> = ({
     <div className="sb-view">
       <button type="button" className="sb-add-row" onClick={onAddFriend}>
         <span className="sb-add-row-ico">
-          <Icon name="user-plus" size={13} />
+          <Icon name="user-plus" size={20} />
         </span>
         <span>{t("addFriend")}</span>
       </button>
@@ -155,7 +155,7 @@ const DmList: React.FC<DmListProps> = ({
         onClick={onOpenPending}
       >
         <span className="sb-add-row-ico">
-          <Icon name="mail" size={13} />
+          <Icon name="mail" size={20} />
         </span>
         <span>{t("pendingRequests")}</span>
         {pendingCount > 0 && (
