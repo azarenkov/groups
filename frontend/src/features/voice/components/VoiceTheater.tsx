@@ -90,8 +90,8 @@ const TileVolumeMenu: React.FC<{
     setVol(allowed);
     const r = btnRef.current?.getBoundingClientRect();
     if (r) {
-      const menuW = 216;
-      const menuH = 54 + (moderate ? 42 : 0) + (deafen ? 42 : 0);
+      const menuW = 64;
+      const menuH = 236 + (moderate ? 44 : 0) + (deafen ? 44 : 0);
       let left = r.left - menuW - 8;
       if (left < 8) left = Math.min(r.right + 8, window.innerWidth - menuW - 8);
       let top = r.top;
@@ -141,59 +141,64 @@ const TileVolumeMenu: React.FC<{
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="cs-menu-vol">
-              <Icon
-                name={
-                  vol === 0 ? "speaker-off" : vol < 40 ? "speaker-lo" : "speaker-hi"
-                }
-                size={15}
-              />
-              <input
-                type="range"
-                min={0}
-                max={volMax}
-                step={1}
-                value={vol}
-                onChange={(e) => change(Number(e.target.value))}
-                style={
-                  {
-                    ["--pct" as unknown as string]: `${(vol / volMax) * 100}%`,
-                  } as React.CSSProperties
-                }
-              />
               <span className="cs-menu-pct">{vol}%</span>
+              <div className="cs-menu-track">
+                <input
+                  type="range"
+                  min={0}
+                  max={volMax}
+                  step={1}
+                  value={vol}
+                  aria-label={i18nTheater.t("voice:volume")}
+                  onChange={(e) => change(Number(e.target.value))}
+                  style={
+                    {
+                      ["--pct" as unknown as string]: `${(vol / volMax) * 100}%`,
+                    } as React.CSSProperties
+                  }
+                />
+              </div>
+              <button
+                type="button"
+                className="cs-menu-mute"
+                title={i18nTheater.t("voice:volume")}
+                aria-label={i18nTheater.t("voice:volume")}
+                onClick={() => change(vol === 0 ? 100 : 0)}
+              >
+                <Icon
+                  name={
+                    vol === 0 ? "speaker-off" : vol < 40 ? "speaker-lo" : "speaker-hi"
+                  }
+                  size={20}
+                />
+              </button>
             </div>
             {moderate && (
               <button
                 type="button"
                 className="cs-menu-item"
+                title={moderate.muted ? i18nTheater.t("voice:unmuteMember") : i18nTheater.t("voice:muteMember")}
+                aria-label={moderate.muted ? i18nTheater.t("voice:unmuteMember") : i18nTheater.t("voice:muteMember")}
                 onClick={() => {
                   moderate.onToggle();
                   setOpen(false);
                 }}
               >
-                <Icon name={moderate.muted ? "mic" : "mic-off"} size={15} />
-                <span>
-                  {moderate.muted
-                    ? i18nTheater.t("voice:unmuteMember")
-                    : i18nTheater.t("voice:muteMember")}
-                </span>
+                <Icon name={moderate.muted ? "mic" : "mic-off"} size={18} />
               </button>
             )}
             {deafen && (
               <button
                 type="button"
                 className="cs-menu-item"
+                title={deafen.deafened ? i18nTheater.t("voice:undeafenMember") : i18nTheater.t("voice:deafenMember")}
+                aria-label={deafen.deafened ? i18nTheater.t("voice:undeafenMember") : i18nTheater.t("voice:deafenMember")}
                 onClick={() => {
                   deafen.onToggle();
                   setOpen(false);
                 }}
               >
-                <Icon name={deafen.deafened ? "headphones" : "headphones-off"} size={15} />
-                <span>
-                  {deafen.deafened
-                    ? i18nTheater.t("voice:undeafenMember")
-                    : i18nTheater.t("voice:deafenMember")}
-                </span>
+                <Icon name={deafen.deafened ? "headphones" : "headphones-off"} size={18} />
               </button>
             )}
           </div>,
