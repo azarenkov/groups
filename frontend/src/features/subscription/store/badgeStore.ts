@@ -196,17 +196,7 @@ export const useBadgeStore = create<BadgeState>()((set) => ({
       clearTimeout(timer);
       timer = null;
     }
-    if (saveTimer) {
-      clearTimeout(saveTimer);
-      saveTimer = null;
-    }
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      set({ byUser: {} });
-      return;
-    }
-    set({ byUser: {} });
+    set({ byUser: readStoredBadges() });
   },
 }));
 
