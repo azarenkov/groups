@@ -293,7 +293,7 @@ body.electron .titlebar { padding-left: 84px; }
   padding: 0 24px;
   display: flex; align-items: center;
   gap: 12px;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 0;
   flex-shrink: 0;
 }
 .main-header .ch-ico {
