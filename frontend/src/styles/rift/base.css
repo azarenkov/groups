@@ -952,29 +952,6 @@ body.electron .titlebar { padding-left: 84px; }
   margin: 4px 2px 18px;
   font-size: 12px;
 }
-.auth-check {
-  display: inline-flex; align-items: center; gap: 8px;
-  color: var(--fg-2);
-  cursor: pointer;
-}
-.auth-check input { appearance: none; -webkit-appearance: none; margin: 0; }
-.auth-check .box {
-  width: 16px; height: 16px; border-radius: 5px;
-  background: var(--surface-sunken);
-  box-shadow: inset 0 0 0 1px var(--hairline-strong);
-  display: inline-flex; align-items: center; justify-content: center;
-  transition: all var(--dur-fast);
-}
-.auth-check input:checked + .box {
-  background: var(--accent);
-  box-shadow: none;
-}
-.auth-check input:checked + .box::after {
-  content: "";
-  width: 8px; height: 4px;
-  border-left: 1.5px solid #fff; border-bottom: 1.5px solid #fff;
-  transform: rotate(-45deg) translate(1px,-1px);
-}
 .auth-link {
   color: var(--fg-1);
   text-decoration: underline;

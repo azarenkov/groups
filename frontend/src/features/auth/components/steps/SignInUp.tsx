@@ -390,22 +390,14 @@ export const SignInUp: React.FC<SignInUpProps> = ({
           </div>
         )}
 
-        <div className="auth-row">
-          {isSignup ? (
-            <label className="auth-check">
-              <input type="checkbox" defaultChecked />
-              <span className="box" />
-              <span>{t("sendUpdates")}</span>
-            </label>
-          ) : (
+        {!isSignup && (
+          <div className="auth-row">
             <span />
-          )}
-          {!isSignup && (
             <button type="button" className="auth-link" onClick={goForgot}>
               {t("forgotPassword")}
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {error && (
           <div
