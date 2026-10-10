@@ -158,3 +158,11 @@ it("shows friend actions only with direct messages", () => {
   expect(screen.queryByRole("button", { name: i18n.t("sidebar:addFriend") })).toBeNull();
   expect(screen.queryByRole("button", { name: i18n.t("sidebar:pendingRequests") })).toBeNull();
 });
+
+it("keeps the rail actions outside the scrolling list", () => {
+  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
+  renderSidebar();
+  expect(screen.getByRole("button", { name: i18n.t("sidebar:addFriend") }).closest(".sb-scroll")).toBeNull();
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
+  expect(screen.getByRole("button", { name: i18n.t("sidebar:joinCommunity") }).closest(".sb-scroll")).toBeNull();
+});

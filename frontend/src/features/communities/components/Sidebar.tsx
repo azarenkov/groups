@@ -365,6 +365,34 @@ const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
         </div>
+        <div className="sb-rail-actions">
+          {tab === "dms" ? (
+            <>
+              <button type="button" className="sb-mini sb-mini-more" title={t("addFriend")} aria-label={t("addFriend")} onClick={onAddFriend}>
+                <Icon name="user-plus" size={17} />
+              </button>
+              <button
+                type="button"
+                className="sb-mini sb-mini-more"
+                title={t("pendingRequests")}
+                aria-label={pendingCount > 0 ? `${t("pendingRequests")}: ${pendingCount}` : t("pendingRequests")}
+                onClick={onOpenPending}
+              >
+                <Icon name="mail" size={17} />
+                {pendingCount > 0 && <span className="sb-mini-badge">{pendingCount > 99 ? "99+" : pendingCount}</span>}
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="sb-mini sb-mini-more" title={t("createCommunity")} aria-label={t("createCommunity")} onClick={onCreateCommunity}>
+                <Icon name="plus" size={16} />
+              </button>
+              <button type="button" className="sb-mini sb-mini-more" title={t("joinCommunity")} aria-label={t("joinCommunity")} onClick={onJoinCommunity}>
+                <Icon name="link" size={16} />
+              </button>
+            </>
+          )}
+        </div>
         <div className="sb-scroll sb-scroll-mini">
           {tab === "dms" ? (
             <DmList
