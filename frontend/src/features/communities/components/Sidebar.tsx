@@ -511,7 +511,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => setOpenCommunityId(null)}
         >
           <span className="sb-add-row-ico">
-            <Icon name="chev-left" size={13} />
+            <Icon name="chev-left" size={18} />
           </span>
           <span>{t("backToCommunities")}</span>
         </button>
