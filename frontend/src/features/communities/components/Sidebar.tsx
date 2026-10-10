@@ -41,7 +41,6 @@ interface SidebarProps {
   hasMoreDirects?: boolean;
   onLoadMoreDirects?: () => void;
   onToggleCommunity: (communityId: string) => void;
-  onSelectCommunity: (communityId: string) => void;
   onSelectChannel: (community: Community, channel: Channel) => void;
   onSelectDm: (dm: DirectConversation) => void;
   onInviteCommunity: (community: Community) => void;
@@ -82,7 +81,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   hasMoreDirects,
   onLoadMoreDirects,
   onToggleCommunity,
-  onSelectCommunity,
   onSelectChannel,
   onSelectDm,
   onInviteCommunity,
@@ -252,7 +250,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const pickCommunity = (community: Community) => {
     if (!expandedCommunityIds.has(community.id)) onToggleCommunity(community.id);
     setOpenCommunityId(community.id);
-    onSelectCommunity(community.id);
   };
 
   const pickChannel = (community: Community, channel: Channel) => {

@@ -742,7 +742,6 @@ const CommunitiesPage: React.FC = () => {
           hasMoreDirects={hasMoreDirects}
           onLoadMoreDirects={loadMoreDirects}
           onToggleCommunity={selection.handleToggleCommunity}
-          onSelectCommunity={selection.handleSelectCommunity}
           onSelectChannel={handleSelectChannel}
           onSelectDm={handleSelectDm}
           onInviteCommunity={(community) => setInviteModalCommunity(community)}

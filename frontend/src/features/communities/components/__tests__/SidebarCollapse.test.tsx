@@ -20,7 +20,6 @@ const dm = (id: string, name: string, online = false): DirectConversation => ({
 
 const handlers = () => ({
   onToggleCommunity: jest.fn(),
-  onSelectCommunity: jest.fn(),
   onSelectChannel: jest.fn(),
   onSelectDm: jest.fn(),
   onInviteCommunity: jest.fn(),
@@ -98,7 +97,8 @@ it("keeps friend actions and the tab switch on the rail", () => {
   expect(screen.getByRole("tab", { name: i18n.t("sidebar:showDirects") })).toHaveAttribute("aria-selected", "true");
   fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
   fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
-  expect(h.onSelectCommunity).toHaveBeenCalledWith("c1");
+  expect(screen.getByRole("dialog", { name: "Gamers" })).toBeInTheDocument();
+  expect(h.onSelectChannel).not.toHaveBeenCalled();
   expect(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") })).toHaveAttribute("aria-selected", "true");
 });
 
