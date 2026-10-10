@@ -149,3 +149,12 @@ it("offers creating and joining a community from the rail", () => {
   fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:createCommunity") }));
   expect(h.onCreateCommunity).toHaveBeenCalled();
 });
+
+it("shows friend actions only with direct messages", () => {
+  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
+  renderSidebar();
+  expect(screen.getByRole("button", { name: i18n.t("sidebar:addFriend") })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
+  expect(screen.queryByRole("button", { name: i18n.t("sidebar:addFriend") })).toBeNull();
+  expect(screen.queryByRole("button", { name: i18n.t("sidebar:pendingRequests") })).toBeNull();
+});

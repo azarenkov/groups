@@ -33,7 +33,7 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
           aria-label={t("collapseSidebar")}
           onClick={onCollapse}
         >
-          <Icon name="shrink" size={15} />
+          <Icon name="panel-close" size={20} />
         </button>
       </div>
       <div className={"sb-seg " + tab}>

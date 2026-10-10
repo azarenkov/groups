@@ -335,8 +335,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     return (
       <div className="sb sb-collapsed">
         <div className="sb-rail">
-          <button type="button" className="sb-rail-btn" title={t("expandSidebar")} aria-label={t("expandSidebar")} onClick={expand}>
-            <Icon name="expand" size={15} />
+          <button type="button" className="sb-rail-btn sb-rail-open" title={t("expandSidebar")} aria-label={t("expandSidebar")} onClick={expand}>
+            <Icon name="panel-open" size={20} />
           </button>
           <div className="sb-rail-switch" role="tablist" aria-label={t("switchView")}>
             <button
@@ -364,19 +364,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               {tab !== "communities" && totalCommunityUnread > 0 && <span className="sb-rail-dot" />}
             </button>
           </div>
-          <button type="button" className="sb-rail-btn" title={t("addFriend")} aria-label={t("addFriend")} onClick={onAddFriend}>
-            <Icon name="user-plus" size={17} />
-          </button>
-          <button
-            type="button"
-            className="sb-rail-btn"
-            title={t("pendingRequests")}
-            aria-label={pendingCount > 0 ? `${t("pendingRequests")}: ${pendingCount}` : t("pendingRequests")}
-            onClick={onOpenPending}
-          >
-            <Icon name="mail" size={17} />
-            {pendingCount > 0 && <span className="sb-rail-badge">{pendingCount > 99 ? "99+" : pendingCount}</span>}
-          </button>
         </div>
         <div className="sb-scroll sb-scroll-mini">
           {tab === "dms" ? (
