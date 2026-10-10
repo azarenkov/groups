@@ -18,8 +18,8 @@ import { useDetailsPanelStore } from "../store/detailsPanelStore";
 import type { ChannelDetailsTab, DmDetailsTab } from "../store/detailsPanelStore";
 
 type DetailsTarget =
-  | { kind: "dm"; friendId: string; name: string; color?: string }
-  | { kind: "channel"; communityId: string; channelId: string; name: string; topic?: string };
+  | { kind: "dm"; friendId: string; name: string; color?: string; isFriend?: boolean }
+  | { kind: "channel"; communityId: string; channelId: string; name: string };
 
 interface DetailsPanelProps {
   target: DetailsTarget;
@@ -125,7 +125,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ target, currentUserId, onSh
         {target.kind === "dm" && active === "profile" && (
           <>
             <DmProfile friendId={target.friendId} name={target.name} color={target.color} />
-            <NotificationLevelSection dmId={target.friendId} />
+            {target.isFriend !== false && <NotificationLevelSection dmId={target.friendId} />}
           </>
         )}
         {target.kind === "channel" && active === "channel" && (
@@ -135,14 +135,12 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ target, currentUserId, onSh
                 <Icon name="hash" size={18} />
                 <span>{target.name}</span>
               </div>
-              <div className="details-label">{t("details.topic")}</div>
-              <div className={target.topic ? "details-text" : "details-muted"}>{target.topic || t("details.noTopic")}</div>
             </section>
             <NotificationLevelSection channelId={target.channelId} />
           </>
         )}
         {target.kind === "channel" && active === "members" && (
-          <MembersPanel communityId={target.communityId} channelId={target.channelId} />
+          <MembersPanel key={target.channelId} communityId={target.communityId} channelId={target.channelId} />
         )}
         {active === "shared" && (
           <SharedPanel

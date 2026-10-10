@@ -207,8 +207,6 @@
     "profile": "Profile",
     "shared": "Files",
     "channel": "Channel",
-    "members": "Members",
-    "topic": "Topic",
-    "noTopic": "No topic yet"
+    "members": "Members"
   }
 }

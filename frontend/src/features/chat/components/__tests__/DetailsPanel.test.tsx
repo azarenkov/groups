@@ -47,13 +47,13 @@ it("shows the friend's profile and notification choice for a direct chat", () =>
 it("shows channel info, members and files for a channel", () => {
   render(
     <DetailsPanel
-      target={{ kind: "channel", communityId: "c1", channelId: "ch1", name: "general", topic: "Обо всём" }}
+      target={{ kind: "channel", communityId: "c1", channelId: "ch1", name: "general" }}
       onShowMessage={jest.fn()}
     />,
   );
   expect(screen.getByText("members-content")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("tab", { name: i18n.t("chat:details.channel") }));
-  expect(screen.getByText("Обо всём")).toBeInTheDocument();
+  expect(screen.getByText("general")).toBeInTheDocument();
   expect(screen.getAllByRole("radio")).toHaveLength(3);
   fireEvent.click(screen.getByRole("button", { name: i18n.t("chat:details.close") }));
   expect(useDetailsPanelStore.getState().open).toBe(false);
@@ -66,4 +66,10 @@ it("opens and closes from the chat header and remembers the choice", () => {
   fireEvent.click(screen.getByRole("button", { name: i18n.t("chat:details.open") }));
   expect(useDetailsPanelStore.getState().open).toBe(true);
   expect(window.localStorage.getItem("rift.detailsPanel")).toBe("open");
+});
+
+it("hides notification choices for a chat with someone who is not a friend", () => {
+  act(() => useDetailsPanelStore.getState().showDm("profile"));
+  render(<DetailsPanel target={{ kind: "dm", friendId: "u9", name: "Eve", isFriend: false }} onShowMessage={jest.fn()} />);
+  expect(screen.queryAllByRole("radio")).toHaveLength(0);
 });
