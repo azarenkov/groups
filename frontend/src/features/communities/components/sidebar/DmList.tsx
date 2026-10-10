@@ -90,6 +90,19 @@ const DmList: React.FC<DmListProps> = ({
           .catch((e) => console.warn("[DmList] pin failed:", e));
       },
     },
+    {
+      kind: "item",
+      id: "notifications",
+      label: t(dmLevelOf(dmLevels, d.id, globalMentions) === "none" ? "unmuteChat" : "muteChat"),
+      icon: dmLevelOf(dmLevels, d.id, globalMentions) === "none" ? "bell" : "bell-off",
+      onSelect: () => {
+        const next = dmLevelOf(dmLevels, d.id, globalMentions) === "none" ? "all" : "none";
+        void useNotificationPrefsStore
+          .getState()
+          .setDmLevel(d.id, next)
+          .catch((e) => console.warn("[DmList] notification level failed:", e));
+      },
+    },
     { kind: "separator", id: "s1" },
     {
       kind: "item",
