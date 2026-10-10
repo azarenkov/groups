@@ -81,5 +81,6 @@
   "resizeSidebar": "Изменить ширину панели",
   "showDirects": "Показать личные сообщения",
   "showCommunities": "Показать сообщества",
-  "unreadIn": "{{name}}, непрочитанных: {{count}}"
+  "unreadIn": "{{name}}, непрочитанных: {{count}}",
+  "switchView": "Личные сообщения или сообщества"
 }

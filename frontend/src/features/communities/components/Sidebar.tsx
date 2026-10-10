@@ -341,19 +341,38 @@ const Sidebar: React.FC<SidebarProps> = ({
     );
 
   if (showRail) {
-    const otherTab = tab === "dms" ? "communities" : "dms";
-    const otherDot = otherTab === "dms" ? totalDmUnread + pendingCount > 0 : totalCommunityUnread > 0;
-    const switchLabel = t(otherTab === "dms" ? "showDirects" : "showCommunities");
     return (
       <div className="sb sb-collapsed">
         <div className="sb-rail">
           <button type="button" className="sb-rail-btn" title={t("expandSidebar")} aria-label={t("expandSidebar")} onClick={expand}>
             <Icon name="expand" size={15} />
           </button>
-          <button type="button" className="sb-rail-btn" title={switchLabel} aria-label={switchLabel} onClick={() => setTab(otherTab)}>
-            <Icon name={otherTab === "dms" ? "message" : "users"} size={17} />
-            {otherDot && <span className="sb-rail-dot" />}
-          </button>
+          <div className="sb-rail-switch" role="tablist" aria-label={t("switchView")}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "dms"}
+              className={"sb-rail-switch-btn" + (tab === "dms" ? " active" : "")}
+              title={t("showDirects")}
+              aria-label={t("showDirects")}
+              onClick={() => setTab("dms")}
+            >
+              <Icon name="message" size={17} />
+              {tab !== "dms" && totalDmUnread + pendingCount > 0 && <span className="sb-rail-dot" />}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "communities"}
+              className={"sb-rail-switch-btn" + (tab === "communities" ? " active" : "")}
+              title={t("showCommunities")}
+              aria-label={t("showCommunities")}
+              onClick={() => setTab("communities")}
+            >
+              <Icon name="users" size={17} />
+              {tab !== "communities" && totalCommunityUnread > 0 && <span className="sb-rail-dot" />}
+            </button>
+          </div>
           <button type="button" className="sb-rail-btn" title={t("addFriend")} aria-label={t("addFriend")} onClick={onAddFriend}>
             <Icon name="user-plus" size={17} />
           </button>

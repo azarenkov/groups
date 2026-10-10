@@ -96,10 +96,11 @@ it("keeps friend actions and the tab switch on the rail", () => {
   expect(h.onOpenPending).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("listitem", { name: "Bob" }));
   expect(h.onSelectDm).toHaveBeenCalledWith(expect.objectContaining({ id: "u2" }));
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:showCommunities") }));
+  expect(screen.getByRole("tab", { name: i18n.t("sidebar:showDirects") })).toHaveAttribute("aria-selected", "true");
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
   fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
   expect(h.onSelectCommunity).toHaveBeenCalledWith("c1");
-  expect(screen.getByRole("button", { name: i18n.t("sidebar:showDirects") })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") })).toHaveAttribute("aria-selected", "true");
 });
 
 it("toggles from the resize handle with a double click and the keyboard", () => {

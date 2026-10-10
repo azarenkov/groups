@@ -85,9 +85,6 @@
   text-decoration-color: rgba(255, 255, 255, 0.75);
   text-decoration-skip-ink: auto;
 }
-.voice-pill > .vp-avas { flex: 0 0 auto; margin-left: 0; }
-.voice-pill > .vp-actions { flex: 0 0 auto; display: inline-flex; gap: 4px; }
-.voice-pill > .vp-btn.leave { flex: 0 0 auto; }
 .voice-pill .vp-meta-wrap > .vp-title {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }

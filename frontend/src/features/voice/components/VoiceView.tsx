@@ -371,6 +371,10 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           onOpen={stageActive ? undefined : onOpenStage}
           openTitle={t("openChannel")}
           active={stageActive}
+          cameraOn={isCameraEnabled}
+          onToggleCamera={() => toggleCamera()}
+          screenOn={isScreenShareEnabled}
+          onToggleScreen={() => toggleScreenShare()}
           className={qualityClass(localQuality)}
           titleAttr={`${t("connected")}: ${qualityLabel(localQuality)}`}
         />,

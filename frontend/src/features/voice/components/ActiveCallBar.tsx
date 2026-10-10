@@ -8,6 +8,7 @@ import { useVideoTiles } from "../hooks/useVideoTiles";
 import { useSpeakingStore } from "../store/speakingStore";
 import { speakingName } from "../lib/speakingName";
 import { useAuthStore } from "../../auth/store/authStore";
+import { getLiveKitService } from "../lib/livekit";
 
 interface ActiveCallBarProps {
   dockId?: string;
@@ -73,6 +74,8 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
   }, [activeCallId]);
 
   const remoteScreenShare = videoTiles.some((v) => !v.isLocal && v.source === "screen");
+  const localCameraOn = videoTiles.some((v) => v.isLocal && v.source === "camera");
+  const localScreenOn = videoTiles.some((v) => v.isLocal && v.source === "screen");
   useEffect(() => {
     if (remoteScreenShare) flagAttention();
   }, [remoteScreenShare, flagAttention]);
@@ -100,6 +103,18 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
       openTitle={t("openCall")}
       active={stageVisible}
       badge={attention && !focused}
+      cameraOn={localCameraOn}
+      onToggleCamera={() =>
+        getLiveKitService()
+          .setCameraEnabled(!localCameraOn)
+          .catch((e) => console.error("[call] camera toggle failed:", e))
+      }
+      screenOn={localScreenOn}
+      onToggleScreen={() =>
+        getLiveKitService()
+          .setScreenShareEnabled(!localScreenOn)
+          .catch((e) => console.error("[call] screen toggle failed:", e))
+      }
     />,
     mountPoint,
   );
