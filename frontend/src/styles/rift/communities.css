@@ -986,9 +986,9 @@ textarea.ssv-input:focus-visible {
 }
 .srvm {
   position: relative;
-  background: var(--surface-raised);
-  border-radius: 20px;
-  box-shadow: var(--shadow-lg);
+  background: var(--surface-dialog);
+  border-radius: 8px;
+  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.3), 0 6px 8px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   animation: riftPop 0.24s var(--ease-spring);
   max-width: calc(100vw - 32px);
@@ -997,11 +997,11 @@ textarea.ssv-input:focus-visible {
 .srvm-create { width: 460px; }
 .srvm-join { width: 440px; }
 .srvm-icon-btn {
-  width: 30px; height: 30px; flex: none;
+  width: 32px; height: 32px; flex: none;
   display: flex; align-items: center; justify-content: center;
   border: 0; background: transparent;
   color: var(--fg-3);
-  border-radius: 8px; cursor: pointer;
+  border-radius: 50%; cursor: pointer;
   transition: background var(--dur-fast), color var(--dur-fast);
 }
 .srvm-icon-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
@@ -1009,7 +1009,7 @@ textarea.ssv-input:focus-visible {
 .srvm-choose-body { padding: 32px 32px 24px; }
 .srvm-title {
   margin: 0 0 6px;
-  font-size: 24px; font-weight: 600; letter-spacing: -0.015em;
+  font-size: 24px; font-weight: 700; letter-spacing: -0.02em;
   color: var(--fg-1);
 }
 .srvm-sub { margin: 0 0 22px; font-size: 13px; line-height: 1.45; color: var(--fg-3); }
@@ -1017,40 +1017,39 @@ textarea.ssv-input:focus-visible {
   width: 100%;
   display: flex; align-items: center; gap: 16px;
   text-align: left;
-  padding: 16px;
-  margin-bottom: 12px;
-  background: var(--surface-panel);
-  border: 1px solid var(--hairline);
-  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  background: color-mix(in srgb, var(--fg-1) 6%, transparent);
+  border: 0;
+  border-radius: 8px;
   cursor: pointer;
   font: inherit;
   transition: background var(--dur-fast) var(--ease-spring), border-color var(--dur-fast);
 }
 .srvm-option:last-child { margin-bottom: 0; }
-.srvm-option:hover { border-color: var(--hairline-strong); background: var(--surface-hover); }
+.srvm-option:hover { background: color-mix(in srgb, var(--fg-1) 10%, transparent); }
 .srvm-option-icon {
   width: 44px; height: 44px; flex: none;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 12px;
-  background: var(--surface-sunken);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--fg-1) 8%, transparent);
   color: var(--fg-2);
 }
 .srvm-option-icon.accent { background: var(--accent-tint); color: var(--accent); }
 .srvm-option-body { flex: 1; min-width: 0; }
-.srvm-option-title { display: block; font-size: 16px; font-weight: 600; color: var(--fg-1); }
+.srvm-option-title { display: block; font-size: 16px; font-weight: 700; color: var(--fg-1); }
 .srvm-option-sub { display: block; font-size: 13px; color: var(--fg-3); }
 .srvm-option-chev { color: var(--fg-4); transform: rotate(180deg); flex: none; }
 .srvm-head {
   display: flex; align-items: center; gap: 8px;
-  padding: 18px 20px 16px 20px;
-  border-bottom: 1px solid var(--hairline);
+  padding: 24px 16px 4px 24px;
 }
 .srvm-head-title {
   flex: 1; margin: 0;
-  font-size: 19px; font-weight: 600; letter-spacing: -0.01em;
+  font-size: 24px; font-weight: 700; letter-spacing: -0.02em;
   color: var(--fg-1);
 }
-.srvm-body { padding: 24px; }
+.srvm-body { padding: 16px 24px 24px; }
 .srvm-identity-row {
   display: flex; align-items: flex-end; gap: 16px;
   margin-bottom: 22px;
@@ -1077,27 +1076,26 @@ textarea.ssv-input:focus-visible {
 .srvm-field input,
 .srvm-field textarea {
   width: 100%;
-  padding: 0 14px;
+  padding: 0 12px;
   height: 40px;
   font: inherit; font-size: 14px;
   color: var(--fg-1);
-  background: var(--surface-sunken);
+  background: color-mix(in srgb, var(--fg-1) 10%, transparent);
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 4px;
   outline: none;
   transition: all 0.16s;
 }
 .srvm-field textarea {
   height: auto;
-  padding: 12px 14px;
+  padding: 10px 12px;
   resize: none;
   line-height: 1.45;
 }
 .srvm-field input:focus,
 .srvm-field textarea:focus {
-  background: var(--surface-panel);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-tint);
+  background: color-mix(in srgb, var(--fg-1) 12%, transparent);
+  border-color: var(--fg-3);
 }
 .srvm-code-input {
   height: 46px !important;
@@ -1150,26 +1148,23 @@ textarea.ssv-input:focus-visible {
   padding: 8px 12px; border-radius: 8px;
 }
 .srvm-foot {
-  display: flex; justify-content: flex-end; gap: 10px;
-  padding: 16px 24px;
-  background: var(--surface-canvas);
-  border-top: 1px solid var(--hairline);
+  display: flex; justify-content: flex-end; align-items: center; gap: 8px;
+  padding: 0 24px 24px;
 }
 .srvm-btn {
-  height: 40px; padding: 0 18px;
-  font: inherit; font-size: 14px; font-weight: 500;
-  color: var(--fg-1);
-  background: var(--surface-sunken);
-  border: 0; border-radius: 10px;
+  height: 40px; padding: 0 20px;
+  font: inherit; font-size: 14px; font-weight: 700;
+  color: var(--fg-2);
+  background: transparent;
+  border: 0; border-radius: 999px;
   cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
-  transition: background 0.16s var(--ease-spring);
+  transition: transform var(--dur-fast), color var(--dur-fast);
 }
-.srvm-btn:hover { background: var(--surface-active); }
-.srvm-btn.primary { background: var(--accent); color: #fff; padding: 0 20px; }
-.srvm-btn.primary:hover { background: var(--accent-hover); }
+.srvm-btn:hover:not(:disabled) { color: var(--fg-1); transform: scale(1.04); }
+.srvm-btn.primary { background: var(--fg-1); color: var(--surface-canvas); padding: 0 28px; }
 .srvm-btn:disabled { cursor: not-allowed; }
-.srvm-btn.primary:disabled { background: var(--surface-sunken); color: var(--fg-4); }
+.srvm-btn.primary:disabled { background: color-mix(in srgb, var(--fg-1) 12%, transparent); color: var(--fg-4); }
 .ssv-logo-badge { width: 26px; height: 26px; }
 .srvm-avatar-badge { width: 20px; height: 20px; }
 .ssv-logo-actions {

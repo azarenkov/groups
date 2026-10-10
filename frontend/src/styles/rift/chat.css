@@ -1161,18 +1161,20 @@
 .msg-sticker .sticker-img-placeholder { font-size: 88px; }
 .msg-reply-thumb.sticker-img { border-radius: 4px; }
 .sticker-modal { width: 520px; }
-.sticker-modal-tabs { display: flex; gap: 4px; padding: 12px 20px 0; }
+.sticker-modal-tabs { display: flex; gap: 8px; padding: 12px 24px 0; }
 .sticker-modal-tab {
-  padding: 6px 12px;
+  padding: 6px 14px;
   border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--fg-2);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-1) 8%, transparent);
+  color: var(--fg-1);
   font: inherit;
-  font-size: 13px;
+  font-size: 13px; font-weight: 600;
   cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
 }
-.sticker-modal-tab.on { background: var(--accent-tint); color: var(--accent); font-weight: 600; }
+.sticker-modal-tab:hover { background: color-mix(in srgb, var(--fg-1) 14%, transparent); }
+.sticker-modal-tab.on { background: var(--fg-1); color: var(--surface-canvas); }
 .sticker-modal-body { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
 .modal .sticker-modal-body { padding-top: 16px; }
 .sticker-modal-search { width: 100%; }

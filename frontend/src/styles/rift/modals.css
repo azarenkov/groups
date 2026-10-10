@@ -5,32 +5,31 @@
 
 .modal-overlay {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0,0,0,0.7);
   display: flex; align-items: center; justify-content: center;
   z-index: 100;
   animation: fade-in var(--dur-base) forwards;
 }
 .modal {
   width: 460px; max-width: calc(100vw - 32px);
-  background: var(--surface-raised);
-  border-radius: 20px;
-  box-shadow: var(--shadow-lg);
+  background: var(--surface-dialog);
+  border-radius: 8px;
+  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.3), 0 6px 8px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   animation: riftPop 0.24s var(--ease-spring);
 }
 .modal .m-head {
   display: flex; align-items: center; gap: 8px;
-  padding: 18px 20px 16px 24px;
-  border-bottom: 1px solid var(--hairline);
+  padding: 24px 16px 4px 24px;
 }
 .modal .m-head h3 {
   margin: 0;
-  font-size: 18px; font-weight: 600;
-  letter-spacing: -0.01em;
+  font-size: 24px; font-weight: 700;
+  letter-spacing: -0.02em;
 }
 .modal .m-head .close {
   margin-left: auto;
-  width: 30px; height: 30px; border-radius: 8px;
+  width: 32px; height: 32px; border-radius: 50%;
   border: 0; background: transparent;
   color: var(--fg-3);
   display: flex; align-items: center; justify-content: center;
@@ -38,21 +37,21 @@
   transition: background var(--dur-fast), color var(--dur-fast);
 }
 .modal .m-head .close:hover { background: var(--surface-hover); color: var(--fg-1); }
-.modal .m-body { padding: 24px; }
+.modal .m-body { padding: 16px 24px 24px; }
 .modal .m-field { margin-bottom: 18px; }
 .modal .m-field label {
   display: block;
-  font-size: 13px; font-weight: 500;
-  color: var(--fg-3);
+  font-size: 13px; font-weight: 700;
+  color: var(--fg-2);
   margin-bottom: 6px;
 }
 .modal .m-field input,
 .modal .m-field textarea {
   width: 100%;
-  background: var(--surface-sunken);
+  background: color-mix(in srgb, var(--fg-1) 10%, transparent);
   border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 10px 14px;
+  border-radius: 4px;
+  padding: 10px 12px;
   font-size: 14px; color: var(--fg-1);
   font-family: inherit;
   resize: vertical;
@@ -61,9 +60,8 @@
 .modal .m-field input:focus,
 .modal .m-field textarea:focus {
   outline: none;
-  background: var(--surface-panel);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-tint);
+  background: color-mix(in srgb, var(--fg-1) 12%, transparent);
+  border-color: var(--fg-3);
 }
 
 .modal .m-error {
@@ -75,38 +73,36 @@
   font-size: 12px;
 }
 .modal .m-foot {
-  display: flex; justify-content: flex-end; gap: 10px;
-  padding: 16px 24px;
-  border-top: 1px solid var(--hairline);
-  background: var(--surface-canvas);
+  display: flex; justify-content: flex-end; align-items: center; gap: 8px;
+  padding: 0 24px 24px;
 }
 .modal .m-foot button {
-  height: 40px; padding: 0 18px;
-  border-radius: 10px;
+  height: 40px; padding: 0 20px;
+  border-radius: 999px;
   border: 0;
-  background: var(--surface-sunken);
-  color: var(--fg-1);
-  font-size: 14px; font-weight: 500;
+  background: transparent;
+  color: var(--fg-2);
+  font-size: 14px; font-weight: 700;
   cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
-  transition: background 0.16s var(--ease-spring);
+  transition: transform var(--dur-fast), color var(--dur-fast), background var(--dur-fast);
 }
-.modal .m-foot button:hover { background: var(--surface-active); }
+.modal .m-foot button:hover:not(:disabled) { color: var(--fg-1); transform: scale(1.04); }
 .modal .m-foot button.primary {
-  background: var(--accent); color: #fff;
-  padding: 0 20px;
+  background: var(--fg-1); color: var(--surface-canvas);
+  padding: 0 28px;
 }
-.modal .m-foot button.primary:hover { background: var(--accent-hover); }
+.modal .m-foot button.primary:hover:not(:disabled) { background: var(--fg-1); color: var(--surface-canvas); }
 .modal .m-foot button.primary:disabled {
-  background: var(--surface-sunken); color: var(--fg-4); cursor: not-allowed;
+  background: color-mix(in srgb, var(--fg-1) 12%, transparent); color: var(--fg-4); cursor: not-allowed;
 }
 .modal .m-foot button.danger {
-  background: var(--danger); color: #fff;
+  background: var(--danger); color: #fff; padding: 0 28px;
 }
 .modal .m-foot button.danger:first-child {
   margin-right: auto;
 }
-.modal .m-foot button.danger:hover { background: var(--danger-hover, #ff5c50); }
+.modal .m-foot button.danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
 
 .m-blurb {
   margin: 0 0 18px;
@@ -134,14 +130,15 @@
 .m-empty-cta {
   margin-top: 12px;
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 16px;
-  border: 0; border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
-  font: inherit; font-size: 13px; font-weight: 600;
+  padding: 8px 20px;
+  border: 0; border-radius: 999px;
+  background: var(--fg-1);
+  color: var(--surface-canvas);
+  font: inherit; font-size: 13px; font-weight: 700;
   cursor: pointer;
+  transition: transform var(--dur-fast);
 }
-.m-empty-cta:hover { background: var(--accent-hover, var(--accent)); }
+.m-empty-cta:hover { transform: scale(1.04); }
 .modal .m-foot button.danger { background: var(--danger, #e5484d); color: #fff; border-color: transparent; }
 
 .image-crop-overlay { z-index: 1300; }
