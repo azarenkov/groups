@@ -346,3 +346,16 @@
 .emoji-status-packs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 6px; }
 .emoji-status-pack { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; border: 1px solid transparent; background: var(--surface-raised); color: var(--fg-2); font: inherit; font-size: 13px; cursor: pointer; }
 .emoji-status-pack.on { border-color: var(--accent); color: var(--fg-1); }
+
+.profile-style-locked {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  flex-wrap: wrap;
+  margin: 4px 0 24px;
+  padding: 14px 14px 14px 18px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.profile-style-locked .profile-style-note { margin: 0; font-size: 14px; color: var(--fg-1); }
+.profile-style-locked .profile-style-note svg { color: var(--fg-2); flex-shrink: 0; }
+.profile-style-locked .trial-offer.compact { width: auto; margin: 0; flex-shrink: 0; }
+.profile-style-locked .trial-offer.compact .trial-offer-button { padding: 8px 20px; font-size: 14px; }

@@ -147,12 +147,14 @@ const ProfileStyleSettings: React.FC = () => {
         <ProBadge tier="pro" badgeStyle="tint" size="sm" className="profile-style-tag" />
       </h2>
       {locked && (
-        <p className="profile-style-note">
-          <Icon name="lock" size={12} />
-          {t("profileStyle.locked")}
-        </p>
+        <div className="profile-style-locked">
+          <p className="profile-style-note">
+            <Icon name="lock" size={14} />
+            {t("profileStyle.locked")}
+          </p>
+          <TrialOffer compact />
+        </div>
       )}
-      {locked && <TrialOffer compact />}
 
       <div className="profile-style-block">
         <div className="profile-style-label">{t("banner.title")}</div>
