@@ -28,6 +28,7 @@ export const VerifyEmail: React.FC<{
   const [changePassword, setChangePassword] = useState("");
   const [changeBusy, setChangeBusy] = useState(false);
   const [changeError, setChangeError] = useState("");
+  const [showChangePw, setShowChangePw] = useState(false);
   const [pendingNewEmail, setPendingNewEmail] = useState<string | null>(null);
   const [pendingChangePassword, setPendingChangePassword] = useState("");
 
@@ -167,24 +168,36 @@ export const VerifyEmail: React.FC<{
           <div className="field">
             <label>{t("newEmail")}</label>
             <div className="field-input">
+              <span className="lead"><Icon name="mail" size={15} /></span>
               <input
                 type="email"
                 autoFocus
                 autoComplete="email"
+                placeholder={t("emailPlaceholder")}
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
               />
             </div>
           </div>
-          <div className="field">
+          <div className="field has-trail">
             <label>{t("password")}</label>
             <div className="field-input">
+              <span className="lead"><Icon name="lock2" size={15} /></span>
               <input
-                type="password"
+                type={showChangePw ? "text" : "password"}
                 autoComplete="current-password"
+                placeholder={t("passwordPlaceholder")}
                 value={changePassword}
                 onChange={(e) => setChangePassword(e.target.value)}
               />
+              <button
+                type="button"
+                className="trail"
+                onClick={() => setShowChangePw((v) => !v)}
+                title={showChangePw ? t("hidePassword") : t("showPassword")}
+              >
+                <Icon name={showChangePw ? "eye-off" : "eye"} size={15} />
+              </button>
             </div>
           </div>
           {changeError && (
