@@ -26,7 +26,7 @@ describe("SubscriptionSection", () => {
 
   it("offers high noise suppression on the free plan", () => {
     render(<SubscriptionSection />);
-    expect(screen.getByText("Шумоподавление: выключено, стандартное или высокое")).toBeInTheDocument();
+    expect(screen.getByText("Шумоподавление: стандартное или высокое")).toBeInTheDocument();
     expect(screen.queryByText("Высокое шумоподавление")).toBeNull();
   });
 });
