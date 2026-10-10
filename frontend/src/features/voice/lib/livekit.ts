@@ -21,6 +21,7 @@ import {
   speechBandRatio,
 } from "./makeupGain";
 import {
+  MIC_GATE_DENOISED_LOOKAHEAD_S,
   MIC_GATE_HOLD_MS,
   MIC_GATE_TICK_MS,
   connectThroughLookahead,
@@ -865,7 +866,7 @@ export class LiveKitService {
         postSource.connect(makeup);
         makeup.connect(limiter);
         limiter.connect(postGain);
-        connectThroughLookahead(ctx, postGain, postGate);
+        connectThroughLookahead(ctx, postGain, postGate, MIC_GATE_DENOISED_LOOKAHEAD_S);
         postGate.connect(postDest);
         stopMakeup = trackDenoiserMakeup(
           ctx,
