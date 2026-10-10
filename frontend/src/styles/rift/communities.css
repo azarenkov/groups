@@ -507,9 +507,9 @@
 }
 .ssv-default-badge {
   display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 999px;
-  font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
-  background: var(--surface-sunken); color: var(--fg-3);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: none;
+  background: color-mix(in srgb, var(--fg-1) 10%, transparent); color: var(--fg-1);
+  box-shadow: none;
   vertical-align: middle;
 }
 .ssv-row-note { margin-top: 4px; font-size: 12px; line-height: 1.4; color: var(--fg-3); }
@@ -689,14 +689,14 @@
   padding: 0 4px 16px;
 }
 .ssv-identity-ava {
-  width: 44px; height: 44px; border-radius: 14px;
+  width: 48px; height: 48px; border-radius: 6px;
   color: #fff; font-weight: 700; font-size: 17px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 .ssv-identity-info { flex: 1; min-width: 0; }
 .ssv-identity-name {
-  font-size: 16px; font-weight: 600; color: var(--fg-1);
+  font-size: 18px; font-weight: 800; color: var(--fg-1);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ssv-identity-sub { font-size: 12px; color: var(--fg-3); }
@@ -705,34 +705,35 @@
 .ssv-back-btn {
   width: 100%;
   display: flex; align-items: center; justify-content: center; gap: 9px;
-  height: 42px; border-radius: 11px;
+  height: 44px; border-radius: 999px;
   border: 0; cursor: pointer;
-  font: inherit; font-size: 14px; font-weight: 500;
-  color: var(--fg-2);
-  background: var(--surface-sunken);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+  font: inherit; font-size: 14px; font-weight: 700;
+  color: var(--fg-1);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fg-4);
   transition: background 160ms var(--ease-spring), color 160ms;
 }
-.ssv-back-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
+.ssv-back-btn:hover { box-shadow: inset 0 0 0 1px var(--fg-1); transform: scale(1.02); }
 
 .ssv-hero { display: flex; align-items: center; gap: 20px; margin: 8px 0 28px; }
 .ssv-hero-ava {
-  width: 88px; height: 88px; border-radius: 26px;
+  width: 96px; height: 96px; border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   color: #fff; font-weight: 700; font-size: 32px;
   display: flex; align-items: center; justify-content: center;
 }
 .ssv-label {
   display: block;
-  font-size: 13px; font-weight: 600; color: var(--fg-2);
+  font-size: 14px; font-weight: 700; color: var(--fg-1);
   margin: 0 0 8px;
 }
 .ssv-input {
   width: 100%;
   height: 46px;
-  padding: 0 14px;
-  border: 0; border-radius: 10px;
-  background: var(--surface-panel);
-  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  padding: 0 18px;
+  border: 0; border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-1) 10%, transparent);
+  box-shadow: inset 0 0 0 1px transparent;
   font: inherit; font-size: 15px; color: var(--fg-1);
   outline: none;
   margin-bottom: 24px;
@@ -742,12 +743,12 @@
 input.ssv-input:focus-visible,
 textarea.ssv-input:focus-visible {
   outline: none;
-  border-radius: 10px;
-  box-shadow: inset 0 0 0 1px var(--accent);
+  box-shadow: inset 0 0 0 1px var(--fg-3);
 }
 .ssv-textarea {
   min-height: 84px;
-  padding: 12px 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
   resize: vertical;
   line-height: 1.5;
   margin-bottom: 8px;
@@ -762,37 +763,36 @@ textarea.ssv-input:focus-visible {
 .ssv-actions { display: flex; gap: 10px; }
 .ssv-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  height: 42px; padding: 0 22px;
-  border: 0; border-radius: 11px; cursor: pointer;
-  font: inherit; font-size: 14px; font-weight: 600;
-  background: var(--surface-sunken);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  color: var(--fg-2);
+  height: 42px; padding: 0 24px;
+  border: 0; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 700;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--fg-4);
+  color: var(--fg-1);
   transition: background 160ms var(--ease-spring), color 160ms, transform 120ms var(--ease-spring);
 }
-.ssv-btn:hover { background: var(--surface-hover); color: var(--fg-1); }
-.ssv-btn:active { transform: scale(0.98); }
+.ssv-btn:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--fg-1); transform: scale(1.03); }
+.ssv-btn:active:not(:disabled) { transform: scale(1); }
 .ssv-btn:disabled { opacity: 0.55; cursor: default; }
 .ssv-btn.primary {
-  background: var(--accent); color: #fff;
-  box-shadow: 0 2px 10px var(--accent-tint-2);
+  background: var(--fg-1); color: var(--surface-canvas);
+  box-shadow: none;
 }
-.ssv-btn.primary:hover { background: var(--accent-hover); color: #fff; }
-.ssv-btn.primary.saved { background: var(--voice-live); }
+.ssv-btn.primary:hover:not(:disabled) { background: var(--fg-1); color: var(--surface-canvas); box-shadow: none; }
+.ssv-btn.primary.saved { background: var(--voice-live); color: #000; }
 .ssv-btn.danger {
   background: var(--danger); color: #fff;
-  box-shadow: 0 2px 10px var(--danger-tint);
+  box-shadow: none;
   white-space: nowrap;
 }
-.ssv-btn.danger:hover { background: var(--danger-hover); color: #fff; }
-.ssv-btn.small { height: 32px; padding: 0 14px; border-radius: 9px; font-size: 13px; }
+.ssv-btn.danger:hover:not(:disabled) { background: var(--danger); color: #fff; box-shadow: none; }
+.ssv-btn.small { height: 32px; padding: 0 16px; font-size: 13px; }
 
 .ssv-search {
   display: flex; align-items: center; gap: 10px;
-  height: 44px; padding: 0 14px;
-  border-radius: 10px;
-  background: var(--surface-panel);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+  height: 44px; padding: 0 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-1) 10%, transparent);
   color: var(--fg-3);
   margin-bottom: 20px;
 }
@@ -803,20 +803,19 @@ textarea.ssv-input:focus-visible {
 .ssv-search input::placeholder { color: var(--fg-4); }
 
 .ssv-card {
-  border-radius: 14px;
-  background: var(--surface-panel);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fg-1) 4%, transparent);
   overflow: hidden;
   margin-bottom: 24px;
 }
-.ssv-divider { height: 1px; background: var(--hairline); margin: 0 18px; }
+.ssv-divider { height: 0; margin: 0; }
 .ssv-empty { padding: 18px; font-size: 13px; color: var(--fg-3); }
 .ssv-row {
   display: flex; align-items: center; gap: 13px;
   padding: 12px 18px;
   transition: background 140ms var(--ease-spring);
 }
-.ssv-row:hover { background: var(--surface-hover); }
+.ssv-row:hover { background: color-mix(in srgb, var(--fg-1) 6%, transparent); }
 .ssv-row.off { opacity: 0.6; }
 .ssv-row-ava-wrap { position: relative; flex: 0 0 auto; }
 .ssv-row-ava {
@@ -838,9 +837,9 @@ textarea.ssv-input:focus-visible {
 }
 .ssv-row-sub { font-size: 12px; color: var(--fg-3); }
 .ssv-tag {
-  padding: 4px 10px; border-radius: 7px;
-  background: var(--surface-sunken);
-  color: var(--fg-2);
+  padding: 4px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-1) 10%, transparent);
+  color: var(--fg-1);
   font-size: 12px; font-weight: 600;
   white-space: nowrap;
 }
@@ -854,14 +853,14 @@ textarea.ssv-input:focus-visible {
   width: 100%;
 }
 .ssv-channel-ico {
-  width: 36px; height: 36px; border-radius: 10px;
-  background: var(--surface-sunken);
+  width: 40px; height: 40px; border-radius: 6px;
+  background: color-mix(in srgb, var(--fg-1) 8%, transparent);
   color: var(--fg-2);
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 .ssv-row-delete {
-  width: 30px; height: 30px; border-radius: 8px;
+  width: 32px; height: 32px; border-radius: 50%;
   border: 0; background: transparent;
   color: var(--fg-3);
   display: inline-flex; align-items: center; justify-content: center;
@@ -870,32 +869,32 @@ textarea.ssv-input:focus-visible {
 }
 .ssv-row-delete:hover { background: rgba(255, 69, 58, 0.12); color: #ff453a; }
 .ssv-section-label {
-  font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--fg-3);
-  margin: 0 0 14px;
+  font-size: 18px; font-weight: 700; letter-spacing: -0.01em;
+  text-transform: none; color: var(--fg-1);
+  margin: 0 0 12px;
 }
 .ssv-danger-card {
   display: flex; align-items: center; gap: 20px;
-  border-radius: 14px;
-  background: var(--surface-panel);
-  box-shadow: inset 0 0 0 1px var(--danger-tint);
-  padding: 22px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  box-shadow: none;
+  padding: 20px 22px;
 }
 .ssv-danger-card + .ssv-danger-card { margin-top: 14px; }
 .ssv-danger-info { flex: 1; }
-.ssv-danger-title { font-size: 15px; font-weight: 600; color: var(--fg-1); margin-bottom: 4px; }
+.ssv-danger-title { font-size: 16px; font-weight: 700; color: var(--fg-1); margin-bottom: 4px; }
 .ssv-danger-sub { font-size: 13px; color: var(--fg-3); line-height: 1.5; }
 
 .ssv-invite-card {
-  border-radius: 16px;
-  background: var(--surface-panel);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 0 0 1px var(--hairline);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fg-1) 5%, transparent);
+  box-shadow: none;
   padding: 22px;
   margin-bottom: 28px;
 }
 .ssv-invite-head {
   display: flex; align-items: center; gap: 8px;
-  font-size: 14px; font-weight: 600; color: var(--fg-1);
+  font-size: 16px; font-weight: 700; color: var(--fg-1);
   margin-bottom: 14px;
 }
 .ssv-invite-head svg { color: var(--accent); }
@@ -903,10 +902,9 @@ textarea.ssv-input:focus-visible {
 .ssv-invite-code {
   flex: 1;
   display: flex; align-items: center;
-  height: 46px; padding: 0 16px;
-  border-radius: 10px;
-  background: var(--surface-sunken);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+  height: 46px; padding: 0 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-1) 10%, transparent);
   font: 500 15px/1 var(--font-mono);
   color: var(--fg-1);
   overflow: hidden; white-space: nowrap;
@@ -926,10 +924,9 @@ textarea.ssv-input:focus-visible {
 .ssv-invite-opt {
   flex: 1;
   display: flex; flex-direction: column; gap: 4px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: var(--surface-sunken);
-  box-shadow: inset 0 0 0 1px var(--hairline);
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fg-1) 8%, transparent);
 }
 .ssv-invite-opt-label { font-size: 12px; color: var(--fg-3); }
 .ssv-invite-opt select {
@@ -944,31 +941,30 @@ textarea.ssv-input:focus-visible {
 .ssv-invite-refresh {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   width: 96px;
-  border: 0; border-radius: 10px; cursor: pointer;
-  background: var(--surface-sunken);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  color: var(--fg-2);
+  border: 0; border-radius: 8px; cursor: pointer;
+  background: color-mix(in srgb, var(--fg-1) 8%, transparent);
+  color: var(--fg-1);
   font: inherit; font-size: 12px; font-weight: 500;
   transition: background 160ms var(--ease-spring), color 160ms;
 }
-.ssv-invite-refresh:hover { background: var(--surface-hover); color: var(--fg-1); }
+.ssv-invite-refresh:hover { background: color-mix(in srgb, var(--fg-1) 14%, transparent); }
 .ssv-invite-refresh:disabled { opacity: 0.55; cursor: default; }
 .ssv-invite-code-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .ssv-invite-mono { font: 600 14px/1 var(--font-mono); color: var(--fg-1); }
 .ssv-invite-by { font-size: 12px; color: var(--fg-3); white-space: nowrap; }
 .ssv-link-btn {
-  margin-top: 8px; padding: 8px 12px;
-  border: 0; border-radius: 9px;
+  margin-top: 8px; padding: 8px 14px;
+  border: 0; border-radius: 999px;
   background: transparent; color: var(--fg-3);
   font-size: 12px; font-weight: 600; cursor: pointer;
   transition: background 140ms var(--ease-spring), color 140ms;
 }
-.ssv-link-btn:hover:not(:disabled) { background: var(--bg-3); color: var(--fg-1); }
+.ssv-link-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--fg-1) 8%, transparent); color: var(--fg-1); }
 .ssv-link-btn:disabled { opacity: 0.6; cursor: default; }
 
 .ssv-icon-btn {
   width: 34px; height: 34px;
-  border: 0; border-radius: 9px;
+  border: 0; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   background: transparent;
@@ -976,7 +972,7 @@ textarea.ssv-input:focus-visible {
   transition: background 140ms var(--ease-spring), color 140ms;
   flex-shrink: 0;
 }
-.ssv-icon-btn:hover { background: var(--surface-active); color: var(--fg-1); }
+.ssv-icon-btn:hover { background: color-mix(in srgb, var(--fg-1) 10%, transparent); color: var(--fg-1); }
 .ssv-icon-btn.danger:hover { background: var(--danger-tint); color: var(--danger); }
 @keyframes menuIn {
   from { opacity: 0; transform: scale(0.96) translateY(-4px); }
@@ -1194,9 +1190,9 @@ textarea.ssv-input:focus-visible {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   font-size: 13px; color: var(--fg-2);
   padding: 7px 10px;
-  border-radius: 9px;
-  background: var(--surface-inset, rgba(255, 255, 255, 0.03));
-  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fg-1) 5%, transparent);
+  border: 0;
 }
 .ssv-role-perm .s-switch { flex: 0 0 auto; }
 .ssv-role-perm .s-switch:disabled { opacity: 0.4; cursor: default; }
@@ -1223,7 +1219,7 @@ textarea.ssv-input:focus-visible {
   padding: 6px 10px;
   border-radius: 9px;
 }
-.ssv-role-member-row:hover { background: var(--surface-hover); }
+.ssv-role-member-row:hover { background: color-mix(in srgb, var(--fg-1) 6%, transparent); }
 .ssv-role-member-ava {
   width: 26px !important;
   height: 26px !important;
