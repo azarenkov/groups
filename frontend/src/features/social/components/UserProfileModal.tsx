@@ -154,7 +154,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
           style={
             bannerUrl
               ? { backgroundImage: `url(${bannerUrl})` }
-              : { background: `var(--grain), linear-gradient(180deg, color-mix(in srgb, ${colorForId(userId)} 70%, var(--surface-dialog)) 0, color-mix(in srgb, ${colorForId(userId)} 42%, var(--surface-dialog)) 40%, color-mix(in srgb, ${colorForId(userId)} 16%, var(--surface-dialog)) 75%, var(--surface-dialog) 100%)` }
+              : { background: `linear-gradient(180deg, color-mix(in srgb, ${colorForId(userId)} 70%, var(--surface-dialog)) 0, color-mix(in srgb, ${colorForId(userId)} 42%, var(--surface-dialog)) 40%, color-mix(in srgb, ${colorForId(userId)} 16%, var(--surface-dialog)) 75%, var(--surface-dialog) 100%)` }
           }
         >
           <button type="button" className="profile-close" onClick={close} aria-label={t("close")}>
