@@ -33,6 +33,7 @@ import VoiceChannelPreview from "../../voice/components/VoiceChannelPreview";
 import type { VoicePreviewParticipant } from "../../voice/components/VoiceChannelPreview";
 import DetailsPanel from "../../chat/components/DetailsPanel";
 import { useDetailsPanelStore } from "../../chat/store/detailsPanelStore";
+import { usePresence } from "../../../shared/hooks/usePresence";
 import NoTextChannel from "./NoTextChannel";
 import SettingsView from "../../settings/components/SettingsView";
 import { useHotkey } from "../../settings/lib/hotkeys";
@@ -68,6 +69,7 @@ import { Community } from "../../../shared/types/community";
 import "../../../styles/rift.css";
 
 const DETAILS_OVERLAY_QUERY = "(max-width: 900px)";
+const DETAILS_ANIMATION_MS = 260;
 
 const CommunitiesPage: React.FC = () => {
   const { t: tModals } = useTranslation("modals");
@@ -296,6 +298,7 @@ const CommunitiesPage: React.FC = () => {
 
   const callStageShown = useCallStore((s) => !!s.activeCallId && s.focused);
   const detailsOpen = useDetailsPanelStore((s) => s.open);
+  const detailsPresence = usePresence(detailsOpen, DETAILS_ANIMATION_MS);
   const detailsTarget: React.ComponentProps<typeof DetailsPanel>["target"] | null = selectedDm
     ? {
         kind: "dm",
@@ -948,27 +951,31 @@ const CommunitiesPage: React.FC = () => {
             )}
           </div>
 
-          {detailsOpen && detailsTarget && (
+          {detailsPresence && detailsTarget && (
             <>
-              <PanelResizer
-                cssVar="--w-details"
-                otherSelector=".sb"
-                side="end"
-                min={280}
-                max={480}
-                fallback={340}
-                storageKey="rift.panel.details"
-                label={i18n.t("details.resize", { ns: "chat" })}
-              />
-              <DetailsPanel
-                target={detailsTarget}
-                currentUserId={user?.id}
-                onShowMessage={(messageId) => {
-                  const convId = detailsTarget.kind === "dm" ? detailsTarget.friendId : detailsTarget.channelId;
-                  if (window.matchMedia?.(DETAILS_OVERLAY_QUERY).matches) useDetailsPanelStore.getState().setOpen(false);
-                  setOpenMessage({ convId, messageId });
-                }}
-              />
+              {detailsPresence !== "exit" && (
+                <PanelResizer
+                  cssVar="--w-details"
+                  otherSelector=".sb"
+                  side="end"
+                  min={280}
+                  max={480}
+                  fallback={340}
+                  storageKey="rift.panel.details"
+                  label={i18n.t("details.resize", { ns: "chat" })}
+                />
+              )}
+              <div className={"details-slot " + detailsPresence}>
+                <DetailsPanel
+                  target={detailsTarget}
+                  currentUserId={user?.id}
+                  onShowMessage={(messageId) => {
+                    const convId = detailsTarget.kind === "dm" ? detailsTarget.friendId : detailsTarget.channelId;
+                    if (window.matchMedia?.(DETAILS_OVERLAY_QUERY).matches) useDetailsPanelStore.getState().setOpen(false);
+                    setOpenMessage({ convId, messageId });
+                  }}
+                />
+              </div>
             </>
           )}
         </main>
