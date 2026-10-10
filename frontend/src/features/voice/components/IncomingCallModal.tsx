@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
+import { RING_CHIME, RING_INTERVAL_MS, playChime } from "../../../shared/lib/chime";
 import { useCallStore } from "../store/callStore";
 import { useVoiceChannelStore } from "../store/voiceChannelStore";
 import {
@@ -43,33 +44,14 @@ const IncomingCallModal: React.FC = () => {
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
     let stopped = false;
-    const notes = [
-      { f: 587.33, at: 0, dur: 0.16 },
-      { f: 783.99, at: 0.16, dur: 0.16 },
-      { f: 1174.66, at: 0.32, dur: 0.3 },
-    ];
     const ring = () => {
       if (stopped) return;
       notifyDesktop();
       if (isQuietNow()) return;
-      const base = ctx.currentTime;
-      for (const n of notes) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "triangle";
-        osc.frequency.value = n.f;
-        const start = base + n.at;
-        gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(0.13, start + 0.025);
-        gain.gain.exponentialRampToValueAtTime(0.0001, start + n.dur);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(start);
-        osc.stop(start + n.dur + 0.05);
-      }
+      playChime(ctx, RING_CHIME, 0.16);
     };
     ring();
-    const id = setInterval(ring, 2200);
+    const id = setInterval(ring, RING_INTERVAL_MS);
     return () => {
       stopped = true;
       clearInterval(id);
