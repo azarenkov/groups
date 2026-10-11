@@ -159,6 +159,8 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onShowM
     [clearedFriendId, currentUserId, reload],
   );
 
+  React.useEffect(() => ws.onOpen(() => reload()), [reload]);
+
   React.useEffect(
     () =>
       ws.on((env) => {

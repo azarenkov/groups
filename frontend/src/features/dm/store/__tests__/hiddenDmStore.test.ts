@@ -211,3 +211,21 @@ it("treats a chat as hidden again while a failed unhide is being reconciled", as
   await act();
   expect(hiddenDmsKnown()).toBe(true);
 });
+
+it("does not let a load started before a reconnect mark the list as known", async () => {
+  get.mockResolvedValueOnce(reply([]));
+  await useHiddenDmStore.getState().fetch();
+  let first: (v: unknown) => void = () => {};
+  let second: (v: unknown) => void = () => {};
+  get.mockReturnValueOnce(new Promise((resolve) => (first = resolve)));
+  get.mockReturnValueOnce(new Promise((resolve) => (second = resolve)));
+  useHiddenDmStore.getState().remoteChanged("p1", false);
+  useHiddenDmStore.getState().markStale();
+  first(reply([]));
+  await act();
+  expect(hiddenDmsKnown()).toBe(false);
+  second(reply(["p1"]));
+  await act();
+  expect(hiddenDmsKnown()).toBe(true);
+  expect(useHiddenDmStore.getState().hidden).toEqual(["p1"]);
+});

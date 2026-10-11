@@ -117,6 +117,7 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
     },
 
     markStale: () => {
+      epoch += 1;
       set({ loaded: false });
       reconcile();
     },
