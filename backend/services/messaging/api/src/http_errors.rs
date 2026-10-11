@@ -108,6 +108,7 @@ macro_rules! impl_http_mapping_delegate {
 use messaging::usecases::attachment::get_attachment::GetAttachmentError;
 use messaging::usecases::attachment::list_message_attachments::ListMessageAttachmentsError;
 use messaging::usecases::pin::{conversation_pins::ConversationPinError, message_pins::MessagePinError};
+use messaging::usecases::dm_conversation::DmConversationError;
 use messaging::usecases::search::global_search::GlobalSearchError;
 use messaging::usecases::shared::list_shared_content::ListSharedContentError;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnailError;
@@ -1224,6 +1225,31 @@ impl HttpMapping for MessagePinError {
             MessagePinError::LimitReached => "PIN_LIMIT_REACHED",
             MessagePinError::Blocked => "USER_BLOCKED",
             MessagePinError::SelfConversation => "DM_SELF",
+        }
+    }
+}
+
+impl HttpMapping for DmConversationError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DmConversationError::Repository(e) => e.to_http_status(),
+            DmConversationError::SelfConversation => StatusCode::BAD_REQUEST,
+            DmConversationError::NotFound => StatusCode::NOT_FOUND,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            DmConversationError::Repository(e) => e.to_user_message(),
+            other => other.to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DmConversationError::Repository(e) => e.to_error_code(),
+            DmConversationError::SelfConversation => "DM_SELF",
+            DmConversationError::NotFound => "DM_NOT_FOUND",
         }
     }
 }

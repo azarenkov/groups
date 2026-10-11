@@ -3,6 +3,7 @@ pub mod block;
 pub mod call;
 pub mod channel;
 pub mod dm;
+pub mod dm_conversation;
 pub mod friendship;
 pub mod hidden_message;
 pub mod voice_listen;

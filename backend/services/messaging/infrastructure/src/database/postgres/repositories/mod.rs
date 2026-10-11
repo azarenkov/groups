@@ -1,6 +1,7 @@
 pub mod badge;
 pub mod channel;
 pub mod channel_unit_of_work;
+pub mod dm_conversation;
 pub mod dm_message;
 pub mod dm_unit_of_work;
 pub mod friendship;

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    DELETE FROM dm_message_attachments a\n                    USING dm_messages m\n                    WHERE a.dm_message_id = m.id\n                      AND LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)\n                      AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)\n                    RETURNING a.storage_key\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "394bbcd5afea01f612fd43b4b1e468e2a90e4813ff7e6fa2484bed725be6db1e"
+}

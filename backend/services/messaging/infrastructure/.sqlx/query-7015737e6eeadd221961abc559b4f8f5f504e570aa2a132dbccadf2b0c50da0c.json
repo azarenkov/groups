@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM hidden_dm_chats WHERE user_id = $1 AND peer_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7015737e6eeadd221961abc559b4f8f5f504e570aa2a132dbccadf2b0c50da0c"
+}

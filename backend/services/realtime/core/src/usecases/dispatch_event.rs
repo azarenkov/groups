@@ -12,6 +12,7 @@ use contracts::events::{
     dm_message::{
         DmMessageDeletedV1 as DmDeleted, DmMessageEditedV1 as DmEdited,
         DmMessageSentV1 as DmSent, DmReadV1 as DmReadDto,
+        DmConversationClearedV1 as DmClearedDto, DmConversationHiddenChangedV1 as DmHiddenDto,
     },
     friendship::{
         FriendRequestAcceptedV1 as FriendRequestAcceptedDto,
@@ -319,6 +320,29 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             json!({
                 "dms": evt.dms,
                 "communities": evt.communities,
+            }),
+        );
+        publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".dm_conversation.cleared") {
+        let evt: DmClearedDto = serde_json::from_slice(payload)?;
+        let (recipients, data) = dm_cleared_envelope(&evt);
+        publisher
+            .publish_to_users(recipients, &Envelope::new("dm_conversation.cleared", data))
+            .await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".dm_conversation.hidden_changed") {
+        let evt: DmHiddenDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "dm_conversation.hidden_changed",
+            json!({
+                "peerId": evt.peer_id,
+                "hidden": evt.hidden,
+                "at": evt.occurred_at,
             }),
         );
         publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
@@ -1116,6 +1140,18 @@ fn ends_with(subject: &str, suffix: &str) -> bool {
     subject == &suffix[1..] || subject.ends_with(suffix)
 }
 
+fn dm_cleared_envelope(evt: &DmClearedDto) -> (Vec<Uuid>, serde_json::Value) {
+    let allowed = [evt.sender_id, evt.recipient_id];
+    let recipients = unique(evt.recipients.iter().copied().filter(|r| allowed.contains(r)));
+    let data = json!({
+        "actorId": evt.sender_id,
+        "participants": [evt.sender_id, evt.recipient_id],
+        "scope": evt.scope,
+        "clearedAt": evt.cleared_at,
+    });
+    (recipients, data)
+}
+
 fn unique<I: IntoIterator<Item = Uuid>>(iter: I) -> Vec<Uuid> {
     let mut seen = HashSet::new();
     iter.into_iter().filter(|u| seen.insert(*u)).collect()
@@ -1141,6 +1177,23 @@ mod tests {
         assert!(hidden_for.is_empty());
         assert_eq!(visible.unwrap()["content"], "hi");
         assert_eq!(split_hidden_reply(None), (None, Vec::new()));
+    }
+
+    #[test]
+    fn a_cleared_conversation_reaches_only_its_participants() {
+        let (actor, peer, stranger) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
+        let evt = DmClearedDto {
+            sender_id: actor,
+            recipient_id: peer,
+            scope: "everyone".to_string(),
+            cleared_at: chrono::Utc::now(),
+            recipients: vec![actor, peer, actor, stranger],
+        };
+        let (recipients, data) = dm_cleared_envelope(&evt);
+        assert_eq!(recipients, vec![actor, peer]);
+        assert_eq!(data["participants"], json!([actor, peer]));
+        assert_eq!(data["scope"], "everyone");
+        assert_eq!(data["actorId"], json!(actor));
     }
 
     #[test]
