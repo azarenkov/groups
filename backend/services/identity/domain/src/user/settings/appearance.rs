@@ -1,8 +1,8 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Theme {
     Light,
-    Dark,
     #[default]
+    Dark,
     System,
 }
 
@@ -56,7 +56,7 @@ pub struct AppearanceSettings {
 impl Default for AppearanceSettings {
     fn default() -> Self {
         Self {
-            theme: Theme::System,
+            theme: Theme::Dark,
             accent: String::new(),
             chat_font_size: 14,
             reduce_motion: false,

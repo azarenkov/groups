@@ -23,7 +23,7 @@ export const DEFAULT_ACCENT = "#0071e3";
 const SETTING_KEYS = ["mode", "accent", "chatFontSize", "reduceMotion"] as const;
 
 const DEFAULT_SETTINGS: AppearanceSettings = {
-  mode: "system",
+  mode: "dark",
   accent: DEFAULT_ACCENT,
   chatFontSize: 14,
   reduceMotion: false,
@@ -32,12 +32,12 @@ const DEFAULT_SETTINGS: AppearanceSettings = {
 const legacyMode = (): ThemeMode => {
   try {
     const raw = localStorage.getItem("rift-theme");
-    if (!raw) return "system";
+    if (!raw) return DEFAULT_SETTINGS.mode;
     const parsed = JSON.parse(raw);
     const t = parsed?.state?.theme;
-    return t === "light" || t === "dark" ? t : "system";
+    return t === "light" || t === "dark" ? t : DEFAULT_SETTINGS.mode;
   } catch {
-    return "system";
+    return DEFAULT_SETTINGS.mode;
   }
 };
 
@@ -271,9 +271,9 @@ export const useAppearanceStore = create<AppearanceState>()(
           }
           const next = preserveRecentEdits({
             mode:
-              saved.theme === "light" || saved.theme === "dark"
+              saved.theme === "light" || saved.theme === "dark" || saved.theme === "system"
                 ? saved.theme
-                : "system",
+                : DEFAULT_SETTINGS.mode,
             accent: saved.accent || DEFAULT_ACCENT,
             chatFontSize: saved.chatFontSize,
             reduceMotion: saved.reduceMotion,
