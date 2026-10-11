@@ -40,6 +40,12 @@ const holdUntilHiddenKnown = (call: HeldCall) => {
   });
 };
 
+export const dropHeldCalls = () => {
+  heldCalls.clear();
+  stopHolding?.();
+  stopHolding = null;
+};
+
 const endSessionIfEmpty = (channelId: string) => {
   if ((useVoicePresenceStore.getState().byChannel[channelId]?.length ?? 0) === 0) {
     useVoiceSessionStore.getState().end(channelId);

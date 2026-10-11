@@ -4,7 +4,7 @@ import { chatHandlers } from "../../features/chat/ws/chatHandlers";
 import { dmHandlers } from "../../features/dm/ws/dmHandlers";
 import { communityHandlers } from "../../features/communities/ws/communityHandlers";
 import { socialHandlers } from "../../features/social/ws/socialHandlers";
-import { voiceHandlers } from "../../features/voice/ws/voiceHandlers";
+import { dropHeldCalls, voiceHandlers } from "../../features/voice/ws/voiceHandlers";
 import type { WsHandlers } from "./types";
 import {
   forgetReadThrottle,
@@ -116,6 +116,7 @@ export function installWsBootstrap() {
       .fetch()
       .catch((err) => console.warn("[ws] failed to reload conversation pins:", err));
     useHiddenDmStore.getState().markStale();
+    dropHeldCalls();
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
     void loadActivitiesFor(trackedActivityIds());

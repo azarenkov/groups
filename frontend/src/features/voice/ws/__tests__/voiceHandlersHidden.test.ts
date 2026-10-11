@@ -1,4 +1,4 @@
-import { voiceHandlers } from "../voiceHandlers";
+import { dropHeldCalls, voiceHandlers } from "../voiceHandlers";
 import { useCallStore } from "../../store/callStore";
 import { useHiddenDmStore } from "../../../dm/store/hiddenDmStore";
 
@@ -45,5 +45,13 @@ it("holds a call while hidden chats are being rechecked after a remote change", 
   voiceHandlers["call.incoming"]!({ callId: "c6", callerId: "peer", callerName: "Peer" });
   expect(useCallStore.getState().incoming).toBeNull();
   useHiddenDmStore.setState({ hidden: ["peer"], syncing: false });
+  expect(useCallStore.getState().incoming).toBeNull();
+});
+
+it("forgets held calls once their socket session is gone", () => {
+  useHiddenDmStore.setState({ hidden: [], loaded: false });
+  voiceHandlers["call.incoming"]!({ callId: "c7", callerId: "peer", callerName: "Peer" });
+  dropHeldCalls();
+  useHiddenDmStore.setState({ loaded: true, syncing: false });
   expect(useCallStore.getState().incoming).toBeNull();
 });
