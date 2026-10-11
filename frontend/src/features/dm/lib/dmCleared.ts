@@ -21,9 +21,11 @@ const subMillis = (value: string): number => {
   return Number(fraction.slice(3, 9).padEnd(6, "0"));
 };
 
+const millis = (value: string): number => Date.parse(value.replace(/(\.\d{3})\d+/, "$1"));
+
 export const clearedBefore = (createdAt: string, clearedAt: string): boolean => {
-  const created = Date.parse(createdAt);
-  const cleared = Date.parse(clearedAt);
+  const created = millis(createdAt);
+  const cleared = millis(clearedAt);
   if (!Number.isFinite(created) || !Number.isFinite(cleared)) return false;
   if (created !== cleared) return created < cleared;
   return subMillis(createdAt) <= subMillis(clearedAt);
