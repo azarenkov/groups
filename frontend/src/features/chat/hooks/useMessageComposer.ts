@@ -14,6 +14,9 @@ import type { useAttachments } from "./useAttachments";
 import type { Messenger } from "./useMessenger";
 import { attachmentAPI } from "../api/attachment";
 import type { MediaRecording } from "../lib/recording";
+import { ws } from "../../../shared/ws/websocket";
+import { useAuthStore } from "../../auth/store/authStore";
+import { dmClearedFor } from "../../dm/lib/dmCleared";
 
 export function useMessageComposer(params: {
   messenger: Messenger | null;
@@ -51,6 +54,15 @@ export function useMessageComposer(params: {
     setComposerError(null);
     setReplyTarget(null);
   }, [convId]);
+
+  const dmFriendId = dm?.friendId;
+  React.useEffect(() => {
+    if (!dmFriendId) return;
+    return ws.on((env) => {
+      if (env.type !== "dm_conversation.cleared") return;
+      if (dmClearedFor(env.data, useAuthStore.getState().user?.id)?.peerId === dmFriendId) setReplyTarget(null);
+    });
+  }, [dmFriendId]);
 
   React.useEffect(() => {
     if (wasSendingRef.current && !sending) {

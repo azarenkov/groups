@@ -7,7 +7,7 @@ import { playNotificationSound } from "../../../../shared/lib/notificationSound"
 import { showDesktopNotification } from "../../../../shared/lib/desktopNotification";
 import { useHiddenDmStore } from "../../store/hiddenDmStore";
 import { queryClient } from "../../../../shared/query/queryClient";
-import { refetchDmPreviews } from "../../store/dmPreviewStore";
+import { refetchDmPreviews, useDmPreviewStore } from "../../store/dmPreviewStore";
 
 jest.mock("../../../../shared/lib/notificationSound", () => ({ playNotificationSound: jest.fn() }));
 jest.mock("../../../../shared/lib/desktopNotification", () => ({ showDesktopNotification: jest.fn() }));
@@ -152,4 +152,22 @@ it("drops global search results when a conversation is cleared", () => {
   });
   expect(invalidate).toHaveBeenCalledWith({ queryKey: ["globalSearch"] });
   invalidate.mockRestore();
+});
+
+it("removes the cleared conversation preview right away", () => {
+  useDmPreviewStore.getState().push("peer", {
+    messageId: "m9",
+    senderId: "peer",
+    content: "secret",
+    callStatus: null,
+    inviteCommunityId: null,
+    hasAttachments: false,
+    createdAt: "2026-10-11T09:00:00Z",
+  });
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["peer", "me"],
+    scope: "everyone",
+    clearedAt: "2026-10-11T10:00:00Z",
+  });
+  expect(useDmPreviewStore.getState().byFriend.peer).toBeUndefined();
 });

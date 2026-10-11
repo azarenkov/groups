@@ -194,3 +194,15 @@ it("marks a chat with an ongoing call", () => {
   expect(screen.getByText(i18n.t("call:ongoingCall"))).toBeInTheDocument();
   act(() => useCallStore.setState({ joinableByPeer: {} }));
 });
+
+it("lights the chats dot only for unread chats that are known to be visible", () => {
+  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
+  act(() => useHiddenDmStore.setState({ hidden: [], loaded: false, hydrated: false }));
+  const { container } = render(<Harness h={handlers()} pendingCount={0} />);
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
+  expect(container.querySelector(".sb-rail-dot")).toBeNull();
+  act(() => useHiddenDmStore.setState({ hidden: ["u1"], loaded: true }));
+  expect(container.querySelector(".sb-rail-dot")).toBeNull();
+  act(() => useHiddenDmStore.setState({ hidden: [] }));
+  expect(container.querySelector(".sb-rail-dot")).not.toBeNull();
+});

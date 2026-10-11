@@ -105,6 +105,7 @@ export const dmHandlers: WsHandlers = {
       const cleared = dmClearedFor(d, useAuthStore.getState().user?.id);
       if (!cleared) return;
       delete lastDmBumpAt[cleared.peerId];
+      useDmPreviewStore.getState().dropCleared(cleared.peerId, cleared.clearedAt);
       refetchDmPreviews(true);
       void queryClient.invalidateQueries({ queryKey: queryKeys.pins(`dm:${cleared.peerId}`) });
       void queryClient.invalidateQueries({ queryKey: ["globalSearch"] });
