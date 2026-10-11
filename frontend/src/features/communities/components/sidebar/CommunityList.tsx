@@ -161,7 +161,7 @@ const CommunityList: React.FC<CommunityListProps> = ({
     <div className="sb-view">
       <button type="button" className="sb-add-row" onClick={onCreateCommunity}>
         <span className="sb-add-row-ico">
-          <Icon name="plus" size={13} />
+          <Icon name="plus" size={20} />
         </span>
         <span>{t("createCommunity")}</span>
       </button>
@@ -171,7 +171,7 @@ const CommunityList: React.FC<CommunityListProps> = ({
         onClick={onJoinCommunity}
       >
         <span className="sb-add-row-ico">
-          <Icon name="logout" size={13} />
+          <Icon name="logout" size={20} />
         </span>
         <span>{t("joinCommunity")}</span>
       </button>

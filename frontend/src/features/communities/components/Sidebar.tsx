@@ -22,6 +22,19 @@ import { PANELS_CHANGED, announcePanels, clampPanelWidth } from "../../../shared
 
 const RESIZE_STEP = 16;
 const SIDEBAR_CSS_VAR = "--w-sidebar";
+const SIDEBAR_FADE_OUT_MS = 100;
+
+const detailsPanelWidth = () => {
+  const slot = document.querySelector<HTMLElement>(".details-slot");
+  if (!slot || getComputedStyle(slot).position === "absolute") return 0;
+  return slot.querySelector<HTMLElement>(".details-panel")?.getBoundingClientRect().width ?? 0;
+};
+const SIDEBAR_ANIMATION_MS = 300;
+
+const prefersMotion = () =>
+  typeof window.matchMedia === "function" &&
+  !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
+  !document.documentElement.classList.contains("reduce-motion");
 
 interface SidebarProps {
   communities: Community[];
@@ -34,7 +47,6 @@ interface SidebarProps {
   hasMoreDirects?: boolean;
   onLoadMoreDirects?: () => void;
   onToggleCommunity: (communityId: string) => void;
-  onSelectCommunity: (communityId: string) => void;
   onSelectChannel: (community: Community, channel: Channel) => void;
   onSelectDm: (dm: DirectConversation) => void;
   onInviteCommunity: (community: Community) => void;
@@ -75,7 +87,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   hasMoreDirects,
   onLoadMoreDirects,
   onToggleCommunity,
-  onSelectCommunity,
   onSelectChannel,
   onSelectDm,
   onInviteCommunity,
@@ -106,8 +117,40 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [roomyWidth, setRoomyWidth] = React.useState(width);
   const [flyoutId, setFlyoutId] = React.useState<string | null>(null);
   const flyoutRef = React.useRef<HTMLDivElement>(null);
-  const showRail = collapsed;
-  const shownWidth = showRail ? SIDEBAR_COLLAPSED_WIDTH : roomyWidth;
+  const [showRail, setShowRail] = React.useState(collapsed);
+  const [phase, setPhase] = React.useState<"idle" | "out" | "in">("idle");
+  const showRailRef = React.useRef(showRail);
+  showRailRef.current = showRail;
+
+  React.useEffect(() => {
+    if (showRailRef.current === collapsed) {
+      setPhase("idle");
+      return;
+    }
+    if (!prefersMotion()) {
+      setShowRail(collapsed);
+      return;
+    }
+    setPhase("out");
+    const swap = setTimeout(() => {
+      setShowRail(collapsed);
+      setPhase("in");
+    }, SIDEBAR_FADE_OUT_MS);
+    const done = setTimeout(() => setPhase("idle"), SIDEBAR_ANIMATION_MS);
+    return () => {
+      clearTimeout(swap);
+      clearTimeout(done);
+    };
+  }, [collapsed]);
+  const shownWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : roomyWidth;
+  const shownPhase = showRail !== collapsed && prefersMotion() ? "out" : phase;
+  const animClass = shownPhase === "idle" ? "" : ` sb-anim sb-${shownPhase}`;
+  const animStyle =
+    shownPhase === "idle"
+      ? undefined
+      : ({
+          "--sb-content-w": `${showRail ? SIDEBAR_COLLAPSED_WIDTH - 12 : roomyWidth - 16}px`,
+        } as React.CSSProperties);
 
   React.useEffect(() => {
     const fit = () =>
@@ -116,7 +159,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           width,
           { min: SIDEBAR_MIN_WIDTH, max: SIDEBAR_MAX_WIDTH },
           window.innerWidth,
-          document.querySelector(".members-panel")?.getBoundingClientRect().width ?? 0,
+          detailsPanelWidth(),
         ),
       );
     const onPanels = (e: Event) => {
@@ -155,20 +198,23 @@ const Sidebar: React.FC<SidebarProps> = ({
     e.preventDefault();
     const handle = e.currentTarget;
     const left = (handle.parentElement ?? handle).getBoundingClientRect().left;
-    handle.setPointerCapture?.(e.pointerId);
     document.body.classList.add("sb-resizing");
     const move = (ev: PointerEvent) => useSidebarLayoutStore.getState().dragTo(ev.clientX - left);
     const stop = () => {
-      handle.removeEventListener("pointermove", move);
-      handle.removeEventListener("pointerup", stop);
-      handle.removeEventListener("pointercancel", stop);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      window.removeEventListener("blur", stop);
       document.body.classList.remove("sb-resizing");
-      handle.blur();
+      if (document.activeElement instanceof HTMLElement && document.activeElement.classList.contains("sb-resizer")) {
+        document.activeElement.blur();
+      }
       useSidebarLayoutStore.getState().persist();
     };
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", stop);
-    handle.addEventListener("pointercancel", stop);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    window.addEventListener("blur", stop);
   };
 
   const resizer = (
@@ -184,7 +230,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       onPointerDown={startResize}
       onDoubleClick={(e) => {
         e.currentTarget.blur();
-        if (showRail) expand();
+        if (collapsed) expand();
         else collapse();
       }}
       onKeyDown={(e) => {
@@ -193,7 +239,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           useSidebarLayoutStore.getState().nudge(e.key === "ArrowLeft" ? -RESIZE_STEP : RESIZE_STEP);
         } else if (e.key === "Enter") {
           e.preventDefault();
-          if (showRail) expand();
+          if (collapsed) expand();
           else collapse();
         }
       }}
@@ -213,7 +259,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const pickCommunity = (community: Community) => {
     if (!expandedCommunityIds.has(community.id)) onToggleCommunity(community.id);
     setOpenCommunityId(community.id);
-    onSelectCommunity(community.id);
   };
 
   const pickChannel = (community: Community, channel: Channel) => {
@@ -333,7 +378,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   if (showRail) {
     return (
-      <div className="sb sb-collapsed">
+      <div className={"sb sb-collapsed" + animClass} style={animStyle}>
         <div className="sb-rail">
           <button type="button" className="sb-rail-btn sb-rail-open" title={t("expandSidebar")} aria-label={t("expandSidebar")} onClick={expand}>
             <Icon name="panel-open" size={20} />
@@ -446,7 +491,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   }
 
   return (
-    <div className="sb">
+    <div className={"sb" + animClass} style={animStyle}>
       <SidebarHeader
         tab={tab}
         onSetTab={setTab}
@@ -472,7 +517,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => setOpenCommunityId(null)}
         >
           <span className="sb-add-row-ico">
-            <Icon name="chev-left" size={13} />
+            <Icon name="chev-left" size={18} />
           </span>
           <span>{t("backToCommunities")}</span>
         </button>

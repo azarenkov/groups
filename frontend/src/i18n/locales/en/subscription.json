@@ -9,7 +9,7 @@
   },
   "profileStyle": {
     "title": "Profile style",
-    "locked": "Comes with Rift Pro. These settings stay locked until you subscribe."
+    "locked": "Banner, badge style and sticker status come with Rift Pro."
   },
   "banner": {
     "title": "Profile banner",
@@ -56,7 +56,7 @@
       "free": {
         "name": "Free",
         "price": "Free",
-        "noise": "Noise suppression: off, standard or high",
+        "noise": "Noise suppression: standard or high",
         "attachments": "Attachments up to 15 MB, 5 per message",
         "voice": "Voice messages up to {{minutes}} min",
         "videoNote": "Video notes {{size}}×{{size}}",
@@ -71,6 +71,7 @@
         "videoNote": "Higher quality video notes {{size}}×{{size}}",
         "stream": "Screen share up to 1440p 60 fps",
         "badge": "A Pro badge in the style you pick",
+        "emojiStatus": "Your own sticker status next to your name, animated ones too",
         "banner": "Your own profile banner",
         "avatar": "Animated avatar",
         "stickerPacks": "Up to {{packs}} sticker packs of your own"
@@ -84,6 +85,7 @@
         "stream": "Screen share up to 4K 60 fps",
         "badge": "A Premium badge in the style you pick",
         "goldBadge": "Exclusive gold badge",
+        "emojiStatus": "Your own sticker status next to your name, animated ones too",
         "banner": "Your own profile banner",
         "avatar": "Animated avatar",
         "stickerPacks": "Up to {{packs}} sticker packs of your own"

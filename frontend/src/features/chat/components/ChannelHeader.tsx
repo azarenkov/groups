@@ -1,16 +1,16 @@
 import React from "react";
-import { useNotificationSettingsStore } from "../../settings/store/notificationSettingsStore";
 import { useActivityStore } from "../../social/store/activityStore";
 import { ApiError } from "../../../shared/lib/apiError";
 import { useCallStore } from "../../voice/store/callStore";
 
 import i18n from "../../../i18n";
-import { dmLevelOf, useNotificationPrefsStore } from "../../settings/store/notificationPrefsStore";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
 import { openReport } from "../../moderation/store/reportModalStore";
 import type { ChannelMeta, DmMeta } from "../types";
+import { useDetailsPanelStore } from "../store/detailsPanelStore";
+import UserBadge from "../../subscription/components/UserBadge";
 
 export interface ChannelHeaderProps {
   channel?: ChannelMeta;
@@ -18,12 +18,8 @@ export interface ChannelHeaderProps {
   blocked?: boolean;
   blockedBy?: boolean;
   onUnblockUser?: () => void;
-  membersOpen?: boolean;
   searchActive?: boolean;
   onToggleSearch?: () => void;
-  onToggleMembers?: () => void;
-  sharedOpen?: boolean;
-  onToggleShared?: () => void;
   onRemoveFriend?: () => void;
   onBlockUser?: () => void;
 }
@@ -34,12 +30,8 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   blocked,
   blockedBy,
   onUnblockUser,
-  membersOpen,
   searchActive,
   onToggleSearch,
-  onToggleMembers,
-  sharedOpen,
-  onToggleShared,
   onRemoveFriend,
   onBlockUser,
 }) => {
@@ -64,83 +56,22 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       );
     });
   };
-  const [bellOpen, setBellOpen] = React.useState(false);
   const dmActivity = useActivityStore((s) => (dm ? s.byUser[dm.friendId] : undefined));
-  const globalMentions = useNotificationSettingsStore((s) => s.mentions);
-  const notifLevel = useNotificationPrefsStore((s) =>
-    dm
-      ? dmLevelOf(s.dmLevels, dm.friendId, globalMentions)
-      : channel
-        ? (s.channelLevels[channel.id] ?? globalMentions)
-        : "all",
-  );
-  const bellRef = React.useRef<HTMLDivElement>(null);
-  const bellButtonRef = React.useRef<HTMLButtonElement>(null);
   const [moreOpen, setMoreOpen] = React.useState(false);
-  const moreRef = React.useRef<HTMLDivElement>(null);
-
-  const applyNotifLevel = (level: "all" | "mentions" | "none") => {
-    const prefs = useNotificationPrefsStore.getState();
-    const action = dm
-      ? level !== "mentions" && prefs.setDmLevel(dm.friendId, level)
-      : channel
-        ? prefs.setChannelLevel(channel.id, level)
-        : null;
-    if (action) {
-      action.catch((e) =>
-        console.warn("[notifications] failed to save preference:", e),
-      );
-    }
-    setBellOpen(false);
-  };
-
-  const bellPopover = (
-    title: string,
-    options: {
-      k: "all" | "mentions" | "none";
-      ttl: string;
-      sub: string;
-    }[],
-  ) => (
-    <div className="popover-wrap" ref={bellRef}>
-      <button
-        ref={bellButtonRef}
-        type="button"
-        className={"icon-btn" + (bellOpen ? " on" : "")}
-        title={i18n.t("notifications.bell", { ns: "chat" })}
-        onClick={() => setBellOpen((o) => !o)}
-      >
-        <Icon name="bell" size={15} />
-        {notifLevel !== "all" && (
-          <span
-            className="nb-dot"
-            style={{ background: notifLevel === "none" ? "#ff453a" : "#ff9f0a" }}
-          />
-        )}
-      </button>
-      {bellOpen && (
-        <div className="popover" onMouseDown={(e) => e.stopPropagation()}>
-          <div className="pop-head">{title}</div>
-          {options.map((opt) => (
-            <button
-              type="button"
-              key={opt.k}
-              className="pop-item"
-              onClick={() => applyNotifLevel(opt.k)}
-            >
-              <span className="check">
-                {notifLevel === opt.k && <Icon name="check" size={14} />}
-              </span>
-              <span className="body">
-                <div className="ttl">{opt.ttl}</div>
-                <div className="sub">{opt.sub}</div>
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+  const detailsOpen = useDetailsPanelStore((s) => s.open);
+  const detailsToggle = (
+    <button
+      type="button"
+      className={"icon-btn" + (detailsOpen ? " on" : "")}
+      title={i18n.t(detailsOpen ? "details.close" : "details.open", { ns: "chat" })}
+      aria-label={i18n.t(detailsOpen ? "details.close" : "details.open", { ns: "chat" })}
+      aria-pressed={detailsOpen}
+      onClick={() => useDetailsPanelStore.getState().toggle()}
+    >
+      <Icon name="panel-right" size={16} />
+    </button>
   );
+  const moreRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (!moreOpen) return;
@@ -160,44 +91,6 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     };
   }, [moreOpen]);
 
-  React.useEffect(() => {
-    if (!bellOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
-        setBellOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [bellOpen]);
-
-  React.useEffect(() => {
-    if (!bellOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setBellOpen(false);
-        bellButtonRef.current?.focus();
-        return;
-      }
-      if (e.key !== "Tab" || !bellRef.current) return;
-      const focusables = bellRef.current.querySelectorAll<HTMLElement>(
-        'button:not([tabindex="-1"])',
-      );
-      if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      const active = document.activeElement as HTMLElement | null;
-      if (e.shiftKey && active === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && active === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [bellOpen]);
 
   if (dm) {
     return (
@@ -225,6 +118,7 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             }}
           />
           <span className="ch-name">{dm.name}</span>
+          <UserBadge userId={dm.friendId} size="sm" />
           <Icon name="chev" size={10} className="dm-peer-chev" />
         </button>
         <span className="sep" />
@@ -256,24 +150,6 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               <Icon name="video" size={16} />
             </button>
           </div>
-          {dm.isFriend !== false && bellPopover(
-            i18n.t("notifications.dmTitle", { ns: "chat", name: dm.name }),
-            [
-              { k: "all", ttl: i18n.t("notifications.all", { ns: "chat" }), sub: i18n.t("notifications.allHint", { ns: "chat" }) },
-              { k: "none", ttl: i18n.t("notifications.nothing", { ns: "chat" }), sub: i18n.t("notifications.dmNothingHint", { ns: "chat" }) },
-            ],
-          )}
-          {onToggleShared && (
-            <button
-              type="button"
-              className={"icon-btn" + (sharedOpen ? " on" : "")}
-              title={i18n.t(sharedOpen ? "shared.close" : "shared.title", { ns: "chat" })}
-              aria-pressed={!!sharedOpen}
-              onClick={onToggleShared}
-            >
-              <Icon name="paperclip" size={15} />
-            </button>
-          )}
           {onToggleSearch && (
             <button
               type="button"
@@ -284,6 +160,7 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
               <Icon name="search" size={15} />
             </button>
           )}
+          {detailsToggle}
           <div className="popover-wrap" ref={moreRef}>
             <button
               type="button"
@@ -362,35 +239,6 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         </>
       )}
       <div className="right">
-        {bellPopover(
-          i18n.t("notifications.title", { ns: "chat", channel: channel.name }),
-          [
-            { k: "all", ttl: i18n.t("notifications.all", { ns: "chat" }), sub: i18n.t("notifications.allHint", { ns: "chat" }) },
-            { k: "mentions", ttl: i18n.t("notifications.mentions", { ns: "chat" }), sub: i18n.t("notifications.mentionsHint", { ns: "chat" }) },
-            { k: "none", ttl: i18n.t("notifications.nothing", { ns: "chat" }), sub: i18n.t("notifications.nothingHint", { ns: "chat" }) },
-          ],
-        )}
-        {onToggleMembers && (
-          <button
-            type="button"
-            className={"icon-btn" + (membersOpen ? " on" : "")}
-            title={membersOpen ? "Hide members" : "Show members"}
-            onClick={onToggleMembers}
-          >
-            <Icon name="users" size={15} />
-          </button>
-        )}
-        {onToggleShared && (
-          <button
-            type="button"
-            className={"icon-btn" + (sharedOpen ? " on" : "")}
-            title={i18n.t(sharedOpen ? "shared.close" : "shared.title", { ns: "chat" })}
-            aria-pressed={!!sharedOpen}
-            onClick={onToggleShared}
-          >
-            <Icon name="paperclip" size={15} />
-          </button>
-        )}
         {onToggleSearch && (
           <button
             type="button"
@@ -401,6 +249,7 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             <Icon name="search" size={15} />
           </button>
         )}
+        {detailsToggle}
       </div>
     </header>
   );

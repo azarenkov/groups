@@ -17,6 +17,7 @@ interface AppTopBarProps {
   currentUserStatus: string;
   onOpenSettings: () => void;
   onSetStatus?: (status: "online" | "offline") => void;
+  onSignOut?: () => void;
   renderResults?: (done: () => void) => React.ReactNode;
 }
 
@@ -32,6 +33,7 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
   currentUserStatus,
   onOpenSettings,
   onSetStatus,
+  onSignOut,
   renderResults,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
@@ -121,7 +123,15 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
             }
           }}
         >
-          <div className={"topbar-search" + (showResults ? " open" : "")}>
+          <div
+            className={"topbar-search" + (showResults ? " open" : "")}
+            onMouseDown={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest("input, button")) return;
+              e.preventDefault();
+              e.currentTarget.querySelector("input")?.focus();
+            }}
+          >
             <Icon name="search" size={18} />
             <input
               ref={searchRef}
@@ -179,6 +189,7 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
           currentUserStatus={currentUserStatus}
           onOpenSettings={onOpenSettings}
           onSetStatus={onSetStatus}
+          onSignOut={onSignOut}
         />
       </div>
     </header>

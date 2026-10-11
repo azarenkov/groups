@@ -41,7 +41,6 @@
   "applicationWindow": "Application window",
   "membersConnected_one": "{{count}} connected",
   "membersConnected_other": "{{count}} connected",
-  "splashRoomLabel": "{{name}} — voice room",
   "splashTitle": "No one is here yet",
   "splashSub": "Connect to the room and start the conversation — others will follow.",
   "splashInvite": "Invite people",

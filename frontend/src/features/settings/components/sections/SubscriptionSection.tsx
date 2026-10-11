@@ -14,8 +14,8 @@ import { useEntitlementsStore } from "../../../subscription/store/entitlementsSt
 
 const PLANS: { tier: Tier; features: string[] }[] = [
   { tier: "free", features: ["noise", "attachments", "voice", "videoNote", "stream", "stickerPacks"] },
-  { tier: "pro", features: ["attachments", "voice", "videoNote", "stream", "stickerPacks", "badge", "banner", "avatar"] },
-  { tier: "premium", features: ["attachments", "voice", "videoNote", "stream", "stickerPacks", "badge", "goldBadge", "banner", "avatar"] },
+  { tier: "pro", features: ["attachments", "voice", "videoNote", "stream", "stickerPacks", "badge", "emojiStatus", "banner", "avatar"] },
+  { tier: "premium", features: ["attachments", "voice", "videoNote", "stream", "stickerPacks", "badge", "goldBadge", "emojiStatus", "banner", "avatar"] },
 ];
 
 export function SubscriptionSection() {
@@ -34,7 +34,7 @@ export function SubscriptionSection() {
             <div
               key={tier}
               className={
-                "plan-tile" +
+                "plan-tile tier-" + tier +
                 (tier === current ? " current" : "")
               }
             >
@@ -55,11 +55,11 @@ export function SubscriptionSection() {
                 ))}
               </ul>
               <div className="plan-tile-foot">
-                {tier === current
-                  ? t("page.current")
-                  : tier === "free"
-                    ? ""
-                    : t("page.paymentLater")}
+                {tier === current ? (
+                  <span className="plan-tile-cta current">{t("page.current")}</span>
+                ) : tier === "free" ? null : (
+                  <span className="plan-tile-cta">{t("page.paymentLater")}</span>
+                )}
               </div>
             </div>
           ))}

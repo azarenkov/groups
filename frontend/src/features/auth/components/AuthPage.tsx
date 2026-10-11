@@ -136,7 +136,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ defaultMode = "signin" }) => {
               pendingAvatar={pendingAvatar}
               email={email}
               onVerified={onSignedIn}
-              onBack={() => setMode("signup")}
+              onBack={() => {
+                useAuthStore.getState().logout();
+                switchTab("signin");
+              }}
               onEmailChanged={setEmail}
             />
           )}

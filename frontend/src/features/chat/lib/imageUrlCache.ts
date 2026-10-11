@@ -1,4 +1,5 @@
 import { attachmentAPI } from "../api/attachment";
+import { extractVideoPoster } from "./videoPoster";
 import { blobCacheGeneration, deleteCachedBlob, readCachedBlob, writeCachedBlob } from "../../../shared/lib/blobCache";
 
 export const IMAGE_CACHE_LIMIT = 40;
@@ -40,6 +41,7 @@ let imageSession = 0;
 
 export const clearImageUrlCache = (): void => {
   imageSession += 1;
+  recentVideos.clear();
   for (const entry of imageUrlCache.values()) URL.revokeObjectURL(entry.url);
   imageUrlCache.clear();
   pendingImageDownloads.clear();
@@ -81,6 +83,31 @@ export const downloadThumbnailUrl = (id: string, sizeBytes: number, originalMaxB
     attachmentAPI.thumbnail(id, sizeBytes).catch((err) => {
       if (sizeBytes > originalMaxBytes) throw err;
       return attachmentAPI.download(id, sizeBytes);
+    }),
+  );
+
+export const posterKey = (id: string) => `poster:${id}`;
+
+const RECENT_VIDEO_LIMIT = 3;
+const recentVideos = new Map<string, Blob>();
+
+export const takeRecentVideo = (id: string): Blob | null => recentVideos.get(id) ?? null;
+
+const rememberVideo = (id: string, blob: Blob) => {
+  recentVideos.delete(id);
+  recentVideos.set(id, blob);
+  while (recentVideos.size > RECENT_VIDEO_LIMIT) {
+    const oldest = recentVideos.keys().next().value;
+    if (oldest === undefined) break;
+    recentVideos.delete(oldest);
+  }
+};
+
+export const downloadVideoPosterUrl = (id: string, sizeBytes: number): Promise<string> =>
+  downloadCachedUrl(posterKey(id), () =>
+    attachmentAPI.download(id, sizeBytes).then((video) => {
+      rememberVideo(id, video);
+      return extractVideoPoster(video);
     }),
   );
 

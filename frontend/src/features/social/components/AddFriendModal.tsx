@@ -145,6 +145,15 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="m-head">
           <h3>{t("addFriend.title")}</h3>
+          <button
+            type="button"
+            className="close"
+            onClick={onClose}
+            title={t("common:close")}
+            aria-label={t("common:close")}
+          >
+            <Icon name="x" size={14} />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit}>

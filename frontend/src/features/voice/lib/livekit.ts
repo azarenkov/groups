@@ -21,6 +21,7 @@ import {
   speechBandRatio,
 } from "./makeupGain";
 import {
+  MIC_GATE_DENOISED_LOOKAHEAD_S,
   MIC_GATE_HOLD_MS,
   MIC_GATE_TICK_MS,
   connectThroughLookahead,
@@ -865,7 +866,7 @@ export class LiveKitService {
         postSource.connect(makeup);
         makeup.connect(limiter);
         limiter.connect(postGain);
-        connectThroughLookahead(ctx, postGain, postGate);
+        connectThroughLookahead(ctx, postGain, postGate, MIC_GATE_DENOISED_LOOKAHEAD_S);
         postGate.connect(postDest);
         stopMakeup = trackDenoiserMakeup(
           ctx,
@@ -918,7 +919,7 @@ export class LiveKitService {
           };
           this.micGainNode = postGain;
           this.micGateGain = postGate;
-          this.startMicGate(denoisedAnalyser);
+          this.startMicGate(denoisedAnalyser, postAnalyser);
         }
         rawTrack.enabled = !this.isMicrophoneMuted();
         pipeline.setStrength(this.noiseStrength);
@@ -1529,11 +1530,12 @@ export class LiveKitService {
   }
 
   private addParticipant(participant: RemoteParticipant): void {
+    const mic = participant.getTrackPublication(Track.Source.Microphone);
     const info: ParticipantInfo = {
       identity: participant.identity,
       name: participant.name || participant.identity,
       isSpeaking: participant.isSpeaking,
-      isMuted: false,
+      isMuted: !mic || mic.isMuted,
       isDeafened: participant.attributes?.deafened === "1",
       isSharingScreen: false,
       audioTrack: null,
@@ -1666,9 +1668,9 @@ export class LiveKitService {
     const actual = this.noiseMode;
     if (actual === requested) return;
     void import("../store/voiceSettingsStore").then(
-      ({ useVoiceSettingsStore }) => {
+      ({ useVoiceSettingsStore, parseNoiseMode }) => {
         const store = useVoiceSettingsStore.getState();
-        if (store.noiseMode === requested) store.update({ noiseMode: actual });
+        if (store.noiseMode === requested) store.update({ noiseMode: parseNoiseMode(actual) });
       },
     );
   }
@@ -1952,14 +1954,17 @@ export class LiveKitService {
     this.micGainRetryCleanup = null;
   }
 
-  private startMicGate(analyser: AnalyserNode): void {
+  private startMicGate(analyser: AnalyserNode, onsetAnalyser?: AnalyserNode): void {
     this.stopMicGate();
     const gateAtStart = this.micGateGain;
     if (!gateAtStart) return;
     const data = new Uint8Array(analyser.frequencyBinCount);
     const tdata = new Uint8Array(analyser.fftSize);
+    const onsetData = onsetAnalyser ? new Uint8Array(onsetAnalyser.frequencyBinCount) : null;
     let holdUntil = 0;
+    let gateHoldUntil = 0;
     let noiseFloor = 8;
+    let onsetFloor = 8;
     void import("../store/voiceSettingsStore").then(({ useVoiceSettingsStore }) => {
       if (this.micGateGain !== gateAtStart) return;
       this.micGateTimer = setInterval(() => {
@@ -1996,6 +2001,17 @@ export class LiveKitService {
         }
         if (passed) holdUntil = now + MIC_GATE_HOLD_MS;
         const active = now < holdUntil;
+        let onset = false;
+        if (onsetAnalyser && onsetData) {
+          onsetAnalyser.getByteFrequencyData(onsetData);
+          let onsetMax = 0;
+          for (let i = 0; i < onsetData.length; i++) {
+            if (onsetData[i] > onsetMax) onsetMax = onsetData[i];
+          }
+          onset = onsetMax > onsetFloor + 14;
+          onsetFloor = onsetFloor * 0.98 + onsetMax * 0.02;
+        }
+        if (passed || onset) gateHoldUntil = now + MIC_GATE_HOLD_MS;
         this.setLocalSpeaking(
           active && !this.desiredMicMuted && this.micVolume > 0,
         );
@@ -2003,7 +2019,7 @@ export class LiveKitService {
           setGateOpen(gate, true);
           return;
         }
-        setGateOpen(gate, active);
+        setGateOpen(gate, now < gateHoldUntil);
       }, MIC_GATE_TICK_MS);
     });
   }

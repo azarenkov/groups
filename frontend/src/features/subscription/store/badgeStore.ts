@@ -40,6 +40,34 @@ const statusFromEvents = new Map<string, EmojiStatus | null>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let generation = 0;
 
+const STORAGE_KEY = "rift.badges.v1";
+const STORED_LIMIT = 500;
+
+const readStoredBadges = (): Record<string, Badge | null> => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, Badge | null>) : {};
+  } catch {
+    return {};
+  }
+};
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+const saveBadges = (byUser: Record<string, Badge | null>) => {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    try {
+      const entries = Object.entries(byUser).slice(-STORED_LIMIT);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(entries)));
+    } catch {
+      return;
+    }
+  }, 500);
+};
+
 const freshestStatus = (userId: string, fetched: EmojiStatus | null, version: string): EmojiStatus | null => {
   const seen = statusSeenAt.get(userId);
   if (seen !== undefined && seen > version) return statusFromEvents.get(userId) ?? null;
@@ -99,7 +127,7 @@ const flush = () => {
 };
 
 export const useBadgeStore = create<BadgeState>()((set) => ({
-  byUser: {},
+  byUser: readStoredBadges(),
 
   request: (userId) => {
     const seen = fetchedAt.get(userId);
@@ -168,6 +196,10 @@ export const useBadgeStore = create<BadgeState>()((set) => ({
       clearTimeout(timer);
       timer = null;
     }
-    set({ byUser: {} });
+    set({ byUser: readStoredBadges() });
   },
 }));
+
+useBadgeStore.subscribe((state, prev) => {
+  if (state.byUser !== prev.byUser && Object.keys(state.byUser).length > 0) saveBadges(state.byUser);
+});

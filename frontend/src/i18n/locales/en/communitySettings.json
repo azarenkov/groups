@@ -98,6 +98,10 @@
   "roleNameRequired": "Enter a role name",
   "roleList": "Roles ({{count}})",
   "permKickMembers": "Kick members",
+  "kickBlockedRank": "Can't kick: their role is not below yours",
+  "kickConfirmTitle": "Kick {{name}}?",
+  "kickConfirmSub": "They will be removed from “{{community}}” and can only come back with a new invite.",
+  "kickConfirm": "Kick",
   "kickMember": "Kick from community",
   "loadMoreLinks": "Show more links",
   "reportCommunityHint": "Tell the Rift team about what is wrong with this community."

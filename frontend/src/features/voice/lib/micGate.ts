@@ -1,4 +1,5 @@
 export const MIC_GATE_LOOKAHEAD_S = 0.06;
+export const MIC_GATE_DENOISED_LOOKAHEAD_S = 0.12;
 export const MIC_GATE_TICK_MS = 20;
 export const MIC_GATE_HOLD_MS = 300;
 export const MIC_GATE_ATTACK_S = 0.004;
@@ -18,9 +19,14 @@ export function setGateOpen(gate: GainNode, open: boolean): void {
   gate.gain.setTargetAtTime(open ? 1 : 0, now, open ? MIC_GATE_ATTACK_S : MIC_GATE_RELEASE_S);
 }
 
-export function connectThroughLookahead(ctx: BaseAudioContext, from: AudioNode, gate: GainNode): DelayNode {
+export function connectThroughLookahead(
+  ctx: BaseAudioContext,
+  from: AudioNode,
+  gate: GainNode,
+  lookaheadS: number = MIC_GATE_LOOKAHEAD_S,
+): DelayNode {
   const delay = ctx.createDelay(1);
-  delay.delayTime.value = MIC_GATE_LOOKAHEAD_S;
+  delay.delayTime.value = lookaheadS;
   from.connect(delay);
   delay.connect(gate);
   return delay;

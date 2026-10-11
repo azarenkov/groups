@@ -10,16 +10,20 @@ import {
   discardBrokenImageUrl,
   downloadImageUrl,
   downloadThumbnailUrl,
+  downloadVideoPosterUrl,
+  posterKey,
   releaseImageUrl,
   retainImageUrl,
   thumbnailKey,
 } from "../lib/imageUrlCache";
 import Icon from "../../../shared/ui/Icon";
 import { OriginalImageViewer, VideoViewer } from "./MediaViewers";
+import { PosterExtractionError } from "../lib/videoPoster";
 
 export const IMAGE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
 export const THUMBNAIL_SOURCE_MAX_BYTES = 25 * 1024 * 1024;
 export const VIDEO_PLAY_MAX_BYTES = 200 * 1024 * 1024;
+export const POSTER_SOURCE_MAX_BYTES = 8 * 1024 * 1024;
 
 const playableTypes = new Map<string, boolean>();
 
@@ -47,7 +51,13 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
     attachment.contentType.startsWith("video/") &&
     attachment.sizeBytes <= VIDEO_PLAY_MAX_BYTES &&
     canPlayVideo(attachment.contentType);
-  const cacheKey = thumbnail ? thumbnailKey(attachment.id) : attachment.id;
+  const hasPoster = isVideo && attachment.sizeBytes <= POSTER_SOURCE_MAX_BYTES;
+  const hasPreview = isImage || hasPoster;
+  const cacheKey = hasPoster
+    ? posterKey(attachment.id)
+    : thumbnail
+      ? thumbnailKey(attachment.id)
+      : attachment.id;
   const [url, setUrl] = React.useState<string | null>(() =>
     acquireImageUrl(cacheKey),
   );
@@ -67,7 +77,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
   }, [cacheKey]);
 
   React.useEffect(() => {
-    if (!isImage) return;
+    if (!hasPreview) return;
     const node = containerRef.current;
     if (!node) return;
     if (typeof IntersectionObserver === "undefined") {
@@ -81,7 +91,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
           setVisible(true);
         } else {
           setVisible(false);
-          if (!viewerOpenRef.current && urlRef.current) {
+          if (!hasPoster && !viewerOpenRef.current && urlRef.current) {
             releaseImageUrl(cacheKey, urlRef.current);
             setUrl(null);
           }
@@ -91,10 +101,10 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [cacheKey, isImage]);
+  }, [cacheKey, hasPreview, hasPoster]);
 
   React.useEffect(() => {
-    if (!isImage || url || !visible) return;
+    if (!hasPreview || url || !visible) return;
     const cached = acquireImageUrl(cacheKey);
     if (cached) {
       setUrl(cached);
@@ -102,7 +112,9 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
     }
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    const load = thumbnail
+    const load = hasPoster
+      ? downloadVideoPosterUrl(attachment.id, attachment.sizeBytes)
+      : thumbnail
       ? downloadThumbnailUrl(attachment.id, attachment.sizeBytes, IMAGE_PREVIEW_MAX_BYTES)
       : downloadImageUrl(attachment.id, attachment.sizeBytes);
     load
@@ -115,7 +127,10 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
       })
       .catch((err) => {
         if (cancelled) return;
-        if (thumbnail && err instanceof ApiError && err.status === 404) {
+        if (
+          (hasPoster && err instanceof PosterExtractionError) ||
+          (!hasPoster && thumbnail && err instanceof ApiError && err.status === 404)
+        ) {
           setFailed(true);
           return;
         }
@@ -131,7 +146,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [attachment.id, attachment.sizeBytes, cacheKey, thumbnail, isImage, url, visible, retryTick]);
+  }, [attachment.id, attachment.sizeBytes, cacheKey, thumbnail, hasPoster, hasPreview, url, visible, retryTick]);
 
   const handleDownload = () => {
     void attachmentAPI
@@ -196,6 +211,42 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
             </div>,
             document.body,
           )}
+      </>
+    );
+  }
+
+  if (hasPoster && !failed) {
+    return (
+      <>
+        <button
+          ref={containerRef}
+          type="button"
+          className={"msg-attach-video msg-attach-video-poster" + (thumbnail ? " tile" : "")}
+          aria-label={attachment.fileName}
+          title={attachment.fileName}
+          onClick={() => setViewerOpen(true)}
+        >
+          {url ? (
+            <img
+              src={url}
+              alt=""
+              onError={() => {
+                if (url) discardBrokenImageUrl(cacheKey, url);
+                setUrl(null);
+                setFailed(true);
+              }}
+            />
+          ) : (
+            <span className="msg-attach-image-loading">
+              <span className="loading-spinner" />
+            </span>
+          )}
+          <span className="msg-attach-video-play" aria-hidden="true">
+            <Icon name="play" size={18} />
+          </span>
+          <span className="msg-attach-video-size">{formatFileSize(attachment.sizeBytes)}</span>
+        </button>
+        {viewerOpen && <VideoViewer attachment={attachment} onClose={() => setViewerOpen(false)} />}
       </>
     );
   }

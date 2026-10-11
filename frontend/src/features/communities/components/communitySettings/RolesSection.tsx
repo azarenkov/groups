@@ -288,9 +288,10 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                     <React.Fragment key={role.id}>
                       {i > 0 && <div className="ssv-divider" />}
                       <div
-                        className="ssv-row ssv-role-row"
+                        className={"ssv-row ssv-role-row" + (expanded ? " expanded" : "")}
                         role="button"
                         tabIndex={0}
+                        aria-expanded={canTouchRole(role.position) ? expanded : undefined}
                         onClick={() =>
                           setExpandedRoleId(expanded ? null : role.id)
                         }
@@ -330,7 +331,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                               title="↑"
                               onClick={() => void swapRoles(role, sortedRoles[i - 1])}
                             >
-                              <Icon name="chev" size={13} className="flip-y" />
+                              <Icon name="arrow-up" size={14} />
                             </button>
                             <button
                               type="button"
@@ -343,7 +344,7 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                               title="↓"
                               onClick={() => void swapRoles(role, sortedRoles[i + 1])}
                             >
-                              <Icon name="chev" size={13} />
+                              <Icon name="arrow-down" size={14} />
                             </button>
                           </span>
                         )}
@@ -359,6 +360,11 @@ export const RolesSection: React.FC<RolesSectionProps> = ({
                           >
                             <Icon name="trash" size={14} />
                           </button>
+                        )}
+                        {canTouchRole(role.position) && (
+                          <span className="ssv-role-expand" aria-hidden="true">
+                            <Icon name="chev" size={18} />
+                          </span>
                         )}
                       </div>
                       {expanded && canTouchRole(role.position) && (

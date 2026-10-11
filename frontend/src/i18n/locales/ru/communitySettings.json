@@ -98,6 +98,10 @@
   "roleNameRequired": "Введите название роли",
   "roleList": "Роли ({{count}})",
   "permKickMembers": "Исключение участников",
+  "kickBlockedRank": "Нельзя исключить: роль участника не ниже вашей",
+  "kickConfirmTitle": "Исключить {{name}}?",
+  "kickConfirmSub": "Участник пропадёт из «{{community}}». Вернуться он сможет только по новому приглашению.",
+  "kickConfirm": "Исключить",
   "kickMember": "Исключить с сообщества",
   "loadMoreLinks": "Показать ещё ссылки",
   "reportCommunityHint": "Расскажите команде Rift о нарушениях на этом сообществе."

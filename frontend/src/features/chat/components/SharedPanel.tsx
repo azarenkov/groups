@@ -18,7 +18,6 @@ const TABS: SharedKind[] = ["media", "files", "voice", "links"];
 interface SharedPanelProps {
   scope: SharedScope;
   currentUserId?: string;
-  onClose: () => void;
   onShowMessage: (messageId: string) => void;
 }
 
@@ -117,7 +116,7 @@ const SharedEntry: React.FC<{
 
 const LINK_HINT = /https?:\/\//i;
 
-const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose, onShowMessage }) => {
+const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onShowMessage }) => {
   const { t } = useTranslation("chat");
   const [kind, setKind] = React.useState<SharedKind>("media");
   const [query, setQuery] = React.useState("");
@@ -175,13 +174,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
   const empty = content.loaded && !content.loading && !content.failed && content.items.length === 0 && !waitingForBlocks;
 
   return (
-    <aside className="shared-panel" aria-label={t("shared.title")}>
-      <div className="shared-head">
-        <h3>{t("shared.title")}</h3>
-        <button type="button" className="icon-btn" title={t("shared.close")} aria-label={t("shared.close")} onClick={onClose}>
-          <Icon name="x" size={14} />
-        </button>
-      </div>
+    <div className="shared-panel">
       <div className="shared-tabs" role="tablist">
         {TABS.map((tab) => (
           <button
@@ -243,7 +236,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onClose
         )}
         <div ref={sentinelRef} className="shared-sentinel" />
       </div>
-    </aside>
+    </div>
   );
 };
 

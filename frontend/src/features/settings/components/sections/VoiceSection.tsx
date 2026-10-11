@@ -318,7 +318,6 @@ export function VoiceSection() {
         </SettingsRow>
         <SettingsRow label={t("voice.noiseDefault")} hint={t("voice.noiseDefaultHint")}>
           <div className="s-seg">
-            <button className={noiseMode === "off" ? "on" : ""} onClick={() => update({ noiseMode: "off" })}>{t("voice.noiseOff")}</button>
             <button className={noiseMode === "standard" ? "on" : ""} onClick={() => update({ noiseMode: "standard" })}>{t("voice.noiseStandard")}</button>
             <button className={noiseMode === "high" ? "on" : ""} onClick={() => update({ noiseMode: "high" })}>{t("voice.noiseHigh")}</button>
           </div>

@@ -1,14 +1,11 @@
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { queryClient, queryKeys } from "../../../shared/query/queryClient";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
-import { CommunityLogo, UserAvatar } from "../../../shared/ui/Avatar";
-import { homeAPI, type PublicProfile } from "../../home/api/home";
+import { UserAvatar } from "../../../shared/ui/Avatar";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useFriendshipStore } from "../store/friendshipStore";
-import { blockGeneration, useBlockStore } from "../store/blockStore";
+import { useBlockStore } from "../store/blockStore";
 import ProBadge from "../../subscription/components/ProBadge";
 import EmojiStatusIcon from "../../subscription/components/EmojiStatusIcon";
 import { useActiveEmojiStatus } from "../../subscription/lib/emojiStatus";
@@ -18,12 +15,12 @@ import { openReport } from "../../moderation/store/reportModalStore";
 import { usePresenceStore } from "../store/presenceStore";
 import { loadActivitiesFor, useActivityStore } from "../store/activityStore";
 import { useProfileModalStore } from "../store/profileModalStore";
+import { useUserProfileDetails } from "../hooks/useUserProfileDetails";
+import ProfileFacts from "./ProfileFacts";
 import { useDialogFocus } from "../../../shared/hooks/useDialogFocus";
-import { userAPI, type Connection } from "../api/user";
 import { useUserNamesStore } from "../store/userNamesStore";
-import { profileVersion, useUserProfileStore } from "../store/userProfileStore";
 import { colorForId } from "../../../shared/lib/avatar";
-import i18n, { currentLocale } from "../../../i18n";
+import i18n from "../../../i18n";
 import { shareProfile } from "../lib/profileLink";
 
 interface Props {
@@ -34,42 +31,6 @@ interface Props {
   onEditProfile: () => void;
 }
 
-const useMinuteTick = () => {
-  const [, force] = React.useReducer((n: number) => n + 1, 0);
-  React.useEffect(() => {
-    const align = 60_000 - (Date.now() % 60_000);
-    let interval: ReturnType<typeof setInterval> | null = null;
-    const timeout = setTimeout(() => {
-      force();
-      interval = setInterval(force, 60_000);
-    }, align);
-    return () => {
-      clearTimeout(timeout);
-      if (interval) clearInterval(interval);
-    };
-  }, []);
-};
-
-const formatLocalTime = (timezone: string, locale: string): string | null => {
-  if (!timezone) return null;
-  try {
-    const now = new Date();
-    const time = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone: timezone }).format(now);
-    const parts = new Intl.DateTimeFormat("en-US", { timeZone: timezone, timeZoneName: "shortOffset" }).formatToParts(now);
-    const offset = parts.find((p) => p.type === "timeZoneName")?.value ?? "";
-    return offset ? `${time} (${offset})` : time;
-  } catch {
-    return null;
-  }
-};
-
-const formatMemberSince = (iso: string | null, locale: string): string | null => {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return null;
-  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(d);
-};
-
 const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, onBlockUser, onEditProfile }) => {
   const { t } = useTranslation("profile");
   const userId = useProfileModalStore((s) => s.userId);
@@ -78,9 +39,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   useDialogFocus(dialogRef, !!userId, userId);
   const selfId = useAuthStore((s) => s.user?.id);
   const selfName = useAuthStore((s) => s.user?.name);
-  const friendStatuses = useFriendshipStore((s) => s.statusById);
-  const blockedByMe = useBlockStore((s) => (userId ? !!s.blocked[userId] : false));
-  const blockedMe = useBlockStore((s) => (userId ? !!s.blockedBy[userId] : false));
+  const { profile, failed, connections, blockedByMe, blockedMe, friendshipStatus, bio } = useUserProfileDetails(userId);
   const onlineUsers = usePresenceStore((s) => s.online);
   const selfOnline = usePresenceStore((s) => s.selfOnline);
   const gameActivity = useActivityStore((s) => (userId ? s.byUser[userId] : undefined));
@@ -88,7 +47,6 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
     if (userId) void loadActivitiesFor([userId]);
   }, [userId]);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
-  const cachedBio = useUserProfileStore((s) => (userId ? s.bios[userId]?.bio : undefined));
   const [menuOpen, setMenuOpen] = React.useState(false);
   const badge = useBadge(userId);
   const emojiStatus = useActiveEmojiStatus(badge?.emojiStatus);
@@ -100,9 +58,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const [copied, setCopied] = React.useState(false);
   const [linkCopied, setLinkCopied] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
-  useMinuteTick();
 
-  const friendshipStatus = userId ? friendStatuses[userId] : undefined;
 
   React.useEffect(() => {
     setMenuOpen(false);
@@ -111,36 +67,6 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
     setAvatarOpen(false);
   }, [userId]);
 
-  const connectionsQuery = useQuery(
-    {
-      queryKey: queryKeys.userConnections(userId ?? ""),
-      queryFn: () => userAPI.userConnections(userId as string),
-      enabled: !!userId && !blockedMe,
-    },
-    queryClient,
-  );
-  const connections: Connection[] = userId && !blockedMe ? (connectionsQuery.data ?? []) : [];
-
-  const profileQuery = useQuery(
-    {
-      queryKey: [...queryKeys.publicProfile(userId ?? ""), friendshipStatus ?? null, blockedByMe, blockedMe],
-      queryFn: async () => {
-        const id = userId as string;
-        const gen = blockGeneration(id);
-        const session = useAuthStore.getState().user?.id;
-        const p = await homeAPI.profile(id);
-        if (!session || useAuthStore.getState().user?.id !== session) throw new Error("SESSION_CHANGED");
-        useUserProfileStore.getState().apply(id, p.bio, profileVersion(p.profileUpdatedAt));
-        useBlockStore.getState().applyRelation(id, { blocked: p.blocked, blockedBy: p.blockedBy }, gen);
-        return p;
-      },
-      enabled: !!userId,
-      staleTime: 0,
-    },
-    queryClient,
-  );
-  const profile: PublicProfile | null = userId ? (profileQuery.data ?? null) : null;
-  const failed = profileQuery.isError && !profile;
 
   React.useEffect(() => {
     if (!userId) return;
@@ -170,10 +96,6 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   const isFriend = friendshipStatus === "accepted";
   const online = isSelf ? selfOnline : !blockedByMe && !blockedMe && !!onlineUsers[userId];
   const name = nameOverrides[userId] ?? profile?.name ?? (isSelf ? (selfName ?? "") : "");
-  const bio = blockedMe ? "" : (cachedBio ?? profile?.bio ?? "");
-  const locale = currentLocale();
-  const localTime = profile && !blockedMe ? formatLocalTime(profile.timezone, locale) : null;
-  const memberSince = profile && !blockedMe ? formatMemberSince(profile.memberSince, locale) : null;
   const inactive = !!profile && !profile.active;
   const blockedEitherWay = blockedByMe || blockedMe;
   const canMessage = !isSelf && !inactive && !blockedEitherWay && (profile ? profile.acceptsMessages : isFriend);
@@ -232,7 +154,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
           style={
             bannerUrl
               ? { backgroundImage: `url(${bannerUrl})` }
-              : { background: `color-mix(in srgb, ${colorForId(userId)} 28%, var(--surface-raised))` }
+              : { background: `linear-gradient(180deg, color-mix(in srgb, ${colorForId(userId)} 70%, var(--surface-dialog)) 0, color-mix(in srgb, ${colorForId(userId)} 42%, var(--surface-dialog)) 40%, color-mix(in srgb, ${colorForId(userId)} 16%, var(--surface-dialog)) 75%, var(--surface-dialog) 100%)` }
           }
         >
           <button type="button" className="profile-close" onClick={close} aria-label={t("close")}>
@@ -415,68 +337,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
 
           {!failed && (
             <>
-              <div className="profile-divider" />
-              {bio && (
-                <>
-                  <div className="profile-label">{t("about")}</div>
-                  <div className="profile-about">{bio}</div>
-                </>
-              )}
-              <div className={"profile-meta" + (bio ? "" : " no-about")}>
-                <div>
-                  <div className="profile-label">{t("memberSince")}</div>
-                  <div className="profile-value">{memberSince ?? "—"}</div>
-                </div>
-                {localTime && (
-                  <div>
-                    <div className="profile-label">{t("localTime")}</div>
-                    <div className="profile-value">{localTime}</div>
-                  </div>
-                )}
-              </div>
-              {connections.length > 0 && (
-                <div className="profile-mutual">
-                  <div className="profile-label">{t("connections")}</div>
-                  <div className="profile-chips">
-                    {connections.map((c) => {
-                      const inner = (
-                        <>
-                          <Icon name={c.provider === "steam" ? "steam" : "github"} size={14} />
-                          <span>{c.displayName || c.provider}</span>
-                        </>
-                      );
-                      return c.url ? (
-                        <a
-                          key={c.provider}
-                          className="profile-chip profile-conn"
-                          href={c.url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {inner}
-                        </a>
-                      ) : (
-                        <span key={c.provider} className="profile-chip profile-conn">
-                          {inner}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {profile && !blockedMe && profile.mutualCommunities.length > 0 && (
-                <div className="profile-mutual">
-                  <div className="profile-label">{t("mutualCommunities", { count: profile.mutualCommunities.length })}</div>
-                  <div className="profile-chips">
-                    {profile.mutualCommunities.map((s) => (
-                      <span key={s.id} className="profile-chip" title={s.name}>
-                        <CommunityLogo communityId={s.id} name={s.name} accent={s.accentColor} className="profile-chip-logo" />
-                        <span>{s.name}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <ProfileFacts profile={profile} connections={connections} bio={bio} blockedMe={blockedMe} />
             </>
           )}
         </div>

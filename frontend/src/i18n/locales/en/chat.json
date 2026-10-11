@@ -160,9 +160,6 @@
   "stickerUnavailable": "This sticker is no longer available",
   "replySticker": "Sticker",
   "shared": {
-    "title": "Shared",
-    "close": "Close shared content",
-    "resize": "Resize shared content panel",
     "tabs": {
       "media": "Media",
       "files": "Files",
@@ -201,5 +198,15 @@
     "limit": "You can pin up to 50 messages",
     "pinFailed": "Couldn't pin the message",
     "unpinFailed": "Couldn't unpin the message"
+  },
+  "details": {
+    "title": "Details",
+    "open": "Show details",
+    "close": "Hide details",
+    "resize": "Resize the details panel",
+    "profile": "Profile",
+    "shared": "Files",
+    "channel": "Channel",
+    "members": "Members"
   }
 }

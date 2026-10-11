@@ -5,6 +5,7 @@ import i18n from "../../../../i18n";
 import Sidebar from "../Sidebar";
 import type { SidebarNav } from "../Sidebar";
 import { useSidebarLayoutStore } from "../../store/sidebarLayoutStore";
+import { useCallStore } from "../../../voice/store/callStore";
 import type { DirectConversation } from "../../../dm/types";
 
 const dm = (id: string, name: string, online = false): DirectConversation => ({
@@ -20,7 +21,6 @@ const dm = (id: string, name: string, online = false): DirectConversation => ({
 
 const handlers = () => ({
   onToggleCommunity: jest.fn(),
-  onSelectCommunity: jest.fn(),
   onSelectChannel: jest.fn(),
   onSelectDm: jest.fn(),
   onInviteCommunity: jest.fn(),
@@ -98,7 +98,8 @@ it("keeps friend actions and the tab switch on the rail", () => {
   expect(screen.getByRole("tab", { name: i18n.t("sidebar:showDirects") })).toHaveAttribute("aria-selected", "true");
   fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
   fireEvent.click(screen.getByRole("listitem", { name: "Gamers" }));
-  expect(h.onSelectCommunity).toHaveBeenCalledWith("c1");
+  expect(screen.getByRole("dialog", { name: "Gamers" })).toBeInTheDocument();
+  expect(h.onSelectChannel).not.toHaveBeenCalled();
   expect(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") })).toHaveAttribute("aria-selected", "true");
 });
 
@@ -165,4 +166,29 @@ it("keeps the rail actions outside the scrolling list", () => {
   expect(screen.getByRole("button", { name: i18n.t("sidebar:addFriend") }).closest(".sb-scroll")).toBeNull();
   fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
   expect(screen.getByRole("button", { name: i18n.t("sidebar:joinCommunity") }).closest(".sb-scroll")).toBeNull();
+});
+
+it("finishes a drag that collapses the panel when the pointer is released", () => {
+  renderSidebar();
+  act(() => {
+    screen
+      .getByRole("separator", { name: i18n.t("sidebar:resizeSidebar") })
+      .dispatchEvent(new MouseEvent("pointerdown", { button: 0, bubbles: true }));
+  });
+  expect(document.body).toHaveClass("sb-resizing");
+  act(() => {
+    window.dispatchEvent(new MouseEvent("pointermove", { clientX: 10 }));
+  });
+  expect(useSidebarLayoutStore.getState().collapsed).toBe(true);
+  act(() => {
+    window.dispatchEvent(new MouseEvent("pointerup"));
+  });
+  expect(document.body).not.toHaveClass("sb-resizing");
+});
+
+it("marks a chat with an ongoing call", () => {
+  act(() => useCallStore.setState({ joinableByPeer: { u2: "call-1" } }));
+  renderSidebar();
+  expect(screen.getByText(i18n.t("call:ongoingCall"))).toBeInTheDocument();
+  act(() => useCallStore.setState({ joinableByPeer: {} }));
 });

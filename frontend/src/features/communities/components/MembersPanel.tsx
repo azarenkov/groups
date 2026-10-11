@@ -163,7 +163,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ communityId, channelId }) =
   };
 
   return (
-    <aside className="members-panel">
+    <div className="members-panel">
       <div className="mp-section">
         {t("title")}
         <span className="count">— {members.length}</span>
@@ -183,7 +183,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ communityId, channelId }) =
         <div className="mp-group">{t("offline", { count: groups.offline.length })}</div>
       )}
       {groups.offline.map(renderMember)}
-    </aside>
+    </div>
   );
 };
 

@@ -5,10 +5,10 @@ import { getLiveKitService } from "../lib/livekit";
 import type { ScreenContent } from "../lib/videoCodec";
 import { ApiError } from "../../../shared/lib/apiError";
 
-export type NoiseMode = "off" | "standard" | "high";
+export type NoiseMode = "standard" | "high";
 
 export const parseNoiseMode = (value: unknown): NoiseMode =>
-  value === "off" || value === "high" ? value : "standard";
+  value === "high" ? "high" : "standard";
 export type StreamQualityId =
   | "auto"
   | "720p60"

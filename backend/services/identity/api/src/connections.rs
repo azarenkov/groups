@@ -113,32 +113,30 @@ const RESULT_PAGE: &str = r##"<!doctype html>
 <title>__TITLE__</title><style>
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:flex;flex-direction:column;
-background:#0d0d0f;color:#f5f5f7;
+background:#121212;color:#f5f5f7;
 font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-.topbar{height:52px;display:flex;align-items:center;padding:0 24px;flex-shrink:0}
-.brand{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;
-letter-spacing:-0.005em;color:#f5f5f7}
+.topbar{height:72px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.brand{display:inline-flex;align-items:center;color:#f5f5f7}
 .wrap{flex:1;display:flex;padding:24px}
 .card{width:360px;max-width:100%;margin:auto;text-align:center}
 .badge{width:56px;height:56px;margin:0 auto 20px;border-radius:50%;display:flex;
 align-items:center;justify-content:center;font-size:26px;font-weight:700;
 background:__BADGE_BG__;color:__BADGE_FG__}
-h1{font-size:26px;font-weight:600;letter-spacing:-0.022em;margin:0 0 6px}
-.sub{font-size:14px;color:#8e8e93;margin:0}
-a.btn{display:block;margin-top:28px;padding:12px;border-radius:10px;background:#0a84ff;
-color:#fff;text-decoration:none;font-size:14px;font-weight:600;
-transition:background 120ms ease}
-a.btn:hover{background:#1a90ff}
+h1{font-size:32px;font-weight:800;letter-spacing:-0.03em;line-height:1.15;margin:0 0 10px}
+.sub{font-size:15px;color:#a7a7a7;margin:0}
+a.btn{display:block;margin-top:32px;padding:15px;border-radius:999px;background:#f5f5f7;
+color:#000;text-decoration:none;font-size:15px;font-weight:700;
+transition:transform 120ms ease}
+a.btn:hover{transform:scale(1.03)}
 </style></head><body>
 <div class="topbar"><span class="brand">
-<svg width="22" height="22" viewBox="0 0 48 48" fill="none">
+<svg width="36" height="36" viewBox="0 0 48 48" fill="none">
 <mask id="gap"><rect width="48" height="48" fill="white"/>
 <rect x="22.5" y="0" width="3" height="48" fill="black"/></mask>
 <g mask="url(#gap)" stroke="#f5f5f7" fill="none">
 <circle cx="24" cy="24" r="14" stroke-width="3"/>
 <circle cx="24" cy="24" r="7.5" stroke-width="1.75" opacity="0.7"/>
 </g></svg>
-<span>Rift</span>
 </span></div>
 <div class="wrap"><div class="card">
 <div class="badge">__BADGE__</div>

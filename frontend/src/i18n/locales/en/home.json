@@ -1,9 +1,5 @@
 {
   "title": "Home",
-  "greetingNight": "Good night",
-  "greetingMorning": "Good morning",
-  "greetingAfternoon": "Good afternoon",
-  "greetingEvening": "Good evening",
   "activeNow": "Active now — {{count}}",
   "online": "Online — {{count}}",
   "jumpBackIn": "Jump back in",

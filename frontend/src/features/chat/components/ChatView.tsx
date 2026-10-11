@@ -47,11 +47,7 @@ interface ChatViewProps {
   communityId?: string;
   currentUserId?: string;
   dm?: DmMeta;
-  membersOpen?: boolean;
   communities?: Community[];
-  onToggleMembers?: () => void;
-  sharedOpen?: boolean;
-  onToggleShared?: () => void;
   onRemoveFriend?: () => void;
   onBlockUser?: () => void;
   onGoToCommunity?: (communityId: string) => void | Promise<void>;
@@ -66,11 +62,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   communityId,
   currentUserId,
   dm,
-  membersOpen,
   communities,
-  onToggleMembers,
-  sharedOpen,
-  onToggleShared,
   onRemoveFriend,
   onBlockUser,
   onGoToCommunity,
@@ -389,23 +381,19 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   return (
     <>
-      <ChannelHeader
+      {!callMode && <ChannelHeader
         channel={channel}
         dm={dm}
         blocked={dmBlocked}
         blockedBy={dmBlockedBy}
-        membersOpen={membersOpen}
         searchActive={search.searchOpen}
         onToggleSearch={search.toggleSearch}
-        onToggleMembers={onToggleMembers}
-        sharedOpen={sharedOpen}
-        onToggleShared={onToggleShared}
         onRemoveFriend={onRemoveFriend}
         onBlockUser={onBlockUser}
         onUnblockUser={() => {
           if (dm) void useBlockStore.getState().unblock(dm.friendId).catch(() => {});
         }}
-      />
+      />}
       {topSlot}
       {dm && !callMode && <CallJoinBanner friendId={dm.friendId} />}
       {!callMode && (
@@ -432,8 +420,16 @@ const ChatView: React.FC<ChatViewProps> = ({
         </div>
       )}
       {search.searchOpen && (channel || dm) && (
-        <div className="search-bar">
-          <Icon name="search" size={14} />
+        <div
+          className="search-bar"
+          onMouseDown={(e) => {
+            const target = e.target as HTMLElement;
+            if (target.closest("input, button")) return;
+            e.preventDefault();
+            e.currentTarget.querySelector("input")?.focus();
+          }}
+        >
+          <Icon name="search" size={16} />
           <input
             autoFocus
             type="text"

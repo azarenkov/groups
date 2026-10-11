@@ -28,11 +28,14 @@ import Sidebar from "./Sidebar";
 import ChatView from "../../chat/components/ChatView";
 import VoiceView from "../../voice/components/VoiceView";
 import CallStage from "../../voice/components/CallStage";
-import CallReturnBar, { CallErrorToast } from "../../voice/components/CallReturnBar";
+import { CallErrorToast } from "../../voice/components/CallReturnBar";
+import VoiceRoomLabel from "../../voice/components/VoiceRoomLabel";
 import VoiceChannelPreview from "../../voice/components/VoiceChannelPreview";
 import type { VoicePreviewParticipant } from "../../voice/components/VoiceChannelPreview";
-import MembersPanel from "./MembersPanel";
-import SharedPanel from "../../chat/components/SharedPanel";
+import DetailsPanel from "../../chat/components/DetailsPanel";
+import { useDetailsPanelStore } from "../../chat/store/detailsPanelStore";
+import { usePresence } from "../../../shared/hooks/usePresence";
+import { announcePanels } from "../../../shared/lib/panelWidth";
 import NoTextChannel from "./NoTextChannel";
 import SettingsView from "../../settings/components/SettingsView";
 import { useHotkey } from "../../settings/lib/hotkeys";
@@ -60,20 +63,16 @@ import ContextMenuHost from "../../../shared/ui/contextMenu/ContextMenuHost";
 import { useDmOpenerStore } from "../../social/store/dmOpenerStore";
 import { parseMessageLink } from "../../chat/lib/messageLink";
 import type { OpenMessageLink } from "../../chat/lib/messageLink";
-import Icon from "../../../shared/ui/Icon";
-import { useLocalQuality } from "../../voice/hooks/useLocalQuality";
-import { qualityClass, qualityLabel } from "../../voice/lib/quality";
 import { Channel, ChannelKind } from "../../../shared/types/channel";
 import { Community } from "../../../shared/types/community";
 import "../../../styles/rift.css";
 
-const SHARED_OVERLAY_QUERY = "(max-width: 900px)";
+const DETAILS_OVERLAY_QUERY = "(max-width: 900px)";
+const DETAILS_ANIMATION_MS = 260;
 
 const CommunitiesPage: React.FC = () => {
   const { t: tModals } = useTranslation("modals");
-  const { t: tVoice } = useTranslation("voice");
   const { t: tSidebar } = useTranslation("sidebar");
-  const localQuality = useLocalQuality();
   const streamViewerCounts = useStreamViewersStore((s) => s.counts);
   const unreadByChannel = useUnreadStore((s) => s.byChannel);
   const unreadByDm = useUnreadStore((s) => s.byDm);
@@ -179,8 +178,6 @@ const CommunitiesPage: React.FC = () => {
     name: string;
   } | null>(null);
   const [sidebarQuery, setSidebarQuery] = useState("");
-  const [membersOpenById, setMembersOpenById] = useState<Record<string, boolean>>({});
-  const [sharedOpenFor, setSharedOpenFor] = useState<string | null>(null);
 
 
   const voice = useVoiceSession();
@@ -295,15 +292,30 @@ const CommunitiesPage: React.FC = () => {
     }));
   }, [selectedVoiceChannelNotJoined, voicePresenceByChannel]);
 
-  const channelSharedKey = activeTextChannel ? `ch:${activeTextChannel.id}` : null;
-  const dmSharedKey = selectedDm ? `dm:${selectedDm.id}` : null;
-  const showSharedForChannel =
-    onTextChannelActive && !!activeTextChannel && !!selectedCommunity && sharedOpenFor === channelSharedKey;
-  const showSharedForDm = !!selectedDm && sharedOpenFor === dmSharedKey;
-  const showMembersForChannel =
-    onTextChannelActive && !!activeTextChannel && !!membersOpenById[activeTextChannel.id] && !showSharedForChannel;
 
   const callStageShown = useCallStore((s) => !!s.activeCallId && s.focused);
+  const detailsOpen = useDetailsPanelStore((s) => s.open);
+  const detailsPresence = usePresence(detailsOpen, DETAILS_ANIMATION_MS);
+  const detailsMounted = detailsPresence !== null;
+  useEffect(() => {
+    if (!detailsMounted) announcePanels("--w-details");
+  }, [detailsMounted]);
+  const detailsTarget: React.ComponentProps<typeof DetailsPanel>["target"] | null = selectedDm
+    ? {
+        kind: "dm",
+        friendId: selectedDm.id,
+        name: nameOverrides[selectedDm.id] ?? selectedDm.name,
+        color: selectedDm.color,
+        isFriend: selectedDm.isFriend !== false,
+      }
+    : onTextChannelActive && activeTextChannel && selectedCommunity
+      ? {
+          kind: "channel",
+          communityId: selectedCommunity.id,
+          channelId: activeTextChannel.id,
+          name: activeTextChannel.name,
+        }
+      : null;
   useActiveChatView({
     textChannelId:
       onTextChannelActive && activeTextChannel ? activeTextChannel.id : null,
@@ -692,6 +704,7 @@ const CommunitiesPage: React.FC = () => {
         currentUserStatus={userStatus}
         onOpenSettings={() => setSettingsOpen(true)}
         onSetStatus={handleSetStatus}
+        onSignOut={() => void handleLogout()}
         renderResults={(done) => (
           <SearchDropdown
             query={sidebarQuery}
@@ -730,7 +743,6 @@ const CommunitiesPage: React.FC = () => {
           hasMoreDirects={hasMoreDirects}
           onLoadMoreDirects={loadMoreDirects}
           onToggleCommunity={selection.handleToggleCommunity}
-          onSelectCommunity={selection.handleSelectCommunity}
           onSelectChannel={handleSelectChannel}
           onSelectDm={handleSelectDm}
           onInviteCommunity={(community) => setInviteModalCommunity(community)}
@@ -775,7 +787,6 @@ const CommunitiesPage: React.FC = () => {
 
         <main className="main">
           <div className="main-inner">
-            <CallReturnBar />
             <CallErrorToast />
             {activeCallId && callFocused && !selectedDm ? (
               <CallStage
@@ -783,7 +794,6 @@ const CommunitiesPage: React.FC = () => {
               />
             ) : !selectedCommunity && !selectedDm ? (
               <HomeView
-                userName={userName}
                 overview={homeOverview}
                 overviewFailed={homeFailed}
                 onRetry={() => void fetchHome()}
@@ -809,8 +819,6 @@ const CommunitiesPage: React.FC = () => {
                 currentUserId={user?.id}
                 openMessageId={openMessage?.convId === selectedDm.id ? openMessage.messageId : undefined}
                 onOpenMessageHandled={() => setOpenMessage(null)}
-                sharedOpen={showSharedForDm}
-                onToggleShared={() => setSharedOpenFor((open) => (open === dmSharedKey ? null : dmSharedKey))}
                 communities={communities}
                 onGoToCommunity={selection.handleGoToCommunity}
                 callMode={!!activeCallId && callFocused}
@@ -840,21 +848,11 @@ const CommunitiesPage: React.FC = () => {
               />
             ) : joinedChannel && selectedChannelId === joinedChannel.channel.id ? (
               <div className="voice-stage-wrap">
-                <header className="main-header">
-                  <span className="ch-ico">
-                    <Icon name="volume" size={16} />
-                  </span>
-                  <span className="ch-name">{joinedChannel.channel.name}</span>
-                  <span className="sep" />
-                  <span className="topic voice-stage-status">
-                    <span
-                      className={`voice-stage-dot ${qualityClass(localQuality)}`}
-                      title={`Connection: ${qualityLabel(localQuality)}`}
-                    />
-                    {voiceJoinFailed ? tVoice("disconnected") : tVoice("connected")}
-                    {selectedCommunity ? ` · ${selectedCommunity.name}` : ""}
-                  </span>
-                </header>
+                <VoiceRoomLabel
+                  overlay
+                  communityName={communities.find((c) => c.id === joinedChannel.communityId)?.name}
+                  channelName={joinedChannel.channel.name}
+                />
                 <div id="voice-stage-slot" className="voice-stage-slot" />
               </div>
             ) : !selectedCommunityChannelsLoaded ? (
@@ -863,6 +861,7 @@ const CommunitiesPage: React.FC = () => {
               </div>
             ) : selectedVoiceChannelNotJoined && selectedCommunity ? (
               <VoiceChannelPreview
+                communityName={selectedCommunity.name}
                 channelId={selectedVoiceChannelNotJoined.id}
                 channelName={selectedVoiceChannelNotJoined.name}
                 participants={previewParticipants}
@@ -903,26 +902,6 @@ const CommunitiesPage: React.FC = () => {
                     : undefined
                 }
                 onOpenMessageHandled={() => setOpenMessage(null)}
-                membersOpen={
-                  !!activeTextChannel ? !!membersOpenById[activeTextChannel.id] : false
-                }
-                onToggleMembers={
-                  activeTextChannel
-                    ? () => {
-                        setMembersOpenById((prev) => ({
-                          ...prev,
-                          [activeTextChannel.id]: showSharedForChannel ? true : !prev[activeTextChannel.id],
-                        }));
-                        if (showSharedForChannel) setSharedOpenFor(null);
-                      }
-                    : undefined
-                }
-                sharedOpen={showSharedForChannel}
-                onToggleShared={
-                  activeTextChannel && selectedCommunity
-                    ? () => setSharedOpenFor((open) => (open === channelSharedKey ? null : channelSharedKey))
-                    : undefined
-                }
               />
             )}
 
@@ -961,52 +940,31 @@ const CommunitiesPage: React.FC = () => {
             )}
           </div>
 
-          {(showSharedForDm || showSharedForChannel) && (
+          {detailsPresence && detailsTarget && (
             <>
-              <PanelResizer
-                cssVar="--w-shared"
-                otherSelector=".sb"
-                side="end"
-                min={280}
-                max={480}
-                fallback={340}
-                storageKey="rift.panel.shared"
-                label={i18n.t("shared.resize", { ns: "chat" })}
-              />
-              <SharedPanel
-                key={showSharedForDm ? dmSharedKey ?? "" : channelSharedKey ?? ""}
-                scope={
-                  showSharedForDm && selectedDm
-                    ? { kind: "dm", friendId: selectedDm.id }
-                    : { kind: "channel", communityId: selectedCommunity!.id, channelId: activeTextChannel!.id }
-                }
-                currentUserId={user?.id}
-                onClose={() => setSharedOpenFor(null)}
-                onShowMessage={(messageId) => {
-                  const convId = showSharedForDm && selectedDm ? selectedDm.id : activeTextChannel?.id;
-                  if (!convId) return;
-                  if (window.matchMedia?.(SHARED_OVERLAY_QUERY).matches) setSharedOpenFor(null);
-                  setOpenMessage({ convId, messageId });
-                }}
-              />
-            </>
-          )}
-          {showMembersForChannel && selectedCommunity && activeTextChannel && (
-            <>
-              <PanelResizer
-                cssVar="--w-members"
-                otherSelector=".sb"
-                side="end"
-                min={220}
-                max={360}
-                fallback={240}
-                storageKey="rift.panel.members"
-                label={i18n.t("resizeMembers", { ns: "common" })}
-              />
-              <MembersPanel
-                communityId={selectedCommunity.id}
-                channelId={activeTextChannel.id}
-              />
+              {detailsPresence !== "exit" && (
+                <PanelResizer
+                  cssVar="--w-details"
+                  otherSelector=".sb"
+                  side="end"
+                  min={280}
+                  max={480}
+                  fallback={340}
+                  storageKey="rift.panel.details"
+                  label={i18n.t("details.resize", { ns: "chat" })}
+                />
+              )}
+              <div className={"details-slot " + detailsPresence}>
+                <DetailsPanel
+                  target={detailsTarget}
+                  currentUserId={user?.id}
+                  onShowMessage={(messageId) => {
+                    const convId = detailsTarget.kind === "dm" ? detailsTarget.friendId : detailsTarget.channelId;
+                    if (window.matchMedia?.(DETAILS_OVERLAY_QUERY).matches) useDetailsPanelStore.getState().setOpen(false);
+                    setOpenMessage({ convId, messageId });
+                  }}
+                />
+              </div>
             </>
           )}
         </main>

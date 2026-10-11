@@ -19,6 +19,7 @@ import {
 } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import { useLongPress } from "../../../../shared/ui/contextMenu/useLongPress";
+import { useCallStore } from "../../../voice/store/callStore";
 
 interface DmListProps {
   directs: DirectConversation[];
@@ -63,6 +64,9 @@ const DmList: React.FC<DmListProps> = ({
       !(friendsComplete && previewsComplete));
   const accessiblePins = () => pinnedDms.filter(pinStillReachable);
   const globalMentions = useNotificationSettingsStore((s) => s.mentions);
+  const joinableByPeer = useCallStore((s) => s.joinableByPeer);
+  const callPeer = useCallStore((s) => (s.activeCallId ? s.peerId : null));
+  const inCallWith = (id: string) => !!joinableByPeer[id] || callPeer === id;
   const [now, setNow] = React.useState(() => new Date());
   React.useEffect(() => {
     const timer = setTimeout(() => setNow(new Date()), msUntilNextDay(now));
@@ -86,6 +90,23 @@ const DmList: React.FC<DmListProps> = ({
           .catch((e) => console.warn("[DmList] pin failed:", e));
       },
     },
+    ...(d.isFriend === false
+      ? []
+      : [
+          {
+            kind: "item" as const,
+            id: "notifications",
+            label: t(dmLevelOf(dmLevels, d.id, globalMentions) === "none" ? "unmuteChat" : "muteChat"),
+            icon: dmLevelOf(dmLevels, d.id, globalMentions) === "none" ? ("bell" as const) : ("bell-off" as const),
+            onSelect: () => {
+              const next = dmLevelOf(dmLevels, d.id, globalMentions) === "none" ? "all" : "none";
+              void useNotificationPrefsStore
+                .getState()
+                .setDmLevel(d.id, next)
+                .catch((e) => console.warn("[DmList] notification level failed:", e));
+            },
+          },
+        ]),
     { kind: "separator", id: "s1" },
     {
       kind: "item",
@@ -110,7 +131,7 @@ const DmList: React.FC<DmListProps> = ({
               key={d.id}
               type="button"
               role="listitem"
-              className={"sb-mini" + (selectedDmId === d.id ? " active" : "")}
+              className={"sb-mini" + (selectedDmId === d.id ? " active" : "") + (inCallWith(d.id) ? " in-call" : "")}
               data-dm-id={d.id}
               title={d.name}
               aria-label={unread > 0 ? t("unreadIn", { name: d.name, count: unread }) : d.name}
@@ -145,7 +166,7 @@ const DmList: React.FC<DmListProps> = ({
     <div className="sb-view">
       <button type="button" className="sb-add-row" onClick={onAddFriend}>
         <span className="sb-add-row-ico">
-          <Icon name="user-plus" size={13} />
+          <Icon name="user-plus" size={20} />
         </span>
         <span>{t("addFriend")}</span>
       </button>
@@ -155,7 +176,7 @@ const DmList: React.FC<DmListProps> = ({
         onClick={onOpenPending}
       >
         <span className="sb-add-row-ico">
-          <Icon name="mail" size={13} />
+          <Icon name="mail" size={20} />
         </span>
         <span>{t("pendingRequests")}</span>
         {pendingCount > 0 && (
@@ -201,7 +222,7 @@ const DmList: React.FC<DmListProps> = ({
               }
             }}
           >
-            <div className="sb-dm-ava-wrap">
+            <div className={"sb-dm-ava-wrap" + (inCallWith(d.id) ? " in-call" : "")}>
               <UserAvatar
                 userId={d.id}
                 name={d.name}
@@ -237,9 +258,16 @@ const DmList: React.FC<DmListProps> = ({
                 )}
               </div>
               <div className="sb-dm-subrow">
-                <div className={"sb-dm-sub" + (unread > 0 ? " unread" : "")}>
-                  {sub}
-                </div>
+                {inCallWith(d.id) ? (
+                  <div className="sb-dm-sub sb-dm-call">
+                    <Icon name="phone" size={12} />
+                    <span>{i18n.t("ongoingCall", { ns: "call" })}</span>
+                  </div>
+                ) : (
+                  <div className={"sb-dm-sub" + (unread > 0 ? " unread" : "")}>
+                    {sub}
+                  </div>
+                )}
                 {unread > 0 && <span className={"sb-dm-badge" + (muted ? " muted" : "")}>{unread}</span>}
               </div>
             </div>

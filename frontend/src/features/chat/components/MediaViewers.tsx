@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import { attachmentAPI } from "../api/attachment";
+import { takeRecentVideo } from "../lib/imageUrlCache";
 import type { Attachment } from "../../../shared/types/channel";
 
 const useEscape = (onClose: () => void) => {
@@ -59,8 +60,8 @@ export const VideoViewer: React.FC<{ attachment: Attachment; onClose: () => void
   React.useEffect(() => {
     const controller = new AbortController();
     let objectUrl: string | null = null;
-    attachmentAPI
-      .download(attachment.id, attachment.sizeBytes, controller.signal)
+    const recent = takeRecentVideo(attachment.id);
+    (recent ? Promise.resolve(recent) : attachmentAPI.download(attachment.id, attachment.sizeBytes, controller.signal))
       .then((blob) => {
         objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);

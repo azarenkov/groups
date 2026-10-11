@@ -20,7 +20,6 @@ import i18n from "../../../i18n";
 import "../../../styles/home.css";
 
 export interface HomeViewProps {
-  userName: string;
   overview: HomeOverview | null;
   overviewFailed: boolean;
   onRetry: () => void;
@@ -33,15 +32,6 @@ export interface HomeViewProps {
   onAddFriend: () => void;
 }
 
-const greetingKey = (hour: number) =>
-  hour < 6
-    ? "greetingNight"
-    : hour < 12
-      ? "greetingMorning"
-      : hour < 18
-        ? "greetingAfternoon"
-        : "greetingEvening";
-
 const useNow = (intervalMs: number) => {
   const [now, setNow] = React.useState(() => Date.now());
   useEffect(() => {
@@ -52,7 +42,6 @@ const useNow = (intervalMs: number) => {
 };
 
 const HomeView: React.FC<HomeViewProps> = ({
-  userName,
   overview,
   overviewFailed,
   onRetry,
@@ -121,14 +110,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   }, [activeFriends]);
 
   return (
-    <div className="home">
-      <header className="home-header">
-        <span className="home-title">{t("title")}</span>
-        <span className="home-sep" />
-        <span className="home-sub">
-          {t(greetingKey(new Date(now).getHours()))}, {userName}
-        </span>
-      </header>
+    <div className="home" aria-label={t("title")}>
       <div className="home-scroll">
         {!overview ? (
           <div className="home-state">

@@ -45,11 +45,33 @@ it("searches from the centre and clears with Escape", () => {
   expect(p.onQueryChange).toHaveBeenLastCalledWith("");
 });
 
-it("keeps the profile and settings in the top right", () => {
+const openMenu = () =>
+  fireEvent.click(screen.getByRole("button", { name: `Azarenkov, ${i18n.t("sidebar:accountMenu")}` }));
+
+it("opens settings and sets the status from the account menu", () => {
   const p = renderBar();
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:settings") }));
+  openMenu();
+  fireEvent.click(screen.getByRole("menuitem", { name: i18n.t("sidebar:settings") }));
   expect(p.onOpenSettings).toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: `Azarenkov, ${i18n.t("sidebar:changeStatus")}` }));
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:statusOffline") }));
+  expect(screen.queryByRole("menu")).toBeNull();
+  openMenu();
+  fireEvent.click(screen.getByRole("menuitemradio", { name: i18n.t("sidebar:statusOffline") }));
   expect(p.onSetStatus).toHaveBeenCalledWith("offline");
+});
+
+it("asks before logging out from the account menu", () => {
+  const onSignOut = jest.fn();
+  renderBar({ onSignOut });
+  openMenu();
+  fireEvent.click(screen.getByRole("menuitem", { name: i18n.t("sidebar:logOut") }));
+  expect(onSignOut).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:logOut") }));
+  expect(onSignOut).toHaveBeenCalled();
+});
+
+it("focuses the search when its edge is clicked", () => {
+  renderBar();
+  const input = screen.getByRole("textbox", { name: i18n.t("sidebar:searchPlaceholder") });
+  fireEvent.mouseDown(input.parentElement!);
+  expect(document.activeElement).toBe(input);
 });
