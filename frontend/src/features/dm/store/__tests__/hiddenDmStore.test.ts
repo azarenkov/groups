@@ -197,3 +197,17 @@ it("keeps notifications blocked while a remote unhide is unconfirmed", async () 
   useHiddenDmStore.getState().clearAll();
   (console.warn as jest.Mock).mockRestore();
 });
+
+it("treats a chat as hidden again while a failed unhide is being reconciled", async () => {
+  get.mockResolvedValueOnce(reply(["p1"]));
+  await useHiddenDmStore.getState().fetch();
+  del.mockRejectedValueOnce(new Error("down"));
+  let answer: (v: unknown) => void = () => {};
+  get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+  await expect(useHiddenDmStore.getState().setHidden("p1", false)).rejects.toThrow("down");
+  expect(isDmHidden("p1")).toBe(true);
+  expect(hiddenDmsKnown()).toBe(false);
+  answer(reply(["p1"]));
+  await act();
+  expect(hiddenDmsKnown()).toBe(true);
+});

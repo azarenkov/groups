@@ -138,6 +138,7 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
         if (gen === sessionGen) {
           pendingWrites -= 1;
           epoch += 1;
+          set({ hidden: hidden ? get().hidden : withHidden(get().hidden, peerId, true), syncing: true });
           needsReconcile = true;
           settle();
         }
