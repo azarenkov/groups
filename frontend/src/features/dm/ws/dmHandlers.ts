@@ -107,6 +107,7 @@ export const dmHandlers: WsHandlers = {
       delete lastDmBumpAt[cleared.peerId];
       refetchDmPreviews(true);
       void queryClient.invalidateQueries({ queryKey: queryKeys.pins(`dm:${cleared.peerId}`) });
+      void queryClient.invalidateQueries({ queryKey: ["globalSearch"] });
       void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
         refetchUnread().catch(() => {}),
       );

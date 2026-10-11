@@ -6,6 +6,7 @@ import { useNotificationPrefsStore } from "../../../settings/store/notificationP
 import { playNotificationSound } from "../../../../shared/lib/notificationSound";
 import { showDesktopNotification } from "../../../../shared/lib/desktopNotification";
 import { useHiddenDmStore } from "../../store/hiddenDmStore";
+import { queryClient } from "../../../../shared/query/queryClient";
 import { refetchDmPreviews } from "../../store/dmPreviewStore";
 
 jest.mock("../../../../shared/lib/notificationSound", () => ({ playNotificationSound: jest.fn() }));
@@ -140,4 +141,15 @@ it("stays silent until hidden chats are known", () => {
   expect(useUnreadStore.getState().byDm.peer).toBe(1);
   expect(sound).not.toHaveBeenCalled();
   expect(desktop).not.toHaveBeenCalled();
+});
+
+it("drops global search results when a conversation is cleared", () => {
+  const invalidate = jest.spyOn(queryClient, "invalidateQueries");
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["peer", "me"],
+    scope: "me",
+    clearedAt: new Date().toISOString(),
+  });
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ["globalSearch"] });
+  invalidate.mockRestore();
 });

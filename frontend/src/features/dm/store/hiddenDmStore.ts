@@ -34,7 +34,8 @@ let epoch = 0;
 let pendingWrites = 0;
 let sessionAbort = new AbortController();
 let needsReconcile = false;
-let ensureLoop = false;
+let loadLoop = false;
+let loadAgain = false;
 let writeChain: Promise<unknown> = Promise.resolve();
 
 export const HIDDEN_LOAD_RETRY_MS = 1000;
@@ -44,16 +45,41 @@ export const withHidden = (list: string[], id: string, hidden: boolean): string[
   hidden ? (list.includes(id) ? list : [...list, id]) : list.filter((x) => x !== id);
 
 export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
+  const reconcile = () => {
+    if (loadLoop) {
+      loadAgain = true;
+      return;
+    }
+    loadLoop = true;
+    const gen = sessionGen;
+    void (async () => {
+      let delay = HIDDEN_LOAD_RETRY_MS;
+      while (gen === sessionGen) {
+        loadAgain = false;
+        try {
+          await get().fetch();
+          if (!loadAgain) break;
+          continue;
+        } catch (err) {
+          console.warn("[hiddenDms] load failed:", err);
+        }
+        if (gen !== sessionGen) break;
+        if (pendingWrites > 0) {
+          needsReconcile = true;
+          break;
+        }
+        const wait = delay;
+        await new Promise((resolve) => setTimeout(resolve, wait));
+        delay = Math.min(delay * 2, HIDDEN_LOAD_MAX_DELAY_MS);
+      }
+      if (gen === sessionGen) loadLoop = false;
+    })();
+  };
+
   const settle = () => {
     if (pendingWrites > 0 || !needsReconcile) return;
     needsReconcile = false;
-    if (!get().loaded) {
-      get().ensureLoaded();
-      return;
-    }
-    void get()
-      .fetch()
-      .catch((e) => console.warn("[hiddenDms] reload failed:", e));
+    reconcile();
   };
 
   return {
@@ -83,29 +109,13 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
     },
 
     ensureLoaded: () => {
-      if (get().loaded || ensureLoop) return;
-      ensureLoop = true;
-      const gen = sessionGen;
-      void (async () => {
-        let delay = HIDDEN_LOAD_RETRY_MS;
-        while (gen === sessionGen && !get().loaded) {
-          try {
-            await get().fetch();
-          } catch (err) {
-            console.warn("[hiddenDms] load failed:", err);
-          }
-          if (gen !== sessionGen || get().loaded || pendingWrites > 0) break;
-          const wait = delay;
-          await new Promise((resolve) => setTimeout(resolve, wait));
-          delay = Math.min(delay * 2, HIDDEN_LOAD_MAX_DELAY_MS);
-        }
-        if (gen === sessionGen) ensureLoop = false;
-      })();
+      if (get().loaded) return;
+      reconcile();
     },
 
     markStale: () => {
       set({ loaded: false });
-      get().ensureLoaded();
+      reconcile();
     },
 
     setHidden: async (peerId, hidden) => {
@@ -146,7 +156,8 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
       epoch += 1;
       pendingWrites = 0;
       needsReconcile = false;
-      ensureLoop = false;
+      loadLoop = false;
+      loadAgain = false;
       writeChain = Promise.resolve();
       sessionAbort.abort();
       sessionAbort = new AbortController();

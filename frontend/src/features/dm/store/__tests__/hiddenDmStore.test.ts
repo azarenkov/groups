@@ -142,3 +142,22 @@ it("sends overlapping writes in the order they were made", async () => {
   expect(calls).toEqual(["put", "delete"]);
   expect(useHiddenDmStore.getState().hidden).toEqual([]);
 });
+
+it("keeps reconciling after a failed write until the server answers", async () => {
+  jest.useFakeTimers();
+  try {
+    get.mockResolvedValueOnce(reply([]));
+    await useHiddenDmStore.getState().fetch();
+    put.mockRejectedValueOnce(new Error("offline"));
+    get.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(reply([]));
+    await expect(useHiddenDmStore.getState().setHidden("p1", true)).rejects.toThrow("offline");
+    await act();
+    expect(useHiddenDmStore.getState().hidden).toEqual(["p1"]);
+    jest.advanceTimersByTime(HIDDEN_LOAD_RETRY_MS);
+    await act();
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(useHiddenDmStore.getState().hidden).toEqual([]);
+  } finally {
+    jest.useRealTimers();
+  }
+});
