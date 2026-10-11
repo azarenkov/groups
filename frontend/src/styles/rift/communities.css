@@ -1396,6 +1396,7 @@ body.sb-resizing { cursor: col-resize; user-select: none; }
   background: var(--surface-sunken);
   color: var(--fg-3);
   box-shadow: inset 0 0 0 1px var(--hairline);
+  cursor: text;
   transition: background var(--dur-fast), box-shadow var(--dur-fast);
 }
 .topbar-search:hover { background: var(--surface-hover); }

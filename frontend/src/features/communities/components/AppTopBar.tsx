@@ -123,7 +123,15 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
             }
           }}
         >
-          <div className={"topbar-search" + (showResults ? " open" : "")}>
+          <div
+            className={"topbar-search" + (showResults ? " open" : "")}
+            onMouseDown={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest("input, button")) return;
+              e.preventDefault();
+              e.currentTarget.querySelector("input")?.focus();
+            }}
+          >
             <Icon name="search" size={18} />
             <input
               ref={searchRef}

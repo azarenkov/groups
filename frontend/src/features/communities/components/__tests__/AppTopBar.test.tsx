@@ -68,3 +68,10 @@ it("asks before logging out from the account menu", () => {
   fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:logOut") }));
   expect(onSignOut).toHaveBeenCalled();
 });
+
+it("focuses the search when its edge is clicked", () => {
+  renderBar();
+  const input = screen.getByRole("textbox", { name: i18n.t("sidebar:searchPlaceholder") });
+  fireEvent.mouseDown(input.parentElement!);
+  expect(document.activeElement).toBe(input);
+});
