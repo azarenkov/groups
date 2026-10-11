@@ -64,6 +64,33 @@ impl DmTransaction for PostgresDmTransaction {
         block_relation_for(&mut *self.tx, viewer, other).await
     }
 
+    async fn reply_target_visible(
+        &mut self,
+        message_id: Uuid,
+        viewer: &UserId,
+        peer: &UserId,
+    ) -> Result<bool, RepositoryError> {
+        sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS (
+                SELECT 1 FROM dm_messages m
+                WHERE m.id = $1
+                  AND LEAST(m.sender_id, m.recipient_id) = LEAST($2::uuid, $3::uuid)
+                  AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($2::uuid, $3::uuid)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id
+                  )
+            ) AS "visible!"
+            "#,
+            message_id,
+            viewer.uuid(),
+            peer.uuid(),
+        )
+        .fetch_one(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)
+    }
+
     async fn insert_message(
         &mut self,
         message: &DmMessage,

@@ -238,6 +238,11 @@ where
             if tx.block_relation(&sender_id, &recipient_id).await?.any() {
                 return Err(SendDmMessageError::Blocked);
             }
+            if let Some(reply_id) = request.reply_to_message_id
+                && !tx.reply_target_visible(reply_id, &sender_id, &recipient_id).await?
+            {
+                return Err(SendDmMessageError::InvalidReply);
+            }
             message.restamp(Utc::now());
             let events: Vec<MessagingEvent> = message
                 .pull_events()
