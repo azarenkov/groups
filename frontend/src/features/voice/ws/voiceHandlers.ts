@@ -40,6 +40,12 @@ const holdUntilHiddenKnown = (call: HeldCall) => {
   });
 };
 
+useHiddenDmStore.subscribe((s, prev) => {
+  if (s.hidden === prev.hidden) return;
+  const incoming = useCallStore.getState().incoming;
+  if (incoming && s.hidden.includes(incoming.callerId)) useCallStore.getState().clearIncoming();
+});
+
 export const dropHeldCalls = () => {
   heldCalls.clear();
   stopHolding?.();

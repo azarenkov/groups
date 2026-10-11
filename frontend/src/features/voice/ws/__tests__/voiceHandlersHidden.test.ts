@@ -55,3 +55,12 @@ it("forgets held calls once their socket session is gone", () => {
   useHiddenDmStore.setState({ loaded: true, syncing: false });
   expect(useCallStore.getState().incoming).toBeNull();
 });
+
+it("stops ringing once the caller's chat gets hidden", () => {
+  voiceHandlers["call.incoming"]!({ callId: "c8", callerId: "peer", callerName: "Peer" });
+  expect(useCallStore.getState().incoming?.callId).toBe("c8");
+  useHiddenDmStore.setState({ hidden: ["other"] });
+  expect(useCallStore.getState().incoming?.callId).toBe("c8");
+  useHiddenDmStore.setState({ hidden: ["other", "peer"] });
+  expect(useCallStore.getState().incoming).toBeNull();
+});
