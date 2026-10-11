@@ -219,3 +219,25 @@ it("keeps other conversations flowing while one DM waits for a check", async () 
     off();
   }
 });
+
+it("keeps read receipts of the checked DM behind the pending message", async () => {
+  const off = ws.addGate(clearWatermarkGate);
+  const seen: string[] = [];
+  const unlisten = ws.on((env) => seen.push(env.type));
+  let answer!: (v: unknown) => void;
+  getMessage.mockReturnValue(new Promise((r) => (answer = r)));
+  try {
+    ws.deliver(cleared("2026-10-11T18:00:00Z"));
+    ws.deliver(sent("m12", "2026-10-11T17:59:00Z"));
+    ws.deliver({ type: "dm.read", data: { readerId: "me", peerId: "peer", readAt: "2026-10-11T18:00:01Z" } });
+    ws.deliver({ type: "message.pin_changed", data: { messageId: "m12", participants: ["me", "peer"], pinned: true } });
+    ws.deliver({ type: "dm.read", data: { readerId: "other", readAt: "2026-10-11T18:00:01Z" } });
+    expect(seen).toEqual(["dm_conversation.cleared", "dm.read"]);
+    answer({ id: "m12" });
+    for (let i = 0; i < 10; i += 1) await Promise.resolve();
+    expect(seen.slice(2)).toEqual(["dm_message.sent", "dm.read", "message.pin_changed"]);
+  } finally {
+    unlisten();
+    off();
+  }
+});

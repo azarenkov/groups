@@ -54,6 +54,15 @@ function dmLane(env: WsEnvelope): string | null {
     if (checking) return checking;
     return sender && sender !== selfId ? `dm:${sender}` : null;
   }
+  if (env.type === "dm.read") {
+    const reader = str(d.readerId);
+    const peer = reader === selfId ? str(d.peerId) : reader;
+    return peer ? `dm:${peer}` : null;
+  }
+  if (env.type === "message.pin_changed" && Array.isArray(d.participants)) {
+    const peer = d.participants.map(String).find((p) => p !== selfId);
+    return peer ? `dm:${peer}` : null;
+  }
   if (env.type === "message.hidden" || env.type === "voice.listened") {
     const id = str(d.messageId);
     return id ? (checkingLanes.get(id) ?? null) : null;
