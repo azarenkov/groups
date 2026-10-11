@@ -2,12 +2,32 @@ import type { WsEnvelope } from "../../../shared/ws/websocket";
 import type { ChannelMessage } from "../../../shared/types/channel";
 import { useAuthStore } from "../../auth/store/authStore";
 import { dmAPI } from "../api/dm";
+import { refetchDmPreviews } from "../store/dmPreviewStore";
 import { clearedBefore, dmClearedFor } from "./dmCleared";
 
 const watermarks = new Map<string, string>();
 const generations = new Map<string, number>();
 const clearedAway = new Set<string>();
 const LIST_ATTEMPTS = 3;
+export const CONFIRM_RETRY_MS = [500, 1500, 4000];
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function confirmExists(peerId: string, messageId: string): Promise<boolean> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await dmAPI.getMessage(peerId, messageId);
+      return true;
+    } catch (err) {
+      if (isGone(err)) return false;
+      if (attempt >= CONFIRM_RETRY_MS.length) {
+        refetchDmPreviews(true);
+        return false;
+      }
+      await sleep(CONFIRM_RETRY_MS[attempt]);
+    }
+  }
+}
 
 const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
 
@@ -38,10 +58,7 @@ export function clearWatermarkGate(env: WsEnvelope): Promise<boolean> | null {
   const peerId = sender === selfId ? recipient : sender;
   const mark = watermarks.get(peerId);
   if (!mark || !clearedBefore(at, mark)) return null;
-  return dmAPI.getMessage(peerId, id).then(
-    () => useAuthStore.getState().user?.id === selfId,
-    (err) => !isGone(err) && useAuthStore.getState().user?.id === selfId,
-  );
+  return confirmExists(peerId, id).then((exists) => exists && useAuthStore.getState().user?.id === selfId);
 }
 
 export const clearGeneration = (peerId: string): number => generations.get(peerId) ?? 0;
@@ -60,11 +77,7 @@ export async function sendAcrossClears(peerId: string, send: () => Promise<Chann
   const gen = clearGeneration(peerId);
   const message = await send();
   if (clearGeneration(peerId) === gen) return message;
-  try {
-    await dmAPI.getMessage(peerId, message.id);
-  } catch (err) {
-    if (isGone(err)) clearedAway.add(message.id);
-  }
+  if (!(await confirmExists(peerId, message.id))) clearedAway.add(message.id);
   return message;
 }
 

@@ -1,11 +1,30 @@
-import { clearGeneration, clearWatermarkGate, clearWatermarks, loadAcrossClears, sendAcrossClears, wasClearedAway } from "../clearWatermarks";
+import {
+  CONFIRM_RETRY_MS,
+  clearGeneration,
+  clearWatermarkGate,
+  clearWatermarks,
+  loadAcrossClears,
+  sendAcrossClears,
+  wasClearedAway,
+} from "../clearWatermarks";
+import { refetchDmPreviews } from "../../store/dmPreviewStore";
 import { dmAPI } from "../../api/dm";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { ws } from "../../../../shared/ws/websocket";
 
 jest.mock("../../api/dm", () => ({ dmAPI: { getMessage: jest.fn() } }));
+jest.mock("../../store/dmPreviewStore", () => ({ refetchDmPreviews: jest.fn() }));
 
 const getMessage = dmAPI.getMessage as jest.Mock;
+
+const flush = async () => {
+  for (let i = 0; i < 10; i += 1) await Promise.resolve();
+};
+const advance = async (ms: number) => {
+  await flush();
+  jest.advanceTimersByTime(ms);
+  await flush();
+};
 
 const cleared = (at: string) => ({
   type: "dm_conversation.cleared" as const,
@@ -45,10 +64,32 @@ it("keeps a message that survived the clear", async () => {
   await expect(clearWatermarkGate(sent("m4", "2026-10-11T09:59:59Z"))).resolves.toBe(true);
 });
 
-it("shows the message when the check fails for another reason", async () => {
-  clearWatermarkGate(cleared("2026-10-11T10:00:00Z"));
-  getMessage.mockRejectedValue({ status: 503 });
-  await expect(clearWatermarkGate(sent("m5", "2026-10-11T09:00:00Z"))).resolves.toBe(true);
+it("retries an uncertain check and lets the message in once the server confirms it", async () => {
+  jest.useFakeTimers();
+  try {
+    clearWatermarkGate(cleared("2026-10-11T10:00:00Z"));
+    getMessage.mockRejectedValueOnce({ status: 503 }).mockResolvedValueOnce({ id: "m5" });
+    const verdict = clearWatermarkGate(sent("m5", "2026-10-11T09:00:00Z"))!;
+    await advance(CONFIRM_RETRY_MS[0]);
+    await expect(verdict).resolves.toBe(true);
+    expect(getMessage).toHaveBeenCalledTimes(2);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it("keeps an unconfirmed stale message out and reloads previews instead", async () => {
+  jest.useFakeTimers();
+  try {
+    clearWatermarkGate(cleared("2026-10-11T10:00:00Z"));
+    getMessage.mockRejectedValue({ status: 503 });
+    const verdict = clearWatermarkGate(sent("m5b", "2026-10-11T09:00:00Z"))!;
+    for (const ms of CONFIRM_RETRY_MS) await advance(ms);
+    await expect(verdict).resolves.toBe(false);
+    expect(refetchDmPreviews).toHaveBeenCalledWith(true);
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 it("holds a stale event back from listeners until the server answers", async () => {
@@ -130,4 +171,26 @@ it("does not ask the server when no clear happened during a send", async () => {
   await sendAcrossClears("peer", async () => ({ id: "s3" }) as never);
   expect(getMessage).not.toHaveBeenCalled();
   expect(wasClearedAway("s3")).toBe(false);
+});
+
+it("drops events held behind a check when the socket session ends", async () => {
+  const off = ws.addGate(clearWatermarkGate);
+  const seen: string[] = [];
+  const unlisten = ws.on((env) => seen.push(env.type));
+  let answer!: (v: unknown) => void;
+  getMessage.mockReturnValue(new Promise((r) => (answer = r)));
+  try {
+    ws.deliver(cleared("2026-10-11T16:00:00Z"));
+    ws.deliver(sent("m9", "2026-10-11T15:59:00Z"));
+    ws.deliver({ type: "dm_message.edited", data: { id: "m9", newContent: "x" } });
+    ws.disconnect();
+    answer({ id: "m9" });
+    for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    expect(seen).toEqual(["dm_conversation.cleared"]);
+    ws.deliver({ type: "dm_message.edited", data: { id: "m10", newContent: "y" } });
+    expect(seen).toEqual(["dm_conversation.cleared", "dm_message.edited"]);
+  } finally {
+    unlisten();
+    off();
+  }
 });

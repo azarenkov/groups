@@ -117,6 +117,7 @@ class WsClient {
   private gates = new Set<DeliveryGate>();
   private gating = false;
   private held: WsEnvelope[] = [];
+  private deliveryEpoch = 0;
 
   constructor(endpoint: string = defaultEndpoint()) {
     this.endpoint = endpoint;
@@ -137,6 +138,9 @@ class WsClient {
       this.socket = null;
     }
     this.reconnectAttempts = 0;
+    this.deliveryEpoch += 1;
+    this.gating = false;
+    this.held = [];
   }
 
   on(handler: Listener): () => void {
@@ -174,12 +178,14 @@ class WsClient {
       const verdict = gate(env);
       if (verdict) {
         this.gating = true;
+        const epoch = this.deliveryEpoch;
         void verdict
           .then(
             (pass) => pass,
             () => true,
           )
           .then((pass) => {
+            if (epoch !== this.deliveryEpoch) return;
             if (pass) this.dispatch(env);
             this.gating = false;
             const held = this.held;

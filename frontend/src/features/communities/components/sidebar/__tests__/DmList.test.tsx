@@ -203,6 +203,8 @@ describe("DmList before hidden chats are known", () => {
     expect(screen.queryByText("Alice")).toBeNull();
     expect(screen.getByText("Loading…")).toBeTruthy();
     act(() => useHiddenDmStore.setState({ hidden: ["u2"], hydrated: true }));
+    expect(screen.queryByText("Alice")).toBeNull();
+    act(() => useHiddenDmStore.setState({ hidden: ["u2"], loaded: true }));
     expect(screen.getByText("Alice")).toBeTruthy();
     expect(screen.queryByText("Bob")).toBeNull();
   });

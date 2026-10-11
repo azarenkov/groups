@@ -180,4 +180,4 @@ export const isDmHidden = (peerId: string): boolean => useHiddenDmStore.getState
 
 export const hiddenDmsKnown = (): boolean => useHiddenDmStore.getState().loaded;
 
-export const hiddenDmsReady = (s: Pick<HiddenDmState, "loaded" | "hydrated">): boolean => s.loaded || s.hydrated;
+export const hiddenDmsReady = (s: Pick<HiddenDmState, "loaded">): boolean => s.loaded;
