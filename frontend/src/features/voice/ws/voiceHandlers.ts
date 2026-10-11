@@ -7,7 +7,7 @@ import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useVoiceSessionStore } from "../store/voiceSessionStore";
 import { asString } from "../../../shared/ws/context";
-import { hiddenDmsKnown, isDmHidden, useHiddenDmStore } from "../../dm/store/hiddenDmStore";
+import { hiddenDmsKnown, hiddenDmsSettled, isDmHidden, useHiddenDmStore } from "../../dm/store/hiddenDmStore";
 
 interface HeldCall {
   callId: string;
@@ -31,7 +31,7 @@ const holdUntilHiddenKnown = (call: HeldCall) => {
   heldCalls.set(call.callId, call);
   if (stopHolding) return;
   stopHolding = useHiddenDmStore.subscribe((s) => {
-    if (!s.loaded) return;
+    if (!hiddenDmsSettled(s)) return;
     stopHolding?.();
     stopHolding = null;
     const calls = Array.from(heldCalls.values());

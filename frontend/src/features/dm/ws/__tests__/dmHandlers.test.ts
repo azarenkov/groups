@@ -107,6 +107,7 @@ it("rereads hidden chats from the server when they change elsewhere", () => {
   dmHandlers["dm_conversation.hidden_changed"]!({ peerId: "peer", hidden: true });
   dmHandlers["dm_conversation.hidden_changed"]!({});
   expect(changed).toHaveBeenCalledTimes(1);
+  expect(changed).toHaveBeenCalledWith("peer", true);
   changed.mockRestore();
 });
 

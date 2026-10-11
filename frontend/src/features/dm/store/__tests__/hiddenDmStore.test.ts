@@ -166,7 +166,34 @@ it("rereads the server list instead of trusting a remote event", async () => {
   get.mockResolvedValueOnce(reply(["p1"]));
   await useHiddenDmStore.getState().fetch();
   get.mockResolvedValueOnce(reply([]));
-  useHiddenDmStore.getState().remoteChanged();
+  useHiddenDmStore.getState().remoteChanged("p1", false);
   await act();
   expect(useHiddenDmStore.getState().hidden).toEqual([]);
+});
+
+it("hides a remotely hidden chat at once and stays unsettled until the server answers", async () => {
+  get.mockResolvedValueOnce(reply([]));
+  await useHiddenDmStore.getState().fetch();
+  let answer: (v: unknown) => void = () => {};
+  get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+  useHiddenDmStore.getState().remoteChanged("p2", true);
+  expect(isDmHidden("p2")).toBe(true);
+  expect(hiddenDmsKnown()).toBe(false);
+  answer(reply(["p2"]));
+  await act();
+  expect(hiddenDmsKnown()).toBe(true);
+  expect(useHiddenDmStore.getState().hidden).toEqual(["p2"]);
+});
+
+it("keeps notifications blocked while a remote unhide is unconfirmed", async () => {
+  get.mockResolvedValueOnce(reply(["p1"]));
+  await useHiddenDmStore.getState().fetch();
+  get.mockRejectedValue(new Error("down"));
+  jest.spyOn(console, "warn").mockImplementation(() => {});
+  useHiddenDmStore.getState().remoteChanged("p1", false);
+  await act();
+  expect(isDmHidden("p1")).toBe(true);
+  expect(hiddenDmsKnown()).toBe(false);
+  useHiddenDmStore.getState().clearAll();
+  (console.warn as jest.Mock).mockRestore();
 });

@@ -1,4 +1,5 @@
 import {
+  CONFIRM_MAX_DELAY_MS,
   CONFIRM_RETRY_MS,
   clearGeneration,
   clearWatermarkGate,
@@ -7,13 +8,11 @@ import {
   sendAcrossClears,
   wasClearedAway,
 } from "../clearWatermarks";
-import { refetchDmPreviews } from "../../store/dmPreviewStore";
 import { dmAPI } from "../../api/dm";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { ws } from "../../../../shared/ws/websocket";
 
 jest.mock("../../api/dm", () => ({ dmAPI: { getMessage: jest.fn() } }));
-jest.mock("../../store/dmPreviewStore", () => ({ refetchDmPreviews: jest.fn() }));
 
 const getMessage = dmAPI.getMessage as jest.Mock;
 
@@ -78,15 +77,35 @@ it("retries an uncertain check and lets the message in once the server confirms 
   }
 });
 
-it("keeps an unconfirmed stale message out and reloads previews instead", async () => {
+it("keeps retrying an uncertain check instead of dropping a message that may have survived", async () => {
   jest.useFakeTimers();
   try {
     clearWatermarkGate.check(cleared("2026-10-11T10:00:00Z"));
     getMessage.mockRejectedValue({ status: 503 });
-    const verdict = clearWatermarkGate.check(sent("m5b", "2026-10-11T09:00:00Z"))!;
+    let verdict: boolean | undefined;
+    void clearWatermarkGate.check(sent("m5b", "2026-10-11T09:00:00Z"))!.then((v) => (verdict = v));
     for (const ms of CONFIRM_RETRY_MS) await advance(ms);
+    await advance(CONFIRM_MAX_DELAY_MS);
+    expect(verdict).toBeUndefined();
+    getMessage.mockReset().mockResolvedValue({ id: "m5b" });
+    await advance(CONFIRM_MAX_DELAY_MS);
+    expect(verdict).toBe(true);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it("stops an uncertain check once the gate is reset", async () => {
+  jest.useFakeTimers();
+  try {
+    clearWatermarkGate.check(cleared("2026-10-11T10:00:00Z"));
+    getMessage.mockRejectedValue({ status: 503 });
+    const verdict = clearWatermarkGate.check(sent("m5c", "2026-10-11T09:00:00Z"))!;
+    await flush();
+    clearWatermarkGate.reset!();
+    await advance(CONFIRM_RETRY_MS[0]);
     await expect(verdict).resolves.toBe(false);
-    expect(refetchDmPreviews).toHaveBeenCalledWith(true);
+    expect(getMessage).toHaveBeenCalledTimes(1);
   } finally {
     jest.useRealTimers();
   }

@@ -93,6 +93,7 @@ type Listener = (env: WsEnvelope) => void;
 export interface DeliveryGate {
   lane: (env: WsEnvelope) => string | null;
   check: (env: WsEnvelope) => Promise<boolean> | null;
+  reset?: () => void;
 }
 
 const RECONNECT_MIN_MS = 1000;
@@ -144,6 +145,7 @@ class WsClient {
     this.deliveryEpoch += 1;
     this.busyLanes.clear();
     this.held.clear();
+    for (const gate of this.gates) gate.reset?.();
   }
 
   on(handler: Listener): () => void {

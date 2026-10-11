@@ -9,7 +9,7 @@ jest.mock("../../../social/store/blockStore", () => {
 
 beforeEach(() => {
   useCallStore.setState({ incoming: null, activeCallId: null });
-  useHiddenDmStore.setState({ hidden: [], loaded: true });
+  useHiddenDmStore.setState({ hidden: [], loaded: true, syncing: false });
 });
 
 it("rings for a call from a visible chat", () => {
@@ -37,5 +37,13 @@ it("forgets a held call that ends before hidden chats load", () => {
   voiceHandlers["call.incoming"]!({ callId: "c5", callerId: "peer", callerName: "Peer" });
   voiceHandlers["call.ended"]!({ callId: "c5" });
   useHiddenDmStore.setState({ loaded: true });
+  expect(useCallStore.getState().incoming).toBeNull();
+});
+
+it("holds a call while hidden chats are being rechecked after a remote change", () => {
+  useHiddenDmStore.setState({ hidden: [], loaded: true, syncing: true });
+  voiceHandlers["call.incoming"]!({ callId: "c6", callerId: "peer", callerName: "Peer" });
+  expect(useCallStore.getState().incoming).toBeNull();
+  useHiddenDmStore.setState({ hidden: ["peer"], syncing: false });
   expect(useCallStore.getState().incoming).toBeNull();
 });

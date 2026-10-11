@@ -6,13 +6,14 @@ interface HiddenDmState {
   hidden: string[];
   loaded: boolean;
   hydrated: boolean;
+  syncing: boolean;
   hydrate: (peers: string[]) => void;
   fetch: () => Promise<void>;
   ensureLoaded: () => void;
   markStale: () => void;
   setHidden: (peerId: string, hidden: boolean) => Promise<void>;
   applyRemote: (peerId: string, hidden: boolean) => void;
-  remoteChanged: () => void;
+  remoteChanged: (peerId: string, hidden: boolean) => void;
   clearAll: () => void;
 }
 
@@ -87,6 +88,7 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
     hidden: [],
     loaded: false,
     hydrated: false,
+    syncing: false,
 
     hydrate: (peers) => {
       if (get().loaded || get().hydrated || pendingWrites > 0) return;
@@ -104,7 +106,7 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
           return;
         }
         if (startedAt !== epoch) continue;
-        set({ hidden: peers, loaded: true });
+        set({ hidden: peers, loaded: true, syncing: false });
         return;
       }
     },
@@ -147,8 +149,13 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
       }
     },
 
-    remoteChanged: () => {
+    remoteChanged: (peerId, hidden) => {
       epoch += 1;
+      set(
+        hidden && pendingWrites === 0
+          ? { hidden: withHidden(get().hidden, peerId, true), syncing: true }
+          : { syncing: true },
+      );
       if (pendingWrites > 0) {
         needsReconcile = true;
         return;
@@ -171,13 +178,15 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
       writeChain = Promise.resolve();
       sessionAbort.abort();
       sessionAbort = new AbortController();
-      set({ hidden: [], loaded: false, hydrated: false });
+      set({ hidden: [], loaded: false, hydrated: false, syncing: false });
     },
   };
 });
 
 export const isDmHidden = (peerId: string): boolean => useHiddenDmStore.getState().hidden.includes(peerId);
 
-export const hiddenDmsKnown = (): boolean => useHiddenDmStore.getState().loaded;
+export const hiddenDmsSettled = (s: Pick<HiddenDmState, "loaded" | "syncing">): boolean => s.loaded && !s.syncing;
+
+export const hiddenDmsKnown = (): boolean => hiddenDmsSettled(useHiddenDmStore.getState());
 
 export const hiddenDmsReady = (s: Pick<HiddenDmState, "loaded">): boolean => s.loaded;
