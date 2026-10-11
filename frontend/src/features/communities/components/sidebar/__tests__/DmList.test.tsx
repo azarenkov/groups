@@ -8,6 +8,8 @@ import { useNotificationSettingsStore } from "../../../../settings/store/notific
 import type { DirectConversation } from "../../../../dm/types";
 import { useConversationPinsStore } from "../../../store/conversationPinsStore";
 import { useHiddenDmStore } from "../../../../dm/store/hiddenDmStore";
+import { useFriendshipStore } from "../../../../social/store/friendshipStore";
+import { useDmPreviewStore } from "../../../../dm/store/dmPreviewStore";
 
 const dm = (id: string, name: string): DirectConversation => ({
   id,
@@ -182,6 +184,23 @@ describe("DmList hidden chats", () => {
     fireEvent.click(screen.getByLabelText("Hidden"));
     fireEvent.click(screen.getByLabelText("Show more"));
     expect(loadMore).toHaveBeenCalled();
+  });
+
+  it("drops the folder for hidden chats that can no longer be shown once every chat is loaded", () => {
+    act(() => {
+      useHiddenDmStore.setState({ hidden: ["gone"] });
+      useFriendshipStore.setState({ loaded: true, nextCursor: null });
+      useDmPreviewStore.setState({ loaded: true, nextCursor: null });
+    });
+    try {
+      renderList();
+      expect(screen.queryByText("Hidden")).toBeNull();
+    } finally {
+      act(() => {
+        useFriendshipStore.setState({ loaded: false });
+        useDmPreviewStore.setState({ loaded: false });
+      });
+    }
   });
 
   it("has no folder when nothing is hidden", () => {

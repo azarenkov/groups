@@ -72,13 +72,16 @@ const DmList: React.FC<DmListProps> = ({
   const hiddenIds = useHiddenDmStore((s) => s.hidden);
   const hiddenReady = useHiddenDmStore(hiddenDmsReady);
   const [showHidden, setShowHidden] = React.useState(false);
-  const hasHidden = hiddenIds.length > 0;
+  const hiddenSet = new Set(hiddenIds);
+  const directsComplete = friendsComplete && previewsComplete && !hasMoreDirects;
+  const directIds = new Set(directs.map((d) => d.id));
+  const reachableHidden = directsComplete ? hiddenIds.filter((id) => directIds.has(id)) : hiddenIds;
+  const hasHidden = reachableHidden.length > 0;
   React.useEffect(() => {
     if (!hasHidden) setShowHidden(false);
   }, [hasHidden]);
-  const hiddenSet = new Set(hiddenIds);
   const shown = hiddenReady ? directs.filter((d) => hiddenSet.has(d.id) === showHidden) : [];
-  const hiddenUnread = hiddenIds.reduce((sum, id) => sum + (unreadByDm[id] ?? 0), 0);
+  const hiddenUnread = reachableHidden.reduce((sum, id) => sum + (unreadByDm[id] ?? 0), 0);
   const [now, setNow] = React.useState(() => new Date());
   React.useEffect(() => {
     const timer = setTimeout(() => setNow(new Date()), msUntilNextDay(now));
