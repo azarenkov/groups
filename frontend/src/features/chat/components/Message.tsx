@@ -44,6 +44,7 @@ import {
 import type { PendingFile } from "../types";
 import { MAX_CONTENT } from "../constants";
 import { replyText } from "../lib/replyText";
+import { displayUserName } from "../../../shared/lib/displayName";
 
 export interface MessageProps {
   tabbable?: boolean;
@@ -682,7 +683,7 @@ export const Message: React.FC<MessageProps> = ({
                 >
                   <Icon name="forward" size={12} />
                   <span>
-                    {i18n.t("forwardedFrom", { ns: "chat", name: origin.authorName })}
+                    {i18n.t("forwardedFrom", { ns: "chat", name: displayUserName(origin.authorName) })}
                   </span>
                 </div>
               );
@@ -746,7 +747,7 @@ export const Message: React.FC<MessageProps> = ({
                         className="msg-reply-author"
                         style={{ color: colorForId(reply.authorId ?? "") }}
                       >
-                        {reply.authorName}
+                        {reply.authorName && displayUserName(reply.authorName)}
                       </span>
                       <span className="msg-reply-text">
                         {replyText(reply)}

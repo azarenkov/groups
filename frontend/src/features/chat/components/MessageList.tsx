@@ -6,6 +6,7 @@ import { formatDayDivider, sameDay } from "../lib/messageFormat";
 import Message from "./Message";
 import { sharesTimeWithNext } from "../lib/messageTime";
 import type { PendingFile } from "../types";
+import { displayUserName } from "../../../shared/lib/displayName";
 
 interface MessageListProps {
   messages: ChannelMessage[];
@@ -112,7 +113,7 @@ const MessageList: React.FC<MessageListProps> = ({
               const within = !!prev && curDate.getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
               const cont = sameAuthor && within && !newDay && !m.system && !prev?.system;
               const isMine = !!currentUserId && m.authorId === currentUserId;
-              const subjectName = nameOverrides[m.authorId] ?? m.authorName ?? m.authorId;
+              const subjectName = displayUserName(nameOverrides[m.authorId] ?? m.authorName ?? m.authorId);
               const displayName = m.system ? subjectName : isMine ? "You" : subjectName;
               const next = messages[i + 1];
               const sharedTime = sharesTimeWithNext(m, next);

@@ -22,6 +22,7 @@ import { useUserNamesStore } from "../store/userNamesStore";
 import { colorForId } from "../../../shared/lib/avatar";
 import i18n from "../../../i18n";
 import { shareProfile } from "../lib/profileLink";
+import { displayUserName } from "../../../shared/lib/displayName";
 
 interface Props {
   onOpenDm: (userId: string, name?: string) => void;
@@ -206,7 +207,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
           ) : (
             <>
               <div className="profile-name-row">
-                <div className="profile-name">{name || (inactive ? t("deletedUser") : "…")}</div>
+                <div className="profile-name">{name ? displayUserName(name) : inactive ? t("deletedUser") : "…"}</div>
                 {badge && !inactive && !blockedMe && (
                   emojiStatus ? (
                     <EmojiStatusIcon status={emojiStatus} size="lg" />
