@@ -1,0 +1,52 @@
+import React from "react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+
+import i18n from "../../../../i18n";
+import ClearDmDialog, { useClearDmDialog } from "../ClearDmDialog";
+import { dmAPI } from "../../api/dm";
+import { ws } from "../../../../shared/ws/websocket";
+import { useAuthStore } from "../../../auth/store/authStore";
+
+jest.mock("../../api/dm", () => ({ dmAPI: { clearConversation: jest.fn() } }));
+
+const clear = dmAPI.clearConversation as jest.Mock;
+
+beforeAll(async () => {
+  await i18n.changeLanguage("en");
+});
+
+beforeEach(() => {
+  clear.mockReset();
+  clear.mockResolvedValue({ clearedAt: "2026-10-11T10:00:00Z" });
+  useAuthStore.setState({ user: { id: "me", name: "Me" } } as never);
+});
+
+const openFor = () => act(() => useClearDmDialog.getState().open({ id: "peer", name: "Bob" }));
+
+it.each([
+  ["Only for me", false, "me"],
+  ["For me and Bob", true, "everyone"],
+])("%s clears the conversation and applies it locally", async (label, forEveryone, scope) => {
+  const seen: unknown[] = [];
+  const off = ws.on((env) => seen.push(env));
+  render(<ClearDmDialog />);
+  openFor();
+  expect(screen.getByText("Delete chat history with Bob?")).toBeTruthy();
+  fireEvent.click(screen.getByText(label));
+  expect(screen.queryByText("Delete chat history with Bob?")).toBeNull();
+  await waitFor(() => expect(seen).toHaveLength(1));
+  off();
+  expect(clear).toHaveBeenCalledWith("peer", forEveryone);
+  expect(seen[0]).toEqual({
+    type: "dm_conversation.cleared",
+    data: { actorId: "me", participants: ["me", "peer"], scope, clearedAt: "2026-10-11T10:00:00Z" },
+  });
+});
+
+it("does nothing when cancelled", () => {
+  render(<ClearDmDialog />);
+  openFor();
+  fireEvent.click(screen.getByText("Cancel"));
+  expect(clear).not.toHaveBeenCalled();
+  expect(useClearDmDialog.getState().target).toBeNull();
+});

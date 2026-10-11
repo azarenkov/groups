@@ -11,6 +11,8 @@ import { openReport } from "../../moderation/store/reportModalStore";
 import type { ChannelMeta, DmMeta } from "../types";
 import { useDetailsPanelStore } from "../store/detailsPanelStore";
 import UserBadge from "../../subscription/components/UserBadge";
+import { useHiddenDmStore } from "../../dm/store/hiddenDmStore";
+import { useClearDmDialog } from "../../dm/components/ClearDmDialog";
 
 export interface ChannelHeaderProps {
   channel?: ChannelMeta;
@@ -58,6 +60,7 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   };
   const dmActivity = useActivityStore((s) => (dm ? s.byUser[dm.friendId] : undefined));
   const [moreOpen, setMoreOpen] = React.useState(false);
+  const dmHidden = useHiddenDmStore((s) => (dm ? s.hidden.includes(dm.friendId) : false));
   const detailsOpen = useDetailsPanelStore((s) => s.open);
   const detailsToggle = (
     <button
@@ -185,6 +188,33 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
                 >
                   <Icon name="flag" size={15} />
                   <span className="body">{i18n.t("action", { ns: "report" })}</span>
+                </button>
+                <button
+                  type="button"
+                  className="pop-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    void useHiddenDmStore
+                      .getState()
+                      .setHidden(dm.friendId, !dmHidden)
+                      .catch((e) => console.warn("[ChannelHeader] hide failed:", e));
+                  }}
+                >
+                  <Icon name={dmHidden ? "eye" : "eye-off"} size={15} />
+                  <span className="body">{i18n.t(dmHidden ? "unhideChat" : "hideChat", { ns: "sidebar" })}</span>
+                </button>
+                <button
+                  type="button"
+                  className="pop-item danger"
+                  role="menuitem"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    useClearDmDialog.getState().open({ id: dm.friendId, name: dm.name });
+                  }}
+                >
+                  <Icon name="trash" size={15} />
+                  <span className="body">{i18n.t("clearChat", { ns: "sidebar" })}</span>
                 </button>
                 {onRemoveFriend && dm.isFriend !== false && !blocked && (
                   <button

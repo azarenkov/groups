@@ -1,0 +1,23 @@
+export interface DmCleared {
+  peerId: string;
+  clearedAt: string;
+  scope: "me" | "everyone";
+}
+
+export function dmClearedFor(data: unknown, selfId: string | undefined): DmCleared | null {
+  if (!selfId || !data || typeof data !== "object") return null;
+  const d = data as { participants?: unknown; clearedAt?: unknown; scope?: unknown };
+  const participants = Array.isArray(d.participants)
+    ? d.participants.filter((p): p is string => typeof p === "string")
+    : [];
+  if (participants.length !== 2 || !participants.includes(selfId)) return null;
+  const peerId = participants.find((p) => p !== selfId);
+  if (!peerId || typeof d.clearedAt !== "string") return null;
+  return { peerId, clearedAt: d.clearedAt, scope: d.scope === "everyone" ? "everyone" : "me" };
+}
+
+export const clearedBefore = (createdAt: string, clearedAt: string): boolean => {
+  const created = Date.parse(createdAt);
+  const cleared = Date.parse(clearedAt);
+  return Number.isFinite(created) && Number.isFinite(cleared) && created <= cleared;
+};

@@ -3,6 +3,7 @@ import { ws } from "../../../shared/ws/websocket";
 import { useAuthStore } from "../../auth/store/authStore";
 import { PAGE_LIMIT } from "../constants";
 import { markReplyDeleted, refreshReplySnippet } from "./replies";
+import { clearedBefore, dmClearedFor } from "../../dm/lib/dmCleared";
 
 export const MESSAGE_CACHE_LIMIT = 20;
 
@@ -155,6 +156,16 @@ export function installMessageCacheSync(): void {
         const id = str(d.messageId);
         if (!id) return;
         for (const key of Array.from(entries.keys())) dropMessage(key, id);
+        return;
+      }
+      case "dm_conversation.cleared": {
+        const cleared = dmClearedFor(d, useAuthStore.getState().user?.id);
+        if (!cleared) return;
+        patchConversation(cleared.peerId, (messages) =>
+          messages.some((m) => clearedBefore(m.createdAt, cleared.clearedAt))
+            ? messages.filter((m) => !clearedBefore(m.createdAt, cleared.clearedAt))
+            : messages,
+        );
         return;
       }
       case "voice.listened": {

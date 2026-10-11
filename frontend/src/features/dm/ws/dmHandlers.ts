@@ -12,6 +12,9 @@ import { showDesktopNotification } from "../../../shared/lib/desktopNotification
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
 import { videoNoteDurationFromPayload, voiceDurationFromPayload } from "../../chat/lib/voice";
 import { notificationBody } from "../../chat/lib/notificationBody";
+import { isDmHidden, useHiddenDmStore } from "../store/hiddenDmStore";
+import { dmClearedFor } from "../lib/dmCleared";
+import { queryClient, queryKeys } from "../../../shared/query/queryClient";
 import { asString, eventTs, getActiveDmView, lastDmBumpAt, scheduleUnreadRefetch, throttleMarkDmRead, viewIsForeground } from "../../../shared/ws/context";
 
 export const dmHandlers: WsHandlers = {
@@ -58,7 +61,7 @@ export const dmHandlers: WsHandlers = {
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpDm(senderId);
-      if (dmLevel === "none") return;
+      if (dmLevel === "none" || isDmHidden(senderId)) return;
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
         showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments, d.sticker));
@@ -96,6 +99,23 @@ export const dmHandlers: WsHandlers = {
       void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
         refetchUnread().catch(() => {}),
       );
+      return;
+  },
+  "dm_conversation.cleared": (d) => {
+      const cleared = dmClearedFor(d, useAuthStore.getState().user?.id);
+      if (!cleared) return;
+      delete lastDmBumpAt[cleared.peerId];
+      refetchDmPreviews(true);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.pins(`dm:${cleared.peerId}`) });
+      void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
+        refetchUnread().catch(() => {}),
+      );
+      return;
+  },
+  "dm_conversation.hidden_changed": (d) => {
+      const peerId = asString(d.peerId);
+      if (!peerId || typeof d.hidden !== "boolean") return;
+      useHiddenDmStore.getState().applyRemote(peerId, d.hidden);
       return;
   },
   "dm.read": (d) => {

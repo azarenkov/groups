@@ -5,9 +5,15 @@ import { useUnreadStore } from "../../../chat/store/unreadStore";
 import { useNotificationPrefsStore } from "../../../settings/store/notificationPrefsStore";
 import { playNotificationSound } from "../../../../shared/lib/notificationSound";
 import { showDesktopNotification } from "../../../../shared/lib/desktopNotification";
+import { useHiddenDmStore } from "../../store/hiddenDmStore";
+import { refetchDmPreviews } from "../../store/dmPreviewStore";
 
 jest.mock("../../../../shared/lib/notificationSound", () => ({ playNotificationSound: jest.fn() }));
 jest.mock("../../../../shared/lib/desktopNotification", () => ({ showDesktopNotification: jest.fn() }));
+jest.mock("../../store/dmPreviewStore", () => {
+  const actual = jest.requireActual("../../store/dmPreviewStore");
+  return { ...actual, refetchDmPreviews: jest.fn() };
+});
 jest.mock("../../../settings/store/notificationPrefsStore", () => {
   const actual = jest.requireActual("../../../settings/store/notificationPrefsStore");
   return { ...actual, notificationPrefsLoaded: () => true };
@@ -30,6 +36,8 @@ beforeEach(() => {
   desktop.mockReset();
   useAuthStore.setState({ user: { id: "me", name: "Me" } } as never);
   useUnreadStore.setState({ byDm: {}, byChannel: {} } as never);
+  useHiddenDmStore.setState({ hidden: [] });
+  (refetchDmPreviews as jest.Mock).mockReset();
 });
 
 it("keeps counting a muted DM but stays silent", () => {
@@ -74,4 +82,46 @@ it("keeps counting a muted channel but stays silent", () => {
   expect(useUnreadStore.getState().byChannel.ch).toBe(1);
   expect(sound).not.toHaveBeenCalled();
   expect(desktop).not.toHaveBeenCalled();
+});
+
+it("keeps counting a hidden DM but stays silent", () => {
+  useNotificationPrefsStore.setState({ dmLevels: {} });
+  useHiddenDmStore.setState({ hidden: ["peer"] });
+  dmHandlers["dm_message.sent"]!({
+    id: "m4",
+    senderId: "peer",
+    recipientId: "me",
+    senderName: "Peer",
+    content: "hi",
+    occurredAt: new Date().toISOString(),
+  });
+  expect(useUnreadStore.getState().byDm.peer).toBe(1);
+  expect(useHiddenDmStore.getState().hidden).toEqual(["peer"]);
+  expect(sound).not.toHaveBeenCalled();
+  expect(desktop).not.toHaveBeenCalled();
+});
+
+it("applies hidden changes from other devices", () => {
+  dmHandlers["dm_conversation.hidden_changed"]!({ peerId: "peer", hidden: true });
+  expect(useHiddenDmStore.getState().hidden).toEqual(["peer"]);
+  dmHandlers["dm_conversation.hidden_changed"]!({ peerId: "peer", hidden: false });
+  expect(useHiddenDmStore.getState().hidden).toEqual([]);
+  dmHandlers["dm_conversation.hidden_changed"]!({ peerId: "peer" });
+  expect(useHiddenDmStore.getState().hidden).toEqual([]);
+});
+
+it("reloads previews when a conversation is cleared", () => {
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["peer", "me"],
+    scope: "everyone",
+    clearedAt: new Date().toISOString(),
+  });
+  expect(refetchDmPreviews).toHaveBeenCalledWith(true);
+  (refetchDmPreviews as jest.Mock).mockReset();
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["a", "b"],
+    scope: "everyone",
+    clearedAt: new Date().toISOString(),
+  });
+  expect(refetchDmPreviews).not.toHaveBeenCalled();
 });

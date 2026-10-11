@@ -439,6 +439,8 @@
   font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
   display: inline-flex; align-items: center; justify-content: center;
 }
+.sb-add-row-badge.muted { background: var(--fg-4); }
+.sb-hidden-folder { color: var(--fg-2); }
 
 .community-tabs {
   display: flex;
@@ -1336,6 +1338,8 @@ textarea.ssv-input:focus-visible {
   background: var(--surface-sunken); color: var(--fg-2);
 }
 .sb-mini-more:hover { background: var(--surface-hover); color: var(--fg-1); }
+.sb-mini-hidden { margin: 0 0 4px; }
+.sb-mini-hidden.active { background: var(--fg-1); color: var(--surface-canvas); }
 .sb-mini-more .sb-mini-badge { top: -2px; right: -2px; }
 .sb-rail-open { width: 48px; height: 44px; color: var(--fg-2); }
 .sb-resizer {

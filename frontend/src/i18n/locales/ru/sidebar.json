@@ -94,5 +94,15 @@
   "searchCommunities": "Сообщества",
   "searchChannels": "Каналы",
   "searchDirect": "Личный чат",
-  "searchCommunity": "Сообщество"
+  "searchCommunity": "Сообщество",
+  "hideChat": "Скрыть чат",
+  "unhideChat": "Вернуть из скрытых",
+  "hiddenChats": "Скрытые",
+  "hiddenChatsBack": "Назад к чатам",
+  "hiddenChatsHint": "Уведомления из скрытых чатов не приходят, звонки — как обычно",
+  "clearChat": "Удалить переписку",
+  "clearChatTitle": "Удалить переписку с {{name}}?",
+  "clearChatSub": "Сообщения, файлы и закрепы удалятся. Это нельзя отменить.",
+  "clearChatMe": "Только у меня",
+  "clearChatEveryone": "У меня и у {{name}}"
 }

@@ -153,6 +153,11 @@ class DmAPI {
     await this.client.post(`/v1/users/me/dms/${friendId}/messages/${messageId}/hide`);
   }
 
+  async clearConversation(friendId: string, forEveryone: boolean): Promise<{ clearedAt: string }> {
+    const response = await this.client.post(`/v1/users/me/dms/${friendId}/clear`, { forEveryone });
+    return response.data.data;
+  }
+
   async searchMessages(
     friendId: string,
     query: string,

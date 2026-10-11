@@ -7,6 +7,7 @@ import { useNotificationPrefsStore } from "../../../../settings/store/notificati
 import { useNotificationSettingsStore } from "../../../../settings/store/notificationSettingsStore";
 import type { DirectConversation } from "../../../../dm/types";
 import { useConversationPinsStore } from "../../../store/conversationPinsStore";
+import { useHiddenDmStore } from "../../../../dm/store/hiddenDmStore";
 
 const dm = (id: string, name: string): DirectConversation => ({
   id,
@@ -114,5 +115,53 @@ describe("DmList pin limit", () => {
     fireEvent.contextMenu(bob);
     const limited = useContextMenuStore.getState().menu.entries.find((e: { id: string }) => e.id === "pin");
     expect(limited.disabled).toBe(true);
+  });
+});
+
+describe("DmList hidden chats", () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  beforeEach(() => {
+    act(() => {
+      useNotificationSettingsStore.setState({ mentions: "all" });
+      useNotificationPrefsStore.setState({ dmLevels: {} });
+      useConversationPinsStore.getState().applyRemote({ dms: [] });
+    });
+  });
+
+  afterEach(() => {
+    act(() => useHiddenDmStore.setState({ hidden: [] }));
+  });
+
+  it("moves hidden chats into a folder with their total unread", () => {
+    act(() => useHiddenDmStore.setState({ hidden: ["u2", "gone"] }));
+    render(
+      <DmList
+        directs={[dm("u1", "Alice"), dm("u2", "Bob")]}
+        selectedDmId={null}
+        unreadByDm={{ u1: 3, u2: 2, gone: 4 }}
+        pendingCount={0}
+        onAddFriend={jest.fn()}
+        onOpenPending={jest.fn()}
+        onPick={jest.fn()}
+      />,
+    );
+    expect(screen.queryByText("Bob")).toBeNull();
+    expect(screen.getByText("Alice")).toBeTruthy();
+    const folder = screen.getByText("Hidden").closest("button")!;
+    expect(folder.textContent).toContain("6");
+    fireEvent.click(folder);
+    expect(screen.getByText("Bob")).toBeTruthy();
+    expect(screen.queryByText("Alice")).toBeNull();
+    expect(screen.getByText("2").className).toContain("muted");
+  });
+
+  it("has no folder when nothing is hidden", () => {
+    renderList();
+    expect(screen.queryByText("Hidden")).toBeNull();
+    expect(screen.getByText("Alice")).toBeTruthy();
+    expect(screen.getByText("Bob")).toBeTruthy();
   });
 });

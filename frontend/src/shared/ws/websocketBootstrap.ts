@@ -30,6 +30,7 @@ import { useUserNamesStore } from "../../features/social/store/userNamesStore";
 import { markNotificationPrefsStale, useNotificationPrefsStore } from "../../features/settings/store/notificationPrefsStore";
 import { useNotificationSettingsStore } from "../../features/settings/store/notificationSettingsStore";
 import { useConversationPinsStore } from "../../features/communities/store/conversationPinsStore";
+import { useHiddenDmStore } from "../../features/dm/store/hiddenDmStore";
 import { installMessageCacheSync } from "../../features/chat/lib/messageCache";
 import { installQuerySync } from "../query/queryClient";
 
@@ -112,6 +113,10 @@ export function installWsBootstrap() {
       .getState()
       .fetch()
       .catch((err) => console.warn("[ws] failed to reload conversation pins:", err));
+    void useHiddenDmStore
+      .getState()
+      .fetch()
+      .catch((err) => console.warn("[ws] failed to reload hidden chats:", err));
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
     void loadActivitiesFor(trackedActivityIds());

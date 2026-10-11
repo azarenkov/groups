@@ -12,6 +12,7 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
   void import("../../features/social/store/activityStore").then((m) => m.useActivityStore.getState().clearAll());
   void import("../../features/social/store/blockStore").then((m) => m.useBlockStore.getState().clearAll());
   void import("../../features/dm/store/dmPreviewStore").then((m) => m.useDmPreviewStore.getState().clear());
+  void import("../../features/dm/store/hiddenDmStore").then((m) => m.useHiddenDmStore.getState().clearAll());
   void import("../../features/social/store/friendshipStore").then((m) => m.useFriendshipStore.getState().clearAll());
   void import("../../features/home/store/homeStore").then((m) => m.useHomeStore.getState().clear());
   void import("../../features/settings/store/notificationPrefsStore").then((m) =>

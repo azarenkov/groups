@@ -34,6 +34,8 @@ export type WsEventType =
   | "message.hidden"
   | "message.pin_changed"
   | "conversation_pins.updated"
+  | "dm_conversation.cleared"
+  | "dm_conversation.hidden_changed"
   | "voice.listened"
   | "channel.created"
   | "channel.renamed"
@@ -145,6 +147,16 @@ class WsClient {
     };
   }
 
+  deliver(env: WsEnvelope) {
+    for (const l of this.listeners) {
+      try {
+        l(env);
+      } catch (err) {
+        console.warn("[ws] listener threw:", err);
+      }
+    }
+  }
+
   isOpen(): boolean {
     return this.socket?.readyState === WebSocket.OPEN;
   }
@@ -187,13 +199,7 @@ class WsClient {
         return;
       }
       if (!env || typeof env !== "object" || !env.type) return;
-      for (const l of this.listeners) {
-        try {
-          l(env);
-        } catch (err) {
-          console.warn("[ws] listener threw:", err);
-        }
-      }
+      this.deliver(env);
     };
 
     socket.onerror = () => {

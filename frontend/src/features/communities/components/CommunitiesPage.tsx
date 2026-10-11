@@ -5,11 +5,13 @@ import { useAuthStore } from "../../auth/store/authStore";
 import { communitySession, useCommunityStore } from "../store/communityStore";
 import { channelsFullyLoaded, useChannelStore } from "../store/channelStore";
 import { pinnedFirst, useConversationPinsStore } from "../store/conversationPinsStore";
+import { useHiddenDmStore } from "../../dm/store/hiddenDmStore";
 import { hydrateSidebar, readSidebarSnapshot, clearSidebarSnapshot, startSidebarSnapshots } from "../lib/sidebarSnapshot";
 import { communityAPI } from "../api/community";
 import { extractInviteToken, extractPackSlug, extractProfileId } from "../../../shared/lib/inviteLinks";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import StickerPacksModal from "../../stickers/components/StickerPacksModal";
+import ClearDmDialog from "../../dm/components/ClearDmDialog";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useBlockStore } from "../../social/store/blockStore";
 import {
@@ -263,6 +265,10 @@ const CommunitiesPage: React.FC = () => {
       fetchCommunities();
       fetchFriends();
       useConversationPinsStore.getState().ensureLoaded();
+      void useHiddenDmStore
+        .getState()
+        .fetch()
+        .catch((err) => console.warn("[hiddenDms] load failed:", err));
       void useBlockStore.getState().fetch();
       void useEntitlementsStore.getState().fetch();
     }
@@ -1023,6 +1029,7 @@ const CommunitiesPage: React.FC = () => {
       <div id="voice-dock-slot" className="call-dock" />
 
       {linkedPack && <StickerPacksModal packId={linkedPack} onClose={() => setLinkedPack(null)} />}
+      <ClearDmDialog />
 
       <ModalsHost
         communityModal={{

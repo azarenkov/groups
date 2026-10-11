@@ -10,6 +10,7 @@ import type {
 import { markReplyDeleted, refreshReplySnippet } from "../lib/replies";
 import { useWsChannelMessages, useWsDmMessages } from "./useWebSocketMessages";
 import { ws } from "../../../shared/ws/websocket";
+import { clearedBefore, dmClearedFor } from "../../dm/lib/dmCleared";
 
 export function useChatWsMessages(params: {
   channelId: string | null;
@@ -180,6 +181,21 @@ export function useChatWsMessages(params: {
         );
       }),
     [setMessages],
+  );
+
+  React.useEffect(
+    () =>
+      ws.on((env) => {
+        if (env.type !== "dm_conversation.cleared" || !dmFriendId) return;
+        const cleared = dmClearedFor(env.data, currentUserId);
+        if (!cleared || cleared.peerId !== dmFriendId) return;
+        setMessages((prev) =>
+          prev.some((m) => clearedBefore(m.createdAt, cleared.clearedAt))
+            ? prev.filter((m) => !clearedBefore(m.createdAt, cleared.clearedAt))
+            : prev,
+        );
+      }),
+    [dmFriendId, currentUserId, setMessages],
   );
 
   React.useEffect(
