@@ -13,6 +13,20 @@ export const mergeWithLive = (
   );
 };
 
+export const reconcileSyncedWindow = (
+  synced: ChannelMessage[],
+  prev: ChannelMessage[],
+  reachedStart: boolean,
+  knownBefore: ReadonlySet<string>,
+): ChannelMessage[] => {
+  const ids = new Set(synced.map((m) => m.id));
+  const from = reachedStart ? undefined : synced[0]?.createdAt;
+  const kept = prev.filter(
+    (m) => ids.has(m.id) || !knownBefore.has(m.id) || (from !== undefined && m.createdAt < from),
+  );
+  return mergeWithLive(synced, kept);
+};
+
 export const sameDay = (a: Date, b: Date): boolean =>
   a.getFullYear() === b.getFullYear() &&
   a.getMonth() === b.getMonth() &&
