@@ -296,19 +296,19 @@ const DmList: React.FC<DmListProps> = ({
   if (showHidden) {
     return (
       <div className="sb-view">
-        <button
-          type="button"
-          className="sb-add-row secondary sb-footer-back"
-          onClick={() => setShowHidden(false)}
-        >
-          <span className="sb-add-row-ico">
-            <Icon name="chev-left" size={20} />
-          </span>
-          <span>{t("hiddenChats")}</span>
-        </button>
-        <div className="sb-vhead">
-          <span className="sb-vhead-label">{t("hiddenChatsHint")}</span>
+        <div className="sb-folder-head">
+          <button
+            type="button"
+            className="sb-folder-back"
+            title={t("hiddenChatsBack")}
+            aria-label={t("hiddenChatsBack")}
+            onClick={() => setShowHidden(false)}
+          >
+            <Icon name="chev-left" size={18} />
+          </button>
+          <h3 className="sb-folder-title">{t("hiddenChats")}</h3>
         </div>
+        <p className="sb-folder-hint">{t("hiddenChatsHint")}</p>
         {shown.map(renderRow)}
         {hasMoreDirects && onLoadMoreDirects && (
           <button type="button" className="sb-load-more" onClick={onLoadMoreDirects}>
