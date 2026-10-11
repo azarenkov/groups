@@ -420,8 +420,16 @@ const ChatView: React.FC<ChatViewProps> = ({
         </div>
       )}
       {search.searchOpen && (channel || dm) && (
-        <div className="search-bar">
-          <Icon name="search" size={14} />
+        <div
+          className="search-bar"
+          onMouseDown={(e) => {
+            const target = e.target as HTMLElement;
+            if (target.closest("input, button")) return;
+            e.preventDefault();
+            e.currentTarget.querySelector("input")?.focus();
+          }}
+        >
+          <Icon name="search" size={16} />
           <input
             autoFocus
             type="text"
