@@ -22,3 +22,20 @@ it("does not ring for a call from a hidden chat", () => {
   voiceHandlers["call.incoming"]!({ callId: "c2", callerId: "peer", callerName: "Peer" });
   expect(useCallStore.getState().incoming).toBeNull();
 });
+
+it("holds a call until hidden chats are known and then rings only for visible chats", () => {
+  useHiddenDmStore.setState({ hidden: [], loaded: false });
+  voiceHandlers["call.incoming"]!({ callId: "c3", callerId: "peer", callerName: "Peer" });
+  voiceHandlers["call.incoming"]!({ callId: "c4", callerId: "friend", callerName: "Friend" });
+  expect(useCallStore.getState().incoming).toBeNull();
+  useHiddenDmStore.setState({ hidden: ["peer"], loaded: true });
+  expect(useCallStore.getState().incoming?.callId).toBe("c4");
+});
+
+it("forgets a held call that ends before hidden chats load", () => {
+  useHiddenDmStore.setState({ hidden: [], loaded: false });
+  voiceHandlers["call.incoming"]!({ callId: "c5", callerId: "peer", callerName: "Peer" });
+  voiceHandlers["call.ended"]!({ callId: "c5" });
+  useHiddenDmStore.setState({ loaded: true });
+  expect(useCallStore.getState().incoming).toBeNull();
+});

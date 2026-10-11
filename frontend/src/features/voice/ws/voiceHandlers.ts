@@ -7,7 +7,38 @@ import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useVoiceSessionStore } from "../store/voiceSessionStore";
 import { asString } from "../../../shared/ws/context";
-import { isDmHidden } from "../../dm/store/hiddenDmStore";
+import { hiddenDmsKnown, isDmHidden, useHiddenDmStore } from "../../dm/store/hiddenDmStore";
+
+interface HeldCall {
+  callId: string;
+  callerId: string;
+  callerName: string;
+  video: boolean;
+  selfId: string | undefined;
+}
+
+const heldCalls = new Map<string, HeldCall>();
+let stopHolding: (() => void) | null = null;
+
+const offerCall = (call: HeldCall) => {
+  if (call.selfId !== useAuthStore.getState().user?.id) return;
+  if (isBlockedEitherWay(call.callerId) || isDmHidden(call.callerId)) return;
+  const { callId, callerId, callerName, video } = call;
+  useCallStore.getState().setIncoming({ callId, callerId, callerName, video });
+};
+
+const holdUntilHiddenKnown = (call: HeldCall) => {
+  heldCalls.set(call.callId, call);
+  if (stopHolding) return;
+  stopHolding = useHiddenDmStore.subscribe((s) => {
+    if (!s.loaded) return;
+    stopHolding?.();
+    stopHolding = null;
+    const calls = Array.from(heldCalls.values());
+    heldCalls.clear();
+    calls.forEach(offerCall);
+  });
+};
 
 const endSessionIfEmpty = (channelId: string) => {
   if ((useVoicePresenceStore.getState().byChannel[channelId]?.length ?? 0) === 0) {
@@ -63,11 +94,16 @@ export const voiceHandlers: WsHandlers = {
       const callId = asString(d.callId);
       const callerId = asString(d.callerId);
       if (!callId || !callerId) return;
-      if (isBlockedEitherWay(callerId) || isDmHidden(callerId)) return;
-      const callerName = asString(d.callerName) ?? callerId;
-      useCallStore
-        .getState()
-        .setIncoming({ callId, callerId, callerName, video: d.video === true });
+      if (isBlockedEitherWay(callerId)) return;
+      const call: HeldCall = {
+        callId,
+        callerId,
+        callerName: asString(d.callerName) ?? callerId,
+        video: d.video === true,
+        selfId: useAuthStore.getState().user?.id,
+      };
+      if (hiddenDmsKnown()) offerCall(call);
+      else holdUntilHiddenKnown(call);
       return;
   },
   "call.participant.joined": (d) => {
@@ -103,7 +139,9 @@ export const voiceHandlers: WsHandlers = {
   },
   "call.ended": (d) => {
       const callId = asString(d.callId);
-      if (callId) useCallStore.getState().callEnded(callId);
+      if (!callId) return;
+      heldCalls.delete(callId);
+      useCallStore.getState().callEnded(callId);
       return;
   },
   "channel.participant.muted": (d, env) => {

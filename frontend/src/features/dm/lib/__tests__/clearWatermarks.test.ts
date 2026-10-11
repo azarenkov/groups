@@ -1,4 +1,4 @@
-import { clearWatermarkGate, clearWatermarks } from "../clearWatermarks";
+import { clearGeneration, clearWatermarkGate, clearWatermarks, loadAcrossClears, sendAcrossClears, wasClearedAway } from "../clearWatermarks";
 import { dmAPI } from "../../api/dm";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { ws } from "../../../../shared/ws/websocket";
@@ -92,4 +92,42 @@ it("keeps later events behind a pending check so their order holds", async () =>
     unlisten();
     off();
   }
+});
+
+it("reloads history that was read before a clear landed", async () => {
+  const load = jest
+    .fn()
+    .mockImplementationOnce(async () => {
+      clearWatermarkGate(cleared("2026-10-11T13:00:00Z"));
+      return ["stale"];
+    })
+    .mockResolvedValueOnce(["fresh"]);
+  await expect(loadAcrossClears("peer", load)).resolves.toEqual(["fresh"]);
+  expect(load).toHaveBeenCalledTimes(2);
+  expect(clearGeneration("peer")).toBe(1);
+});
+
+it("marks a sent message that a concurrent clear removed", async () => {
+  getMessage.mockRejectedValue({ status: 404 });
+  const msg = await sendAcrossClears("peer", async () => {
+    clearWatermarkGate(cleared("2026-10-11T14:00:00Z"));
+    return { id: "s1" } as never;
+  });
+  expect(msg.id).toBe("s1");
+  expect(wasClearedAway("s1")).toBe(true);
+});
+
+it("keeps a sent message that survived a concurrent clear", async () => {
+  getMessage.mockResolvedValue({ id: "s2" });
+  await sendAcrossClears("peer", async () => {
+    clearWatermarkGate(cleared("2026-10-11T15:00:00Z"));
+    return { id: "s2" } as never;
+  });
+  expect(wasClearedAway("s2")).toBe(false);
+});
+
+it("does not ask the server when no clear happened during a send", async () => {
+  await sendAcrossClears("peer", async () => ({ id: "s3" }) as never);
+  expect(getMessage).not.toHaveBeenCalled();
+  expect(wasClearedAway("s3")).toBe(false);
 });

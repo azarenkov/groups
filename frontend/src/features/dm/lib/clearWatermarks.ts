@@ -1,9 +1,13 @@
 import type { WsEnvelope } from "../../../shared/ws/websocket";
+import type { ChannelMessage } from "../../../shared/types/channel";
 import { useAuthStore } from "../../auth/store/authStore";
 import { dmAPI } from "../api/dm";
 import { clearedBefore, dmClearedFor } from "./dmCleared";
 
 const watermarks = new Map<string, string>();
+const generations = new Map<string, number>();
+const clearedAway = new Set<string>();
+const LIST_ATTEMPTS = 3;
 
 const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
 
@@ -18,6 +22,7 @@ export function clearWatermarkGate(env: WsEnvelope): Promise<boolean> | null {
   if (env.type === "dm_conversation.cleared") {
     const cleared = dmClearedFor(env.data, selfId);
     if (cleared) {
+      generations.set(cleared.peerId, clearGeneration(cleared.peerId) + 1);
       const prev = watermarks.get(cleared.peerId);
       if (!prev || !clearedBefore(cleared.clearedAt, prev)) watermarks.set(cleared.peerId, cleared.clearedAt);
     }
@@ -39,6 +44,32 @@ export function clearWatermarkGate(env: WsEnvelope): Promise<boolean> | null {
   );
 }
 
+export const clearGeneration = (peerId: string): number => generations.get(peerId) ?? 0;
+
+export const wasClearedAway = (messageId: string): boolean => clearedAway.has(messageId);
+
+export async function loadAcrossClears<T>(peerId: string, load: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    const gen = clearGeneration(peerId);
+    const result = await load();
+    if (clearGeneration(peerId) === gen || attempt >= LIST_ATTEMPTS) return result;
+  }
+}
+
+export async function sendAcrossClears(peerId: string, send: () => Promise<ChannelMessage>): Promise<ChannelMessage> {
+  const gen = clearGeneration(peerId);
+  const message = await send();
+  if (clearGeneration(peerId) === gen) return message;
+  try {
+    await dmAPI.getMessage(peerId, message.id);
+  } catch (err) {
+    if (isGone(err)) clearedAway.add(message.id);
+  }
+  return message;
+}
+
 export function clearWatermarks(): void {
   watermarks.clear();
+  generations.clear();
+  clearedAway.clear();
 }
