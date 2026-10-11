@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO hidden_dm_chats (user_id, peer_id)\n                SELECT $1, $2\n                WHERE EXISTS (SELECT 1 FROM messaging_user_profiles u WHERE u.user_id = $2)\n                  AND NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id IN ($1, $2))\n                ON CONFLICT (user_id, peer_id) DO UPDATE SET hidden_at = hidden_dm_chats.hidden_at\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fa430b809a454949949a353692d74a4f81dbb109468a69e5f11868e0f0151125"
+}

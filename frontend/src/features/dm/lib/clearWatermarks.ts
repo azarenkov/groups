@@ -2,6 +2,7 @@ import type { DeliveryGate, WsEnvelope } from "../../../shared/ws/websocket";
 import type { ChannelMessage } from "../../../shared/types/channel";
 import { useAuthStore } from "../../auth/store/authStore";
 import { dmAPI } from "../api/dm";
+import { refetchDmPreviews } from "../store/dmPreviewStore";
 import { clearedBefore, dmClearedFor } from "./dmCleared";
 
 const watermarks = new Map<string, string>();
@@ -10,9 +11,10 @@ const clearedAway = new Set<string>();
 const checkingLanes = new Map<string, string>();
 const LIST_ATTEMPTS = 3;
 export const CONFIRM_RETRY_MS = [500, 1500, 4000];
-export const CONFIRM_MAX_DELAY_MS = 30000;
 let sessionGen = 0;
 let gateGen = 0;
+
+const resyncListeners = new Set<(peerId: string) => void>();
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -25,8 +27,27 @@ async function confirmExists(peerId: string, messageId: string, alive: () => boo
     } catch (err) {
       if (isGone(err)) return false;
     }
-    if (!alive()) return null;
-    await sleep(CONFIRM_RETRY_MS[attempt] ?? CONFIRM_MAX_DELAY_MS);
+    if (!alive() || attempt >= CONFIRM_RETRY_MS.length) return null;
+    await sleep(CONFIRM_RETRY_MS[attempt]);
+  }
+}
+
+export function onDmResync(listener: (peerId: string) => void): () => void {
+  resyncListeners.add(listener);
+  return () => {
+    resyncListeners.delete(listener);
+  };
+}
+
+function resyncDm(peerId: string): void {
+  refetchDmPreviews(true);
+  void import("../../chat/store/unreadStore").then(({ refetchUnread }) => refetchUnread().catch(() => {}));
+  for (const listener of resyncListeners) {
+    try {
+      listener(peerId);
+    } catch (err) {
+      console.warn("[clearWatermarks] resync listener threw:", err);
+    }
   }
 }
 
@@ -104,8 +125,10 @@ function checkStale(env: WsEnvelope): Promise<boolean> | null {
   const mark = watermarks.get(peerId);
   if (!mark || !clearedBefore(at, mark)) return null;
   checkingLanes.set(id, `dm:${peerId}`);
-  return confirmExists(peerId, id, gateAlive()).then((exists) => {
+  const alive = gateAlive();
+  return confirmExists(peerId, id, alive).then((exists) => {
     checkingLanes.delete(id);
+    if (exists === null && alive()) resyncDm(peerId);
     return exists === true && useAuthStore.getState().user?.id === selfId;
   });
 }
@@ -133,7 +156,10 @@ export async function sendAcrossClears(peerId: string, send: () => Promise<Chann
   const gen = clearGeneration(peerId);
   const message = await send();
   if (clearGeneration(peerId) === gen) return message;
-  if ((await confirmExists(peerId, message.id, sessionAlive())) === false) clearedAway.add(message.id);
+  const alive = sessionAlive();
+  const exists = await confirmExists(peerId, message.id, alive);
+  if (exists === false) clearedAway.add(message.id);
+  else if (exists === null && alive()) resyncDm(peerId);
   return message;
 }
 

@@ -150,13 +150,15 @@ impl DmConversationRepository for PostgresDmConversationRepository {
     async fn set_hidden(&self, user: &UserId, peer: &UserId, hidden: bool) -> Result<(), RepositoryError> {
         let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
         if hidden {
-            lock_user(&mut tx, peer).await?;
+            let (first, second) = if user.uuid() <= peer.uuid() { (user, peer) } else { (peer, user) };
+            lock_user(&mut tx, first).await?;
+            lock_user(&mut tx, second).await?;
             let inserted = sqlx::query!(
                 r#"
                 INSERT INTO hidden_dm_chats (user_id, peer_id)
                 SELECT $1, $2
                 WHERE EXISTS (SELECT 1 FROM messaging_user_profiles u WHERE u.user_id = $2)
-                  AND NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id = $2)
+                  AND NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id IN ($1, $2))
                 ON CONFLICT (user_id, peer_id) DO UPDATE SET hidden_at = hidden_dm_chats.hidden_at
                 "#,
                 user.uuid(),

@@ -1,18 +1,21 @@
 import {
-  CONFIRM_MAX_DELAY_MS,
   CONFIRM_RETRY_MS,
   clearGeneration,
   clearWatermarkGate,
   clearWatermarks,
   loadAcrossClears,
+  onDmResync,
   sendAcrossClears,
   wasClearedAway,
 } from "../clearWatermarks";
+import { refetchDmPreviews } from "../../store/dmPreviewStore";
 import { dmAPI } from "../../api/dm";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { ws } from "../../../../shared/ws/websocket";
 
 jest.mock("../../api/dm", () => ({ dmAPI: { getMessage: jest.fn() } }));
+jest.mock("../../store/dmPreviewStore", () => ({ refetchDmPreviews: jest.fn() }));
+jest.mock("../../../chat/store/unreadStore", () => ({ refetchUnread: jest.fn(() => Promise.resolve()) }));
 
 const getMessage = dmAPI.getMessage as jest.Mock;
 
@@ -77,20 +80,21 @@ it("retries an uncertain check and lets the message in once the server confirms 
   }
 });
 
-it("keeps retrying an uncertain check instead of dropping a message that may have survived", async () => {
+it("stops after a few uncertain checks and resyncs the conversation instead", async () => {
   jest.useFakeTimers();
+  const resynced = jest.fn();
+  const stop = onDmResync(resynced);
   try {
     clearWatermarkGate.check(cleared("2026-10-11T10:00:00Z"));
     getMessage.mockRejectedValue({ status: 503 });
-    let verdict: boolean | undefined;
-    void clearWatermarkGate.check(sent("m5b", "2026-10-11T09:00:00Z"))!.then((v) => (verdict = v));
+    const verdict = clearWatermarkGate.check(sent("m5b", "2026-10-11T09:00:00Z"))!;
     for (const ms of CONFIRM_RETRY_MS) await advance(ms);
-    await advance(CONFIRM_MAX_DELAY_MS);
-    expect(verdict).toBeUndefined();
-    getMessage.mockReset().mockResolvedValue({ id: "m5b" });
-    await advance(CONFIRM_MAX_DELAY_MS);
-    expect(verdict).toBe(true);
+    await expect(verdict).resolves.toBe(false);
+    expect(getMessage).toHaveBeenCalledTimes(CONFIRM_RETRY_MS.length + 1);
+    expect(resynced).toHaveBeenCalledWith("peer");
+    expect(refetchDmPreviews).toHaveBeenCalledWith(true);
   } finally {
+    stop();
     jest.useRealTimers();
   }
 });
