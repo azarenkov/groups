@@ -23,3 +23,10 @@ it("compares message time with the clear time", () => {
   expect(clearedBefore("2026-10-11T10:00:01Z", "2026-10-11T10:00:00Z")).toBe(false);
   expect(clearedBefore("bad", "2026-10-11T10:00:00Z")).toBe(false);
 });
+
+it("tells apart a message and a clear within the same millisecond", () => {
+  expect(clearedBefore("2026-10-11T10:00:00.123457Z", "2026-10-11T10:00:00.123456Z")).toBe(false);
+  expect(clearedBefore("2026-10-11T10:00:00.123455Z", "2026-10-11T10:00:00.123456Z")).toBe(true);
+  expect(clearedBefore("2026-10-11T10:00:00.123456789Z", "2026-10-11T10:00:00.123456Z")).toBe(true);
+  expect(clearedBefore("2026-10-11T10:00:00.123Z", "2026-10-11T10:00:00.123456Z")).toBe(true);
+});

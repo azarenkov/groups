@@ -16,8 +16,15 @@ export function dmClearedFor(data: unknown, selfId: string | undefined): DmClear
   return { peerId, clearedAt: d.clearedAt, scope: d.scope === "everyone" ? "everyone" : "me" };
 }
 
+const subMillis = (value: string): number => {
+  const fraction = /\.(\d+)/.exec(value)?.[1] ?? "";
+  return Number(fraction.slice(3, 9).padEnd(6, "0"));
+};
+
 export const clearedBefore = (createdAt: string, clearedAt: string): boolean => {
   const created = Date.parse(createdAt);
   const cleared = Date.parse(clearedAt);
-  return Number.isFinite(created) && Number.isFinite(cleared) && created <= cleared;
+  if (!Number.isFinite(created) || !Number.isFinite(cleared)) return false;
+  if (created !== cleared) return created < cleared;
+  return subMillis(createdAt) <= subMillis(clearedAt);
 };
