@@ -158,7 +158,7 @@ const DmList: React.FC<DmListProps> = ({
         {(hasHidden || showHidden) && (
           <button
             type="button"
-            className={"sb-mini sb-mini-more sb-mini-hidden" + (showHidden ? " active" : "")}
+            className={"sb-mini sb-mini-more sb-mini-hidden" + (showHidden ? " open" : "")}
             title={showHidden ? t("hiddenChatsBack") : t("hiddenChats")}
             aria-label={showHidden ? t("hiddenChatsBack") : t("hiddenChats")}
             aria-pressed={showHidden}
