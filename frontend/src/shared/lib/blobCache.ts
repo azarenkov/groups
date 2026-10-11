@@ -157,19 +157,41 @@ function touch(store: BlobBackend, record: BlobRecord, gen: number, version: num
   });
 }
 
+const readBytes = (blob: Blob): Promise<ArrayBuffer> =>
+  typeof blob.arrayBuffer === "function"
+    ? blob.arrayBuffer()
+    : new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as ArrayBuffer);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsArrayBuffer(blob);
+      });
+
 export async function readCachedBlob(key: string): Promise<Blob | null> {
   const store = current();
   if (!store) return null;
   const gen = generation;
   const version = keyVersions.get(key);
+  let record: BlobRecord | undefined;
   try {
-    const record = await store.get(key);
-    if (!record || gen !== generation) return null;
-    void touch(store, record, gen, version);
-    return record.blob;
+    record = await store.get(key);
   } catch {
     return null;
   }
+  if (!record || gen !== generation) return null;
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await readBytes(record.blob);
+  } catch {
+    bytes = new ArrayBuffer(0);
+  }
+  if (gen !== generation) return null;
+  if (bytes.byteLength === 0 || bytes.byteLength !== record.blob.size) {
+    void deleteCachedBlob(key);
+    return null;
+  }
+  void touch(store, record, gen, version);
+  return new Blob([bytes], { type: record.blob.type });
 }
 
 async function evict(store: BlobBackend, keep: string, target?: number): Promise<void> {

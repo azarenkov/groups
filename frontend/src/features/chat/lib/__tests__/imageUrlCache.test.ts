@@ -24,32 +24,32 @@ beforeEach(() => {
 afterAll(() => setBlobBackend(null));
 
 it("serves a stored thumbnail without downloading it again", async () => {
-  await writeCachedBlob("img:thumb:a1", { size: 3 } as Blob);
+  await writeCachedBlob("img:thumb:a1", new Blob([new Uint8Array(3)]));
   await downloadThumbnailUrl("a1", 3, 10);
   expect(thumbnail).not.toHaveBeenCalled();
 });
 
 it("forgets a stored image that turned out to be broken", async () => {
-  await writeCachedBlob("img:thumb:a2", { size: 3 } as Blob);
+  await writeCachedBlob("img:thumb:a2", new Blob([new Uint8Array(3)]));
   const url = await downloadThumbnailUrl("a2", 3, 10);
   discardBrokenImageUrl("thumb:a2", url);
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(await readCachedBlob("img:thumb:a2")).toBeNull();
-  thumbnail.mockResolvedValueOnce({ size: 4 } as Blob);
+  thumbnail.mockResolvedValueOnce(new Blob([new Uint8Array(4)]));
   await downloadThumbnailUrl("a2", 3, 10);
   expect(thumbnail).toHaveBeenCalledTimes(1);
 });
 
 it("forgets attachment URLs from the previous account on sign-out", async () => {
   (URL.createObjectURL as jest.Mock).mockImplementation(() => `blob:${Math.random()}`);
-  download.mockResolvedValueOnce({ size: 3 } as Blob);
+  download.mockResolvedValueOnce(new Blob([new Uint8Array(3)]));
   const seen = await downloadImageUrl("a3", 3);
   let finish: (blob: Blob) => void = () => undefined;
   download.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
   const late = downloadImageUrl("a4", 3);
   await new Promise((resolve) => setTimeout(resolve, 0));
   clearImageUrlCache();
-  finish({ size: 3 } as Blob);
+  finish(new Blob([new Uint8Array(3)]));
   await expect(late).rejects.toThrow();
   expect(URL.revokeObjectURL).toHaveBeenCalledWith(seen);
   expect(acquireImageUrl("a3")).toBeNull();
