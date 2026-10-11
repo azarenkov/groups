@@ -265,10 +265,7 @@ const CommunitiesPage: React.FC = () => {
       fetchCommunities();
       fetchFriends();
       useConversationPinsStore.getState().ensureLoaded();
-      void useHiddenDmStore
-        .getState()
-        .fetch()
-        .catch((err) => console.warn("[hiddenDms] load failed:", err));
+      useHiddenDmStore.getState().ensureLoaded();
       void useBlockStore.getState().fetch();
       void useEntitlementsStore.getState().fetch();
     }

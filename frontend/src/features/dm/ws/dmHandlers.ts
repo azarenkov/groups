@@ -12,7 +12,7 @@ import { showDesktopNotification } from "../../../shared/lib/desktopNotification
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
 import { videoNoteDurationFromPayload, voiceDurationFromPayload } from "../../chat/lib/voice";
 import { notificationBody } from "../../chat/lib/notificationBody";
-import { isDmHidden, useHiddenDmStore } from "../store/hiddenDmStore";
+import { hiddenDmsKnown, isDmHidden, useHiddenDmStore } from "../store/hiddenDmStore";
 import { dmClearedFor } from "../lib/dmCleared";
 import { queryClient, queryKeys } from "../../../shared/query/queryClient";
 import { asString, eventTs, getActiveDmView, lastDmBumpAt, scheduleUnreadRefetch, throttleMarkDmRead, viewIsForeground } from "../../../shared/ws/context";
@@ -61,7 +61,7 @@ export const dmHandlers: WsHandlers = {
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpDm(senderId);
-      if (dmLevel === "none" || isDmHidden(senderId)) return;
+      if (dmLevel === "none" || !hiddenDmsKnown() || isDmHidden(senderId)) return;
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
         showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments, d.sticker));

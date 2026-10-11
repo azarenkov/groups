@@ -113,10 +113,7 @@ export function installWsBootstrap() {
       .getState()
       .fetch()
       .catch((err) => console.warn("[ws] failed to reload conversation pins:", err));
-    void useHiddenDmStore
-      .getState()
-      .fetch()
-      .catch((err) => console.warn("[ws] failed to reload hidden chats:", err));
+    useHiddenDmStore.getState().markStale();
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
     void loadActivitiesFor(trackedActivityIds());

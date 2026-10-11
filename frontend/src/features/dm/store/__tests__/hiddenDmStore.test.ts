@@ -1,5 +1,9 @@
 import { http } from "../../../../shared/api/http";
-import { isDmHidden, useHiddenDmStore, withHidden } from "../hiddenDmStore";
+import { HIDDEN_LOAD_RETRY_MS, hiddenDmsKnown, isDmHidden, useHiddenDmStore, withHidden } from "../hiddenDmStore";
+
+const act = async () => {
+  for (let i = 0; i < 5; i += 1) await Promise.resolve();
+};
 
 jest.mock("../../../../shared/api/http", () => ({
   http: { get: jest.fn(), put: jest.fn(), delete: jest.fn() },
@@ -53,14 +57,59 @@ it("reloads the server state when a write fails", async () => {
   expect(useHiddenDmStore.getState().hidden).toEqual([]);
 });
 
-it("ignores a fetch that started before a remote change", async () => {
+it("refetches when a remote change lands during a fetch", async () => {
   let resolve!: (v: unknown) => void;
-  get.mockReturnValue(new Promise((r) => (resolve = r)));
+  get.mockReturnValueOnce(new Promise((r) => (resolve = r))).mockResolvedValueOnce(reply(["p1", "p9"]));
   const loading = useHiddenDmStore.getState().fetch();
   useHiddenDmStore.getState().applyRemote("p9", true);
-  resolve(reply([]));
+  resolve(reply(["p1"]));
   await loading;
-  expect(useHiddenDmStore.getState().hidden).toEqual(["p9"]);
+  expect(get).toHaveBeenCalledTimes(2);
+  expect(useHiddenDmStore.getState()).toMatchObject({ hidden: ["p1", "p9"], loaded: true });
+});
+
+it("reconciles after a write that overlapped the initial load", async () => {
+  let resolveList!: (v: unknown) => void;
+  let resolvePut!: (v: unknown) => void;
+  get.mockReturnValueOnce(new Promise((r) => (resolveList = r))).mockResolvedValue(reply(["p1", "p2"]));
+  put.mockReturnValue(new Promise((r) => (resolvePut = r)));
+  const loading = useHiddenDmStore.getState().fetch();
+  const hiding = useHiddenDmStore.getState().setHidden("p2", true);
+  resolveList(reply(["p1"]));
+  await loading;
+  expect(useHiddenDmStore.getState()).toMatchObject({ hidden: ["p2"], loaded: false });
+  resolvePut({});
+  await hiding;
+  await new Promise((r) => setTimeout(r, 0));
+  expect(useHiddenDmStore.getState()).toMatchObject({ hidden: ["p1", "p2"], loaded: true });
+});
+
+it("keeps retrying the initial load until it succeeds", async () => {
+  jest.useFakeTimers();
+  try {
+    get.mockRejectedValueOnce(new Error("down")).mockResolvedValueOnce(reply(["p1"]));
+    useHiddenDmStore.getState().ensureLoaded();
+    await act();
+    expect(useHiddenDmStore.getState().loaded).toBe(false);
+    jest.advanceTimersByTime(HIDDEN_LOAD_RETRY_MS);
+    await act();
+    expect(useHiddenDmStore.getState()).toMatchObject({ hidden: ["p1"], loaded: true });
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it("marks the list unknown until a reconnect reload finishes", async () => {
+  get.mockResolvedValueOnce(reply(["p1"]));
+  await useHiddenDmStore.getState().fetch();
+  let resolve!: (v: unknown) => void;
+  get.mockReturnValueOnce(new Promise((r) => (resolve = r)));
+  useHiddenDmStore.getState().markStale();
+  expect(hiddenDmsKnown()).toBe(false);
+  resolve(reply(["p1", "p2"]));
+  await act();
+  expect(hiddenDmsKnown()).toBe(true);
+  expect(useHiddenDmStore.getState().hidden).toEqual(["p1", "p2"]);
 });
 
 it("drops a fetch from a previous session", async () => {

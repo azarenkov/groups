@@ -36,7 +36,7 @@ beforeEach(() => {
   desktop.mockReset();
   useAuthStore.setState({ user: { id: "me", name: "Me" } } as never);
   useUnreadStore.setState({ byDm: {}, byChannel: {} } as never);
-  useHiddenDmStore.setState({ hidden: [] });
+  useHiddenDmStore.setState({ hidden: [], loaded: true });
   (refetchDmPreviews as jest.Mock).mockReset();
 });
 
@@ -124,4 +124,20 @@ it("reloads previews when a conversation is cleared", () => {
     clearedAt: new Date().toISOString(),
   });
   expect(refetchDmPreviews).not.toHaveBeenCalled();
+});
+
+it("stays silent until hidden chats are known", () => {
+  useNotificationPrefsStore.setState({ dmLevels: {} });
+  useHiddenDmStore.setState({ hidden: [], loaded: false });
+  dmHandlers["dm_message.sent"]!({
+    id: "m5",
+    senderId: "peer",
+    recipientId: "me",
+    senderName: "Peer",
+    content: "hi",
+    occurredAt: new Date().toISOString(),
+  });
+  expect(useUnreadStore.getState().byDm.peer).toBe(1);
+  expect(sound).not.toHaveBeenCalled();
+  expect(desktop).not.toHaveBeenCalled();
 });
