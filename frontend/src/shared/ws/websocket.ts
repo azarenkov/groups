@@ -115,6 +115,8 @@ class WsClient {
   private openListeners = new Set<() => void>();
   private appliedClears: string[] = [];
   private gates = new Set<DeliveryGate>();
+  private gating = false;
+  private held: WsEnvelope[] = [];
 
   constructor(endpoint: string = defaultEndpoint()) {
     this.endpoint = endpoint;
@@ -160,15 +162,33 @@ class WsClient {
 
   deliver(env: WsEnvelope) {
     if (this.isRepeatedClear(env)) return;
+    if (this.gating) {
+      this.held.push(env);
+      return;
+    }
+    this.route(env);
+  }
+
+  private route(env: WsEnvelope) {
     for (const gate of this.gates) {
       const verdict = gate(env);
       if (verdict) {
-        void verdict.then(
-          (pass) => {
+        this.gating = true;
+        void verdict
+          .then(
+            (pass) => pass,
+            () => true,
+          )
+          .then((pass) => {
             if (pass) this.dispatch(env);
-          },
-          () => this.dispatch(env),
-        );
+            this.gating = false;
+            const held = this.held;
+            this.held = [];
+            for (const next of held) {
+              if (this.gating) this.held.push(next);
+              else this.route(next);
+            }
+          });
         return;
       }
     }

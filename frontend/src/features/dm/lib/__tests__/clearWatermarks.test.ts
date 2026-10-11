@@ -67,3 +67,29 @@ it("holds a stale event back from listeners until the server answers", async () 
     off();
   }
 });
+
+it("keeps later events behind a pending check so their order holds", async () => {
+  const off = ws.addGate(clearWatermarkGate);
+  const seen: string[] = [];
+  const unlisten = ws.on((env) => seen.push(`${env.type}:${(env.data as { id?: string }).id ?? ""}`));
+  let answer!: (v: unknown) => void;
+  getMessage.mockReturnValue(new Promise((r) => (answer = r)));
+  try {
+    ws.deliver(cleared("2026-10-11T12:00:00Z"));
+    ws.deliver(sent("m7", "2026-10-11T11:59:00Z"));
+    ws.deliver({ type: "dm_message.edited", data: { id: "m7", newContent: "edited" } });
+    ws.deliver(sent("m8", "2026-10-11T12:00:05Z"));
+    expect(seen).toEqual(["dm_conversation.cleared:"]);
+    answer({ id: "m7" });
+    for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    expect(seen).toEqual([
+      "dm_conversation.cleared:",
+      "dm_message.sent:m7",
+      "dm_message.edited:m7",
+      "dm_message.sent:m8",
+    ]);
+  } finally {
+    unlisten();
+    off();
+  }
+});
