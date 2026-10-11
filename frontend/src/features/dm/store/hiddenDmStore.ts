@@ -5,6 +5,8 @@ import { http } from "../../../shared/api/http";
 interface HiddenDmState {
   hidden: string[];
   loaded: boolean;
+  hydrated: boolean;
+  hydrate: (peers: string[]) => void;
   fetch: () => Promise<void>;
   ensureLoaded: () => void;
   markStale: () => void;
@@ -57,6 +59,12 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
   return {
     hidden: [],
     loaded: false,
+    hydrated: false,
+
+    hydrate: (peers) => {
+      if (get().loaded || get().hydrated || pendingWrites > 0) return;
+      set({ hidden: peers.filter((p) => typeof p === "string"), hydrated: true });
+    },
 
     fetch: async () => {
       const gen = sessionGen;
@@ -142,7 +150,7 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
       writeChain = Promise.resolve();
       sessionAbort.abort();
       sessionAbort = new AbortController();
-      set({ hidden: [], loaded: false });
+      set({ hidden: [], loaded: false, hydrated: false });
     },
   };
 });
@@ -150,3 +158,5 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
 export const isDmHidden = (peerId: string): boolean => useHiddenDmStore.getState().hidden.includes(peerId);
 
 export const hiddenDmsKnown = (): boolean => useHiddenDmStore.getState().loaded;
+
+export const hiddenDmsReady = (s: Pick<HiddenDmState, "loaded" | "hydrated">): boolean => s.loaded || s.hydrated;

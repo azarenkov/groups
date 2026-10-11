@@ -92,6 +92,7 @@ export interface WsEnvelope<T = unknown> {
 type Listener = (env: WsEnvelope) => void;
 
 const RECONNECT_MIN_MS = 1000;
+const APPLIED_CLEARS_LIMIT = 100;
 const RECONNECT_MAX_MS = 30_000;
 const HEARTBEAT_MS = 25_000;
 const REFRESH_MIN_INTERVAL_MS = 60_000;
@@ -111,6 +112,7 @@ class WsClient {
   private refreshInProgress = false;
   private lastRefreshAttemptAt = 0;
   private openListeners = new Set<() => void>();
+  private appliedClears: string[] = [];
 
   constructor(endpoint: string = defaultEndpoint()) {
     this.endpoint = endpoint;
@@ -148,6 +150,7 @@ class WsClient {
   }
 
   deliver(env: WsEnvelope) {
+    if (this.isRepeatedClear(env)) return;
     for (const l of this.listeners) {
       try {
         l(env);
@@ -155,6 +158,16 @@ class WsClient {
         console.warn("[ws] listener threw:", err);
       }
     }
+  }
+
+  private isRepeatedClear(env: WsEnvelope): boolean {
+    if (env.type !== "dm_conversation.cleared") return false;
+    const d = (env.data ?? {}) as { participants?: unknown; clearedAt?: unknown };
+    const participants = Array.isArray(d.participants) ? d.participants.map(String).sort().join(",") : "";
+    const key = `${participants}|${String(d.clearedAt)}`;
+    if (this.appliedClears.includes(key)) return true;
+    this.appliedClears = [...this.appliedClears.slice(-(APPLIED_CLEARS_LIMIT - 1)), key];
+    return false;
   }
 
   isOpen(): boolean {

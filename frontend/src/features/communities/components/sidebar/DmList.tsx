@@ -20,7 +20,7 @@ import {
 import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import { useLongPress } from "../../../../shared/ui/contextMenu/useLongPress";
 import { useCallStore } from "../../../voice/store/callStore";
-import { useHiddenDmStore } from "../../../dm/store/hiddenDmStore";
+import { hiddenDmsReady, useHiddenDmStore } from "../../../dm/store/hiddenDmStore";
 import { useClearDmDialog } from "../../../dm/components/ClearDmDialog";
 
 interface DmListProps {
@@ -70,13 +70,14 @@ const DmList: React.FC<DmListProps> = ({
   const callPeer = useCallStore((s) => (s.activeCallId ? s.peerId : null));
   const inCallWith = (id: string) => !!joinableByPeer[id] || callPeer === id;
   const hiddenIds = useHiddenDmStore((s) => s.hidden);
+  const hiddenReady = useHiddenDmStore(hiddenDmsReady);
   const [showHidden, setShowHidden] = React.useState(false);
   const hasHidden = hiddenIds.length > 0;
   React.useEffect(() => {
     if (!hasHidden) setShowHidden(false);
   }, [hasHidden]);
   const hiddenSet = new Set(hiddenIds);
-  const shown = directs.filter((d) => hiddenSet.has(d.id) === showHidden);
+  const shown = hiddenReady ? directs.filter((d) => hiddenSet.has(d.id) === showHidden) : [];
   const hiddenUnread = hiddenIds.reduce((sum, id) => sum + (unreadByDm[id] ?? 0), 0);
   const [now, setNow] = React.useState(() => new Date());
   React.useEffect(() => {
@@ -352,7 +353,7 @@ const DmList: React.FC<DmListProps> = ({
       </div>
       {shown.length === 0 && (
         <div className="sb-empty">
-          {t("noDirects")}
+          {hiddenReady ? t("noDirects") : t("loading", { ns: "common" })}
         </div>
       )}
       {shown.map(renderRow)}

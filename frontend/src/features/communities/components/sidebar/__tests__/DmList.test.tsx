@@ -20,6 +20,10 @@ const dm = (id: string, name: string): DirectConversation => ({
   friendship: "accepted",
 });
 
+beforeEach(() => {
+  act(() => useHiddenDmStore.setState({ loaded: true }));
+});
+
 const renderList = () =>
   render(
     <DmList
@@ -185,5 +189,21 @@ describe("DmList hidden chats", () => {
     expect(screen.queryByText("Hidden")).toBeNull();
     expect(screen.getByText("Alice")).toBeTruthy();
     expect(screen.getByText("Bob")).toBeTruthy();
+  });
+});
+
+describe("DmList before hidden chats are known", () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  it("does not show any chat until the hidden list is loaded", () => {
+    act(() => useHiddenDmStore.setState({ hidden: [], loaded: false, hydrated: false }));
+    renderList();
+    expect(screen.queryByText("Alice")).toBeNull();
+    expect(screen.getByText("Loading…")).toBeTruthy();
+    act(() => useHiddenDmStore.setState({ hidden: ["u2"], hydrated: true }));
+    expect(screen.getByText("Alice")).toBeTruthy();
+    expect(screen.queryByText("Bob")).toBeNull();
   });
 });

@@ -15,9 +15,14 @@ beforeAll(async () => {
   await i18n.changeLanguage("en");
 });
 
+let stamp = "";
+let tick = 0;
+
 beforeEach(() => {
+  tick += 1;
+  stamp = `2026-10-11T10:00:0${tick}Z`;
   clear.mockReset();
-  clear.mockResolvedValue({ clearedAt: "2026-10-11T10:00:00Z" });
+  clear.mockResolvedValue({ clearedAt: stamp });
   useAuthStore.setState({ user: { id: "me", name: "Me" } } as never);
 });
 
@@ -39,7 +44,7 @@ it.each([
   expect(clear).toHaveBeenCalledWith("peer", forEveryone);
   expect(seen[0]).toEqual({
     type: "dm_conversation.cleared",
-    data: { actorId: "me", participants: ["me", "peer"], scope, clearedAt: "2026-10-11T10:00:00Z" },
+    data: { actorId: "me", participants: ["me", "peer"], scope, clearedAt: stamp },
   });
 });
 
@@ -49,4 +54,18 @@ it("does nothing when cancelled", () => {
   fireEvent.click(screen.getByText("Cancel"));
   expect(clear).not.toHaveBeenCalled();
   expect(useClearDmDialog.getState().target).toBeNull();
+});
+
+it("applies the same clear only once even when it arrives twice", async () => {
+  const seen: unknown[] = [];
+  const off = ws.on((env) => seen.push(env));
+  const env = {
+    type: "dm_conversation.cleared" as const,
+    data: { actorId: "peer", participants: ["peer", "me"], scope: "everyone", clearedAt: "2026-10-11T11:00:00Z" },
+  };
+  ws.deliver(env);
+  ws.deliver({ ...env, data: { ...env.data, participants: ["me", "peer"] } });
+  ws.deliver({ ...env, data: { ...env.data, clearedAt: "2026-10-11T11:00:01Z" } });
+  off();
+  expect(seen).toHaveLength(2);
 });

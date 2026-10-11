@@ -7,6 +7,7 @@ import type { SidebarNav } from "../Sidebar";
 import { useSidebarLayoutStore } from "../../store/sidebarLayoutStore";
 import { useCallStore } from "../../../voice/store/callStore";
 import type { DirectConversation } from "../../../dm/types";
+import { useHiddenDmStore } from "../../../dm/store/hiddenDmStore";
 
 const dm = (id: string, name: string, online = false): DirectConversation => ({
   id,
@@ -70,6 +71,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  useHiddenDmStore.setState({ hidden: [], loaded: true });
   window.localStorage.clear();
   act(() => useSidebarLayoutStore.setState({ width: 320, collapsed: false }));
 });
