@@ -90,6 +90,7 @@ export interface WsEnvelope<T = unknown> {
 }
 
 type Listener = (env: WsEnvelope) => void;
+export type DeliveryGate = (env: WsEnvelope) => Promise<boolean> | null;
 
 const RECONNECT_MIN_MS = 1000;
 const APPLIED_CLEARS_LIMIT = 100;
@@ -113,6 +114,7 @@ class WsClient {
   private lastRefreshAttemptAt = 0;
   private openListeners = new Set<() => void>();
   private appliedClears: string[] = [];
+  private gates = new Set<DeliveryGate>();
 
   constructor(endpoint: string = defaultEndpoint()) {
     this.endpoint = endpoint;
@@ -149,8 +151,31 @@ class WsClient {
     };
   }
 
+  addGate(gate: DeliveryGate): () => void {
+    this.gates.add(gate);
+    return () => {
+      this.gates.delete(gate);
+    };
+  }
+
   deliver(env: WsEnvelope) {
     if (this.isRepeatedClear(env)) return;
+    for (const gate of this.gates) {
+      const verdict = gate(env);
+      if (verdict) {
+        void verdict.then(
+          (pass) => {
+            if (pass) this.dispatch(env);
+          },
+          () => this.dispatch(env),
+        );
+        return;
+      }
+    }
+    this.dispatch(env);
+  }
+
+  private dispatch(env: WsEnvelope) {
     for (const l of this.listeners) {
       try {
         l(env);
