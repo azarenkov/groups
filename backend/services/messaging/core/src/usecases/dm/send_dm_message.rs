@@ -198,8 +198,6 @@ where
             };
             message = message.with_sticker(Some(claimed));
         }
-        let events = message.pull_events();
-
         let claim_token = uuid::Uuid::new_v4();
         let attachments = if let Some(forward) = &forward {
             forward.attachments.clone()
@@ -235,12 +233,17 @@ where
         }
         let persisted = async {
             let snapshots: Vec<AttachmentSnapshot> = attachments.iter().map(AttachmentSnapshot::from).collect();
-        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_attachments(&snapshots))).collect();
-        let mut tx = self.unit_of_work.begin().await?;
+            let mut tx = self.unit_of_work.begin().await?;
             tx.lock_pair(&sender_id, &recipient_id).await?;
             if tx.block_relation(&sender_id, &recipient_id).await?.any() {
                 return Err(SendDmMessageError::Blocked);
             }
+            message.restamp(Utc::now());
+            let events: Vec<MessagingEvent> = message
+                .pull_events()
+                .into_iter()
+                .map(|e| MessagingEvent::from(e.with_attachments(&snapshots)))
+                .collect();
             tx.insert_message(&message, &attachments).await?;
             tx.save_events(&events, request_id.as_deref()).await?;
             tx.commit().await?;

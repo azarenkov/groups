@@ -175,6 +175,15 @@ impl DmMessage {
         self
     }
 
+    pub fn restamp(&mut self, now: DateTime<Utc>) {
+        for event in &mut self.events {
+            if let DmMessageDomainEvent::Sent(sent) = event {
+                sent.occurred_at = now;
+            }
+        }
+        self.created_at = now;
+    }
+
     pub fn sticker(&self) -> Option<&StickerSnapshot> {
         self.sticker.as_ref()
     }
@@ -311,3 +320,25 @@ impl DmMessage {
     }
 }
 pub mod unit_of_work;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Duration;
+
+    #[test]
+    fn restamp_moves_the_message_and_its_sent_event() {
+        let sent_at = Utc::now();
+        let mut message = DmMessage::create(
+            UserId::generate(),
+            UserId::generate(),
+            MessageContent::new("hi".to_string()).unwrap(),
+            sent_at,
+        );
+        let later = sent_at + Duration::milliseconds(5);
+        message.restamp(later);
+        assert_eq!(message.created_at(), later);
+        let events = message.pull_events();
+        assert!(matches!(&events[..], [DmMessageDomainEvent::Sent(sent)] if sent.occurred_at == later));
+    }
+}
