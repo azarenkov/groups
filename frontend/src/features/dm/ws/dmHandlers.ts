@@ -115,9 +115,8 @@ export const dmHandlers: WsHandlers = {
       return;
   },
   "dm_conversation.hidden_changed": (d) => {
-      const peerId = asString(d.peerId);
-      if (!peerId || typeof d.hidden !== "boolean") return;
-      useHiddenDmStore.getState().applyRemote(peerId, d.hidden);
+      if (!asString(d.peerId)) return;
+      useHiddenDmStore.getState().remoteChanged();
       return;
   },
   "dm.read": (d) => {

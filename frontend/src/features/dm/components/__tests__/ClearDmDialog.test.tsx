@@ -70,16 +70,14 @@ it("applies the same clear only once even when it arrives twice", async () => {
   expect(seen).toHaveLength(2);
 });
 
-it("waits for the server event instead of echoing while the socket is open", async () => {
+it("applies the clear locally even while the socket is open", async () => {
   const open = jest.spyOn(ws, "isOpen").mockReturnValue(true);
   const seen: unknown[] = [];
   const off = ws.on((env) => seen.push(env));
   render(<ClearDmDialog />);
   openFor();
   fireEvent.click(screen.getByText("Only for me"));
-  await waitFor(() => expect(clear).toHaveBeenCalledWith("peer", false));
-  await act(async () => {});
+  await waitFor(() => expect(seen).toHaveLength(1));
   off();
   open.mockRestore();
-  expect(seen).toHaveLength(0);
 });

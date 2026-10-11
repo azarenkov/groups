@@ -26,7 +26,7 @@ export const useClearDmDialog = create<ClearDmDialogState>((set) => ({
 export async function clearDmConversation(peerId: string, forEveryone: boolean): Promise<void> {
   const selfId = useAuthStore.getState().user?.id;
   const { clearedAt } = await dmAPI.clearConversation(peerId, forEveryone);
-  if (!selfId || useAuthStore.getState().user?.id !== selfId || ws.isOpen()) return;
+  if (!selfId || useAuthStore.getState().user?.id !== selfId) return;
   ws.deliver({
     type: "dm_conversation.cleared",
     data: {

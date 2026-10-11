@@ -102,13 +102,12 @@ it("keeps counting a hidden DM but stays silent", () => {
   expect(desktop).not.toHaveBeenCalled();
 });
 
-it("applies hidden changes from other devices", () => {
+it("rereads hidden chats from the server when they change elsewhere", () => {
+  const changed = jest.spyOn(useHiddenDmStore.getState(), "remoteChanged").mockImplementation(() => {});
   dmHandlers["dm_conversation.hidden_changed"]!({ peerId: "peer", hidden: true });
-  expect(useHiddenDmStore.getState().hidden).toEqual(["peer"]);
-  dmHandlers["dm_conversation.hidden_changed"]!({ peerId: "peer", hidden: false });
-  expect(useHiddenDmStore.getState().hidden).toEqual([]);
-  dmHandlers["dm_conversation.hidden_changed"]!({ peerId: "peer" });
-  expect(useHiddenDmStore.getState().hidden).toEqual([]);
+  dmHandlers["dm_conversation.hidden_changed"]!({});
+  expect(changed).toHaveBeenCalledTimes(1);
+  changed.mockRestore();
 });
 
 it("reloads previews when a conversation is cleared", () => {

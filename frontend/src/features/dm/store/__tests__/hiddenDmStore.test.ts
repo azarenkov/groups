@@ -161,3 +161,12 @@ it("keeps reconciling after a failed write until the server answers", async () =
     jest.useRealTimers();
   }
 });
+
+it("rereads the server list instead of trusting a remote event", async () => {
+  get.mockResolvedValueOnce(reply(["p1"]));
+  await useHiddenDmStore.getState().fetch();
+  get.mockResolvedValueOnce(reply([]));
+  useHiddenDmStore.getState().remoteChanged();
+  await act();
+  expect(useHiddenDmStore.getState().hidden).toEqual([]);
+});

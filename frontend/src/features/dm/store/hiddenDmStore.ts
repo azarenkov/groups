@@ -12,6 +12,7 @@ interface HiddenDmState {
   markStale: () => void;
   setHidden: (peerId: string, hidden: boolean) => Promise<void>;
   applyRemote: (peerId: string, hidden: boolean) => void;
+  remoteChanged: () => void;
   clearAll: () => void;
 }
 
@@ -144,6 +145,15 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
         pendingWrites -= 1;
         settle();
       }
+    },
+
+    remoteChanged: () => {
+      epoch += 1;
+      if (pendingWrites > 0) {
+        needsReconcile = true;
+        return;
+      }
+      reconcile();
     },
 
     applyRemote: (peerId, hidden) => {
