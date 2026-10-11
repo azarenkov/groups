@@ -90,7 +90,10 @@ export interface WsEnvelope<T = unknown> {
 }
 
 type Listener = (env: WsEnvelope) => void;
-export type DeliveryGate = (env: WsEnvelope) => Promise<boolean> | null;
+export interface DeliveryGate {
+  lane: (env: WsEnvelope) => string | null;
+  check: (env: WsEnvelope) => Promise<boolean> | null;
+}
 
 const RECONNECT_MIN_MS = 1000;
 const APPLIED_CLEARS_LIMIT = 100;
@@ -115,8 +118,8 @@ class WsClient {
   private openListeners = new Set<() => void>();
   private appliedClears: string[] = [];
   private gates = new Set<DeliveryGate>();
-  private gating = false;
-  private held: WsEnvelope[] = [];
+  private busyLanes = new Set<string>();
+  private held = new Map<string, WsEnvelope[]>();
   private deliveryEpoch = 0;
 
   constructor(endpoint: string = defaultEndpoint()) {
@@ -139,8 +142,8 @@ class WsClient {
     }
     this.reconnectAttempts = 0;
     this.deliveryEpoch += 1;
-    this.gating = false;
-    this.held = [];
+    this.busyLanes.clear();
+    this.held.clear();
   }
 
   on(handler: Listener): () => void {
@@ -166,37 +169,35 @@ class WsClient {
 
   deliver(env: WsEnvelope) {
     if (this.isRepeatedClear(env)) return;
-    if (this.gating) {
-      this.held.push(env);
-      return;
-    }
     this.route(env);
   }
 
   private route(env: WsEnvelope) {
     for (const gate of this.gates) {
-      const verdict = gate(env);
-      if (verdict) {
-        this.gating = true;
-        const epoch = this.deliveryEpoch;
-        void verdict
-          .then(
-            (pass) => pass,
-            () => true,
-          )
-          .then((pass) => {
-            if (epoch !== this.deliveryEpoch) return;
-            if (pass) this.dispatch(env);
-            this.gating = false;
-            const held = this.held;
-            this.held = [];
-            for (const next of held) {
-              if (this.gating) this.held.push(next);
-              else this.route(next);
-            }
-          });
+      const lane = gate.lane(env);
+      if (lane && this.busyLanes.has(lane)) {
+        this.held.set(lane, [...(this.held.get(lane) ?? []), env]);
         return;
       }
+      const verdict = gate.check(env);
+      if (!verdict) continue;
+      const key = lane ?? "*";
+      this.busyLanes.add(key);
+      const epoch = this.deliveryEpoch;
+      void verdict
+        .then(
+          (pass) => pass,
+          () => true,
+        )
+        .then((pass) => {
+          if (epoch !== this.deliveryEpoch) return;
+          if (pass) this.dispatch(env);
+          this.busyLanes.delete(key);
+          const queued = this.held.get(key) ?? [];
+          this.held.delete(key);
+          for (const next of queued) this.route(next);
+        });
+      return;
     }
     this.dispatch(env);
   }

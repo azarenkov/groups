@@ -1,4 +1,4 @@
-import type { WsEnvelope } from "../../../shared/ws/websocket";
+import type { DeliveryGate, WsEnvelope } from "../../../shared/ws/websocket";
 import type { ChannelMessage } from "../../../shared/types/channel";
 import { useAuthStore } from "../../auth/store/authStore";
 import { dmAPI } from "../api/dm";
@@ -8,6 +8,7 @@ import { clearedBefore, dmClearedFor } from "./dmCleared";
 const watermarks = new Map<string, string>();
 const generations = new Map<string, number>();
 const clearedAway = new Set<string>();
+const checkingLanes = new Map<string, string>();
 const LIST_ATTEMPTS = 3;
 export const CONFIRM_RETRY_MS = [500, 1500, 4000];
 
@@ -36,7 +37,31 @@ const isGone = (err: unknown): boolean => {
   return e?.status === 404 || e?.response?.status === 404;
 };
 
-export function clearWatermarkGate(env: WsEnvelope): Promise<boolean> | null {
+function dmLane(env: WsEnvelope): string | null {
+  const selfId = useAuthStore.getState().user?.id;
+  if (!selfId) return null;
+  const d = (env.data ?? {}) as Record<string, unknown>;
+  if (env.type === "dm_conversation.cleared") {
+    const cleared = dmClearedFor(d, selfId);
+    return cleared ? `dm:${cleared.peerId}` : null;
+  }
+  if (env.type.startsWith("dm_message.")) {
+    const sender = str(d.senderId);
+    const recipient = str(d.recipientId);
+    if (sender && recipient) return `dm:${sender === selfId ? recipient : sender}`;
+    const id = str(d.id);
+    const checking = id ? checkingLanes.get(id) : undefined;
+    if (checking) return checking;
+    return sender && sender !== selfId ? `dm:${sender}` : null;
+  }
+  if (env.type === "message.hidden" || env.type === "voice.listened") {
+    const id = str(d.messageId);
+    return id ? (checkingLanes.get(id) ?? null) : null;
+  }
+  return null;
+}
+
+function checkStale(env: WsEnvelope): Promise<boolean> | null {
   const selfId = useAuthStore.getState().user?.id;
   if (!selfId) return null;
   if (env.type === "dm_conversation.cleared") {
@@ -58,8 +83,14 @@ export function clearWatermarkGate(env: WsEnvelope): Promise<boolean> | null {
   const peerId = sender === selfId ? recipient : sender;
   const mark = watermarks.get(peerId);
   if (!mark || !clearedBefore(at, mark)) return null;
-  return confirmExists(peerId, id).then((exists) => exists && useAuthStore.getState().user?.id === selfId);
+  checkingLanes.set(id, `dm:${peerId}`);
+  return confirmExists(peerId, id).then((exists) => {
+    checkingLanes.delete(id);
+    return exists && useAuthStore.getState().user?.id === selfId;
+  });
 }
+
+export const clearWatermarkGate: DeliveryGate = { lane: dmLane, check: checkStale };
 
 export const clearGeneration = (peerId: string): number => generations.get(peerId) ?? 0;
 
@@ -85,4 +116,5 @@ export function clearWatermarks(): void {
   watermarks.clear();
   generations.clear();
   clearedAway.clear();
+  checkingLanes.clear();
 }
