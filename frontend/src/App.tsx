@@ -38,6 +38,7 @@ import {
   extractResetToken,
 } from "./shared/lib/inviteLinks";
 import "styles/App.css";
+import TooltipHost from "./shared/ui/tooltip/TooltipHost";
 
 const AuthRedirect: React.FC = () => {
   const { search } = useLocation();
@@ -272,6 +273,7 @@ const App: React.FC = () => {
     >
       <div className="app">
         <DeepLinkListener />
+        <TooltipHost />
         <AnimatePresence mode="wait">
           <Routes>
             <Route
