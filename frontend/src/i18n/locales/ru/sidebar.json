@@ -104,5 +104,5 @@
   "clearChatTitle": "Удалить переписку с {{name}}?",
   "clearChatSub": "Сообщения, файлы и закрепы удалятся. Это нельзя отменить.",
   "clearChatMe": "Только у меня",
-  "clearChatEveryone": "У меня и у {{name}}"
+  "clearChatEveryone": "Удалить у обоих"
 }

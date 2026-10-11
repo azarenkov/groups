@@ -104,5 +104,5 @@
   "clearChatTitle": "Delete chat history with {{name}}?",
   "clearChatSub": "Messages, files and pins will be removed. This can't be undone.",
   "clearChatMe": "Only for me",
-  "clearChatEveryone": "For me and {{name}}"
+  "clearChatEveryone": "Delete for both"
 }

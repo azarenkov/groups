@@ -26,6 +26,7 @@
   margin: 0;
   font-size: 24px; font-weight: 700;
   letter-spacing: -0.02em;
+  min-width: 0; overflow-wrap: anywhere;
 }
 .modal .m-head .close {
   margin-left: auto;
@@ -73,7 +74,7 @@
   font-size: 12px;
 }
 .modal .m-foot {
-  display: flex; justify-content: flex-end; align-items: center; gap: 8px;
+  display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px;
   padding: 0 24px 24px;
 }
 .modal .m-foot button {
@@ -83,6 +84,7 @@
   background: transparent;
   color: var(--fg-2);
   font-size: 14px; font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
   transition: transform var(--dur-fast), color var(--dur-fast), background var(--dur-fast);

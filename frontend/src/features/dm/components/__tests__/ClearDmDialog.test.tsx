@@ -30,7 +30,7 @@ const openFor = () => act(() => useClearDmDialog.getState().open({ id: "peer", n
 
 it.each([
   ["Only for me", false, "me"],
-  ["For me and Bob", true, "everyone"],
+  ["Delete for both", true, "everyone"],
 ])("%s clears the conversation and applies it locally", async (label, forEveryone, scope) => {
   const seen: unknown[] = [];
   const off = ws.on((env) => seen.push(env));

@@ -53,7 +53,7 @@ const ClearDmDialog: React.FC = () => {
     <ConfirmModal
       title={t("clearChatTitle", { name: target.name })}
       subtitle={t("clearChatSub")}
-      confirmLabel={t("clearChatEveryone", { name: target.name })}
+      confirmLabel={t("clearChatEveryone")}
       secondaryLabel={t("clearChatMe")}
       danger
       onCancel={close}
