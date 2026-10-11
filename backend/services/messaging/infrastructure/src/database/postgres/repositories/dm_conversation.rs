@@ -8,7 +8,9 @@ use uuid::Uuid;
 
 use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error,
-    repositories::{friendship_unit_of_work::pair_key, outbox_record::save_outbox_records},
+    repositories::{
+        community_unit_of_work::lock_user, friendship_unit_of_work::pair_key, outbox_record::save_outbox_records,
+    },
 };
 use crate::outbox::storage::release_storage_keys;
 
@@ -148,6 +150,7 @@ impl DmConversationRepository for PostgresDmConversationRepository {
     async fn set_hidden(&self, user: &UserId, peer: &UserId, hidden: bool) -> Result<(), RepositoryError> {
         let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
         if hidden {
+            lock_user(&mut tx, peer).await?;
             let inserted = sqlx::query!(
                 r#"
                 INSERT INTO hidden_dm_chats (user_id, peer_id)

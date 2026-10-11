@@ -6,7 +6,7 @@ import { useNotificationPrefsStore } from "../../../settings/store/notificationP
 import { playNotificationSound } from "../../../../shared/lib/notificationSound";
 import { showDesktopNotification } from "../../../../shared/lib/desktopNotification";
 import { useHiddenDmStore } from "../../store/hiddenDmStore";
-import { queryClient } from "../../../../shared/query/queryClient";
+import { queryClient, queryKeys } from "../../../../shared/query/queryClient";
 import { refetchDmPreviews, useDmPreviewStore } from "../../store/dmPreviewStore";
 
 jest.mock("../../../../shared/lib/notificationSound", () => ({ playNotificationSound: jest.fn() }));
@@ -169,4 +169,30 @@ it("removes the cleared conversation preview right away", () => {
     clearedAt: "2026-10-11T10:00:00Z",
   });
   expect(useDmPreviewStore.getState().byFriend.peer).toBeUndefined();
+});
+
+it("drops cleared pins from the cache before refetching them", () => {
+  const pin = (messageId: string, createdAt: string) => ({
+    messageId,
+    authorId: "peer",
+    authorName: "Peer",
+    content: messageId,
+    hasAttachments: false,
+    createdAt,
+    pinnedBy: "peer",
+    pinnedAt: createdAt,
+  });
+  queryClient.setQueryData(queryKeys.pins("dm:peer"), [
+    pin("old", "2026-10-11T09:00:00Z"),
+    pin("new", "2026-10-11T11:00:00Z"),
+  ]);
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["peer", "me"],
+    scope: "me",
+    clearedAt: "2026-10-11T10:30:00Z",
+  });
+  expect(
+    (queryClient.getQueryData(queryKeys.pins("dm:peer")) as { messageId: string }[]).map((p) => p.messageId),
+  ).toEqual(["new"]);
+  queryClient.removeQueries({ queryKey: queryKeys.pins("dm:peer") });
 });
