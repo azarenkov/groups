@@ -21,12 +21,12 @@ pub trait DmTransaction: Send {
         viewer: &UserId,
         other: &UserId,
     ) -> Result<BlockRelation, RepositoryError>;
-    async fn reply_target_visible(
+    async fn reply_target_hidden_for(
         &mut self,
         message_id: Uuid,
-        viewer: &UserId,
-        peer: &UserId,
-    ) -> Result<bool, RepositoryError>;
+        a: &UserId,
+        b: &UserId,
+    ) -> Result<Option<Vec<UserId>>, RepositoryError>;
     async fn insert_message(
         &mut self,
         message: &DmMessage,

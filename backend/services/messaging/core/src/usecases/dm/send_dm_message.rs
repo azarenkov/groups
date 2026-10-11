@@ -238,10 +238,15 @@ where
             if tx.block_relation(&sender_id, &recipient_id).await?.any() {
                 return Err(SendDmMessageError::Blocked);
             }
-            if let Some(reply_id) = request.reply_to_message_id
-                && !tx.reply_target_visible(reply_id, &sender_id, &recipient_id).await?
-            {
-                return Err(SendDmMessageError::InvalidReply);
+            if let Some(reply_id) = request.reply_to_message_id {
+                let hidden_for = tx
+                    .reply_target_hidden_for(reply_id, &sender_id, &recipient_id)
+                    .await?
+                    .ok_or(SendDmMessageError::InvalidReply)?;
+                if hidden_for.contains(&sender_id) {
+                    return Err(SendDmMessageError::InvalidReply);
+                }
+                message.set_reply_hidden_for(hidden_for);
             }
             message.restamp(Utc::now());
             let events: Vec<MessagingEvent> = message

@@ -64,31 +64,39 @@ impl DmTransaction for PostgresDmTransaction {
         block_relation_for(&mut *self.tx, viewer, other).await
     }
 
-    async fn reply_target_visible(
+    async fn reply_target_hidden_for(
         &mut self,
         message_id: Uuid,
-        viewer: &UserId,
-        peer: &UserId,
-    ) -> Result<bool, RepositoryError> {
-        sqlx::query_scalar!(
+        a: &UserId,
+        b: &UserId,
+    ) -> Result<Option<Vec<UserId>>, RepositoryError> {
+        let exists = sqlx::query_scalar!(
             r#"
             SELECT EXISTS (
                 SELECT 1 FROM dm_messages m
                 WHERE m.id = $1
                   AND LEAST(m.sender_id, m.recipient_id) = LEAST($2::uuid, $3::uuid)
                   AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($2::uuid, $3::uuid)
-                  AND NOT EXISTS (
-                      SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id
-                  )
-            ) AS "visible!"
+            ) AS "exists!"
             "#,
             message_id,
-            viewer.uuid(),
-            peer.uuid(),
+            a.uuid(),
+            b.uuid(),
         )
         .fetch_one(&mut *self.tx)
         .await
-        .map_err(map_sqlx_error_to_domain_error)
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !exists {
+            return Ok(None);
+        }
+        let hiding = sqlx::query_scalar!(
+            r#"SELECT user_id FROM hidden_messages WHERE message_id = $1"#,
+            message_id,
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(Some(hiding.into_iter().map(UserId::new).collect()))
     }
 
     async fn insert_message(
