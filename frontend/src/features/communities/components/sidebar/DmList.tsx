@@ -200,7 +200,7 @@ const DmList: React.FC<DmListProps> = ({
             </button>
           );
         })}
-        {hasMoreDirects && onLoadMoreDirects && !showHidden && (
+        {hasMoreDirects && onLoadMoreDirects && (
           <button type="button" className="sb-mini sb-mini-more" title={t("loadMore")} aria-label={t("loadMore")} onClick={onLoadMoreDirects}>
             <Icon name="more" size={16} />
           </button>

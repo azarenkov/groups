@@ -158,6 +158,28 @@ describe("DmList hidden chats", () => {
     expect(screen.getByText("2").className).toContain("muted");
   });
 
+  it("keeps loading more chats from the compact hidden view", () => {
+    act(() => useHiddenDmStore.setState({ hidden: ["far"] }));
+    const loadMore = jest.fn();
+    render(
+      <DmList
+        compact
+        directs={[dm("u1", "Alice")]}
+        selectedDmId={null}
+        unreadByDm={{}}
+        pendingCount={0}
+        hasMoreDirects
+        onLoadMoreDirects={loadMore}
+        onAddFriend={jest.fn()}
+        onOpenPending={jest.fn()}
+        onPick={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Hidden"));
+    fireEvent.click(screen.getByLabelText("Show more"));
+    expect(loadMore).toHaveBeenCalled();
+  });
+
   it("has no folder when nothing is hidden", () => {
     renderList();
     expect(screen.queryByText("Hidden")).toBeNull();

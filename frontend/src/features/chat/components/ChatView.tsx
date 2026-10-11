@@ -163,6 +163,8 @@ const ChatView: React.FC<ChatViewProps> = ({
     messenger,
     convId,
     nameSyncTick,
+    dmFriendId,
+    currentUserId,
     onClose: () => setHighlightedMessageId(null),
   });
 

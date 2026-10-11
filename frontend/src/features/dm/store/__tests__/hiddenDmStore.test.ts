@@ -121,3 +121,24 @@ it("drops a fetch from a previous session", async () => {
   await loading;
   expect(useHiddenDmStore.getState()).toMatchObject({ hidden: [], loaded: false });
 });
+
+it("sends overlapping writes in the order they were made", async () => {
+  const calls: string[] = [];
+  let resolvePut!: (v: unknown) => void;
+  put.mockImplementation(() => {
+    calls.push("put");
+    return new Promise((r) => (resolvePut = r));
+  });
+  del.mockImplementation(() => {
+    calls.push("delete");
+    return Promise.resolve({});
+  });
+  const hiding = useHiddenDmStore.getState().setHidden("p1", true);
+  const unhiding = useHiddenDmStore.getState().setHidden("p1", false);
+  await act();
+  expect(calls).toEqual(["put"]);
+  resolvePut({});
+  await Promise.all([hiding, unhiding]);
+  expect(calls).toEqual(["put", "delete"]);
+  expect(useHiddenDmStore.getState().hidden).toEqual([]);
+});

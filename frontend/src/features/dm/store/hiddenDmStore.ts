@@ -33,6 +33,7 @@ let pendingWrites = 0;
 let sessionAbort = new AbortController();
 let needsReconcile = false;
 let ensureLoop = false;
+let writeChain: Promise<unknown> = Promise.resolve();
 
 export const HIDDEN_LOAD_RETRY_MS = 1000;
 export const HIDDEN_LOAD_MAX_DELAY_MS = 30000;
@@ -104,8 +105,14 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
       epoch += 1;
       set({ hidden: withHidden(get().hidden, peerId, hidden) });
       pendingWrites += 1;
+      const signal = sessionAbort.signal;
+      const write = writeChain.then(() => {
+        if (gen !== sessionGen) throw new Error("SESSION_CHANGED");
+        return hidden ? api.hide(peerId, signal) : api.unhide(peerId, signal);
+      });
+      writeChain = write.catch(() => undefined);
       try {
-        await (hidden ? api.hide(peerId, sessionAbort.signal) : api.unhide(peerId, sessionAbort.signal));
+        await write;
       } catch (err) {
         if (gen === sessionGen) {
           pendingWrites -= 1;
@@ -132,6 +139,7 @@ export const useHiddenDmStore = create<HiddenDmState>((set, get) => {
       pendingWrites = 0;
       needsReconcile = false;
       ensureLoop = false;
+      writeChain = Promise.resolve();
       sessionAbort.abort();
       sessionAbort = new AbortController();
       set({ hidden: [], loaded: false });
