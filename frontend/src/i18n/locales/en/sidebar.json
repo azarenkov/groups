@@ -99,7 +99,7 @@
   "unhideChat": "Unhide chat",
   "hiddenChats": "Hidden",
   "hiddenChatsBack": "Back to chats",
-  "hiddenChatsHint": "Hidden chats don't notify you; calls still ring",
+  "hiddenChatsHint": "Hidden chats don't notify you or ring",
   "clearChat": "Delete chat history",
   "clearChatTitle": "Delete chat history with {{name}}?",
   "clearChatSub": "Messages, files and pins will be removed. This can't be undone.",

@@ -7,6 +7,7 @@ import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useVoiceSessionStore } from "../store/voiceSessionStore";
 import { asString } from "../../../shared/ws/context";
+import { isDmHidden } from "../../dm/store/hiddenDmStore";
 
 const endSessionIfEmpty = (channelId: string) => {
   if ((useVoicePresenceStore.getState().byChannel[channelId]?.length ?? 0) === 0) {
@@ -62,7 +63,7 @@ export const voiceHandlers: WsHandlers = {
       const callId = asString(d.callId);
       const callerId = asString(d.callerId);
       if (!callId || !callerId) return;
-      if (isBlockedEitherWay(callerId)) return;
+      if (isBlockedEitherWay(callerId) || isDmHidden(callerId)) return;
       const callerName = asString(d.callerName) ?? callerId;
       useCallStore
         .getState()
