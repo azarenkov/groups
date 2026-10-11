@@ -221,14 +221,9 @@ where
             }
             return Err(EditDmMessageError::InvalidAttachments);
         }
-        let hidden_for = self
-            .dm_repository
-            .list_users_hiding(message.id().uuid())
-            .await?;
         let persisted = async {
             let snapshots: Vec<AttachmentSnapshot> = final_attachments.iter().map(AttachmentSnapshot::from).collect();
-        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_attachments(&snapshots).with_hidden_for(&hidden_for))).collect();
-        let mut tx = self.unit_of_work.begin().await?;
+            let mut tx = self.unit_of_work.begin().await?;
             tx.lock_pair(message.sender_id(), message.recipient_id()).await?;
             if tx
                 .block_relation(message.sender_id(), message.recipient_id())
@@ -237,6 +232,11 @@ where
             {
                 return Err(EditDmMessageError::Blocked);
             }
+            let hidden_for = tx.users_hiding(message.id().uuid()).await?;
+            let events: Vec<MessagingEvent> = events
+                .into_iter()
+                .map(|e| MessagingEvent::from(e.with_attachments(&snapshots).with_hidden_for(&hidden_for)))
+                .collect();
             tx.update_message(&message, &added_attachments, &request.remove_attachment_ids)
                 .await?;
             tx.save_events(&events, request_id.as_deref()).await?;

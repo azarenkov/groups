@@ -64,6 +64,17 @@ impl DmTransaction for PostgresDmTransaction {
         block_relation_for(&mut *self.tx, viewer, other).await
     }
 
+    async fn users_hiding(&mut self, message_id: Uuid) -> Result<Vec<UserId>, RepositoryError> {
+        let hiding = sqlx::query_scalar!(
+            r#"SELECT user_id FROM hidden_messages WHERE message_id = $1"#,
+            message_id,
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(hiding.into_iter().map(UserId::new).collect())
+    }
+
     async fn reply_target_hidden_for(
         &mut self,
         message_id: Uuid,
@@ -89,14 +100,7 @@ impl DmTransaction for PostgresDmTransaction {
         if !exists {
             return Ok(None);
         }
-        let hiding = sqlx::query_scalar!(
-            r#"SELECT user_id FROM hidden_messages WHERE message_id = $1"#,
-            message_id,
-        )
-        .fetch_all(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(Some(hiding.into_iter().map(UserId::new).collect()))
+        Ok(Some(self.users_hiding(message_id).await?))
     }
 
     async fn insert_message(

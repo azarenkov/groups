@@ -100,6 +100,7 @@ impl DmConversationRepository for PostgresDmConversationRepository {
                     SELECT $1, m.id FROM dm_messages m
                     WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                       AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
+                    FOR SHARE OF m
                     ON CONFLICT (user_id, message_id) DO NOTHING
                     "#,
                     actor.uuid(),

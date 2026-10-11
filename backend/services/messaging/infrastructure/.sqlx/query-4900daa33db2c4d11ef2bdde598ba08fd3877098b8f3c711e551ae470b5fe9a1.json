@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    INSERT INTO hidden_messages (user_id, message_id)\n                    SELECT $1, m.id FROM dm_messages m\n                    WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)\n                      AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)\n                    FOR SHARE OF m\n                    ON CONFLICT (user_id, message_id) DO NOTHING\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4900daa33db2c4d11ef2bdde598ba08fd3877098b8f3c711e551ae470b5fe9a1"
+}
