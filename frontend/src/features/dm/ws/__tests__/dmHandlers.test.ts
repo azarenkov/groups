@@ -197,3 +197,46 @@ it("drops cleared pins from the cache before refetching them", () => {
   ).toEqual(["new"]);
   queryClient.removeQueries({ queryKey: queryKeys.pins("dm:peer") });
 });
+
+it("clears the unread badge of a cleared chat right away unless a newer message came in", () => {
+  useUnreadStore.setState({ byDm: { peer: 3 } });
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["peer", "me"],
+    scope: "me",
+    clearedAt: "2026-10-11T12:00:00Z",
+  });
+  expect(useUnreadStore.getState().byDm.peer).toBeUndefined();
+});
+
+it("drops cleared DM hits from cached global search", () => {
+  const hit = (messageId: string, peerId: string, createdAt: string) => ({
+    messageId,
+    authorId: peerId,
+    authorName: peerId,
+    createdAt,
+    place: { type: "dm" as const, peerId, peerName: peerId },
+    snippet: messageId,
+  });
+  const key = queryKeys.globalSearch("messages", "hi");
+  queryClient.setQueryData(key, {
+    pages: [
+      {
+        items: [
+          hit("old", "peer", "2026-10-11T09:00:00Z"),
+          hit("new", "peer", "2026-10-11T11:00:00Z"),
+          hit("other", "friend", "2026-10-11T09:00:00Z"),
+        ],
+        nextCursor: null,
+      },
+    ],
+    pageParams: [null],
+  });
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["peer", "me"],
+    scope: "everyone",
+    clearedAt: "2026-10-11T10:00:00Z",
+  });
+  const data = queryClient.getQueryData(key) as { pages: { items: { messageId: string }[] }[] };
+  expect(data.pages[0].items.map((h) => h.messageId)).toEqual(["new", "other"]);
+  queryClient.removeQueries({ queryKey: key });
+});
