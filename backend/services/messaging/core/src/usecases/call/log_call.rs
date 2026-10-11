@@ -82,14 +82,14 @@ where
         let content = MessageContent::new("call".to_string())?;
         let mut message =
             DmMessage::create_call(sender_id, recipient_id, call_id, status, duration_seconds, content, now);
-        let events = message.pull_events();
-        let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let mut tx = self.unit_of_work.begin().await?;
         tx.lock_pair(&sender_id, &recipient_id).await?;
         match tx.consume_call_log(call_id, &sender_id, &recipient_id).await {
             Err(RepositoryError::AlreadyExists) => return Err(LogCallError::AlreadyLogged),
             result => result?,
         };
+        message.restamp(Utc::now());
+        let events: Vec<MessagingEvent> = message.pull_events().into_iter().map(MessagingEvent::from).collect();
         tx.insert_message(&message, &[]).await?;
         tx.save_events(&events, None).await?;
         tx.commit().await?;
