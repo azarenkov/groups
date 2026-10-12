@@ -1,8 +1,7 @@
-use crate::messaging::partitions::{partition_for, partition_token};
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox_publisher::OutboxPublisher, outbox_publisher::OutboxPublisherError};
+use crate::messaging::partitions::{outbox_partition_key, partition_for, partition_token};
+use ports::{outbox::record::OutboxRecord, outbox_publisher::OutboxPublisher, outbox_publisher::OutboxPublisherError};
 use async_nats::{HeaderMap, jetstream::Context};
 use async_trait::async_trait;
-use uuid::Uuid;
 
 const MSG_ID_HEADER: &str = "Nats-Msg-Id";
 const REQUEST_ID_HEADER: &str = "X-Request-Id";
@@ -28,7 +27,7 @@ impl NatsOutboxPublisher {
 }
 
 pub fn partitioned_subject(prefix: &str, record: &OutboxRecord, partitions: u32) -> String {
-    let key = partition_key(record);
+    let key = outbox_partition_key(record);
     let partition = partition_for(key, partitions);
     format!(
         "{}.{}.{}.{}",
@@ -37,39 +36,6 @@ pub fn partitioned_subject(prefix: &str, record: &OutboxRecord, partitions: u32)
         partition_token(partition),
         record.event_type,
     )
-}
-
-fn partition_key(record: &OutboxRecord) -> Uuid {
-    if matches!(record.aggregate_type, AggregateType::DmMessage)
-        && let (Some(a), Some(b)) = (
-            payload_uuid(record, "sender_id"),
-            payload_uuid(record, "recipient_id"),
-        )
-    {
-        return conversation_key(a, b);
-    }
-    if matches!(record.aggregate_type, AggregateType::User)
-        && let Some(parent) = record.parent_id
-    {
-        return conversation_key(record.aggregate_id, parent);
-    }
-    record.parent_id.unwrap_or(record.aggregate_id)
-}
-
-fn payload_uuid(record: &OutboxRecord, field: &str) -> Option<Uuid> {
-    record
-        .payload
-        .get(field)
-        .and_then(|v| v.as_str())
-        .and_then(|s| Uuid::parse_str(s).ok())
-}
-
-fn conversation_key(a: Uuid, b: Uuid) -> Uuid {
-    let mut bytes = [0u8; 16];
-    for (i, byte) in bytes.iter_mut().enumerate() {
-        *byte = a.as_bytes()[i] ^ b.as_bytes()[i];
-    }
-    Uuid::from_bytes(bytes)
 }
 
 #[async_trait]

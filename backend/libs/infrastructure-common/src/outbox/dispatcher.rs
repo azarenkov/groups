@@ -57,20 +57,25 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
                 event_type,
                 payload,
                 occurred_at,
-                request_id
-            FROM outbox
+                request_id,
+                attempts
+            FROM outbox o
             WHERE processed_at IS NULL
-              AND attempts < $1
               AND (
                   last_attempt_at IS NULL
                   OR last_attempt_at < now()
-                     - (LEAST(attempts::int, $3) * $2 * interval '1 second')
+                     - (LEAST(attempts::int, $2) * $1 * interval '1 second')
               )
-            ORDER BY last_attempt_at NULLS FIRST, created_at
+              AND NOT EXISTS (
+                  SELECT 1 FROM outbox earlier
+                  WHERE earlier.partition_key = o.partition_key
+                    AND earlier.processed_at IS NULL
+                    AND earlier.seq < o.seq
+              )
+            ORDER BY last_attempt_at NULLS FIRST, seq
             FOR UPDATE SKIP LOCKED
             LIMIT 1
             "#,
-            self.max_attempts,
             self.backoff_base_secs,
             self.backoff_max_multiplier,
         )
@@ -118,16 +123,26 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
                 .map_err(map_sqlx_error_to_domain_error)?;
             }
             Err(e) => {
-                tracing::warn!(
-                    outbox_id = %record.id,
-                    event_type = %record.event_type,
-                    error = %e,
-                    "Outbox publish failed",
-                );
+                if row.attempts + 1 >= self.max_attempts {
+                    tracing::error!(
+                        outbox_id = %record.id,
+                        event_type = %record.event_type,
+                        attempts = row.attempts + 1,
+                        error = %e,
+                        "Outbox publish keeps failing; later events of this partition are held back",
+                    );
+                } else {
+                    tracing::warn!(
+                        outbox_id = %record.id,
+                        event_type = %record.event_type,
+                        error = %e,
+                        "Outbox publish failed",
+                    );
+                }
                 sqlx::query!(
                     r#"
                     UPDATE outbox
-                    SET attempts = attempts + 1,
+                    SET attempts = LEAST(attempts + 1, 100),
                         last_error = $2,
                         last_attempt_at = now()
                     WHERE id = $1

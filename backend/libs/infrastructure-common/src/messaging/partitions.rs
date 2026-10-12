@@ -1,3 +1,4 @@
+use ports::outbox::record::{AggregateType, OutboxRecord};
 use uuid::Uuid;
 
 pub fn partition_for(key: Uuid, partitions: u32) -> u32 {
@@ -28,6 +29,39 @@ pub fn normalize_subject(subject: &str) -> String {
         .filter(|t| !is_partition_token(t))
         .collect::<Vec<_>>()
         .join(".")
+}
+
+pub fn outbox_partition_key(record: &OutboxRecord) -> Uuid {
+    if matches!(record.aggregate_type, AggregateType::DmMessage)
+        && let (Some(a), Some(b)) = (
+            payload_uuid(record, "sender_id"),
+            payload_uuid(record, "recipient_id"),
+        )
+    {
+        return conversation_key(a, b);
+    }
+    if matches!(record.aggregate_type, AggregateType::User)
+        && let Some(parent) = record.parent_id
+    {
+        return conversation_key(record.aggregate_id, parent);
+    }
+    record.parent_id.unwrap_or(record.aggregate_id)
+}
+
+fn payload_uuid(record: &OutboxRecord, field: &str) -> Option<Uuid> {
+    record
+        .payload
+        .get(field)
+        .and_then(|v| v.as_str())
+        .and_then(|s| Uuid::parse_str(s).ok())
+}
+
+fn conversation_key(a: Uuid, b: Uuid) -> Uuid {
+    let mut bytes = [0u8; 16];
+    for (i, byte) in bytes.iter_mut().enumerate() {
+        *byte = a.as_bytes()[i] ^ b.as_bytes()[i];
+    }
+    Uuid::from_bytes(bytes)
 }
 
 #[cfg(test)]
