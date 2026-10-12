@@ -73,6 +73,8 @@ pub struct VoiceListenedV1 {
     pub listener_id: Uuid,
     pub listened_at: DateTime<Utc>,
     pub recipients: Vec<Uuid>,
+    #[serde(default)]
+    pub skipped_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
