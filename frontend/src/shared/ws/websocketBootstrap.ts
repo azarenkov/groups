@@ -34,7 +34,7 @@ import { useHiddenDmStore } from "../../features/dm/store/hiddenDmStore";
 import { clearWatermarkGate } from "../../features/dm/lib/clearWatermarks";
 import { refetchDmPreviews } from "../../features/dm/store/dmPreviewStore";
 import { installMessageCacheSync } from "../../features/chat/lib/messageCache";
-import { installQuerySync } from "../query/queryClient";
+import { installQuerySync, queryClient } from "../query/queryClient";
 
 export { setActiveChatView };
 
@@ -68,6 +68,7 @@ export function installWsBootstrap() {
   ws.onResync(() => {
     refetchDmPreviews(true);
     scheduleUnreadRefetch();
+    void queryClient.invalidateQueries({ queryKey: ["pins"] });
   });
   const onForeground = () => {
     if (!viewIsForeground()) return;
