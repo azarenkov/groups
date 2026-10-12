@@ -23,6 +23,11 @@ type LoadedWindow = { messages: ChannelMessage[]; reachedStart: boolean; version
 
 const STALE_WINDOW_RETRIES = 3;
 
+type MessageCursor = Pick<ChannelMessage, "id" | "createdAt">;
+
+const cursorAfter = (a: MessageCursor, b: MessageCursor): boolean =>
+  a.createdAt === b.createdAt ? a.id.toLowerCase() > b.id.toLowerCase() : a.createdAt > b.createdAt;
+
 const behindLive = (version: { partition?: string; seq?: number }): boolean => {
   if (!version.partition || typeof version.seq !== "number") return false;
   const position = ws.position(version.partition);
@@ -31,18 +36,18 @@ const behindLive = (version: { partition?: string; seq?: number }): boolean => {
 
 async function loadLoadedWindow(
   messenger: Messenger,
-  oldestLoadedAt: string | undefined,
+  oldestLoaded: MessageCursor | undefined,
   alive: () => boolean,
 ): Promise<LoadedWindow | null> {
   for (let attempt = 0; ; attempt++) {
-    const loaded = await loadWindowOnce(messenger, oldestLoadedAt, alive);
+    const loaded = await loadWindowOnce(messenger, oldestLoaded, alive);
     if (!loaded || attempt >= STALE_WINDOW_RETRIES || !behindLive(loaded.version)) return loaded;
   }
 }
 
 async function loadWindowOnce(
   messenger: Messenger,
-  oldestLoadedAt: string | undefined,
+  oldestLoaded: MessageCursor | undefined,
   alive: () => boolean,
 ): Promise<LoadedWindow | null> {
   const acc: ChannelMessage[] = [];
@@ -53,7 +58,7 @@ async function loadWindowOnce(
     if (!before) version = { partition: res.partition, seq: res.seq };
     acc.unshift(...[...res.messages].reverse());
     if (res.messages.length < PAGE_LIMIT) return { messages: acc, reachedStart: true, version };
-    if (!oldestLoadedAt || (acc[0] && acc[0].createdAt <= oldestLoadedAt)) {
+    if (!oldestLoaded || (acc[0] && !cursorAfter(acc[0], oldestLoaded))) {
       return { messages: acc, reachedStart: false, version };
     }
     before = acc[0]?.id;
@@ -272,13 +277,13 @@ export function useMessages(params: {
     }
     let cancelled = false;
     const targetId = convIdRef.current;
-    const oldestLoadedAt = messagesRef.current[0]?.createdAt;
+    const oldestLoaded = messagesRef.current[0];
     const knownBefore = new Set(messagesRef.current.map((m) => m.id));
     const alive = () => !cancelled && convIdRef.current === targetId;
     (async () => {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          const loaded = await loadLoadedWindow(messengerNow, oldestLoadedAt, alive);
+          const loaded = await loadLoadedWindow(messengerNow, oldestLoaded, alive);
           if (!loaded || !alive()) return;
           if (loaded.messages.length === 0 && !loaded.reachedStart) return;
           setMessages((prev) => reconcileSyncedWindow(loaded.messages, prev, loaded.reachedStart, knownBefore));
@@ -379,11 +384,11 @@ export function useMessages(params: {
     if (!messengerNow) return;
     const requestConvId = convIdRef.current;
     const knownBefore = new Set(messagesRef.current.map((m) => m.id));
-    const oldestLoadedAt = messagesRef.current[0]?.createdAt;
+    const oldestLoaded = messagesRef.current[0];
     reseedChannelReads();
     try {
       const alive = () => convIdRef.current === requestConvId;
-      const loaded = await loadLoadedWindow(messengerNow, oldestLoadedAt, alive);
+      const loaded = await loadLoadedWindow(messengerNow, oldestLoaded, alive);
       if (!loaded || !alive()) return;
       setMessages((prev) => reconcileSyncedWindow(loaded.messages, prev, loaded.reachedStart, knownBefore));
       adoptBaseline(loaded.version);

@@ -188,3 +188,21 @@ it("lets older pages load after a refresh that stops before the start of history
   });
   expect(olderCalls.some((c) => c.startsWith("r:"))).toBe(true);
 });
+
+it("keeps paging a refresh while older messages share the oldest loaded timestamp", async () => {
+  render(<Harness convId="s" />);
+  const id = (n: number) => `s${String(n).padStart(3, "0")}`;
+  const loaded = Array.from({ length: PAGE_LIMIT }, (_, i) => msg(id(i), 5));
+  await answer("s", loaded);
+  let refreshing: Promise<void> = Promise.resolve();
+  act(() => {
+    refreshing = latest!.refreshHistory();
+  });
+  await answer("s", [...loaded.slice(1), msg(id(999), 5)]);
+  await waitFor(() => expect(olderCalls).toContain(`s:${id(1)}`));
+  await answer("s", [loaded[0]]);
+  await act(async () => {
+    await refreshing;
+  });
+  expect(latest!.messages.map((m) => m.id)).toContain(id(0));
+});
