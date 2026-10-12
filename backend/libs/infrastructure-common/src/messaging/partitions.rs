@@ -56,6 +56,23 @@ fn payload_uuid(record: &OutboxRecord, field: &str) -> Option<Uuid> {
         .and_then(|s| Uuid::parse_str(s).ok())
 }
 
+pub fn conversation_members(record: &OutboxRecord) -> Vec<Uuid> {
+    if matches!(record.aggregate_type, AggregateType::DmMessage)
+        && let (Some(a), Some(b)) = (
+            payload_uuid(record, "sender_id"),
+            payload_uuid(record, "recipient_id"),
+        )
+    {
+        return vec![a, b];
+    }
+    if matches!(record.aggregate_type, AggregateType::User)
+        && let Some(parent) = record.parent_id
+    {
+        return vec![record.aggregate_id, parent];
+    }
+    Vec::new()
+}
+
 pub fn is_conversation_partition(record: &OutboxRecord) -> bool {
     match record.aggregate_type {
         AggregateType::DmMessage | AggregateType::Message => true,

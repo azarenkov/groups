@@ -117,6 +117,7 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
             (Some(partition), Some(seq)) => Some(PartitionSequence {
                 partition: crate::messaging::partitions::partition_id(&self.source, partition),
                 seq,
+                members: crate::messaging::partitions::conversation_members(&record),
             }),
             _ => None,
         };

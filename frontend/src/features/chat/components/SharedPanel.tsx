@@ -8,6 +8,7 @@ import { announceVoiceListened, sharedAPI, type SharedItem, type SharedKind, typ
 import { itemKey, useSharedContent } from "../hooks/useSharedContent";
 import { useWsChannelMessages, useWsDmMessages } from "../hooks/useWebSocketMessages";
 import { ws } from "../../../shared/ws/websocket";
+import { channelPartition, dmPartition } from "../lib/partitions";
 import { useBlockStore } from "../../social/store/blockStore";
 import AttachmentItem from "./AttachmentItem";
 import VideoNotePlayer from "./VideoNotePlayer";
@@ -160,6 +161,19 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onShowM
   );
 
   React.useEffect(() => ws.onOpen(() => reload()), [reload]);
+
+  const partition =
+    scope.kind === "dm"
+      ? currentUserId
+        ? dmPartition(currentUserId, scope.friendId)
+        : null
+      : channelPartition(scope.channelId);
+  React.useEffect(() => {
+    if (!partition) return;
+    return ws.onResync((resynced) => {
+      if (resynced === partition) reload();
+    });
+  }, [partition, reload]);
 
   React.useEffect(
     () =>

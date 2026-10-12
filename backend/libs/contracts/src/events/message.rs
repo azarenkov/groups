@@ -35,6 +35,8 @@ pub struct ChannelMessageEditedV1 {
     #[serde(default)]
     pub recipient_ids: Vec<Uuid>,
     #[serde(default)]
+    pub skipped_ids: Vec<Uuid>,
+    #[serde(default)]
     pub attachments: Option<Value>,
 }
 

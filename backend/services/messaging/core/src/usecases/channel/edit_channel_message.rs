@@ -178,11 +178,8 @@ where
             .message_repository
             .list_users_hiding(message.id().uuid())
             .await?;
-        let event_recipients: Vec<_> = recipient_ids
-            .iter()
-            .copied()
-            .filter(|id| !hidden_for.contains(id))
-            .collect();
+        let (event_recipients, skipped_recipients): (Vec<_>, Vec<_>) =
+            recipient_ids.iter().copied().partition(|id| !hidden_for.contains(id));
         let request_id = request.ctx.request_id.clone();
         let events = message.pull_events();
         let claim_token = uuid::Uuid::new_v4();
@@ -236,7 +233,7 @@ where
 
         let persisted = async {
             let snapshots: Vec<AttachmentSnapshot> = final_attachments.iter().map(AttachmentSnapshot::from).collect();
-        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_recipients(&event_recipients).with_attachments(&snapshots))).collect();
+        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_recipients(&event_recipients).with_skipped(&skipped_recipients).with_attachments(&snapshots))).collect();
         let mut tx = self.unit_of_work.begin().await?;
             tx.update_message(
                 &message,

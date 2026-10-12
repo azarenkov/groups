@@ -10,7 +10,7 @@ export interface Messenger {
     before?: string;
     after?: string;
     limit?: number;
-  }) => Promise<{ messages: ChannelMessage[] }>;
+  }) => Promise<{ messages: ChannelMessage[]; partition?: string; seq?: number }>;
   sendMessage: (
     content: string,
     attachmentIds?: string[],
