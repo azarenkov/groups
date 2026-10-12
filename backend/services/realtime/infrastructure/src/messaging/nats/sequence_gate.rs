@@ -7,8 +7,14 @@ use tokio::time::Instant;
 
 const MAX_TRACKED_PARTITIONS: usize = 100_000;
 
+#[derive(Default)]
+struct PartitionTurn {
+    done: Option<i64>,
+    first: Option<i64>,
+}
+
 pub struct SequenceGate {
-    last: Mutex<HashMap<String, i64>>,
+    last: Mutex<HashMap<String, PartitionTurn>>,
     advanced: Notify,
     max_wait: Duration,
 }
@@ -19,10 +25,18 @@ impl SequenceGate {
     }
 
     fn ready(&self, partition: &str, seq: i64) -> bool {
-        let last = self.last.lock().unwrap_or_else(|e| e.into_inner());
-        match last.get(partition) {
-            None => true,
-            Some(&done) => seq <= done + 1,
+        let mut last = self.last.lock().unwrap_or_else(|e| e.into_inner());
+        if last.len() >= MAX_TRACKED_PARTITIONS && !last.contains_key(partition) {
+            last.clear();
+        }
+        let turn = last.entry(partition.to_string()).or_default();
+        match (turn.done, turn.first) {
+            (Some(done), _) => seq <= done + 1,
+            (None, None) => {
+                turn.first = Some(seq);
+                true
+            }
+            (None, Some(first)) => first == seq,
         }
     }
 
@@ -47,10 +61,9 @@ impl SequenceGate {
             if last.len() >= MAX_TRACKED_PARTITIONS && !last.contains_key(partition) {
                 last.clear();
             }
-            let entry = last.entry(partition.to_string()).or_insert(seq);
-            if seq > *entry {
-                *entry = seq;
-            }
+            let turn = last.entry(partition.to_string()).or_default();
+            turn.done = Some(turn.done.map_or(seq, |done| done.max(seq)));
+            turn.first = None;
         }
         self.advanced.notify_waiters();
     }
@@ -66,6 +79,34 @@ mod tests {
     async fn lets_the_first_event_of_a_partition_through() {
         let gate = SequenceGate::new(Duration::from_secs(5));
         tokio::time::timeout(Duration::from_millis(100), gate.wait_turn("p", 7)).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn serializes_the_first_events_of_a_new_partition() {
+        let gate = Arc::new(SequenceGate::new(Duration::from_secs(5)));
+        tokio::time::timeout(Duration::from_millis(100), gate.wait_turn("p", 10)).await.unwrap();
+        let second = tokio::spawn({
+            let gate = gate.clone();
+            async move { gate.wait_turn("p", 11).await }
+        });
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(!second.is_finished());
+        gate.done("p", 10);
+        tokio::time::timeout(Duration::from_millis(500), second).await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn lets_a_redelivered_first_event_through_again() {
+        let gate = SequenceGate::new(Duration::from_secs(5));
+        tokio::time::timeout(Duration::from_millis(100), gate.wait_turn("p", 4)).await.unwrap();
+        tokio::time::timeout(Duration::from_millis(100), gate.wait_turn("p", 4)).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn stops_waiting_for_a_first_event_that_never_finishes() {
+        let gate = SequenceGate::new(Duration::from_millis(50));
+        tokio::time::timeout(Duration::from_millis(100), gate.wait_turn("p", 4)).await.unwrap();
+        tokio::time::timeout(Duration::from_millis(500), gate.wait_turn("p", 5)).await.unwrap();
     }
 
     #[tokio::test]
