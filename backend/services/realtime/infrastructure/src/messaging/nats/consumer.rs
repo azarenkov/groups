@@ -81,10 +81,17 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
                                     async {
                                         let sequence = m.sequence.clone().map(|s| EventSequence { partition: s.partition, seq: s.seq, members: s.members });
                                         let gated = gate.as_ref().zip(sequence.clone());
+                                        let mut in_order = true;
                                         if let Some((gate, s)) = &gated {
-                                            gate.wait_turn(&s.partition, s.seq).await;
+                                            in_order = gate.wait_turn(&s.partition, s.seq).await;
                                         }
-                                        match dispatch.execute_sequenced(&subject, &m.payload, sequence).await {
+                                        let dispatched = if in_order {
+                                            dispatch.execute_sequenced(&subject, &m.payload, sequence).await
+                                        } else {
+                                            tracing::debug!(%subject, "Event arrived after a later one of its partition; applying it without publishing");
+                                            dispatch.execute_unpublished(&subject, &m.payload).await
+                                        };
+                                        match dispatched {
                                             Ok(_) => {
                                                 if let Some((gate, s)) = &gated {
                                                     gate.done(&s.partition, s.seq);

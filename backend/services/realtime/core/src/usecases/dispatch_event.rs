@@ -182,6 +182,15 @@ impl<P: RealtimePublisher> RealtimePublisher for Sequenced<'_, P> {
     }
 }
 
+struct Unpublished;
+
+#[async_trait::async_trait]
+impl RealtimePublisher for Unpublished {
+    async fn publish_to_users(&self, _: Vec<Uuid>, _: &Envelope<'_>) -> Result<(), PublishError> {
+        Ok(())
+    }
+}
+
 pub struct DispatchEvent<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate::ports::blocks::RelationDirectory> {
     directory: std::sync::Arc<D>,
     publisher: std::sync::Arc<P>,
@@ -195,6 +204,10 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
 
     pub async fn execute(&self, subject: &str, payload: &[u8]) -> Result<(), DispatchError> {
         self.run(subject, payload, self.publisher.as_ref()).await
+    }
+
+    pub async fn execute_unpublished(&self, subject: &str, payload: &[u8]) -> Result<(), DispatchError> {
+        self.run(subject, payload, &Unpublished).await
     }
 
     pub async fn execute_sequenced(

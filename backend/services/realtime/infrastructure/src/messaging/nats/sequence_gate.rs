@@ -32,6 +32,7 @@ impl PartitionTurn {
 
 enum Turn {
     Go,
+    Late,
     Wait(Option<Instant>),
 }
 
@@ -123,7 +124,13 @@ impl SequenceGate {
         }
         let turn = last.entry(partition.to_string()).or_insert_with(PartitionTurn::new);
         if let Some(done) = turn.done {
-            return if seq <= done + 1 { Turn::Go } else { Turn::Wait(None) };
+            return if seq <= done {
+                Turn::Late
+            } else if seq == done + 1 {
+                Turn::Go
+            } else {
+                Turn::Wait(None)
+            };
         }
         if let Some(first) = turn.first {
             return if first == seq { Turn::Go } else { Turn::Wait(None) };
@@ -148,7 +155,7 @@ impl SequenceGate {
         }
     }
 
-    pub async fn wait_turn(&self, partition: &str, seq: i64) {
+    pub async fn wait_turn(&self, partition: &str, seq: i64) -> bool {
         self.restore(partition).await;
         let deadline = Instant::now() + self.max_wait;
         loop {
@@ -156,12 +163,13 @@ impl SequenceGate {
             tokio::pin!(advanced);
             advanced.as_mut().enable();
             let wake = match self.turn(partition, seq) {
-                Turn::Go => return,
+                Turn::Go => return true,
+                Turn::Late => return false,
                 Turn::Wait(settled_at) => settled_at.map_or(deadline, |at| at.min(deadline)),
             };
             if tokio::time::timeout_at(wake, advanced).await.is_err() && wake >= deadline {
                 self.forget_contender(partition, seq);
-                return;
+                return true;
             }
         }
     }
@@ -224,6 +232,17 @@ mod tests {
             }
             Ok(())
         }
+    }
+
+    #[tokio::test]
+    async fn reports_an_event_that_arrives_after_a_later_one_was_sent() {
+        let gate = SequenceGate::with_settle(Duration::from_millis(50), Duration::ZERO);
+        gate.done("p", 9);
+        assert!(gate.wait_turn("p", 11).await);
+        gate.done("p", 11);
+        assert!(!gate.wait_turn("p", 10).await);
+        assert!(!gate.wait_turn("p", 11).await);
+        assert!(gate.wait_turn("p", 12).await);
     }
 
     #[tokio::test]
