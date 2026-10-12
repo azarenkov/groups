@@ -30,3 +30,36 @@ export const clearedBefore = (createdAt: string, clearedAt: string): boolean => 
   if (created !== cleared) return created < cleared;
   return subMillis(createdAt) <= subMillis(clearedAt);
 };
+
+const appliedClears = new Map<string, string>();
+
+export function noteDmCleared(peerId: string, clearedAt: string): void {
+  const prev = appliedClears.get(peerId);
+  if (!prev || clearedBefore(prev, clearedAt)) appliedClears.set(peerId, clearedAt);
+}
+
+export const clearedAway = (peerId: string, createdAt: string): boolean => {
+  const mark = appliedClears.get(peerId);
+  return !!mark && clearedBefore(createdAt, mark);
+};
+
+export function forgetDmClears(): void {
+  appliedClears.clear();
+}
+
+export function admitDmEvent(env: { type: string; data?: unknown }, selfId: string | undefined): boolean {
+  if (!selfId) return true;
+  if (env.type === "dm_conversation.cleared") {
+    const cleared = dmClearedFor(env.data, selfId);
+    if (!cleared) return true;
+    const mark = appliedClears.get(cleared.peerId);
+    if (mark && clearedBefore(cleared.clearedAt, mark)) return false;
+    noteDmCleared(cleared.peerId, cleared.clearedAt);
+    return true;
+  }
+  if (env.type !== "dm_message.sent") return true;
+  const d = (env.data ?? {}) as { senderId?: unknown; recipientId?: unknown; occurredAt?: unknown };
+  if (typeof d.senderId !== "string" || typeof d.recipientId !== "string" || typeof d.occurredAt !== "string") return true;
+  const peerId = d.senderId === selfId ? d.recipientId : d.senderId;
+  return !clearedAway(peerId, d.occurredAt);
+}

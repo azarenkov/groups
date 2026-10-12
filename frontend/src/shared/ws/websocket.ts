@@ -94,14 +94,9 @@ export interface WsEnvelope<T = unknown> {
 }
 
 type Listener = (env: WsEnvelope) => void;
-export interface DeliveryGate {
-  lane: (env: WsEnvelope) => string | null;
-  check: (env: WsEnvelope) => Promise<boolean> | null;
-  reset?: () => void;
-}
+type Filter = (env: WsEnvelope) => boolean;
 
 const RECONNECT_MIN_MS = 1000;
-const APPLIED_CLEARS_LIMIT = 100;
 const RECONNECT_MAX_MS = 30_000;
 const HEARTBEAT_MS = 25_000;
 const REFRESH_MIN_INTERVAL_MS = 60_000;
@@ -114,6 +109,7 @@ class WsClient {
   private endpoint: string;
   private socket: WebSocket | null = null;
   private listeners = new Set<Listener>();
+  private filters = new Set<Filter>();
   private wantOpen = false;
   private reconnectAttempts = 0;
   private reconnectTimer: number | null = null;
@@ -121,11 +117,6 @@ class WsClient {
   private refreshInProgress = false;
   private lastRefreshAttemptAt = 0;
   private openListeners = new Set<() => void>();
-  private appliedClears: string[] = [];
-  private gates = new Set<DeliveryGate>();
-  private busyLanes = new Set<string>();
-  private held = new Map<string, WsEnvelope[]>();
-  private deliveryEpoch = 0;
   private sequencer = new Sequencer((env) => this.deliver(env));
 
   constructor(endpoint: string = defaultEndpoint()) {
@@ -163,11 +154,7 @@ class WsClient {
       this.socket = null;
     }
     this.reconnectAttempts = 0;
-    this.deliveryEpoch += 1;
-    this.busyLanes.clear();
-    this.held.clear();
     this.sequencer.reset();
-    for (const gate of this.gates) gate.reset?.();
   }
 
   on(handler: Listener): () => void {
@@ -184,49 +171,17 @@ class WsClient {
     };
   }
 
-  addGate(gate: DeliveryGate): () => void {
-    this.gates.add(gate);
+  addFilter(filter: Filter): () => void {
+    this.filters.add(filter);
     return () => {
-      this.gates.delete(gate);
+      this.filters.delete(filter);
     };
   }
 
   deliver(env: WsEnvelope) {
-    if (this.isRepeatedClear(env)) return;
-    this.route(env);
-  }
-
-  private route(env: WsEnvelope) {
-    for (const gate of this.gates) {
-      const lane = gate.lane(env);
-      if (lane && this.busyLanes.has(lane)) {
-        this.held.set(lane, [...(this.held.get(lane) ?? []), env]);
-        return;
-      }
-      const verdict = gate.check(env);
-      if (!verdict) continue;
-      const key = lane ?? "*";
-      this.busyLanes.add(key);
-      const epoch = this.deliveryEpoch;
-      void verdict
-        .then(
-          (pass) => pass,
-          () => true,
-        )
-        .then((pass) => {
-          if (epoch !== this.deliveryEpoch) return;
-          if (pass) this.dispatch(env);
-          this.busyLanes.delete(key);
-          const queued = this.held.get(key) ?? [];
-          this.held.delete(key);
-          for (const next of queued) this.route(next);
-        });
-      return;
+    for (const filter of this.filters) {
+      if (!filter(env)) return;
     }
-    this.dispatch(env);
-  }
-
-  private dispatch(env: WsEnvelope) {
     for (const l of this.listeners) {
       try {
         l(env);
@@ -234,16 +189,6 @@ class WsClient {
         console.warn("[ws] listener threw:", err);
       }
     }
-  }
-
-  private isRepeatedClear(env: WsEnvelope): boolean {
-    if (env.type !== "dm_conversation.cleared") return false;
-    const d = (env.data ?? {}) as { participants?: unknown; clearedAt?: unknown };
-    const participants = Array.isArray(d.participants) ? d.participants.map(String).sort().join(",") : "";
-    const key = `${participants}|${String(d.clearedAt)}`;
-    if (this.appliedClears.includes(key)) return true;
-    this.appliedClears = [...this.appliedClears.slice(-(APPLIED_CLEARS_LIMIT - 1)), key];
-    return false;
   }
 
   isOpen(): boolean {

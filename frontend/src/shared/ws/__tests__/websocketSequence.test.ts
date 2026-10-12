@@ -20,3 +20,15 @@ it("passes local events without a sequence straight to listeners", () => {
   expect(seen).toEqual(["presence.update", "presence.update"]);
   off();
 });
+
+it("keeps events a filter rejects away from listeners", () => {
+  const seen: string[] = [];
+  const off = ws.on((env) => seen.push(env.type));
+  const offFilter = ws.addFilter((env) => env.type !== "dm_message.sent");
+  ws.deliver({ type: "dm_message.sent", data: {} } as WsEnvelope);
+  ws.deliver({ type: "dm.read", data: {} } as WsEnvelope);
+  offFilter();
+  ws.deliver({ type: "dm_message.sent", data: {} } as WsEnvelope);
+  expect(seen).toEqual(["dm.read", "dm_message.sent"]);
+  off();
+});
