@@ -264,8 +264,8 @@ async fn run_metrics_loop<P>(
     P: OutboxPublisher,
 {
     loop {
-        match dispatcher.backlog().await {
-            Ok(backlog) => {
+        match tokio::time::timeout(interval, dispatcher.backlog()).await {
+            Ok(Ok(backlog)) => {
                 if backlog.stuck > 0 {
                     tracing::error!(
                         stuck = backlog.stuck,
@@ -275,8 +275,12 @@ async fn run_metrics_loop<P>(
                 }
                 metrics.record(&source, backlog);
             }
-            Err(e) => {
+            Ok(Err(e)) => {
                 tracing::warn!(error = %e, "Outbox backlog sampling failed");
+                metrics.fail(&source);
+            }
+            Err(_) => {
+                tracing::warn!(timeout_secs = interval.as_secs(), "Outbox backlog sampling timed out");
                 metrics.fail(&source);
             }
         }
