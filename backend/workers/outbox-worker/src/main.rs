@@ -277,6 +277,7 @@ async fn run_metrics_loop<P>(
             }
             Err(e) => {
                 tracing::warn!(error = %e, "Outbox backlog sampling failed");
+                metrics.fail(&source);
             }
         }
         tokio::time::sleep(interval).await;

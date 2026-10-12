@@ -88,7 +88,7 @@ locals {
     }
     imagePullSecrets = var.image.pull_secret == null ? [] : [{ name = "${var.release_name}-registry" }]
     monitoring = {
-      enabled = var.monitoring
+      enabled = var.monitoring_ready != ""
     }
     config = {
       POSTGRES_HOST                  = var.postgres.host
@@ -239,7 +239,12 @@ resource "helm_release" "rift" {
     kubernetes_secret_v1.databases,
     kubernetes_secret_v1.postgres_admin,
     kubernetes_secret_v1.registry,
+    terraform_data.monitoring_ready,
   ]
+}
+
+resource "terraform_data" "monitoring_ready" {
+  input = var.monitoring_ready
 }
 
 resource "terraform_data" "argocd_ready" {
@@ -323,5 +328,6 @@ resource "kubectl_manifest" "argocd_application" {
     kubernetes_secret_v1.registry,
     kubernetes_secret_v1.argocd_repo,
     terraform_data.argocd_ready,
+    terraform_data.monitoring_ready,
   ]
 }

@@ -43,8 +43,16 @@ spec:
           annotations:
             summary: "Outbox of {{ "{{" }} $labels.source {{ "}}" }} is falling behind"
             description: "The oldest unpublished event has waited {{ "{{" }} $value | humanizeDuration {{ "}}" }}."
+        - alert: RiftOutboxSamplingFailing
+          expr: min by (source) (rift_outbox_sample_up) == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Outbox worker cannot read the backlog of {{ "{{" }} $labels.source {{ "}}" }}"
+            description: "Backlog sampling keeps failing, so the other outbox alerts for this source are blind."
         - alert: RiftOutboxMetricsMissing
-          expr: absent(rift_outbox_pending_events)
+          expr: absent(rift_outbox_sample_up)
           for: 10m
           labels:
             severity: warning
