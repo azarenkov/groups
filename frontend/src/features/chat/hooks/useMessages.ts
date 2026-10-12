@@ -347,13 +347,15 @@ export function useMessages(params: {
     const messengerNow = messengerRef.current;
     if (!messengerNow) return;
     const requestConvId = convIdRef.current;
+    const knownBefore = new Set(messagesRef.current.map((m) => m.id));
     reseedChannelReads();
     try {
       const res = await messengerNow.listMessages({ limit: PAGE_LIMIT });
       if (convIdRef.current !== requestConvId) return;
-      adoptBaseline(res);
       const ordered = [...res.messages].reverse();
-      setMessages((prev) => mergeWithLive(ordered, prev));
+      const reachedStart = res.messages.length < PAGE_LIMIT;
+      setMessages((prev) => reconcileSyncedWindow(ordered, prev, reachedStart, knownBefore));
+      adoptBaseline(res);
       setHasMore(res.messages.length >= PAGE_LIMIT);
     } catch (err) {
       console.warn("[ChatView] failed to refresh history after join:", err);

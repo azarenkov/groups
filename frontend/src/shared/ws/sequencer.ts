@@ -1,13 +1,12 @@
 import type { WsEnvelope } from "./websocket";
 
 export const GAP_WAIT_MS = 1500;
-const SEEN_LIMIT = 256;
+export const SEEN_WINDOW = 256;
 
 interface PartitionState {
   last: number;
   covered: number;
-  seen: Set<string>;
-  seenOrder: string[];
+  seen: Map<number, Set<string>>;
   pending: Map<number, WsEnvelope[]>;
   timer: ReturnType<typeof setTimeout> | null;
 }
@@ -46,7 +45,7 @@ export class Sequencer {
       this.deliver(state, env, seq);
       return;
     }
-    if (seq <= state.covered || state.seen.has(this.key(env, seq))) return;
+    if (seq <= state.covered || seq <= state.last - SEEN_WINDOW || this.wasSeen(state, env, seq)) return;
     if (seq <= state.last) {
       this.deliver(state, env, seq);
       return;
@@ -83,8 +82,7 @@ export class Sequencer {
     const state: PartitionState = {
       last: seq,
       covered: 0,
-      seen: new Set(),
-      seenOrder: [],
+      seen: new Map(),
       pending: new Map(),
       timer: null,
     };
@@ -92,20 +90,24 @@ export class Sequencer {
     return state;
   }
 
-  private key(env: WsEnvelope, seq: number): string {
-    return `${seq}:${env.type}`;
+  private wasSeen(state: PartitionState, env: WsEnvelope, seq: number): boolean {
+    return state.seen.get(seq)?.has(env.type) ?? false;
   }
 
   private deliver(state: PartitionState, env: WsEnvelope, seq: number): void {
-    const key = this.key(env, seq);
-    if (state.seen.has(key)) return;
-    state.seen.add(key);
-    state.seenOrder.push(key);
-    if (state.seenOrder.length > SEEN_LIMIT) {
-      const dropped = state.seenOrder.shift();
-      if (dropped) state.seen.delete(dropped);
-    }
+    if (this.wasSeen(state, env, seq)) return;
+    const types = state.seen.get(seq) ?? new Set<string>();
+    types.add(env.type);
+    state.seen.set(seq, types);
     this.emit(env);
+    this.forgetOld(state);
+  }
+
+  private forgetOld(state: PartitionState): void {
+    const floor = state.last - SEEN_WINDOW;
+    for (const seq of state.seen.keys()) {
+      if (seq <= floor) state.seen.delete(seq);
+    }
   }
 
   private drain(state: PartitionState): void {

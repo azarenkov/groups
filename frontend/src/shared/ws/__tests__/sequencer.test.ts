@@ -1,4 +1,4 @@
-import { Sequencer } from "../sequencer";
+import { SEEN_WINDOW, Sequencer } from "../sequencer";
 import type { WsEnvelope } from "../websocket";
 
 const env = (type: string, partition: string | undefined, seq: number | undefined): WsEnvelope =>
@@ -100,4 +100,13 @@ it("forgets everything on reset", () => {
   jest.advanceTimersByTime(5000);
   s.accept(env("a", "p", 1));
   expect(emitted).toEqual(["a#1", "a#1"]);
+});
+
+it("keeps dropping old repeats long after the recent window moved on", () => {
+  const { s, emitted } = setup();
+  for (let seq = 1; seq <= SEEN_WINDOW + 50; seq += 1) s.accept(env("a", "p", seq));
+  const delivered = emitted.length;
+  s.accept(env("a", "p", 3));
+  s.accept(env("a", "p", 40));
+  expect(emitted.length).toBe(delivered);
 });
