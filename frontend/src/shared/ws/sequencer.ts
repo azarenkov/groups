@@ -84,7 +84,7 @@ export class Sequencer {
     const state = known ?? this.track(partition, seq);
     if (!known) state.contiguous = seq;
     const gapOpen = state.timer !== null;
-    const missedBeforeLive = state.covered === 0 && seq + 1 < state.firstLive;
+    const missedBeforeLive = state.covered === 0 && seq < state.firstLive;
     state.covered = Math.max(state.covered, seq);
     state.last = Math.max(state.last, seq);
     const covered = Array.from(state.pending.keys())

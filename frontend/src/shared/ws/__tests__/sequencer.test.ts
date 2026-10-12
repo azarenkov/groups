@@ -188,10 +188,17 @@ it("asks for a resync when the first snapshot is older than the first live event
   expect(resynced).toEqual(["p"]);
 });
 
+it("asks for a resync when the first snapshot is just before the first live event", () => {
+  const { s, resynced } = setup();
+  s.accept(env("message.deleted", "p", 11));
+  s.baseline("p", 10);
+  expect(resynced).toEqual(["p"]);
+});
+
 it("does not resync when the first snapshot reaches the first live event", () => {
   const { s, resynced } = setup();
   s.accept(env("message.sent", "p", 11));
-  s.baseline("p", 10);
+  s.baseline("p", 11);
   s.baseline("p", 12);
   const fresh = setup();
   fresh.s.baseline("q", 5);
