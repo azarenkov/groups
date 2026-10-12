@@ -76,10 +76,11 @@ it("takes a loaded snapshot as the baseline and skips events it already covers",
   s.accept(env("a", "p", 5));
   s.baseline("p", 4);
   expect(emitted).toEqual(["a#1", "a#5"]);
+  expect(resynced).toEqual(["p"]);
   s.accept(env("a", "p", 2));
   expect(emitted).toEqual(["a#1", "a#5"]);
   jest.advanceTimersByTime(5000);
-  expect(resynced).toEqual([]);
+  expect(resynced).toEqual(["p"]);
 });
 
 it("starts tracking a partition from a baseline", () => {
@@ -137,4 +138,11 @@ it("accepts another envelope of a sequence that was just delivered", () => {
   s.accept(env("a", "p", 2));
   s.accept(env("b", "p", 2));
   expect(emitted).toEqual(["a#1", "a#2", "b#2"]);
+});
+
+it("does not ask for a resync when a baseline arrives without an open gap", () => {
+  const { s, resynced } = setup();
+  s.accept(env("a", "p", 1));
+  s.baseline("p", 3);
+  expect(resynced).toEqual([]);
 });

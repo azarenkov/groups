@@ -66,6 +66,7 @@ export class Sequencer {
 
   baseline(partition: string, seq: number): void {
     const state = this.partitions.get(partition) ?? this.track(partition, seq);
+    const gapOpen = state.timer !== null;
     state.covered = Math.max(state.covered, seq);
     state.last = Math.max(state.last, seq);
     state.contiguous = Math.max(state.contiguous, seq);
@@ -74,6 +75,7 @@ export class Sequencer {
       if (pendingSeq <= state.covered) state.pending.delete(pendingSeq);
     }
     this.drain(state);
+    if (gapOpen && state.timer === null) this.notifyResync(partition);
   }
 
   reset(): void {
@@ -147,6 +149,10 @@ export class Sequencer {
       state.last = Math.max(state.last, seq);
       for (const env of envs) this.deliver(state, env, seq);
     }
+    this.notifyResync(partition);
+  }
+
+  private notifyResync(partition: string): void {
     for (const listener of this.resyncListeners) {
       try {
         listener(partition);

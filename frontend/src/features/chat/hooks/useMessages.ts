@@ -189,16 +189,19 @@ export function useMessages(params: {
       .listMessages({ limit: PAGE_LIMIT })
       .then((res) => {
         if (cancelled) return;
-        adoptBaseline(res);
         const ordered = [...res.messages].reverse();
         const fullPage = res.messages.length >= PAGE_LIMIT;
         if (!fromCache) {
           setMessages((prev) => mergeWithLive(ordered, prev));
           setHasMore(fullPage);
+          adoptBaseline(res);
           return;
         }
         const reconciled = reconcileLatestPage(restored ?? [], ordered, fullPage, knownBefore);
         setMessages((prev) => reconcileLatestPage(prev, ordered, fullPage, knownBefore).messages);
+        const cutoff = ordered[0]?.createdAt;
+        const pageCoversCache = !fullPage || (restored ?? []).every((m) => cutoff !== undefined && m.createdAt >= cutoff);
+        if (pageCoversCache) adoptBaseline(res);
         if (!fullPage) setHasMore(false);
         else if (reconciled.gap) setHasMore(true);
       })

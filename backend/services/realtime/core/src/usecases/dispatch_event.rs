@@ -502,6 +502,11 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             }),
         );
         publisher.publish_to_users(unique(recipients), &envelope).await?;
+        if !evt.skipped_ids.is_empty() {
+            publisher
+                .publish_to_users(unique(evt.skipped_ids), &Envelope::new("sequence.skip", json!({})))
+                .await?;
+        }
         return Ok(());
     }
 
@@ -1348,6 +1353,41 @@ mod tests {
                 self.to.lock().unwrap().push(recipients);
                 Ok(())
             }
+        }
+
+        #[tokio::test]
+        async fn sends_a_skip_to_channel_members_who_hid_the_edited_message() {
+            let publisher = std::sync::Arc::new(Captured::default());
+            let dispatch = DispatchEvent::new(
+                std::sync::Arc::new(Directory::default()),
+                publisher.clone(),
+                std::sync::Arc::new(Relations { peers: vec![] }),
+            );
+            let (reader, hider) = (Uuid::new_v4(), Uuid::new_v4());
+            let payload = serde_json::to_vec(&json!({
+                "message_id": Uuid::new_v4(),
+                "channel_id": Uuid::new_v4(),
+                "new_content": "edited",
+                "occurred_at": Utc::now(),
+                "recipient_ids": [reader],
+                "skipped_ids": [hider],
+            }))
+            .unwrap();
+            dispatch
+                .execute_sequenced(
+                    "rift.events.message.edited",
+                    &payload,
+                    Some(EventSequence { partition: "messaging:c".to_string(), seq: 4, members: vec![] }),
+                )
+                .await
+                .unwrap();
+            let sent = publisher.sent.lock().unwrap();
+            let to = publisher.to.lock().unwrap();
+            assert_eq!(sent[0]["type"], json!("message.edited"));
+            assert_eq!(to[0], vec![reader]);
+            assert_eq!(sent[1]["type"], json!("sequence.skip"));
+            assert_eq!(sent[1]["seq"], json!(4));
+            assert_eq!(to[1], vec![hider]);
         }
 
         #[tokio::test]
