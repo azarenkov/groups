@@ -155,9 +155,9 @@ async fn forget_pair_without_history<D: RecipientDirectory + RealtimeProjection,
     Ok(())
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EventSequence {
-    pub partition: Uuid,
+    pub partition: String,
     pub seq: i64,
 }
 
@@ -199,7 +199,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
     ) -> Result<(), DispatchError> {
         match sequence {
             Some(sequence) => {
-                let stamped = Sequenced { inner: self.publisher.as_ref(), partition: sequence.partition.to_string(), seq: sequence.seq };
+                let stamped = Sequenced { inner: self.publisher.as_ref(), partition: sequence.partition, seq: sequence.seq };
                 self.run(subject, payload, &stamped).await
             }
             None => self.execute(subject, payload).await,
@@ -1334,7 +1334,7 @@ mod tests {
                 publisher.clone(),
                 std::sync::Arc::new(Relations { peers: vec![] }),
             );
-            let partition = Uuid::new_v4();
+            let partition = "messaging:p".to_string();
             let payload = serde_json::to_vec(&json!({
                 "user_id": Uuid::new_v4(),
                 "peer_id": Uuid::new_v4(),
@@ -1346,14 +1346,14 @@ mod tests {
                 .execute_sequenced(
                     "rift.events.user.dm_conversation.hidden_changed",
                     &payload,
-                    Some(EventSequence { partition, seq: 5 }),
+                    Some(EventSequence { partition: partition.clone(), seq: 5 }),
                 )
                 .await
                 .unwrap();
             let sent = publisher.sent.lock().unwrap();
             assert_eq!(sent.len(), 1);
             assert_eq!(sent[0]["seq"], json!(5));
-            assert_eq!(sent[0]["partition"], json!(partition.to_string()));
+            assert_eq!(sent[0]["partition"], json!(partition));
         }
 
         #[tokio::test]

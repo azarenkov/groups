@@ -15,6 +15,7 @@ pub enum OutboxDispatchError {
 }
 
 pub struct OutboxDispatcher<P: OutboxPublisher> {
+    source: String,
     pool: Pool<Postgres>,
     publisher: Arc<P>,
     max_attempts: i16,
@@ -24,6 +25,7 @@ pub struct OutboxDispatcher<P: OutboxPublisher> {
 
 impl<P: OutboxPublisher> OutboxDispatcher<P> {
     pub fn new(
+        source: String,
         pool: Pool<Postgres>,
         publisher: Arc<P>,
         max_attempts: i16,
@@ -31,6 +33,7 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
         backoff_max_multiplier: i32,
     ) -> Self {
         Self {
+            source,
             pool,
             publisher,
             max_attempts,
@@ -111,7 +114,10 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
         let _enter = dispatch_span.enter();
 
         let sequence = match (row.partition_key, row.partition_seq) {
-            (Some(partition), Some(seq)) => Some(PartitionSequence { partition, seq }),
+            (Some(partition), Some(seq)) => Some(PartitionSequence {
+                partition: crate::messaging::partitions::partition_id(&self.source, partition),
+                seq,
+            }),
             _ => None,
         };
         match self.publisher.publish(&record, sequence).await {

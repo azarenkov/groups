@@ -15,9 +15,9 @@ pub struct OutboxRecord {
     pub request_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartitionSequence {
-    pub partition: Uuid,
+    pub partition: String,
     pub seq: i64,
 }
 

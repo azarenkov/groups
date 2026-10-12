@@ -308,7 +308,11 @@ async fn list_channel_messages(
     }
     fill_channel_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     crate::voice::fill_channel_listens(&app_state, &mut items, UserId::new(auth_token.id)).await?;
-    let response = ListChannelMessagesResponse::new(items, channel_id, seq);
+    let response = ListChannelMessagesResponse::new(
+        items,
+        infrastructure_common::messaging::partitions::partition_id(messaging_infrastructure::database::postgres::SCHEMA, channel_id),
+        seq,
+    );
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }

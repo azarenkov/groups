@@ -152,7 +152,7 @@ impl EventConsumer for NatsEventConsumer {
 
 fn partition_sequence(headers: Option<&async_nats::HeaderMap>) -> Option<PartitionSequence> {
     let headers = headers?;
-    let partition = headers.get(PARTITION_HEADER)?.as_str().parse().ok()?;
+    let partition = headers.get(PARTITION_HEADER)?.as_str().to_string();
     let seq = headers.get(PARTITION_SEQ_HEADER)?.as_str().parse().ok()?;
     Some(PartitionSequence { partition, seq })
 }
@@ -195,19 +195,21 @@ mod tests {
 
     #[test]
     fn reads_the_partition_sequence_from_headers() {
-        let partition = uuid::Uuid::new_v4();
         let mut headers = async_nats::HeaderMap::new();
-        headers.insert(PARTITION_HEADER, partition.to_string().as_str());
+        headers.insert(PARTITION_HEADER, "messaging:p");
         headers.insert(PARTITION_SEQ_HEADER, "42");
-        assert_eq!(partition_sequence(Some(&headers)), Some(PartitionSequence { partition, seq: 42 }));
+        assert_eq!(
+            partition_sequence(Some(&headers)),
+            Some(PartitionSequence { partition: "messaging:p".to_string(), seq: 42 }),
+        );
     }
 
     #[test]
     fn ignores_missing_or_broken_sequence_headers() {
         assert_eq!(partition_sequence(None), None);
         let mut headers = async_nats::HeaderMap::new();
-        headers.insert(PARTITION_HEADER, "not-a-uuid");
-        headers.insert(PARTITION_SEQ_HEADER, "1");
+        headers.insert(PARTITION_HEADER, "messaging:p");
+        headers.insert(PARTITION_SEQ_HEADER, "not-a-number");
         assert_eq!(partition_sequence(Some(&headers)), None);
     }
 }

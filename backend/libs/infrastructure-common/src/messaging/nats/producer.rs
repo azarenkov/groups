@@ -57,7 +57,7 @@ impl OutboxPublisher for NatsOutboxPublisher {
             headers.insert(REQUEST_ID_HEADER, request_id);
         }
         if let Some(sequence) = sequence {
-            headers.insert(PARTITION_HEADER, sequence.partition.to_string().as_str());
+            headers.insert(PARTITION_HEADER, sequence.partition.as_str());
             headers.insert(PARTITION_SEQ_HEADER, sequence.seq.to_string().as_str());
         }
 

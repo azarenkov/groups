@@ -120,8 +120,8 @@ pub struct ListDmMessagesResponse {
 }
 
 impl ListDmMessagesResponse {
-    pub fn new(messages: Vec<DmMessageResponse>, partition: Uuid, seq: i64) -> Self {
-        Self { messages, partition: partition.to_string(), seq }
+    pub fn new(messages: Vec<DmMessageResponse>, partition: String, seq: i64) -> Self {
+        Self { messages, partition, seq }
     }
 }
 

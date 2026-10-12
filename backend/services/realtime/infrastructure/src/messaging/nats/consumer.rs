@@ -76,7 +76,7 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
                                         subject = %subject,
                                     );
                                     async {
-                                        let sequence = m.sequence.map(|s| EventSequence { partition: s.partition, seq: s.seq });
+                                        let sequence = m.sequence.clone().map(|s| EventSequence { partition: s.partition, seq: s.seq });
                                         match dispatch.execute_sequenced(&subject, &m.payload, sequence).await {
                                             Ok(_) => {
                                                 if let Err(e) = m.ack().await {

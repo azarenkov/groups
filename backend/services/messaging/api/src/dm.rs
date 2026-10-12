@@ -219,7 +219,11 @@ async fn list_dm_messages(
     }
     fill_dm_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     crate::voice::fill_dm_listens(&app_state, &mut items, UserId::new(auth_token.id)).await?;
-    let response = ListDmMessagesResponse::new(items, partition, seq);
+    let response = ListDmMessagesResponse::new(
+        items,
+        infrastructure_common::messaging::partitions::partition_id(messaging_infrastructure::database::postgres::SCHEMA, partition),
+        seq,
+    );
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }

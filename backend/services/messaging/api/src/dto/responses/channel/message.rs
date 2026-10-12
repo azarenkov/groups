@@ -117,8 +117,8 @@ pub struct ListChannelMessagesResponse {
 }
 
 impl ListChannelMessagesResponse {
-    pub fn new(messages: Vec<MessageResponse>, partition: Uuid, seq: i64) -> Self {
-        Self { messages, partition: partition.to_string(), seq }
+    pub fn new(messages: Vec<MessageResponse>, partition: String, seq: i64) -> Self {
+        Self { messages, partition, seq }
     }
 }
 
