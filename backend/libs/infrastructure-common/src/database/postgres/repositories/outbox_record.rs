@@ -9,6 +9,16 @@ pub async fn save_outbox_records(
     tx: &mut Transaction<'_, Postgres>,
     records: &[OutboxRecord],
 ) -> Result<(), RepositoryError> {
+    let mut partitions: Vec<String> = records.iter().map(|r| outbox_partition_key(r).to_string()).collect();
+    partitions.sort();
+    partitions.dedup();
+    for partition in &partitions {
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 60))")
+            .bind(partition)
+            .execute(&mut **tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+    }
     for record in records {
         let aggregate_type = AggregateTypeDto::from(&record.aggregate_type);
         let parent_type = record.parent_type.as_ref().map(AggregateTypeDto::from);
