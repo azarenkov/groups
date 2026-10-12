@@ -40,7 +40,7 @@ export function SubscriptionSection() {
             >
               <div className="plan-tile-head">
                 <span className="plan-tile-name">{t(`page.plans.${tier}.name`)}</span>
-                {tier !== "free" && <ProBadge tier={tier} badgeStyle="tint" size="sm" />}
+                {tier !== "free" && <ProBadge tier={tier} badgeStyle={tier === "premium" ? "gold" : "tint"} size="sm" />}
               </div>
               <div className="plan-tile-price">{t(`page.plans.${tier}.price`)}</div>
               <ul className="plan-tile-features">
