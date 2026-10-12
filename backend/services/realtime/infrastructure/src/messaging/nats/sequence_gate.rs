@@ -86,7 +86,11 @@ impl SequenceGate {
     }
 
     pub fn with_progress(max_wait: Duration, progress: Arc<dyn SequenceProgress>) -> Self {
-        Self { progress: Some(progress), ..Self::new(max_wait) }
+        Self::with_settle_and_progress(max_wait, FIRST_TURN_SETTLE, progress)
+    }
+
+    fn with_settle_and_progress(max_wait: Duration, settle: Duration, progress: Arc<dyn SequenceProgress>) -> Self {
+        Self { progress: Some(progress), ..Self::with_settle(max_wait, settle) }
     }
 
     async fn restore(&self, partition: &str) {
@@ -112,9 +116,8 @@ impl SequenceGate {
                 let mut last = self.last.lock().unwrap_or_else(|e| e.into_inner());
                 let turn = turn_for(&mut last, partition);
                 turn.restored = true;
-                if turn.done.is_none() {
+                if turn.done.is_none() && turn.elected.is_none() {
                     turn.done = Some(stored.unwrap_or(0));
-                    turn.elected = None;
                 }
             }
             Err(e) => {
@@ -379,6 +382,28 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(600)).await;
         assert!(!later.is_finished());
         assert!(tokio::time::timeout(Duration::from_millis(100), gate.wait_turn("p", 11)).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn keeps_a_fallback_election_when_progress_comes_back() {
+        let progress = Arc::new(MemoryProgress::default());
+        progress.stored.lock().unwrap().insert("p".into(), 10);
+        progress.fail.store(true, std::sync::atomic::Ordering::SeqCst);
+        let gate = Arc::new(SequenceGate::with_settle_and_progress(
+            Duration::from_secs(5),
+            Duration::ZERO,
+            progress.clone(),
+        ));
+        assert!(tokio::time::timeout(Duration::from_secs(3), gate.wait_turn("p", 12)).await.unwrap());
+        progress.fail.store(false, std::sync::atomic::Ordering::SeqCst);
+        let lower = tokio::spawn({
+            let gate = gate.clone();
+            async move { gate.wait_turn("p", 11).await }
+        });
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(!lower.is_finished());
+        gate.done("p", 12);
+        assert!(!tokio::time::timeout(Duration::from_millis(500), lower).await.unwrap().unwrap());
     }
 
     #[tokio::test]
