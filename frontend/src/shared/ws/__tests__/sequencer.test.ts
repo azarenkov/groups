@@ -224,3 +224,11 @@ it("does not resync when a later snapshot misses only new messages", () => {
   s.baseline("p", 11);
   expect(resynced).toEqual([]);
 });
+
+it("asks for a resync when a later snapshot misses a live voice listen", () => {
+  const { s, resynced } = setup();
+  s.baseline("p", 9);
+  s.accept(env("voice.listened", "p", 10));
+  s.baseline("p", 9);
+  expect(resynced).toEqual(["p"]);
+});

@@ -25,13 +25,14 @@ interface PartitionState {
   timer: ReturnType<typeof setTimeout> | null;
 }
 
-const DESTRUCTIVE_TYPES: ReadonlySet<string> = new Set([
+const SNAPSHOT_OVERWRITES: ReadonlySet<string> = new Set([
   "message.edited",
   "message.deleted",
   "message.hidden",
   "dm_message.edited",
   "dm_message.deleted",
   "dm_conversation.cleared",
+  "voice.listened",
 ]);
 
 const sequenceOf = (env: WsEnvelope): { partition: string; seq: number } | null => {
@@ -141,7 +142,7 @@ export class Sequencer {
     for (const [seenSeq, types] of state.seen) {
       if (seenSeq <= seq) continue;
       for (const type of types) {
-        if (DESTRUCTIVE_TYPES.has(type)) return true;
+        if (SNAPSHOT_OVERWRITES.has(type)) return true;
       }
     }
     return false;
