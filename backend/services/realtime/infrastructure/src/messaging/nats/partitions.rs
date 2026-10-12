@@ -14,6 +14,7 @@ use std::sync::Arc;
 use realtime_core::{ports::directory::RecipientDirectory, ports::projection::RealtimeProjection, ports::publisher::RealtimePublisher, usecases::dispatch_event::DispatchEvent};
 
 use crate::messaging::nats::consumer::{ConsumerSpec, run_consumer};
+use crate::messaging::nats::sequence_gate::SequenceGate;
 
 #[derive(Debug, Clone)]
 pub struct DispatcherSettings {
@@ -27,6 +28,7 @@ pub struct DispatcherSettings {
 }
 
 const BUCKET: &str = "dispatcher-partitions";
+const SEQUENCE_WAIT: Duration = Duration::from_millis(1500);
 const LEASE_TTL: Duration = Duration::from_secs(20);
 const TICK: Duration = Duration::from_secs(5);
 const MEMBER_PREFIX: &str = "member.";
@@ -244,14 +246,16 @@ fn start_partition<D: RecipientDirectory + RealtimeProjection + 'static, P: Real
 ) -> OwnedPartition {
     let (tx, rx) = watch::channel(false);
     let mut handles = Vec::new();
+    let gate = Arc::new(SequenceGate::new(SEQUENCE_WAIT));
     for spec in partition_specs(cfg, subject_prefix, partition) {
+        let gate = gate.clone();
         let jetstream = jetstream.clone();
         let dispatch = dispatch.clone();
         let rx = rx.clone();
         let heartbeat = liveness.register(stale_after);
         let liveness = liveness.clone();
         handles.push(actix_web::rt::spawn(async move {
-            run_consumer(jetstream, spec, dispatch, rx, heartbeat.clone()).await;
+            run_consumer(jetstream, spec, dispatch, rx, heartbeat.clone(), Some(gate)).await;
             liveness.release(&heartbeat);
         }));
     }
