@@ -1,4 +1,4 @@
-import { channelPartition, dmPartition } from "../partitions";
+import { channelPartition, dmPartition, peerOfDmPartition } from "../partitions";
 
 const a = "0b410a13-a242-46dc-ba1e-cf8692f61af3";
 const b = "7f2c9d10-1111-4abc-8def-0123456789ab";
@@ -15,4 +15,9 @@ it("uses the channel id for a channel", () => {
 it("rejects ids that are not uuids", () => {
   expect(dmPartition("me", b)).toBeNull();
   expect(channelPartition("general")).toBeNull();
+});
+
+it("recovers the peer from a DM partition", () => {
+  expect(peerOfDmPartition(dmPartition(a, b) as string, a)).toBe(b);
+  expect(peerOfDmPartition("identity:" + a, b)).toBeNull();
 });
