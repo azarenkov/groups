@@ -19,6 +19,7 @@ interface PartitionState {
   last: number;
   covered: number;
   firstLive: number;
+  lastOverwrite: number;
   contiguous: number;
   seen: Map<number, Set<string>>;
   pending: Map<number, WsEnvelope[]>;
@@ -129,6 +130,7 @@ export class Sequencer {
       last: seq,
       covered: 0,
       firstLive: seq,
+      lastOverwrite: 0,
       contiguous: seq - 1,
       seen: new Map(),
       pending: new Map(),
@@ -139,13 +141,7 @@ export class Sequencer {
   }
 
   private changedAfter(state: PartitionState, seq: number): boolean {
-    for (const [seenSeq, types] of state.seen) {
-      if (seenSeq <= seq) continue;
-      for (const type of types) {
-        if (SNAPSHOT_OVERWRITES.has(type)) return true;
-      }
-    }
-    return false;
+    return state.lastOverwrite > seq;
   }
 
   private wasSeen(state: PartitionState, env: WsEnvelope, seq: number): boolean {
@@ -159,6 +155,7 @@ export class Sequencer {
   }
 
   private markSeen(state: PartitionState, env: WsEnvelope, seq: number): void {
+    if (SNAPSHOT_OVERWRITES.has(env.type)) state.lastOverwrite = Math.max(state.lastOverwrite, seq);
     const types = state.seen.get(seq) ?? new Set<string>();
     types.add(env.type);
     state.seen.set(seq, types);

@@ -232,3 +232,12 @@ it("asks for a resync when a later snapshot misses a live voice listen", () => {
   s.baseline("p", 9);
   expect(resynced).toEqual(["p"]);
 });
+
+it("remembers a live deletion long after it left the repeat window", () => {
+  const { s, resynced } = setup();
+  s.baseline("p", 9);
+  s.accept(env("message.deleted", "p", 10));
+  for (let seq = 11; seq <= 10 + TYPE_LAG * 3; seq += 1) s.accept(env("message.sent", "p", seq));
+  s.baseline("p", 9);
+  expect(resynced).toEqual(["p"]);
+});
