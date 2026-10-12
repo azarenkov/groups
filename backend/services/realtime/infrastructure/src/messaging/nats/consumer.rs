@@ -11,7 +11,7 @@ use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 
 use std::sync::Arc;
 
-use realtime_core::{ports::directory::RecipientDirectory, ports::projection::RealtimeProjection, ports::publisher::RealtimePublisher, usecases::dispatch_event::DispatchEvent};
+use realtime_core::{ports::directory::RecipientDirectory, ports::projection::RealtimeProjection, ports::publisher::RealtimePublisher, usecases::dispatch_event::{DispatchEvent, EventSequence}};
 
 #[derive(Clone)]
 pub struct ConsumerSpec {
@@ -76,7 +76,8 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
                                         subject = %subject,
                                     );
                                     async {
-                                        match dispatch.execute(&subject, &m.payload).await {
+                                        let sequence = m.sequence.map(|s| EventSequence { partition: s.partition, seq: s.seq });
+                                        match dispatch.execute_sequenced(&subject, &m.payload, sequence).await {
                                             Ok(_) => {
                                                 if let Err(e) = m.ack().await {
                                                     tracing::warn!(error = %e, %subject, "Failed to ack message");

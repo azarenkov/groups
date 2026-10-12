@@ -112,11 +112,13 @@ impl From<ChannelMessageDto> for MessageResponse {
 #[derive(Debug, Serialize)]
 pub struct ListChannelMessagesResponse {
     pub messages: Vec<MessageResponse>,
+    pub partition: String,
+    pub seq: i64,
 }
 
 impl ListChannelMessagesResponse {
-    pub fn new(messages: Vec<MessageResponse>) -> Self {
-        Self { messages }
+    pub fn new(messages: Vec<MessageResponse>, partition: Uuid, seq: i64) -> Self {
+        Self { messages, partition: partition.to_string(), seq }
     }
 }
 

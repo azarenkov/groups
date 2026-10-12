@@ -1,10 +1,12 @@
 use crate::messaging::partitions::{outbox_partition_key, partition_for, partition_token};
-use ports::{outbox::record::OutboxRecord, outbox_publisher::OutboxPublisher, outbox_publisher::OutboxPublisherError};
+use ports::{outbox::record::OutboxRecord, outbox::record::PartitionSequence, outbox_publisher::OutboxPublisher, outbox_publisher::OutboxPublisherError};
 use async_nats::{HeaderMap, jetstream::Context};
 use async_trait::async_trait;
 
 const MSG_ID_HEADER: &str = "Nats-Msg-Id";
 const REQUEST_ID_HEADER: &str = "X-Request-Id";
+pub const PARTITION_HEADER: &str = "Rift-Partition";
+pub const PARTITION_SEQ_HEADER: &str = "Rift-Partition-Seq";
 
 pub struct NatsOutboxPublisher {
     jetstream: Context,
@@ -40,7 +42,11 @@ pub fn partitioned_subject(prefix: &str, record: &OutboxRecord, partitions: u32)
 
 #[async_trait]
 impl OutboxPublisher for NatsOutboxPublisher {
-    async fn publish(&self, record: &OutboxRecord) -> Result<(), OutboxPublisherError> {
+    async fn publish(
+        &self,
+        record: &OutboxRecord,
+        sequence: Option<PartitionSequence>,
+    ) -> Result<(), OutboxPublisherError> {
         let subject = self.subject_for(record);
         let payload = serde_json::to_vec(&record.payload)
             .map_err(|e| OutboxPublisherError::Serialization(e.to_string()))?;
@@ -49,6 +55,10 @@ impl OutboxPublisher for NatsOutboxPublisher {
         headers.insert(MSG_ID_HEADER, record.id.to_string().as_str());
         if let Some(request_id) = record.request_id.as_deref() {
             headers.insert(REQUEST_ID_HEADER, request_id);
+        }
+        if let Some(sequence) = sequence {
+            headers.insert(PARTITION_HEADER, sequence.partition.to_string().as_str());
+            headers.insert(PARTITION_SEQ_HEADER, sequence.seq.to_string().as_str());
         }
 
         let ack_future = self

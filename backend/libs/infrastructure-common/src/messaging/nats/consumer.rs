@@ -1,3 +1,6 @@
+use ports::outbox::record::PartitionSequence;
+
+use crate::messaging::nats::producer::{PARTITION_HEADER, PARTITION_SEQ_HEADER};
 use ports::event_consumer::{Disposition, DispositionFn, 
     ConsumedMessage, EventConsumer, EventConsumerError, StartPosition, SubscribeOptions,
 };
@@ -117,6 +120,7 @@ impl EventConsumer for NatsEventConsumer {
                                 .as_ref()
                                 .and_then(|h| h.get("X-Request-Id"))
                                 .map(|v| v.as_str().to_string());
+                            let sequence = partition_sequence(msg.headers.as_ref());
                             let subject =
                                 crate::messaging::partitions::normalize_subject(msg.subject.as_str());
                             let ack_fn: DispositionFn = Box::new(move |disposition| {
@@ -132,7 +136,7 @@ impl EventConsumer for NatsEventConsumer {
                                 .boxed()
                             });
                             Some(Ok(ConsumedMessage::new(
-                                payload, request_id, subject, ack_fn,
+                                payload, request_id, subject, sequence, ack_fn,
                             )))
                         }
                         Err(e) => Some(Err(EventConsumerError::Stream(e.to_string()))),
@@ -144,6 +148,13 @@ impl EventConsumer for NatsEventConsumer {
         }
         .boxed()
     }
+}
+
+fn partition_sequence(headers: Option<&async_nats::HeaderMap>) -> Option<PartitionSequence> {
+    let headers = headers?;
+    let partition = headers.get(PARTITION_HEADER)?.as_str().parse().ok()?;
+    let seq = headers.get(PARTITION_SEQ_HEADER)?.as_str().parse().ok()?;
+    Some(PartitionSequence { partition, seq })
 }
 
 async fn create_durable_consumer(
@@ -176,4 +187,27 @@ async fn create_durable_consumer(
     let consumer = stream.create_consumer(config).await?;
 
     Ok(consumer)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_the_partition_sequence_from_headers() {
+        let partition = uuid::Uuid::new_v4();
+        let mut headers = async_nats::HeaderMap::new();
+        headers.insert(PARTITION_HEADER, partition.to_string().as_str());
+        headers.insert(PARTITION_SEQ_HEADER, "42");
+        assert_eq!(partition_sequence(Some(&headers)), Some(PartitionSequence { partition, seq: 42 }));
+    }
+
+    #[test]
+    fn ignores_missing_or_broken_sequence_headers() {
+        assert_eq!(partition_sequence(None), None);
+        let mut headers = async_nats::HeaderMap::new();
+        headers.insert(PARTITION_HEADER, "not-a-uuid");
+        headers.insert(PARTITION_SEQ_HEADER, "1");
+        assert_eq!(partition_sequence(Some(&headers)), None);
+    }
 }

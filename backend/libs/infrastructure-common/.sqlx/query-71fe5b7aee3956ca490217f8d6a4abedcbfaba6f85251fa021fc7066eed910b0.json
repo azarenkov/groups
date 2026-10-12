@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                aggregate_id,\n                aggregate_type AS \"aggregate_type: AggregateTypeDto\",\n                parent_id,\n                parent_type AS \"parent_type: AggregateTypeDto\",\n                event_type,\n                payload,\n                occurred_at,\n                request_id,\n                attempts\n            FROM outbox o\n            WHERE processed_at IS NULL\n              AND (\n                  last_attempt_at IS NULL\n                  OR last_attempt_at < now()\n                     - (LEAST(attempts::int, $2) * $1 * interval '1 second')\n              )\n              AND NOT EXISTS (\n                  SELECT 1 FROM outbox earlier\n                  WHERE earlier.partition_key = o.partition_key\n                    AND earlier.processed_at IS NULL\n                    AND earlier.seq < o.seq\n              )\n            ORDER BY last_attempt_at NULLS FIRST, seq\n            FOR UPDATE SKIP LOCKED\n            LIMIT 1\n            ",
+  "query": "\n            SELECT\n                id,\n                aggregate_id,\n                aggregate_type AS \"aggregate_type: AggregateTypeDto\",\n                parent_id,\n                parent_type AS \"parent_type: AggregateTypeDto\",\n                event_type,\n                payload,\n                occurred_at,\n                request_id,\n                attempts,\n                partition_key,\n                partition_seq\n            FROM outbox o\n            WHERE processed_at IS NULL\n              AND (\n                  last_attempt_at IS NULL\n                  OR last_attempt_at < now()\n                     - (LEAST(attempts::int, $2) * $1 * interval '1 second')\n              )\n              AND NOT EXISTS (\n                  SELECT 1 FROM outbox earlier\n                  WHERE earlier.partition_key = o.partition_key\n                    AND earlier.processed_at IS NULL\n                    AND earlier.seq < o.seq\n              )\n            ORDER BY last_attempt_at NULLS FIRST, seq\n            FOR UPDATE SKIP LOCKED\n            LIMIT 1\n            ",
   "describe": {
     "columns": [
       {
@@ -80,6 +80,16 @@
         "ordinal": 9,
         "name": "attempts",
         "type_info": "Int2"
+      },
+      {
+        "ordinal": 10,
+        "name": "partition_key",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 11,
+        "name": "partition_seq",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -98,8 +108,10 @@
       false,
       false,
       true,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "ece7974c67d41b43fe32883b065f79719ac6c0ced6bc93f44929123f2c9e7ecd"
+  "hash": "71fe5b7aee3956ca490217f8d6a4abedcbfaba6f85251fa021fc7066eed910b0"
 }

@@ -56,7 +56,7 @@ fn payload_uuid(record: &OutboxRecord, field: &str) -> Option<Uuid> {
         .and_then(|s| Uuid::parse_str(s).ok())
 }
 
-fn conversation_key(a: Uuid, b: Uuid) -> Uuid {
+pub fn conversation_key(a: Uuid, b: Uuid) -> Uuid {
     let mut bytes = [0u8; 16];
     for (i, byte) in bytes.iter_mut().enumerate() {
         *byte = a.as_bytes()[i] ^ b.as_bytes()[i];

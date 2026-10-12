@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox_publisher::OutboxPublisher, repository::RepositoryError};
+use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox::record::PartitionSequence, outbox_publisher::OutboxPublisher, repository::RepositoryError};
 use chrono::{Duration, Utc};
 use sqlx::{Pool, Postgres};
 
@@ -58,7 +58,9 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
                 payload,
                 occurred_at,
                 request_id,
-                attempts
+                attempts,
+                partition_key,
+                partition_seq
             FROM outbox o
             WHERE processed_at IS NULL
               AND (
@@ -108,7 +110,11 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
         );
         let _enter = dispatch_span.enter();
 
-        match self.publisher.publish(&record).await {
+        let sequence = match (row.partition_key, row.partition_seq) {
+            (Some(partition), Some(seq)) => Some(PartitionSequence { partition, seq }),
+            _ => None,
+        };
+        match self.publisher.publish(&record, sequence).await {
             Ok(()) => {
                 sqlx::query!(
                     r#"

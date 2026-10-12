@@ -185,6 +185,7 @@ pub struct AppState {
     >,
     pub conversation_pins_usecase: ConversationPins<PostgresConversationPinRepository>,
     pub dm_conversations_usecase: DmConversations<PostgresDmConversationRepository>,
+    pub partition_sequences: infrastructure_common::database::postgres::repositories::outbox_record::PostgresPartitionSequences,
     pub list_shared_content_usecase:
         ListSharedContent<PostgresSharedContentRepository, PostgresChannelRepository, PostgresCommunityRepository>,
     pub list_message_attachments_usecase:

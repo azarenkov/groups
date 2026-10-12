@@ -323,6 +323,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         conversation_pins_usecase: ConversationPins::new(Arc::new(PostgresConversationPinRepository::new(
             postgres_pool.clone(),
         ))),
+        partition_sequences: infrastructure_common::database::postgres::repositories::outbox_record::PostgresPartitionSequences::new(postgres_pool.clone()),
         dm_conversations_usecase: DmConversations::new(Arc::new(PostgresDmConversationRepository::new(
             postgres_pool.clone(),
         ))),

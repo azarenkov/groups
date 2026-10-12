@@ -15,6 +15,12 @@ pub struct OutboxRecord {
     pub request_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PartitionSequence {
+    pub partition: Uuid,
+    pub seq: i64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AggregateType {
     Channel,
