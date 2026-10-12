@@ -434,6 +434,10 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             }),
         );
         publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
+        let skipped: Vec<Uuid> = unique(evt.skipped_ids.into_iter().filter(|id| *id != evt.user_id));
+        if !skipped.is_empty() {
+            publisher.publish_to_users(skipped, &Envelope::new("sequence.skip", json!({}))).await?;
+        }
         return Ok(());
     }
 
@@ -1353,6 +1357,40 @@ mod tests {
                 self.to.lock().unwrap().push(recipients);
                 Ok(())
             }
+        }
+
+        #[tokio::test]
+        async fn sends_a_skip_to_the_rest_of_the_channel_when_a_message_is_hidden() {
+            let publisher = std::sync::Arc::new(Captured::default());
+            let dispatch = DispatchEvent::new(
+                std::sync::Arc::new(Directory::default()),
+                publisher.clone(),
+                std::sync::Arc::new(Relations { peers: vec![] }),
+            );
+            let (hider, other) = (Uuid::new_v4(), Uuid::new_v4());
+            let payload = serde_json::to_vec(&json!({
+                "user_id": hider,
+                "message_id": Uuid::new_v4(),
+                "hidden_at": Utc::now(),
+                "skipped_ids": [other, hider],
+            }))
+            .unwrap();
+            dispatch
+                .execute_sequenced(
+                    "rift.events.message.p3.message.hidden",
+                    &payload,
+                    Some(EventSequence { partition: "messaging:c".to_string(), seq: 7, members: vec![] }),
+                )
+                .await
+                .unwrap();
+            let sent = publisher.sent.lock().unwrap();
+            let to = publisher.to.lock().unwrap();
+            assert_eq!(sent[0]["type"], json!("message.hidden"));
+            assert_eq!(sent[0]["seq"], json!(7));
+            assert_eq!(to[0], vec![hider]);
+            assert_eq!(sent[1]["type"], json!("sequence.skip"));
+            assert_eq!(sent[1]["seq"], json!(7));
+            assert_eq!(to[1], vec![other]);
         }
 
         #[tokio::test]

@@ -63,6 +63,8 @@ pub struct MessageHiddenV1 {
     pub user_id: Uuid,
     pub message_id: Uuid,
     pub hidden_at: DateTime<Utc>,
+    #[serde(default)]
+    pub skipped_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
