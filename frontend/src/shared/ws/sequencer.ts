@@ -25,6 +25,15 @@ interface PartitionState {
   timer: ReturnType<typeof setTimeout> | null;
 }
 
+const DESTRUCTIVE_TYPES: ReadonlySet<string> = new Set([
+  "message.edited",
+  "message.deleted",
+  "message.hidden",
+  "dm_message.edited",
+  "dm_message.deleted",
+  "dm_conversation.cleared",
+]);
+
 const sequenceOf = (env: WsEnvelope): { partition: string; seq: number } | null => {
   const { partition, seq } = env as { partition?: unknown; seq?: unknown };
   return typeof partition === "string" && typeof seq === "number" && Number.isFinite(seq) ? { partition, seq } : null;
@@ -85,6 +94,7 @@ export class Sequencer {
     if (!known) state.contiguous = seq;
     const gapOpen = state.timer !== null;
     const missedBeforeLive = state.covered === 0 && seq < state.firstLive;
+    const overtakenByLive = this.changedAfter(state, seq);
     state.covered = Math.max(state.covered, seq);
     state.last = Math.max(state.last, seq);
     const covered = Array.from(state.pending.keys())
@@ -99,7 +109,7 @@ export class Sequencer {
       }
     }
     this.drain(state);
-    if (missedBeforeLive || (gapOpen && state.timer === null)) this.notifyResync(partition);
+    if (missedBeforeLive || overtakenByLive || (gapOpen && state.timer === null)) this.notifyResync(partition);
   }
 
   position(partition: string): number | undefined {
@@ -125,6 +135,16 @@ export class Sequencer {
     };
     this.partitions.set(partition, state);
     return state;
+  }
+
+  private changedAfter(state: PartitionState, seq: number): boolean {
+    for (const [seenSeq, types] of state.seen) {
+      if (seenSeq <= seq) continue;
+      for (const type of types) {
+        if (DESTRUCTIVE_TYPES.has(type)) return true;
+      }
+    }
+    return false;
   }
 
   private wasSeen(state: PartitionState, env: WsEnvelope, seq: number): boolean {
