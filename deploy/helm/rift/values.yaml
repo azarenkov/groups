@@ -143,6 +143,17 @@ networkPolicy:
     allowAnySource: false
   extraFrom: {}
 
+monitoring:
+  enabled: false
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: monitoring
+  scrapeInterval: 30s
+  outbox:
+    stuckFor: 5m
+    oldestPendingSeconds: 300
+    oldestPendingFor: 10m
+
 podAnnotations: {}
 nodeSelector: {}
 tolerations: []
@@ -223,6 +234,7 @@ workers:
       OUTBOX_CLEANUP_RETENTION_SECS: "604800"
       OUTBOX_CLEANUP_BATCH_SIZE: "10000"
       OUTBOX_LIVENESS_STALE_SECS: "60"
+      OUTBOX_METRICS_INTERVAL_SECS: "15"
     resources:
       requests: { cpu: 50m, memory: 64Mi }
       limits: { memory: 256Mi }

@@ -147,7 +147,11 @@ locals {
     }
   }
 
-  chart_values = module.chart_values.result
+  chart_values = merge(module.chart_values.result, {
+    monitoring = merge(lookup(module.chart_values.result, "monitoring", {}), {
+      enabled = var.monitoring_ready != ""
+    })
+  })
 
   chart_checksum = var.delivery == "helm" ? sha256(join("", [
     for f in sort(fileset(var.chart_path, "**")) : filesha256("${var.chart_path}/${f}")
@@ -236,7 +240,12 @@ resource "helm_release" "rift" {
     kubernetes_secret_v1.databases,
     kubernetes_secret_v1.postgres_admin,
     kubernetes_secret_v1.registry,
+    terraform_data.monitoring_ready,
   ]
+}
+
+resource "terraform_data" "monitoring_ready" {
+  input = var.monitoring_ready
 }
 
 resource "terraform_data" "argocd_ready" {
@@ -320,5 +329,6 @@ resource "kubectl_manifest" "argocd_application" {
     kubernetes_secret_v1.registry,
     kubernetes_secret_v1.argocd_repo,
     terraform_data.argocd_ready,
+    terraform_data.monitoring_ready,
   ]
 }

@@ -16,8 +16,10 @@ use tokio::sync::watch;
 use tracing::Instrument;
 
 use crate::config::WorkerConfig;
+use crate::metrics::OutboxMetrics;
 
 mod config;
+mod metrics;
 
 struct Relay<P: OutboxPublisher> {
     source: String,
@@ -81,7 +83,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     let readiness = readiness.build();
 
-    let health_server = health::bind(worker_config.health_port, readiness.clone(), liveness)?;
+    let metrics = OutboxMetrics::default();
+    let health_server = health::bind_with(
+        worker_config.health_port,
+        readiness.clone(),
+        liveness,
+        metrics.configure(),
+    )?;
     let health_server_handle = health_server.handle();
     let health_handle = actix_web::rt::spawn(async move {
         if let Err(e) = health_server.await {
@@ -94,6 +102,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let cleanup_interval = Duration::from_secs(worker_config.outbox_cleanup_interval_secs);
     let cleanup_retention = worker_config.outbox_cleanup_retention_secs;
     let cleanup_batch_size = worker_config.outbox_cleanup_batch_size;
+    let metrics_interval = Duration::from_secs(worker_config.outbox_metrics_interval_secs);
 
     tracing::info!(
         sources = ?relays.iter().map(|r| r.source.as_str()).collect::<Vec<_>>(),
@@ -123,6 +132,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut relay_handles = Vec::with_capacity(relays.len());
     for relay in relays {
         let span = tracing::info_span!("outbox_source", source = %relay.source);
+        cleanup_handles.push(tokio::spawn(
+            run_metrics_loop(
+                relay.source.clone(),
+                relay.dispatcher.clone(),
+                metrics.clone(),
+                metrics_interval,
+            )
+            .instrument(span.clone()),
+        ));
         cleanup_handles.push(tokio::spawn(
             run_cleanup_loop(
                 relay.dispatcher.clone(),
@@ -234,5 +252,38 @@ async fn run_cleanup_loop<P>(
                 tracing::error!(error = %e, "Outbox cleanup failed");
             }
         }
+    }
+}
+
+async fn run_metrics_loop<P>(
+    source: String,
+    dispatcher: Arc<OutboxDispatcher<P>>,
+    metrics: OutboxMetrics,
+    interval: Duration,
+) where
+    P: OutboxPublisher,
+{
+    loop {
+        match tokio::time::timeout(interval, dispatcher.backlog()).await {
+            Ok(Ok(backlog)) => {
+                if backlog.stuck > 0 {
+                    tracing::error!(
+                        stuck = backlog.stuck,
+                        pending = backlog.pending,
+                        "Outbox has events that used up their publish attempts"
+                    );
+                }
+                metrics.record(&source, backlog);
+            }
+            Ok(Err(e)) => {
+                tracing::warn!(error = %e, "Outbox backlog sampling failed");
+                metrics.fail(&source);
+            }
+            Err(_) => {
+                tracing::warn!(timeout_secs = interval.as_secs(), "Outbox backlog sampling timed out");
+                metrics.fail(&source);
+            }
+        }
+        tokio::time::sleep(interval).await;
     }
 }
