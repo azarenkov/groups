@@ -13,7 +13,7 @@ import { playNotificationSound } from "../../../shared/lib/notificationSound";
 import { videoNoteDurationFromPayload, voiceDurationFromPayload } from "../../chat/lib/voice";
 import { notificationBody } from "../../chat/lib/notificationBody";
 import { hiddenDmsKnown, isDmHidden, useHiddenDmStore } from "../store/hiddenDmStore";
-import { clearedBefore, dmClearedFor, noteDmCleared } from "../lib/dmCleared";
+import { clearedBefore, dmClearedFor } from "../lib/dmCleared";
 import type { PinnedMessage } from "../../chat/api/pins";
 import type { InfiniteData } from "@tanstack/react-query";
 import type { GlobalSearchPage } from "../../search/api/globalSearch";
@@ -107,7 +107,6 @@ export const dmHandlers: WsHandlers = {
   "dm_conversation.cleared": (d) => {
       const cleared = dmClearedFor(d, useAuthStore.getState().user?.id);
       if (!cleared) return;
-      noteDmCleared(cleared.peerId, cleared.clearedAt);
       const bumpTs = lastDmBumpAt[cleared.peerId];
       if (bumpTs === undefined || bumpTs <= Date.parse(cleared.clearedAt)) {
         delete lastDmBumpAt[cleared.peerId];

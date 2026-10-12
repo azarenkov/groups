@@ -36,6 +36,7 @@ import { useNotificationSettingsStore } from "../../features/settings/store/noti
 import { useConversationPinsStore } from "../../features/communities/store/conversationPinsStore";
 import { useHiddenDmStore } from "../../features/dm/store/hiddenDmStore";
 import { refetchDmPreviews } from "../../features/dm/store/dmPreviewStore";
+import { admitDmEvent } from "../../features/dm/lib/dmCleared";
 import { installMessageCacheSync } from "../../features/chat/lib/messageCache";
 import { installQuerySync, queryClient } from "../query/queryClient";
 
@@ -85,6 +86,7 @@ export function installWsBootstrap() {
   installed = true;
   installMessageCacheSync();
   installQuerySync();
+  ws.addFilter((env) => admitDmEvent(env, useAuthStore.getState().user?.id));
   ws.onResync((partition) => {
     reconcilePairRelation(partition);
     refetchDmPreviews(true);

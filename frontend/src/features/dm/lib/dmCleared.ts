@@ -46,3 +46,17 @@ export const clearedAway = (peerId: string, createdAt: string): boolean => {
 export function forgetDmClears(): void {
   appliedClears.clear();
 }
+
+export function admitDmEvent(env: { type: string; data?: unknown }, selfId: string | undefined): boolean {
+  if (!selfId) return true;
+  if (env.type === "dm_conversation.cleared") {
+    const cleared = dmClearedFor(env.data, selfId);
+    if (cleared) noteDmCleared(cleared.peerId, cleared.clearedAt);
+    return true;
+  }
+  if (env.type !== "dm_message.sent") return true;
+  const d = (env.data ?? {}) as { senderId?: unknown; recipientId?: unknown; occurredAt?: unknown };
+  if (typeof d.senderId !== "string" || typeof d.recipientId !== "string" || typeof d.occurredAt !== "string") return true;
+  const peerId = d.senderId === selfId ? d.recipientId : d.senderId;
+  return !clearedAway(peerId, d.occurredAt);
+}

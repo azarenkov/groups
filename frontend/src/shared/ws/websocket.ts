@@ -94,6 +94,7 @@ export interface WsEnvelope<T = unknown> {
 }
 
 type Listener = (env: WsEnvelope) => void;
+type Filter = (env: WsEnvelope) => boolean;
 
 const RECONNECT_MIN_MS = 1000;
 const RECONNECT_MAX_MS = 30_000;
@@ -108,6 +109,7 @@ class WsClient {
   private endpoint: string;
   private socket: WebSocket | null = null;
   private listeners = new Set<Listener>();
+  private filters = new Set<Filter>();
   private wantOpen = false;
   private reconnectAttempts = 0;
   private reconnectTimer: number | null = null;
@@ -169,7 +171,17 @@ class WsClient {
     };
   }
 
+  addFilter(filter: Filter): () => void {
+    this.filters.add(filter);
+    return () => {
+      this.filters.delete(filter);
+    };
+  }
+
   deliver(env: WsEnvelope) {
+    for (const filter of this.filters) {
+      if (!filter(env)) return;
+    }
     for (const l of this.listeners) {
       try {
         l(env);

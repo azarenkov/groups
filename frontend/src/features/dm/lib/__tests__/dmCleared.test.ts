@@ -1,4 +1,4 @@
-import { clearedAway, clearedBefore, dmClearedFor, forgetDmClears, noteDmCleared } from "../dmCleared";
+import { admitDmEvent, clearedAway, clearedBefore, dmClearedFor, forgetDmClears, noteDmCleared } from "../dmCleared";
 
 it("resolves the peer of a cleared conversation", () => {
   const data = { participants: ["me", "peer"], clearedAt: "2026-10-11T10:00:00Z", scope: "everyone" };
@@ -47,5 +47,27 @@ describe("applied clears", () => {
     noteDmCleared("peer", "2026-10-11T10:00:00Z");
     forgetDmClears();
     expect(clearedAway("peer", "2026-10-11T09:30:00Z")).toBe(false);
+  });
+});
+
+describe("admitDmEvent", () => {
+  afterEach(() => forgetDmClears());
+
+  const sent = (senderId: string, recipientId: string, occurredAt: string) => ({
+    type: "dm_message.sent",
+    data: { id: "m", senderId, recipientId, occurredAt },
+  });
+
+  it("drops a send from before a clear the client already applied", () => {
+    const clear = {
+      type: "dm_conversation.cleared",
+      data: { participants: ["me", "peer"], clearedAt: "2026-10-11T10:00:00Z", scope: "everyone" },
+    };
+    expect(admitDmEvent(sent("peer", "me", "2026-10-11T09:59:00Z"), "me")).toBe(true);
+    expect(admitDmEvent(clear, "me")).toBe(true);
+    expect(admitDmEvent(sent("peer", "me", "2026-10-11T09:59:00Z"), "me")).toBe(false);
+    expect(admitDmEvent(sent("me", "peer", "2026-10-11T09:59:30Z"), "me")).toBe(false);
+    expect(admitDmEvent(sent("peer", "me", "2026-10-11T10:00:01Z"), "me")).toBe(true);
+    expect(admitDmEvent(sent("other", "me", "2026-10-11T09:59:00Z"), "me")).toBe(true);
   });
 });
