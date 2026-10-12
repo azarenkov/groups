@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox_publisher::OutboxPublisher, repository::RepositoryError};
+use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox::record::PartitionSequence, outbox_publisher::OutboxPublisher, repository::RepositoryError};
 use chrono::{Duration, Utc};
 use sqlx::{Pool, Postgres};
 
@@ -15,6 +15,7 @@ pub enum OutboxDispatchError {
 }
 
 pub struct OutboxDispatcher<P: OutboxPublisher> {
+    source: String,
     pool: Pool<Postgres>,
     publisher: Arc<P>,
     max_attempts: i16,
@@ -24,6 +25,7 @@ pub struct OutboxDispatcher<P: OutboxPublisher> {
 
 impl<P: OutboxPublisher> OutboxDispatcher<P> {
     pub fn new(
+        source: String,
         pool: Pool<Postgres>,
         publisher: Arc<P>,
         max_attempts: i16,
@@ -31,6 +33,7 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
         backoff_max_multiplier: i32,
     ) -> Self {
         Self {
+            source,
             pool,
             publisher,
             max_attempts,
@@ -58,7 +61,9 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
                 payload,
                 occurred_at,
                 request_id,
-                attempts
+                attempts,
+                partition_key,
+                partition_seq
             FROM outbox o
             WHERE processed_at IS NULL
               AND (
@@ -108,7 +113,14 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
         );
         let _enter = dispatch_span.enter();
 
-        match self.publisher.publish(&record).await {
+        let sequence = match (row.partition_key, row.partition_seq) {
+            (Some(partition), Some(seq)) => Some(PartitionSequence {
+                partition: crate::messaging::partitions::partition_id(&self.source, partition),
+                seq,
+            }),
+            _ => None,
+        };
+        match self.publisher.publish(&record, sequence).await {
             Ok(()) => {
                 sqlx::query!(
                     r#"

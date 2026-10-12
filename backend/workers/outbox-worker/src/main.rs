@@ -67,8 +67,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         liveness = liveness.watch(heartbeat.clone());
         tracing::info!(%source, %database, "Outbox source connected");
         relays.push(Relay {
-            source,
             dispatcher: Arc::new(OutboxDispatcher::new(
+                source.clone(),
                 pool,
                 publisher.clone(),
                 worker_config.outbox_max_attempts,
@@ -76,6 +76,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 worker_config.outbox_backoff_max_multiplier,
             )),
             heartbeat,
+            source,
         });
     }
     let readiness = readiness.build();

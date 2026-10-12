@@ -11,7 +11,9 @@ use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 
 use std::sync::Arc;
 
-use realtime_core::{ports::directory::RecipientDirectory, ports::projection::RealtimeProjection, ports::publisher::RealtimePublisher, usecases::dispatch_event::DispatchEvent};
+use super::sequence_gate::SequenceGate;
+
+use realtime_core::{ports::directory::RecipientDirectory, ports::projection::RealtimeProjection, ports::publisher::RealtimePublisher, usecases::dispatch_event::{DispatchEvent, EventSequence}};
 
 #[derive(Clone)]
 pub struct ConsumerSpec {
@@ -29,6 +31,7 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
     dispatch: Arc<DispatchEvent<D, P, B>>,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
     heartbeat: Heartbeat,
+    gate: Option<Arc<SequenceGate>>,
 ) {
     let event_consumer =
         NatsEventConsumer::new(jetstream.clone(), spec.stream.clone());
@@ -76,8 +79,16 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
                                         subject = %subject,
                                     );
                                     async {
-                                        match dispatch.execute(&subject, &m.payload).await {
+                                        let sequence = m.sequence.clone().map(|s| EventSequence { partition: s.partition, seq: s.seq });
+                                        let gated = gate.as_ref().zip(sequence.clone());
+                                        if let Some((gate, s)) = &gated {
+                                            gate.wait_turn(&s.partition, s.seq).await;
+                                        }
+                                        match dispatch.execute_sequenced(&subject, &m.payload, sequence).await {
                                             Ok(_) => {
+                                                if let Some((gate, s)) = &gated {
+                                                    gate.done(&s.partition, s.seq);
+                                                }
                                                 if let Err(e) = m.ack().await {
                                                     tracing::warn!(error = %e, %subject, "Failed to ack message");
                                                 }
