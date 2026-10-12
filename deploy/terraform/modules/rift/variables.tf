@@ -3,6 +3,12 @@ variable "namespace" {
   default = "rift"
 }
 
+variable "monitoring_ready" {
+  description = "Any value that becomes known only once the Prometheus Operator CRDs are installed, e.g. the platform module's monitoring_crds_release output; empty leaves out the PodMonitor and alerting rules of the app"
+  type        = string
+  default     = ""
+}
+
 variable "release_name" {
   type    = string
   default = "rift"

@@ -226,10 +226,16 @@ async fn an_event_is_kept_after_running_out_of_attempts() {
         .await
         .unwrap();
     assert_eq!(pending, 2);
+    let backlog = dispatcher.backlog().await.unwrap();
+    assert_eq!((backlog.pending, backlog.stuck), (2, 1));
+    assert!(backlog.oldest_pending_secs >= 0.0);
 
     publisher.recover("stuck");
     drain(&dispatcher, 10).await;
     assert_eq!(publisher.published(), vec!["stuck", "next"]);
+    let backlog = dispatcher.backlog().await.unwrap();
+    assert_eq!((backlog.pending, backlog.stuck), (0, 0));
+    assert_eq!(backlog.oldest_pending_secs, 0.0);
     db.drop().await;
 }
 
@@ -273,5 +279,21 @@ async fn parallel_dispatchers_publish_each_event_once_in_partition_order() {
         sorted.sort();
         assert_eq!(order, sorted);
     }
+    db.drop().await;
+}
+
+#[tokio::test]
+#[ignore = "needs Postgres through RIFT_TEST_DATABASE_URL"]
+async fn a_threshold_above_the_stored_cap_still_counts_stuck_events() {
+    let db = TestDb::new().await;
+    save(&db.pool, &[channel_event(Uuid::new_v4(), "capped")]).await;
+    sqlx::query("UPDATE outbox SET attempts = 100")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+
+    let publisher = Arc::new(FakePublisher::default());
+    let backlog = dispatcher(&db.pool, &publisher, 500).backlog().await.unwrap();
+    assert_eq!((backlog.pending, backlog.stuck), (1, 1));
     db.drop().await;
 }
