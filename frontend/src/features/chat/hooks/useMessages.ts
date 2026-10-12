@@ -261,6 +261,7 @@ export function useMessages(params: {
           if (!loaded || !alive()) return;
           if (loaded.messages.length === 0 && !loaded.reachedStart) return;
           setMessages((prev) => reconcileSyncedWindow(loaded.messages, prev, loaded.reachedStart, knownBefore));
+          setHasMore(!loaded.reachedStart);
           adoptBaseline(loaded.version);
           return;
         } catch {
@@ -365,7 +366,7 @@ export function useMessages(params: {
       if (!loaded || !alive()) return;
       setMessages((prev) => reconcileSyncedWindow(loaded.messages, prev, loaded.reachedStart, knownBefore));
       adoptBaseline(loaded.version);
-      if (loaded.reachedStart) setHasMore(false);
+      setHasMore(!loaded.reachedStart);
     } catch (err) {
       console.warn("[ChatView] failed to refresh history after join:", err);
     }
