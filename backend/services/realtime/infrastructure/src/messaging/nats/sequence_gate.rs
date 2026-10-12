@@ -18,22 +18,34 @@ pub trait SequenceProgress: Send + Sync {
 
 struct PartitionTurn {
     done: Option<i64>,
-    first: Option<i64>,
-    contenders: BTreeSet<i64>,
+    waiting: BTreeSet<i64>,
+    elected: Option<(i64, Instant)>,
+    stalled_since: Option<Instant>,
     opened_at: Instant,
     restored: bool,
 }
 
 impl PartitionTurn {
     fn new() -> Self {
-        Self { done: None, first: None, contenders: BTreeSet::new(), opened_at: Instant::now(), restored: false }
+        Self {
+            done: None,
+            waiting: BTreeSet::new(),
+            elected: None,
+            stalled_since: None,
+            opened_at: Instant::now(),
+            restored: false,
+        }
+    }
+
+    fn active(&self) -> bool {
+        !self.waiting.is_empty() || self.elected.is_some()
     }
 }
 
 enum Turn {
     Go,
     Late,
-    Wait(Option<Instant>),
+    Wait(Instant),
 }
 
 pub struct SequenceGate {
@@ -43,6 +55,13 @@ pub struct SequenceGate {
     settle: Duration,
     progress: Option<Arc<dyn SequenceProgress>>,
     unsaved: Mutex<HashMap<String, i64>>,
+}
+
+fn turn_for<'a>(last: &'a mut HashMap<String, PartitionTurn>, partition: &str) -> &'a mut PartitionTurn {
+    if last.len() >= MAX_TRACKED_PARTITIONS && !last.contains_key(partition) {
+        last.retain(|_, turn| turn.active());
+    }
+    last.entry(partition.to_string()).or_insert_with(PartitionTurn::new)
 }
 
 impl SequenceGate {
@@ -77,17 +96,13 @@ impl SequenceGate {
         }
         let stored = progress.load(partition).await;
         let mut last = self.last.lock().unwrap_or_else(|e| e.into_inner());
-        if last.len() >= MAX_TRACKED_PARTITIONS && !last.contains_key(partition) {
-            last.clear();
-        }
-        let turn = last.entry(partition.to_string()).or_insert_with(PartitionTurn::new);
+        let turn = turn_for(&mut last, partition);
         turn.restored = true;
         match stored {
             Ok(stored) => {
                 if turn.done.is_none() {
                     turn.done = Some(stored.unwrap_or(0));
-                    turn.first = None;
-                    turn.contenders.clear();
+                    turn.elected = None;
                 }
             }
             Err(e) => {
@@ -118,46 +133,49 @@ impl SequenceGate {
     }
 
     fn turn(&self, partition: &str, seq: i64) -> Turn {
+        let now = Instant::now();
         let mut last = self.last.lock().unwrap_or_else(|e| e.into_inner());
-        if last.len() >= MAX_TRACKED_PARTITIONS && !last.contains_key(partition) {
-            last.clear();
-        }
-        let turn = last.entry(partition.to_string()).or_insert_with(PartitionTurn::new);
+        let turn = turn_for(&mut last, partition);
         if let Some(done) = turn.done {
-            return if seq <= done {
-                Turn::Late
-            } else if seq == done + 1 {
-                Turn::Go
-            } else {
-                Turn::Wait(None)
-            };
+            if seq <= done {
+                turn.waiting.remove(&seq);
+                return Turn::Late;
+            }
+            if seq == done + 1 {
+                turn.waiting.remove(&seq);
+                return Turn::Go;
+            }
         }
-        if let Some(first) = turn.first {
-            return if first == seq { Turn::Go } else { Turn::Wait(None) };
+        turn.waiting.insert(seq);
+        if let Some((elected, at)) = turn.elected {
+            if elected == seq {
+                turn.waiting.remove(&seq);
+                return Turn::Go;
+            }
+            if now < at + self.max_wait {
+                return Turn::Wait(at + self.max_wait);
+            }
+            turn.elected = None;
         }
-        turn.contenders.insert(seq);
-        let settled_at = turn.opened_at + self.settle;
-        if Instant::now() < settled_at {
-            return Turn::Wait(Some(settled_at));
+        let elect_at = match turn.done {
+            None => turn.opened_at + self.settle,
+            Some(_) => *turn.stalled_since.get_or_insert(now) + self.max_wait,
+        };
+        if now < elect_at {
+            return Turn::Wait(elect_at);
         }
-        if turn.contenders.first() == Some(&seq) {
-            turn.first = Some(seq);
-            turn.contenders.clear();
+        let lowest = *turn.waiting.first().unwrap_or(&seq);
+        turn.elected = Some((lowest, now));
+        if lowest == seq {
+            turn.waiting.remove(&seq);
             return Turn::Go;
         }
-        Turn::Wait(None)
-    }
-
-    fn forget_contender(&self, partition: &str, seq: i64) {
-        let mut last = self.last.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(turn) = last.get_mut(partition) {
-            turn.contenders.remove(&seq);
-        }
+        self.advanced.notify_waiters();
+        Turn::Wait(now + self.max_wait)
     }
 
     pub async fn wait_turn(&self, partition: &str, seq: i64) -> bool {
         self.restore(partition).await;
-        let deadline = Instant::now() + self.max_wait;
         loop {
             let advanced = self.advanced.notified();
             tokio::pin!(advanced);
@@ -165,25 +183,23 @@ impl SequenceGate {
             let wake = match self.turn(partition, seq) {
                 Turn::Go => return true,
                 Turn::Late => return false,
-                Turn::Wait(settled_at) => settled_at.map_or(deadline, |at| at.min(deadline)),
+                Turn::Wait(wake) => wake,
             };
-            if tokio::time::timeout_at(wake, advanced).await.is_err() && wake >= deadline {
-                self.forget_contender(partition, seq);
-                return true;
-            }
+            let _ = tokio::time::timeout_at(wake, advanced).await;
         }
     }
 
     pub fn done(&self, partition: &str, seq: i64) {
         {
             let mut last = self.last.lock().unwrap_or_else(|e| e.into_inner());
-            if last.len() >= MAX_TRACKED_PARTITIONS && !last.contains_key(partition) {
-                last.clear();
+            let turn = turn_for(&mut last, partition);
+            let done = turn.done.map_or(seq, |done| done.max(seq));
+            turn.done = Some(done);
+            if turn.elected.is_some_and(|(elected, _)| elected <= done) {
+                turn.elected = None;
             }
-            let turn = last.entry(partition.to_string()).or_insert_with(PartitionTurn::new);
-            turn.done = Some(turn.done.map_or(seq, |done| done.max(seq)));
-            turn.first = None;
-            turn.contenders.clear();
+            turn.waiting.retain(|waiting| *waiting > done);
+            turn.stalled_since = None;
         }
         if self.progress.is_some() {
             let mut unsaved = self.unsaved.lock().unwrap_or_else(|e| e.into_inner());
@@ -232,6 +248,43 @@ mod tests {
             }
             Ok(())
         }
+    }
+
+    #[tokio::test]
+    async fn lets_only_the_lowest_waiting_event_through_after_a_gap_times_out() {
+        let gate = Arc::new(SequenceGate::with_settle(Duration::from_millis(50), Duration::ZERO));
+        gate.done("p", 9);
+        let higher = tokio::spawn({
+            let gate = gate.clone();
+            async move { gate.wait_turn("p", 12).await }
+        });
+        let lower = tokio::spawn({
+            let gate = gate.clone();
+            async move { gate.wait_turn("p", 11).await }
+        });
+        assert!(tokio::time::timeout(Duration::from_millis(500), lower).await.unwrap().unwrap());
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(!higher.is_finished());
+        gate.done("p", 11);
+        assert!(tokio::time::timeout(Duration::from_millis(500), higher).await.unwrap().unwrap());
+    }
+
+    #[tokio::test]
+    async fn keeps_active_partitions_when_the_tracking_cap_is_reached() {
+        let gate = Arc::new(SequenceGate::with_settle(Duration::from_secs(5), Duration::ZERO));
+        gate.done("busy", 1);
+        let waiting = tokio::spawn({
+            let gate = gate.clone();
+            async move { gate.wait_turn("busy", 3).await }
+        });
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        for n in 0..MAX_TRACKED_PARTITIONS {
+            gate.done(&format!("idle-{n}"), 1);
+        }
+        assert!(!waiting.is_finished());
+        gate.done("busy", 2);
+        assert!(tokio::time::timeout(Duration::from_millis(500), waiting).await.unwrap().unwrap());
+        assert!(gate.last.lock().unwrap().len() < MAX_TRACKED_PARTITIONS);
     }
 
     #[tokio::test]
