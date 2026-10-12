@@ -117,7 +117,7 @@ async fn drain(dispatcher: &OutboxDispatcher<FakePublisher>, rounds: usize) {
 
 #[tokio::test]
 #[ignore = "needs Postgres through RIFT_TEST_DATABASE_URL"]
-async fn concurrent_writers_get_gapless_sequences_in_commit_order() {
+async fn concurrent_writers_get_gapless_sequences() {
     let db = TestDb::new().await;
     let channel = Uuid::new_v4();
     let writers = (0..8).map(|writer| {
@@ -132,14 +132,53 @@ async fn concurrent_writers_get_gapless_sequences_in_commit_order() {
         writer.unwrap();
     }
 
-    let rows: Vec<(i64, Option<i64>)> =
-        sqlx::query_as("SELECT seq, partition_seq FROM outbox WHERE partition_key = $1 ORDER BY seq")
+    let mut sequences: Vec<i64> =
+        sqlx::query_scalar("SELECT partition_seq FROM outbox WHERE partition_key = $1")
             .bind(channel)
             .fetch_all(&db.pool)
             .await
             .unwrap();
-    let sequences: Vec<i64> = rows.iter().map(|(_, seq)| seq.unwrap()).collect();
+    sequences.sort();
     assert_eq!(sequences, (1..=200).collect::<Vec<i64>>());
+    db.drop().await;
+}
+
+async fn partition_seq_of(pool: &Pool<Postgres>, label: &str) -> i64 {
+    sqlx::query_scalar("SELECT partition_seq FROM outbox WHERE event_type = $1")
+        .bind(label)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+#[ignore = "needs Postgres through RIFT_TEST_DATABASE_URL"]
+async fn a_writer_waits_for_the_open_transaction_of_its_partition() {
+    let db = TestDb::new().await;
+    let (channel, other) = (Uuid::new_v4(), Uuid::new_v4());
+
+    let mut first = db.pool.begin().await.unwrap();
+    save_outbox_records(&mut first, &[channel_event(channel, "first")]).await.unwrap();
+
+    let second = tokio::spawn({
+        let pool = db.pool.clone();
+        async move { save(&pool, &[channel_event(channel, "second")]).await }
+    });
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        save(&db.pool, &[channel_event(other, "elsewhere")]),
+    )
+    .await
+    .expect("a writer of another partition must not wait");
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    assert!(!second.is_finished(), "the second writer must wait until the first commits");
+
+    first.commit().await.unwrap();
+    second.await.unwrap();
+
+    assert_eq!(partition_seq_of(&db.pool, "first").await, 1);
+    assert_eq!(partition_seq_of(&db.pool, "second").await, 2);
+    assert_eq!(partition_seq_of(&db.pool, "elsewhere").await, 1);
     db.drop().await;
 }
 
