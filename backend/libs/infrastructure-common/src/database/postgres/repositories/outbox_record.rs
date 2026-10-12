@@ -2,7 +2,7 @@ use ports::{outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::messaging::partitions::outbox_partition_key;
+use crate::messaging::partitions::{is_conversation_partition, outbox_partition_key};
 use crate::database::postgres::{
     dto::aggregate_type::AggregateTypeDto, error::map_sqlx_error_to_domain_error,
 };
@@ -22,18 +22,24 @@ pub async fn save_outbox_records(
     }
     for record in records {
         let partition_key = outbox_partition_key(record);
-        let partition_seq = sqlx::query_scalar!(
-            r#"
-            INSERT INTO outbox_partition_seq (partition_key, seq)
-            VALUES ($1, 1)
-            ON CONFLICT (partition_key) DO UPDATE SET seq = outbox_partition_seq.seq + 1
-            RETURNING seq
-            "#,
-            partition_key,
-        )
-        .fetch_one(&mut **tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        let partition_seq = if is_conversation_partition(record) {
+            Some(
+                sqlx::query_scalar!(
+                    r#"
+                    INSERT INTO outbox_partition_seq (partition_key, seq)
+                    VALUES ($1, 1)
+                    ON CONFLICT (partition_key) DO UPDATE SET seq = outbox_partition_seq.seq + 1
+                    RETURNING seq
+                    "#,
+                    partition_key,
+                )
+                .fetch_one(&mut **tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?,
+            )
+        } else {
+            None
+        };
         let aggregate_type = AggregateTypeDto::from(&record.aggregate_type);
         let parent_type = record.parent_type.as_ref().map(AggregateTypeDto::from);
 
