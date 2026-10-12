@@ -65,6 +65,7 @@ describe("admitDmEvent", () => {
     };
     expect(admitDmEvent(sent("peer", "me", "2026-10-11T09:59:00Z"), "me")).toBe(true);
     expect(admitDmEvent(clear, "me")).toBe(true);
+    expect(admitDmEvent({ ...clear, data: { ...clear.data, participants: ["peer", "me"] } }, "me")).toBe(false);
     expect(admitDmEvent(sent("peer", "me", "2026-10-11T09:59:00Z"), "me")).toBe(false);
     expect(admitDmEvent(sent("me", "peer", "2026-10-11T09:59:30Z"), "me")).toBe(false);
     expect(admitDmEvent(sent("peer", "me", "2026-10-11T10:00:01Z"), "me")).toBe(true);

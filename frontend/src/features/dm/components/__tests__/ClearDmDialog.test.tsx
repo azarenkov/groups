@@ -4,7 +4,8 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import i18n from "../../../../i18n";
 import ClearDmDialog, { useClearDmDialog } from "../ClearDmDialog";
 import { dmAPI } from "../../api/dm";
-import { ws } from "../../../../shared/ws/websocket";
+import { ws, type WsEnvelope } from "../../../../shared/ws/websocket";
+import { admitDmEvent, forgetDmClears } from "../../lib/dmCleared";
 import { useAuthStore } from "../../../auth/store/authStore";
 
 jest.mock("../../api/dm", () => ({ dmAPI: { clearConversation: jest.fn() } }));
@@ -70,6 +71,19 @@ it("applies the same clear only once even when it arrives twice", async () => {
   ws.receive({ ...env, seq: 2, data: { ...env.data, clearedAt: "2026-10-11T11:00:01Z" } });
   off();
   expect(seen).toHaveLength(2);
+});
+
+it("applies a clear once when the server echoes a clear applied locally", () => {
+  const offFilter = ws.addFilter((env) => admitDmEvent(env, "me"));
+  const seen: unknown[] = [];
+  const off = ws.on((env) => seen.push(env));
+  const data = { actorId: "me", participants: ["me", "echo-peer"], scope: "me", clearedAt: "2026-10-11T12:00:00Z" };
+  ws.deliver({ type: "dm_conversation.cleared", data });
+  ws.receive({ type: "dm_conversation.cleared", data, partition: "messaging:clear-echo", seq: 7 } as WsEnvelope);
+  off();
+  offFilter();
+  forgetDmClears();
+  expect(seen).toHaveLength(1);
 });
 
 it("applies the clear locally even while the socket is open", async () => {

@@ -51,7 +51,10 @@ export function admitDmEvent(env: { type: string; data?: unknown }, selfId: stri
   if (!selfId) return true;
   if (env.type === "dm_conversation.cleared") {
     const cleared = dmClearedFor(env.data, selfId);
-    if (cleared) noteDmCleared(cleared.peerId, cleared.clearedAt);
+    if (!cleared) return true;
+    const mark = appliedClears.get(cleared.peerId);
+    if (mark && clearedBefore(cleared.clearedAt, mark)) return false;
+    noteDmCleared(cleared.peerId, cleared.clearedAt);
     return true;
   }
   if (env.type !== "dm_message.sent") return true;
