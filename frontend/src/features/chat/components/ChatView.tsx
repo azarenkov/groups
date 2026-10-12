@@ -42,6 +42,8 @@ import type { ChannelMeta, DmMeta } from "../types";
 import { openForward } from "../store/forwardModalStore";
 import { canDeleteForEveryone } from "../lib/messageMenu";
 import { onDmResync } from "../../dm/lib/clearWatermarks";
+import { channelPartition, dmPartition } from "../lib/partitions";
+import { ws } from "../../../shared/ws/websocket";
 
 interface ChatViewProps {
   channel?: ChannelMeta;
@@ -197,6 +199,20 @@ const ChatView: React.FC<ChatViewProps> = ({
       if (peerId === dmFriendId) void refreshHistory();
     });
   }, [dmFriendId, refreshHistory]);
+
+  React.useEffect(() => {
+    const partition = dmFriendId
+      ? currentUserId
+        ? dmPartition(currentUserId, dmFriendId)
+        : null
+      : channelId
+        ? channelPartition(channelId)
+        : null;
+    if (!partition) return;
+    return ws.onResync((resynced) => {
+      if (resynced === partition) void refreshHistory();
+    });
+  }, [dmFriendId, channelId, currentUserId, refreshHistory]);
 
   const pull = usePullToRefresh({
     bodyRef,

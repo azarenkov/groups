@@ -13,6 +13,11 @@ import {
   saveConversation,
   type ScrollMemory,
 } from "../lib/messageCache";
+import { ws } from "../../../shared/ws/websocket";
+
+const adoptBaseline = (res: { partition?: string; seq?: number }) => {
+  if (res.partition && typeof res.seq === "number") ws.baseline(res.partition, res.seq);
+};
 
 export function captureScroll(body: HTMLDivElement | null, atBottom: boolean): ScrollMemory {
   if (!body || atBottom) return { atBottom: true, anchorId: null, offset: 0 };
@@ -162,6 +167,7 @@ export function useMessages(params: {
       .listMessages({ limit: PAGE_LIMIT })
       .then((res) => {
         if (cancelled) return;
+        adoptBaseline(res);
         const ordered = [...res.messages].reverse();
         const fullPage = res.messages.length >= PAGE_LIMIT;
         if (!fromCache) {
@@ -233,6 +239,7 @@ export function useMessages(params: {
               limit: PAGE_LIMIT,
               before,
             });
+            if (!before && !cancelled && convIdRef.current === targetId) adoptBaseline(res);
             const ordered = [...res.messages].reverse();
             acc.unshift(...ordered);
             if (res.messages.length < PAGE_LIMIT) {
@@ -344,6 +351,7 @@ export function useMessages(params: {
     try {
       const res = await messengerNow.listMessages({ limit: PAGE_LIMIT });
       if (convIdRef.current !== requestConvId) return;
+      adoptBaseline(res);
       const ordered = [...res.messages].reverse();
       setMessages((prev) => mergeWithLive(ordered, prev));
       setHasMore(res.messages.length >= PAGE_LIMIT);

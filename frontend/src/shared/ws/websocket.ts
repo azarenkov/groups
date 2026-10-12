@@ -1,6 +1,7 @@
 import { useAuthStore } from "../../features/auth/store/authStore";
 import { ApiError } from "../lib/apiError";
 import { wsEndpoint } from "../config/runtime";
+import { Sequencer } from "./sequencer";
 
 const SESSION_DEAD_CODES = new Set([
   "REFRESH_TOKEN_REVOKED",
@@ -87,6 +88,8 @@ export type WsEventType =
 export interface WsEnvelope<T = unknown> {
   type: WsEventType;
   data: T;
+  partition?: string;
+  seq?: number;
 }
 
 type Listener = (env: WsEnvelope) => void;
@@ -122,9 +125,22 @@ class WsClient {
   private busyLanes = new Set<string>();
   private held = new Map<string, WsEnvelope[]>();
   private deliveryEpoch = 0;
+  private sequencer = new Sequencer((env) => this.deliver(env));
 
   constructor(endpoint: string = defaultEndpoint()) {
     this.endpoint = endpoint;
+  }
+
+  baseline(partition: string, seq: number): void {
+    this.sequencer.baseline(partition, seq);
+  }
+
+  onResync(listener: (partition: string) => void): () => void {
+    return this.sequencer.onResync(listener);
+  }
+
+  receive(env: WsEnvelope): void {
+    this.sequencer.accept(env);
   }
 
   connect() {
@@ -145,6 +161,7 @@ class WsClient {
     this.deliveryEpoch += 1;
     this.busyLanes.clear();
     this.held.clear();
+    this.sequencer.reset();
     for (const gate of this.gates) gate.reset?.();
   }
 
@@ -266,7 +283,7 @@ class WsClient {
         return;
       }
       if (!env || typeof env !== "object" || !env.type) return;
-      this.deliver(env);
+      this.receive(env);
     };
 
     socket.onerror = () => {

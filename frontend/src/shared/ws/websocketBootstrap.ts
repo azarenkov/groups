@@ -32,6 +32,7 @@ import { useNotificationSettingsStore } from "../../features/settings/store/noti
 import { useConversationPinsStore } from "../../features/communities/store/conversationPinsStore";
 import { useHiddenDmStore } from "../../features/dm/store/hiddenDmStore";
 import { clearWatermarkGate } from "../../features/dm/lib/clearWatermarks";
+import { refetchDmPreviews } from "../../features/dm/store/dmPreviewStore";
 import { installMessageCacheSync } from "../../features/chat/lib/messageCache";
 import { installQuerySync } from "../query/queryClient";
 
@@ -64,6 +65,10 @@ export function installWsBootstrap() {
   installMessageCacheSync();
   installQuerySync();
   ws.addGate(clearWatermarkGate);
+  ws.onResync(() => {
+    refetchDmPreviews(true);
+    scheduleUnreadRefetch();
+  });
   const onForeground = () => {
     if (!viewIsForeground()) return;
     const channelId = getActiveChannelView();

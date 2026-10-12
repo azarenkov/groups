@@ -151,6 +151,8 @@ export interface ChannelMessage {
 
 export interface ListChannelMessagesResponse {
   messages: ChannelMessage[];
+  partition?: string;
+  seq?: number;
 }
 
 export interface SearchChannelMessagesResponse {
