@@ -18,6 +18,7 @@ export const SNAPSHOT_TYPES: ReadonlySet<string> = new Set([
 interface PartitionState {
   last: number;
   covered: number;
+  firstLive: number;
   contiguous: number;
   seen: Map<number, Set<string>>;
   pending: Map<number, WsEnvelope[]>;
@@ -83,6 +84,7 @@ export class Sequencer {
     const state = known ?? this.track(partition, seq);
     if (!known) state.contiguous = seq;
     const gapOpen = state.timer !== null;
+    const missedBeforeLive = state.covered === 0 && seq + 1 < state.firstLive;
     state.covered = Math.max(state.covered, seq);
     state.last = Math.max(state.last, seq);
     const covered = Array.from(state.pending.keys())
@@ -97,7 +99,7 @@ export class Sequencer {
       }
     }
     this.drain(state);
-    if (gapOpen && state.timer === null) this.notifyResync(partition);
+    if (missedBeforeLive || (gapOpen && state.timer === null)) this.notifyResync(partition);
   }
 
   position(partition: string): number | undefined {
@@ -115,6 +117,7 @@ export class Sequencer {
     const state: PartitionState = {
       last: seq,
       covered: 0,
+      firstLive: seq,
       contiguous: seq - 1,
       seen: new Map(),
       pending: new Map(),

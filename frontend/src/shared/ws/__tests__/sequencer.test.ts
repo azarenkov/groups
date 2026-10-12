@@ -177,3 +177,24 @@ it("bounds tracking when a covered sequence never arrives", () => {
   s.accept(env("message.sent", "p", 5));
   expect(emitted.length).toBe(delivered);
 });
+
+it("asks for a resync when the first snapshot is older than the first live event", () => {
+  const { s, emitted, resynced } = setup();
+  s.accept(env("message.sent", "p", 13));
+  s.baseline("p", 10);
+  expect(emitted).toEqual(["message.sent#13"]);
+  expect(resynced).toEqual(["p"]);
+  s.baseline("p", 13);
+  expect(resynced).toEqual(["p"]);
+});
+
+it("does not resync when the first snapshot reaches the first live event", () => {
+  const { s, resynced } = setup();
+  s.accept(env("message.sent", "p", 11));
+  s.baseline("p", 10);
+  s.baseline("p", 12);
+  const fresh = setup();
+  fresh.s.baseline("q", 5);
+  expect(resynced).toEqual([]);
+  expect(fresh.resynced).toEqual([]);
+});
