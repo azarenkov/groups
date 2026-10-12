@@ -7,6 +7,7 @@ const MSG_ID_HEADER: &str = "Nats-Msg-Id";
 const REQUEST_ID_HEADER: &str = "X-Request-Id";
 pub const PARTITION_HEADER: &str = "Rift-Partition";
 pub const PARTITION_SEQ_HEADER: &str = "Rift-Partition-Seq";
+pub const PARTITION_MEMBERS_HEADER: &str = "Rift-Partition-Members";
 
 pub struct NatsOutboxPublisher {
     jetstream: Context,
@@ -59,6 +60,10 @@ impl OutboxPublisher for NatsOutboxPublisher {
         if let Some(sequence) = sequence {
             headers.insert(PARTITION_HEADER, sequence.partition.as_str());
             headers.insert(PARTITION_SEQ_HEADER, sequence.seq.to_string().as_str());
+            if !sequence.members.is_empty() {
+                let members: Vec<String> = sequence.members.iter().map(|m| m.to_string()).collect();
+                headers.insert(PARTITION_MEMBERS_HEADER, members.join(",").as_str());
+            }
         }
 
         let ack_future = self

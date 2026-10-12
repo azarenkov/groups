@@ -1,6 +1,6 @@
 use ports::outbox::record::PartitionSequence;
 
-use crate::messaging::nats::producer::{PARTITION_HEADER, PARTITION_SEQ_HEADER};
+use crate::messaging::nats::producer::{PARTITION_HEADER, PARTITION_MEMBERS_HEADER, PARTITION_SEQ_HEADER};
 use ports::event_consumer::{Disposition, DispositionFn, 
     ConsumedMessage, EventConsumer, EventConsumerError, StartPosition, SubscribeOptions,
 };
@@ -154,7 +154,11 @@ fn partition_sequence(headers: Option<&async_nats::HeaderMap>) -> Option<Partiti
     let headers = headers?;
     let partition = headers.get(PARTITION_HEADER)?.as_str().to_string();
     let seq = headers.get(PARTITION_SEQ_HEADER)?.as_str().parse().ok()?;
-    Some(PartitionSequence { partition, seq })
+    let members = headers
+        .get(PARTITION_MEMBERS_HEADER)
+        .map(|v| v.as_str().split(',').filter_map(|m| m.parse().ok()).collect())
+        .unwrap_or_default();
+    Some(PartitionSequence { partition, seq, members })
 }
 
 async fn create_durable_consumer(
@@ -200,7 +204,7 @@ mod tests {
         headers.insert(PARTITION_SEQ_HEADER, "42");
         assert_eq!(
             partition_sequence(Some(&headers)),
-            Some(PartitionSequence { partition: "messaging:p".to_string(), seq: 42 }),
+            Some(PartitionSequence { partition: "messaging:p".to_string(), seq: 42, members: vec![] }),
         );
     }
 

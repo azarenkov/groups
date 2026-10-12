@@ -19,6 +19,28 @@ const adoptBaseline = (res: { partition?: string; seq?: number }) => {
   if (res.partition && typeof res.seq === "number") ws.baseline(res.partition, res.seq);
 };
 
+async function loadLoadedWindow(
+  messenger: Messenger,
+  oldestLoadedAt: string | undefined,
+  alive: () => boolean,
+): Promise<{ messages: ChannelMessage[]; reachedStart: boolean; version: { partition?: string; seq?: number } } | null> {
+  const acc: ChannelMessage[] = [];
+  let before: string | undefined;
+  let version: { partition?: string; seq?: number } = {};
+  while (alive()) {
+    const res = await messenger.listMessages({ limit: PAGE_LIMIT, before });
+    if (!before) version = { partition: res.partition, seq: res.seq };
+    acc.unshift(...[...res.messages].reverse());
+    if (res.messages.length < PAGE_LIMIT) return { messages: acc, reachedStart: true, version };
+    if (!oldestLoadedAt || (acc[0] && acc[0].createdAt <= oldestLoadedAt)) {
+      return { messages: acc, reachedStart: false, version };
+    }
+    before = acc[0]?.id;
+    if (!before) return { messages: acc, reachedStart: false, version };
+  }
+  return null;
+}
+
 export function captureScroll(body: HTMLDivElement | null, atBottom: boolean): ScrollMemory {
   if (!body || atBottom) return { atBottom: true, anchorId: null, offset: 0 };
   const top = body.getBoundingClientRect().top;
@@ -228,31 +250,15 @@ export function useMessages(params: {
     const targetId = convIdRef.current;
     const oldestLoadedAt = messagesRef.current[0]?.createdAt;
     const knownBefore = new Set(messagesRef.current.map((m) => m.id));
+    const alive = () => !cancelled && convIdRef.current === targetId;
     (async () => {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          const acc: ChannelMessage[] = [];
-          let before: string | undefined;
-          let reachedStart = false;
-          while (!cancelled && convIdRef.current === targetId) {
-            const res = await messengerNow.listMessages({
-              limit: PAGE_LIMIT,
-              before,
-            });
-            if (!before && !cancelled && convIdRef.current === targetId) adoptBaseline(res);
-            const ordered = [...res.messages].reverse();
-            acc.unshift(...ordered);
-            if (res.messages.length < PAGE_LIMIT) {
-              reachedStart = true;
-              break;
-            }
-            if (!oldestLoadedAt || (acc[0] && acc[0].createdAt <= oldestLoadedAt)) break;
-            before = acc[0]?.id;
-            if (!before) break;
-          }
-          if (cancelled || convIdRef.current !== targetId) return;
-          if (acc.length === 0 && !reachedStart) return;
-          setMessages((prev) => reconcileSyncedWindow(acc, prev, reachedStart, knownBefore));
+          const loaded = await loadLoadedWindow(messengerNow, oldestLoadedAt, alive);
+          if (!loaded || !alive()) return;
+          if (loaded.messages.length === 0 && !loaded.reachedStart) return;
+          setMessages((prev) => reconcileSyncedWindow(loaded.messages, prev, loaded.reachedStart, knownBefore));
+          adoptBaseline(loaded.version);
           return;
         } catch {
           await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -348,15 +354,15 @@ export function useMessages(params: {
     if (!messengerNow) return;
     const requestConvId = convIdRef.current;
     const knownBefore = new Set(messagesRef.current.map((m) => m.id));
+    const oldestLoadedAt = messagesRef.current[0]?.createdAt;
     reseedChannelReads();
     try {
-      const res = await messengerNow.listMessages({ limit: PAGE_LIMIT });
-      if (convIdRef.current !== requestConvId) return;
-      const ordered = [...res.messages].reverse();
-      const reachedStart = res.messages.length < PAGE_LIMIT;
-      setMessages((prev) => reconcileSyncedWindow(ordered, prev, reachedStart, knownBefore));
-      adoptBaseline(res);
-      setHasMore(res.messages.length >= PAGE_LIMIT);
+      const alive = () => convIdRef.current === requestConvId;
+      const loaded = await loadLoadedWindow(messengerNow, oldestLoadedAt, alive);
+      if (!loaded || !alive()) return;
+      setMessages((prev) => reconcileSyncedWindow(loaded.messages, prev, loaded.reachedStart, knownBefore));
+      adoptBaseline(loaded.version);
+      if (loaded.reachedStart) setHasMore(false);
     } catch (err) {
       console.warn("[ChatView] failed to refresh history after join:", err);
     }

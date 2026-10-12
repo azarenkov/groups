@@ -38,6 +38,7 @@ export type WsEventType =
   | "dm_conversation.cleared"
   | "dm_conversation.hidden_changed"
   | "voice.listened"
+  | "sequence.skip"
   | "channel.created"
   | "channel.renamed"
   | "channel.deleted"

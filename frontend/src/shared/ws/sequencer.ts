@@ -1,11 +1,14 @@
 import type { WsEnvelope } from "./websocket";
 
 export const GAP_WAIT_MS = 1500;
-export const SEEN_WINDOW = 256;
+export const SKIP_TYPE = "sequence.skip";
+export const TYPE_LAG = 64;
+export const MAX_TRACKED = 4096;
 
 interface PartitionState {
   last: number;
   covered: number;
+  contiguous: number;
   seen: Map<number, Set<string>>;
   pending: Map<number, WsEnvelope[]>;
   timer: ReturnType<typeof setTimeout> | null;
@@ -45,7 +48,7 @@ export class Sequencer {
       this.deliver(state, env, seq);
       return;
     }
-    if (seq <= state.covered || seq <= state.last - SEEN_WINDOW || this.wasSeen(state, env, seq)) return;
+    if (seq <= state.covered || seq <= state.contiguous - TYPE_LAG || this.wasSeen(state, env, seq)) return;
     if (seq <= state.last) {
       this.deliver(state, env, seq);
       return;
@@ -65,6 +68,8 @@ export class Sequencer {
     const state = this.partitions.get(partition) ?? this.track(partition, seq);
     state.covered = Math.max(state.covered, seq);
     state.last = Math.max(state.last, seq);
+    state.contiguous = Math.max(state.contiguous, seq);
+    this.advance(state);
     for (const pendingSeq of Array.from(state.pending.keys())) {
       if (pendingSeq <= state.covered) state.pending.delete(pendingSeq);
     }
@@ -82,6 +87,7 @@ export class Sequencer {
     const state: PartitionState = {
       last: seq,
       covered: 0,
+      contiguous: seq - 1,
       seen: new Map(),
       pending: new Map(),
       timer: null,
@@ -99,12 +105,18 @@ export class Sequencer {
     const types = state.seen.get(seq) ?? new Set<string>();
     types.add(env.type);
     state.seen.set(seq, types);
-    this.emit(env);
-    this.forgetOld(state);
+    if (env.type !== SKIP_TYPE) this.emit(env);
+    this.advance(state);
   }
 
-  private forgetOld(state: PartitionState): void {
-    const floor = state.last - SEEN_WINDOW;
+  private advance(state: PartitionState): void {
+    while (state.seen.has(state.contiguous + 1)) state.contiguous += 1;
+    if (state.seen.size > MAX_TRACKED) {
+      const oldest = Math.min(...Array.from(state.seen.keys()).filter((seq) => seq > state.contiguous));
+      if (Number.isFinite(oldest)) state.contiguous = oldest;
+      while (state.seen.has(state.contiguous + 1)) state.contiguous += 1;
+    }
+    const floor = state.contiguous - TYPE_LAG;
     for (const seq of state.seen.keys()) {
       if (seq <= floor) state.seen.delete(seq);
     }

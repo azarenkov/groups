@@ -79,7 +79,7 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
                                         subject = %subject,
                                     );
                                     async {
-                                        let sequence = m.sequence.clone().map(|s| EventSequence { partition: s.partition, seq: s.seq });
+                                        let sequence = m.sequence.clone().map(|s| EventSequence { partition: s.partition, seq: s.seq, members: s.members });
                                         let gated = gate.as_ref().zip(sequence.clone());
                                         if let Some((gate, s)) = &gated {
                                             gate.wait_turn(&s.partition, s.seq).await;

@@ -19,6 +19,7 @@ pub struct OutboxRecord {
 pub struct PartitionSequence {
     pub partition: String,
     pub seq: i64,
+    pub members: Vec<Uuid>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

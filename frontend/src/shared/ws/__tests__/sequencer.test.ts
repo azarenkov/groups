@@ -1,4 +1,4 @@
-import { SEEN_WINDOW, Sequencer } from "../sequencer";
+import { Sequencer, TYPE_LAG } from "../sequencer";
 import type { WsEnvelope } from "../websocket";
 
 const env = (type: string, partition: string | undefined, seq: number | undefined): WsEnvelope =>
@@ -102,11 +102,39 @@ it("forgets everything on reset", () => {
   expect(emitted).toEqual(["a#1", "a#1"]);
 });
 
-it("keeps dropping old repeats long after the recent window moved on", () => {
+it("keeps dropping old repeats long after they were delivered", () => {
   const { s, emitted } = setup();
-  for (let seq = 1; seq <= SEEN_WINDOW + 50; seq += 1) s.accept(env("a", "p", seq));
+  for (let seq = 1; seq <= TYPE_LAG * 5; seq += 1) s.accept(env("a", "p", seq));
   const delivered = emitted.length;
   s.accept(env("a", "p", 3));
-  s.accept(env("a", "p", 40));
+  s.accept(env("b", "p", 40));
   expect(emitted.length).toBe(delivered);
+});
+
+it("still applies an event that never arrived even when it is far behind", () => {
+  const { s, emitted } = setup(1000);
+  s.accept(env("a", "p", 1));
+  s.accept(env("a", "p", 3));
+  jest.advanceTimersByTime(1000);
+  for (let seq = 4; seq <= TYPE_LAG * 5; seq += 1) s.accept(env("a", "p", seq));
+  s.accept(env("a", "p", 2));
+  expect(emitted[emitted.length - 1]).toBe("a#2");
+});
+
+it("fills a gap with a skip marker without passing it on", () => {
+  const { s, emitted, resynced } = setup();
+  s.accept(env("a", "p", 1));
+  s.accept(env("a", "p", 3));
+  s.accept(env("sequence.skip", "p", 2));
+  expect(emitted).toEqual(["a#1", "a#3"]);
+  jest.advanceTimersByTime(5000);
+  expect(resynced).toEqual([]);
+});
+
+it("accepts another envelope of a sequence that was just delivered", () => {
+  const { s, emitted } = setup();
+  s.accept(env("a", "p", 1));
+  s.accept(env("a", "p", 2));
+  s.accept(env("b", "p", 2));
+  expect(emitted).toEqual(["a#1", "a#2", "b#2"]);
 });

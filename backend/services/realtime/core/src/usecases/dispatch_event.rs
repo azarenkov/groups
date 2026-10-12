@@ -159,17 +159,23 @@ async fn forget_pair_without_history<D: RecipientDirectory + RealtimeProjection,
 pub struct EventSequence {
     pub partition: String,
     pub seq: i64,
+    pub members: Vec<Uuid>,
 }
 
 struct Sequenced<'a, P: RealtimePublisher> {
     inner: &'a P,
     partition: String,
     seq: i64,
+    reached: std::sync::Mutex<std::collections::HashSet<Uuid>>,
 }
 
 #[async_trait::async_trait]
 impl<P: RealtimePublisher> RealtimePublisher for Sequenced<'_, P> {
     async fn publish_to_users(&self, recipients: Vec<Uuid>, envelope: &Envelope<'_>) -> Result<(), PublishError> {
+        self.reached
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .extend(recipients.iter().copied());
         self.inner
             .publish_to_users(recipients, &envelope.sequenced(&self.partition, self.seq))
             .await
@@ -199,8 +205,24 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
     ) -> Result<(), DispatchError> {
         match sequence {
             Some(sequence) => {
-                let stamped = Sequenced { inner: self.publisher.as_ref(), partition: sequence.partition, seq: sequence.seq };
-                self.run(subject, payload, &stamped).await
+                let stamped = Sequenced {
+                    inner: self.publisher.as_ref(),
+                    partition: sequence.partition,
+                    seq: sequence.seq,
+                    reached: std::sync::Mutex::new(std::collections::HashSet::new()),
+                };
+                self.run(subject, payload, &stamped).await?;
+                let reached = stamped.reached.into_inner().unwrap_or_else(|e| e.into_inner());
+                let missing: Vec<Uuid> = unique(sequence.members.into_iter().filter(|m| !reached.contains(m)));
+                if !missing.is_empty() {
+                    self.publisher
+                        .publish_to_users(
+                            missing,
+                            &Envelope::new("sequence.skip", json!({})).sequenced(&stamped.partition, stamped.seq),
+                        )
+                        .await?;
+                }
+                Ok(())
             }
             None => self.execute(subject, payload).await,
         }
@@ -1316,14 +1338,50 @@ mod tests {
         #[derive(Default)]
         struct Captured {
             sent: Mutex<Vec<serde_json::Value>>,
+            to: Mutex<Vec<Vec<Uuid>>>,
         }
 
         #[async_trait]
         impl RealtimePublisher for Captured {
-            async fn publish_to_users(&self, _: Vec<Uuid>, envelope: &Envelope<'_>) -> Result<(), PublishError> {
+            async fn publish_to_users(&self, recipients: Vec<Uuid>, envelope: &Envelope<'_>) -> Result<(), PublishError> {
                 self.sent.lock().unwrap().push(serde_json::to_value(envelope).unwrap());
+                self.to.lock().unwrap().push(recipients);
                 Ok(())
             }
+        }
+
+        #[tokio::test]
+        async fn tells_members_who_got_nothing_to_skip_the_sequence() {
+            let publisher = std::sync::Arc::new(Captured::default());
+            let dispatch = DispatchEvent::new(
+                std::sync::Arc::new(Directory::default()),
+                publisher.clone(),
+                std::sync::Arc::new(Relations { peers: vec![] }),
+            );
+            let (user, peer) = (Uuid::new_v4(), Uuid::new_v4());
+            let payload = serde_json::to_vec(&json!({
+                "user_id": user,
+                "peer_id": peer,
+                "hidden": true,
+                "occurred_at": Utc::now(),
+            }))
+            .unwrap();
+            dispatch
+                .execute_sequenced(
+                    "rift.events.user.dm_conversation.hidden_changed",
+                    &payload,
+                    Some(EventSequence { partition: "messaging:p".to_string(), seq: 9, members: vec![user, peer] }),
+                )
+                .await
+                .unwrap();
+            let sent = publisher.sent.lock().unwrap();
+            let to = publisher.to.lock().unwrap();
+            assert_eq!(sent.len(), 2);
+            assert_eq!(sent[0]["type"], json!("dm_conversation.hidden_changed"));
+            assert_eq!(to[0], vec![user]);
+            assert_eq!(sent[1]["type"], json!("sequence.skip"));
+            assert_eq!(sent[1]["seq"], json!(9));
+            assert_eq!(to[1], vec![peer]);
         }
 
         #[tokio::test]
@@ -1346,7 +1404,7 @@ mod tests {
                 .execute_sequenced(
                     "rift.events.user.dm_conversation.hidden_changed",
                     &payload,
-                    Some(EventSequence { partition: partition.clone(), seq: 5 }),
+                    Some(EventSequence { partition: partition.clone(), seq: 5, members: vec![] }),
                 )
                 .await
                 .unwrap();
