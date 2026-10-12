@@ -13,6 +13,11 @@ export const mergeWithLive = (
   );
 };
 
+export type MessageCursor = Pick<ChannelMessage, "id" | "createdAt">;
+
+export const cursorAfter = (a: MessageCursor, b: MessageCursor): boolean =>
+  a.createdAt === b.createdAt ? a.id.toLowerCase() > b.id.toLowerCase() : a.createdAt > b.createdAt;
+
 export const reconcileSyncedWindow = (
   synced: ChannelMessage[],
   prev: ChannelMessage[],

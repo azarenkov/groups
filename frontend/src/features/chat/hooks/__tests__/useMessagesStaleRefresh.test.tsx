@@ -67,3 +67,38 @@ it("reloads a refreshed history that is older than events already applied", asyn
   });
   expect(latest!.messages.map((m) => m.content)).toEqual(["edited"]);
 });
+
+it("does not apply a refreshed history that stays older than live events", async () => {
+  render(<Harness />);
+  await act(async () => {
+    replies.shift()!([msg("m1", "first")], 1);
+  });
+  await waitFor(() => expect(latest!.messages.map((m) => m.content)).toEqual(["first"]));
+  ws.receive({ type: "message.edited", data: {}, partition: PARTITION, seq: 2 } as unknown as WsEnvelope);
+
+  jest.useFakeTimers();
+  try {
+    let refreshing: Promise<void> | undefined;
+    act(() => {
+      refreshing = latest!.refreshHistory();
+    });
+    const flush = async () => {
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+    };
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await act(async () => {
+        replies.shift()?.([], 1);
+        await flush();
+        jest.advanceTimersByTime(5000);
+        await flush();
+      });
+    }
+    await act(async () => {
+      await refreshing;
+    });
+    expect(replies).toHaveLength(0);
+    expect(latest!.messages.map((m) => m.content)).toEqual(["first"]);
+  } finally {
+    jest.useRealTimers();
+  }
+});

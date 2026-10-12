@@ -3,6 +3,7 @@ import { ws } from "../../../shared/ws/websocket";
 import { useAuthStore } from "../../auth/store/authStore";
 import { PAGE_LIMIT } from "../constants";
 import { markReplyDeleted, refreshReplySnippet } from "./replies";
+import { cursorAfter } from "./messageFormat";
 import { clearedBefore, dmClearedFor } from "../../dm/lib/dmCleared";
 
 export const MESSAGE_CACHE_LIMIT = 20;
@@ -78,10 +79,10 @@ export function reconcileLatestPage(
   if (!fullPage || latest.length === 0) {
     return { messages: [...latest, ...live], gap: false };
   }
-  const cutoff = latest[0].createdAt;
-  const reachesWindow = current.some((m) => knownBefore.has(m.id) && m.createdAt >= cutoff);
+  const cutoff = latest[0];
+  const reachesWindow = current.some((m) => knownBefore.has(m.id) && !cursorAfter(cutoff, m));
   if (!reachesWindow) return { messages: [...latest, ...live], gap: true };
-  const older = current.filter((m) => m.createdAt < cutoff && !ids.has(m.id) && knownBefore.has(m.id));
+  const older = current.filter((m) => cursorAfter(cutoff, m) && !ids.has(m.id) && knownBefore.has(m.id));
   return { messages: [...older, ...latest, ...live], gap: false };
 }
 

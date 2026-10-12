@@ -3,7 +3,7 @@ import i18n from "../../../i18n";
 import { ApiError } from "../../../shared/lib/apiError";
 import type { ChannelMessage } from "../../../shared/types/channel";
 import { PAGE_LIMIT } from "../constants";
-import { mergeWithLive, reconcileSyncedWindow } from "../lib/messageFormat";
+import { cursorAfter, mergeWithLive, reconcileSyncedWindow, type MessageCursor } from "../lib/messageFormat";
 import { appendedOwnMessage, shouldStickToBottom } from "../lib/scrollRules";
 import type { Messenger } from "./useMessenger";
 import {
@@ -21,12 +21,8 @@ const adoptBaseline = (res: { partition?: string; seq?: number }) => {
 
 type LoadedWindow = { messages: ChannelMessage[]; reachedStart: boolean; version: { partition?: string; seq?: number } };
 
-const STALE_WINDOW_RETRIES = 3;
-
-type MessageCursor = Pick<ChannelMessage, "id" | "createdAt">;
-
-const cursorAfter = (a: MessageCursor, b: MessageCursor): boolean =>
-  a.createdAt === b.createdAt ? a.id.toLowerCase() > b.id.toLowerCase() : a.createdAt > b.createdAt;
+const STALE_WINDOW_RETRIES = 4;
+const STALE_WINDOW_BACKOFF_MS = 400;
 
 const behindLive = (version: { partition?: string; seq?: number }): boolean => {
   if (!version.partition || typeof version.seq !== "number") return false;
@@ -39,10 +35,13 @@ async function loadLoadedWindow(
   oldestLoaded: MessageCursor | undefined,
   alive: () => boolean,
 ): Promise<LoadedWindow | null> {
-  for (let attempt = 0; ; attempt++) {
+  for (let attempt = 0; attempt <= STALE_WINDOW_RETRIES; attempt++) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, STALE_WINDOW_BACKOFF_MS * attempt));
+    if (!alive()) return null;
     const loaded = await loadWindowOnce(messenger, oldestLoaded, alive);
-    if (!loaded || attempt >= STALE_WINDOW_RETRIES || !behindLive(loaded.version)) return loaded;
+    if (!loaded || !behindLive(loaded.version)) return loaded;
   }
+  return null;
 }
 
 async function loadWindowOnce(
@@ -225,8 +224,9 @@ export function useMessages(params: {
         }
         const reconciled = reconcileLatestPage(restored ?? [], ordered, fullPage, knownBefore);
         setMessages((prev) => reconcileLatestPage(prev, ordered, fullPage, knownBefore).messages);
-        const cutoff = ordered[0]?.createdAt;
-        const pageCoversCache = !fullPage || (restored ?? []).every((m) => cutoff !== undefined && m.createdAt >= cutoff);
+        const oldestFetched = ordered[0];
+        const pageCoversCache =
+          !fullPage || (restored ?? []).every((m) => oldestFetched !== undefined && !cursorAfter(oldestFetched, m));
         if (pageCoversCache) adoptBaseline(res);
         if (!fullPage) setHasMore(false);
         else if (reconciled.gap) setHasMore(true);
