@@ -24,6 +24,7 @@ pub trait SequenceProgress: Send + Sync {
 struct PartitionTurn {
     done: Option<i64>,
     waiting: BTreeSet<i64>,
+    running: BTreeSet<i64>,
     elected: Option<(i64, Instant)>,
     stalled_since: Option<Instant>,
     opened_at: Instant,
@@ -35,6 +36,7 @@ impl PartitionTurn {
         Self {
             done: None,
             waiting: BTreeSet::new(),
+            running: BTreeSet::new(),
             elected: None,
             stalled_since: None,
             opened_at: Instant::now(),
@@ -43,7 +45,7 @@ impl PartitionTurn {
     }
 
     fn active(&self) -> bool {
-        !self.waiting.is_empty() || self.elected.is_some()
+        !self.waiting.is_empty() || !self.running.is_empty() || self.elected.is_some()
     }
 }
 
@@ -154,10 +156,12 @@ impl SequenceGate {
         if let Some(done) = turn.done {
             if seq <= done {
                 turn.waiting.remove(&seq);
+                turn.running.insert(seq);
                 return Turn::Late;
             }
             if seq == done + 1 {
                 turn.waiting.remove(&seq);
+                turn.running.insert(seq);
                 return Turn::Go;
             }
         }
@@ -165,6 +169,7 @@ impl SequenceGate {
         if let Some((elected, at)) = turn.elected {
             if elected == seq {
                 turn.waiting.remove(&seq);
+                turn.running.insert(seq);
                 return Turn::Go;
             }
             if now < at + self.max_wait {
@@ -183,6 +188,7 @@ impl SequenceGate {
         turn.elected = Some((lowest, now));
         if lowest == seq {
             turn.waiting.remove(&seq);
+            turn.running.insert(seq);
             return Turn::Go;
         }
         self.advanced.notify_waiters();
@@ -214,6 +220,7 @@ impl SequenceGate {
                 turn.elected = None;
             }
             turn.waiting.retain(|waiting| *waiting > done);
+            turn.running.retain(|running| *running > done);
             turn.stalled_since = None;
         }
         if self.progress.is_some() {
@@ -282,6 +289,19 @@ mod tests {
         assert!(!higher.is_finished());
         gate.done("p", 11);
         assert!(tokio::time::timeout(Duration::from_millis(500), higher).await.unwrap().unwrap());
+    }
+
+    #[tokio::test]
+    async fn keeps_a_partition_with_an_event_still_dispatching_at_the_tracking_cap() {
+        let gate = SequenceGate::with_settle(Duration::from_secs(5), Duration::ZERO);
+        gate.done("busy", 1);
+        assert!(gate.wait_turn("busy", 2).await);
+        for n in 0..MAX_TRACKED_PARTITIONS {
+            gate.done(&format!("idle-{n}"), 1);
+        }
+        assert!(gate.last.lock().unwrap().contains_key("busy"));
+        gate.done("busy", 2);
+        assert!(gate.last.lock().unwrap().get("busy").unwrap().running.is_empty());
     }
 
     #[tokio::test]
