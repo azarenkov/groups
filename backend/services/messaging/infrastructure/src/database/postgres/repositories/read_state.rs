@@ -23,17 +23,18 @@ impl PostgresReadStateRepository {
 }
 
 fn read_event(
-    aggregate_id: Uuid,
+    aggregate: (AggregateType, Uuid),
+    parent: (AggregateType, Uuid),
     event_type: &str,
     payload: serde_json::Value,
     occurred_at: DateTime<Utc>,
 ) -> OutboxRecord {
     OutboxRecord {
         id: Uuid::new_v4(),
-        aggregate_id,
-        aggregate_type: AggregateType::User,
-        parent_id: None,
-        parent_type: None,
+        aggregate_id: aggregate.1,
+        aggregate_type: aggregate.0,
+        parent_id: Some(parent.1),
+        parent_type: Some(parent.0),
         event_type: event_type.to_string(),
         payload,
         occurred_at,
@@ -83,7 +84,8 @@ impl ReadStateRepository for PostgresReadStateRepository {
 
         if !recipients.is_empty() {
             let record = read_event(
-                channel_id.uuid(),
+                (AggregateType::Message, user_id.uuid()),
+                (AggregateType::Channel, channel_id.uuid()),
                 "channel.read",
                 serde_json::json!({
                     "channel_id": channel_id.uuid(),
@@ -136,7 +138,8 @@ impl ReadStateRepository for PostgresReadStateRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
 
         let record = read_event(
-            user_id.uuid(),
+            (AggregateType::User, user_id.uuid()),
+            (AggregateType::User, friend_id.uuid()),
             "dm.read",
             serde_json::json!({
                 "reader_id": user_id.uuid(),
@@ -304,5 +307,36 @@ impl ReadStateRepository for PostgresReadStateRepository {
                 read_at: r.last_read_at,
             })
             .collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use infrastructure_common::messaging::partitions::{conversation_key, is_conversation_partition, outbox_partition_key};
+
+    use super::*;
+
+    #[test]
+    fn read_receipts_share_the_partition_of_their_conversation() {
+        let (reader, friend, channel) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
+        let dm = read_event(
+            (AggregateType::User, reader),
+            (AggregateType::User, friend),
+            "dm.read",
+            serde_json::json!({}),
+            Utc::now(),
+        );
+        assert!(is_conversation_partition(&dm));
+        assert_eq!(outbox_partition_key(&dm), conversation_key(reader, friend));
+
+        let channel_read = read_event(
+            (AggregateType::Message, reader),
+            (AggregateType::Channel, channel),
+            "channel.read",
+            serde_json::json!({}),
+            Utc::now(),
+        );
+        assert!(is_conversation_partition(&channel_read));
+        assert_eq!(outbox_partition_key(&channel_read), channel);
     }
 }
