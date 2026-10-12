@@ -30,3 +30,19 @@ export const clearedBefore = (createdAt: string, clearedAt: string): boolean => 
   if (created !== cleared) return created < cleared;
   return subMillis(createdAt) <= subMillis(clearedAt);
 };
+
+const appliedClears = new Map<string, string>();
+
+export function noteDmCleared(peerId: string, clearedAt: string): void {
+  const prev = appliedClears.get(peerId);
+  if (!prev || clearedBefore(prev, clearedAt)) appliedClears.set(peerId, clearedAt);
+}
+
+export const clearedAway = (peerId: string, createdAt: string): boolean => {
+  const mark = appliedClears.get(peerId);
+  return !!mark && clearedBefore(createdAt, mark);
+};
+
+export function forgetDmClears(): void {
+  appliedClears.clear();
+}

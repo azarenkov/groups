@@ -18,6 +18,7 @@ export const SNAPSHOT_TYPES: ReadonlySet<string> = new Set([
 interface PartitionState {
   last: number;
   covered: number;
+  givenUp: number;
   contiguous: number;
   seen: Map<number, Set<string>>;
   pending: Map<number, WsEnvelope[]>;
@@ -59,7 +60,7 @@ export class Sequencer {
       return;
     }
     if (seq <= state.contiguous - TYPE_LAG || this.wasSeen(state, env, seq)) return;
-    if (seq <= state.covered && SNAPSHOT_TYPES.has(env.type)) {
+    if ((seq <= state.covered || seq < state.givenUp) && SNAPSHOT_TYPES.has(env.type)) {
       this.markSeen(state, env, seq);
       return;
     }
@@ -115,6 +116,7 @@ export class Sequencer {
     const state: PartitionState = {
       last: seq,
       covered: 0,
+      givenUp: 0,
       contiguous: seq - 1,
       seen: new Map(),
       pending: new Map(),
@@ -179,6 +181,7 @@ export class Sequencer {
       state.last = Math.max(state.last, seq);
       for (const env of envs) this.deliver(state, env, seq);
     }
+    state.givenUp = state.last;
     this.notifyResync(partition);
   }
 

@@ -16,8 +16,7 @@ import { attachmentAPI } from "../api/attachment";
 import type { MediaRecording } from "../lib/recording";
 import { ws } from "../../../shared/ws/websocket";
 import { useAuthStore } from "../../auth/store/authStore";
-import { dmClearedFor } from "../../dm/lib/dmCleared";
-import { wasClearedAway } from "../../dm/lib/clearWatermarks";
+import { clearedAway, dmClearedFor } from "../../dm/lib/dmCleared";
 
 export function useMessageComposer(params: {
   messenger: Messenger | null;
@@ -57,6 +56,7 @@ export function useMessageComposer(params: {
   }, [convId]);
 
   const dmFriendId = dm?.friendId;
+  const wasClearedAway = (msg: ChannelMessage) => !!dmFriendId && clearedAway(dmFriendId, msg.createdAt);
   React.useEffect(() => {
     if (!dmFriendId) return;
     return ws.on((env) => {
@@ -134,7 +134,7 @@ export function useMessageComposer(params: {
       }
       if (stillHere()) {
         setMessages((prev) =>
-          wasClearedAway(msg.id) || prev.some((x) => x.id === msg.id) ? prev : [...prev, msg],
+          wasClearedAway(msg) || prev.some((x) => x.id === msg.id) ? prev : [...prev, msg],
         );
       }
     };
@@ -253,7 +253,7 @@ export function useMessageComposer(params: {
       msg.attachments = msg.attachments?.length ? msg.attachments : [uploaded];
       if (stillHere()) {
         if (reply) setReplyTarget(null);
-        setMessages((prev) => (wasClearedAway(msg.id) || prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
+        setMessages((prev) => (wasClearedAway(msg) || prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
       }
       return true;
     } catch (err) {
@@ -328,7 +328,7 @@ export function useMessageComposer(params: {
       if (sameStickerSession()) useStickerStore.getState().rememberUsed(sticker);
       if (stillHere()) {
         if (reply) setReplyTarget(null);
-        setMessages((prev) => (wasClearedAway(msg.id) || prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
+        setMessages((prev) => (wasClearedAway(msg) || prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
       }
       return true;
     } catch (err) {

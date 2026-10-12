@@ -62,10 +62,12 @@ it("applies the same clear only once even when it arrives twice", async () => {
   const env = {
     type: "dm_conversation.cleared" as const,
     data: { actorId: "peer", participants: ["peer", "me"], scope: "everyone", clearedAt: "2026-10-11T11:00:00Z" },
+    partition: "messaging:clear-twice",
+    seq: 1,
   };
-  ws.deliver(env);
-  ws.deliver({ ...env, data: { ...env.data, participants: ["me", "peer"] } });
-  ws.deliver({ ...env, data: { ...env.data, clearedAt: "2026-10-11T11:00:01Z" } });
+  ws.receive(env);
+  ws.receive({ ...env, data: { ...env.data, participants: ["me", "peer"] } });
+  ws.receive({ ...env, seq: 2, data: { ...env.data, clearedAt: "2026-10-11T11:00:01Z" } });
   off();
   expect(seen).toHaveLength(2);
 });

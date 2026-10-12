@@ -1,4 +1,4 @@
-import { clearedBefore, dmClearedFor } from "../dmCleared";
+import { clearedAway, clearedBefore, dmClearedFor, forgetDmClears, noteDmCleared } from "../dmCleared";
 
 it("resolves the peer of a cleared conversation", () => {
   const data = { participants: ["me", "peer"], clearedAt: "2026-10-11T10:00:00Z", scope: "everyone" };
@@ -29,4 +29,23 @@ it("tells apart a message and a clear within the same millisecond", () => {
   expect(clearedBefore("2026-10-11T10:00:00.123455Z", "2026-10-11T10:00:00.123456Z")).toBe(true);
   expect(clearedBefore("2026-10-11T10:00:00.123456789Z", "2026-10-11T10:00:00.123456Z")).toBe(false);
   expect(clearedBefore("2026-10-11T10:00:00.123Z", "2026-10-11T10:00:00.123456Z")).toBe(true);
+});
+
+describe("applied clears", () => {
+  afterEach(() => forgetDmClears());
+
+  it("marks messages up to the latest applied clear of a chat as cleared away", () => {
+    noteDmCleared("peer", "2026-10-11T10:00:00Z");
+    noteDmCleared("peer", "2026-10-11T09:00:00Z");
+    expect(clearedAway("peer", "2026-10-11T09:30:00Z")).toBe(true);
+    expect(clearedAway("peer", "2026-10-11T10:00:00Z")).toBe(true);
+    expect(clearedAway("peer", "2026-10-11T10:00:01Z")).toBe(false);
+    expect(clearedAway("other", "2026-10-11T09:30:00Z")).toBe(false);
+  });
+
+  it("forgets applied clears", () => {
+    noteDmCleared("peer", "2026-10-11T10:00:00Z");
+    forgetDmClears();
+    expect(clearedAway("peer", "2026-10-11T09:30:00Z")).toBe(false);
+  });
 });

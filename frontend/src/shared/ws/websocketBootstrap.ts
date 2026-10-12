@@ -35,7 +35,6 @@ import { markNotificationPrefsStale, useNotificationPrefsStore } from "../../fea
 import { useNotificationSettingsStore } from "../../features/settings/store/notificationSettingsStore";
 import { useConversationPinsStore } from "../../features/communities/store/conversationPinsStore";
 import { useHiddenDmStore } from "../../features/dm/store/hiddenDmStore";
-import { clearWatermarkGate } from "../../features/dm/lib/clearWatermarks";
 import { refetchDmPreviews } from "../../features/dm/store/dmPreviewStore";
 import { installMessageCacheSync } from "../../features/chat/lib/messageCache";
 import { installQuerySync, queryClient } from "../query/queryClient";
@@ -86,7 +85,6 @@ export function installWsBootstrap() {
   installed = true;
   installMessageCacheSync();
   installQuerySync();
-  ws.addGate(clearWatermarkGate);
   ws.onResync((partition) => {
     reconcilePairRelation(partition);
     refetchDmPreviews(true);

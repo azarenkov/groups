@@ -177,3 +177,14 @@ it("bounds tracking when a covered sequence never arrives", () => {
   s.accept(env("message.sent", "p", 5));
   expect(emitted.length).toBe(delivered);
 });
+
+it("leaves a message event that shows up after its gap was given up to the resync", () => {
+  const { s, emitted, resynced } = setup(1000);
+  s.accept(env("message.sent", "p", 1));
+  s.accept(env("dm_conversation.cleared", "p", 3));
+  jest.advanceTimersByTime(1000);
+  expect(resynced).toEqual(["p"]);
+  s.accept(env("dm_message.sent", "p", 2));
+  s.accept(env("message.pin_changed", "p", 2));
+  expect(emitted).toEqual(["message.sent#1", "dm_conversation.cleared#3", "message.pin_changed#2"]);
+});
