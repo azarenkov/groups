@@ -229,3 +229,16 @@ it("does not let a load started before a reconnect mark the list as known", asyn
   expect(hiddenDmsKnown()).toBe(true);
   expect(useHiddenDmStore.getState().hidden).toEqual(["p1"]);
 });
+
+it("rereads the hidden list on a resync and stays unsettled until it answers", async () => {
+  get.mockResolvedValueOnce(reply([]));
+  await useHiddenDmStore.getState().fetch();
+  let answer: (v: unknown) => void = () => {};
+  get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+  useHiddenDmStore.getState().resync();
+  expect(hiddenDmsKnown()).toBe(false);
+  answer(reply(["p9"]));
+  await act();
+  expect(hiddenDmsKnown()).toBe(true);
+  expect(useHiddenDmStore.getState().hidden).toEqual(["p9"]);
+});

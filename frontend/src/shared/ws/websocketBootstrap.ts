@@ -18,6 +18,7 @@ import {
 } from "./context";
 
 import { acceptedFriendIds, useFriendshipStore } from "../../features/social/store/friendshipStore";
+import { useBlockStore } from "../../features/social/store/blockStore";
 import { useCallStore } from "../../features/voice/store/callStore";
 import {
   loadActivitiesFor,
@@ -69,6 +70,9 @@ export function installWsBootstrap() {
     refetchDmPreviews(true);
     scheduleUnreadRefetch();
     void queryClient.invalidateQueries({ queryKey: ["pins"] });
+    void useFriendshipStore.getState().fetchFriends().catch(() => {});
+    void useBlockStore.getState().fetch().catch(() => {});
+    useHiddenDmStore.getState().resync();
   });
   const onForeground = () => {
     if (!viewIsForeground()) return;
