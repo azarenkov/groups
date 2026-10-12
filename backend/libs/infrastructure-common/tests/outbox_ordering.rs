@@ -297,3 +297,28 @@ async fn a_threshold_above_the_stored_cap_still_counts_stuck_events() {
     assert_eq!((backlog.pending, backlog.stuck), (1, 1));
     db.drop().await;
 }
+
+#[tokio::test]
+#[ignore = "needs Postgres through RIFT_TEST_DATABASE_URL"]
+async fn events_written_before_partitioning_go_out_before_newer_ones() {
+    let db = TestDb::new().await;
+    let channel = Uuid::new_v4();
+    save(&db.pool, &[channel_event(channel, "legacy")]).await;
+    sqlx::query("UPDATE outbox SET partition_key = NULL, partition_seq = NULL")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    save(&db.pool, &[channel_event(channel, "fresh")]).await;
+    save(&db.pool, &[channel_event(Uuid::new_v4(), "elsewhere")]).await;
+
+    let publisher = Arc::new(FakePublisher::default());
+    publisher.fail("legacy");
+    let dispatcher = dispatcher(&db.pool, &publisher, 5);
+    drain(&dispatcher, 10).await;
+    assert!(publisher.published().is_empty());
+
+    publisher.recover("legacy");
+    drain(&dispatcher, 10).await;
+    assert_eq!(publisher.published(), vec!["legacy", "fresh", "elsewhere"]);
+    db.drop().await;
+}

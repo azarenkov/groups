@@ -86,6 +86,12 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
                     AND earlier.processed_at IS NULL
                     AND earlier.seq < o.seq
               )
+              AND NOT EXISTS (
+                  SELECT 1 FROM outbox legacy
+                  WHERE legacy.partition_key IS NULL
+                    AND legacy.processed_at IS NULL
+                    AND legacy.seq < o.seq
+              )
             ORDER BY last_attempt_at NULLS FIRST, seq
             FOR UPDATE SKIP LOCKED
             LIMIT 1
