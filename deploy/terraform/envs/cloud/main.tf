@@ -82,6 +82,8 @@ module "datastores" {
 module "rift" {
   source = "../../modules/rift"
 
+  monitoring = var.monitoring
+
   namespace      = local.rift_namespace
   cluster_domain = var.cluster_domain
   delivery       = var.delivery

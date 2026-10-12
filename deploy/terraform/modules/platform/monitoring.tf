@@ -86,6 +86,7 @@ module "monitoring_values" {
       prometheusSpec = {
         serviceMonitorSelectorNilUsesHelmValues = false
         podMonitorSelectorNilUsesHelmValues     = false
+        ruleSelectorNilUsesHelmValues           = false
         retention                               = "7d"
       }
     }

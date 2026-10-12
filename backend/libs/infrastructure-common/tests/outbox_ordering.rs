@@ -187,10 +187,16 @@ async fn an_event_is_kept_after_running_out_of_attempts() {
         .await
         .unwrap();
     assert_eq!(pending, 2);
+    let backlog = dispatcher.backlog().await.unwrap();
+    assert_eq!((backlog.pending, backlog.stuck), (2, 1));
+    assert!(backlog.oldest_pending_secs >= 0.0);
 
     publisher.recover("stuck");
     drain(&dispatcher, 10).await;
     assert_eq!(publisher.published(), vec!["stuck", "next"]);
+    let backlog = dispatcher.backlog().await.unwrap();
+    assert_eq!((backlog.pending, backlog.stuck), (0, 0));
+    assert_eq!(backlog.oldest_pending_secs, 0.0);
     db.drop().await;
 }
 

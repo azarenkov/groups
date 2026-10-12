@@ -14,6 +14,13 @@ pub enum OutboxDispatchError {
     Repository(#[from] RepositoryError),
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct OutboxBacklog {
+    pub pending: i64,
+    pub stuck: i64,
+    pub oldest_pending_secs: f64,
+}
+
 pub struct OutboxDispatcher<P: OutboxPublisher> {
     source: String,
     pool: Pool<Postgres>,
@@ -172,6 +179,29 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
 
         Ok(true)
+    }
+
+    pub async fn backlog(&self) -> Result<OutboxBacklog, OutboxDispatchError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT
+                count(*) AS "pending!",
+                count(*) FILTER (WHERE attempts >= $1) AS "stuck!",
+                COALESCE(EXTRACT(EPOCH FROM now() - min(created_at)), 0)::float8 AS "oldest_pending_secs!"
+            FROM outbox
+            WHERE processed_at IS NULL
+            "#,
+            self.max_attempts,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(OutboxBacklog {
+            pending: row.pending,
+            stuck: row.stuck,
+            oldest_pending_secs: row.oldest_pending_secs,
+        })
     }
 
     pub async fn cleanup_processed(

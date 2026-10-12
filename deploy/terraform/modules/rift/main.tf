@@ -87,6 +87,9 @@ locals {
       pullPolicy = var.image.pull_policy
     }
     imagePullSecrets = var.image.pull_secret == null ? [] : [{ name = "${var.release_name}-registry" }]
+    monitoring = {
+      enabled = var.monitoring
+    }
     config = {
       POSTGRES_HOST                  = var.postgres.host
       POSTGRES_PORT                  = tostring(var.postgres.port)

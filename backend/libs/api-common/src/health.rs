@@ -138,6 +138,13 @@ impl ReadinessBuilder {
 pub use infrastructure_common::health::{Heartbeat, Liveness};
 
 pub fn bind(port: u16, readiness: Readiness, liveness: Liveness) -> io::Result<Server> {
+    bind_with(port, readiness, liveness, |_| {})
+}
+
+pub fn bind_with<F>(port: u16, readiness: Readiness, liveness: Liveness, configure: F) -> io::Result<Server>
+where
+    F: Fn(&mut web::ServiceConfig) + Send + Clone + 'static,
+{
     let readiness_data = web::Data::new(readiness);
     let liveness_data = web::Data::new(liveness);
     let server = HttpServer::new(move || {
@@ -146,6 +153,7 @@ pub fn bind(port: u16, readiness: Readiness, liveness: Liveness) -> io::Result<S
             .app_data(liveness_data.clone())
             .service(web::resource("/livez").to(livez))
             .service(web::resource("/readyz").to(readyz))
+            .configure(configure.clone())
     })
     .workers(1)
     .disable_signals()

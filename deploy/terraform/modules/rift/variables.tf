@@ -3,6 +3,12 @@ variable "namespace" {
   default = "rift"
 }
 
+variable "monitoring" {
+  description = "Ship the PodMonitor and alerting rules of the app; needs the Prometheus Operator CRDs"
+  type        = bool
+  default     = false
+}
+
 variable "release_name" {
   type    = string
   default = "rift"
