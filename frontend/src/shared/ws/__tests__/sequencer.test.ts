@@ -241,3 +241,14 @@ it("remembers a live deletion long after it left the repeat window", () => {
   s.baseline("p", 9);
   expect(resynced).toEqual(["p"]);
 });
+
+it("asks for a resync when a snapshot it does not adopt missed a live edit", () => {
+  const { s, resynced } = setup();
+  s.baseline("p", 9);
+  s.accept(env("message.edited", "p", 10));
+  s.checkSnapshot("p", 10);
+  expect(resynced).toEqual([]);
+  s.checkSnapshot("p", 9);
+  s.checkSnapshot("q", 1);
+  expect(resynced).toEqual(["p"]);
+});

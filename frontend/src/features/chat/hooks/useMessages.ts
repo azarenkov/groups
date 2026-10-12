@@ -228,6 +228,7 @@ export function useMessages(params: {
         const pageCoversCache =
           !fullPage || (restored ?? []).every((m) => oldestFetched !== undefined && !cursorAfter(oldestFetched, m));
         if (pageCoversCache) adoptBaseline(res);
+        else if (res.partition && typeof res.seq === "number") ws.checkSnapshot(res.partition, res.seq);
         if (!fullPage) setHasMore(false);
         else if (reconciled.gap) setHasMore(true);
       })

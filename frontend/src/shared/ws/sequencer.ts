@@ -114,6 +114,11 @@ export class Sequencer {
     if (missedBeforeLive || overtakenByLive || (gapOpen && state.timer === null)) this.notifyResync(partition);
   }
 
+  checkSnapshot(partition: string, seq: number): void {
+    const state = this.partitions.get(partition);
+    if (state && this.changedAfter(state, seq)) this.notifyResync(partition);
+  }
+
   position(partition: string): number | undefined {
     return this.partitions.get(partition)?.last;
   }

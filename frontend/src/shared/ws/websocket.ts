@@ -127,6 +127,10 @@ class WsClient {
     this.sequencer.baseline(partition, seq);
   }
 
+  checkSnapshot(partition: string, seq: number): void {
+    this.sequencer.checkSnapshot(partition, seq);
+  }
+
   position(partition: string): number | undefined {
     return this.sequencer.position(partition);
   }
