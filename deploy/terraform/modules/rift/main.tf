@@ -87,9 +87,6 @@ locals {
       pullPolicy = var.image.pull_policy
     }
     imagePullSecrets = var.image.pull_secret == null ? [] : [{ name = "${var.release_name}-registry" }]
-    monitoring = {
-      enabled = var.monitoring_ready != ""
-    }
     config = {
       POSTGRES_HOST                  = var.postgres.host
       POSTGRES_PORT                  = tostring(var.postgres.port)
@@ -150,7 +147,11 @@ locals {
     }
   }
 
-  chart_values = module.chart_values.result
+  chart_values = merge(module.chart_values.result, {
+    monitoring = merge(lookup(module.chart_values.result, "monitoring", {}), {
+      enabled = var.monitoring_ready != ""
+    })
+  })
 
   chart_checksum = var.delivery == "helm" ? sha256(join("", [
     for f in sort(fileset(var.chart_path, "**")) : filesha256("${var.chart_path}/${f}")
