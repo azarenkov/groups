@@ -14,6 +14,8 @@ pub enum OutboxDispatchError {
     Repository(#[from] RepositoryError),
 }
 
+const STORED_ATTEMPTS_CAP: i16 = 100;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct OutboxBacklog {
     pub pending: i64,
@@ -191,7 +193,7 @@ impl<P: OutboxPublisher> OutboxDispatcher<P> {
             FROM outbox
             WHERE processed_at IS NULL
             "#,
-            self.max_attempts,
+            self.max_attempts.min(STORED_ATTEMPTS_CAP),
         )
         .fetch_one(&self.pool)
         .await
