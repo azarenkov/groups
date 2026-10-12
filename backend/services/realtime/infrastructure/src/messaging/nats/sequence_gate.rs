@@ -9,6 +9,11 @@ use tokio::time::Instant;
 
 const MAX_TRACKED_PARTITIONS: usize = 100_000;
 const FIRST_TURN_SETTLE: Duration = Duration::from_millis(150);
+const RESTORE_RETRY_DELAYS: [Duration; 3] = [
+    Duration::from_millis(100),
+    Duration::from_millis(300),
+    Duration::from_millis(700),
+];
 
 #[async_trait]
 pub trait SequenceProgress: Send + Sync {
@@ -94,19 +99,26 @@ impl SequenceGate {
                 return;
             }
         }
-        let stored = progress.load(partition).await;
-        let mut last = self.last.lock().unwrap_or_else(|e| e.into_inner());
-        let turn = turn_for(&mut last, partition);
-        turn.restored = true;
+        let mut stored = progress.load(partition).await;
+        for delay in RESTORE_RETRY_DELAYS {
+            if stored.is_ok() {
+                break;
+            }
+            tokio::time::sleep(delay).await;
+            stored = progress.load(partition).await;
+        }
         match stored {
             Ok(stored) => {
+                let mut last = self.last.lock().unwrap_or_else(|e| e.into_inner());
+                let turn = turn_for(&mut last, partition);
+                turn.restored = true;
                 if turn.done.is_none() {
                     turn.done = Some(stored.unwrap_or(0));
                     turn.elected = None;
                 }
             }
             Err(e) => {
-                tracing::warn!(partition, error = %e, "Failed to restore partition progress; falling back to the settle window");
+                tracing::warn!(partition, error = %e, "Failed to restore partition progress; this event falls back to the settle window");
             }
         }
     }
@@ -347,11 +359,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn keeps_trying_to_restore_progress_after_a_failed_read() {
+        let progress = Arc::new(MemoryProgress::default());
+        progress.stored.lock().unwrap().insert("p".into(), 10);
+        progress.fail.store(true, std::sync::atomic::Ordering::SeqCst);
+        let gate = Arc::new(SequenceGate::with_progress(Duration::from_secs(5), progress.clone()));
+        let recovering = tokio::spawn({
+            let progress = progress.clone();
+            async move {
+                tokio::time::sleep(Duration::from_millis(150)).await;
+                progress.fail.store(false, std::sync::atomic::Ordering::SeqCst);
+            }
+        });
+        let later = tokio::spawn({
+            let gate = gate.clone();
+            async move { gate.wait_turn("p", 12).await }
+        });
+        recovering.await.unwrap();
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        assert!(!later.is_finished());
+        assert!(tokio::time::timeout(Duration::from_millis(100), gate.wait_turn("p", 11)).await.unwrap());
+    }
+
+    #[tokio::test]
     async fn falls_back_to_the_settle_window_when_progress_cannot_be_read() {
         let progress = Arc::new(MemoryProgress::default());
         progress.fail.store(true, std::sync::atomic::Ordering::SeqCst);
         let gate = SequenceGate::with_progress(Duration::from_secs(5), progress);
-        tokio::time::timeout(Duration::from_millis(500), gate.wait_turn("p", 40)).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(3), gate.wait_turn("p", 40)).await.unwrap();
     }
 
     #[tokio::test]
