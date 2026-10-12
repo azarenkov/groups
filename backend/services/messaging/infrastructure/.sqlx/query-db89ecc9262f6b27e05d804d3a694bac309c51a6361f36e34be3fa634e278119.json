@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO hidden_messages (user_id, message_id)\n            SELECT $1, $2\n            WHERE EXISTS (SELECT 1 FROM dm_messages WHERE id = $2 FOR SHARE)\n               OR EXISTS (SELECT 1 FROM messages WHERE id = $2 FOR SHARE)\n            ON CONFLICT (user_id, message_id) DO UPDATE SET hidden_at = hidden_messages.hidden_at\n            RETURNING hidden_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hidden_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "db89ecc9262f6b27e05d804d3a694bac309c51a6361f36e34be3fa634e278119"
+}

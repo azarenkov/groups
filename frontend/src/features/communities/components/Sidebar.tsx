@@ -10,6 +10,7 @@ import CommunityList from "./sidebar/CommunityList";
 import CommunityPage from "./sidebar/CommunityPage";
 import SidebarHeader from "./sidebar/SidebarHeader";
 import { pinnedFirst, useConversationPinsStore } from "../store/conversationPinsStore";
+import { hiddenDmsReady, useHiddenDmStore } from "../../dm/store/hiddenDmStore";
 import { useSidebarPermissions } from "./sidebar/permissions";
 import type { SidebarVoiceMember } from "./sidebar/types";
 import {
@@ -247,6 +248,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const dmPins = useConversationPinsStore((s) => s.dms);
+  const hiddenDms = useHiddenDmStore((s) => s.hidden);
+  const hiddenReady = useHiddenDmStore(hiddenDmsReady);
   const communityPins = useConversationPinsStore((s) => s.communities);
   const visibleDirects = pinnedFirst(directs, dmPins);
   const orderedCommunities = pinnedFirst(communities, communityPins);
@@ -268,7 +271,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     setOpenCommunityId(community.id);
   };
 
-  const totalDmUnread = Object.values(unreadByDm).reduce((a, b) => a + b, 0);
+  const totalDmUnread = hiddenReady
+    ? Object.entries(unreadByDm).reduce((sum, [id, count]) => (hiddenDms.includes(id) ? sum : sum + count), 0)
+    : 0;
   const totalCommunityUnread = Object.values(unreadByChannel).reduce(
     (a, b) => a + b,
     0,

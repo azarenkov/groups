@@ -225,6 +225,11 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
     void fetchPage(failed.before, failed.mode);
   }, [fetchPage]);
 
+  const reload = React.useCallback(() => {
+    viewGenRef.current += 1;
+    void fetchPage(null, "reset");
+  }, [fetchPage]);
+
   const refreshTop = React.useCallback(() => {
     void fetchPage(null, "merge");
   }, [fetchPage]);
@@ -276,5 +281,5 @@ export function useSharedContent(scope: SharedScope, kind: SharedKind, query: st
     [kind, debouncedQuery],
   );
 
-  return { ...state, searching: query.trim() !== debouncedQuery, loadMore, retry, refreshTop, dropMessage, applyEdit };
+  return { ...state, searching: query.trim() !== debouncedQuery, loadMore, retry, reload, refreshTop, dropMessage, applyEdit };
 }

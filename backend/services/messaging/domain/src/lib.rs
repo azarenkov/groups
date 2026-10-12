@@ -1,5 +1,6 @@
 pub mod badge;
 pub mod channel;
+pub mod dm_conversation;
 pub mod dm_message;
 pub mod events;
 pub mod friendship;

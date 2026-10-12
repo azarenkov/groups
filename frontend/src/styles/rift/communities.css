@@ -439,6 +439,33 @@
   font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
   display: inline-flex; align-items: center; justify-content: center;
 }
+.sb-add-row-badge.muted { background: var(--fg-4); }
+.sb-hidden-folder { color: var(--fg-2); }
+.sb-folder-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 8px 4px 2px;
+}
+.sb-folder-back {
+  width: 32px; height: 32px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%;
+  background: transparent; color: var(--fg-2);
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast), transform var(--dur-fast);
+}
+.sb-folder-back:hover { background: color-mix(in srgb, var(--fg-1) 8%, transparent); color: var(--fg-1); transform: scale(1.04); }
+.sb-folder-back:active { transform: scale(0.97); }
+.sb-folder-title {
+  margin: 0; min-width: 0;
+  font-size: 18px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--fg-1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sb-folder-hint {
+  margin: 0; padding: 2px 8px 10px;
+  font-size: 12px; font-weight: 400; line-height: 16px;
+  color: var(--fg-3);
+}
 
 .community-tabs {
   display: flex;
@@ -1336,6 +1363,8 @@ textarea.ssv-input:focus-visible {
   background: var(--surface-sunken); color: var(--fg-2);
 }
 .sb-mini-more:hover { background: var(--surface-hover); color: var(--fg-1); }
+.sb-mini-hidden { margin: 0 0 4px; }
+.sb-mini-hidden.open { color: var(--fg-1); }
 .sb-mini-more .sb-mini-badge { top: -2px; right: -2px; }
 .sb-rail-open { width: 48px; height: 44px; color: var(--fg-2); }
 .sb-resizer {

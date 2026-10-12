@@ -94,5 +94,15 @@
   "searchCommunities": "Communities",
   "searchChannels": "Channels",
   "searchDirect": "Direct message",
-  "searchCommunity": "Community"
+  "searchCommunity": "Community",
+  "hideChat": "Hide chat",
+  "unhideChat": "Unhide chat",
+  "hiddenChats": "Hidden",
+  "hiddenChatsBack": "Back to chats",
+  "hiddenChatsHint": "Hidden chats don't notify you or ring",
+  "clearChat": "Delete chat history",
+  "clearChatTitle": "Delete chat history with {{name}}?",
+  "clearChatSub": "Messages, files and pins will be removed. This can't be undone.",
+  "clearChatMe": "Only for me",
+  "clearChatEveryone": "Delete for both"
 }

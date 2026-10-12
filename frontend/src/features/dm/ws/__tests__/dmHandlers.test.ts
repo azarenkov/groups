@@ -5,9 +5,16 @@ import { useUnreadStore } from "../../../chat/store/unreadStore";
 import { useNotificationPrefsStore } from "../../../settings/store/notificationPrefsStore";
 import { playNotificationSound } from "../../../../shared/lib/notificationSound";
 import { showDesktopNotification } from "../../../../shared/lib/desktopNotification";
+import { useHiddenDmStore } from "../../store/hiddenDmStore";
+import { queryClient, queryKeys } from "../../../../shared/query/queryClient";
+import { refetchDmPreviews, useDmPreviewStore } from "../../store/dmPreviewStore";
 
 jest.mock("../../../../shared/lib/notificationSound", () => ({ playNotificationSound: jest.fn() }));
 jest.mock("../../../../shared/lib/desktopNotification", () => ({ showDesktopNotification: jest.fn() }));
+jest.mock("../../store/dmPreviewStore", () => {
+  const actual = jest.requireActual("../../store/dmPreviewStore");
+  return { ...actual, refetchDmPreviews: jest.fn() };
+});
 jest.mock("../../../settings/store/notificationPrefsStore", () => {
   const actual = jest.requireActual("../../../settings/store/notificationPrefsStore");
   return { ...actual, notificationPrefsLoaded: () => true };
@@ -30,6 +37,8 @@ beforeEach(() => {
   desktop.mockReset();
   useAuthStore.setState({ user: { id: "me", name: "Me" } } as never);
   useUnreadStore.setState({ byDm: {}, byChannel: {} } as never);
+  useHiddenDmStore.setState({ hidden: [], loaded: true });
+  (refetchDmPreviews as jest.Mock).mockReset();
 });
 
 it("keeps counting a muted DM but stays silent", () => {
@@ -74,4 +83,160 @@ it("keeps counting a muted channel but stays silent", () => {
   expect(useUnreadStore.getState().byChannel.ch).toBe(1);
   expect(sound).not.toHaveBeenCalled();
   expect(desktop).not.toHaveBeenCalled();
+});
+
+it("keeps counting a hidden DM but stays silent", () => {
+  useNotificationPrefsStore.setState({ dmLevels: {} });
+  useHiddenDmStore.setState({ hidden: ["peer"] });
+  dmHandlers["dm_message.sent"]!({
+    id: "m4",
+    senderId: "peer",
+    recipientId: "me",
+    senderName: "Peer",
+    content: "hi",
+    occurredAt: new Date().toISOString(),
+  });
+  expect(useUnreadStore.getState().byDm.peer).toBe(1);
+  expect(useHiddenDmStore.getState().hidden).toEqual(["peer"]);
+  expect(sound).not.toHaveBeenCalled();
+  expect(desktop).not.toHaveBeenCalled();
+});
+
+it("rereads hidden chats from the server when they change elsewhere", () => {
+  const changed = jest.spyOn(useHiddenDmStore.getState(), "remoteChanged").mockImplementation(() => {});
+  dmHandlers["dm_conversation.hidden_changed"]!({ peerId: "peer", hidden: true });
+  dmHandlers["dm_conversation.hidden_changed"]!({});
+  expect(changed).toHaveBeenCalledTimes(1);
+  expect(changed).toHaveBeenCalledWith("peer", true);
+  changed.mockRestore();
+});
+
+it("reloads previews when a conversation is cleared", () => {
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["peer", "me"],
+    scope: "everyone",
+    clearedAt: new Date().toISOString(),
+  });
+  expect(refetchDmPreviews).toHaveBeenCalledWith(true);
+  (refetchDmPreviews as jest.Mock).mockReset();
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["a", "b"],
+    scope: "everyone",
+    clearedAt: new Date().toISOString(),
+  });
+  expect(refetchDmPreviews).not.toHaveBeenCalled();
+});
+
+it("stays silent until hidden chats are known", () => {
+  useNotificationPrefsStore.setState({ dmLevels: {} });
+  useHiddenDmStore.setState({ hidden: [], loaded: false });
+  dmHandlers["dm_message.sent"]!({
+    id: "m5",
+    senderId: "peer",
+    recipientId: "me",
+    senderName: "Peer",
+    content: "hi",
+    occurredAt: new Date().toISOString(),
+  });
+  expect(useUnreadStore.getState().byDm.peer).toBe(1);
+  expect(sound).not.toHaveBeenCalled();
+  expect(desktop).not.toHaveBeenCalled();
+});
+
+it("drops global search results when a conversation is cleared", () => {
+  const invalidate = jest.spyOn(queryClient, "invalidateQueries");
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["peer", "me"],
+    scope: "me",
+    clearedAt: new Date().toISOString(),
+  });
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ["globalSearch"] });
+  invalidate.mockRestore();
+});
+
+it("removes the cleared conversation preview right away", () => {
+  useDmPreviewStore.getState().push("peer", {
+    messageId: "m9",
+    senderId: "peer",
+    content: "secret",
+    callStatus: null,
+    inviteCommunityId: null,
+    hasAttachments: false,
+    createdAt: "2026-10-11T09:00:00Z",
+  });
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["peer", "me"],
+    scope: "everyone",
+    clearedAt: "2026-10-11T10:00:00Z",
+  });
+  expect(useDmPreviewStore.getState().byFriend.peer).toBeUndefined();
+});
+
+it("drops cleared pins from the cache before refetching them", () => {
+  const pin = (messageId: string, createdAt: string) => ({
+    messageId,
+    authorId: "peer",
+    authorName: "Peer",
+    content: messageId,
+    hasAttachments: false,
+    createdAt,
+    pinnedBy: "peer",
+    pinnedAt: createdAt,
+  });
+  queryClient.setQueryData(queryKeys.pins("dm:peer"), [
+    pin("old", "2026-10-11T09:00:00Z"),
+    pin("new", "2026-10-11T11:00:00Z"),
+  ]);
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["peer", "me"],
+    scope: "me",
+    clearedAt: "2026-10-11T10:30:00Z",
+  });
+  expect(
+    (queryClient.getQueryData(queryKeys.pins("dm:peer")) as { messageId: string }[]).map((p) => p.messageId),
+  ).toEqual(["new"]);
+  queryClient.removeQueries({ queryKey: queryKeys.pins("dm:peer") });
+});
+
+it("clears the unread badge of a cleared chat right away unless a newer message came in", () => {
+  useUnreadStore.setState({ byDm: { peer: 3 } });
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["peer", "me"],
+    scope: "me",
+    clearedAt: "2026-10-11T12:00:00Z",
+  });
+  expect(useUnreadStore.getState().byDm.peer).toBeUndefined();
+});
+
+it("drops cleared DM hits from cached global search", () => {
+  const hit = (messageId: string, peerId: string, createdAt: string) => ({
+    messageId,
+    authorId: peerId,
+    authorName: peerId,
+    createdAt,
+    place: { type: "dm" as const, peerId, peerName: peerId },
+    snippet: messageId,
+  });
+  const key = queryKeys.globalSearch("messages", "hi");
+  queryClient.setQueryData(key, {
+    pages: [
+      {
+        items: [
+          hit("old", "peer", "2026-10-11T09:00:00Z"),
+          hit("new", "peer", "2026-10-11T11:00:00Z"),
+          hit("other", "friend", "2026-10-11T09:00:00Z"),
+        ],
+        nextCursor: null,
+      },
+    ],
+    pageParams: [null],
+  });
+  dmHandlers["dm_conversation.cleared"]!({
+    participants: ["peer", "me"],
+    scope: "everyone",
+    clearedAt: "2026-10-11T10:00:00Z",
+  });
+  const data = queryClient.getQueryData(key) as { pages: { items: { messageId: string }[] }[] };
+  expect(data.pages[0].items.map((h) => h.messageId)).toEqual(["new", "other"]);
+  queryClient.removeQueries({ queryKey: key });
 });

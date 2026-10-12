@@ -1,5 +1,7 @@
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
 use messaging::usecases::pin::{conversation_pins::ConversationPins, message_pins::MessagePins};
+use messaging::usecases::dm_conversation::DmConversations;
+use messaging_infrastructure::database::postgres::repositories::dm_conversation::PostgresDmConversationRepository;
 use messaging::usecases::search::global_search::GlobalSearch;
 use messaging::usecases::shared::list_shared_content::ListSharedContent;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnail;
@@ -319,6 +321,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             friendship_repository.clone(),
         ),
         conversation_pins_usecase: ConversationPins::new(Arc::new(PostgresConversationPinRepository::new(
+            postgres_pool.clone(),
+        ))),
+        dm_conversations_usecase: DmConversations::new(Arc::new(PostgresDmConversationRepository::new(
             postgres_pool.clone(),
         ))),
         list_shared_content_usecase: ListSharedContent::new(

@@ -2,6 +2,8 @@ import React from "react";
 import { ApiError } from "../../../shared/lib/apiError";
 import type { ChannelMessage } from "../../../shared/types/channel";
 import type { Messenger } from "./useMessenger";
+import { ws } from "../../../shared/ws/websocket";
+import { clearedBefore, dmClearedFor } from "../../dm/lib/dmCleared";
 
 const SEARCH_PAGE_SIZE = 50;
 
@@ -9,9 +11,11 @@ export function useMessageSearch(params: {
   messenger: Messenger | null;
   convId?: string;
   nameSyncTick: number;
+  dmFriendId?: string | null;
+  currentUserId?: string;
   onClose: () => void;
 }) {
-  const { messenger, convId, nameSyncTick, onClose } = params;
+  const { messenger, convId, nameSyncTick, dmFriendId, currentUserId, onClose } = params;
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [searchInput, setSearchInput] = React.useState("");
@@ -19,6 +23,7 @@ export function useMessageSearch(params: {
   const [searchLoading, setSearchLoading] = React.useState(false);
   const [searchError, setSearchError] = React.useState<string | null>(null);
   const [searchTotal, setSearchTotal] = React.useState(0);
+  const [clearTick, setClearTick] = React.useState(0);
   const messengerRef = React.useRef(messenger);
   messengerRef.current = messenger;
   const onCloseRef = React.useRef(onClose);
@@ -80,7 +85,23 @@ export function useMessageSearch(params: {
     return () => {
       cancelled = true;
     };
-  }, [searchQuery, searchOpen, convId, nameSyncTick]);
+  }, [searchQuery, searchOpen, convId, nameSyncTick, clearTick]);
+
+  React.useEffect(
+    () =>
+      ws.on((env) => {
+        if (env.type !== "dm_conversation.cleared" || !dmFriendId) return;
+        const cleared = dmClearedFor(env.data, currentUserId);
+        if (!cleared || cleared.peerId !== dmFriendId) return;
+        setSearchResults((prev) =>
+          prev.some((m) => clearedBefore(m.createdAt, cleared.clearedAt))
+            ? prev.filter((m) => !clearedBefore(m.createdAt, cleared.clearedAt))
+            : prev,
+        );
+        setClearTick((tick) => tick + 1);
+      }),
+    [dmFriendId, currentUserId],
+  );
 
   const closeSearch = React.useCallback(() => {
     setSearchOpen(false);

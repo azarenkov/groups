@@ -12,6 +12,12 @@ import { showDesktopNotification } from "../../../shared/lib/desktopNotification
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
 import { videoNoteDurationFromPayload, voiceDurationFromPayload } from "../../chat/lib/voice";
 import { notificationBody } from "../../chat/lib/notificationBody";
+import { hiddenDmsKnown, isDmHidden, useHiddenDmStore } from "../store/hiddenDmStore";
+import { clearedBefore, dmClearedFor } from "../lib/dmCleared";
+import type { PinnedMessage } from "../../chat/api/pins";
+import type { InfiniteData } from "@tanstack/react-query";
+import type { GlobalSearchPage } from "../../search/api/globalSearch";
+import { queryClient, queryKeys } from "../../../shared/query/queryClient";
 import { asString, eventTs, getActiveDmView, lastDmBumpAt, scheduleUnreadRefetch, throttleMarkDmRead, viewIsForeground } from "../../../shared/ws/context";
 
 export const dmHandlers: WsHandlers = {
@@ -58,7 +64,7 @@ export const dmHandlers: WsHandlers = {
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpDm(senderId);
-      if (dmLevel === "none") return;
+      if (dmLevel === "none" || !hiddenDmsKnown() || isDmHidden(senderId)) return;
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
         showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments, d.sticker));
@@ -96,6 +102,50 @@ export const dmHandlers: WsHandlers = {
       void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
         refetchUnread().catch(() => {}),
       );
+      return;
+  },
+  "dm_conversation.cleared": (d) => {
+      const cleared = dmClearedFor(d, useAuthStore.getState().user?.id);
+      if (!cleared) return;
+      const bumpTs = lastDmBumpAt[cleared.peerId];
+      if (bumpTs === undefined || bumpTs <= Date.parse(cleared.clearedAt)) {
+        delete lastDmBumpAt[cleared.peerId];
+        useUnreadStore.getState().resetDm(cleared.peerId);
+      }
+      useDmPreviewStore.getState().dropCleared(cleared.peerId, cleared.clearedAt);
+      refetchDmPreviews(true);
+      queryClient.setQueryData<PinnedMessage[]>(queryKeys.pins(`dm:${cleared.peerId}`), (prev: PinnedMessage[] | undefined) =>
+        prev ? prev.filter((p) => !clearedBefore(p.createdAt, cleared.clearedAt)) : prev,
+      );
+      void queryClient.invalidateQueries({ queryKey: queryKeys.pins(`dm:${cleared.peerId}`) });
+      queryClient.setQueriesData<InfiniteData<GlobalSearchPage>>({ queryKey: ["globalSearch"] }, (prev: InfiniteData<GlobalSearchPage> | undefined) =>
+        prev
+          ? {
+              ...prev,
+              pages: prev.pages.map((page) => ({
+                ...page,
+                items: page.items.filter(
+                  (hit) =>
+                    !(
+                      hit.place.type === "dm" &&
+                      hit.place.peerId === cleared.peerId &&
+                      clearedBefore(hit.createdAt, cleared.clearedAt)
+                    ),
+                ),
+              })),
+            }
+          : prev,
+      );
+      void queryClient.invalidateQueries({ queryKey: ["globalSearch"] });
+      void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
+        refetchUnread().catch(() => {}),
+      );
+      return;
+  },
+  "dm_conversation.hidden_changed": (d) => {
+      const peerId = asString(d.peerId);
+      if (!peerId) return;
+      useHiddenDmStore.getState().remoteChanged(peerId, d.hidden === true);
       return;
   },
   "dm.read": (d) => {

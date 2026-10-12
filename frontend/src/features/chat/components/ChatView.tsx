@@ -41,6 +41,7 @@ import PinnedBar from "./PinnedBar";
 import type { ChannelMeta, DmMeta } from "../types";
 import { openForward } from "../store/forwardModalStore";
 import { canDeleteForEveryone } from "../lib/messageMenu";
+import { onDmResync } from "../../dm/lib/clearWatermarks";
 
 interface ChatViewProps {
   channel?: ChannelMeta;
@@ -163,6 +164,8 @@ const ChatView: React.FC<ChatViewProps> = ({
     messenger,
     convId,
     nameSyncTick,
+    dmFriendId,
+    currentUserId,
     onClose: () => setHighlightedMessageId(null),
   });
 
@@ -187,6 +190,13 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, [openMessageId, showInitialLoader, jumpToMessageId, closeSearch]);
 
   const searchActive = search.searchOpen && search.searchInput.trim().length > 0;
+
+  React.useEffect(() => {
+    if (!dmFriendId) return;
+    return onDmResync((peerId) => {
+      if (peerId === dmFriendId) void refreshHistory();
+    });
+  }, [dmFriendId, refreshHistory]);
 
   const pull = usePullToRefresh({
     bodyRef,

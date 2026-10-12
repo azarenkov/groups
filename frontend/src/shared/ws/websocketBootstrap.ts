@@ -4,7 +4,7 @@ import { chatHandlers } from "../../features/chat/ws/chatHandlers";
 import { dmHandlers } from "../../features/dm/ws/dmHandlers";
 import { communityHandlers } from "../../features/communities/ws/communityHandlers";
 import { socialHandlers } from "../../features/social/ws/socialHandlers";
-import { voiceHandlers } from "../../features/voice/ws/voiceHandlers";
+import { dropHeldCalls, voiceHandlers } from "../../features/voice/ws/voiceHandlers";
 import type { WsHandlers } from "./types";
 import {
   forgetReadThrottle,
@@ -30,6 +30,8 @@ import { useUserNamesStore } from "../../features/social/store/userNamesStore";
 import { markNotificationPrefsStale, useNotificationPrefsStore } from "../../features/settings/store/notificationPrefsStore";
 import { useNotificationSettingsStore } from "../../features/settings/store/notificationSettingsStore";
 import { useConversationPinsStore } from "../../features/communities/store/conversationPinsStore";
+import { useHiddenDmStore } from "../../features/dm/store/hiddenDmStore";
+import { clearWatermarkGate } from "../../features/dm/lib/clearWatermarks";
 import { installMessageCacheSync } from "../../features/chat/lib/messageCache";
 import { installQuerySync } from "../query/queryClient";
 
@@ -61,6 +63,7 @@ export function installWsBootstrap() {
   installed = true;
   installMessageCacheSync();
   installQuerySync();
+  ws.addGate(clearWatermarkGate);
   const onForeground = () => {
     if (!viewIsForeground()) return;
     const channelId = getActiveChannelView();
@@ -112,6 +115,8 @@ export function installWsBootstrap() {
       .getState()
       .fetch()
       .catch((err) => console.warn("[ws] failed to reload conversation pins:", err));
+    useHiddenDmStore.getState().markStale();
+    dropHeldCalls();
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
     void loadActivitiesFor(trackedActivityIds());

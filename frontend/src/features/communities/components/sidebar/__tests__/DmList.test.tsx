@@ -7,6 +7,9 @@ import { useNotificationPrefsStore } from "../../../../settings/store/notificati
 import { useNotificationSettingsStore } from "../../../../settings/store/notificationSettingsStore";
 import type { DirectConversation } from "../../../../dm/types";
 import { useConversationPinsStore } from "../../../store/conversationPinsStore";
+import { useHiddenDmStore } from "../../../../dm/store/hiddenDmStore";
+import { useFriendshipStore } from "../../../../social/store/friendshipStore";
+import { useDmPreviewStore } from "../../../../dm/store/dmPreviewStore";
 
 const dm = (id: string, name: string): DirectConversation => ({
   id,
@@ -17,6 +20,10 @@ const dm = (id: string, name: string): DirectConversation => ({
   unread: 0,
   isFriend: true,
   friendship: "accepted",
+});
+
+beforeEach(() => {
+  act(() => useHiddenDmStore.setState({ loaded: true }));
 });
 
 const renderList = () =>
@@ -114,5 +121,110 @@ describe("DmList pin limit", () => {
     fireEvent.contextMenu(bob);
     const limited = useContextMenuStore.getState().menu.entries.find((e: { id: string }) => e.id === "pin");
     expect(limited.disabled).toBe(true);
+  });
+});
+
+describe("DmList hidden chats", () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  beforeEach(() => {
+    act(() => {
+      useNotificationSettingsStore.setState({ mentions: "all" });
+      useNotificationPrefsStore.setState({ dmLevels: {} });
+      useConversationPinsStore.getState().applyRemote({ dms: [] });
+    });
+  });
+
+  afterEach(() => {
+    act(() => useHiddenDmStore.setState({ hidden: [] }));
+  });
+
+  it("moves hidden chats into a folder with their total unread", () => {
+    act(() => useHiddenDmStore.setState({ hidden: ["u2", "gone"] }));
+    render(
+      <DmList
+        directs={[dm("u1", "Alice"), dm("u2", "Bob")]}
+        selectedDmId={null}
+        unreadByDm={{ u1: 3, u2: 2, gone: 4 }}
+        pendingCount={0}
+        onAddFriend={jest.fn()}
+        onOpenPending={jest.fn()}
+        onPick={jest.fn()}
+      />,
+    );
+    expect(screen.queryByText("Bob")).toBeNull();
+    expect(screen.getByText("Alice")).toBeTruthy();
+    const folder = screen.getByText("Hidden").closest("button")!;
+    expect(folder.textContent).toContain("6");
+    fireEvent.click(folder);
+    expect(screen.getByText("Bob")).toBeTruthy();
+    expect(screen.queryByText("Alice")).toBeNull();
+    expect(screen.getByText("2").className).toContain("muted");
+  });
+
+  it("keeps loading more chats from the compact hidden view", () => {
+    act(() => useHiddenDmStore.setState({ hidden: ["far"] }));
+    const loadMore = jest.fn();
+    render(
+      <DmList
+        compact
+        directs={[dm("u1", "Alice")]}
+        selectedDmId={null}
+        unreadByDm={{}}
+        pendingCount={0}
+        hasMoreDirects
+        onLoadMoreDirects={loadMore}
+        onAddFriend={jest.fn()}
+        onOpenPending={jest.fn()}
+        onPick={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Hidden"));
+    fireEvent.click(screen.getByLabelText("Show more"));
+    expect(loadMore).toHaveBeenCalled();
+  });
+
+  it("drops the folder for hidden chats that can no longer be shown once every chat is loaded", () => {
+    act(() => {
+      useHiddenDmStore.setState({ hidden: ["gone"] });
+      useFriendshipStore.setState({ loaded: true, nextCursor: null });
+      useDmPreviewStore.setState({ loaded: true, nextCursor: null });
+    });
+    try {
+      renderList();
+      expect(screen.queryByText("Hidden")).toBeNull();
+    } finally {
+      act(() => {
+        useFriendshipStore.setState({ loaded: false });
+        useDmPreviewStore.setState({ loaded: false });
+      });
+    }
+  });
+
+  it("has no folder when nothing is hidden", () => {
+    renderList();
+    expect(screen.queryByText("Hidden")).toBeNull();
+    expect(screen.getByText("Alice")).toBeTruthy();
+    expect(screen.getByText("Bob")).toBeTruthy();
+  });
+});
+
+describe("DmList before hidden chats are known", () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  it("does not show any chat until the hidden list is loaded", () => {
+    act(() => useHiddenDmStore.setState({ hidden: [], loaded: false, hydrated: false }));
+    renderList();
+    expect(screen.queryByText("Alice")).toBeNull();
+    expect(screen.getByText("Loading…")).toBeTruthy();
+    act(() => useHiddenDmStore.setState({ hidden: ["u2"], hydrated: true }));
+    expect(screen.queryByText("Alice")).toBeNull();
+    act(() => useHiddenDmStore.setState({ hidden: ["u2"], loaded: true }));
+    expect(screen.getByText("Alice")).toBeTruthy();
+    expect(screen.queryByText("Bob")).toBeNull();
   });
 });

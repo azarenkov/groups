@@ -85,6 +85,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                 .service(
                     web::scope("/v1/users")
                         .configure(crate::pins::user_pin_routes)
+                        .configure(crate::dm_conversations::dm_conversation_routes)
                         .configure(badge_routes)
                         .service(crate::forward::forward_message)
                         .service(search_dm_messages)

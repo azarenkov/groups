@@ -3,7 +3,7 @@ import i18n from "../../../i18n";
 import { ApiError } from "../../../shared/lib/apiError";
 import type { ChannelMessage } from "../../../shared/types/channel";
 import { PAGE_LIMIT } from "../constants";
-import { mergeWithLive } from "../lib/messageFormat";
+import { mergeWithLive, reconcileSyncedWindow } from "../lib/messageFormat";
 import { appendedOwnMessage, shouldStickToBottom } from "../lib/scrollRules";
 import type { Messenger } from "./useMessenger";
 import {
@@ -221,11 +221,13 @@ export function useMessages(params: {
     let cancelled = false;
     const targetId = convIdRef.current;
     const oldestLoadedAt = messagesRef.current[0]?.createdAt;
+    const knownBefore = new Set(messagesRef.current.map((m) => m.id));
     (async () => {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const acc: ChannelMessage[] = [];
           let before: string | undefined;
+          let reachedStart = false;
           while (!cancelled && convIdRef.current === targetId) {
             const res = await messengerNow.listMessages({
               limit: PAGE_LIMIT,
@@ -233,20 +235,17 @@ export function useMessages(params: {
             });
             const ordered = [...res.messages].reverse();
             acc.unshift(...ordered);
-            if (
-              res.messages.length < PAGE_LIMIT ||
-              !oldestLoadedAt ||
-              (acc[0] && acc[0].createdAt <= oldestLoadedAt)
-            ) {
+            if (res.messages.length < PAGE_LIMIT) {
+              reachedStart = true;
               break;
             }
+            if (!oldestLoadedAt || (acc[0] && acc[0].createdAt <= oldestLoadedAt)) break;
             before = acc[0]?.id;
             if (!before) break;
           }
-          if (cancelled || acc.length === 0 || convIdRef.current !== targetId) {
-            return;
-          }
-          setMessages((prev) => mergeWithLive(acc, prev));
+          if (cancelled || convIdRef.current !== targetId) return;
+          if (acc.length === 0 && !reachedStart) return;
+          setMessages((prev) => reconcileSyncedWindow(acc, prev, reachedStart, knownBefore));
           return;
         } catch {
           await new Promise((resolve) => setTimeout(resolve, 5000));

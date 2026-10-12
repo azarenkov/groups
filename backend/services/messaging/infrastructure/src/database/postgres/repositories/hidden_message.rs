@@ -31,16 +31,19 @@ impl HiddenMessageRepository for PostgresHiddenMessageRepository {
         let hidden_at = sqlx::query_scalar!(
             r#"
             INSERT INTO hidden_messages (user_id, message_id)
-            VALUES ($1, $2)
+            SELECT $1, $2
+            WHERE EXISTS (SELECT 1 FROM dm_messages WHERE id = $2 FOR SHARE)
+               OR EXISTS (SELECT 1 FROM messages WHERE id = $2 FOR SHARE)
             ON CONFLICT (user_id, message_id) DO UPDATE SET hidden_at = hidden_messages.hidden_at
             RETURNING hidden_at
             "#,
             user_id.uuid(),
             message_id,
         )
-        .fetch_one(&mut *tx)
+        .fetch_optional(&mut *tx)
         .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        .map_err(map_sqlx_error_to_domain_error)?
+        .ok_or(RepositoryError::NotFound)?;
 
         let record = OutboxRecord {
             id: Uuid::new_v4(),

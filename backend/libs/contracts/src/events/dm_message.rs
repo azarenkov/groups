@@ -58,3 +58,20 @@ pub struct DmReadV1 {
     pub read_at: DateTime<Utc>,
     pub recipients: Vec<Uuid>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DmConversationClearedV1 {
+    pub sender_id: Uuid,
+    pub recipient_id: Uuid,
+    pub scope: String,
+    pub cleared_at: DateTime<Utc>,
+    pub recipients: Vec<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DmConversationHiddenChangedV1 {
+    pub user_id: Uuid,
+    pub peer_id: Uuid,
+    pub hidden: bool,
+    pub occurred_at: DateTime<Utc>,
+}

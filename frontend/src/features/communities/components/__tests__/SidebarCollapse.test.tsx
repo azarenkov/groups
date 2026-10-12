@@ -7,6 +7,7 @@ import type { SidebarNav } from "../Sidebar";
 import { useSidebarLayoutStore } from "../../store/sidebarLayoutStore";
 import { useCallStore } from "../../../voice/store/callStore";
 import type { DirectConversation } from "../../../dm/types";
+import { useHiddenDmStore } from "../../../dm/store/hiddenDmStore";
 
 const dm = (id: string, name: string, online = false): DirectConversation => ({
   id,
@@ -70,6 +71,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  useHiddenDmStore.setState({ hidden: [], loaded: true });
   window.localStorage.clear();
   act(() => useSidebarLayoutStore.setState({ width: 320, collapsed: false }));
 });
@@ -191,4 +193,16 @@ it("marks a chat with an ongoing call", () => {
   renderSidebar();
   expect(screen.getByText(i18n.t("call:ongoingCall"))).toBeInTheDocument();
   act(() => useCallStore.setState({ joinableByPeer: {} }));
+});
+
+it("lights the chats dot only for unread chats that are known to be visible", () => {
+  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
+  act(() => useHiddenDmStore.setState({ hidden: [], loaded: false, hydrated: false }));
+  const { container } = render(<Harness h={handlers()} pendingCount={0} />);
+  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
+  expect(container.querySelector(".sb-rail-dot")).toBeNull();
+  act(() => useHiddenDmStore.setState({ hidden: ["u1"], loaded: true }));
+  expect(container.querySelector(".sb-rail-dot")).toBeNull();
+  act(() => useHiddenDmStore.setState({ hidden: [] }));
+  expect(container.querySelector(".sb-rail-dot")).not.toBeNull();
 });

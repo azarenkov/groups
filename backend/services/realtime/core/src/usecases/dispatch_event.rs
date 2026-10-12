@@ -12,6 +12,7 @@ use contracts::events::{
     dm_message::{
         DmMessageDeletedV1 as DmDeleted, DmMessageEditedV1 as DmEdited,
         DmMessageSentV1 as DmSent, DmReadV1 as DmReadDto,
+        DmConversationClearedV1 as DmClearedDto, DmConversationHiddenChangedV1 as DmHiddenDto,
     },
     friendship::{
         FriendRequestAcceptedV1 as FriendRequestAcceptedDto,
@@ -142,6 +143,18 @@ async fn confirm_pending_dm_peers<D: RecipientDirectory + RealtimeProjection, B:
     Ok(())
 }
 
+async fn forget_pair_without_history<D: RecipientDirectory + RealtimeProjection, B: crate::ports::blocks::RelationDirectory>(
+    resolver: &D,
+    relations: &B,
+    a: Uuid,
+    b: Uuid,
+) -> Result<(), DispatchError> {
+    if relations.dm_peers(a, &[b]).await?.is_empty() {
+        resolver.remove_dm_pair(a, b).await?;
+    }
+    Ok(())
+}
+
 pub struct DispatchEvent<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate::ports::blocks::RelationDirectory> {
     directory: std::sync::Arc<D>,
     publisher: std::sync::Arc<P>,
@@ -225,6 +238,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         publisher
             .publish_to_users(unique([evt.sender_id, evt.recipient_id]), &envelope)
             .await?;
+        forget_pair_without_history(resolver, blocks, evt.sender_id, evt.recipient_id).await?;
         return Ok(());
     }
 
@@ -319,6 +333,30 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             json!({
                 "dms": evt.dms,
                 "communities": evt.communities,
+            }),
+        );
+        publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".dm_conversation.cleared") {
+        let evt: DmClearedDto = serde_json::from_slice(payload)?;
+        let (recipients, data) = dm_cleared_envelope(&evt);
+        publisher
+            .publish_to_users(recipients, &Envelope::new("dm_conversation.cleared", data))
+            .await?;
+        forget_pair_without_history(resolver, blocks, evt.sender_id, evt.recipient_id).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".dm_conversation.hidden_changed") {
+        let evt: DmHiddenDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "dm_conversation.hidden_changed",
+            json!({
+                "peerId": evt.peer_id,
+                "hidden": evt.hidden,
+                "at": evt.occurred_at,
             }),
         );
         publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
@@ -1116,6 +1154,18 @@ fn ends_with(subject: &str, suffix: &str) -> bool {
     subject == &suffix[1..] || subject.ends_with(suffix)
 }
 
+fn dm_cleared_envelope(evt: &DmClearedDto) -> (Vec<Uuid>, serde_json::Value) {
+    let allowed = [evt.sender_id, evt.recipient_id];
+    let recipients = unique(evt.recipients.iter().copied().filter(|r| allowed.contains(r)));
+    let data = json!({
+        "actorId": evt.sender_id,
+        "participants": [evt.sender_id, evt.recipient_id],
+        "scope": evt.scope,
+        "clearedAt": evt.cleared_at,
+    });
+    (recipients, data)
+}
+
 fn unique<I: IntoIterator<Item = Uuid>>(iter: I) -> Vec<Uuid> {
     let mut seen = HashSet::new();
     iter.into_iter().filter(|u| seen.insert(*u)).collect()
@@ -1144,8 +1194,100 @@ mod tests {
     }
 
     #[test]
+    fn a_cleared_conversation_reaches_only_its_participants() {
+        let (actor, peer, stranger) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
+        let evt = DmClearedDto {
+            sender_id: actor,
+            recipient_id: peer,
+            scope: "everyone".to_string(),
+            cleared_at: chrono::Utc::now(),
+            recipients: vec![actor, peer, actor, stranger],
+        };
+        let (recipients, data) = dm_cleared_envelope(&evt);
+        assert_eq!(recipients, vec![actor, peer]);
+        assert_eq!(data["participants"], json!([actor, peer]));
+        assert_eq!(data["scope"], "everyone");
+        assert_eq!(data["actorId"], json!(actor));
+    }
+
+    #[test]
     fn the_masked_reply_keeps_only_the_id() {
         let masked = deleted_reply(&json!({ "id": "r", "content": "secret", "authorId": "a" }));
         assert_eq!(masked, json!({ "id": "r", "content": "", "hasAttachments": false, "deleted": true }));
+    }
+
+    mod pairs {
+        use std::sync::Mutex;
+
+        use async_trait::async_trait;
+        use chrono::{DateTime, Utc};
+
+        use super::*;
+        use crate::ports::blocks::{BlockSets, RelationDirectory, RelationLookupError};
+
+        #[derive(Default)]
+        struct Directory {
+            removed: Mutex<Vec<(Uuid, Uuid)>>,
+        }
+
+        #[async_trait]
+        impl RecipientDirectory for Directory {
+            async fn community_members(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
+            async fn user_name(&self, _: Uuid) -> Result<Option<String>, RepositoryError> { Ok(None) }
+            async fn user_name_versioned(&self, _: Uuid) -> Result<Option<(String, DateTime<Utc>)>, RepositoryError> { Ok(None) }
+            async fn rename_recipients(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
+            async fn profile_recipients(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
+            async fn interested_in(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
+            async fn pending_dm_peers(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
+        }
+
+        #[async_trait]
+        impl RealtimeProjection for Directory {
+            async fn upsert_user_name(&self, _: Uuid, _: &str, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
+            async fn add_friend_edge(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
+            async fn add_pending_friend_edge(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
+            async fn remove_friend_edge(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
+            async fn apply_block(&self, _: Uuid, _: Uuid, _: bool, _: DateTime<Utc>) -> Result<bool, RepositoryError> { Ok(true) }
+            async fn record_dm_pair(&self, _: Uuid, _: Uuid) -> Result<(), RepositoryError> { Ok(()) }
+            async fn remove_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), RepositoryError> {
+                self.removed.lock().unwrap().push((a, b));
+                Ok(())
+            }
+            async fn add_community_member(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
+            async fn remove_community_member(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
+            async fn remove_community(&self, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
+            async fn set_appear_offline(&self, _: Uuid, _: bool) -> Result<(), RepositoryError> { Ok(()) }
+            async fn appear_offline(&self, _: Uuid) -> Result<bool, RepositoryError> { Ok(false) }
+        }
+
+        struct Relations {
+            peers: Vec<Uuid>,
+        }
+
+        #[async_trait]
+        impl RelationDirectory for Relations {
+            async fn block_relations(&self, _: Uuid, _: &[Uuid]) -> Result<BlockSets, RelationLookupError> {
+                Ok(BlockSets::default())
+            }
+            async fn dm_peers(&self, _: Uuid, candidates: &[Uuid]) -> Result<Vec<Uuid>, RelationLookupError> {
+                Ok(candidates.iter().copied().filter(|c| self.peers.contains(c)).collect())
+            }
+        }
+
+        #[tokio::test]
+        async fn forgets_a_pair_left_without_history() {
+            let (a, b) = (Uuid::new_v4(), Uuid::new_v4());
+            let directory = Directory::default();
+            forget_pair_without_history(&directory, &Relations { peers: vec![] }, a, b).await.unwrap();
+            assert_eq!(*directory.removed.lock().unwrap(), vec![(a, b)]);
+        }
+
+        #[tokio::test]
+        async fn keeps_a_pair_that_still_has_a_relation() {
+            let (a, b) = (Uuid::new_v4(), Uuid::new_v4());
+            let directory = Directory::default();
+            forget_pair_without_history(&directory, &Relations { peers: vec![b] }, a, b).await.unwrap();
+            assert!(directory.removed.lock().unwrap().is_empty());
+        }
     }
 }
