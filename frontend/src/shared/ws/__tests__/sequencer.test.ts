@@ -1,4 +1,4 @@
-import { Sequencer, TYPE_LAG } from "../sequencer";
+import { MAX_TRACKED, Sequencer, TYPE_LAG } from "../sequencer";
 import type { WsEnvelope } from "../websocket";
 
 const env = (type: string, partition: string | undefined, seq: number | undefined): WsEnvelope =>
@@ -69,28 +69,40 @@ it("keeps partitions independent", () => {
   expect(emitted).toEqual(["a#1", "a#7"]);
 });
 
-it("takes a loaded snapshot as the baseline and skips events it already covers", () => {
+it("takes a loaded snapshot as the baseline and skips message events it already covers", () => {
   const { s, emitted, resynced } = setup();
-  s.accept(env("a", "p", 1));
-  s.accept(env("a", "p", 3));
-  s.accept(env("a", "p", 5));
+  s.accept(env("message.sent", "p", 1));
+  s.accept(env("message.sent", "p", 3));
+  s.accept(env("message.sent", "p", 5));
   s.baseline("p", 4);
-  expect(emitted).toEqual(["a#1", "a#5"]);
+  expect(emitted).toEqual(["message.sent#1", "message.sent#5"]);
   expect(resynced).toEqual(["p"]);
-  s.accept(env("a", "p", 2));
-  expect(emitted).toEqual(["a#1", "a#5"]);
+  s.accept(env("message.edited", "p", 2));
+  expect(emitted).toEqual(["message.sent#1", "message.sent#5"]);
   jest.advanceTimersByTime(5000);
   expect(resynced).toEqual(["p"]);
+});
+
+it("still delivers covered events a history snapshot does not carry", () => {
+  const { s, emitted } = setup();
+  s.accept(env("message.sent", "p", 1));
+  s.accept(env("user.blocked", "p", 3));
+  s.baseline("p", 4);
+  expect(emitted).toEqual(["message.sent#1", "user.blocked#3"]);
+  s.accept(env("message.pin_changed", "p", 2));
+  s.accept(env("message.sent", "p", 4));
+  s.accept(env("message.sent", "p", 5));
+  expect(emitted).toEqual(["message.sent#1", "user.blocked#3", "message.pin_changed#2", "message.sent#5"]);
 });
 
 it("starts tracking a partition from a baseline", () => {
   const { s, emitted } = setup();
   s.baseline("p", 10);
-  s.accept(env("a", "p", 10));
-  s.accept(env("a", "p", 12));
+  s.accept(env("message.sent", "p", 10));
+  s.accept(env("message.sent", "p", 12));
   expect(emitted).toEqual([]);
-  s.accept(env("a", "p", 11));
-  expect(emitted).toEqual(["a#11", "a#12"]);
+  s.accept(env("message.sent", "p", 11));
+  expect(emitted).toEqual(["message.sent#11", "message.sent#12"]);
 });
 
 it("forgets everything on reset", () => {
@@ -145,4 +157,23 @@ it("does not ask for a resync when a baseline arrives without an open gap", () =
   s.accept(env("a", "p", 1));
   s.baseline("p", 3);
   expect(resynced).toEqual([]);
+});
+
+it("reports the highest sequence it has taken in", () => {
+  const { s } = setup();
+  expect(s.position("p")).toBeUndefined();
+  s.accept(env("a", "p", 1));
+  s.accept(env("a", "p", 2));
+  s.baseline("p", 5);
+  expect(s.position("p")).toBe(5);
+});
+
+it("bounds tracking when a covered sequence never arrives", () => {
+  const { s, emitted } = setup();
+  s.accept(env("message.sent", "p", 1));
+  s.baseline("p", 3);
+  for (let seq = 4; seq <= MAX_TRACKED + 10; seq += 1) s.accept(env("message.sent", "p", seq));
+  const delivered = emitted.length;
+  s.accept(env("message.sent", "p", 5));
+  expect(emitted.length).toBe(delivered);
 });

@@ -19,11 +19,32 @@ const adoptBaseline = (res: { partition?: string; seq?: number }) => {
   if (res.partition && typeof res.seq === "number") ws.baseline(res.partition, res.seq);
 };
 
+type LoadedWindow = { messages: ChannelMessage[]; reachedStart: boolean; version: { partition?: string; seq?: number } };
+
+const STALE_WINDOW_RETRIES = 3;
+
+const behindLive = (version: { partition?: string; seq?: number }): boolean => {
+  if (!version.partition || typeof version.seq !== "number") return false;
+  const position = ws.position(version.partition);
+  return position !== undefined && position > version.seq;
+};
+
 async function loadLoadedWindow(
   messenger: Messenger,
   oldestLoadedAt: string | undefined,
   alive: () => boolean,
-): Promise<{ messages: ChannelMessage[]; reachedStart: boolean; version: { partition?: string; seq?: number } } | null> {
+): Promise<LoadedWindow | null> {
+  for (let attempt = 0; ; attempt++) {
+    const loaded = await loadWindowOnce(messenger, oldestLoadedAt, alive);
+    if (!loaded || attempt >= STALE_WINDOW_RETRIES || !behindLive(loaded.version)) return loaded;
+  }
+}
+
+async function loadWindowOnce(
+  messenger: Messenger,
+  oldestLoadedAt: string | undefined,
+  alive: () => boolean,
+): Promise<LoadedWindow | null> {
   const acc: ChannelMessage[] = [];
   let before: string | undefined;
   let version: { partition?: string; seq?: number } = {};

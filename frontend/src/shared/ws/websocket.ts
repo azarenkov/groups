@@ -136,6 +136,10 @@ class WsClient {
     this.sequencer.baseline(partition, seq);
   }
 
+  position(partition: string): number | undefined {
+    return this.sequencer.position(partition);
+  }
+
   onResync(listener: (partition: string) => void): () => void {
     return this.sequencer.onResync(listener);
   }

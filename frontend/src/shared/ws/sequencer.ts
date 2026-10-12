@@ -4,6 +4,16 @@ export const GAP_WAIT_MS = 1500;
 export const SKIP_TYPE = "sequence.skip";
 export const TYPE_LAG = 64;
 export const MAX_TRACKED = 4096;
+export const SNAPSHOT_TYPES: ReadonlySet<string> = new Set([
+  "message.sent",
+  "message.edited",
+  "message.deleted",
+  "message.hidden",
+  "dm_message.sent",
+  "dm_message.edited",
+  "dm_message.deleted",
+  "dm_conversation.cleared",
+]);
 
 interface PartitionState {
   last: number;
@@ -48,7 +58,11 @@ export class Sequencer {
       this.deliver(state, env, seq);
       return;
     }
-    if (seq <= state.covered || seq <= state.contiguous - TYPE_LAG || this.wasSeen(state, env, seq)) return;
+    if (seq <= state.contiguous - TYPE_LAG || this.wasSeen(state, env, seq)) return;
+    if (seq <= state.covered && SNAPSHOT_TYPES.has(env.type)) {
+      this.markSeen(state, env, seq);
+      return;
+    }
     if (seq <= state.last) {
       this.deliver(state, env, seq);
       return;
@@ -65,17 +79,29 @@ export class Sequencer {
   }
 
   baseline(partition: string, seq: number): void {
-    const state = this.partitions.get(partition) ?? this.track(partition, seq);
+    const known = this.partitions.get(partition);
+    const state = known ?? this.track(partition, seq);
+    if (!known) state.contiguous = seq;
     const gapOpen = state.timer !== null;
     state.covered = Math.max(state.covered, seq);
     state.last = Math.max(state.last, seq);
-    state.contiguous = Math.max(state.contiguous, seq);
-    this.advance(state);
-    for (const pendingSeq of Array.from(state.pending.keys())) {
-      if (pendingSeq <= state.covered) state.pending.delete(pendingSeq);
+    const covered = Array.from(state.pending.keys())
+      .filter((pendingSeq) => pendingSeq <= state.covered)
+      .sort((a, b) => a - b);
+    for (const pendingSeq of covered) {
+      const envs = state.pending.get(pendingSeq) ?? [];
+      state.pending.delete(pendingSeq);
+      for (const env of envs) {
+        if (SNAPSHOT_TYPES.has(env.type)) this.markSeen(state, env, pendingSeq);
+        else this.deliver(state, env, pendingSeq);
+      }
     }
     this.drain(state);
     if (gapOpen && state.timer === null) this.notifyResync(partition);
+  }
+
+  position(partition: string): number | undefined {
+    return this.partitions.get(partition)?.last;
   }
 
   reset(): void {
@@ -104,10 +130,14 @@ export class Sequencer {
 
   private deliver(state: PartitionState, env: WsEnvelope, seq: number): void {
     if (this.wasSeen(state, env, seq)) return;
+    this.markSeen(state, env, seq);
+    if (env.type !== SKIP_TYPE) this.emit(env);
+  }
+
+  private markSeen(state: PartitionState, env: WsEnvelope, seq: number): void {
     const types = state.seen.get(seq) ?? new Set<string>();
     types.add(env.type);
     state.seen.set(seq, types);
-    if (env.type !== SKIP_TYPE) this.emit(env);
     this.advance(state);
   }
 
