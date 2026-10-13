@@ -101,6 +101,9 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
                                                 }
                                             }
                                             Err(e) => {
+                                                if let Some((gate, s)) = &gated {
+                                                    gate.release(&s.partition, s.seq);
+                                                }
                                                 tracing::warn!(error = %e, %subject, "Dispatch failed; not acking, JetStream will redeliver");
                                             }
                                         }

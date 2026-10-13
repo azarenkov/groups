@@ -25,7 +25,7 @@ struct PartitionTurn {
     done: Option<i64>,
     waiting: BTreeSet<i64>,
     running: BTreeSet<i64>,
-    elected: Option<(i64, Instant)>,
+    elected: Option<i64>,
     stalled_since: Option<Instant>,
     opened_at: Instant,
     restored: bool,
@@ -159,12 +159,9 @@ impl SequenceGate {
                 turn.running.insert(seq);
                 return Turn::Late;
             }
-            if let Some((elected, at)) = turn.elected
-                && elected > seq
-                && now < at + self.max_wait
-            {
+            if turn.elected.is_some_and(|elected| elected > seq) {
                 turn.waiting.insert(seq);
-                return Turn::Wait(at + self.max_wait);
+                return Turn::Wait(now + self.max_wait);
             }
             if seq == done + 1 {
                 turn.waiting.remove(&seq);
@@ -173,16 +170,13 @@ impl SequenceGate {
             }
         }
         turn.waiting.insert(seq);
-        if let Some((elected, at)) = turn.elected {
+        if let Some(elected) = turn.elected {
             if elected == seq {
                 turn.waiting.remove(&seq);
                 turn.running.insert(seq);
                 return Turn::Go;
             }
-            if now < at + self.max_wait {
-                return Turn::Wait(at + self.max_wait);
-            }
-            turn.elected = None;
+            return Turn::Wait(now + self.max_wait);
         }
         let elect_at = match turn.done {
             None => turn.opened_at + self.settle,
@@ -192,7 +186,7 @@ impl SequenceGate {
             return Turn::Wait(elect_at);
         }
         let lowest = *turn.waiting.first().unwrap_or(&seq);
-        turn.elected = Some((lowest, now));
+        turn.elected = Some(lowest);
         if lowest == seq {
             turn.waiting.remove(&seq);
             turn.running.insert(seq);
@@ -217,13 +211,26 @@ impl SequenceGate {
         }
     }
 
+    pub fn release(&self, partition: &str, seq: i64) {
+        {
+            let mut last = self.last.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(turn) = last.get_mut(partition) {
+                turn.running.remove(&seq);
+                if turn.elected == Some(seq) {
+                    turn.elected = None;
+                }
+            }
+        }
+        self.advanced.notify_waiters();
+    }
+
     pub fn done(&self, partition: &str, seq: i64) {
         {
             let mut last = self.last.lock().unwrap_or_else(|e| e.into_inner());
             let turn = turn_for(&mut last, partition);
             let done = turn.done.map_or(seq, |done| done.max(seq));
             turn.done = Some(done);
-            if turn.elected.is_some_and(|(elected, _)| elected <= done) {
+            if turn.elected.is_some_and(|elected| elected <= done) {
                 turn.elected = None;
             }
             turn.waiting.retain(|waiting| *waiting > done);
@@ -497,10 +504,32 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn stops_waiting_for_a_first_event_that_never_finishes() {
-        let gate = SequenceGate::with_settle(Duration::from_millis(50), Duration::ZERO);
+    async fn moves_on_once_a_failed_first_event_releases_its_turn() {
+        let gate = Arc::new(SequenceGate::with_settle(Duration::from_millis(50), Duration::ZERO));
         tokio::time::timeout(Duration::from_millis(100), gate.wait_turn("p", 4)).await.unwrap();
-        tokio::time::timeout(Duration::from_millis(500), gate.wait_turn("p", 5)).await.unwrap();
+        let next = tokio::spawn({
+            let gate = gate.clone();
+            async move { gate.wait_turn("p", 5).await }
+        });
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert!(!next.is_finished());
+        gate.release("p", 4);
+        assert!(tokio::time::timeout(Duration::from_millis(500), next).await.unwrap().unwrap());
+    }
+
+    #[tokio::test]
+    async fn keeps_an_elected_turn_exclusive_until_it_is_done() {
+        let gate = Arc::new(SequenceGate::with_settle(Duration::from_millis(50), Duration::ZERO));
+        gate.done("p", 10);
+        assert!(tokio::time::timeout(Duration::from_secs(1), gate.wait_turn("p", 12)).await.unwrap());
+        let other = tokio::spawn({
+            let gate = gate.clone();
+            async move { gate.wait_turn("p", 13).await }
+        });
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert!(!other.is_finished());
+        gate.done("p", 12);
+        assert!(tokio::time::timeout(Duration::from_millis(500), other).await.unwrap().unwrap());
     }
 
     #[tokio::test]
