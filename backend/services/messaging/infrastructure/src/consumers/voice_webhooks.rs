@@ -35,6 +35,7 @@ use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::webhook::{MediaSourceV1, WebhookEventV1 as WebhookEventDto};
 use domain::channel::webhook_source::WebhookSource;
 
+#[allow(clippy::too_many_arguments)]
 pub fn spawn<T, W, S, V>(
     jetstream: async_nats::jetstream::Context,
     subject_prefix: String,
