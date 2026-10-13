@@ -91,6 +91,7 @@ export interface WsEnvelope<T = unknown> {
   data: T;
   partition?: string;
   seq?: number;
+  covered?: boolean;
 }
 
 type Listener = (env: WsEnvelope) => void;

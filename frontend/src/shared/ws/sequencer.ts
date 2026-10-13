@@ -11,6 +11,8 @@ export const SNAPSHOT_TYPES: ReadonlySet<string> = new Set([
   "dm_message.edited",
 ]);
 
+const COVERED_STILL_DELIVERED: ReadonlySet<string> = new Set(["message.edited", "dm_message.edited"]);
+
 interface PartitionState {
   last: number;
   covered: number;
@@ -68,7 +70,7 @@ export class Sequencer {
     }
     if (seq <= state.contiguous - TYPE_LAG || this.wasSeen(state, env, seq)) return;
     if (seq <= state.covered && SNAPSHOT_TYPES.has(env.type)) {
-      this.markSeen(state, env, seq);
+      this.markCovered(state, env, seq);
       return;
     }
     if (seq <= state.last) {
@@ -102,7 +104,7 @@ export class Sequencer {
       const envs = state.pending.get(pendingSeq) ?? [];
       state.pending.delete(pendingSeq);
       for (const env of envs) {
-        if (SNAPSHOT_TYPES.has(env.type)) this.markSeen(state, env, pendingSeq);
+        if (SNAPSHOT_TYPES.has(env.type)) this.markCovered(state, env, pendingSeq);
         else this.deliver(state, env, pendingSeq);
       }
     }
@@ -154,6 +156,11 @@ export class Sequencer {
     if (this.wasSeen(state, env, seq)) return;
     this.markSeen(state, env, seq);
     if (env.type !== SKIP_TYPE) this.emit(env);
+  }
+
+  private markCovered(state: PartitionState, env: WsEnvelope, seq: number): void {
+    this.markSeen(state, env, seq);
+    if (COVERED_STILL_DELIVERED.has(env.type)) this.emit({ ...env, covered: true });
   }
 
   private markSeen(state: PartitionState, env: WsEnvelope, seq: number): void {

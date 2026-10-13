@@ -148,10 +148,10 @@ export function installMessageCacheSync(): void {
         return;
       }
       case "message.edited":
-        edit(str(d.channelId));
+        if (!env.covered) edit(str(d.channelId));
         return;
       case "dm_message.edited":
-        edit(dmKey());
+        if (!env.covered) edit(dmKey());
         return;
       case "message.hidden": {
         const id = str(d.messageId);
