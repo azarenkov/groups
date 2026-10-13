@@ -14,6 +14,7 @@ interface GlobalSearchResultsProps {
   query: string;
   currentUserId?: string;
   onOpen: (link: OpenMessageLink, hit: GlobalSearchHit) => void;
+  onVisitLink?: (hit: GlobalSearchHit) => void;
 }
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -44,7 +45,8 @@ const SearchHitRow: React.FC<{
   now: Date;
   mine: boolean;
   onOpen: (link: OpenMessageLink, hit: GlobalSearchHit) => void;
-}> = ({ hit, kind, query, now, mine, onOpen }) => {
+  onVisitLink?: (hit: GlobalSearchHit) => void;
+}> = ({ hit, kind, query, now, mine, onOpen, onVisitLink }) => {
   const { t, i18n } = useTranslation(["sidebar", "chat"]);
   const blocked = useBlockStore((s) => !!s.blocked[hit.authorId] || (!!hit.forwardedAuthorId && !!s.blocked[hit.forwardedAuthorId]));
   const blocksLoaded = useBlockStore((s) => s.loaded);
@@ -114,7 +116,10 @@ const SearchHitRow: React.FC<{
             rel="noopener noreferrer"
             title={t("search.openLink", { domain: domainOf(hit.url) })}
             aria-label={t("search.openLink", { domain: domainOf(hit.url) })}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onVisitLink?.(hit);
+            }}
             onKeyDown={(e) => e.stopPropagation()}
           >
             <Icon name="globe" size={12} />
@@ -125,7 +130,7 @@ const SearchHitRow: React.FC<{
   );
 };
 
-const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ query, currentUserId, onOpen }) => {
+const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ query, currentUserId, onOpen, onVisitLink }) => {
   const { t } = useTranslation("sidebar");
   const search = useGlobalSearch(query);
   const now = new Date();
@@ -149,6 +154,7 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ query, curren
                 now={now}
                 mine={!!currentUserId && hit.authorId === currentUserId}
                 onOpen={onOpen}
+                onVisitLink={onVisitLink}
               />
             ))}
             {pending && (

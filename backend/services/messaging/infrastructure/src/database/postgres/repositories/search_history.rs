@@ -111,6 +111,7 @@ impl PostgresSearchHistoryRepository {
         let channel_rows = sqlx::query!(
             r#"
             SELECT m.id, m.author_id, COALESCE(u.name, '') AS "author_name!", m.created_at, m.content,
+                   (m.forwarded_from->>'authorId')::uuid AS "forwarded_author_id?",
                    c.id AS channel_id, c.name AS channel_name, s.id AS community_id, s.name AS community_name
             FROM messages m
             JOIN channels c ON c.id = m.channel_id AND c.kind = 'text'
@@ -132,6 +133,7 @@ impl PostgresSearchHistoryRepository {
         let dm_rows = sqlx::query!(
             r#"
             SELECT m.id, m.sender_id, COALESCE(u.name, '') AS "author_name!", m.created_at, m.content,
+                   (m.forwarded_from->>'authorId')::uuid AS "forwarded_author_id?",
                    peer.id AS "peer_id!", COALESCE(pu.name, '') AS "peer_name!"
             FROM dm_messages m
             CROSS JOIN LATERAL (SELECT CASE WHEN m.sender_id = $1 THEN m.recipient_id ELSE m.sender_id END AS id) peer
@@ -161,6 +163,7 @@ impl PostgresSearchHistoryRepository {
                     message_id: r.id,
                     author_id: r.author_id,
                     author_name: r.author_name,
+                    forwarded_author_id: r.forwarded_author_id,
                     snippet: snippet(&r.content, ""),
                     created_at: r.created_at,
                     place: SearchPlace::Channel {
@@ -179,6 +182,7 @@ impl PostgresSearchHistoryRepository {
                     message_id: r.id,
                     author_id: r.sender_id,
                     author_name: r.author_name,
+                    forwarded_author_id: r.forwarded_author_id,
                     snippet: snippet(&r.content, ""),
                     created_at: r.created_at,
                     place: SearchPlace::Dm { peer_id: r.peer_id, peer_name: r.peer_name },

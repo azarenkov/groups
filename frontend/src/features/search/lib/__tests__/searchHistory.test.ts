@@ -160,3 +160,17 @@ it("drops queued changes once the account behind them signs out", async () => {
   await expect(clearing).rejects.toThrow("account changed");
   expect(api.clear).not.toHaveBeenCalled();
 });
+
+it("refetches after a failed save so a stable entry dropped by duplicates comes back", async () => {
+  const stable: HistoryItem = { id: "s1", usedAt: "2026-10-13T09:00:00Z", type: "person", userId: "u1", name: "Bob" };
+  queryClient.setQueryData(key, [stable]);
+  api.list.mockResolvedValue([stable]);
+  api.record.mockRejectedValue(new Error("down"));
+  const first = recordSearch("me", { type: "person", userId: "u1", name: "Bob" });
+  const second = recordSearch("me", { type: "person", userId: "u1", name: "Bob" });
+  await expect(first).rejects.toThrow("down");
+  await expect(second).rejects.toThrow("down");
+  expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+  await queryClient.fetchQuery({ queryKey: key, queryFn: () => searchHistoryAPI.list() });
+  expect(items()).toEqual([stable]);
+});

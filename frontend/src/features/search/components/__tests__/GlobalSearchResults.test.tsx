@@ -77,6 +77,20 @@ describe("GlobalSearchResults", () => {
     await waitFor(() => expect(screen.getAllByText("Nothing found")).toHaveLength(3));
   });
 
+  it("reports a visit when the link itself is opened", async () => {
+    search.mockImplementation((_q: string, kind: string) =>
+      page(kind === "links" ? [channelHit("l1", { url: "https://rift.dev/docs" } as Partial<GlobalSearchHit>)] : []),
+    );
+    const onOpen = jest.fn();
+    const onVisitLink = jest.fn();
+    render(<GlobalSearchResults query="docs" currentUserId="u1" onOpen={onOpen} onVisitLink={onVisitLink} />);
+    await flush();
+    const anchor = await screen.findByRole("link");
+    fireEvent.click(anchor);
+    expect(onVisitLink).toHaveBeenCalledWith(expect.objectContaining({ messageId: "l1" }));
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
   it("opens the message and loads more pages", async () => {
     search.mockImplementation((_q: string, kind: string, opts: { before?: string }) => {
       if (kind !== "messages") return page([]);

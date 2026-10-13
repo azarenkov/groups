@@ -5,6 +5,7 @@ import Icon from "../../../shared/ui/Icon";
 import { CommunityLogo, UserAvatar } from "../../../shared/ui/Avatar";
 import { colorForId } from "../../../shared/lib/avatar";
 import type { HistoryItem } from "../api/searchHistory";
+import { useBlockStore } from "../../social/store/blockStore";
 
 interface RecentSearchesProps {
   items: HistoryItem[];
@@ -13,16 +14,6 @@ interface RecentSearchesProps {
   onClear: () => void;
 }
 
-const label = (item: HistoryItem): string => {
-  switch (item.type) {
-    case "query":
-      return item.text;
-    case "message":
-      return item.snippet || item.authorName;
-    default:
-      return item.name;
-  }
-};
 
 const RecentIcon: React.FC<{ item: HistoryItem }> = ({ item }) => {
   switch (item.type) {
@@ -70,7 +61,23 @@ const RecentIcon: React.FC<{ item: HistoryItem }> = ({ item }) => {
 };
 
 const RecentSearches: React.FC<RecentSearchesProps> = ({ items, onPick, onRemove, onClear }) => {
-  const { t } = useTranslation("sidebar");
+  const { t } = useTranslation(["sidebar", "chat"]);
+  const blocked = useBlockStore((s) => s.blocked);
+  const blocksLoaded = useBlockStore((s) => s.loaded);
+  const masked = (item: HistoryItem): boolean =>
+    item.type === "message" &&
+    item.place.type === "channel" &&
+    (!blocksLoaded || !!blocked[item.authorId] || (!!item.forwardedAuthorId && !!blocked[item.forwardedAuthorId]));
+  const label = (item: HistoryItem): string => {
+    switch (item.type) {
+      case "query":
+        return item.text;
+      case "message":
+        return masked(item) ? t("chat:blockedMessage") : item.snippet || item.authorName;
+      default:
+        return item.name;
+    }
+  };
   const sub = (item: HistoryItem): string => {
     switch (item.type) {
       case "query":

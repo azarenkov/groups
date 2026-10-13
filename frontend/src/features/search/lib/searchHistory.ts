@@ -107,7 +107,7 @@ async function apply(
     await enqueue(userId, request);
   } catch (err) {
     if (read(userId) === optimistic) write(userId, settled(before));
-    else void queryClient.invalidateQueries({ queryKey: queryKeys.searchHistory(userId) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.searchHistory(userId) });
     throw err;
   }
 }

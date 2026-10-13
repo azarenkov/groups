@@ -12,6 +12,7 @@ export type HistoryTarget =
       messageId: string;
       authorId: string;
       authorName: string;
+      forwardedAuthorId?: string;
       snippet: string;
       createdAt: string;
       place: GlobalSearchPlace;

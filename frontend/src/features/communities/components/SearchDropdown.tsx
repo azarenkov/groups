@@ -42,6 +42,7 @@ const messageTarget = (hit: GlobalSearchHit): HistoryTarget => ({
   messageId: hit.messageId,
   authorId: hit.authorId,
   authorName: hit.authorName,
+  forwardedAuthorId: hit.forwardedAuthorId,
   snippet: hit.snippet,
   createdAt: hit.createdAt,
   place: hit.place,
@@ -220,6 +221,10 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
             history.record(messageTarget(hit));
             onOpenResult(link);
             onDone();
+          }}
+          onVisitLink={(hit) => {
+            history.record({ type: "query", text: query.trim() });
+            history.record(messageTarget(hit));
           }}
         />
       </div>

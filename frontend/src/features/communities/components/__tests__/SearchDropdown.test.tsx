@@ -12,6 +12,7 @@ import { queryClient } from "../../../../shared/query/queryClient";
 
 import { searchHistoryAPI } from "../../../search/api/searchHistory";
 import { useAuthStore } from "../../../auth/store/authStore";
+import { useBlockStore } from "../../../social/store/blockStore";
 import { clearStoredHistory } from "../../../search/lib/searchHistory";
 
 jest.mock("../../../search/api/people", () => ({ peopleAPI: { search: jest.fn() } }));
@@ -328,4 +329,26 @@ it("opens the first recent entry on Enter and never clears the history from the 
   expect(picks.community).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
   expect(searchHistoryAPI.clear).not.toHaveBeenCalled();
   await act(async () => {});
+});
+
+it("masks recent channel messages from blocked authors", async () => {
+  signIn();
+  useBlockStore.setState({ loaded: true, blocked: { u9: true } });
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    {
+      id: "h5",
+      usedAt: "2026-10-13T09:00:00Z",
+      type: "message",
+      messageId: "m5",
+      authorId: "u9",
+      authorName: "Mallory",
+      snippet: "secret plans",
+      createdAt: "2026-10-12T09:00:00Z",
+      place: { type: "channel", communityId: "c1", communityName: "Alpha Squad", channelId: "ch1", channelName: "alerts" },
+    },
+  ]);
+  const { input } = setup();
+  fireEvent.focus(input);
+  expect(await screen.findByText(i18n.t("chat:blockedMessage"))).toBeInTheDocument();
+  expect(screen.queryByText("secret plans")).toBeNull();
 });
