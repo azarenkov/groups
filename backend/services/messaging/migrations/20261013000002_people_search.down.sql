@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS messaging.idx_messaging_user_profiles_name_trgm;

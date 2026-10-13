@@ -6,6 +6,7 @@ use api_common::{
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
 use messaging::usecases::search::global_search::{GlobalSearchPage, GlobalSearchQuery};
+use messaging_domain::people::PersonRelation;
 use messaging_domain::search::{SearchHit, SearchItemKey, SearchMatch, SearchPlace};
 use uuid::Uuid;
 
@@ -138,6 +139,75 @@ async fn global_search(
     Ok(HttpResponse::Ok().json(ApiResponse::success(SearchPageResponse::from(page))))
 }
 
+#[derive(Debug, serde::Deserialize)]
+struct PeopleParams {
+    q: String,
+    limit: Option<i64>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+enum PersonRelationResponse {
+    None,
+    Friend,
+    Outgoing,
+    Incoming,
+}
+
+impl From<PersonRelation> for PersonRelationResponse {
+    fn from(relation: PersonRelation) -> Self {
+        match relation {
+            PersonRelation::None => Self::None,
+            PersonRelation::Friend => Self::Friend,
+            PersonRelation::OutgoingRequest => Self::Outgoing,
+            PersonRelation::IncomingRequest => Self::Incoming,
+        }
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PersonResponse {
+    id: Uuid,
+    name: String,
+    relation: PersonRelationResponse,
+    accepts_friend_requests: bool,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct PeopleResponse {
+    users: Vec<PersonResponse>,
+}
+
+#[get("/search/people")]
+async fn search_people(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    params: web::Query<PeopleParams>,
+) -> Result<impl Responder, HttpError> {
+    if !app_state.people_search_limiter.check_key(&auth_token.id).await {
+        return Err(HttpError::new(
+            "Too many people searches. Slow down.".to_string(),
+            actix_web::http::StatusCode::TOO_MANY_REQUESTS,
+            "PEOPLE_SEARCH_RATE_LIMITED",
+        ));
+    }
+    let found = app_state
+        .search_people_usecase
+        .execute(UserId::new(auth_token.id), &params.q, params.limit)
+        .await?;
+    let users = found
+        .into_iter()
+        .map(|person| PersonResponse {
+            id: person.user_id.uuid(),
+            name: person.name,
+            relation: person.relation.into(),
+            accepts_friend_requests: person.accepts_friend_requests,
+        })
+        .collect();
+    Ok(HttpResponse::Ok().json(ApiResponse::success(PeopleResponse { users })))
+}
+
 pub fn search_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(global_search);
+    cfg.service(search_people).service(global_search);
 }

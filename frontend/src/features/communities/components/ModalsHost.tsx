@@ -1,7 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 
-import AddFriendModal from "../../social/components/AddFriendModal";
 import CreateChannelModal from "./CreateChannelModal";
 import CreateCommunityModal from "./CreateCommunityModal";
 import InviteFriendsModal from "./InviteFriendsModal";
@@ -48,8 +47,6 @@ interface ModalsHostProps {
   passwordPrompt: { community: Community; channel: Channel } | null;
   onClosePasswordPrompt: () => void;
   onSubmitPassword: (password: string) => void;
-  isAddFriendOpen: boolean;
-  onCloseAddFriend: () => void;
   isPendingOpen: boolean;
   onClosePending: () => void;
   onOpenAddFriend: () => void;
@@ -75,8 +72,6 @@ const ModalsHost: React.FC<ModalsHostProps> = ({
   passwordPrompt,
   onClosePasswordPrompt,
   onSubmitPassword,
-  isAddFriendOpen,
-  onCloseAddFriend,
   isPendingOpen,
   onClosePending,
   onOpenAddFriend,
@@ -132,11 +127,6 @@ const ModalsHost: React.FC<ModalsHostProps> = ({
         onRemoveFriend={onRemoveFriend}
         onBlockUser={onBlockUser}
         onEditProfile={onEditProfile}
-      />
-
-      <AddFriendModal
-        isOpen={isAddFriendOpen}
-        onClose={onCloseAddFriend}
       />
 
       <PendingFriendsModal

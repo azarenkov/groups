@@ -23,4 +23,5 @@ pub use infrastructure_common::database::postgres::repositories::outbox_writer;
 pub mod pin;
 pub mod privacy;
 pub mod shared;
+pub mod people;
 pub mod search;

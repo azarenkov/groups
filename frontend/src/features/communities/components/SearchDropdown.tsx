@@ -8,6 +8,9 @@ import type { Channel } from "../../../shared/types/channel";
 import type { DirectConversation } from "../../dm/types";
 import type { OpenMessageLink } from "../../chat/lib/messageLink";
 import GlobalSearchResults, { highlightTerms } from "../../search/components/GlobalSearchResults";
+import InviteResult from "../../search/components/InviteResult";
+import PeopleResults from "../../search/components/PeopleResults";
+import { extractInviteToken } from "../../../shared/lib/inviteLinks";
 
 const QUICK_LIMIT = 5;
 
@@ -21,6 +24,8 @@ interface SearchDropdownProps {
   onPickCommunity: (community: Community) => void;
   onPickChannel: (community: Community, channel: Channel) => void;
   onOpenResult: (link: OpenMessageLink) => void;
+  onMessagePerson: (userId: string, name: string) => void;
+  onJoinInvite: (token: string) => Promise<void>;
   onDone: () => void;
 }
 
@@ -34,6 +39,8 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
   onPickCommunity,
   onPickChannel,
   onOpenResult,
+  onMessagePerson,
+  onJoinInvite,
   onDone,
 }) => {
   const { t } = useTranslation("sidebar");
@@ -49,6 +56,9 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
         .map((channel) => ({ community, channel })),
     )
     .slice(0, QUICK_LIMIT);
+
+  const inviteToken = extractInviteToken(query);
+  const shownChatIds = new Set(people.map((d) => d.id));
 
   const choose = (action: () => void) => () => {
     action();
@@ -66,9 +76,10 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
         <span>{t("searchOpen")}</span>
       </div>
       <div className="search-dd-list">
+        {inviteToken && <InviteResult token={inviteToken} onJoin={onJoinInvite} onDone={onDone} />}
         {people.length > 0 && (
-          <section className="search-dd-section" aria-label={t("searchPeople")}>
-            <div className="search-dd-label">{t("searchPeople")}</div>
+          <section className="search-dd-section" aria-label={t("searchChats")}>
+            <div className="search-dd-label">{t("searchChats")}</div>
             {people.map((d) => (
               <button key={d.id} type="button" className="search-dd-item" onClick={choose(() => onPickDm(d))}>
                 <UserAvatar userId={d.id} name={d.name} className="search-dd-ava round" style={{ background: d.color }} />
@@ -80,6 +91,7 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
             ))}
           </section>
         )}
+        <PeopleResults query={query} hiddenIds={shownChatIds} onMessage={onMessagePerson} onDone={onDone} />
         {groups.length > 0 && (
           <section className="search-dd-section" aria-label={t("searchCommunities")}>
             <div className="search-dd-label">{t("searchCommunities")}</div>

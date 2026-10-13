@@ -240,6 +240,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         .filter(|url| url.starts_with("https://") || url.starts_with("http://"))
         .ok_or("PUBLIC_APP_URL must be set to the public web app origin (http(s)://host), invite links are built from it")?;
 
+    let people_search_limiter = api_common::rate_limiting::create_limiter("people-search", 1, 15)
+        .await
+        .ok_or("Failed to create people search limiter")?;
     let app_state = web::Data::new(AppState {
         create_channel_usecase: CreateChannel::new(
             hasher.clone(),
@@ -328,6 +331,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             community_repository.clone(),
         ),
         global_search_usecase: GlobalSearch::new(Arc::new(PostgresSearchRepository::new(postgres_pool.clone()))),
+        search_people_usecase: messaging::usecases::search::search_people::SearchPeople::new(Arc::new(
+            messaging_infrastructure::database::postgres::repositories::people::PostgresPeopleDirectory::new(postgres_pool.clone()),
+        )),
+        people_search_limiter,
         message_pins_usecase: MessagePins::new(
             Arc::new(PostgresMessagePinRepository::new(postgres_pool.clone())),
             channel_repository.clone(),
