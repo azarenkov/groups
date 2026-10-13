@@ -75,7 +75,7 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
   }, [open]);
 
   const items = () =>
-    Array.from(wrapRef.current?.querySelectorAll<HTMLButtonElement>(".search-dd-list button:not(:disabled)") ?? []);
+    Array.from(wrapRef.current?.querySelectorAll<HTMLButtonElement>(".search-dd-list button:not(:disabled):not([data-search-manage])") ?? []);
   const moveFocus = (from: Element | null, delta: 1 | -1) => {
     const list = items();
     if (list.length === 0) return;

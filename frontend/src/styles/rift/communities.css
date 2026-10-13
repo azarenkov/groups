@@ -1665,7 +1665,7 @@ body.electron .topbar .account-dropdown { -webkit-app-region: no-drag; }
 .search-dd-action:hover, .search-dd-action:focus-visible { background: var(--surface-hover); outline: none; }
 .search-dd-action:disabled { opacity: 0.6; cursor: default; }
 .search-dd-note { padding: 8px 10px; font-size: 13px; color: var(--fg-3); }
-.search-dd-label-row { display: flex; align-items: center; justify-content: space-between; }
+.search-dd-footer { display: flex; justify-content: flex-end; padding: 6px 10px 2px; }
 .search-dd-clear {
   border: 0; background: transparent; padding: 0;
   color: var(--fg-3); font: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;

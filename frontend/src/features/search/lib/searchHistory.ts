@@ -39,6 +39,20 @@ export function clearStoredHistory(): void {
   }
 }
 
+let persisting = false;
+
+export function installHistoryPersistence(): void {
+  if (persisting) return;
+  persisting = true;
+  queryClient.getQueryCache().subscribe((event) => {
+    const [scope, userId] = event.query.queryKey as [unknown, unknown];
+    if (scope !== "searchHistory" || typeof userId !== "string" || !userId) return;
+    if (event.type !== "updated" && event.type !== "added") return;
+    const items = event.query.state.data as HistoryItem[] | undefined;
+    if (items) storeHistory(userId, items);
+  });
+}
+
 const read = (userId: string) => queryClient.getQueryData<HistoryItem[]>(queryKeys.searchHistory(userId));
 const write = (userId: string, items: HistoryItem[]) =>
   queryClient.setQueryData<HistoryItem[]>(queryKeys.searchHistory(userId), items);
@@ -62,13 +76,21 @@ async function apply(
 
 let tempSeq = 0;
 const settledIds = new Map<string, Promise<string | null>>();
+const pendingWrites = new Map<string, Set<Promise<unknown>>>();
+
+const track = (userId: string, write: Promise<unknown>) => {
+  const writes = pendingWrites.get(userId) ?? new Set<Promise<unknown>>();
+  pendingWrites.set(userId, writes);
+  writes.add(write);
+  void write.catch(() => {}).finally(() => writes.delete(write));
+};
 
 export function recordSearch(userId: string, target: HistoryTarget): Promise<void> {
   const tempId = `${TEMP_PREFIX}${++tempSeq}`;
   const key = historyKey(target);
   let resolveId: (id: string | null) => void = () => {};
   settledIds.set(tempId, new Promise((resolve) => (resolveId = resolve)));
-  return apply(
+  const saving = apply(
     userId,
     (items) =>
       [
@@ -92,6 +114,8 @@ export function recordSearch(userId: string, target: HistoryTarget): Promise<voi
       }
     },
   ).finally(() => settledIds.delete(tempId));
+  track(userId, saving);
+  return saving;
 }
 
 export function removeSearch(userId: string, id: string): Promise<void> {
@@ -107,7 +131,15 @@ export function removeSearch(userId: string, id: string): Promise<void> {
 }
 
 export function clearSearches(userId: string): Promise<void> {
-  return apply(userId, () => [], () => searchHistoryAPI.clear());
+  const earlier = [...(pendingWrites.get(userId) ?? [])];
+  return apply(
+    userId,
+    () => [],
+    async () => {
+      await Promise.allSettled(earlier);
+      await searchHistoryAPI.clear();
+    },
+  );
 }
 
 export function refreshSearchHistory(): void {

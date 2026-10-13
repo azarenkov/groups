@@ -310,3 +310,22 @@ it("remembers what was opened from the results", async () => {
   await waitFor(() => expect(searchHistoryAPI.record).toHaveBeenCalledWith({ type: "community", communityId: "c1", name: "Alpha Squad" }));
   await act(async () => {});
 });
+
+it("opens the first recent entry on Enter and never clears the history from the keyboard", async () => {
+  signIn();
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h2", usedAt: "2026-10-13T09:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" },
+  ]);
+  const { picks, input } = setup();
+  fireEvent.focus(input);
+  await screen.findByText("Alpha Squad");
+  fireEvent.keyDown(input, { key: "ArrowDown" });
+  expect(document.activeElement).toHaveTextContent("Alpha Squad");
+  fireEvent.keyDown(document.activeElement as Element, { key: "ArrowDown" });
+  expect(document.activeElement).toHaveTextContent("Alpha Squad");
+  fireEvent.keyDown(document.activeElement as Element, { key: "ArrowUp" });
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(picks.community).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
+  expect(searchHistoryAPI.clear).not.toHaveBeenCalled();
+  await act(async () => {});
+});

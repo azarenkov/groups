@@ -96,12 +96,7 @@ const RecentSearches: React.FC<RecentSearchesProps> = ({ items, onPick, onRemove
 
   return (
     <section className="search-dd-section" aria-label={t("recentTitle")}>
-      <div className="search-dd-label search-dd-label-row">
-        <span>{t("recentTitle")}</span>
-        <button type="button" className="search-dd-clear" onClick={onClear}>
-          {t("recentClear")}
-        </button>
-      </div>
+      <div className="search-dd-label">{t("recentTitle")}</div>
       {items.map((item) => (
         <div key={item.id} className="search-dd-person">
           <button type="button" className="search-dd-item" onClick={() => onPick(item)}>
@@ -113,6 +108,7 @@ const RecentSearches: React.FC<RecentSearchesProps> = ({ items, onPick, onRemove
           </button>
           <button
             type="button"
+            data-search-manage=""
             className="search-dd-remove"
             title={t("recentRemove")}
             aria-label={t("recentRemove")}
@@ -122,6 +118,11 @@ const RecentSearches: React.FC<RecentSearchesProps> = ({ items, onPick, onRemove
           </button>
         </div>
       ))}
+      <div className="search-dd-footer">
+        <button type="button" data-search-manage="" className="search-dd-clear" onClick={onClear}>
+          {t("recentClear")}
+        </button>
+      </div>
     </section>
   );
 };

@@ -3,6 +3,7 @@ import { searchHistoryAPI, type HistoryItem } from "../../api/searchHistory";
 import {
   clearSearches,
   clearStoredHistory,
+  installHistoryPersistence,
   readStoredHistory,
   recordSearch,
   removeSearch,
@@ -78,4 +79,31 @@ it("keeps the browser copy per account and without unsaved entries", () => {
   expect(readStoredHistory("someone-else")).toBeUndefined();
   clearStoredHistory();
   expect(readStoredHistory("me")).toBeUndefined();
+});
+
+it("clears only after earlier saves have reached the server", async () => {
+  queryClient.setQueryData(key, []);
+  let finish: (v: { id: string; usedAt: string }) => void = () => {};
+  api.record.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+  api.clear.mockResolvedValue();
+  const saving = recordSearch("me", { type: "query", text: "late" });
+  const clearing = clearSearches("me");
+  await flush();
+  expect(items()).toEqual([]);
+  expect(api.clear).not.toHaveBeenCalled();
+  finish({ id: "server-2", usedAt: "2026-10-13T11:00:00Z" });
+  await saving;
+  await clearing;
+  expect(api.clear).toHaveBeenCalled();
+  expect(items()).toEqual([]);
+});
+
+it("keeps the browser copy current even when nothing is watching the history", async () => {
+  installHistoryPersistence();
+  queryClient.setQueryData(key, []);
+  api.record.mockResolvedValue({ id: "server-3", usedAt: "2026-10-13T11:00:00Z" });
+  await recordSearch("me", { type: "query", text: "offline" });
+  expect(readStoredHistory("me")).toEqual([
+    expect.objectContaining({ id: "server-3", type: "query", text: "offline" }),
+  ]);
 });
