@@ -1,4 +1,5 @@
 import { queryClient, queryKeys } from "../../../shared/query/queryClient";
+import { useAuthStore } from "../../auth/store/authStore";
 import { historyTargetId, searchHistoryAPI, type HistoryItem, type HistoryTarget } from "../api/searchHistory";
 
 export const SEARCH_HISTORY_LIMIT = 20;
@@ -60,11 +61,32 @@ const write = (userId: string, items: HistoryItem[]) =>
 const queues = new Map<string, Promise<unknown>>();
 const savedTemps = new Map<string, string | null>();
 
+export class HistorySessionChanged extends Error {
+  constructor() {
+    super("The account changed before this search history change was sent");
+  }
+}
+
+let sessionGen = 0;
+
 const enqueue = (userId: string, request: () => Promise<void>): Promise<void> => {
-  const run = (queues.get(userId) ?? Promise.resolve()).catch(() => {}).then(request);
+  const gen = sessionGen;
+  const run = (queues.get(userId) ?? Promise.resolve())
+    .catch(() => {})
+    .then(() => {
+      if (gen !== sessionGen || useAuthStore.getState().user?.id !== userId) throw new HistorySessionChanged();
+      return request();
+    });
   queues.set(userId, run);
   return run;
 };
+
+export function resetSearchHistorySession(): void {
+  sessionGen += 1;
+  queues.clear();
+  savedTemps.clear();
+  clearStoredHistory();
+}
 
 const settled = (items: HistoryItem[]): HistoryItem[] =>
   items.flatMap((item) => {

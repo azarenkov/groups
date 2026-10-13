@@ -7,7 +7,7 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
   void import("../../features/chat/lib/messageCache").then((m) => m.clearMessageCache());
   void import("../../features/chat/lib/imageUrlCache").then((m) => m.clearImageUrlCache());
   void import("../query/queryClient").then((m) => m.resetQueryCache());
-  void import("../../features/search/lib/searchHistory").then((m) => m.clearStoredHistory());
+  void import("../../features/search/lib/searchHistory").then((m) => m.resetSearchHistorySession());
   void import("../../features/chat/hooks/usePinnedMessages").then((m) => m.clearPinTombstones());
 
   void import("../../features/social/store/activityStore").then((m) => m.useActivityStore.getState().clearAll());

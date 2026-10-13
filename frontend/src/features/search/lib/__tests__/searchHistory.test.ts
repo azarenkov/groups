@@ -1,10 +1,12 @@
 import { queryClient, queryKeys } from "../../../../shared/query/queryClient";
 import { searchHistoryAPI, type HistoryItem } from "../../api/searchHistory";
+import { useAuthStore } from "../../../auth/store/authStore";
 import {
   clearSearches,
   clearStoredHistory,
   installHistoryPersistence,
   readStoredHistory,
+  resetSearchHistorySession,
   recordSearch,
   removeSearch,
   storeHistory,
@@ -30,6 +32,7 @@ beforeEach(() => {
   queryClient.clear();
   clearStoredHistory();
   jest.resetAllMocks();
+  useAuthStore.setState({ user: { id: "me", name: "me" } as never });
 });
 
 it("puts a new entry on top at once, folds duplicates and adopts the server id", async () => {
@@ -140,4 +143,20 @@ it("restores a saved duplicate under its server id when the newer save fails", a
   failSecond(new Error("down"));
   await expect(second).rejects.toThrow("down");
   expect(items().map((i) => i.id)).toEqual(["server-5"]);
+});
+
+it("drops queued changes once the account behind them signs out", async () => {
+  queryClient.setQueryData(key, []);
+  let finish: (v: { id: string; usedAt: string }) => void = () => {};
+  api.record.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+  api.clear.mockResolvedValue();
+  const saving = recordSearch("me", { type: "query", text: "mine" });
+  const clearing = clearSearches("me");
+  await flush();
+  resetSearchHistorySession();
+  useAuthStore.setState({ user: { id: "someone-else", name: "b" } as never });
+  finish({ id: "server-6", usedAt: "2026-10-13T11:00:00Z" });
+  await saving;
+  await expect(clearing).rejects.toThrow("account changed");
+  expect(api.clear).not.toHaveBeenCalled();
 });

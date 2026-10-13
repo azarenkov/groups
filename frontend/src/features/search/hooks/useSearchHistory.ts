@@ -5,6 +5,7 @@ import { useAuthStore } from "../../auth/store/authStore";
 import { searchHistoryAPI, type HistoryItem, type HistoryTarget } from "../api/searchHistory";
 import {
   clearSearches,
+  HistorySessionChanged,
   installHistoryPersistence,
   readStoredHistory,
   recordSearch,
@@ -12,7 +13,10 @@ import {
 } from "../lib/searchHistory";
 
 const quietly = (promise: Promise<void>) => {
-  promise.catch((err) => console.warn("[search] history update failed:", err));
+  promise.catch((err) => {
+    if (err instanceof HistorySessionChanged) return;
+    console.warn("[search] history update failed:", err);
+  });
 };
 
 export function useSearchHistory(load: boolean) {
