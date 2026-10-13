@@ -48,7 +48,7 @@ export function useWsChannelMessages(
     const off = ws.on((env: WsEnvelope) => {
       const d = env.data as Record<string, unknown>;
       if (typeof d.channelId !== "string" || d.channelId !== channelId) return;
-      if (env.type === "message.sent" && handlersRef.current.onSent) {
+      if (env.type === "message.sent" && !env.covered && handlersRef.current.onSent) {
         handlersRef.current.onSent(d as Parameters<NonNullable<typeof handlersRef.current.onSent>>[0]);
       } else if (env.type === "message.edited" && !env.covered && handlersRef.current.onEdited) {
         handlersRef.current.onEdited(
@@ -122,7 +122,7 @@ export function useWsDmMessages(
         (env.type === "dm_message.edited" &&
           (sender === selfUserId || sender === otherUserId));
       if (!involvesPair) return;
-      if (env.type === "dm_message.sent" && handlersRef.current.onSent) {
+      if (env.type === "dm_message.sent" && !env.covered && handlersRef.current.onSent) {
         handlersRef.current.onSent(d as Parameters<NonNullable<typeof handlersRef.current.onSent>>[0]);
       } else if (env.type === "dm_message.edited" && !env.covered && handlersRef.current.onEdited) {
         handlersRef.current.onEdited(

@@ -11,7 +11,12 @@ export const SNAPSHOT_TYPES: ReadonlySet<string> = new Set([
   "dm_message.edited",
 ]);
 
-const COVERED_STILL_DELIVERED: ReadonlySet<string> = new Set(["message.edited", "dm_message.edited"]);
+const COVERED_STILL_DELIVERED: ReadonlySet<string> = new Set([
+  "message.sent",
+  "message.edited",
+  "dm_message.sent",
+  "dm_message.edited",
+]);
 
 interface PartitionState {
   last: number;

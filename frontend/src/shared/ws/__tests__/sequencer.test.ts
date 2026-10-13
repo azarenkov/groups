@@ -7,7 +7,9 @@ const env = (type: string, partition: string | undefined, seq: number | undefine
 const setup = (wait = 1000) => {
   const emitted: string[] = [];
   const resynced: string[] = [];
-  const s = new Sequencer((e) => emitted.push(`${e.type}#${(e as { seq?: number }).seq ?? "-"}`), wait);
+  const s = new Sequencer((e) => {
+    if (!e.covered) emitted.push(`${e.type}#${(e as { seq?: number }).seq ?? "-"}`);
+  }, wait);
   s.onResync((p) => resynced.push(p));
   return { s, emitted, resynced };
 };
@@ -252,7 +254,7 @@ it("still delivers covered clears and deletions so their side effects run", () =
   s.accept(env("message.deleted", "p", 3));
   s.accept(env("message.edited", "p", 4));
   s.accept(env("dm_conversation.cleared", "p", 2));
-  expect(emitted).toEqual(["message.sent#1", "dm_conversation.cleared#2", "message.deleted#3", "message.edited#4"]);
+  expect(emitted).toEqual(["message.sent#1", "dm_conversation.cleared#2", "message.deleted#3"]);
 });
 
 it("passes a covered edit on as covered so only non-history listeners use it", () => {
@@ -262,5 +264,8 @@ it("passes a covered edit on as covered so only non-history listeners use it", (
   s.accept(env("dm_message.edited", "p", 2));
   s.accept(env("dm_message.sent", "p", 3));
   s.accept(env("dm_message.edited", "p", 2));
-  expect(seen).toEqual([{ type: "dm_message.edited", covered: true }]);
+  expect(seen).toEqual([
+    { type: "dm_message.edited", covered: true },
+    { type: "dm_message.sent", covered: true },
+  ]);
 });
