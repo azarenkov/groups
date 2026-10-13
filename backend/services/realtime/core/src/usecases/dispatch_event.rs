@@ -207,7 +207,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
     }
 
     pub async fn execute_unpublished(&self, subject: &str, payload: &[u8]) -> Result<(), DispatchError> {
-        self.run(subject, payload, &Unpublished).await
+        self.run(subject, payload, &Unpublished).await?;
+        if ends_with(subject, ".dm_message.sent") {
+            let evt: DmSent = serde_json::from_slice(payload)?;
+            forget_pair_without_history(self.directory.as_ref(), self.blocks.as_ref(), evt.sender_id, evt.recipient_id).await?;
+        }
+        Ok(())
     }
 
     pub async fn execute_sequenced(
@@ -1540,6 +1545,29 @@ mod tests {
             assert_eq!(sent.len(), 1);
             assert_eq!(sent[0]["seq"], json!(5));
             assert_eq!(sent[0]["partition"], json!(partition));
+        }
+
+        #[tokio::test]
+        async fn rechecks_the_pair_after_applying_a_late_send() {
+            let (sender, recipient) = (Uuid::new_v4(), Uuid::new_v4());
+            let directory = std::sync::Arc::new(Directory::default());
+            let publisher = std::sync::Arc::new(Captured::default());
+            let dispatch = DispatchEvent::new(
+                directory.clone(),
+                publisher.clone(),
+                std::sync::Arc::new(Relations { peers: vec![] }),
+            );
+            let payload = serde_json::to_vec(&json!({
+                "message_id": Uuid::new_v4(),
+                "sender_id": sender,
+                "recipient_id": recipient,
+                "content": "late",
+                "occurred_at": Utc::now(),
+            }))
+            .unwrap();
+            dispatch.execute_unpublished("rift.events.dm_message.p1.dm_message.sent", &payload).await.unwrap();
+            assert!(publisher.sent.lock().unwrap().is_empty());
+            assert_eq!(*directory.removed.lock().unwrap(), vec![(sender, recipient)]);
         }
 
         #[tokio::test]
