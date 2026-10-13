@@ -30,7 +30,7 @@ where
     plans: Arc<P>,
     voice: Arc<V>,
     outbox: Arc<O>,
-    suspects: Mutex<HashSet<(Uuid, Uuid, String)>>,
+    suspects: Mutex<HashSet<(Uuid, Uuid)>>,
 }
 
 impl<P, V, O> SweepScreenShares<P, V, O>
@@ -60,7 +60,7 @@ where
                 if ceiling.allows(video.width, video.height, video.bitrate) {
                     continue;
                 }
-                let key = (room.uuid(), user.uuid(), video.sid.clone());
+                let key = (room.uuid(), user.uuid());
                 if !previous.contains(&key) {
                     current.insert(key);
                     continue;
@@ -194,6 +194,31 @@ mod tests {
 
     fn video(sid: &str, width: u32, height: u32) -> PublishedVideo {
         PublishedVideo { sid: sid.into(), width, height, bitrate: 1_000_000 }
+    }
+
+    #[tokio::test]
+    async fn keeps_the_strike_when_an_over_limit_share_is_republished() {
+        let free = Uuid::new_v4();
+        let room = ChannelId::new(Uuid::new_v4());
+        let limits = Arc::new(Limits::default());
+        let plans = Arc::new(Plans(HashMap::new()));
+        let first = Arc::new(Rooms {
+            room,
+            shares: vec![(UserId::new(free), video("first", 3840, 2160))],
+            muted: Mutex::new(Vec::new()),
+        });
+        let sweep = SweepScreenShares::new(plans.clone(), first.clone(), limits.clone());
+        assert_eq!(sweep.execute(Utc::now()).await.unwrap(), 0);
+        let suspects = std::mem::take(&mut *sweep.suspects.lock().unwrap());
+        let republished = Arc::new(Rooms {
+            room,
+            shares: vec![(UserId::new(free), video("second", 3840, 2160))],
+            muted: Mutex::new(Vec::new()),
+        });
+        let sweep = SweepScreenShares::new(plans, republished.clone(), limits.clone());
+        *sweep.suspects.lock().unwrap() = suspects;
+        assert_eq!(sweep.execute(Utc::now()).await.unwrap(), 1);
+        assert_eq!(*republished.muted.lock().unwrap(), vec!["second".to_string()]);
     }
 
     #[tokio::test]
