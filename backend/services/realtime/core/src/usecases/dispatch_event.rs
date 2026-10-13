@@ -490,6 +490,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             "voice.stream_limited",
             json!({
                 "roomId": evt.room_id,
+                "trackSid": evt.track_sid,
                 "width": evt.width,
                 "height": evt.height,
                 "frameRate": evt.frame_rate,
@@ -1646,6 +1647,7 @@ mod tests {
             let payload = serde_json::to_vec(&json!({
                 "user_id": user,
                 "room_id": room,
+                "track_sid": "TR_1",
                 "width": 1280,
                 "height": 720,
                 "frame_rate": 60,
@@ -1658,6 +1660,7 @@ mod tests {
             let to = publisher.to.lock().unwrap();
             assert_eq!(sent[0]["type"], json!("voice.stream_limited"));
             assert_eq!(sent[0]["data"]["height"], json!(720));
+            assert_eq!(sent[0]["data"]["trackSid"], json!("TR_1"));
             assert_eq!(to[0], vec![user]);
         }
 

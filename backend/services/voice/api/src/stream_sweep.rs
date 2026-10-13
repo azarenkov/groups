@@ -1,9 +1,11 @@
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use domain::stream::StreamCeiling;
 use ports::user_profile::UserProfileRepository;
 use ports::voice_service::stream_limited_record;
+use uuid::Uuid;
 use voice::ports::voice_service::VoiceService;
 use voice::ports::webhook_outbox::WebhookOutbox;
 
@@ -16,52 +18,71 @@ where
     O: WebhookOutbox + 'static,
 {
     actix_web::rt::spawn(async move {
+        let sweep = ShareSweep::default();
         loop {
             actix_web::rt::time::sleep(SWEEP_EVERY).await;
-            if let Err(e) = sweep(&*profiles, &*voice, &*outbox).await {
+            if let Err(e) = sweep.run(&*profiles, &*voice, &*outbox).await {
                 tracing::warn!(error = %e, "Screen share sweep failed");
             }
         }
     });
 }
 
-pub async fn sweep<P, V, O>(profiles: &P, voice: &V, outbox: &O) -> Result<usize, Box<dyn std::error::Error + Send + Sync>>
-where
-    P: UserProfileRepository + Send + Sync,
-    V: VoiceService + Send + Sync,
-    O: WebhookOutbox,
-{
-    let mut limited = 0;
-    for room in voice.active_rooms().await? {
-        let shares = match voice.room_screen_shares(&room).await {
-            Ok(shares) => shares,
-            Err(e) => {
-                tracing::warn!(error = %e, room = %room.uuid(), "Failed to inspect screen shares of a room");
-                continue;
+#[derive(Default)]
+pub struct ShareSweep {
+    suspects: Mutex<HashSet<(Uuid, Uuid, String)>>,
+}
+
+impl ShareSweep {
+    pub async fn run<P, V, O>(&self, profiles: &P, voice: &V, outbox: &O) -> Result<usize, Box<dyn std::error::Error + Send + Sync>>
+    where
+        P: UserProfileRepository + Send + Sync,
+        V: VoiceService + Send + Sync,
+        O: WebhookOutbox,
+    {
+        let previous = std::mem::take(&mut *self.suspects.lock().unwrap_or_else(|e| e.into_inner()));
+        let mut current = HashSet::new();
+        let mut limited = 0;
+        for room in voice.active_rooms().await? {
+            let shares = match voice.room_screen_shares(&room).await {
+                Ok(shares) => shares,
+                Err(e) => {
+                    tracing::warn!(error = %e, room = %room.uuid(), "Failed to inspect screen shares of a room");
+                    continue;
+                }
+            };
+            for (user, video) in shares {
+                let ceiling = StreamCeiling::for_tier(&profiles.tier_of(&user, chrono::Utc::now()).await?);
+                if ceiling.allows(video.width, video.height, video.bitrate) {
+                    continue;
+                }
+                let key = (room.uuid(), user.uuid(), video.sid.clone());
+                if !previous.contains(&key) {
+                    current.insert(key);
+                    continue;
+                }
+                tracing::info!(
+                    user_id = %user.uuid(),
+                    room = %room.uuid(),
+                    width = video.width,
+                    height = video.height,
+                    bitrate = video.bitrate,
+                    "Screen share stayed above the plan ceiling; muting it"
+                );
+                if let Err(e) = outbox.save_record(stream_limited_record(&user, &room, &video.sid, ceiling)).await {
+                    tracing::warn!(error = %e, user_id = %user.uuid(), "Failed to record a stream limit; will retry");
+                    current.insert(key);
+                    continue;
+                }
+                if let Err(e) = voice.mute_track(&room, &user, &video.sid).await {
+                    tracing::warn!(error = %e, user_id = %user.uuid(), "Failed to mute a screen share above the plan ceiling");
+                }
+                limited += 1;
             }
-        };
-        for (user, video) in shares {
-            let ceiling = StreamCeiling::for_tier(&profiles.tier_of(&user, chrono::Utc::now()).await?);
-            if ceiling.allows(video.width, video.height, video.bitrate) {
-                continue;
-            }
-            tracing::info!(
-                user_id = %user.uuid(),
-                room = %room.uuid(),
-                width = video.width,
-                height = video.height,
-                bitrate = video.bitrate,
-                "Screen share grew above the plan ceiling; muting it"
-            );
-            if let Err(e) = voice.mute_track(&room, &user, &video.sid).await {
-                tracing::warn!(error = %e, user_id = %user.uuid(), "Failed to mute a screen share above the plan ceiling");
-                continue;
-            }
-            outbox.save_record(stream_limited_record(&user, &room, ceiling)).await?;
-            limited += 1;
         }
+        *self.suspects.lock().unwrap_or_else(|e| e.into_inner()) = current;
+        Ok(limited)
     }
-    Ok(limited)
 }
 
 #[cfg(test)]
@@ -196,7 +217,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn mutes_shares_that_grew_above_the_plan_and_tells_their_owners() {
+    async fn mutes_a_share_that_stays_above_the_plan_for_two_sweeps() {
         let (free, premium) = (Uuid::new_v4(), Uuid::new_v4());
         let profiles = Tiers(HashMap::from([(premium, "premium")]));
         let voice = Rooms {
@@ -209,7 +230,10 @@ mod tests {
             muted: Mutex::new(Vec::new()),
         };
         let outbox = Records::default();
-        assert_eq!(sweep(&profiles, &voice, &outbox).await.unwrap(), 1);
+        let sweep = ShareSweep::default();
+        assert_eq!(sweep.run(&profiles, &voice, &outbox).await.unwrap(), 0);
+        assert!(voice.muted.lock().unwrap().is_empty());
+        assert_eq!(sweep.run(&profiles, &voice, &outbox).await.unwrap(), 1);
         assert_eq!(*voice.muted.lock().unwrap(), vec!["free-4k".to_string()]);
         let records = outbox.0.lock().unwrap();
         assert_eq!(records.len(), 1);

@@ -91,13 +91,12 @@ where
             bitrate = video.bitrate,
             "Screen share above the plan ceiling; muting it"
         );
+        self.outbox
+            .save_record(ports::voice_service::stream_limited_record(&user, &room, &video.sid, ceiling))
+            .await?;
         if let Err(e) = self.voice_service.mute_track(&room, &user, &video.sid).await {
             tracing::warn!(error = %e, %user_id, "Failed to mute a screen share above the plan ceiling");
-            return Ok(());
         }
-        self.outbox
-            .save_record(ports::voice_service::stream_limited_record(&user, &room, ceiling))
-            .await?;
         Ok(())
     }
 

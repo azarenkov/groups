@@ -76,7 +76,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         user_repository.clone(),
         call_repository.clone(),
         livekit_service.clone(),
-        webhook_outbox.clone(),
     );
     crate::projection::spawn(
         nats_jetstream,

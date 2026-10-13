@@ -215,9 +215,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             badge_repository.clone(),
             channel_repository.clone(),
             livekit_service.clone(),
-            Arc::new(infrastructure_common::database::postgres::repositories::outbox_writer::PostgresOutboxWriter::new(
-                postgres_pool.clone(),
-            )),
         )),
     );
 

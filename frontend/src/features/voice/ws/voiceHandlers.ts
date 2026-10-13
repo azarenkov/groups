@@ -64,10 +64,13 @@ const endSessionIfEmpty = (channelId: string) => {
 export const voiceHandlers: WsHandlers = {
   "voice.stream_limited": (d) => {
     const roomId = asString(d.roomId);
-    if (!roomId || getLiveKitService().getRoomName() !== roomId) return;
+    const trackSid = asString(d.trackSid);
+    const livekit = getLiveKitService();
+    if (!roomId || livekit.getRoomName() !== roomId) return;
+    if (!trackSid || livekit.getScreenShareTrackSid() !== trackSid) return;
     const ceiling = parseStreamCeiling(d);
     if (ceiling) useStreamCeilingStore.getState().setCeiling(ceiling);
-    void getLiveKitService().setScreenShareEnabled(false).catch(() => {});
+    void livekit.setScreenShareEnabled(false).catch(() => {});
     useCallStore.getState().setCallError(i18n.t("streamLimited", { ns: "call" }));
   },
   "channel.participant.joined": (d) => {

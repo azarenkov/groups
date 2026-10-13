@@ -84,7 +84,9 @@ async fn apply<B: BadgeRepository + ?Sized>(
                 evt.occurred_at,
             )
             .await?;
-        tier_changed.tier_changed(&UserId::new(evt.user_id)).await?;
+        if chrono::Utc::now() - evt.occurred_at <= chrono::Duration::hours(1) {
+            tier_changed.tier_changed(&UserId::new(evt.user_id)).await?;
+        }
         return Ok(());
     }
     if subject.ends_with(".profile_changed") {

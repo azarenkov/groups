@@ -1438,6 +1438,7 @@ export class LiveKitService {
   }
 
   async setScreenShareQuality(quality: ScreenShareQuality): Promise<void> {
+    const previous = this.screenShareQuality;
     this.screenShareQuality = quality;
     this.applyScreenDegradation();
     const publication = this.room?.localParticipant.getTrackPublication(
@@ -1466,6 +1467,13 @@ export class LiveKitService {
     } catch (e) {
       console.warn("[LiveKitService] screen share encoding update failed:", e);
     }
+    const lowered =
+      quality.width < previous.width ||
+      quality.height < previous.height ||
+      quality.maxBitrate < previous.maxBitrate;
+    if (lowered && this.activeScreenCodec && !this.republishingScreen) {
+      await this.republishScreen(this.activeScreenCodec);
+    }
   }
 
   isCameraEnabled(): boolean {
@@ -1482,6 +1490,12 @@ export class LiveKitService {
 
   isConnectingNow(): boolean {
     return this.isConnecting;
+  }
+
+  getScreenShareTrackSid(): string | null {
+    return (
+      this.room?.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.trackSid ?? null
+    );
   }
 
   getRoomName(): string | null {

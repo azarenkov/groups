@@ -115,6 +115,8 @@ pub struct NotificationPreferenceUpdatedV1 {
 pub struct StreamLimitedV1 {
     pub user_id: Uuid,
     pub room_id: Uuid,
+    #[serde(default)]
+    pub track_sid: String,
     pub width: u32,
     pub height: u32,
     pub frame_rate: u32,
