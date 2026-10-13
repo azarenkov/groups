@@ -8,12 +8,34 @@ use tokio::sync::Mutex;
 const REDIS_TIMEOUT: Duration = Duration::from_secs(1);
 
 const CLAIM_LEASE_SECS: u64 = 60;
-const PENDING: &str = "pending";
+pub const CLAIM_RENEW_EVERY: Duration = Duration::from_secs(20);
 const DONE: &str = "done";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+const COMPLETE_IF_OWNED: &str = r#"
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])
+  return 1
+end
+return 0
+"#;
+
+const RENEW_IF_OWNED: &str = r#"
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('EXPIRE', KEYS[1], ARGV[2])
+end
+return 0
+"#;
+
+const RELEASE_IF_OWNED: &str = r#"
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+"#;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Claim {
-    Acquired,
+    Acquired(String),
     Done,
     Busy,
     Unavailable,
@@ -22,8 +44,9 @@ pub enum Claim {
 #[async_trait]
 pub trait HandledEvents: Send + Sync {
     async fn claim(&self, consumer: &str, event_id: &str) -> Claim;
-    async fn complete(&self, consumer: &str, event_id: &str);
-    async fn release(&self, consumer: &str, event_id: &str);
+    async fn renew(&self, consumer: &str, event_id: &str, token: &str);
+    async fn complete(&self, consumer: &str, event_id: &str, token: &str);
+    async fn release(&self, consumer: &str, event_id: &str, token: &str);
 }
 
 pub struct RedisHandledEvents {
@@ -68,6 +91,20 @@ impl RedisHandledEvents {
     fn key(consumer: &str, event_id: &str) -> String {
         format!("notification:handled:{consumer}:{event_id}")
     }
+
+    async fn run_if_owned(&self, script: &str, key: String, args: &[String], what: &str) {
+        let Some(mut connection) = self.connection().await else {
+            return;
+        };
+        let script = redis::Script::new(script);
+        let mut invocation = script.key(key);
+        for arg in args {
+            invocation.arg(arg);
+        }
+        if let Err(e) = invocation.invoke_async::<i64>(&mut connection).await {
+            tracing::warn!(error = %e, "Failed to {what}");
+        }
+    }
 }
 
 #[async_trait]
@@ -77,20 +114,20 @@ impl HandledEvents for RedisHandledEvents {
             return Claim::Unavailable;
         };
         let key = Self::key(consumer, event_id);
+        let token = format!("pending:{}", uuid::Uuid::new_v4());
         let claimed: Result<Option<String>, _> = redis::cmd("SET")
             .arg(&key)
-            .arg(PENDING)
+            .arg(&token)
             .arg("NX")
             .arg("EX")
             .arg(CLAIM_LEASE_SECS)
             .query_async(&mut connection)
             .await;
         match claimed {
-            Ok(Some(_)) => Claim::Acquired,
+            Ok(Some(_)) => Claim::Acquired(token),
             Ok(None) => match connection.get::<_, Option<String>>(&key).await {
                 Ok(Some(state)) if state == DONE => Claim::Done,
-                Ok(Some(_)) => Claim::Busy,
-                Ok(None) => Claim::Busy,
+                Ok(_) => Claim::Busy,
                 Err(e) => {
                     tracing::warn!(error = %e, "Failed to read an event claim; handling it");
                     Claim::Unavailable
@@ -103,24 +140,33 @@ impl HandledEvents for RedisHandledEvents {
         }
     }
 
-    async fn complete(&self, consumer: &str, event_id: &str) {
-        let Some(mut connection) = self.connection().await else {
-            return;
-        };
-        if let Err(e) = connection
-            .set_ex::<_, _, ()>(Self::key(consumer, event_id), DONE, self.ttl_secs)
-            .await
-        {
-            tracing::warn!(error = %e, "Failed to remember a handled event");
-        }
+    async fn renew(&self, consumer: &str, event_id: &str, token: &str) {
+        self.run_if_owned(
+            RENEW_IF_OWNED,
+            Self::key(consumer, event_id),
+            &[token.to_string(), CLAIM_LEASE_SECS.to_string()],
+            "renew an event claim",
+        )
+        .await;
     }
 
-    async fn release(&self, consumer: &str, event_id: &str) {
-        let Some(mut connection) = self.connection().await else {
-            return;
-        };
-        if let Err(e) = connection.del::<_, ()>(Self::key(consumer, event_id)).await {
-            tracing::warn!(error = %e, "Failed to release an event claim");
-        }
+    async fn complete(&self, consumer: &str, event_id: &str, token: &str) {
+        self.run_if_owned(
+            COMPLETE_IF_OWNED,
+            Self::key(consumer, event_id),
+            &[token.to_string(), DONE.to_string(), self.ttl_secs.to_string()],
+            "remember a handled event",
+        )
+        .await;
+    }
+
+    async fn release(&self, consumer: &str, event_id: &str, token: &str) {
+        self.run_if_owned(
+            RELEASE_IF_OWNED,
+            Self::key(consumer, event_id),
+            &[token.to_string()],
+            "release an event claim",
+        )
+        .await;
     }
 }

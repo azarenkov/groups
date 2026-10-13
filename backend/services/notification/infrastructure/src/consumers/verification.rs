@@ -9,7 +9,7 @@ use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use notification_core::usecases::send_verification_email::{SendVerificationEmail, VerificationIssued};
 use ports::{event_consumer::EventConsumer, event_consumer::StartPosition, event_consumer::SubscribeOptions, mailer::Mailer};
 
-use crate::inbox::{Claim, HandledEvents};
+use crate::inbox::{CLAIM_RENEW_EVERY, Claim, HandledEvents};
 use tracing::Instrument;
 
 #[derive(Clone)]
@@ -59,14 +59,23 @@ where
             false
         }
         Claim::Unavailable => handler(payload).await,
-        Claim::Acquired => {
-            if handler(payload).await {
-                handled.complete(consumer, event_id).await;
-                true
+        Claim::Acquired(token) => {
+            let renewing = async {
+                loop {
+                    tokio::time::sleep(CLAIM_RENEW_EVERY).await;
+                    handled.renew(consumer, event_id, &token).await;
+                }
+            };
+            let succeeded = tokio::select! {
+                succeeded = handler(payload) => succeeded,
+                _ = renewing => false,
+            };
+            if succeeded {
+                handled.complete(consumer, event_id, &token).await;
             } else {
-                handled.release(consumer, event_id).await;
-                false
+                handled.release(consumer, event_id, &token).await;
             }
+            succeeded
         }
     }
 }
@@ -191,28 +200,40 @@ mod tests {
     use super::*;
 
     #[derive(Default)]
-    struct Memory(Mutex<HashMap<String, bool>>);
+    struct Memory(Mutex<HashMap<String, String>>);
 
     #[async_trait]
     impl HandledEvents for Memory {
         async fn claim(&self, consumer: &str, event_id: &str) -> Claim {
             let mut keys = self.0.lock().unwrap();
-            match keys.get(&format!("{consumer}:{event_id}")) {
-                Some(true) => Claim::Done,
-                Some(false) => Claim::Busy,
+            let key = format!("{consumer}:{event_id}");
+            match keys.get(&key).map(String::as_str) {
+                Some("done") => Claim::Done,
+                Some(_) => Claim::Busy,
                 None => {
-                    keys.insert(format!("{consumer}:{event_id}"), false);
-                    Claim::Acquired
+                    let token = format!("pending:{key}");
+                    keys.insert(key, token.clone());
+                    Claim::Acquired(token)
                 }
             }
         }
 
-        async fn complete(&self, consumer: &str, event_id: &str) {
-            self.0.lock().unwrap().insert(format!("{consumer}:{event_id}"), true);
+        async fn renew(&self, _: &str, _: &str, _: &str) {}
+
+        async fn complete(&self, consumer: &str, event_id: &str, token: &str) {
+            let mut keys = self.0.lock().unwrap();
+            let key = format!("{consumer}:{event_id}");
+            if keys.get(&key).map(String::as_str) == Some(token) {
+                keys.insert(key, "done".into());
+            }
         }
 
-        async fn release(&self, consumer: &str, event_id: &str) {
-            self.0.lock().unwrap().remove(&format!("{consumer}:{event_id}"));
+        async fn release(&self, consumer: &str, event_id: &str, token: &str) {
+            let mut keys = self.0.lock().unwrap();
+            let key = format!("{consumer}:{event_id}");
+            if keys.get(&key).map(String::as_str) == Some(token) {
+                keys.remove(&key);
+            }
         }
     }
 
@@ -233,7 +254,7 @@ mod tests {
     #[tokio::test]
     async fn leaves_an_event_claimed_elsewhere_for_redelivery() {
         let handled = Memory::default();
-        assert_eq!(handled.claim("mail", "e3").await, Claim::Acquired);
+        assert!(matches!(handled.claim("mail", "e3").await, Claim::Acquired(_)));
         let sent = AtomicUsize::new(0);
         let handler = |_: Vec<u8>| {
             sent.fetch_add(1, Ordering::SeqCst);
