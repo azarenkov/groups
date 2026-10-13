@@ -35,6 +35,7 @@ export type WsEventType =
   | "message.hidden"
   | "message.pin_changed"
   | "conversation_pins.updated"
+  | "search_history.updated"
   | "dm_conversation.cleared"
   | "dm_conversation.hidden_changed"
   | "voice.listened"

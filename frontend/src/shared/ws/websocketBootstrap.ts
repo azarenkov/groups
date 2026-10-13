@@ -34,6 +34,7 @@ import { useUserNamesStore } from "../../features/social/store/userNamesStore";
 import { markNotificationPrefsStale, useNotificationPrefsStore } from "../../features/settings/store/notificationPrefsStore";
 import { useNotificationSettingsStore } from "../../features/settings/store/notificationSettingsStore";
 import { useConversationPinsStore } from "../../features/communities/store/conversationPinsStore";
+import { refreshSearchHistory } from "../../features/search/lib/searchHistory";
 import { useHiddenDmStore } from "../../features/dm/store/hiddenDmStore";
 import { refetchDmPreviews } from "../../features/dm/store/dmPreviewStore";
 import { admitDmEvent } from "../../features/dm/lib/dmCleared";
@@ -67,6 +68,9 @@ const handlers: WsHandlers = {
   "conversation_pins.updated": () => {
     useConversationPinsStore.getState().remoteChanged();
   },
+  "search_history.updated": () => {
+    refreshSearchHistory();
+  },
   ...communityHandlers,
   ...chatHandlers,
   ...dmHandlers,
@@ -96,6 +100,7 @@ export function installWsBootstrap() {
     void useFriendshipStore.getState().fetchFriends().catch(() => {});
     void useBlockStore.getState().fetch().catch(() => {});
     useHiddenDmStore.getState().resync();
+    refreshSearchHistory();
   });
   const onForeground = () => {
     if (!viewIsForeground()) return;
@@ -149,6 +154,7 @@ export function installWsBootstrap() {
       .fetch()
       .catch((err) => console.warn("[ws] failed to reload conversation pins:", err));
     useHiddenDmStore.getState().markStale();
+    refreshSearchHistory();
     dropHeldCalls();
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();

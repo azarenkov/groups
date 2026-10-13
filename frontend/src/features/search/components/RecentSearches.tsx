@@ -1,0 +1,129 @@
+import React from "react";
+import { useTranslation } from "react-i18next";
+
+import Icon from "../../../shared/ui/Icon";
+import { CommunityLogo, UserAvatar } from "../../../shared/ui/Avatar";
+import { colorForId } from "../../../shared/lib/avatar";
+import type { HistoryItem } from "../api/searchHistory";
+
+interface RecentSearchesProps {
+  items: HistoryItem[];
+  onPick: (item: HistoryItem) => void;
+  onRemove: (id: string) => void;
+  onClear: () => void;
+}
+
+const label = (item: HistoryItem): string => {
+  switch (item.type) {
+    case "query":
+      return item.text;
+    case "message":
+      return item.snippet || item.authorName;
+    default:
+      return item.name;
+  }
+};
+
+const RecentIcon: React.FC<{ item: HistoryItem }> = ({ item }) => {
+  switch (item.type) {
+    case "query":
+      return (
+        <span className="search-dd-ava search-dd-icon round">
+          <Icon name="search" size={16} />
+        </span>
+      );
+    case "person":
+    case "dm":
+      return (
+        <UserAvatar
+          userId={item.userId}
+          name={item.name}
+          className="search-dd-ava round"
+          style={{ background: colorForId(item.userId) }}
+        />
+      );
+    case "community":
+      return (
+        <CommunityLogo
+          communityId={item.communityId}
+          name={item.name}
+          className="search-dd-ava"
+          style={{ background: colorForId(item.communityId) }}
+        />
+      );
+    case "channel":
+      return (
+        <span className="search-dd-ava search-dd-icon">
+          <Icon name={item.voice ? "volume" : "hash"} size={16} />
+        </span>
+      );
+    case "message":
+      return (
+        <UserAvatar
+          userId={item.authorId}
+          name={item.authorName}
+          className="search-dd-ava round"
+          style={{ background: colorForId(item.authorId) }}
+        />
+      );
+  }
+};
+
+const RecentSearches: React.FC<RecentSearchesProps> = ({ items, onPick, onRemove, onClear }) => {
+  const { t } = useTranslation("sidebar");
+  const sub = (item: HistoryItem): string => {
+    switch (item.type) {
+      case "query":
+        return t("recentQuery");
+      case "person":
+        return t("recentPerson");
+      case "dm":
+        return t("searchDirect");
+      case "community":
+        return t("searchCommunity");
+      case "channel":
+        return item.communityName;
+      case "message":
+        return item.place.type === "channel"
+          ? t("recentMessageIn", { author: item.authorName, place: `#${item.place.channelName}` })
+          : t("recentMessageFrom", { author: item.authorName });
+    }
+  };
+
+  if (items.length === 0) {
+    return <div className="search-dd-note">{t("recentEmpty")}</div>;
+  }
+
+  return (
+    <section className="search-dd-section" aria-label={t("recentTitle")}>
+      <div className="search-dd-label search-dd-label-row">
+        <span>{t("recentTitle")}</span>
+        <button type="button" className="search-dd-clear" onClick={onClear}>
+          {t("recentClear")}
+        </button>
+      </div>
+      {items.map((item) => (
+        <div key={item.id} className="search-dd-person">
+          <button type="button" className="search-dd-item" onClick={() => onPick(item)}>
+            <RecentIcon item={item} />
+            <span className="search-dd-text">
+              <span className="search-dd-name">{label(item)}</span>
+              <span className="search-dd-sub">{sub(item)}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="search-dd-remove"
+            title={t("recentRemove")}
+            aria-label={t("recentRemove")}
+            onClick={() => onRemove(item.id)}
+          >
+            <Icon name="x" size={12} />
+          </button>
+        </div>
+      ))}
+    </section>
+  );
+};
+
+export default RecentSearches;

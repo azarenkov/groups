@@ -39,6 +39,7 @@ export const queryKeys = {
   invitePreview: (code: string) => ["invitePreview", code] as const,
   privacySettings: () => ["privacySettings"] as const,
   peopleSearch: (term: string) => ["peopleSearch", term] as const,
+  searchHistory: (userId: string) => ["searchHistory", userId] as const,
   publicProfile: (userId: string) => ["publicProfile", userId] as const,
   userConnections: (userId: string) => ["userConnections", userId] as const,
 };

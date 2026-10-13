@@ -8,6 +8,7 @@ import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import { usePresenceStore } from "../../social/store/presenceStore";
 import type { PersonRelation } from "../api/people";
+import type { HistoryTarget } from "../api/searchHistory";
 import { usePeopleSearch } from "../hooks/usePeopleSearch";
 import { highlightTerms } from "./GlobalSearchResults";
 
@@ -15,6 +16,7 @@ interface PeopleResultsProps {
   query: string;
   hiddenIds: ReadonlySet<string>;
   onMessage: (userId: string, name: string) => void;
+  onRecord: (target: HistoryTarget) => void;
   onDone: () => void;
 }
 
@@ -25,7 +27,7 @@ const RELATION_LABEL: Record<PersonRelation, string> = {
   none: "relationNone",
 };
 
-const PeopleResults: React.FC<PeopleResultsProps> = ({ query, hiddenIds, onMessage, onDone }) => {
+const PeopleResults: React.FC<PeopleResultsProps> = ({ query, hiddenIds, onMessage, onRecord, onDone }) => {
   const { t } = useTranslation("sidebar");
   const { people, loading, failed } = usePeopleSearch(query);
   const online = usePresenceStore((s) => s.online);
@@ -67,6 +69,7 @@ const PeopleResults: React.FC<PeopleResultsProps> = ({ query, hiddenIds, onMessa
             ? {
                 label: t("peopleMessage"),
                 run: async () => {
+                  onRecord({ type: "dm", userId: person.id, name: person.name });
                   onMessage(person.id, person.name);
                   onDone();
                 },
@@ -84,6 +87,7 @@ const PeopleResults: React.FC<PeopleResultsProps> = ({ query, hiddenIds, onMessa
               type="button"
               className="search-dd-item"
               onClick={() => {
+                onRecord({ type: "person", userId: person.id, name: person.name });
                 useProfileModalStore.getState().open(person.id);
                 onDone();
               }}

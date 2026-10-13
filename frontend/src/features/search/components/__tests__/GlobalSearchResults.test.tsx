@@ -87,7 +87,7 @@ describe("GlobalSearchResults", () => {
     await flush();
     await screen.findByText("#general · Rift");
     fireEvent.click(screen.getByText("#general · Rift"));
-    expect(onOpen).toHaveBeenCalledWith({ kind: "channel", communityId: "c1", channelId: "ch1", messageId: "m1" });
+    expect(onOpen).toHaveBeenCalledWith({ kind: "channel", communityId: "c1", channelId: "ch1", messageId: "m1" }, expect.objectContaining({ messageId: expect.any(String) }));
     expect(screen.getAllByText("Carol")).toHaveLength(1);
     expect(screen.getByText("You:", { exact: false })).toBeTruthy();
     fireEvent.click(screen.getByText("Show more"));
@@ -144,7 +144,7 @@ describe("GlobalSearchResults", () => {
     await flush();
     await screen.findByText("Carol:", { exact: false });
     fireEvent.click(screen.getByText("Carol:", { exact: false }));
-    expect(onOpen).toHaveBeenCalledWith({ kind: "dm", peerId: "u3", messageId: "f1", peerName: "Carol" });
+    expect(onOpen).toHaveBeenCalledWith({ kind: "dm", peerId: "u3", messageId: "f1", peerName: "Carol" }, expect.objectContaining({ messageId: expect.any(String) }));
   });
 
   it("collapses blocked authors in channels", async () => {

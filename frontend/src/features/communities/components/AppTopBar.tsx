@@ -90,7 +90,7 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
     onQueryChange("");
     searchRef.current?.blur();
   };
-  const showResults = open && !!renderResults && query.trim().length > 0;
+  const showResults = open && !!renderResults;
 
   return (
     <header className="topbar">

@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import i18n from "../../../../i18n";
 import AppTopBar from "../AppTopBar";
@@ -10,7 +10,18 @@ import { useFriendshipStore } from "../../../social/store/friendshipStore";
 import { useSearchFocusStore } from "../../../search/store/searchFocusStore";
 import { queryClient } from "../../../../shared/query/queryClient";
 
+import { searchHistoryAPI } from "../../../search/api/searchHistory";
+import { useAuthStore } from "../../../auth/store/authStore";
+import { clearStoredHistory } from "../../../search/lib/searchHistory";
+
 jest.mock("../../../search/api/people", () => ({ peopleAPI: { search: jest.fn() } }));
+jest.mock("../../../search/api/searchHistory", () => {
+  const actual = jest.requireActual("../../../search/api/searchHistory");
+  return {
+    ...actual,
+    searchHistoryAPI: { list: jest.fn(), record: jest.fn(), remove: jest.fn(), clear: jest.fn() },
+  };
+});
 
 jest.mock("../../../search/components/GlobalSearchResults", () => {
   const actual = jest.requireActual("../../../search/components/GlobalSearchResults");
@@ -46,6 +57,8 @@ const Harness: React.FC<{ picks: Picks }> = ({ picks }) => {
           onOpenResult={jest.fn()}
           onMessagePerson={picks.message}
           onJoinInvite={picks.join}
+          onSearch={setQuery}
+          isFriend={() => true}
           onDone={done}
         />
       )}
@@ -75,7 +88,16 @@ beforeEach(() => {
   jest.spyOn(communityAPI, "previewInvite").mockReset();
   jest.spyOn(communityAPI, "downloadLogo").mockRejectedValue(new Error("no logo"));
   useFriendshipStore.setState({ loaded: false, statusById: {} });
+  useAuthStore.setState({ user: null });
+  clearStoredHistory();
+  const history = searchHistoryAPI as jest.Mocked<typeof searchHistoryAPI>;
+  history.list.mockReset().mockResolvedValue([]);
+  history.record.mockReset().mockResolvedValue({ id: "saved", usedAt: "2026-10-13T12:00:00Z" });
+  history.remove.mockReset().mockResolvedValue();
+  history.clear.mockReset().mockResolvedValue();
 });
+
+const signIn = () => useAuthStore.setState({ user: { id: "me", name: "me" } as never });
 
 it("lists chats, communities and channels under the search box", () => {
   const { input } = setup();
@@ -157,7 +179,7 @@ it("hides people already listed as chats and offers a message to friends", async
   await screen.findByText("na", { exact: false, selector: ".search-dd-name, .search-dd-name *" });
   expect(section).not.toHaveTextContent("Alice");
   fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:peopleMessage") }));
-  expect(picks.message).toHaveBeenCalledWith("f2", "Alina");
+  expect(picks.message).toHaveBeenCalledWith("f2", "Alina", true);
 });
 
 it("prefers the live friendship state over the search snapshot", async () => {
@@ -226,4 +248,65 @@ it("returns to the plain search hint after a focused search is closed", () => {
   fireEvent.change(input, { target: { value: "bo" } });
   fireEvent.keyDown(input, { key: "Escape" });
   expect(screen.getByRole("textbox", { name: i18n.t("sidebar:searchPlaceholder") })).toBe(input);
+});
+
+it("shows recent searches in an empty search and reruns a recent query", async () => {
+  signIn();
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h1", usedAt: "2026-10-13T10:00:00Z", type: "query", text: "deploy" },
+    { id: "h2", usedAt: "2026-10-13T09:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" },
+  ]);
+  const { input } = setup();
+  fireEvent.focus(input);
+  const recent = await screen.findByLabelText(i18n.t("sidebar:recentTitle"));
+  expect(recent).toHaveTextContent("deploy");
+  fireEvent.click(screen.getByText("deploy"));
+  expect(input).toHaveValue("deploy");
+  await waitFor(() => expect(searchHistoryAPI.record).toHaveBeenCalledWith({ type: "query", text: "deploy" }));
+});
+
+it("opens a recent community and lifts it to the top", async () => {
+  signIn();
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h2", usedAt: "2026-10-13T09:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" },
+  ]);
+  const { picks, input } = setup();
+  fireEvent.focus(input);
+  fireEvent.click(await screen.findByText("Alpha Squad"));
+  expect(picks.community).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
+  await waitFor(() => expect(searchHistoryAPI.record).toHaveBeenCalledWith(expect.objectContaining({ type: "community", communityId: "c1" })));
+  await act(async () => {});
+});
+
+it("removes one recent entry or clears them all at once", async () => {
+  signIn();
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h1", usedAt: "2026-10-13T10:00:00Z", type: "query", text: "deploy" },
+    { id: "h3", usedAt: "2026-10-13T08:00:00Z", type: "query", text: "release" },
+  ]);
+  let answerRemove: () => void = () => {};
+  (searchHistoryAPI.remove as jest.Mock).mockReturnValue(new Promise<void>((resolve) => (answerRemove = resolve)));
+  let answerClear: () => void = () => {};
+  (searchHistoryAPI.clear as jest.Mock).mockReturnValue(new Promise<void>((resolve) => (answerClear = resolve)));
+  const { input } = setup();
+  fireEvent.focus(input);
+  await screen.findByText("deploy");
+  fireEvent.click(screen.getAllByRole("button", { name: i18n.t("sidebar:recentRemove") })[0]);
+  await waitFor(() => expect(screen.queryByText("deploy")).toBeNull());
+  expect(searchHistoryAPI.remove).toHaveBeenCalledWith("h1");
+  await act(async () => answerRemove());
+  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:recentClear") }));
+  await waitFor(() => expect(screen.queryByText("release")).toBeNull());
+  expect(searchHistoryAPI.clear).toHaveBeenCalled();
+  await act(async () => answerClear());
+  expect(screen.getByText(i18n.t("sidebar:recentEmpty"))).toBeInTheDocument();
+});
+
+it("remembers what was opened from the results", async () => {
+  signIn();
+  const { input } = setup();
+  fireEvent.change(input, { target: { value: "alpha" } });
+  fireEvent.click(screen.getByText("Squad", { exact: false }));
+  await waitFor(() => expect(searchHistoryAPI.record).toHaveBeenCalledWith({ type: "community", communityId: "c1", name: "Alpha Squad" }));
+  await act(async () => {});
 });
