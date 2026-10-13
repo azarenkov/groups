@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use domain::{channel::id::ChannelId, stream::StreamCeiling, user::id::UserId};
-use voice_domain::stream::StreamLimited;
 use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
 use voice_domain::{call::repository::CallRepository, call::repository::WebhookJoinOutcome, webhook::WebhookEvent, webhook::WebhookKind};
 
@@ -85,48 +84,9 @@ where
     async fn refresh_stream_ceiling(&self, channel_id: uuid::Uuid, user_id: uuid::Uuid) -> Result<(), HandleVoiceWebhookError> {
         let user = UserId::new(user_id);
         let ceiling = self.ceiling_of(&user).await?;
-        if let Err(e) = self
-            .voice_service
+        self.voice_service
             .set_stream_ceiling(&ChannelId::new(channel_id), &user, ceiling)
-            .await
-        {
-            tracing::warn!(error = %e, %user_id, "Failed to refresh the stream ceiling of a joining participant");
-        }
-        Ok(())
-    }
-
-    async fn enforce_stream_ceiling(
-        &self,
-        channel_id: uuid::Uuid,
-        user_id: uuid::Uuid,
-        video: &ports::voice_service::PublishedVideo,
-    ) -> Result<(), HandleVoiceWebhookError> {
-        let user = UserId::new(user_id);
-        let ceiling = self.ceiling_of(&user).await?;
-        if ceiling.allows(video.width, video.height, video.bitrate) {
-            return Ok(());
-        }
-        let room = ChannelId::new(channel_id);
-        tracing::info!(
-            %user_id,
-            %channel_id,
-            width = video.width,
-            height = video.height,
-            bitrate = video.bitrate,
-            "Screen share above the plan ceiling; muting it"
-        );
-        self.outbox
-            .record_stream_limited(&StreamLimited {
-                user_id: user,
-                room,
-                track_sid: video.sid.clone(),
-                ceiling,
-                occurred_at: chrono::Utc::now(),
-            })
             .await?;
-        if let Err(e) = self.voice_service.mute_track(&room, &user, &video.sid).await {
-            tracing::warn!(error = %e, %user_id, "Failed to mute a screen share above the plan ceiling");
-        }
         Ok(())
     }
 
@@ -279,11 +239,7 @@ where
                 user_id,
                 session_id,
                 source: media_source,
-                video,
             } => {
-                if let Some(video) = video {
-                    self.enforce_stream_ceiling(channel_id, user_id, &video).await?;
-                }
                 if self.call_repository.is_call_room(channel_id).await? {
                     return Ok(());
                 }
