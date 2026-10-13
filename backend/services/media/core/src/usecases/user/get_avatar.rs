@@ -2,10 +2,11 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::user::id::UserId;
-use media_domain::{banner::BannerRepository, media::repository::MediaRepository};
+use media_domain::media::repository::MediaRepository;
 use ports::repository::RepositoryError;
 
 use crate::ports::file_storage::{ByteStream, FileStorage, FileStorageError};
+use crate::ports::plan_directory::PlanDirectory;
 use crate::usecases::user::update_avatar::still_avatar_key;
 
 #[derive(Debug, thiserror::Error)]
@@ -18,27 +19,25 @@ pub enum GetUserAvatarError {
     NotFound,
 }
 
-pub struct GetUserAvatar<M, B, FS>
+pub struct GetUserAvatar<M, FS>
 where
     M: MediaRepository,
-    B: BannerRepository + ?Sized,
     FS: FileStorage,
 {
     media_repository: Arc<M>,
-    tiers: Arc<B>,
+    plans: Arc<dyn PlanDirectory>,
     storage: Arc<FS>,
 }
 
-impl<M, B, FS> GetUserAvatar<M, B, FS>
+impl<M, FS> GetUserAvatar<M, FS>
 where
     M: MediaRepository,
-    B: BannerRepository + ?Sized,
     FS: FileStorage,
 {
-    pub fn new(media_repository: Arc<M>, tiers: Arc<B>, storage: Arc<FS>) -> Self {
+    pub fn new(media_repository: Arc<M>, plans: Arc<dyn PlanDirectory>, storage: Arc<FS>) -> Self {
         Self {
             media_repository,
-            tiers,
+            plans,
             storage,
         }
     }
@@ -53,7 +52,7 @@ where
             .await?
             .ok_or(GetUserAvatarError::NotFound)?;
         if let Some(still_key) = still_avatar_key(&key)
-            && !self.tiers.is_paid(&user_id, Utc::now()).await?
+            && !self.plans.tier_of(&user_id, Utc::now()).await?.is_paid()
         {
             match self.storage.get_stream(&still_key).await {
                 Ok(stream) => return Ok((stream, "image/png")),
@@ -113,25 +112,20 @@ mod tests {
         }
     }
 
-    struct Tier(bool);
+    struct Paid(bool);
 
     #[async_trait]
-    impl BannerRepository for Tier {
-        async fn get_banner_key(&self, _: &UserId) -> Result<Option<String>, RepositoryError> {
+    impl PlanDirectory for Paid {
+        async fn apply_tier(&self, _: &UserId, _: domain::plan::Tier, _: Option<DateTime<Utc>>, _: DateTime<Utc>) -> Result<(), RepositoryError> {
             unimplemented!()
         }
-        async fn set_banner_key(&self, _: &UserId, _: Option<&str>) -> Result<Option<String>, RepositoryError> {
-            unimplemented!()
+        async fn tier_of(&self, _: &UserId, _: DateTime<Utc>) -> Result<domain::plan::Tier, RepositoryError> {
+            Ok(if self.0 { domain::plan::Tier::Pro } else { domain::plan::Tier::Free })
         }
-        async fn apply_tier(&self, _: &UserId, _: &str, _: Option<DateTime<Utc>>, _: DateTime<Utc>) -> Result<(), RepositoryError> {
-            unimplemented!()
+        fn is_caught_up(&self) -> bool {
+            true
         }
-        async fn is_paid(&self, _: &UserId, _: DateTime<Utc>) -> Result<bool, RepositoryError> {
-            Ok(self.0)
-        }
-        async fn tier_of(&self, _: &UserId, _: DateTime<Utc>) -> Result<String, RepositoryError> {
-            unimplemented!()
-        }
+        fn set_caught_up(&self, _: bool) {}
     }
 
     struct Objects(HashSet<&'static str>);
@@ -159,7 +153,7 @@ mod tests {
     async fn serve(key: &'static str, paid: bool, objects: &[&'static str]) -> (String, &'static str) {
         let usecase = GetUserAvatar::new(
             Arc::new(Avatars(Some(key))),
-            Arc::new(Tier(paid)),
+            Arc::new(Paid(paid)),
             Arc::new(Objects(objects.iter().copied().collect())),
         );
         let (mut stream, content_type) = usecase.execute(UserId::new(uuid::Uuid::nil())).await.unwrap();

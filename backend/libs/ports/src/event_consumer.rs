@@ -45,6 +45,7 @@ pub struct ConsumedMessage {
     pub subject: String,
     pub sequence: Option<PartitionSequence>,
     pub event_id: Option<String>,
+    pub pending: Option<u64>,
     ack_fn: DispositionFn,
 }
 
@@ -62,8 +63,14 @@ impl ConsumedMessage {
             subject,
             sequence,
             event_id: None,
+            pending: None,
             ack_fn,
         }
+    }
+
+    pub fn with_pending(mut self, pending: Option<u64>) -> Self {
+        self.pending = pending;
+        self
     }
 
     pub fn with_event_id(mut self, event_id: Option<String>) -> Self {

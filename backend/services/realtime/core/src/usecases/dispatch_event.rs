@@ -484,6 +484,23 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         return Ok(());
     }
 
+    if ends_with(subject, ".stream_limited") {
+        let evt: contracts::events::user::StreamLimitedV1 = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new(
+            "voice.stream_limited",
+            json!({
+                "roomId": evt.room_id,
+                "trackSid": evt.track_sid,
+                "width": evt.width,
+                "height": evt.height,
+                "frameRate": evt.frame_rate,
+                "maxBitrate": evt.max_bitrate,
+            }),
+        );
+        publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".message.hidden") {
         let evt: MessageHiddenDto = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(
@@ -1616,6 +1633,35 @@ mod tests {
                 assert_eq!(envelope["eventId"], json!("evt-1"));
                 assert_eq!(envelope["seq"], json!(7));
             }
+        }
+
+        #[tokio::test]
+        async fn tells_the_streamer_that_their_share_was_limited() {
+            let publisher = std::sync::Arc::new(Captured::default());
+            let dispatch = DispatchEvent::new(
+                std::sync::Arc::new(Directory::default()),
+                publisher.clone(),
+                std::sync::Arc::new(Relations { peers: vec![] }),
+            );
+            let (user, room) = (Uuid::new_v4(), Uuid::new_v4());
+            let payload = serde_json::to_vec(&json!({
+                "user_id": user,
+                "room_id": room,
+                "track_sid": "TR_1",
+                "width": 1280,
+                "height": 720,
+                "frame_rate": 60,
+                "max_bitrate": 4_000_000,
+                "occurred_at": Utc::now(),
+            }))
+            .unwrap();
+            dispatch.execute("rift.events.user.p2.stream_limited", &payload).await.unwrap();
+            let sent = publisher.sent.lock().unwrap();
+            let to = publisher.to.lock().unwrap();
+            assert_eq!(sent[0]["type"], json!("voice.stream_limited"));
+            assert_eq!(sent[0]["data"]["height"], json!(720));
+            assert_eq!(sent[0]["data"]["trackSid"], json!("TR_1"));
+            assert_eq!(to[0], vec![user]);
         }
 
         #[tokio::test]

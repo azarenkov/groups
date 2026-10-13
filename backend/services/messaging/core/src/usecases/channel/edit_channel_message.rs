@@ -42,7 +42,7 @@ where
     unit_of_work: Arc<W>,
     attachment_claims: Arc<A>,
     mention_resolver: Arc<R>,
-    plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
+    plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
 }
 
 impl<M, C, S, W, A, R> EditChannelMessage<M, C, S, W, A, R>
@@ -61,7 +61,7 @@ where
         unit_of_work: Arc<W>,
         attachment_claims: Arc<A>,
         mention_resolver: Arc<R>,
-        plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
+        plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
     ) -> Self {
         Self {
             message_repository,
@@ -138,7 +138,7 @@ where
         }
         let remaining = current_ids.len() - remove_ids.len() + add_ids.len();
         let tier = self.plans.tier_of(&editor_id, Utc::now()).await?;
-        if !add_ids.is_empty() && remaining > attachments_per_message(&tier) {
+        if !add_ids.is_empty() && remaining > attachments_per_message(tier) {
             return Err(EditChannelMessageError::InvalidAttachments);
         }
 

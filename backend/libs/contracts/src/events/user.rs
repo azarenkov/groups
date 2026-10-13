@@ -110,3 +110,16 @@ pub struct NotificationPreferenceUpdatedV1 {
     #[serde(default)]
     pub recipients: Vec<Uuid>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamLimitedV1 {
+    pub user_id: Uuid,
+    pub room_id: Uuid,
+    #[serde(default)]
+    pub track_sid: String,
+    pub width: u32,
+    pub height: u32,
+    pub frame_rate: u32,
+    pub max_bitrate: u64,
+    pub occurred_at: DateTime<Utc>,
+}

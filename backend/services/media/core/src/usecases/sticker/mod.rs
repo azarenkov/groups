@@ -5,7 +5,6 @@ use futures::{StreamExt, TryStreamExt};
 use domain::user::id::UserId;
 use media_domain::{
     attachment::repository::AttachmentRepository,
-    banner::BannerRepository,
     sticker::{
         AddStickerOutcome, InstallOutcome, NewSticker, StickerPack, StickerRef, StickerRepository, max_owned_packs,
         slug_from_name, slug_with_suffix, valid_pack_name, valid_pack_slug, valid_sticker_emoji,
@@ -17,6 +16,7 @@ use uuid::Uuid;
 use crate::ports::{
     file_storage::{ByteStream, FileStorage, FileStorageError},
     image_moderation::{ImageModeration, ImageModerationError},
+    plan_directory::PlanDirectory,
 };
 use crate::usecases::user::update_avatar::cleanup_object;
 
@@ -95,33 +95,31 @@ pub fn sticker_content_type(storage_key: &str) -> &'static str {
     if storage_key.ends_with(".gif") { "image/gif" } else { "image/png" }
 }
 
-pub struct StickerPacks<S, B, A, FS, IM>
+pub struct StickerPacks<S, A, FS, IM>
 where
     S: StickerRepository,
-    B: BannerRepository,
     A: AttachmentRepository,
     FS: FileStorage,
     IM: ImageModeration,
 {
     stickers: Arc<S>,
-    tiers: Arc<B>,
+    plans: Arc<dyn PlanDirectory>,
     attachment_repository: Arc<A>,
     storage: Arc<FS>,
     moderation: Arc<IM>,
 }
 
-impl<S, B, A, FS, IM> StickerPacks<S, B, A, FS, IM>
+impl<S, A, FS, IM> StickerPacks<S, A, FS, IM>
 where
     S: StickerRepository,
-    B: BannerRepository,
     A: AttachmentRepository,
     FS: FileStorage,
     IM: ImageModeration,
 {
-    pub fn new(stickers: Arc<S>, tiers: Arc<B>, attachment_repository: Arc<A>, storage: Arc<FS>, moderation: Arc<IM>) -> Self {
+    pub fn new(stickers: Arc<S>, plans: Arc<dyn PlanDirectory>, attachment_repository: Arc<A>, storage: Arc<FS>, moderation: Arc<IM>) -> Self {
         Self {
             stickers,
-            tiers,
+            plans,
             attachment_repository,
             storage,
             moderation,
@@ -137,7 +135,7 @@ where
         if requested.as_deref().is_some_and(|slug| !valid_pack_slug(slug)) {
             return Err(StickerError::InvalidSlug);
         }
-        let tier = self.tiers.tier_of(&owner_id, Utc::now()).await?;
+        let tier = self.plans.tier_of(&owner_id, Utc::now()).await?;
         let id = Uuid::new_v4();
         let base = requested.clone().unwrap_or_else(|| slug_from_name(name));
         let attempts = if requested.is_some() { 1 } else { SLUG_ATTEMPTS };
@@ -151,7 +149,7 @@ where
             attempt += 1;
             match self
                 .stickers
-                .create_pack(id, &owner_id, name, &slug, max_owned_packs(&tier))
+                .create_pack(id, &owner_id, name, &slug, max_owned_packs(tier))
                 .await
             {
                 Ok(created) => break created.ok_or(StickerError::PackLimit)?,

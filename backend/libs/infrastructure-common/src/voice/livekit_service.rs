@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use domain::{channel::id::ChannelId, channel::token::ChannelToken, community::id::CommunityId, user::id::UserId, user::name::UserName};
-use ports::{voice_service::ParticipantAccess, voice_service::VoiceService, voice_service::VoiceServiceError};
+use domain::{channel::id::ChannelId, channel::token::ChannelToken, community::id::CommunityId, stream::{STREAM_CEILING_ATTRIBUTE, StreamCeiling}, user::id::UserId, user::name::UserName};
+use ports::{voice_service::ParticipantAccess, voice_service::PublishedVideo, voice_service::VoiceService, voice_service::VoiceServiceError};
 use async_trait::async_trait;
 
 use livekit_api::{
@@ -22,6 +22,18 @@ pub struct LiveKitService {
 impl LiveKitService {
     pub fn new(config: LiveKitConfig) -> Self {
         Self { config }
+    }
+
+    async fn list_participants(&self, channel_id: &ChannelId) -> Result<Vec<livekit_protocol::ParticipantInfo>, VoiceServiceError> {
+        let livekit_room = RoomClient::new(self.config.url())
+            .map_err(|e| VoiceServiceError::ParticipantUpdate(e.to_string()))?;
+        let room = channel_id.uuid().to_string();
+        match timeout(LIVEKIT_REQUEST_TIMEOUT, livekit_room.list_participants(&room)).await {
+            Ok(Ok(participants)) => Ok(participants),
+            Ok(Err(ServiceError::Twirp(TwirpError::Twirp(code)))) if code.code == TwirpErrorCode::NOT_FOUND => Ok(Vec::new()),
+            Ok(Err(e)) => Err(VoiceServiceError::ParticipantUpdate(e.to_string())),
+            Err(_) => Err(VoiceServiceError::ParticipantUpdate("LiveKit request timed out".into())),
+        }
     }
 }
 
@@ -216,8 +228,115 @@ impl VoiceService for LiveKitService {
         Ok(())
     }
 
+    async fn set_stream_ceiling(
+        &self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+        ceiling: StreamCeiling,
+    ) -> Result<(), VoiceServiceError> {
+        let livekit_room = RoomClient::new(self.config.url())
+            .map_err(|e| VoiceServiceError::ParticipantUpdate(e.to_string()))?;
+        let attributes = std::collections::HashMap::from([(STREAM_CEILING_ATTRIBUTE.to_string(), ceiling.to_attribute())]);
+        let (room, identity) = (channel_id.uuid().to_string(), user_id.uuid().to_string());
+        let request = livekit_room.update_participant(
+            &room,
+            &identity,
+            livekit_api::services::room::UpdateParticipantOptions { attributes, ..Default::default() },
+        );
+        match timeout(LIVEKIT_REQUEST_TIMEOUT, request).await {
+            Ok(Ok(_)) => Ok(()),
+            Ok(Err(ServiceError::Twirp(TwirpError::Twirp(code)))) if code.code == TwirpErrorCode::NOT_FOUND => Ok(()),
+            Ok(Err(e)) => Err(VoiceServiceError::ParticipantUpdate(e.to_string())),
+            Err(_) => Err(VoiceServiceError::ParticipantUpdate("LiveKit request timed out".into())),
+        }
+    }
+
+    async fn mute_track(
+        &self,
+        channel_id: &ChannelId,
+        user_id: &UserId,
+        track_sid: &str,
+    ) -> Result<(), VoiceServiceError> {
+        let livekit_room = RoomClient::new(self.config.url())
+            .map_err(|e| VoiceServiceError::ParticipantUpdate(e.to_string()))?;
+        let (room, identity) = (channel_id.uuid().to_string(), user_id.uuid().to_string());
+        let request = livekit_room.mute_published_track(
+            &room,
+            &identity,
+            track_sid,
+            true,
+        );
+        match timeout(LIVEKIT_REQUEST_TIMEOUT, request).await {
+            Ok(Ok(_)) => Ok(()),
+            Ok(Err(ServiceError::Twirp(TwirpError::Twirp(code)))) if code.code == TwirpErrorCode::NOT_FOUND => Ok(()),
+            Ok(Err(e)) => Err(VoiceServiceError::ParticipantUpdate(e.to_string())),
+            Err(_) => Err(VoiceServiceError::ParticipantUpdate("LiveKit request timed out".into())),
+        }
+    }
+
+    async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError> {
+        let livekit_room = RoomClient::new(self.config.url())
+            .map_err(|e| VoiceServiceError::ParticipantUpdate(e.to_string()))?;
+        let rooms = match timeout(LIVEKIT_REQUEST_TIMEOUT, livekit_room.list_rooms(Vec::new())).await {
+            Ok(Ok(rooms)) => rooms,
+            Ok(Err(e)) => return Err(VoiceServiceError::ParticipantUpdate(e.to_string())),
+            Err(_) => return Err(VoiceServiceError::ParticipantUpdate("LiveKit request timed out".into())),
+        };
+        Ok(rooms
+            .into_iter()
+            .filter(|room| room.num_participants > 0)
+            .filter_map(|room| uuid::Uuid::parse_str(&room.name).ok().map(ChannelId::new))
+            .collect())
+    }
+
+    async fn room_participants(&self, channel_id: &ChannelId) -> Result<Vec<UserId>, VoiceServiceError> {
+        Ok(self
+            .list_participants(channel_id)
+            .await?
+            .iter()
+            .filter_map(|participant| uuid::Uuid::parse_str(&participant.identity).ok().map(UserId::new))
+            .collect())
+    }
+
+    async fn room_videos(&self, channel_id: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
+        let mut shares = Vec::new();
+        for participant in self.list_participants(channel_id).await? {
+            let Ok(user) = uuid::Uuid::parse_str(&participant.identity) else {
+                continue;
+            };
+            for track in &participant.tracks {
+                if track.r#type == livekit_protocol::TrackType::Video as i32 && !track.muted {
+                    shares.push((UserId::new(user), published_video(track)));
+                }
+            }
+        }
+        Ok(shares)
+    }
+
     fn client_url(&self) -> String {
         self.config.client_url.clone()
+    }
+}
+
+const LIVEKIT_REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+
+pub fn published_video(track: &livekit_protocol::TrackInfo) -> PublishedVideo {
+    let layers = || track.codecs.iter().flat_map(|codec| codec.layers.iter());
+    let top = layers().max_by_key(|layer| layer.width as u64 * layer.height as u64);
+    PublishedVideo {
+        sid: track.sid.clone(),
+        width: top.map_or(track.width, |layer| layer.width.max(track.width)),
+        height: top.map_or(track.height, |layer| layer.height.max(track.height)),
+        bitrate: track.codecs.iter().map(codec_bitrate).max().unwrap_or(0),
+    }
+}
+
+fn codec_bitrate(codec: &livekit_protocol::SimulcastCodecInfo) -> u64 {
+    let layers = codec.layers.iter().map(|layer| layer.bitrate as u64);
+    if codec.video_layer_mode == livekit_protocol::video_layer::Mode::MultipleSpatialLayersPerStream as i32 {
+        layers.max().unwrap_or(0)
+    } else {
+        layers.sum()
     }
 }
 
@@ -265,5 +384,57 @@ fn parse_host_port(url: &str) -> Option<String> {
             80
         };
         Some(format!("{host_port}:{default_port}"))
+    }
+}
+
+#[cfg(test)]
+mod published_video_tests {
+    use super::*;
+
+    #[test]
+    fn takes_the_largest_layer_and_its_bitrate() {
+        let track = livekit_protocol::TrackInfo {
+            sid: "TR_1".into(),
+            width: 1280,
+            height: 720,
+            codecs: vec![livekit_protocol::SimulcastCodecInfo {
+                layers: vec![
+                    livekit_protocol::VideoLayer { width: 640, height: 360, bitrate: 500_000, ..Default::default() },
+                    livekit_protocol::VideoLayer { width: 1920, height: 1080, bitrate: 6_000_000, ..Default::default() },
+                ],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let video = published_video(&track);
+        assert_eq!(video, PublishedVideo { sid: "TR_1".into(), width: 1920, height: 1080, bitrate: 6_500_000 });
+    }
+
+    #[test]
+    fn counts_svc_layers_once_and_the_active_codec_only() {
+        let layer = |width, height, bitrate| livekit_protocol::VideoLayer { width, height, bitrate, ..Default::default() };
+        let track = livekit_protocol::TrackInfo {
+            sid: "TR_3".into(),
+            codecs: vec![
+                livekit_protocol::SimulcastCodecInfo {
+                    video_layer_mode: livekit_protocol::video_layer::Mode::MultipleSpatialLayersPerStream as i32,
+                    layers: vec![layer(640, 360, 1_000_000), layer(1280, 720, 3_000_000)],
+                    ..Default::default()
+                },
+                livekit_protocol::SimulcastCodecInfo {
+                    layers: vec![layer(640, 360, 500_000), layer(1280, 720, 2_000_000)],
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        assert_eq!(published_video(&track).bitrate, 3_000_000);
+    }
+
+    #[test]
+    fn falls_back_to_the_track_size_without_layers() {
+        let track = livekit_protocol::TrackInfo { sid: "TR_2".into(), width: 3840, height: 2160, ..Default::default() };
+        let video = published_video(&track);
+        assert_eq!((video.width, video.height, video.bitrate), (3840, 2160, 0));
     }
 }

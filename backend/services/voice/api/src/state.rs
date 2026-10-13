@@ -1,3 +1,4 @@
+use infrastructure_common::database::postgres::repositories::plan_directory::PostgresPlanDirectory;
 use voice::usecases::{
     call::{
         accept_call::AcceptCall, add_participants::AddCallParticipants,
@@ -58,6 +59,7 @@ pub struct AppState {
         PostgresUserProfileRepository,
         LiveKitService,
         MessagingFriendshipClient,
+        PostgresPlanDirectory,
     >,
     pub call_repository: std::sync::Arc<PostgresCallRepository>,
 }

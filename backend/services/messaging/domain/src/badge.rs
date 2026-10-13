@@ -1,15 +1,15 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use domain::user::id::UserId;
+use domain::{plan::Tier, user::id::UserId};
 use ports::repository::RepositoryError;
 
 pub const MAX_BADGE_LOOKUP: usize = 200;
 
-pub fn attachments_per_message(tier: &str) -> usize {
+pub fn attachments_per_message(tier: Tier) -> usize {
     match tier {
-        "premium" => 20,
-        "pro" => 10,
-        _ => 5,
+        Tier::Premium => 20,
+        Tier::Pro => 10,
+        Tier::Free => 5,
     }
 }
 
@@ -31,14 +31,7 @@ pub struct BadgeEmojiStatus {
 
 #[async_trait]
 pub trait BadgeRepository: Send + Sync {
-    async fn apply_tier(
-        &self,
-        user_id: &UserId,
-        tier: &str,
-        valid_until: Option<DateTime<Utc>>,
-        member_number: Option<i64>,
-        occurred_at: DateTime<Utc>,
-    ) -> Result<(), RepositoryError>;
+    async fn apply_member_number(&self, user_id: &UserId, member_number: i64) -> Result<(), RepositoryError>;
     async fn apply_profile_perks(
         &self,
         user_id: &UserId,
@@ -46,7 +39,6 @@ pub trait BadgeRepository: Send + Sync {
         emoji_status: Option<Option<BadgeEmojiStatus>>,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError>;
-    async fn tier_of(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<String, RepositoryError>;
     async fn paid_badges(
         &self,
         user_ids: &[UserId],

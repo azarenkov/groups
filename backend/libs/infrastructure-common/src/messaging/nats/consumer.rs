@@ -121,6 +121,7 @@ impl EventConsumer for NatsEventConsumer {
                                 .and_then(|h| h.get("X-Request-Id"))
                                 .map(|v| v.as_str().to_string());
                             let sequence = partition_sequence(msg.headers.as_ref());
+                            let pending = msg.info().ok().map(|info| info.pending);
                             let event_id = msg
                                 .headers
                                 .as_ref()
@@ -143,7 +144,8 @@ impl EventConsumer for NatsEventConsumer {
                             Some(Ok(ConsumedMessage::new(
                                 payload, request_id, subject, sequence, ack_fn,
                             )
-                            .with_event_id(event_id)))
+                            .with_event_id(event_id)
+                            .with_pending(pending)))
                         }
                         Err(e) => Some(Err(EventConsumerError::Stream(e.to_string()))),
                     }

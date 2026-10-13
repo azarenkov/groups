@@ -53,7 +53,7 @@ where
     unit_of_work: Arc<W>,
     attachment_claims: Arc<A>,
     mention_resolver: Arc<R>,
-    plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
+    plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
 }
 
 impl<M, C, S, W, A, R> SendChannelMessage<M, C, S, W, A, R>
@@ -72,7 +72,7 @@ where
         unit_of_work: Arc<W>,
         attachment_claims: Arc<A>,
         mention_resolver: Arc<R>,
-        plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
+        plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
     ) -> Self {
         Self {
             message_repository,
@@ -127,7 +127,7 @@ where
         }
 
         let tier = self.plans.tier_of(&author_id, Utc::now()).await?;
-        if request.attachment_ids.len() > attachments_per_message(&tier) {
+        if request.attachment_ids.len() > attachments_per_message(tier) {
             return Err(SendChannelMessageError::InvalidAttachments);
         }
         let forward = request.forward.clone();

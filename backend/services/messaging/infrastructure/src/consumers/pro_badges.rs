@@ -23,7 +23,7 @@ pub fn spawn<B>(
         let consumer = NatsEventConsumer::new(jetstream, user_stream.clone());
         loop {
             let opts = SubscribeOptions {
-                consumer_name: "messaging-pro-badges-v2".to_string(),
+                consumer_name: "messaging-pro-badges-v3".to_string(),
                 subject: format!("{prefix}.user.*.entitlements_changed"),
                 start_position: StartPosition::All,
                 max_deliver: Some(MAX_DELIVER),
@@ -73,15 +73,9 @@ async fn apply<B: BadgeRepository + ?Sized>(
             tracing::warn!(%subject, "Malformed entitlements event; dropping");
             return Ok(());
         };
-        badges
-            .apply_tier(
-                &UserId::new(evt.user_id),
-                &evt.tier,
-                evt.valid_until,
-                evt.member_number,
-                evt.occurred_at,
-            )
-            .await?;
+        if let Some(member_number) = evt.member_number {
+            badges.apply_member_number(&UserId::new(evt.user_id), member_number).await?;
+        }
         return Ok(());
     }
     if subject.ends_with(".profile_changed") {
@@ -119,15 +113,12 @@ mod tests {
 
     #[async_trait]
     impl BadgeRepository for Perks {
-        async fn apply_tier(&self, _: &UserId, _: &str, _: Option<DateTime<Utc>>, _: Option<i64>, _: DateTime<Utc>) -> Result<(), RepositoryError> {
+        async fn apply_member_number(&self, _: &UserId, _: i64) -> Result<(), RepositoryError> {
             Ok(())
         }
         async fn apply_profile_perks(&self, _: &UserId, _: &str, emoji_status: Option<Option<BadgeEmojiStatus>>, _: DateTime<Utc>) -> Result<(), RepositoryError> {
             self.0.lock().unwrap().push(emoji_status);
             Ok(())
-        }
-        async fn tier_of(&self, _: &UserId, _: DateTime<Utc>) -> Result<String, RepositoryError> {
-            Ok("free".to_string())
         }
         async fn paid_badges(&self, _: &[UserId], _: DateTime<Utc>) -> Result<Vec<UserBadge>, RepositoryError> {
             Ok(Vec::new())

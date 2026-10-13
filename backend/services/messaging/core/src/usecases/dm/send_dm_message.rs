@@ -57,7 +57,7 @@ where
     attachment_claims: Arc<A>,
     privacy_repository: Arc<P>,
     user_profile_repository: Arc<U>,
-    plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
+    plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
 }
 
 impl<M, W, F, A, P, U> SendDmMessage<M, W, F, A, P, U>
@@ -76,7 +76,7 @@ where
         attachment_claims: Arc<A>,
         privacy_repository: Arc<P>,
         user_profile_repository: Arc<U>,
-        plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
+        plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
     ) -> Self {
         Self {
             dm_repository,
@@ -123,7 +123,7 @@ where
         }
 
         let tier = self.plans.tier_of(&sender_id, Utc::now()).await?;
-        if request.attachment_ids.len() > attachments_per_message(&tier) {
+        if request.attachment_ids.len() > attachments_per_message(tier) {
             return Err(SendDmMessageError::InvalidAttachments);
         }
         let forward = request.forward.clone();

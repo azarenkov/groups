@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 domain = { workspace = true }
 ports = { workspace = true }
+contracts = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
