@@ -7,6 +7,9 @@ import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useVoiceSessionStore } from "../store/voiceSessionStore";
 import { asString } from "../../../shared/ws/context";
+import i18n from "../../../i18n";
+import { getLiveKitService } from "../lib/livekit";
+import { parseStreamCeiling, useStreamCeilingStore } from "../../subscription/store/streamCeilingStore";
 import { hiddenDmsKnown, hiddenDmsSettled, isDmHidden, useHiddenDmStore } from "../../dm/store/hiddenDmStore";
 
 interface HeldCall {
@@ -59,6 +62,12 @@ const endSessionIfEmpty = (channelId: string) => {
 };
 
 export const voiceHandlers: WsHandlers = {
+  "voice.stream_limited": (d) => {
+    const ceiling = parseStreamCeiling(d);
+    if (ceiling) useStreamCeilingStore.getState().setCeiling(ceiling);
+    void getLiveKitService().setScreenShareEnabled(false).catch(() => {});
+    useCallStore.getState().setCallError(i18n.t("streamLimited", { ns: "call" }));
+  },
   "channel.participant.joined": (d) => {
       const channelId = asString(d.channelId);
       const userId = asString(d.userId);

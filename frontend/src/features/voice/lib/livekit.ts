@@ -43,6 +43,12 @@ import type {
 } from "./videoCodec";
 import type { SpeakingState } from "./livekit/remoteAudio";
 import { attachRoomListeners, isScreenSource } from "./livekit/roomEvents";
+import {
+  STREAM_CEILING_ATTRIBUTE,
+  parseStreamCeiling,
+  useStreamCeilingStore,
+} from "../../subscription/store/streamCeilingStore";
+
 import { followWatched } from "./livekit/screenShares";
 import type { HeldScreen } from "./livekit/screenShares";
 import type {
@@ -53,6 +59,11 @@ import type {
   ScreenShareState,
 } from "./livekit/types";
 import { rememberAudibleVolume } from "./audibleVolume";
+
+const applyStreamCeilingAttribute = (attributes: Readonly<Record<string, string>>) => {
+  const ceiling = parseStreamCeiling(attributes[STREAM_CEILING_ATTRIBUTE]);
+  if (ceiling) useStreamCeilingStore.getState().setCeiling(ceiling);
+};
 
 export type {
   NoiseSuppressionMode,
@@ -321,6 +332,7 @@ export class LiveKitService {
         void this.switchDevice("audiooutput", this.preferredSpeakerId);
       }
 
+      applyStreamCeilingAttribute(this.room.localParticipant.attributes ?? {});
       this.room.remoteParticipants.forEach((participant) => {
         this.addParticipant(participant);
       });
@@ -1492,6 +1504,7 @@ export class LiveKitService {
         this.handleAudioTrack(track, participant),
       onVideoTrack: (track, identity) => this.handleVideoTrack(track, identity),
       onScreenSharesChanged: () => this.refreshScreenShares(),
+      onLocalAttributes: (attributes) => applyStreamCeilingAttribute(attributes),
       onParticipantPatch: (identity, patch) =>
         this.updateParticipant(identity, patch),
       onDisconnected: (reason) => this.handleRoomDisconnected(reason),

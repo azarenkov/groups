@@ -47,3 +47,20 @@ describe("plans", () => {
     expect(STREAM_QUALITIES.every((q) => q.frameRate === 60)).toBe(true);
   });
 });
+
+describe("bestAllowedQuality with a server ceiling", () => {
+  const free = { width: 1280, height: 720, frameRate: 60, maxBitrate: 4_000_000 };
+  const pro = { width: 2560, height: 1440, frameRate: 60, maxBitrate: 12_000_000 };
+
+  it("follows the server ceiling over the local tier", () => {
+    expect(bestAllowedQuality("auto", "premium", free).id).toBe("720p60");
+    expect(bestAllowedQuality("2160p60", "premium", pro).id).toBe("1440p60");
+    expect(bestAllowedQuality("1080p60", "free", pro).id).toBe("1080p60");
+  });
+
+  it("never asks for more than the ceiling's frame rate and bitrate", () => {
+    const quality = bestAllowedQuality("auto", "premium", { ...pro, frameRate: 30, maxBitrate: 5_000_000 });
+    expect(quality.frameRate).toBe(30);
+    expect(quality.maxBitrate).toBe(5_000_000);
+  });
+});
