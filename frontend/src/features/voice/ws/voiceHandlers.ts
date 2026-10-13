@@ -9,7 +9,6 @@ import { useVoiceSessionStore } from "../store/voiceSessionStore";
 import { asString } from "../../../shared/ws/context";
 import i18n from "../../../i18n";
 import { getLiveKitService } from "../lib/livekit";
-import { parseStreamCeiling, useStreamCeilingStore } from "../../subscription/store/streamCeilingStore";
 import { hiddenDmsKnown, hiddenDmsSettled, isDmHidden, useHiddenDmStore } from "../../dm/store/hiddenDmStore";
 
 interface HeldCall {
@@ -68,8 +67,6 @@ export const voiceHandlers: WsHandlers = {
     const livekit = getLiveKitService();
     if (!roomId || livekit.getRoomName() !== roomId) return;
     if (!trackSid || livekit.getScreenShareTrackSid() !== trackSid) return;
-    const ceiling = parseStreamCeiling(d);
-    if (ceiling) useStreamCeilingStore.getState().setCeiling(ceiling);
     void livekit.setScreenShareEnabled(false).catch(() => {});
     useCallStore.getState().setCallError(i18n.t("streamLimited", { ns: "call" }));
   },

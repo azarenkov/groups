@@ -1289,6 +1289,9 @@ export class LiveKitService {
         },
       );
       this.activeScreenCodec = codec;
+      if (this.screenShareQuality !== quality) {
+        await this.applyScreenShareQuality(this.screenShareQuality, quality);
+      }
       const localId = this.room.localParticipant.identity;
       const previous = this.watchedScreen;
       this.watchedScreen = localId;
@@ -1440,6 +1443,13 @@ export class LiveKitService {
   async setScreenShareQuality(quality: ScreenShareQuality): Promise<void> {
     const previous = this.screenShareQuality;
     this.screenShareQuality = quality;
+    await this.applyScreenShareQuality(quality, previous);
+  }
+
+  private async applyScreenShareQuality(
+    quality: ScreenShareQuality,
+    previous: ScreenShareQuality,
+  ): Promise<void> {
     this.applyScreenDegradation();
     const publication = this.room?.localParticipant.getTrackPublication(
       Track.Source.ScreenShare,

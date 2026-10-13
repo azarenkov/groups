@@ -18,7 +18,7 @@ beforeEach(() => {
   useStreamCeilingStore.setState({ ceiling: null });
 });
 
-it("stops the screen share, adopts the server ceiling and explains why", () => {
+it("stops the offending screen share and explains why without overriding the live ceiling", () => {
   voiceHandlers["voice.stream_limited"]!({
     roomId: "room",
     trackSid: "TR_1",
@@ -28,12 +28,7 @@ it("stops the screen share, adopts the server ceiling and explains why", () => {
     maxBitrate: 4_000_000,
   });
   expect(mockSetScreenShareEnabled).toHaveBeenCalledWith(false);
-  expect(useStreamCeilingStore.getState().ceiling).toEqual({
-    width: 1280,
-    height: 720,
-    frameRate: 60,
-    maxBitrate: 4_000_000,
-  });
+  expect(useStreamCeilingStore.getState().ceiling).toBeNull();
   expect(useCallStore.getState().callError).toBeTruthy();
 });
 
