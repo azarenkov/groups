@@ -23,14 +23,12 @@ pub struct AppState {
         LiveKitService,
         MessagingFriendshipClient,
         PostgresUserProfileRepository,
-        PostgresPlanDirectory,
     >,
     pub accept_call_usecase: AcceptCall<
         PostgresCallRepository,
         LiveKitService,
         MessagingFriendshipClient,
         PostgresUserProfileRepository,
-        PostgresPlanDirectory,
     >,
     pub decline_call_usecase: DeclineCall<PostgresCallRepository>,
     pub leave_call_usecase: LeaveCall<PostgresCallRepository>,
@@ -45,7 +43,6 @@ pub struct AppState {
         LiveKitService,
         MessagingFriendshipClient,
         PostgresUserProfileRepository,
-        PostgresPlanDirectory,
     >,
     pub get_active_call_with_usecase:
         GetActiveCallWith<PostgresCallRepository, MessagingFriendshipClient>,
@@ -54,7 +51,6 @@ pub struct AppState {
         LiveKitService,
         MessagingFriendshipClient,
         PostgresUserProfileRepository,
-        PostgresPlanDirectory,
     >,
     pub handle_livekit_webhook_usecase: HandleVoiceWebhook<
         LiveKitWebhookReceiver,

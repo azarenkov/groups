@@ -8,7 +8,6 @@ pub trait VoiceService {
         user_id: &UserId,
         username: &UserName,
         channel_id: &ChannelId,
-        ceiling: Option<StreamCeiling>,
     ) -> Result<ChannelToken, VoiceServiceError>;
     async fn create_voice_channel(
         &self,
@@ -30,7 +29,6 @@ pub trait VoiceService {
         username: &UserName,
         channel_id: &ChannelId,
         access: ParticipantAccess,
-        ceiling: Option<StreamCeiling>,
     ) -> Result<ChannelToken, VoiceServiceError>;
     async fn apply_participant_access(
         &self,

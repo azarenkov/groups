@@ -23,7 +23,7 @@ chrono = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 futures = { workspace = true }
-tokio = { workspace = true, features = ["sync", "time"] }
+tokio = { workspace = true, features = ["sync"] }
 actix-web = { workspace = true }
 actix-cors = { workspace = true }
 async-nats = { workspace = true }

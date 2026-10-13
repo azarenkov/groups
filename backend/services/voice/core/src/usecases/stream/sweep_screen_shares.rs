@@ -44,6 +44,10 @@ where
     }
 
     pub async fn execute(&self, now: DateTime<Utc>) -> Result<usize, SweepScreenSharesError> {
+        if !self.plans.is_caught_up() {
+            self.suspects.lock().unwrap_or_else(|e| e.into_inner()).clear();
+            return Ok(0);
+        }
         let previous = self.suspects.lock().unwrap_or_else(|e| e.into_inner()).clone();
         let rooms = self.voice.active_rooms().await?;
         let mut current = HashSet::new();
@@ -132,6 +136,10 @@ mod tests {
         async fn tier_of(&self, user_id: &UserId, _: DateTime<Utc>) -> Result<Tier, RepositoryError> {
             Ok(self.0.get(&user_id.uuid()).copied().unwrap_or(Tier::Free))
         }
+        fn is_caught_up(&self) -> bool {
+            true
+        }
+        fn set_caught_up(&self, _: bool) {}
     }
 
     struct Rooms {
@@ -142,7 +150,7 @@ mod tests {
 
     #[async_trait]
     impl VoiceService for Rooms {
-        async fn create_token(&self, _: &UserId, _: &UserName, _: &ChannelId, _: Option<StreamCeiling>) -> Result<ChannelToken, VoiceServiceError> {
+        async fn create_token(&self, _: &UserId, _: &UserName, _: &ChannelId) -> Result<ChannelToken, VoiceServiceError> {
             unimplemented!()
         }
         async fn create_voice_channel(&self, _: &ChannelId, _: &CommunityId) -> Result<(), VoiceServiceError> {
@@ -160,7 +168,6 @@ mod tests {
             _: &UserName,
             _: &ChannelId,
             _: ParticipantAccess,
-            _: Option<StreamCeiling>,
         ) -> Result<ChannelToken, VoiceServiceError> {
             unimplemented!()
         }
@@ -192,7 +199,7 @@ mod tests {
 
     #[async_trait]
     impl VoiceService for Unreachable {
-        async fn create_token(&self, _: &UserId, _: &UserName, _: &ChannelId, _: Option<StreamCeiling>) -> Result<ChannelToken, VoiceServiceError> {
+        async fn create_token(&self, _: &UserId, _: &UserName, _: &ChannelId) -> Result<ChannelToken, VoiceServiceError> {
             unimplemented!()
         }
         async fn create_voice_channel(&self, _: &ChannelId, _: &CommunityId) -> Result<(), VoiceServiceError> {
@@ -210,7 +217,6 @@ mod tests {
             _: &UserName,
             _: &ChannelId,
             _: ParticipantAccess,
-            _: Option<StreamCeiling>,
         ) -> Result<ChannelToken, VoiceServiceError> {
             unimplemented!()
         }

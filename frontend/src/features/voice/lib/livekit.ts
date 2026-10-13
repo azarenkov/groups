@@ -61,8 +61,7 @@ import type {
 import { rememberAudibleVolume } from "./audibleVolume";
 
 const applyStreamCeilingAttribute = (attributes: Readonly<Record<string, string>>) => {
-  const ceiling = parseStreamCeiling(attributes[STREAM_CEILING_ATTRIBUTE]);
-  if (ceiling) useStreamCeilingStore.getState().setCeiling(ceiling);
+  useStreamCeilingStore.getState().setCeiling(parseStreamCeiling(attributes[STREAM_CEILING_ATTRIBUTE]));
 };
 
 export type {

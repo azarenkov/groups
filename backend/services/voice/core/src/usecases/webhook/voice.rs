@@ -82,6 +82,9 @@ where
     }
 
     async fn refresh_stream_ceiling(&self, channel_id: uuid::Uuid, user_id: uuid::Uuid) -> Result<(), HandleVoiceWebhookError> {
+        if !self.plans.is_caught_up() {
+            return Ok(());
+        }
         let user = UserId::new(user_id);
         let ceiling = self.ceiling_of(&user).await?;
         self.voice_service

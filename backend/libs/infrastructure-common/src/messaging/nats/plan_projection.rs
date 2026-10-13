@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use contracts::events::user::UserEntitlementsChangedV1;
@@ -23,7 +22,6 @@ pub struct PlanProjection {
     pub dlq_suffix: &'static str,
     pub plans: Arc<dyn PlanDirectory>,
     pub listener: Arc<dyn PlanListener>,
-    pub caught_up: Arc<AtomicBool>,
 }
 
 impl PlanProjection {
@@ -62,7 +60,7 @@ impl PlanProjection {
                         };
                         let backlog_drained = m.pending == Some(0);
                         if m.pending.is_some_and(|pending| pending > 0) {
-                            self.caught_up.store(false, Ordering::SeqCst);
+                            self.plans.set_caught_up(false);
                         }
                         match self.apply(&m.payload).await {
                             Ok(()) => {
@@ -82,7 +80,7 @@ impl PlanProjection {
                     tracing::warn!(error = %e, consumer = self.consumer_name, "Plan projection subscribe failed; retrying");
                 }
             }
-            self.caught_up.store(false, Ordering::SeqCst);
+            self.plans.set_caught_up(false);
             tokio::time::sleep(RESUBSCRIBE_DELAY).await;
         }
     }
@@ -96,20 +94,18 @@ impl PlanProjection {
         self.plans
             .apply_tier(&user_id, Tier::parse(&evt.tier), evt.valid_until, evt.occurred_at)
             .await?;
-        self.listener
-            .plan_applied(&user_id, chrono::Utc::now(), self.caught_up.load(Ordering::SeqCst))
-            .await
+        self.listener.plan_applied(&user_id, chrono::Utc::now()).await
     }
 
     async fn mark_caught_up(&self) {
-        if self.caught_up.load(Ordering::SeqCst) {
+        if self.plans.is_caught_up() {
             return;
         }
         if let Err(e) = self.listener.caught_up(chrono::Utc::now()).await {
             tracing::warn!(error = %e, consumer = self.consumer_name, "Plan listener failed after catching up; will retry");
             return;
         }
-        self.caught_up.store(true, Ordering::SeqCst);
+        self.plans.set_caught_up(true);
         tracing::info!(consumer = self.consumer_name, "Plan projection caught up with the plan history");
     }
 }

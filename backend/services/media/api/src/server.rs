@@ -144,7 +144,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         dlq_suffix: "media.tiers",
         plans: plan_directory.clone(),
         listener: Arc::new(ports::plan_directory::NoPlanListener),
-        caught_up: Arc::new(std::sync::atomic::AtomicBool::new(false)),
     }
     .spawn();
     crate::user_projection::spawn(

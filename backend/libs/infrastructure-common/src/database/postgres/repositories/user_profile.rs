@@ -212,6 +212,4 @@ impl UserProfileRepository for PostgresUserProfileRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(result.rows_affected() > 0)
     }
-
-
 }

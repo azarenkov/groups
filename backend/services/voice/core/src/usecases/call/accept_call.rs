@@ -40,49 +40,43 @@ struct BlockOutcome {
 }
 
 pub struct AcceptCallResult {
-    pub stream_ceiling: domain::stream::StreamCeiling,
     pub token: ChannelToken,
     pub url: String,
     pub participants: Vec<CallParticipantView>,
     pub video: bool,
 }
 
-pub struct AcceptCall<C, V, F, U, L>
+pub struct AcceptCall<C, V, F, U>
 where
     C: CallRepository,
     V: VoiceService,
     F: FriendshipLookup,
     U: ports::user_profile::UserProfileRepository,
-    L: crate::ports::plan_directory::PlanDirectory,
 {
     call_repository: Arc<C>,
     voice_service: Arc<V>,
     friendship_repository: Arc<F>,
     user_repository: Arc<U>,
-    plans: Arc<L>,
 }
 
-impl<C, V, F, U, L> AcceptCall<C, V, F, U, L>
+impl<C, V, F, U> AcceptCall<C, V, F, U>
 where
     C: CallRepository,
     V: VoiceService,
     F: FriendshipLookup,
     U: ports::user_profile::UserProfileRepository,
-    L: crate::ports::plan_directory::PlanDirectory,
 {
     pub fn new(
         call_repository: Arc<C>,
         voice_service: Arc<V>,
         friendship_repository: Arc<F>,
         user_repository: Arc<U>,
-        plans: Arc<L>,
     ) -> Self {
         Self {
             call_repository,
             voice_service,
             friendship_repository,
             user_repository,
-            plans,
         }
     }
 
@@ -128,14 +122,9 @@ where
             return Err(AcceptCallError::CallNotAllowed);
         }
 
-        let stream_ceiling = domain::stream::StreamCeiling::for_tier(
-            self.plans.tier_of(&user_id, chrono::Utc::now()).await?,
-
-        );
-
         let token = self
             .voice_service
-            .create_token(&user_id, &user_name, &room, Some(stream_ceiling))
+            .create_token(&user_id, &user_name, &room)
             .await?;
 
         let accepted = self
@@ -202,7 +191,6 @@ where
         Ok(AcceptCallResult {
             token,
             url: self.voice_service.client_url(),
-            stream_ceiling,
             participants,
         video,
         })

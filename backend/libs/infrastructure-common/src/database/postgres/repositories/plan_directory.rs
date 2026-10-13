@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use domain::{plan::Tier, user::id::UserId};
@@ -6,54 +8,30 @@ use sqlx::{Pool, Postgres, Row};
 
 use crate::database::postgres::error::map_sqlx_error_to_domain_error;
 
-struct PlanTable {
-    name: &'static str,
-    valid_until: &'static str,
-    updated_at: &'static str,
-    seed_columns: &'static str,
-    seed_values: &'static str,
-}
-
-const PROFILE_SEED_COLUMNS: &str = ", name, updated_at";
-const PROFILE_SEED_VALUES: &str = ", '', to_timestamp(0)";
-
 pub struct PostgresPlanDirectory {
     pool: Pool<Postgres>,
-    table: PlanTable,
+    table: &'static str,
+    caught_up: AtomicBool,
 }
 
 impl PostgresPlanDirectory {
     pub fn voice(pool: Pool<Postgres>) -> Self {
-        Self::profiles(pool, "voice_user_profiles")
+        Self::new(pool, "voice_user_tiers")
     }
 
     pub fn messaging(pool: Pool<Postgres>) -> Self {
-        Self::profiles(pool, "messaging_user_profiles")
+        Self::new(pool, "messaging_user_tiers")
     }
 
     pub fn media(pool: Pool<Postgres>) -> Self {
-        Self {
-            pool,
-            table: PlanTable {
-                name: "media_user_tiers",
-                valid_until: "valid_until",
-                updated_at: "updated_at",
-                seed_columns: "",
-                seed_values: "",
-            },
-        }
+        Self::new(pool, "media_user_tiers")
     }
 
-    fn profiles(pool: Pool<Postgres>, name: &'static str) -> Self {
+    fn new(pool: Pool<Postgres>, table: &'static str) -> Self {
         Self {
             pool,
-            table: PlanTable {
-                name,
-                valid_until: "tier_valid_until",
-                updated_at: "tier_updated_at",
-                seed_columns: PROFILE_SEED_COLUMNS,
-                seed_values: PROFILE_SEED_VALUES,
-            },
+            table,
+            caught_up: AtomicBool::new(false),
         }
     }
 }
@@ -67,18 +45,17 @@ impl PlanDirectory for PostgresPlanDirectory {
         valid_until: Option<DateTime<Utc>>,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError> {
-        let PlanTable { name, valid_until: until, updated_at, seed_columns, seed_values } = &self.table;
         sqlx::query(&format!(
             r#"
-            INSERT INTO {name} (user_id, tier, {until}, {updated_at}{seed_columns})
-            VALUES ($1, $2, $3, $4{seed_values})
+            INSERT INTO {table} (user_id, tier, valid_until, updated_at)
+            VALUES ($1, $2, $3, $4)
             ON CONFLICT (user_id) DO UPDATE
                 SET tier = EXCLUDED.tier,
-                    {until} = EXCLUDED.{until},
-                    {updated_at} = EXCLUDED.{updated_at}
-                WHERE {name}.{updated_at} IS NULL
-                   OR {name}.{updated_at} <= EXCLUDED.{updated_at}
-            "#
+                    valid_until = EXCLUDED.valid_until,
+                    updated_at = EXCLUDED.updated_at
+                WHERE {table}.updated_at <= EXCLUDED.updated_at
+            "#,
+            table = self.table
         ))
         .bind(user_id.uuid())
         .bind(tier.as_str())
@@ -91,9 +68,9 @@ impl PlanDirectory for PostgresPlanDirectory {
     }
 
     async fn tier_of(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<Tier, RepositoryError> {
-        let PlanTable { name, valid_until, .. } = &self.table;
         let row = sqlx::query(&format!(
-            "SELECT tier FROM {name} WHERE user_id = $1 AND ({valid_until} IS NULL OR {valid_until} > $2)"
+            "SELECT tier FROM {} WHERE user_id = $1 AND (valid_until IS NULL OR valid_until > $2)",
+            self.table
         ))
         .bind(user_id.uuid())
         .bind(now)
@@ -101,5 +78,13 @@ impl PlanDirectory for PostgresPlanDirectory {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(row.map_or(Tier::Free, |r| Tier::parse(&r.get::<String, _>(0))))
+    }
+
+    fn is_caught_up(&self) -> bool {
+        self.caught_up.load(Ordering::SeqCst)
+    }
+
+    fn set_caught_up(&self, caught_up: bool) {
+        self.caught_up.store(caught_up, Ordering::SeqCst);
     }
 }

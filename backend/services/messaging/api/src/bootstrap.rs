@@ -219,7 +219,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         dlq_suffix: "messaging.tiers",
         plans: plan_directory.clone(),
         listener: Arc::new(ports::plan_directory::NoPlanListener),
-        caught_up: Arc::new(std::sync::atomic::AtomicBool::new(false)),
     }
     .spawn();
     messaging_infrastructure::consumers::pro_badges::spawn(

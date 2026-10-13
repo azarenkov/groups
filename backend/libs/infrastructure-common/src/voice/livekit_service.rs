@@ -44,12 +44,10 @@ impl VoiceService for LiveKitService {
         user_id: &UserId,
         username: &UserName,
         channel_id: &ChannelId,
-        ceiling: Option<StreamCeiling>,
     ) -> Result<ChannelToken, VoiceServiceError> {
         let token = AccessToken::with_api_key(self.config.api_key(), self.config.api_secret())
             .with_identity(&user_id.uuid().to_string())
             .with_name(username.as_str())
-            .with_attributes(ceiling.map(|ceiling| (STREAM_CEILING_ATTRIBUTE, ceiling.to_attribute())))
             .with_grants(access_token::VideoGrants {
                 room_join: true,
                 room: channel_id.uuid().to_string(),
@@ -69,7 +67,6 @@ impl VoiceService for LiveKitService {
         username: &UserName,
         channel_id: &ChannelId,
         access: ParticipantAccess,
-        ceiling: Option<StreamCeiling>,
     ) -> Result<ChannelToken, VoiceServiceError> {
         let can_publish_sources = if access.can_publish_microphone {
             Vec::new()
@@ -83,7 +80,6 @@ impl VoiceService for LiveKitService {
         let token = AccessToken::with_api_key(self.config.api_key(), self.config.api_secret())
             .with_identity(&user_id.uuid().to_string())
             .with_name(username.as_str())
-            .with_attributes(ceiling.map(|ceiling| (STREAM_CEILING_ATTRIBUTE, ceiling.to_attribute())))
             .with_grants(access_token::VideoGrants {
                 room_join: true,
                 room: channel_id.uuid().to_string(),

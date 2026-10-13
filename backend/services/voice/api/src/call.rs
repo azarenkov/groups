@@ -42,7 +42,6 @@ struct StartCallResponse {
     url: String,
     participants: Vec<CallParticipantDto>,
     video: bool,
-    stream_ceiling: domain::stream::StreamCeiling,
 }
 
 #[derive(Debug, Serialize)]
@@ -54,7 +53,6 @@ struct ActiveCallResponse {
     participants: Vec<CallParticipantDto>,
     video: bool,
     started_at: Option<DateTime<Utc>>,
-    stream_ceiling: domain::stream::StreamCeiling,
 }
 
 #[derive(Debug, Serialize)]
@@ -64,7 +62,6 @@ struct CallTokenResponse {
     url: String,
     participants: Vec<CallParticipantDto>,
     video: bool,
-    stream_ceiling: domain::stream::StreamCeiling,
 }
 
 #[derive(Debug, Serialize)]
@@ -100,7 +97,6 @@ async fn start_call(
         video: result.video,
         token: result.token.as_str().to_string(),
         url: result.url,
-        stream_ceiling: result.stream_ceiling,
         participants: result
             .participants
             .into_iter()
@@ -129,7 +125,6 @@ async fn get_active_call(
             started_at: r.started_at,
             token: r.token.as_str().to_string(),
             url: r.url,
-            stream_ceiling: r.stream_ceiling,
             participants: r
                 .participants
                 .into_iter()
@@ -161,7 +156,6 @@ async fn accept_call(
         token: result.token.as_str().to_string(),
         video: result.video,
         url: result.url,
-        stream_ceiling: result.stream_ceiling,
         participants: result
             .participants
             .into_iter()
@@ -205,7 +199,6 @@ async fn join_call(
         token: result.token.as_str().to_string(),
         video: result.video,
         url: result.url,
-        stream_ceiling: result.stream_ceiling,
         participants: result
             .participants
             .into_iter()

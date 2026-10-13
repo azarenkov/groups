@@ -122,6 +122,10 @@ mod tests {
         async fn tier_of(&self, _: &UserId, _: DateTime<Utc>) -> Result<domain::plan::Tier, RepositoryError> {
             Ok(if self.0 { domain::plan::Tier::Pro } else { domain::plan::Tier::Free })
         }
+        fn is_caught_up(&self) -> bool {
+            true
+        }
+        fn set_caught_up(&self, _: bool) {}
     }
 
     struct Objects(HashSet<&'static str>);

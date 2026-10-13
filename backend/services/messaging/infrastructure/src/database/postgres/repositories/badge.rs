@@ -21,16 +21,16 @@ impl PostgresBadgeRepository {
 #[async_trait]
 impl BadgeRepository for PostgresBadgeRepository {
     async fn apply_member_number(&self, user_id: &UserId, member_number: i64) -> Result<(), RepositoryError> {
-        sqlx::query(
+        sqlx::query!(
             r#"
-            INSERT INTO messaging_user_profiles (user_id, name, updated_at, member_number)
-            VALUES ($1, '', to_timestamp(0), $2)
+            INSERT INTO messaging_user_tiers (user_id, updated_at, member_number)
+            VALUES ($1, to_timestamp(0), $2)
             ON CONFLICT (user_id) DO UPDATE
                 SET member_number = EXCLUDED.member_number
             "#,
+            user_id.uuid(),
+            member_number,
         )
-        .bind(user_id.uuid())
-        .bind(member_number)
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
@@ -91,13 +91,14 @@ impl BadgeRepository for PostgresBadgeRepository {
         let ids: Vec<Uuid> = user_ids.iter().map(|id| id.uuid()).collect();
         let rows = sqlx::query!(
             r#"
-            SELECT user_id, tier, badge_style, member_number, emoji_status_sticker_id, emoji_status_until,
-                   emoji_status_updated_at
-            FROM messaging_user_profiles
-            WHERE user_id = ANY($1)
-              AND active
-              AND tier <> 'free'
-              AND (tier_valid_until IS NULL OR tier_valid_until > $2)
+            SELECT p.user_id, t.tier, p.badge_style, t.member_number, p.emoji_status_sticker_id, p.emoji_status_until,
+                   p.emoji_status_updated_at
+            FROM messaging_user_profiles p
+            INNER JOIN messaging_user_tiers t ON t.user_id = p.user_id
+            WHERE p.user_id = ANY($1)
+              AND p.active
+              AND t.tier <> 'free'
+              AND (t.valid_until IS NULL OR t.valid_until > $2)
             "#,
             &ids,
             now,

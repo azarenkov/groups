@@ -37,7 +37,6 @@ pub enum StartCallError {
 }
 
 pub struct StartCallResult {
-    pub stream_ceiling: domain::stream::StreamCeiling,
     pub call_id: Uuid,
     pub token: ChannelToken,
     pub url: String,
@@ -45,42 +44,37 @@ pub struct StartCallResult {
     pub video: bool,
 }
 
-pub struct StartCall<C, V, F, U, L>
+pub struct StartCall<C, V, F, U>
 where
     C: CallRepository,
     V: VoiceService,
     F: FriendshipLookup,
     U: ports::user_profile::UserProfileRepository,
-    L: crate::ports::plan_directory::PlanDirectory,
 {
     call_repository: Arc<C>,
     voice_service: Arc<V>,
     friendship_repository: Arc<F>,
     user_repository: Arc<U>,
-    plans: Arc<L>,
 }
 
-impl<C, V, F, U, L> StartCall<C, V, F, U, L>
+impl<C, V, F, U> StartCall<C, V, F, U>
 where
     C: CallRepository,
     V: VoiceService,
     F: FriendshipLookup,
     U: ports::user_profile::UserProfileRepository,
-    L: crate::ports::plan_directory::PlanDirectory,
 {
     pub fn new(
         call_repository: Arc<C>,
         voice_service: Arc<V>,
         friendship_repository: Arc<F>,
         user_repository: Arc<U>,
-        plans: Arc<L>,
     ) -> Self {
         Self {
             call_repository,
             voice_service,
             friendship_repository,
             user_repository,
-            plans,
         }
     }
 
@@ -145,14 +139,9 @@ where
             .create_voice_channel(&room, &CommunityId::new(call_id))
             .await?;
 
-        let stream_ceiling = domain::stream::StreamCeiling::for_tier(
-            self.plans.tier_of(&caller_id, chrono::Utc::now()).await?,
-
-        );
-
         let token = self
             .voice_service
-            .create_token(&caller_id, &caller_name, &room, Some(stream_ceiling))
+            .create_token(&caller_id, &caller_name, &room)
             .await?;
 
         let participants = vec![CallParticipantView {
@@ -217,7 +206,6 @@ where
             call_id,
             token,
             url: self.voice_service.client_url(),
-            stream_ceiling,
             participants,
             video,
         })

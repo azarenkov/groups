@@ -142,11 +142,11 @@ where
         let access = participant_access(&channel, &user_id);
         let channel_token = if access == ParticipantAccess::FULL {
             self.voice_service
-                .create_token(&user_id, &user_name, channel.id(), None)
+                .create_token(&user_id, &user_name, channel.id())
                 .await?
         } else {
             self.voice_service
-                .create_token_with_access(&user_id, &user_name, channel.id(), access, None)
+                .create_token_with_access(&user_id, &user_name, channel.id(), access)
                 .await?
         };
 
