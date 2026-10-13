@@ -90,10 +90,8 @@ where
     };
     let room = ChannelId::new(call_id);
     let ceiling = StreamCeiling::for_tier(&profiles.tier_of(&user, chrono::Utc::now()).await?);
-    match enforce_stream_ceiling(voice, &room, &user, ceiling).await {
-        Ok(true) => outbox.save_record(stream_limited_record(&user, &room, ceiling)).await?,
-        Ok(false) => {}
-        Err(e) => tracing::warn!(error = %e, user_id = %evt.user_id, "Failed to apply the new stream ceiling to an active call"),
+    if enforce_stream_ceiling(voice, &room, &user, ceiling).await? {
+        outbox.save_record(stream_limited_record(&user, &room, ceiling)).await?;
     }
     Ok(())
 }

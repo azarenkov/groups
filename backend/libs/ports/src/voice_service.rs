@@ -55,6 +55,8 @@ pub trait VoiceService {
         user_id: &UserId,
         track_sid: &str,
     ) -> Result<(), VoiceServiceError>;
+    async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError>;
+    async fn room_screen_shares(&self, channel_id: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError>;
     fn client_url(&self) -> String;
 }
 
@@ -184,6 +186,12 @@ mod tests {
         async fn mute_track(&self, _: &ChannelId, _: &UserId, track_sid: &str) -> Result<(), VoiceServiceError> {
             self.muted.lock().unwrap().push(track_sid.to_string());
             Ok(())
+        }
+        async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError> {
+            unimplemented!()
+        }
+        async fn room_screen_shares(&self, _: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
+            unimplemented!()
         }
         fn client_url(&self) -> String {
             String::new()

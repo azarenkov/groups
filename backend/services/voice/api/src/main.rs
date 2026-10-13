@@ -6,6 +6,7 @@ mod projection;
 mod routes;
 mod server;
 mod state;
+mod stream_sweep;
 mod tiers;
 mod webhook;
 

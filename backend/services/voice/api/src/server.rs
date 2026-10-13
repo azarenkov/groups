@@ -68,6 +68,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
     crate::evictions::spawn(call_repository.clone(), livekit_service.clone());
+    crate::stream_sweep::spawn(user_repository.clone(), livekit_service.clone(), webhook_outbox.clone());
     crate::tiers::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
