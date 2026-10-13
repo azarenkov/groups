@@ -174,3 +174,9 @@ it("refetches after a failed save so a stable entry dropped by duplicates comes 
   await queryClient.fetchQuery({ queryKey: key, queryFn: () => searchHistoryAPI.list() });
   expect(items()).toEqual([stable]);
 });
+
+it("keeps the browser copy through a session reset so a reload shows recents at once", () => {
+  storeHistory("me", [query("a", "Rust")]);
+  resetSearchHistorySession();
+  expect(readStoredHistory("me")?.map((i) => i.id)).toEqual(["a"]);
+});

@@ -85,7 +85,6 @@ export function resetSearchHistorySession(): void {
   sessionGen += 1;
   queues.clear();
   savedTemps.clear();
-  clearStoredHistory();
 }
 
 const settled = (items: HistoryItem[]): HistoryItem[] =>
