@@ -14,5 +14,6 @@ pub mod pin;
 pub mod people;
 pub mod privacy;
 pub mod search;
+pub mod search_history;
 pub mod shared;
 pub mod community;

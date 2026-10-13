@@ -20,7 +20,7 @@ use contracts::events::{
     },
     message::{
         ChannelMessageDeletedV1 as ChannelMsgDeleted, ChannelMessageEditedV1 as ChannelMsgEdited,
-        ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto, ConversationPinsUpdatedV1 as ConversationPinsUpdatedDto,
+        ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto, ConversationPinsUpdatedV1 as ConversationPinsUpdatedDto, SearchHistoryUpdatedV1 as SearchHistoryUpdatedDto,
         MessageHiddenV1 as MessageHiddenDto, MessagePinChangedV1 as MessagePinChangedDto, VoiceListenedV1 as VoiceListenedDto,
     },
     community::{
@@ -456,6 +456,13 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "communities": evt.communities,
             }),
         );
+        publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".search_history.updated") {
+        let evt: SearchHistoryUpdatedDto = serde_json::from_slice(payload)?;
+        let envelope = Envelope::new("search_history.updated", json!({}));
         publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
         return Ok(());
     }
@@ -1570,6 +1577,27 @@ mod tests {
             assert_eq!(sent[1]["type"], json!("sequence.skip"));
             assert_eq!(sent[1]["seq"], json!(9));
             assert_eq!(to[1], vec![peer]);
+        }
+
+        #[tokio::test]
+        async fn tells_only_the_owner_that_the_search_history_changed() {
+            let publisher = std::sync::Arc::new(Captured::default());
+            let dispatch = DispatchEvent::new(
+                std::sync::Arc::new(Directory::default()),
+                publisher.clone(),
+                std::sync::Arc::new(Relations { peers: vec![] }),
+            );
+            let user = Uuid::new_v4();
+            let payload = serde_json::to_vec(&json!({ "user_id": user })).unwrap();
+            dispatch
+                .execute_sequenced("rift.events.user.search_history.updated", &payload, None)
+                .await
+                .unwrap();
+            let sent = publisher.sent.lock().unwrap();
+            let to = publisher.to.lock().unwrap();
+            assert_eq!(sent.len(), 1);
+            assert_eq!(sent[0]["type"], json!("search_history.updated"));
+            assert_eq!(to[0], vec![user]);
         }
 
         #[tokio::test]

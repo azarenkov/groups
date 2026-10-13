@@ -1305,6 +1305,29 @@ impl HttpMapping for messaging::usecases::search::search_people::SearchPeopleErr
     }
 }
 
+impl HttpMapping for messaging::usecases::search::search_history::SearchHistoryError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            Self::Repository(e) => e.to_http_status(),
+            Self::InvalidEntry => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            Self::Repository(e) => e.to_user_message(),
+            other => other.to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            Self::Repository(e) => e.to_error_code(),
+            Self::InvalidEntry => "SEARCH_HISTORY_ENTRY_INVALID",
+        }
+    }
+}
+
 impl HttpMapping for GlobalSearchError {
     fn to_http_status(&self) -> StatusCode {
         match self {

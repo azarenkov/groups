@@ -335,6 +335,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             messaging_infrastructure::database::postgres::repositories::people::PostgresPeopleDirectory::new(postgres_pool.clone()),
         )),
         people_search_limiter,
+        search_history_usecase: messaging::usecases::search::search_history::SearchHistory::new(Arc::new(
+            messaging_infrastructure::database::postgres::repositories::search_history::PostgresSearchHistoryRepository::new(
+                postgres_pool.clone(),
+            ),
+        )),
         message_pins_usecase: MessagePins::new(
             Arc::new(PostgresMessagePinRepository::new(postgres_pool.clone())),
             channel_repository.clone(),
