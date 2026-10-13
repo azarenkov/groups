@@ -23,7 +23,7 @@ pub fn spawn<B>(
         let consumer = NatsEventConsumer::new(jetstream, user_stream.clone());
         loop {
             let opts = SubscribeOptions {
-                consumer_name: "messaging-pro-badges-v2".to_string(),
+                consumer_name: "messaging-pro-badges-v3".to_string(),
                 subject: format!("{prefix}.user.*.entitlements_changed"),
                 start_position: StartPosition::All,
                 max_deliver: Some(MAX_DELIVER),
