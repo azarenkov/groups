@@ -1,6 +1,6 @@
 use ports::outbox::record::PartitionSequence;
 
-use crate::messaging::nats::producer::{PARTITION_HEADER, PARTITION_MEMBERS_HEADER, PARTITION_SEQ_HEADER};
+use crate::messaging::nats::producer::{MSG_ID_HEADER, PARTITION_HEADER, PARTITION_MEMBERS_HEADER, PARTITION_SEQ_HEADER};
 use ports::event_consumer::{Disposition, DispositionFn, 
     ConsumedMessage, EventConsumer, EventConsumerError, StartPosition, SubscribeOptions,
 };
@@ -121,6 +121,11 @@ impl EventConsumer for NatsEventConsumer {
                                 .and_then(|h| h.get("X-Request-Id"))
                                 .map(|v| v.as_str().to_string());
                             let sequence = partition_sequence(msg.headers.as_ref());
+                            let event_id = msg
+                                .headers
+                                .as_ref()
+                                .and_then(|h| h.get(MSG_ID_HEADER))
+                                .map(|v| v.as_str().to_string());
                             let subject =
                                 crate::messaging::partitions::normalize_subject(msg.subject.as_str());
                             let ack_fn: DispositionFn = Box::new(move |disposition| {
@@ -137,7 +142,8 @@ impl EventConsumer for NatsEventConsumer {
                             });
                             Some(Ok(ConsumedMessage::new(
                                 payload, request_id, subject, sequence, ack_fn,
-                            )))
+                            )
+                            .with_event_id(event_id)))
                         }
                         Err(e) => Some(Err(EventConsumerError::Stream(e.to_string()))),
                     }

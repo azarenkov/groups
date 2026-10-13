@@ -3,7 +3,7 @@ use ports::{outbox::record::OutboxRecord, outbox::record::PartitionSequence, out
 use async_nats::{HeaderMap, jetstream::Context};
 use async_trait::async_trait;
 
-const MSG_ID_HEADER: &str = "Nats-Msg-Id";
+pub const MSG_ID_HEADER: &str = "Nats-Msg-Id";
 const REQUEST_ID_HEADER: &str = "X-Request-Id";
 pub const PARTITION_HEADER: &str = "Rift-Partition";
 pub const PARTITION_SEQ_HEADER: &str = "Rift-Partition-Seq";

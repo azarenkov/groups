@@ -86,7 +86,7 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
                                             in_order = gate.wait_turn(&s.partition, s.seq).await;
                                         }
                                         let dispatched = if in_order {
-                                            dispatch.execute_sequenced(&subject, &m.payload, sequence).await
+                                            dispatch.execute_event(&subject, &m.payload, sequence, m.event_id.as_deref()).await
                                         } else {
                                             tracing::debug!(%subject, "Event arrived after a later one of its partition; applying it without publishing");
                                             dispatch.execute_unpublished(&subject, &m.payload).await
