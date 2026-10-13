@@ -56,6 +56,7 @@ pub fn spawn<P, C, V>(
                             tracing::warn!("Voice tier projection stream error");
                             break;
                         };
+                        let backlog_drained = m.pending == Some(0);
                         let Ok(evt) = serde_json::from_slice::<UserEntitlementsChangedV1>(&m.payload) else {
                             tracing::warn!("Malformed entitlements event; dropping");
                             let _ = m.ack().await;
@@ -70,6 +71,9 @@ pub fn spawn<P, C, V>(
                         match usecase.execute(change, chrono::Utc::now()).await {
                             Ok(()) => {
                                 let _ = m.ack().await;
+                                if backlog_drained && !caught_up.swap(true, Ordering::SeqCst) {
+                                    tracing::info!("Voice tier projection caught up with the plan history");
+                                }
                             }
                             Err(e) => {
                                 tracing::warn!(error = %e, "Voice tier projection failed; scheduling retry");
