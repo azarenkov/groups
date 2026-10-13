@@ -46,9 +46,7 @@ pub fn spawn<P, C, V>(
                             Ok(Some(msg)) => msg,
                             Ok(None) => break,
                             Err(_) => {
-                                if !caught_up.swap(true, Ordering::SeqCst) {
-                                    tracing::info!("Voice tier projection caught up with the plan history");
-                                }
+                                mark_caught_up(&caught_up, &usecase).await;
                                 continue;
                             }
                         };
@@ -68,11 +66,11 @@ pub fn spawn<P, C, V>(
                             valid_until: evt.valid_until,
                             occurred_at: evt.occurred_at,
                         };
-                        match usecase.execute(change, chrono::Utc::now()).await {
+                        match usecase.execute(change, chrono::Utc::now(), caught_up.load(Ordering::SeqCst)).await {
                             Ok(()) => {
                                 let _ = m.ack().await;
-                                if backlog_drained && !caught_up.swap(true, Ordering::SeqCst) {
-                                    tracing::info!("Voice tier projection caught up with the plan history");
+                                if backlog_drained {
+                                    mark_caught_up(&caught_up, &usecase).await;
                                 }
                             }
                             Err(e) => {
@@ -90,4 +88,21 @@ pub fn spawn<P, C, V>(
             actix_web::rt::time::sleep(std::time::Duration::from_secs(5)).await;
         }
     });
+}
+
+async fn mark_caught_up<P, C, V>(caught_up: &AtomicBool, usecase: &ApplyPlanChange<P, C, V>)
+where
+    P: PlanDirectory,
+    C: CallRepository,
+    V: VoiceService,
+{
+    if caught_up.load(Ordering::SeqCst) {
+        return;
+    }
+    if let Err(e) = usecase.reconcile_active_calls(chrono::Utc::now()).await {
+        tracing::warn!(error = %e, "Failed to reconcile call ceilings after catching up; will retry");
+        return;
+    }
+    caught_up.store(true, Ordering::SeqCst);
+    tracing::info!("Voice tier projection caught up with the plan history");
 }

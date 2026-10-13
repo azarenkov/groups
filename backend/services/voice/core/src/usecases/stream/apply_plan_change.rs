@@ -46,10 +46,18 @@ where
         Self { plans, calls, voice }
     }
 
-    pub async fn execute(&self, change: PlanChange, now: DateTime<Utc>) -> Result<(), ApplyPlanChangeError> {
+    pub async fn execute(
+        &self,
+        change: PlanChange,
+        now: DateTime<Utc>,
+        caught_up: bool,
+    ) -> Result<(), ApplyPlanChangeError> {
         self.plans
             .apply_tier(&change.user_id, change.tier, change.valid_until, change.occurred_at)
             .await?;
+        if !caught_up {
+            return Ok(());
+        }
         let Some(call_id) = self.calls.active_call_for(&change.user_id).await? else {
             return Ok(());
         };
@@ -57,6 +65,19 @@ where
         self.voice
             .set_stream_ceiling(&ChannelId::new(call_id), &change.user_id, ceiling)
             .await?;
+        Ok(())
+    }
+
+    pub async fn reconcile_active_calls(&self, now: DateTime<Utc>) -> Result<(), ApplyPlanChangeError> {
+        for room in self.voice.active_rooms().await? {
+            if !self.calls.is_call_room(room.uuid()).await? {
+                continue;
+            }
+            for user in self.calls.active_participant_ids(room.uuid()).await? {
+                let ceiling = StreamCeiling::for_tier(self.plans.tier_of(&user, now).await?);
+                self.voice.set_stream_ceiling(&room, &user, ceiling).await?;
+            }
+        }
         Ok(())
     }
 }
