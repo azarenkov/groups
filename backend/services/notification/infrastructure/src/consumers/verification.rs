@@ -9,7 +9,7 @@ use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use notification_core::usecases::send_verification_email::{SendVerificationEmail, VerificationIssued};
 use ports::{event_consumer::EventConsumer, event_consumer::StartPosition, event_consumer::SubscribeOptions, mailer::Mailer};
 
-use crate::inbox::HandledEvents;
+use crate::inbox::{Claim, HandledEvents};
 use tracing::Instrument;
 
 #[derive(Clone)]
@@ -46,19 +46,29 @@ where
     H: Fn(Vec<u8>) -> Fut,
     Fut: std::future::Future<Output = bool>,
 {
-    if let Some(event_id) = event_id
-        && handled.already_handled(consumer, event_id).await
-    {
-        tracing::info!(%event_id, "Event already handled; acking the repeat");
-        return true;
+    let Some(event_id) = event_id else {
+        return handler(payload).await;
+    };
+    match handled.claim(consumer, event_id).await {
+        Claim::Done => {
+            tracing::info!(%event_id, "Event already handled; acking the repeat");
+            true
+        }
+        Claim::Busy => {
+            tracing::info!(%event_id, "Event is being handled elsewhere; leaving it for redelivery");
+            false
+        }
+        Claim::Unavailable => handler(payload).await,
+        Claim::Acquired => {
+            if handler(payload).await {
+                handled.complete(consumer, event_id).await;
+                true
+            } else {
+                handled.release(consumer, event_id).await;
+                false
+            }
+        }
     }
-    if !handler(payload).await {
-        return false;
-    }
-    if let Some(event_id) = event_id {
-        handled.remember(consumer, event_id).await;
-    }
-    true
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -172,7 +182,7 @@ async fn handle<M: Mailer>(usecase: &SendVerificationEmail<M>, payload: &[u8]) -
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    use std::collections::HashMap;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -181,16 +191,28 @@ mod tests {
     use super::*;
 
     #[derive(Default)]
-    struct Memory(Mutex<HashSet<String>>);
+    struct Memory(Mutex<HashMap<String, bool>>);
 
     #[async_trait]
     impl HandledEvents for Memory {
-        async fn already_handled(&self, consumer: &str, event_id: &str) -> bool {
-            self.0.lock().unwrap().contains(&format!("{consumer}:{event_id}"))
+        async fn claim(&self, consumer: &str, event_id: &str) -> Claim {
+            let mut keys = self.0.lock().unwrap();
+            match keys.get(&format!("{consumer}:{event_id}")) {
+                Some(true) => Claim::Done,
+                Some(false) => Claim::Busy,
+                None => {
+                    keys.insert(format!("{consumer}:{event_id}"), false);
+                    Claim::Acquired
+                }
+            }
         }
 
-        async fn remember(&self, consumer: &str, event_id: &str) {
-            self.0.lock().unwrap().insert(format!("{consumer}:{event_id}"));
+        async fn complete(&self, consumer: &str, event_id: &str) {
+            self.0.lock().unwrap().insert(format!("{consumer}:{event_id}"), true);
+        }
+
+        async fn release(&self, consumer: &str, event_id: &str) {
+            self.0.lock().unwrap().remove(&format!("{consumer}:{event_id}"));
         }
     }
 
@@ -206,6 +228,19 @@ mod tests {
         assert!(handle_once(&handled, "mail", Some("e1"), vec![], &handler).await);
         assert!(handle_once(&handled, "other", Some("e1"), vec![], &handler).await);
         assert_eq!(sent.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn leaves_an_event_claimed_elsewhere_for_redelivery() {
+        let handled = Memory::default();
+        assert_eq!(handled.claim("mail", "e3").await, Claim::Acquired);
+        let sent = AtomicUsize::new(0);
+        let handler = |_: Vec<u8>| {
+            sent.fetch_add(1, Ordering::SeqCst);
+            async { true }
+        };
+        assert!(!handle_once(&handled, "mail", Some("e3"), vec![], &handler).await);
+        assert_eq!(sent.load(Ordering::SeqCst), 0);
     }
 
     #[tokio::test]
