@@ -60,6 +60,16 @@ const endSessionIfEmpty = (channelId: string) => {
   }
 };
 
+let streamLimitNoticeInstalled = false;
+
+export function installStreamLimitNotice(): void {
+  if (streamLimitNoticeInstalled) return;
+  streamLimitNoticeInstalled = true;
+  getLiveKitService().onScreenShareLimited(() => {
+    useCallStore.getState().setCallError(i18n.t("streamLimited", { ns: "call" }));
+  });
+}
+
 export const voiceHandlers: WsHandlers = {
   "voice.stream_limited": (d) => {
     const roomId = asString(d.roomId);

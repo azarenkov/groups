@@ -162,6 +162,7 @@ export class LiveKitService {
   private encoderSamples: EncoderSample[] = [];
   private republishingScreen = false;
   private pendingScreenStopSid: string | null = null;
+  private screenLimitedListeners = new Set<() => void>();
   private screenSubscriptions: Map<string, boolean> = new Map();
   private screenViewers = 0;
   private screenShareListeners: Set<(state: ScreenShareState) => void> =
@@ -1508,6 +1509,13 @@ export class LiveKitService {
     return this.isConnecting;
   }
 
+  onScreenShareLimited(listener: () => void): () => void {
+    this.screenLimitedListeners.add(listener);
+    return () => {
+      this.screenLimitedListeners.delete(listener);
+    };
+  }
+
   getCurrentRoomName(): string | null {
     return this.room?.name ?? null;
   }
@@ -1565,6 +1573,12 @@ export class LiveKitService {
       onVideoTrack: (track, identity) => this.handleVideoTrack(track, identity),
       onScreenSharesChanged: () => this.refreshScreenShares(),
       onLocalAttributes: (attributes) => applyStreamCeilingAttribute(attributes),
+      onLocalScreenMuted: (trackSid) => {
+        void this.stopScreenShareTrack(trackSid).then((stopped) => {
+          if (!stopped) return;
+          for (const listener of this.screenLimitedListeners) listener();
+        });
+      },
       onParticipantPatch: (identity, patch) =>
         this.updateParticipant(identity, patch),
       onDisconnected: (reason) => this.handleRoomDisconnected(reason),

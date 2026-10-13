@@ -4,7 +4,7 @@ import { chatHandlers } from "../../features/chat/ws/chatHandlers";
 import { dmHandlers } from "../../features/dm/ws/dmHandlers";
 import { communityHandlers } from "../../features/communities/ws/communityHandlers";
 import { socialHandlers } from "../../features/social/ws/socialHandlers";
-import { dropHeldCalls, voiceHandlers } from "../../features/voice/ws/voiceHandlers";
+import { dropHeldCalls, installStreamLimitNotice, voiceHandlers } from "../../features/voice/ws/voiceHandlers";
 import type { WsHandlers } from "./types";
 import {
   forgetReadThrottle,
@@ -86,6 +86,7 @@ export function installWsBootstrap() {
   installed = true;
   installMessageCacheSync();
   installQuerySync();
+  installStreamLimitNotice();
   ws.addFilter((env) => admitDmEvent(env, useAuthStore.getState().user?.id));
   ws.onResync((partition) => {
     reconcilePairRelation(partition);
