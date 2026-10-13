@@ -44,11 +44,6 @@ pub trait VoiceService {
         user_id: &UserId,
         ceiling: StreamCeiling,
     ) -> Result<(), VoiceServiceError>;
-    async fn screen_shares(
-        &self,
-        channel_id: &ChannelId,
-        user_id: &UserId,
-    ) -> Result<Vec<PublishedVideo>, VoiceServiceError>;
     async fn mute_track(
         &self,
         channel_id: &ChannelId,
@@ -56,7 +51,7 @@ pub trait VoiceService {
         track_sid: &str,
     ) -> Result<(), VoiceServiceError>;
     async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError>;
-    async fn room_screen_shares(&self, channel_id: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError>;
+    async fn room_videos(&self, channel_id: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError>;
     fn client_url(&self) -> String;
 }
 

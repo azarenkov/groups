@@ -49,7 +49,7 @@ where
         let mut current = HashSet::new();
         let mut limited = 0;
         for room in rooms {
-            let shares = match self.voice.room_screen_shares(&room).await {
+            let shares = match self.voice.room_videos(&room).await {
                 Ok(shares) => shares,
                 Err(e) => {
                     tracing::warn!(error = %e, room = %room.uuid(), "Failed to inspect screen shares of a room");
@@ -170,9 +170,6 @@ mod tests {
         async fn set_stream_ceiling(&self, _: &ChannelId, _: &UserId, _: StreamCeiling) -> Result<(), VoiceServiceError> {
             unimplemented!()
         }
-        async fn screen_shares(&self, _: &ChannelId, _: &UserId) -> Result<Vec<PublishedVideo>, VoiceServiceError> {
-            unimplemented!()
-        }
         async fn mute_track(&self, _: &ChannelId, _: &UserId, track_sid: &str) -> Result<(), VoiceServiceError> {
             self.muted.lock().unwrap().push(track_sid.to_string());
             Ok(())
@@ -180,7 +177,7 @@ mod tests {
         async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError> {
             Ok(vec![self.room])
         }
-        async fn room_screen_shares(&self, _: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
+        async fn room_videos(&self, _: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
             Ok(self.shares.clone())
         }
         fn client_url(&self) -> String {
@@ -220,16 +217,13 @@ mod tests {
         async fn set_stream_ceiling(&self, _: &ChannelId, _: &UserId, _: StreamCeiling) -> Result<(), VoiceServiceError> {
             unimplemented!()
         }
-        async fn screen_shares(&self, _: &ChannelId, _: &UserId) -> Result<Vec<PublishedVideo>, VoiceServiceError> {
-            unimplemented!()
-        }
         async fn mute_track(&self, _: &ChannelId, _: &UserId, _: &str) -> Result<(), VoiceServiceError> {
             unimplemented!()
         }
         async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError> {
             Err(VoiceServiceError::ParticipantUpdate("down".into()))
         }
-        async fn room_screen_shares(&self, _: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
+        async fn room_videos(&self, _: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
             unimplemented!()
         }
         fn client_url(&self) -> String {

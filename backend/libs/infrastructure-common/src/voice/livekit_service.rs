@@ -243,31 +243,6 @@ impl VoiceService for LiveKitService {
         }
     }
 
-    async fn screen_shares(
-        &self,
-        channel_id: &ChannelId,
-        user_id: &UserId,
-    ) -> Result<Vec<PublishedVideo>, VoiceServiceError> {
-        let livekit_room = RoomClient::new(self.config.url())
-            .map_err(|e| VoiceServiceError::ParticipantUpdate(e.to_string()))?;
-        let (room, identity) = (channel_id.uuid().to_string(), user_id.uuid().to_string());
-        let request = livekit_room.get_participant(&room, &identity);
-        let participant = match timeout(LIVEKIT_REQUEST_TIMEOUT, request).await {
-            Ok(Ok(participant)) => participant,
-            Ok(Err(ServiceError::Twirp(TwirpError::Twirp(code)))) if code.code == TwirpErrorCode::NOT_FOUND => {
-                return Ok(Vec::new());
-            }
-            Ok(Err(e)) => return Err(VoiceServiceError::ParticipantUpdate(e.to_string())),
-            Err(_) => return Err(VoiceServiceError::ParticipantUpdate("LiveKit request timed out".into())),
-        };
-        Ok(participant
-            .tracks
-            .into_iter()
-            .filter(|track| track.source == livekit_protocol::TrackSource::ScreenShare as i32 && !track.muted)
-            .map(|track| published_video(&track))
-            .collect())
-    }
-
     async fn mute_track(
         &self,
         channel_id: &ChannelId,
@@ -306,7 +281,7 @@ impl VoiceService for LiveKitService {
             .collect())
     }
 
-    async fn room_screen_shares(&self, channel_id: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
+    async fn room_videos(&self, channel_id: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
         let livekit_room = RoomClient::new(self.config.url())
             .map_err(|e| VoiceServiceError::ParticipantUpdate(e.to_string()))?;
         let room = channel_id.uuid().to_string();
@@ -324,7 +299,7 @@ impl VoiceService for LiveKitService {
                 continue;
             };
             for track in &participant.tracks {
-                if track.source == livekit_protocol::TrackSource::ScreenShare as i32 && !track.muted {
+                if track.r#type == livekit_protocol::TrackType::Video as i32 && !track.muted {
                     shares.push((UserId::new(user), published_video(track)));
                 }
             }
