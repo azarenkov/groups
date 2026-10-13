@@ -44,6 +44,7 @@ pub struct ConsumedMessage {
     pub request_id: Option<String>,
     pub subject: String,
     pub sequence: Option<PartitionSequence>,
+    pub event_id: Option<String>,
     ack_fn: DispositionFn,
 }
 
@@ -60,8 +61,14 @@ impl ConsumedMessage {
             request_id,
             subject,
             sequence,
+            event_id: None,
             ack_fn,
         }
+    }
+
+    pub fn with_event_id(mut self, event_id: Option<String>) -> Self {
+        self.event_id = event_id;
+        self
     }
 
     pub async fn ack(self) -> Result<(), EventConsumerError> {

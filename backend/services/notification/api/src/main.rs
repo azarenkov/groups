@@ -11,6 +11,7 @@ use notification_core::usecases::send_trial_ending_email::SendTrialEndingEmail;
 use notification_core::usecases::send_verification_email::SendVerificationEmail;
 use notification_infrastructure::consumers::trial;
 use notification_infrastructure::identity_trials::IdentityTrialClient;
+use notification_infrastructure::inbox::{HandledEvents, RedisHandledEvents};
 use notification_infrastructure::consumers::verification::{self, VerificationConsumerSpec};
 use tokio::sync::watch;
 
@@ -76,11 +77,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         consumer_name: notification_config.notification_trial_consumer.clone(),
         ..spec.clone()
     };
+    let handled: Arc<dyn HandledEvents> = Arc::new(RedisHandledEvents::new(
+        std::env::var("REDIS_URL").ok().as_deref(),
+        notification_config.notification_handled_ttl_secs,
+    ));
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
     let mut verification_consumer = actix_web::rt::spawn(verification::run(
         jetstream.clone(),
         spec,
         send_verification_email,
+        handled.clone(),
         shutdown_rx.clone(),
         verification_heartbeat,
     ));
@@ -88,6 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         jetstream,
         trial_spec,
         send_trial_ending_email,
+        handled,
         shutdown_rx,
         trial_heartbeat,
     ));

@@ -153,6 +153,7 @@ monitoring:
     stuckFor: 5m
     oldestPendingSeconds: 300
     oldestPendingFor: 10m
+    dedupeWindowSeconds: 600
 
 podAnnotations: {}
 nodeSelector: {}

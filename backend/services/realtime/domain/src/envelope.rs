@@ -10,11 +10,23 @@ pub struct Envelope<'a> {
     pub partition: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_id: Option<String>,
 }
 
 impl<'a> Envelope<'a> {
     pub fn new(r#type: &'a str, data: Value) -> Self {
-        Self { r#type, data, partition: None, seq: None }
+        Self { r#type, data, partition: None, seq: None, event_id: None }
+    }
+
+    pub fn identified(&self, event_id: &str) -> Envelope<'a> {
+        Envelope {
+            r#type: self.r#type,
+            data: self.data.clone(),
+            partition: self.partition.clone(),
+            seq: self.seq,
+            event_id: Some(event_id.to_string()),
+        }
     }
 
     pub fn sequenced(&self, partition: &str, seq: i64) -> Envelope<'a> {
@@ -23,6 +35,7 @@ impl<'a> Envelope<'a> {
             data: self.data.clone(),
             partition: Some(partition.to_string()),
             seq: Some(seq),
+            event_id: self.event_id.clone(),
         }
     }
 }
@@ -36,6 +49,12 @@ mod tests {
     fn a_plain_envelope_has_no_sequence_fields() {
         let value = serde_json::to_value(Envelope::new("x", json!({"a": 1}))).unwrap();
         assert_eq!(value, json!({"type": "x", "data": {"a": 1}}));
+    }
+
+    #[test]
+    fn an_identified_envelope_keeps_its_sequence() {
+        let value = serde_json::to_value(Envelope::new("x", json!({})).sequenced("p", 7).identified("e1")).unwrap();
+        assert_eq!(value, json!({"type": "x", "data": {}, "partition": "p", "seq": 7, "eventId": "e1"}));
     }
 
     #[test]

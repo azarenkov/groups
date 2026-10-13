@@ -436,6 +436,7 @@ services:
       SHUTDOWN_TIMEOUT_SECS: ${SHUTDOWN_TIMEOUT_SECS:-25}
       NOTIFICATION_LIVENESS_STALE_SECS: ${NOTIFICATION_LIVENESS_STALE_SECS:-60}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     env_file:
       - path: env/nats.env
         required: false
@@ -443,6 +444,8 @@ services:
         required: false
     depends_on:
       nats:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "notification-service --probe http://127.0.0.1:8082/readyz && notification-service --probe http://127.0.0.1:8082/livez"]
