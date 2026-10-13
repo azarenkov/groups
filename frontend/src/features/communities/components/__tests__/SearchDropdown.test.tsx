@@ -352,3 +352,30 @@ it("masks recent channel messages from blocked authors", async () => {
   expect(await screen.findByText(i18n.t("chat:blockedMessage"))).toBeInTheDocument();
   expect(screen.queryByText("secret plans")).toBeNull();
 });
+
+it("hides recent DMs with people blocked since they were cached and refetches the history", async () => {
+  signIn();
+  useBlockStore.setState({ loaded: true, blocked: {} });
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h6", usedAt: "2026-10-13T09:00:00Z", type: "dm", userId: "u7", name: "Trudy" },
+    {
+      id: "h7",
+      usedAt: "2026-10-13T08:00:00Z",
+      type: "message",
+      messageId: "m7",
+      authorId: "u7",
+      authorName: "Trudy",
+      snippet: "private words",
+      createdAt: "2026-10-12T09:00:00Z",
+      place: { type: "dm", peerId: "u7", peerName: "Trudy" },
+    },
+  ]);
+  const { input } = setup();
+  fireEvent.focus(input);
+  expect(await screen.findByText("private words")).toBeInTheDocument();
+  (searchHistoryAPI.list as jest.Mock).mockClear();
+  act(() => useBlockStore.setState({ blocked: { u7: true } }));
+  expect(screen.queryByText("Trudy")).toBeNull();
+  expect(screen.queryByText("private words")).toBeNull();
+  await waitFor(() => expect(searchHistoryAPI.list).toHaveBeenCalled());
+});
