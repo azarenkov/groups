@@ -5079,6 +5079,7 @@ dependencies = [
  "actix-web",
  "api-common",
  "async-nats",
+ "async-trait",
  "chrono",
  "contracts",
  "domain",
