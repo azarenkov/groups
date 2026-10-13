@@ -180,6 +180,9 @@ pub struct AppState {
         messaging_infrastructure::database::postgres::repositories::people::PostgresPeopleDirectory,
     >,
     pub people_search_limiter: api_common::rate_limiting::KeyedRateLimiter,
+    pub search_history_usecase: messaging::usecases::search::search_history::SearchHistory<
+        messaging_infrastructure::database::postgres::repositories::search_history::PostgresSearchHistoryRepository,
+    >,
     pub message_pins_usecase: MessagePins<
         PostgresMessagePinRepository,
         PostgresChannelRepository,

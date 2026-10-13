@@ -25,3 +25,4 @@ pub mod privacy;
 pub mod shared;
 pub mod people;
 pub mod search;
+pub mod search_history;

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT s.id, s.name FROM communities s\n            WHERE s.id = ANY($2)\n              AND EXISTS (SELECT 1 FROM community_members m WHERE m.community_id = s.id AND m.user_id = $1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "97b41758201b1ab6d58679700cc00197960389ee9054a6e31eb7d857a077d731"
+}

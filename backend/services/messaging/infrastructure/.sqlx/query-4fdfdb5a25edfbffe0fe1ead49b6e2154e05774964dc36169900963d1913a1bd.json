@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT m.id, m.sender_id, COALESCE(u.name, '') AS \"author_name!\", m.created_at, m.content,\n                   peer.id AS \"peer_id!\", COALESCE(pu.name, '') AS \"peer_name!\"\n            FROM dm_messages m\n            CROSS JOIN LATERAL (SELECT CASE WHEN m.sender_id = $1 THEN m.recipient_id ELSE m.sender_id END AS id) peer\n            LEFT JOIN messaging_user_profiles u ON u.user_id = m.sender_id\n            LEFT JOIN messaging_user_profiles pu ON pu.user_id = peer.id\n            WHERE m.id = ANY($2)\n              AND (m.sender_id = $1 OR m.recipient_id = $1)\n              AND m.invite_community_id IS NULL\n              AND m.call_status IS NULL\n              AND NOT EXISTS (\n                  SELECT 1 FROM user_blocks b\n                  WHERE (b.blocker_id = $1 AND b.blocked_id = peer.id)\n                     OR (b.blocker_id = peer.id AND b.blocked_id = $1)\n              )\n              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "sender_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "author_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "peer_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 6,
+        "name": "peer_name!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "4fdfdb5a25edfbffe0fe1ead49b6e2154e05774964dc36169900963d1913a1bd"
+}
