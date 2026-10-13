@@ -10,6 +10,7 @@ import { hydrateSidebar, readSidebarSnapshot, clearSidebarSnapshot, startSidebar
 import { communityAPI } from "../api/community";
 import { extractInviteToken, extractPackSlug, extractProfileId } from "../../../shared/lib/inviteLinks";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
+import { useSearchFocusStore } from "../../search/store/searchFocusStore";
 import StickerPacksModal from "../../stickers/components/StickerPacksModal";
 import ClearDmDialog from "../../dm/components/ClearDmDialog";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
@@ -149,7 +150,6 @@ const CommunitiesPage: React.FC = () => {
     setSearchParams({}, { replace: true });
     setPendingMessageLink(link);
   }, [searchParams, setSearchParams, user?.id]);
-  const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalCommunity, setInviteModalCommunity] = useState<Community | null>(null);
   const [communitySettings, setCommunitySettings] = useState<Community | null>(null);
@@ -479,7 +479,6 @@ const CommunitiesPage: React.FC = () => {
     !!channelModal ||
     !!inviteModalCommunity ||
     isCommunityModalOpen ||
-    isAddFriendOpen ||
     isPendingOpen;
   useHotkey("nextChannel", () => stepConversation(1), !navigationBlocked);
   useHotkey("prevChannel", () => stepConversation(-1), !navigationBlocked);
@@ -583,7 +582,7 @@ const CommunitiesPage: React.FC = () => {
       handleSelectChannel(community, channel);
   };
 
-  const handleOpenDmFromHome = (friendId: string, name?: string): boolean => {
+  const handleOpenDmFromHome = (friendId: string, name?: string, knownFriend = false): boolean => {
     const dm = acceptedFriends.find((d) => d.id === friendId);
     if (dm) {
       handleSelectDm(dm);
@@ -599,8 +598,8 @@ const CommunitiesPage: React.FC = () => {
       color: colorForId(friendId),
       online: false,
       unread: 0,
-      isFriend: false,
-      friendship: "none",
+      isFriend: knownFriend,
+      friendship: knownFriend ? "accepted" : "none",
     });
     return true;
   };
@@ -727,6 +726,10 @@ const CommunitiesPage: React.FC = () => {
               sidebarNav.setOpenCommunityId(community.id);
             }}
             onOpenResult={setPendingMessageLink}
+            onMessagePerson={(userId, name) => {
+              handleOpenDmFromHome(userId, name, true);
+            }}
+            onJoinInvite={handleJoinByLink}
             onDone={done}
           />
         )}
@@ -771,17 +774,14 @@ const CommunitiesPage: React.FC = () => {
               name: channel.name,
             })
           }
-          onAddFriend={() => setIsAddFriendOpen(true)}
+          onAddFriend={() => useSearchFocusStore.getState().focus("people")}
           onOpenPending={() => setIsPendingOpen(true)}
           pendingCount={pendingCount}
           onCreateCommunity={() => {
             setCommunityModalView("create");
             setIsCommunityModalOpen(true);
           }}
-          onJoinCommunity={() => {
-            setCommunityModalView("join");
-            setIsCommunityModalOpen(true);
-          }}
+          onJoinCommunity={() => useSearchFocusStore.getState().focus("invite")}
           currentUserId={user?.id}
           unreadByChannel={unreadByChannel}
           unreadByDm={unreadByDm}
@@ -806,7 +806,7 @@ const CommunitiesPage: React.FC = () => {
                 onJoinRoom={(communityId, channelId) => void handleJoinFromHome(communityId, channelId)}
                 onOpenDm={handleOpenDmFromHome}
                 onCall={handleCallFromHome}
-                onAddFriend={() => setIsAddFriendOpen(true)}
+                onAddFriend={() => useSearchFocusStore.getState().focus("people")}
               />
             ) : selectedDm ? (
               <ChatView
@@ -1046,11 +1046,9 @@ const CommunitiesPage: React.FC = () => {
         passwordPrompt={passwordPrompt}
         onClosePasswordPrompt={() => setPasswordPrompt(null)}
         onSubmitPassword={handlePasswordSubmit}
-        isAddFriendOpen={isAddFriendOpen}
-        onCloseAddFriend={() => setIsAddFriendOpen(false)}
         isPendingOpen={isPendingOpen}
         onClosePending={() => setIsPendingOpen(false)}
-        onOpenAddFriend={() => setIsAddFriendOpen(true)}
+        onOpenAddFriend={() => useSearchFocusStore.getState().focus("people")}
         inviteModalCommunity={inviteModalCommunity}
         acceptedFriends={friends.filter((f) => f.status === "accepted")}
         onCloseInviteModal={() => setInviteModalCommunity(null)}

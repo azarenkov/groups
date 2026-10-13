@@ -38,7 +38,7 @@ export const queryKeys = {
   stickerPack: (packId: string) => ["stickerPack", packId] as const,
   invitePreview: (code: string) => ["invitePreview", code] as const,
   privacySettings: () => ["privacySettings"] as const,
-  userSearch: (term: string) => ["userSearch", term] as const,
+  peopleSearch: (term: string) => ["peopleSearch", term] as const,
   publicProfile: (userId: string) => ["publicProfile", userId] as const,
   userConnections: (userId: string) => ["userConnections", userId] as const,
 };
