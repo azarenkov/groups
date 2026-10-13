@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryClient, queryKeys } from "../../../shared/query/queryClient";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useBlockStore } from "../../social/store/blockStore";
-import { searchHistoryAPI, type HistoryItem, type HistoryTarget } from "../api/searchHistory";
+import { type HistoryItem, type HistoryTarget } from "../api/searchHistory";
 import {
   clearSearches,
   HistorySessionChanged,
@@ -12,7 +12,8 @@ import {
   readStoredHistory,
   recordSearch,
   refreshSearchHistory,
-  withPendingChanges,
+  fetchSearchHistory,
+  historyVerified,
   removeSearch,
 } from "../lib/searchHistory";
 
@@ -41,7 +42,7 @@ export function useSearchHistory(load: boolean) {
   const query = useQuery(
     {
       queryKey: queryKeys.searchHistory(userId ?? ""),
-      queryFn: async () => withPendingChanges(userId ?? "", await searchHistoryAPI.list()),
+      queryFn: () => fetchSearchHistory(userId ?? ""),
       enabled: userId !== null && load,
       initialData: () => (userId ? readStoredHistory(userId) : undefined),
       initialDataUpdatedAt: 0,
@@ -51,6 +52,7 @@ export function useSearchHistory(load: boolean) {
   );
   const blocked = useBlockStore((s) => s.blocked);
   const blockedBy = useBlockStore((s) => s.blockedBy);
+  const blocksLoaded = useBlockStore((s) => s.loaded);
   const seenBlocks = React.useRef({ blocked, blockedBy });
   React.useEffect(() => {
     if (seenBlocks.current.blocked === blocked && seenBlocks.current.blockedBy === blockedBy) return;
@@ -61,9 +63,11 @@ export function useSearchHistory(load: boolean) {
     () =>
       ((userId ? query.data : undefined) ?? []).filter((item) => {
         const peer = blockedPeerOf(item);
-        return !peer || (!blocked[peer] && !blockedBy[peer]);
+        if (!peer) return true;
+        if (!blocksLoaded && !(userId && historyVerified(userId))) return false;
+        return !blocked[peer] && !blockedBy[peer];
       }),
-    [userId, query.data, blocked, blockedBy],
+    [userId, query.data, blocked, blockedBy, blocksLoaded],
   );
   return {
     items,

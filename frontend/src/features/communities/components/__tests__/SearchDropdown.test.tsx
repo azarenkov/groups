@@ -13,7 +13,7 @@ import { queryClient } from "../../../../shared/query/queryClient";
 import { searchHistoryAPI } from "../../../search/api/searchHistory";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { useBlockStore } from "../../../social/store/blockStore";
-import { clearStoredHistory } from "../../../search/lib/searchHistory";
+import { clearStoredHistory, resetSearchHistorySession, storeHistory } from "../../../search/lib/searchHistory";
 
 jest.mock("../../../search/api/people", () => ({ peopleAPI: { search: jest.fn() } }));
 jest.mock("../../../search/api/searchHistory", () => {
@@ -393,4 +393,24 @@ it("hides recent entries for people who blocked the viewer", async () => {
   act(() => useBlockStore.setState({ blockedBy: { u8: true } }));
   expect(screen.queryByText("Oscar")).toBeNull();
   await waitFor(() => expect(searchHistoryAPI.list).toHaveBeenCalled());
+});
+
+it("holds back cached people recents until blocks or the server have vouched for them", async () => {
+  resetSearchHistorySession();
+  signIn();
+  useBlockStore.setState({ loaded: false, blocked: {}, blockedBy: {} });
+  storeHistory("me", [
+    { id: "h9", usedAt: "2026-10-13T09:00:00Z", type: "dm", userId: "u9", name: "Eve" },
+    { id: "h10", usedAt: "2026-10-13T08:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" },
+  ]);
+  let answer: (items: unknown[]) => void = () => {};
+  (searchHistoryAPI.list as jest.Mock).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+  const { input } = setup();
+  fireEvent.focus(input);
+  expect(await screen.findByText("Alpha Squad")).toBeInTheDocument();
+  expect(screen.queryByText("Eve")).toBeNull();
+  await act(async () =>
+    answer([{ id: "h9", usedAt: "2026-10-13T09:00:00Z", type: "dm", userId: "u9", name: "Eve" }]),
+  );
+  expect(await screen.findByText("Eve")).toBeInTheDocument();
 });

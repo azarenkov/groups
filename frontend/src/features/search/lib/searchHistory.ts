@@ -62,6 +62,16 @@ const queues = new Map<string, Promise<unknown>>();
 const savedTemps = new Map<string, string | null>();
 const pendingChanges = new Map<string, Set<(items: HistoryItem[]) => HistoryItem[]>>();
 
+const verifiedUsers = new Set<string>();
+
+export const historyVerified = (userId: string): boolean => verifiedUsers.has(userId);
+
+export async function fetchSearchHistory(userId: string): Promise<HistoryItem[]> {
+  const items = await searchHistoryAPI.list();
+  verifiedUsers.add(userId);
+  return withPendingChanges(userId, items);
+}
+
 export const withPendingChanges = (userId: string, items: HistoryItem[]): HistoryItem[] =>
   [...(pendingChanges.get(userId) ?? [])].reduce((acc, change) => change(acc), items);
 
@@ -90,6 +100,7 @@ export function resetSearchHistorySession(): void {
   queues.clear();
   savedTemps.clear();
   pendingChanges.clear();
+  verifiedUsers.clear();
 }
 
 const settled = (items: HistoryItem[]): HistoryItem[] =>
