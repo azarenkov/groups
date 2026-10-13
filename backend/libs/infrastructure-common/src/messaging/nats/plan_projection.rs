@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use contracts::events::user::UserEntitlementsChangedV1;
 use domain::{plan::Tier, user::id::UserId};
@@ -13,6 +15,7 @@ const CAUGHT_UP_AFTER_IDLE: Duration = Duration::from_secs(5);
 const MAX_DELIVER: u32 = 20;
 const RETRY_DELAY: Duration = Duration::from_secs(5);
 const RESUBSCRIBE_DELAY: Duration = Duration::from_secs(5);
+const RETRY_WINDOW: Duration = Duration::from_secs(5 * (MAX_DELIVER as u64 + 1));
 
 pub struct PlanProjection {
     pub jetstream: async_nats::jetstream::Context,
@@ -45,12 +48,13 @@ impl PlanProjection {
             match consumer.subscribe(opts).await {
                 Ok(mut messages) => {
                     tracing::info!(stream = %self.stream, consumer = self.consumer_name, "Plan projection subscribed");
+                    let mut unresolved: HashMap<u64, Instant> = HashMap::new();
                     loop {
                         let msg = match tokio::time::timeout(CAUGHT_UP_AFTER_IDLE, messages.next()).await {
                             Ok(Some(msg)) => msg,
                             Ok(None) => break,
                             Err(_) => {
-                                self.mark_caught_up().await;
+                                self.mark_caught_up(&mut unresolved).await;
                                 continue;
                             }
                         };
@@ -62,15 +66,19 @@ impl PlanProjection {
                         if m.pending.is_some_and(|pending| pending > 0) {
                             self.plans.set_caught_up(false);
                         }
+                        let delivery = delivery_key(m.event_id.as_deref(), &m.payload);
                         match self.apply(&m.payload).await {
                             Ok(()) => {
                                 let _ = m.ack().await;
+                                unresolved.remove(&delivery);
                                 if backlog_drained {
-                                    self.mark_caught_up().await;
+                                    self.mark_caught_up(&mut unresolved).await;
                                 }
                             }
                             Err(e) => {
                                 tracing::warn!(error = %e, consumer = self.consumer_name, "Plan projection failed; scheduling retry");
+                                unresolved.insert(delivery, Instant::now());
+                                self.plans.set_caught_up(false);
                                 let _ = m.retry_after(RETRY_DELAY).await;
                             }
                         }
@@ -97,8 +105,9 @@ impl PlanProjection {
         self.listener.plan_applied(&user_id, chrono::Utc::now()).await
     }
 
-    async fn mark_caught_up(&self) {
-        if self.plans.is_caught_up() {
+    async fn mark_caught_up(&self, unresolved: &mut HashMap<u64, Instant>) {
+        unresolved.retain(|_, failed_at| failed_at.elapsed() < RETRY_WINDOW);
+        if self.plans.is_caught_up() || !unresolved.is_empty() {
             return;
         }
         if let Err(e) = self.listener.caught_up(chrono::Utc::now()).await {
@@ -108,4 +117,13 @@ impl PlanProjection {
         self.plans.set_caught_up(true);
         tracing::info!(consumer = self.consumer_name, "Plan projection caught up with the plan history");
     }
+}
+
+fn delivery_key(event_id: Option<&str>, payload: &[u8]) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    match event_id {
+        Some(id) => id.hash(&mut hasher),
+        None => payload.hash(&mut hasher),
+    }
+    hasher.finish()
 }
