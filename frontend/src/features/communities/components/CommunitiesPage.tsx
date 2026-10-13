@@ -582,7 +582,7 @@ const CommunitiesPage: React.FC = () => {
       handleSelectChannel(community, channel);
   };
 
-  const handleOpenDmFromHome = (friendId: string, name?: string): boolean => {
+  const handleOpenDmFromHome = (friendId: string, name?: string, knownFriend = false): boolean => {
     const dm = acceptedFriends.find((d) => d.id === friendId);
     if (dm) {
       handleSelectDm(dm);
@@ -598,8 +598,8 @@ const CommunitiesPage: React.FC = () => {
       color: colorForId(friendId),
       online: false,
       unread: 0,
-      isFriend: false,
-      friendship: "none",
+      isFriend: knownFriend,
+      friendship: knownFriend ? "accepted" : "none",
     });
     return true;
   };
@@ -727,7 +727,7 @@ const CommunitiesPage: React.FC = () => {
             }}
             onOpenResult={setPendingMessageLink}
             onMessagePerson={(userId, name) => {
-              handleOpenDmFromHome(userId, name);
+              handleOpenDmFromHome(userId, name, true);
             }}
             onJoinInvite={handleJoinByLink}
             onDone={done}

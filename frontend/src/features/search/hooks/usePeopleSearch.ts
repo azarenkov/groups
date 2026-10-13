@@ -54,17 +54,18 @@ export function usePeopleSearch(raw: string) {
   );
   const statusById = useFriendshipStore((s) => s.statusById);
   const loaded = useFriendshipStore((s) => s.loaded);
+  const current = searched !== null && searched === normalized;
   const people = React.useMemo(
     () =>
-      (searched === null ? [] : query.data ?? []).map((hit) => ({
+      (current ? query.data ?? [] : []).map((hit) => ({
         ...hit,
         relation: liveRelation(hit, { loaded, statusById }),
       })),
-    [searched, query.data, loaded, statusById],
+    [current, query.data, loaded, statusById],
   );
   return {
     people,
-    loading: searched !== null && query.isFetching && !query.data,
+    loading: normalized !== null && (!current || (query.isFetching && !query.data)),
     failed: query.isError,
   };
 }

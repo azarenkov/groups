@@ -86,6 +86,7 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
   };
   const done = () => {
     setOpen(false);
+    setFocusMode(null);
     onQueryChange("");
     searchRef.current?.blur();
   };

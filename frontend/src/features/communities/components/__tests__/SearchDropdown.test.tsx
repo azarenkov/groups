@@ -203,3 +203,27 @@ it("focuses the search with a hint when asked from elsewhere", () => {
   act(() => useSearchFocusStore.getState().focus("invite"));
   expect(screen.getByRole("textbox", { name: i18n.t("sidebar:searchPlaceholderInvite") })).toBe(document.activeElement);
 });
+
+it("drops the previous query's people as soon as the text changes", async () => {
+  (peopleAPI.search as jest.Mock).mockImplementation(async (q: string) =>
+    q === "bob" ? [{ id: "p1", name: "Bobby", relation: "none", acceptsFriendRequests: true }] : [],
+  );
+  const { input } = setup();
+  fireEvent.change(input, { target: { value: "bob" } });
+  await screen.findByText("by", { exact: false, selector: ".search-dd-name, .search-dd-name *" });
+  fireEvent.change(input, { target: { value: "bon" } });
+  expect(screen.queryByRole("button", { name: i18n.t("sidebar:peopleAdd") })).toBeNull();
+  expect(screen.getByText(i18n.t("sidebar:peopleSearching"))).toBeInTheDocument();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  });
+});
+
+it("returns to the plain search hint after a focused search is closed", () => {
+  setup();
+  act(() => useSearchFocusStore.getState().focus("people"));
+  const input = screen.getByRole("textbox", { name: i18n.t("sidebar:searchPlaceholderPeople") });
+  fireEvent.change(input, { target: { value: "bo" } });
+  fireEvent.keyDown(input, { key: "Escape" });
+  expect(screen.getByRole("textbox", { name: i18n.t("sidebar:searchPlaceholder") })).toBe(input);
+});
