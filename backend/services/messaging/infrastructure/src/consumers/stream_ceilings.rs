@@ -40,10 +40,8 @@ where
         let ceiling = StreamCeiling::for_tier(&self.badges.tier_of(user_id, chrono::Utc::now()).await?);
         for room in rooms {
             let room = domain::channel::id::ChannelId::new(room.uuid());
-            match enforce_stream_ceiling(&*self.voice, &room, user_id, ceiling).await {
-                Ok(true) => self.outbox.save(&[stream_limited_record(user_id, &room, ceiling)]).await?,
-                Ok(false) => {}
-                Err(e) => tracing::warn!(error = %e, user_id = %user_id.uuid(), "Failed to apply the new stream ceiling to a voice channel"),
+            if enforce_stream_ceiling(&*self.voice, &room, user_id, ceiling).await? {
+                self.outbox.save(&[stream_limited_record(user_id, &room, ceiling)]).await?;
             }
         }
         Ok(())
