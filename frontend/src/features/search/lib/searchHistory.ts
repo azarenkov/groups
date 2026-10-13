@@ -6,6 +6,8 @@ export const SEARCH_HISTORY_LIMIT = 20;
 const STORAGE_KEY = "rift.searchHistory.v1";
 const TEMP_PREFIX = "pending:";
 
+export const isPendingHistoryId = (id: string): boolean => id.startsWith(TEMP_PREFIX);
+
 export const historyKey = (target: HistoryTarget): string =>
   target.type === "query" ? `query:${target.text.trim().toLowerCase()}` : `${target.type}:${historyTargetId(target)}`;
 

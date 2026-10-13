@@ -14,6 +14,7 @@ import {
   refreshSearchHistory,
   fetchSearchHistory,
   historyVerified,
+  isPendingHistoryId,
   removeSearch,
 } from "../lib/searchHistory";
 
@@ -61,10 +62,11 @@ export function useSearchHistory(load: boolean) {
   const items = React.useMemo(
     () =>
       ((userId ? query.data : undefined) ?? []).filter((item) => {
+        if (item.type !== "query" && !isPendingHistoryId(item.id) && !(userId && historyVerified(userId))) {
+          return false;
+        }
         const peer = blockedPeerOf(item);
-        if (!peer) return true;
-        if (!userId || !historyVerified(userId)) return false;
-        return !blocked[peer] && !blockedBy[peer];
+        return !peer || (!blocked[peer] && !blockedBy[peer]);
       }),
     [userId, query.data, blocked, blockedBy],
   );

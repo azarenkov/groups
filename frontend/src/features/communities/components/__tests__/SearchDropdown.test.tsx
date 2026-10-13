@@ -395,22 +395,25 @@ it("hides recent entries for people who blocked the viewer", async () => {
   await waitFor(() => expect(searchHistoryAPI.list).toHaveBeenCalled());
 });
 
-it("holds back cached people recents until the server has vouched for them", async () => {
+it("holds back cached access-dependent recents until the server has vouched for them", async () => {
   resetSearchHistorySession();
   signIn();
   useBlockStore.setState({ loaded: true, blocked: {}, blockedBy: {} });
   storeHistory("me", [
     { id: "h9", usedAt: "2026-10-13T09:00:00Z", type: "dm", userId: "u9", name: "Eve" },
     { id: "h10", usedAt: "2026-10-13T08:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" },
+    { id: "h11", usedAt: "2026-10-13T07:00:00Z", type: "query", text: "roadmap" },
   ]);
   let answer: (items: unknown[]) => void = () => {};
   (searchHistoryAPI.list as jest.Mock).mockReturnValue(new Promise((resolve) => (answer = resolve)));
   const { input } = setup();
   fireEvent.focus(input);
-  expect(await screen.findByText("Alpha Squad")).toBeInTheDocument();
+  expect(await screen.findByText("roadmap")).toBeInTheDocument();
   expect(screen.queryByText("Eve")).toBeNull();
+  expect(screen.queryByText("Alpha Squad")).toBeNull();
   await act(async () =>
     answer([{ id: "h9", usedAt: "2026-10-13T09:00:00Z", type: "dm", userId: "u9", name: "Eve" }]),
   );
   expect(await screen.findByText("Eve")).toBeInTheDocument();
+  expect(screen.queryByText("Alpha Squad")).toBeNull();
 });
