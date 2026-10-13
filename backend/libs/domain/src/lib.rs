@@ -5,5 +5,6 @@ pub mod event;
 pub mod pagination;
 pub mod password_hash;
 pub mod sticker;
+pub mod stream;
 pub mod community;
 pub mod user;

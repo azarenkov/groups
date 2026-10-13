@@ -49,4 +49,12 @@ pub trait UserProfileRepository {
         active: bool,
         occurred_at: DateTime<Utc>,
     ) -> Result<bool, RepositoryError>;
+    async fn apply_tier(
+        &self,
+        user_id: &UserId,
+        tier: &str,
+        valid_until: Option<DateTime<Utc>>,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<(), RepositoryError>;
+    async fn tier_of(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<String, RepositoryError>;
 }
