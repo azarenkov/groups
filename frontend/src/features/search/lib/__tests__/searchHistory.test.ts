@@ -107,3 +107,37 @@ it("keeps the browser copy current even when nothing is watching the history", a
     expect.objectContaining({ id: "server-3", type: "query", text: "offline" }),
   ]);
 });
+
+it("sends a save only after an earlier clear has gone through", async () => {
+  queryClient.setQueryData(key, [query("a", "old")]);
+  let finishClear: () => void = () => {};
+  api.clear.mockReturnValue(new Promise<void>((resolve) => (finishClear = resolve)));
+  api.record.mockResolvedValue({ id: "server-4", usedAt: "2026-10-13T11:00:00Z" });
+  const clearing = clearSearches("me");
+  const saving = recordSearch("me", { type: "query", text: "fresh" });
+  await flush();
+  expect(items().map((i) => (i.type === "query" ? i.text : ""))).toEqual(["fresh"]);
+  expect(api.record).not.toHaveBeenCalled();
+  finishClear();
+  await clearing;
+  await saving;
+  expect(api.record).toHaveBeenCalledWith({ type: "query", text: "fresh" });
+  expect(items()[0].id).toBe("server-4");
+});
+
+it("restores a saved duplicate under its server id when the newer save fails", async () => {
+  queryClient.setQueryData(key, []);
+  let finishFirst: (v: { id: string; usedAt: string }) => void = () => {};
+  let failSecond: (e: Error) => void = () => {};
+  api.record
+    .mockReturnValueOnce(new Promise((resolve) => (finishFirst = resolve)))
+    .mockReturnValueOnce(new Promise((_, reject) => (failSecond = reject)));
+  const first = recordSearch("me", { type: "person", userId: "u1", name: "Bob" });
+  const second = recordSearch("me", { type: "person", userId: "u1", name: "Bob" });
+  finishFirst({ id: "server-5", usedAt: "2026-10-13T11:00:00Z" });
+  await first;
+  await flush();
+  failSecond(new Error("down"));
+  await expect(second).rejects.toThrow("down");
+  expect(items().map((i) => i.id)).toEqual(["server-5"]);
+});

@@ -57,6 +57,22 @@ const read = (userId: string) => queryClient.getQueryData<HistoryItem[]>(queryKe
 const write = (userId: string, items: HistoryItem[]) =>
   queryClient.setQueryData<HistoryItem[]>(queryKeys.searchHistory(userId), items);
 
+const queues = new Map<string, Promise<unknown>>();
+const savedTemps = new Map<string, string | null>();
+
+const enqueue = (userId: string, request: () => Promise<void>): Promise<void> => {
+  const run = (queues.get(userId) ?? Promise.resolve()).catch(() => {}).then(request);
+  queues.set(userId, run);
+  return run;
+};
+
+const settled = (items: HistoryItem[]): HistoryItem[] =>
+  items.flatMap((item) => {
+    if (!savedTemps.has(item.id)) return [item];
+    const serverId = savedTemps.get(item.id);
+    return serverId ? [{ ...item, id: serverId }] : [];
+  });
+
 async function apply(
   userId: string,
   change: (items: HistoryItem[]) => HistoryItem[],
@@ -66,31 +82,20 @@ async function apply(
   const before = read(userId) ?? [];
   const optimistic = write(userId, change(before));
   try {
-    await request();
+    await enqueue(userId, request);
   } catch (err) {
-    if (read(userId) === optimistic) write(userId, before);
+    if (read(userId) === optimistic) write(userId, settled(before));
     else void queryClient.invalidateQueries({ queryKey: queryKeys.searchHistory(userId) });
     throw err;
   }
 }
 
 let tempSeq = 0;
-const settledIds = new Map<string, Promise<string | null>>();
-const pendingWrites = new Map<string, Set<Promise<unknown>>>();
-
-const track = (userId: string, write: Promise<unknown>) => {
-  const writes = pendingWrites.get(userId) ?? new Set<Promise<unknown>>();
-  pendingWrites.set(userId, writes);
-  writes.add(write);
-  void write.catch(() => {}).finally(() => writes.delete(write));
-};
 
 export function recordSearch(userId: string, target: HistoryTarget): Promise<void> {
   const tempId = `${TEMP_PREFIX}${++tempSeq}`;
   const key = historyKey(target);
-  let resolveId: (id: string | null) => void = () => {};
-  settledIds.set(tempId, new Promise((resolve) => (resolveId = resolve)));
-  const saving = apply(
+  return apply(
     userId,
     (items) =>
       [
@@ -100,7 +105,7 @@ export function recordSearch(userId: string, target: HistoryTarget): Promise<voi
     async () => {
       try {
         const saved = await searchHistoryAPI.record(target);
-        resolveId(saved.id);
+        savedTemps.set(tempId, saved.id);
         const current = read(userId);
         if (current?.some((item) => item.id === tempId)) {
           write(
@@ -109,37 +114,26 @@ export function recordSearch(userId: string, target: HistoryTarget): Promise<voi
           );
         }
       } catch (err) {
-        resolveId(null);
+        savedTemps.set(tempId, null);
         throw err;
       }
     },
-  ).finally(() => settledIds.delete(tempId));
-  track(userId, saving);
-  return saving;
+  );
 }
 
 export function removeSearch(userId: string, id: string): Promise<void> {
-  const pending = settledIds.get(id);
   return apply(
     userId,
     (items) => items.filter((item) => item.id !== id),
     async () => {
-      const serverId = pending ? await pending : id;
+      const serverId = id.startsWith(TEMP_PREFIX) ? savedTemps.get(id) : id;
       if (serverId) await searchHistoryAPI.remove(serverId);
     },
   );
 }
 
 export function clearSearches(userId: string): Promise<void> {
-  const earlier = [...(pendingWrites.get(userId) ?? [])];
-  return apply(
-    userId,
-    () => [],
-    async () => {
-      await Promise.allSettled(earlier);
-      await searchHistoryAPI.clear();
-    },
-  );
+  return apply(userId, () => [], () => searchHistoryAPI.clear());
 }
 
 export function refreshSearchHistory(): void {
