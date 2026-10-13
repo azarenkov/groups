@@ -86,7 +86,7 @@ async fn apply<B: BadgeRepository + ?Sized>(
             )
             .await?;
         plan_changed
-            .plan_changed(&UserId::new(evt.user_id), evt.occurred_at, chrono::Utc::now())
+            .plan_changed(&UserId::new(evt.user_id), chrono::Utc::now())
             .await?;
         return Ok(());
     }
@@ -127,7 +127,6 @@ mod tests {
         async fn plan_changed(
             &self,
             _: &UserId,
-            _: DateTime<Utc>,
             _: DateTime<Utc>,
         ) -> Result<(), messaging::usecases::channel::apply_stream_ceiling::ApplyStreamCeilingError> {
             Ok(())

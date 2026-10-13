@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use domain::{channel::id::ChannelId, plan::Tier, stream::StreamCeiling, user::id::UserId};
 use ports::repository::RepositoryError;
 use voice_domain::call::repository::CallRepository;
@@ -9,8 +9,6 @@ use crate::ports::{
     plan_directory::PlanDirectory,
     voice_service::{VoiceService, VoiceServiceError},
 };
-
-const LIVE_CHANGE_WINDOW_HOURS: i64 = 1;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApplyPlanChangeError {
@@ -52,9 +50,6 @@ where
         self.plans
             .apply_tier(&change.user_id, change.tier, change.valid_until, change.occurred_at)
             .await?;
-        if now - change.occurred_at > Duration::hours(LIVE_CHANGE_WINDOW_HOURS) {
-            return Ok(());
-        }
         let Some(call_id) = self.calls.active_call_for(&change.user_id).await? else {
             return Ok(());
         };

@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use domain::{channel::id::ChannelId, plan::Tier, stream::StreamCeiling, user::id::UserId};
 use messaging_domain::{badge::BadgeRepository, channel::repository::ChannelRepository};
 use ports::repository::RepositoryError;
 
 use crate::ports::voice_service::{VoiceService, VoiceServiceError};
-
-const LIVE_CHANGE_WINDOW_HOURS: i64 = 1;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApplyStreamCeilingError {
@@ -23,7 +21,6 @@ pub trait PlanChanged: Send + Sync {
     async fn plan_changed(
         &self,
         user_id: &UserId,
-        occurred_at: DateTime<Utc>,
         now: DateTime<Utc>,
     ) -> Result<(), ApplyStreamCeilingError>;
 }
@@ -70,12 +67,8 @@ where
     async fn plan_changed(
         &self,
         user_id: &UserId,
-        occurred_at: DateTime<Utc>,
         now: DateTime<Utc>,
     ) -> Result<(), ApplyStreamCeilingError> {
-        if now - occurred_at > Duration::hours(LIVE_CHANGE_WINDOW_HOURS) {
-            return Ok(());
-        }
         let rooms = self.channels.list_voice_channel_ids_with_participant(user_id).await?;
         if rooms.is_empty() {
             return Ok(());
