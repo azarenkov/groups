@@ -7,12 +7,8 @@ export const MAX_TRACKED = 4096;
 export const SNAPSHOT_TYPES: ReadonlySet<string> = new Set([
   "message.sent",
   "message.edited",
-  "message.deleted",
-  "message.hidden",
   "dm_message.sent",
   "dm_message.edited",
-  "dm_message.deleted",
-  "dm_conversation.cleared",
 ]);
 
 interface PartitionState {

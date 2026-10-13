@@ -252,3 +252,14 @@ it("asks for a resync when a snapshot it does not adopt missed a live edit", () 
   s.checkSnapshot("q", 1);
   expect(resynced).toEqual(["p"]);
 });
+
+it("still delivers covered clears and deletions so their side effects run", () => {
+  const { s, emitted } = setup();
+  s.accept(env("message.sent", "p", 1));
+  s.baseline("p", 4);
+  s.accept(env("dm_conversation.cleared", "p", 2));
+  s.accept(env("message.deleted", "p", 3));
+  s.accept(env("message.edited", "p", 4));
+  s.accept(env("dm_conversation.cleared", "p", 2));
+  expect(emitted).toEqual(["message.sent#1", "dm_conversation.cleared#2", "message.deleted#3"]);
+});
