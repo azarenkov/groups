@@ -161,6 +161,7 @@ export class LiveKitService {
   private encoderTimer: ReturnType<typeof setInterval> | null = null;
   private encoderSamples: EncoderSample[] = [];
   private republishingScreen = false;
+  private pendingScreenStopSid: string | null = null;
   private screenSubscriptions: Map<string, boolean> = new Map();
   private screenViewers = 0;
   private screenShareListeners: Set<(state: ScreenShareState) => void> =
@@ -1502,6 +1503,32 @@ export class LiveKitService {
     return this.isConnecting;
   }
 
+  getCurrentRoomName(): string | null {
+    return this.room?.name ?? null;
+  }
+
+  async stopScreenShareTrack(trackSid: string): Promise<boolean> {
+    if (this.getScreenShareTrackSid() !== trackSid) return false;
+    if (this.room?.state !== "connected") {
+      this.pendingScreenStopSid = trackSid;
+      return true;
+    }
+    await this.setScreenShareEnabled(false);
+    return true;
+  }
+
+  private async flushPendingScreenStop(): Promise<void> {
+    const sid = this.pendingScreenStopSid;
+    this.pendingScreenStopSid = null;
+    if (!sid || this.room?.state !== "connected") return;
+    if (this.getScreenShareTrackSid() !== sid) return;
+    try {
+      await this.setScreenShareEnabled(false);
+    } catch (e) {
+      console.warn("[LiveKitService] failed to stop a limited screen share:", e);
+    }
+  }
+
   getScreenShareTrackSid(): string | null {
     return (
       this.room?.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.trackSid ?? null
@@ -1534,7 +1561,10 @@ export class LiveKitService {
       onDisconnected: (reason) => this.handleRoomDisconnected(reason),
       onLocalQuality: (quality) => this.emitLocalQuality(quality),
       onReconnectingStarted: () => this.startReconnectAbortTimer(),
-      onReconnectingSettled: () => this.clearReconnectAbortTimer(),
+      onReconnectingSettled: () => {
+        this.clearReconnectAbortTimer();
+        void this.flushPendingScreenStop();
+      },
       onLocalAudioPublished: (publication) => {
         if (this.desiredMicMuted && publication.track) {
           try {

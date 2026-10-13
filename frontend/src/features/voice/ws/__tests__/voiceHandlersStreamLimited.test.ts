@@ -7,7 +7,11 @@ let mockCurrentRoom: string | null = "room";
 let mockScreenSid: string | null = "TR_1";
 
 jest.mock("../../lib/livekit", () => ({
-  getLiveKitService: () => ({ setScreenShareEnabled: mockSetScreenShareEnabled, getRoomName: () => mockCurrentRoom, getScreenShareTrackSid: () => mockScreenSid }),
+  getLiveKitService: () => ({
+    stopScreenShareTrack: mockSetScreenShareEnabled,
+    getCurrentRoomName: () => mockCurrentRoom,
+    getScreenShareTrackSid: () => mockScreenSid,
+  }),
 }));
 
 beforeEach(() => {
@@ -27,7 +31,7 @@ it("stops the offending screen share and explains why without overriding the liv
     frameRate: 60,
     maxBitrate: 4_000_000,
   });
-  expect(mockSetScreenShareEnabled).toHaveBeenCalledWith(false);
+  expect(mockSetScreenShareEnabled).toHaveBeenCalledWith("TR_1");
   expect(useStreamCeilingStore.getState().ceiling).toBeNull();
   expect(useCallStore.getState().callError).toBeTruthy();
 });

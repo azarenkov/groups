@@ -65,9 +65,9 @@ export const voiceHandlers: WsHandlers = {
     const roomId = asString(d.roomId);
     const trackSid = asString(d.trackSid);
     const livekit = getLiveKitService();
-    if (!roomId || livekit.getRoomName() !== roomId) return;
-    if (!trackSid || livekit.getScreenShareTrackSid() !== trackSid) return;
-    void livekit.setScreenShareEnabled(false).catch(() => {});
+    if (!roomId || !trackSid || livekit.getCurrentRoomName() !== roomId) return;
+    if (livekit.getScreenShareTrackSid() !== trackSid) return;
+    void livekit.stopScreenShareTrack(trackSid).catch(() => {});
     useCallStore.getState().setCallError(i18n.t("streamLimited", { ns: "call" }));
   },
   "channel.participant.joined": (d) => {
