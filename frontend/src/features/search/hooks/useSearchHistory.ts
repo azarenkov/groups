@@ -12,6 +12,7 @@ import {
   readStoredHistory,
   recordSearch,
   refreshSearchHistory,
+  withPendingChanges,
   removeSearch,
 } from "../lib/searchHistory";
 
@@ -40,7 +41,7 @@ export function useSearchHistory(load: boolean) {
   const query = useQuery(
     {
       queryKey: queryKeys.searchHistory(userId ?? ""),
-      queryFn: () => searchHistoryAPI.list(),
+      queryFn: async () => withPendingChanges(userId ?? "", await searchHistoryAPI.list()),
       enabled: userId !== null && load,
       initialData: () => (userId ? readStoredHistory(userId) : undefined),
       initialDataUpdatedAt: 0,
@@ -49,19 +50,20 @@ export function useSearchHistory(load: boolean) {
     queryClient,
   );
   const blocked = useBlockStore((s) => s.blocked);
-  const firstBlocks = React.useRef(blocked);
+  const blockedBy = useBlockStore((s) => s.blockedBy);
+  const seenBlocks = React.useRef({ blocked, blockedBy });
   React.useEffect(() => {
-    if (firstBlocks.current === blocked) return;
-    firstBlocks.current = blocked;
+    if (seenBlocks.current.blocked === blocked && seenBlocks.current.blockedBy === blockedBy) return;
+    seenBlocks.current = { blocked, blockedBy };
     refreshSearchHistory();
-  }, [blocked]);
+  }, [blocked, blockedBy]);
   const items = React.useMemo(
     () =>
       ((userId ? query.data : undefined) ?? []).filter((item) => {
         const peer = blockedPeerOf(item);
-        return !peer || !blocked[peer];
+        return !peer || (!blocked[peer] && !blockedBy[peer]);
       }),
-    [userId, query.data, blocked],
+    [userId, query.data, blocked, blockedBy],
   );
   return {
     items,

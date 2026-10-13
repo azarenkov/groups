@@ -379,3 +379,18 @@ it("hides recent DMs with people blocked since they were cached and refetches th
   expect(screen.queryByText("private words")).toBeNull();
   await waitFor(() => expect(searchHistoryAPI.list).toHaveBeenCalled());
 });
+
+it("hides recent entries for people who blocked the viewer", async () => {
+  signIn();
+  useBlockStore.setState({ loaded: true, blocked: {}, blockedBy: {} });
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h8", usedAt: "2026-10-13T09:00:00Z", type: "person", userId: "u8", name: "Oscar" },
+  ]);
+  const { input } = setup();
+  fireEvent.focus(input);
+  expect(await screen.findByText("Oscar")).toBeInTheDocument();
+  (searchHistoryAPI.list as jest.Mock).mockClear();
+  act(() => useBlockStore.setState({ blockedBy: { u8: true } }));
+  expect(screen.queryByText("Oscar")).toBeNull();
+  await waitFor(() => expect(searchHistoryAPI.list).toHaveBeenCalled());
+});

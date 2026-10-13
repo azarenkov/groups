@@ -7,6 +7,7 @@ import {
   installHistoryPersistence,
   readStoredHistory,
   resetSearchHistorySession,
+  withPendingChanges,
   recordSearch,
   removeSearch,
   storeHistory,
@@ -179,4 +180,24 @@ it("keeps the browser copy through a session reset so a reload shows recents at 
   storeHistory("me", [query("a", "Rust")]);
   resetSearchHistorySession();
   expect(readStoredHistory("me")?.map((i) => i.id)).toEqual(["a"]);
+});
+
+it("keeps a later optimistic save through a refetch triggered by an earlier failure", async () => {
+  queryClient.setQueryData(key, []);
+  let failFirst: (e: Error) => void = () => {};
+  let finishSecond: (v: { id: string; usedAt: string }) => void = () => {};
+  api.record
+    .mockReturnValueOnce(new Promise((_, reject) => (failFirst = reject)))
+    .mockReturnValueOnce(new Promise((resolve) => (finishSecond = resolve)));
+  api.list.mockResolvedValue([]);
+  const first = recordSearch("me", { type: "query", text: "first" });
+  const second = recordSearch("me", { type: "query", text: "second" });
+  await flush();
+  failFirst(new Error("down"));
+  await expect(first).rejects.toThrow("down");
+  await queryClient.fetchQuery({ queryKey: key, queryFn: async () => withPendingChanges("me", await searchHistoryAPI.list()) });
+  expect(items().map((i) => (i.type === "query" ? i.text : ""))).toEqual(["second"]);
+  finishSecond({ id: "server-8", usedAt: "2026-10-13T11:00:00Z" });
+  await second;
+  expect(items()).toEqual([expect.objectContaining({ id: "server-8", text: "second" })]);
 });

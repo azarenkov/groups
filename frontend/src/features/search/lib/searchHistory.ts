@@ -60,6 +60,10 @@ const write = (userId: string, items: HistoryItem[]) =>
 
 const queues = new Map<string, Promise<unknown>>();
 const savedTemps = new Map<string, string | null>();
+const pendingChanges = new Map<string, Set<(items: HistoryItem[]) => HistoryItem[]>>();
+
+export const withPendingChanges = (userId: string, items: HistoryItem[]): HistoryItem[] =>
+  [...(pendingChanges.get(userId) ?? [])].reduce((acc, change) => change(acc), items);
 
 export class HistorySessionChanged extends Error {
   constructor() {
@@ -85,6 +89,7 @@ export function resetSearchHistorySession(): void {
   sessionGen += 1;
   queues.clear();
   savedTemps.clear();
+  pendingChanges.clear();
 }
 
 const settled = (items: HistoryItem[]): HistoryItem[] =>
@@ -100,6 +105,9 @@ async function apply(
   request: () => Promise<void>,
 ): Promise<void> {
   void queryClient.cancelQueries({ queryKey: queryKeys.searchHistory(userId) }, { revert: false });
+  const changes = pendingChanges.get(userId) ?? new Set();
+  pendingChanges.set(userId, changes);
+  changes.add(change);
   const before = read(userId) ?? [];
   const optimistic = write(userId, change(before));
   try {
@@ -108,6 +116,8 @@ async function apply(
     if (read(userId) === optimistic) write(userId, settled(before));
     void queryClient.invalidateQueries({ queryKey: queryKeys.searchHistory(userId) });
     throw err;
+  } finally {
+    changes.delete(change);
   }
 }
 
@@ -145,7 +155,7 @@ export function recordSearch(userId: string, target: HistoryTarget): Promise<voi
 export function removeSearch(userId: string, id: string): Promise<void> {
   return apply(
     userId,
-    (items) => items.filter((item) => item.id !== id),
+    (items) => items.filter((item) => item.id !== id && item.id !== savedTemps.get(id)),
     async () => {
       const serverId = id.startsWith(TEMP_PREFIX) ? savedTemps.get(id) : id;
       if (serverId) await searchHistoryAPI.remove(serverId);
