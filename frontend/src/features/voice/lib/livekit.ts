@@ -1518,14 +1518,23 @@ export class LiveKitService {
       this.pendingScreenStopSid = trackSid;
       return true;
     }
-    await this.setScreenShareEnabled(false);
+    try {
+      await this.setScreenShareEnabled(false);
+    } catch (e) {
+      console.warn("[LiveKitService] failed to stop a limited screen share; ending the capture:", e);
+      this.pendingScreenStopSid = trackSid;
+      this.room?.localParticipant
+        .getTrackPublication(Track.Source.ScreenShare)
+        ?.track?.mediaStreamTrack.stop();
+      this.refreshScreenShares();
+    }
     return true;
   }
 
   private async flushPendingScreenStop(): Promise<void> {
     const sid = this.pendingScreenStopSid;
-    this.pendingScreenStopSid = null;
     if (!sid || this.room?.state !== "connected") return;
+    this.pendingScreenStopSid = null;
     if (this.getScreenShareTrackSid() !== sid) return;
     try {
       await this.setScreenShareEnabled(false);

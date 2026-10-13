@@ -44,25 +44,36 @@ where
     }
 
     pub async fn execute(&self, now: DateTime<Utc>) -> Result<usize, SweepScreenSharesError> {
-        let previous = std::mem::take(&mut *self.suspects.lock().unwrap_or_else(|e| e.into_inner()));
+        let previous = self.suspects.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        let rooms = self.voice.active_rooms().await?;
         let mut current = HashSet::new();
         let mut limited = 0;
-        for room in self.voice.active_rooms().await? {
+        for room in rooms {
             let shares = match self.voice.room_screen_shares(&room).await {
                 Ok(shares) => shares,
                 Err(e) => {
                     tracing::warn!(error = %e, room = %room.uuid(), "Failed to inspect screen shares of a room");
+                    current.extend(previous.iter().filter(|(r, _)| *r == room.uuid()).copied());
                     continue;
                 }
             };
             for (user, video) in shares {
-                let ceiling = StreamCeiling::for_tier(self.plans.tier_of(&user, now).await?);
+                let key = (room.uuid(), user.uuid());
+                let ceiling = match self.plans.tier_of(&user, now).await {
+                    Ok(tier) => StreamCeiling::for_tier(tier),
+                    Err(e) => {
+                        tracing::warn!(error = %e, user_id = %user.uuid(), "Failed to read a plan during the sweep");
+                        if previous.contains(&key) {
+                            current.insert(key);
+                        }
+                        continue;
+                    }
+                };
                 if ceiling.allows(video.width, video.height, video.bitrate) {
                     continue;
                 }
-                let key = (room.uuid(), user.uuid());
+                current.insert(key);
                 if !previous.contains(&key) {
-                    current.insert(key);
                     continue;
                 }
                 let event = StreamLimited {
@@ -74,7 +85,6 @@ where
                 };
                 if let Err(e) = self.outbox.record_stream_limited(&event).await {
                     tracing::warn!(error = %e, user_id = %user.uuid(), "Failed to record a stream limit; will retry");
-                    current.insert(key);
                     continue;
                 }
                 tracing::info!(
@@ -88,7 +98,6 @@ where
                 if let Err(e) = self.voice.mute_track(&room, &user, &video.sid).await {
                     tracing::warn!(error = %e, user_id = %user.uuid(), "Failed to mute a screen share above the plan ceiling");
                 }
-                current.insert(key);
                 limited += 1;
             }
         }
@@ -179,6 +188,55 @@ mod tests {
         }
     }
 
+    struct Unreachable;
+
+    #[async_trait]
+    impl VoiceService for Unreachable {
+        async fn create_token(&self, _: &UserId, _: &UserName, _: &ChannelId, _: StreamCeiling) -> Result<ChannelToken, VoiceServiceError> {
+            unimplemented!()
+        }
+        async fn create_voice_channel(&self, _: &ChannelId, _: &CommunityId) -> Result<(), VoiceServiceError> {
+            unimplemented!()
+        }
+        async fn delete_voice_channel(&self, _: &ChannelId) -> Result<(), VoiceServiceError> {
+            unimplemented!()
+        }
+        async fn remove_participant(&self, _: &ChannelId, _: &UserId) -> Result<(), VoiceServiceError> {
+            unimplemented!()
+        }
+        async fn create_token_with_access(
+            &self,
+            _: &UserId,
+            _: &UserName,
+            _: &ChannelId,
+            _: ParticipantAccess,
+            _: StreamCeiling,
+        ) -> Result<ChannelToken, VoiceServiceError> {
+            unimplemented!()
+        }
+        async fn apply_participant_access(&self, _: &ChannelId, _: &UserId, _: ParticipantAccess) -> Result<(), VoiceServiceError> {
+            unimplemented!()
+        }
+        async fn set_stream_ceiling(&self, _: &ChannelId, _: &UserId, _: StreamCeiling) -> Result<(), VoiceServiceError> {
+            unimplemented!()
+        }
+        async fn screen_shares(&self, _: &ChannelId, _: &UserId) -> Result<Vec<PublishedVideo>, VoiceServiceError> {
+            unimplemented!()
+        }
+        async fn mute_track(&self, _: &ChannelId, _: &UserId, _: &str) -> Result<(), VoiceServiceError> {
+            unimplemented!()
+        }
+        async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError> {
+            Err(VoiceServiceError::ParticipantUpdate("down".into()))
+        }
+        async fn room_screen_shares(&self, _: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
+            unimplemented!()
+        }
+        fn client_url(&self) -> String {
+            String::new()
+        }
+    }
+
     #[derive(Default)]
     struct Limits(Mutex<Vec<StreamLimited>>);
 
@@ -195,6 +253,24 @@ mod tests {
 
     fn video(sid: &str, width: u32, height: u32) -> PublishedVideo {
         PublishedVideo { sid: sid.into(), width, height, bitrate: 1_000_000 }
+    }
+
+    #[tokio::test]
+    async fn keeps_strikes_when_the_rooms_cannot_be_listed() {
+        let free = Uuid::new_v4();
+        let room = ChannelId::new(Uuid::new_v4());
+        let voice = Arc::new(Rooms {
+            room,
+            shares: vec![(UserId::new(free), video("big", 3840, 2160))],
+            muted: Mutex::new(Vec::new()),
+        });
+        let sweep = SweepScreenShares::new(Arc::new(Plans(HashMap::new())), voice.clone(), Arc::new(Limits::default()));
+        sweep.execute(Utc::now()).await.unwrap();
+        let broken = Arc::new(Unreachable);
+        let failing = SweepScreenShares::new(Arc::new(Plans(HashMap::new())), broken, Arc::new(Limits::default()));
+        *failing.suspects.lock().unwrap() = sweep.suspects.lock().unwrap().clone();
+        assert!(failing.execute(Utc::now()).await.is_err());
+        assert!(failing.suspects.lock().unwrap().contains(&(room.uuid(), free)));
     }
 
     #[tokio::test]
