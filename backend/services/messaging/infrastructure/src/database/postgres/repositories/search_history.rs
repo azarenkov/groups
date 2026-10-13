@@ -12,7 +12,8 @@ use sqlx::{Pool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::database::postgres::{
-    error::map_sqlx_error_to_domain_error, repositories::outbox_record::save_outbox_records,
+    error::map_sqlx_error_to_domain_error,
+    repositories::{community_unit_of_work::lock_user, outbox_record::save_outbox_records},
 };
 
 pub struct PostgresSearchHistoryRepository {
@@ -248,7 +249,8 @@ impl SearchHistoryRepository for PostgresSearchHistoryRepository {
         let row = sqlx::query!(
             r#"
             INSERT INTO search_history (id, user_id, kind, key, query, target_id, used_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            SELECT $1, $2, $3, $4, $5, $6, $7
+            WHERE NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id = $2)
             ON CONFLICT (user_id, kind, key) DO UPDATE
                 SET used_at = GREATEST(search_history.used_at, EXCLUDED.used_at),
                     query = EXCLUDED.query
@@ -262,9 +264,10 @@ impl SearchHistoryRepository for PostgresSearchHistoryRepository {
             entry.target(),
             at,
         )
-        .fetch_one(&mut *tx)
+        .fetch_optional(&mut *tx)
         .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        .map_err(map_sqlx_error_to_domain_error)?
+        .ok_or(RepositoryError::NotFound)?;
         sqlx::query!(
             r#"
             DELETE FROM search_history
@@ -313,11 +316,7 @@ impl SearchHistoryRepository for PostgresSearchHistoryRepository {
 
 async fn begin_history_tx<'a>(pool: &'a Pool<Postgres>, user: &UserId) -> Result<Transaction<'a, Postgres>, RepositoryError> {
     let mut tx = pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
-    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 53))")
-        .bind(format!("search_history:{}", user.uuid()))
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+    lock_user(&mut tx, user).await?;
     Ok(tx)
 }
 
