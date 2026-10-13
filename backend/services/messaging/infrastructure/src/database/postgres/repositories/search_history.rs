@@ -255,7 +255,10 @@ impl SearchHistoryRepository for PostgresSearchHistoryRepository {
             WHERE NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id = $2)
             ON CONFLICT (user_id, kind, key) DO UPDATE
                 SET used_at = GREATEST(search_history.used_at, EXCLUDED.used_at),
-                    query = EXCLUDED.query
+                    query = CASE
+                        WHEN EXCLUDED.used_at >= search_history.used_at THEN EXCLUDED.query
+                        ELSE search_history.query
+                    END
             RETURNING id, used_at
             "#,
             Uuid::new_v4(),
