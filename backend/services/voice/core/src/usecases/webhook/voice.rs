@@ -158,7 +158,9 @@ where
                         .await?;
                     return Ok(());
                 }
-                self.refresh_stream_ceiling(channel_id, user_id).await?;
+                if self.call_repository.is_call_room(channel_id).await? {
+                    self.refresh_stream_ceiling(channel_id, user_id).await?;
+                }
                 match self
                     .call_repository
                     .webhook_joined(

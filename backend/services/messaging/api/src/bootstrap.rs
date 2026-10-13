@@ -171,6 +171,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let channel_stream = std::env::var("MESSAGING_CHANNEL_STREAM")
         .unwrap_or_else(|_| "RIFT_CHANNEL_EVENTS".to_string());
+    let stream_ceilings = Arc::new(messaging::usecases::channel::apply_stream_ceiling::ApplyStreamCeiling::new(
+        badge_repository.clone(),
+        channel_repository.clone(),
+        livekit_service.clone(),
+    ));
     messaging_infrastructure::consumers::voice_webhooks::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
@@ -179,6 +184,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         channel_unit_of_work.clone(),
         community_repository.clone(),
         livekit_service.clone(),
+        stream_ceilings.clone(),
     );
     let community_stream = std::env::var("MESSAGING_COMMUNITY_STREAM")
         .unwrap_or_else(|_| "RIFT_COMMUNITY_EVENTS".to_string());
@@ -211,11 +217,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         nats_config.subject_prefix.clone(),
         user_stream,
         badge_repository.clone(),
-        Arc::new(messaging::usecases::channel::apply_stream_ceiling::ApplyStreamCeiling::new(
-            badge_repository.clone(),
-            channel_repository.clone(),
-            livekit_service.clone(),
-        )),
+        stream_ceilings.clone(),
     );
 
     let nats_core = nats_jetstream.client().clone();

@@ -28,6 +28,16 @@ pub trait PlanChanged: Send + Sync {
     ) -> Result<(), ApplyStreamCeilingError>;
 }
 
+#[async_trait]
+pub trait ParticipantJoined: Send + Sync {
+    async fn participant_joined(
+        &self,
+        room: &ChannelId,
+        user_id: &UserId,
+        now: DateTime<Utc>,
+    ) -> Result<(), ApplyStreamCeilingError>;
+}
+
 pub struct ApplyStreamCeiling<B, C, V>
 where
     B: BadgeRepository,
@@ -76,6 +86,25 @@ where
                 .set_stream_ceiling(&ChannelId::new(room.uuid()), user_id, ceiling)
                 .await?;
         }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<B, C, V> ParticipantJoined for ApplyStreamCeiling<B, C, V>
+where
+    B: BadgeRepository + Send + Sync,
+    C: ChannelRepository + Send + Sync,
+    V: VoiceService + Send + Sync,
+{
+    async fn participant_joined(
+        &self,
+        room: &ChannelId,
+        user_id: &UserId,
+        now: DateTime<Utc>,
+    ) -> Result<(), ApplyStreamCeilingError> {
+        let ceiling = StreamCeiling::for_tier(Tier::parse(&self.badges.tier_of(user_id, now).await?));
+        self.voice.set_stream_ceiling(room, user_id, ceiling).await?;
         Ok(())
     }
 }
