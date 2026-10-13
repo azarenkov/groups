@@ -346,7 +346,16 @@ pub fn published_video(track: &livekit_protocol::TrackInfo) -> PublishedVideo {
         sid: track.sid.clone(),
         width: top.map_or(track.width, |layer| layer.width.max(track.width)),
         height: top.map_or(track.height, |layer| layer.height.max(track.height)),
-        bitrate: layers().map(|layer| layer.bitrate as u64).max().unwrap_or(0),
+        bitrate: track.codecs.iter().map(codec_bitrate).max().unwrap_or(0),
+    }
+}
+
+fn codec_bitrate(codec: &livekit_protocol::SimulcastCodecInfo) -> u64 {
+    let layers = codec.layers.iter().map(|layer| layer.bitrate as u64);
+    if codec.video_layer_mode == livekit_protocol::video_layer::Mode::MultipleSpatialLayersPerStream as i32 {
+        layers.max().unwrap_or(0)
+    } else {
+        layers.sum()
     }
 }
 
@@ -417,7 +426,28 @@ mod published_video_tests {
             ..Default::default()
         };
         let video = published_video(&track);
-        assert_eq!(video, PublishedVideo { sid: "TR_1".into(), width: 1920, height: 1080, bitrate: 6_000_000 });
+        assert_eq!(video, PublishedVideo { sid: "TR_1".into(), width: 1920, height: 1080, bitrate: 6_500_000 });
+    }
+
+    #[test]
+    fn counts_svc_layers_once_and_the_active_codec_only() {
+        let layer = |width, height, bitrate| livekit_protocol::VideoLayer { width, height, bitrate, ..Default::default() };
+        let track = livekit_protocol::TrackInfo {
+            sid: "TR_3".into(),
+            codecs: vec![
+                livekit_protocol::SimulcastCodecInfo {
+                    video_layer_mode: livekit_protocol::video_layer::Mode::MultipleSpatialLayersPerStream as i32,
+                    layers: vec![layer(640, 360, 1_000_000), layer(1280, 720, 3_000_000)],
+                    ..Default::default()
+                },
+                livekit_protocol::SimulcastCodecInfo {
+                    layers: vec![layer(640, 360, 500_000), layer(1280, 720, 2_000_000)],
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        assert_eq!(published_video(&track).bitrate, 3_000_000);
     }
 
     #[test]
