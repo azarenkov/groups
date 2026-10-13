@@ -159,6 +159,13 @@ impl SequenceGate {
                 turn.running.insert(seq);
                 return Turn::Late;
             }
+            if let Some((elected, at)) = turn.elected
+                && elected > seq
+                && now < at + self.max_wait
+            {
+                turn.waiting.insert(seq);
+                return Turn::Wait(at + self.max_wait);
+            }
             if seq == done + 1 {
                 turn.waiting.remove(&seq);
                 turn.running.insert(seq);
@@ -402,6 +409,21 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(600)).await;
         assert!(!later.is_finished());
         assert!(tokio::time::timeout(Duration::from_millis(100), gate.wait_turn("p", 11)).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn holds_the_next_sequence_while_a_later_elected_one_is_dispatching() {
+        let gate = Arc::new(SequenceGate::with_settle(Duration::from_millis(100), Duration::ZERO));
+        gate.done("p", 10);
+        assert!(tokio::time::timeout(Duration::from_secs(1), gate.wait_turn("p", 12)).await.unwrap());
+        let next = tokio::spawn({
+            let gate = gate.clone();
+            async move { gate.wait_turn("p", 11).await }
+        });
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        assert!(!next.is_finished());
+        gate.done("p", 12);
+        assert!(!tokio::time::timeout(Duration::from_millis(500), next).await.unwrap().unwrap());
     }
 
     #[tokio::test]
