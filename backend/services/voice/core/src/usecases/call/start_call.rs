@@ -37,6 +37,7 @@ pub enum StartCallError {
 }
 
 pub struct StartCallResult {
+    pub stream_ceiling: domain::stream::StreamCeiling,
     pub call_id: Uuid,
     pub token: ChannelToken,
     pub url: String,
@@ -139,9 +140,15 @@ where
             .create_voice_channel(&room, &CommunityId::new(call_id))
             .await?;
 
+        let stream_ceiling = domain::stream::StreamCeiling::for_tier(
+
+            &self.user_repository.tier_of(&caller_id, chrono::Utc::now()).await?,
+
+        );
+
         let token = self
             .voice_service
-            .create_token(&caller_id, &caller_name, &room)
+            .create_token(&caller_id, &caller_name, &room, stream_ceiling)
             .await?;
 
         let participants = vec![CallParticipantView {
@@ -206,6 +213,7 @@ where
             call_id,
             token,
             url: self.voice_service.client_url(),
+            stream_ceiling,
             participants,
             video,
         })

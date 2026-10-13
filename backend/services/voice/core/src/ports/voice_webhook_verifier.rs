@@ -36,6 +36,7 @@ pub enum VoiceWebhookEvent {
         user_id: Uuid,
         session_id: String,
         source: MediaSource,
+        video: Option<ports::voice_service::PublishedVideo>,
     },
     TrackUnpublished {
         channel_id: Uuid,

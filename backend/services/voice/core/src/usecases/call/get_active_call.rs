@@ -24,6 +24,7 @@ pub enum GetActiveCallError {
 }
 
 pub struct ActiveCallResult {
+    pub stream_ceiling: domain::stream::StreamCeiling,
     pub call_id: Uuid,
     pub token: ChannelToken,
     pub url: String,
@@ -118,9 +119,12 @@ where
         if others.len() + 1 != participants.len() {
             participants = self.call_repository.list_active(call_id).await?;
         }
+        let stream_ceiling = domain::stream::StreamCeiling::for_tier(
+            &self.user_repository.tier_of(&user_id, chrono::Utc::now()).await?,
+        );
         let token = self
             .voice_service
-            .create_token(&user_id, &user_name, &room)
+            .create_token(&user_id, &user_name, &room, stream_ceiling)
             .await?;
 
         let video = self.call_repository.call_video(call_id).await?;
@@ -130,6 +134,7 @@ where
             call_id,
             token,
             url: self.voice_service.client_url(),
+            stream_ceiling,
             participants,
             video,
             started_at,

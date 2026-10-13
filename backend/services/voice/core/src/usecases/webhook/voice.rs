@@ -71,6 +71,36 @@ where
         }
     }
 
+    async fn enforce_stream_ceiling(
+        &self,
+        channel_id: uuid::Uuid,
+        user_id: uuid::Uuid,
+        video: &ports::voice_service::PublishedVideo,
+    ) -> Result<(), HandleVoiceWebhookError> {
+        let user = UserId::new(user_id);
+        let ceiling = domain::stream::StreamCeiling::for_tier(&self.profiles.tier_of(&user, chrono::Utc::now()).await?);
+        if ceiling.allows(video.width, video.height, video.bitrate) {
+            return Ok(());
+        }
+        let room = ChannelId::new(channel_id);
+        tracing::info!(
+            %user_id,
+            %channel_id,
+            width = video.width,
+            height = video.height,
+            bitrate = video.bitrate,
+            "Screen share above the plan ceiling; muting it"
+        );
+        if let Err(e) = self.voice_service.mute_track(&room, &user, &video.sid).await {
+            tracing::warn!(error = %e, %user_id, "Failed to mute a screen share above the plan ceiling");
+            return Ok(());
+        }
+        self.outbox
+            .save_record(ports::voice_service::stream_limited_record(&user, &room, ceiling))
+            .await?;
+        Ok(())
+    }
+
     async fn evict_if_blocked(
         &self,
         call_id: uuid::Uuid,
@@ -219,7 +249,11 @@ where
                 user_id,
                 session_id,
                 source: media_source,
+                video,
             } => {
+                if let Some(video) = video {
+                    self.enforce_stream_ceiling(channel_id, user_id, &video).await?;
+                }
                 if self.call_repository.is_call_room(channel_id).await? {
                     return Ok(());
                 }

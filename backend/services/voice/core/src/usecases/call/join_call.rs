@@ -42,6 +42,7 @@ struct BlockOutcome {
 }
 
 pub struct JoinCallResult {
+    pub stream_ceiling: domain::stream::StreamCeiling,
     pub token: ChannelToken,
     pub url: String,
     pub participants: Vec<CallParticipantView>,
@@ -112,9 +113,15 @@ where
             return Err(JoinCallError::CallNotAllowed);
         }
 
+        let stream_ceiling = domain::stream::StreamCeiling::for_tier(
+
+            &self.user_repository.tier_of(&user_id, chrono::Utc::now()).await?,
+
+        );
+
         let token = self
             .voice_service
-            .create_token(&user_id, &user_name, &room)
+            .create_token(&user_id, &user_name, &room, stream_ceiling)
             .await?;
 
         match self
@@ -174,6 +181,7 @@ where
         Ok(JoinCallResult {
             token,
             url: self.voice_service.client_url(),
+            stream_ceiling,
             participants,
         video,
         })

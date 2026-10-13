@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use ports::{outbox_writer::OutboxWriter, repository::RepositoryError};
+use ports::{outbox::record::OutboxRecord, outbox_writer::OutboxWriter, repository::RepositoryError};
 use voice::ports::webhook_outbox::WebhookOutbox;
 use voice_domain::webhook::WebhookEvent;
 
@@ -19,6 +19,10 @@ impl PostgresWebhookOutbox {
 impl WebhookOutbox for PostgresWebhookOutbox {
     async fn save(&self, event: &WebhookEvent, request_id: Option<&str>) -> Result<(), RepositoryError> {
         let record = to_record(event, request_id)?;
+        self.writer.save(&[record]).await
+    }
+
+    async fn save_record(&self, record: OutboxRecord) -> Result<(), RepositoryError> {
         self.writer.save(&[record]).await
     }
 }

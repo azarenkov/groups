@@ -105,11 +105,18 @@ impl VoiceWebhookVerifier for LiveKitWebhookReceiver {
                     (Some((channel_id, user_id)), Some(source)) => {
                         let session_id = require_sid(participant)?;
                         if event.event.as_str() == EVENT_TRACK_PUBLISHED {
+                            let video = match (&source, event.track.as_ref()) {
+                                (MediaSource::Screen, Some(track)) => {
+                                    Some(infrastructure_common::voice::livekit_service::published_video(track))
+                                }
+                                _ => None,
+                            };
                             VoiceWebhookEvent::TrackPublished {
                                 channel_id,
                                 user_id,
                                 session_id,
                                 source,
+                                video,
                             }
                         } else {
                             VoiceWebhookEvent::TrackUnpublished {

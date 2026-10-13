@@ -6,6 +6,7 @@ mod projection;
 mod routes;
 mod server;
 mod state;
+mod tiers;
 mod webhook;
 
 use std::error::Error;
