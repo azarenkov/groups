@@ -138,13 +138,17 @@ class AuthAPI {
     }
 
     this.refreshInProgress = true;
+    const startedWith = useAuthStore.getState().tokens?.refreshToken ?? null;
+    const sameSession = () => (useAuthStore.getState().tokens?.refreshToken ?? null) === startedWith;
     this.refreshPromise = (async () => {
       try {
         const newTokens = await this.refresh();
-
+        if (!sameSession()) {
+          throw new Error("The session changed while its tokens were being refreshed");
+        }
         useAuthStore.getState().setTokens(newTokens);
       } catch (err) {
-        if (logoutOnFailure) {
+        if (logoutOnFailure && sameSession()) {
           useAuthStore.getState().logout();
         }
         throw err;

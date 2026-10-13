@@ -15,7 +15,14 @@ interface RecentSearchesProps {
 }
 
 
-const RecentIcon: React.FC<{ item: HistoryItem }> = ({ item }) => {
+const RecentIcon: React.FC<{ item: HistoryItem; masked: boolean }> = ({ item, masked }) => {
+  if (masked) {
+    return (
+      <span className="search-dd-ava search-dd-icon round">
+        <Icon name="eye-off" size={16} />
+      </span>
+    );
+  }
   switch (item.type) {
     case "query":
       return (
@@ -91,9 +98,10 @@ const RecentSearches: React.FC<RecentSearchesProps> = ({ items, onPick, onRemove
       case "channel":
         return item.communityName;
       case "message":
-        return item.place.type === "channel"
-          ? t("recentMessageIn", { author: item.authorName, place: `#${item.place.channelName}` })
-          : t("recentMessageFrom", { author: item.authorName });
+        if (item.place.type !== "channel") return t("recentMessageFrom", { author: item.authorName });
+        return masked(item)
+          ? `#${item.place.channelName}`
+          : t("recentMessageIn", { author: item.authorName, place: `#${item.place.channelName}` });
     }
   };
 
@@ -107,7 +115,7 @@ const RecentSearches: React.FC<RecentSearchesProps> = ({ items, onPick, onRemove
       {items.map((item) => (
         <div key={item.id} className="search-dd-person">
           <button type="button" className="search-dd-item" onClick={() => onPick(item)}>
-            <RecentIcon item={item} />
+            <RecentIcon item={item} masked={masked(item)} />
             <span className="search-dd-text">
               <span className="search-dd-name">{label(item)}</span>
               <span className="search-dd-sub">{sub(item)}</span>

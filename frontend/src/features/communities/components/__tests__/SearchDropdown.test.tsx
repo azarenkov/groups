@@ -351,6 +351,8 @@ it("masks recent channel messages from blocked authors", async () => {
   fireEvent.focus(input);
   expect(await screen.findByText(i18n.t("chat:blockedMessage"))).toBeInTheDocument();
   expect(screen.queryByText("secret plans")).toBeNull();
+  expect(screen.queryByText("Mallory", { exact: false })).toBeNull();
+  expect(screen.getByText("#alerts")).toBeInTheDocument();
 });
 
 it("hides recent DMs with people blocked since they were cached and refetches the history", async () => {
