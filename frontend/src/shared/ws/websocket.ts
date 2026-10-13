@@ -127,12 +127,12 @@ class WsClient {
     this.sequencer.baseline(partition, seq);
   }
 
-  checkSnapshot(partition: string, seq: number): void {
-    this.sequencer.checkSnapshot(partition, seq);
+  overwrittenAfter(partition: string, seq: number): boolean {
+    return this.sequencer.overwrittenAfter(partition, seq);
   }
 
-  position(partition: string): number | undefined {
-    return this.sequencer.position(partition);
+  checkSnapshot(partition: string, seq: number): void {
+    this.sequencer.checkSnapshot(partition, seq);
   }
 
   onResync(listener: (partition: string) => void): () => void {

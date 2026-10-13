@@ -159,15 +159,6 @@ it("does not ask for a resync when a baseline arrives without an open gap", () =
   expect(resynced).toEqual([]);
 });
 
-it("reports the highest sequence it has taken in", () => {
-  const { s } = setup();
-  expect(s.position("p")).toBeUndefined();
-  s.accept(env("a", "p", 1));
-  s.accept(env("a", "p", 2));
-  s.baseline("p", 5);
-  expect(s.position("p")).toBe(5);
-});
-
 it("bounds tracking when a covered sequence never arrives", () => {
   const { s, emitted } = setup();
   s.accept(env("message.sent", "p", 1));

@@ -102,3 +102,23 @@ it("does not apply a refreshed history that stays older than live events", async
     jest.useRealTimers();
   }
 });
+
+it("applies a refreshed history when only unrelated live events came after it", async () => {
+  render(<Harness />);
+  await act(async () => {
+    replies.shift()!([msg("m1", "first")], 1);
+  });
+  await waitFor(() => expect(latest!.messages.map((m) => m.content)).toEqual(["first"]));
+
+  let refreshing: Promise<void> | undefined;
+  act(() => {
+    refreshing = latest!.refreshHistory();
+  });
+  ws.receive({ type: "channel.read", data: {}, partition: PARTITION, seq: 2 } as unknown as WsEnvelope);
+  await act(async () => {
+    replies.shift()!([msg("m1", "renamed")], 1);
+    await refreshing;
+  });
+  expect(replies).toHaveLength(0);
+  expect(latest!.messages.map((m) => m.content)).toEqual(["renamed"]);
+});

@@ -26,8 +26,7 @@ const STALE_WINDOW_BACKOFF_MS = 400;
 
 const behindLive = (version: { partition?: string; seq?: number }): boolean => {
   if (!version.partition || typeof version.seq !== "number") return false;
-  const position = ws.position(version.partition);
-  return position !== undefined && position > version.seq;
+  return ws.overwrittenAfter(version.partition, version.seq);
 };
 
 async function loadLoadedWindow(
