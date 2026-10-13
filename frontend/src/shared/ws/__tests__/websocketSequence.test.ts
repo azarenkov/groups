@@ -55,3 +55,14 @@ it("still drops a repeated event after a reconnect", () => {
   expect(seen).toEqual(["dm.read"]);
   off();
 });
+
+it("delivers a replay of an event that was dropped while waiting in a gap", () => {
+  const seen: string[] = [];
+  const off = ws.on((env) => seen.push(`${env.type}#${env.seq}`));
+  ws.receive({ type: "dm.read", data: {}, eventId: "g-1", partition: "messaging:g", seq: 1 } as WsEnvelope);
+  ws.receive({ type: "dm.read", data: {}, eventId: "g-3", partition: "messaging:g", seq: 3 } as WsEnvelope);
+  ws.disconnect();
+  ws.receive({ type: "dm.read", data: {}, eventId: "g-3", partition: "messaging:g", seq: 3 } as WsEnvelope);
+  expect(seen).toEqual(["dm.read#1", "dm.read#3"]);
+  off();
+});

@@ -144,7 +144,6 @@ class WsClient {
   }
 
   receive(env: WsEnvelope): void {
-    if (this.isRepeat(env)) return;
     this.sequencer.accept(env);
   }
 
@@ -200,6 +199,7 @@ class WsClient {
   }
 
   deliver(env: WsEnvelope) {
+    if (this.isRepeat(env)) return;
     for (const filter of this.filters) {
       if (!filter(env)) return;
     }
