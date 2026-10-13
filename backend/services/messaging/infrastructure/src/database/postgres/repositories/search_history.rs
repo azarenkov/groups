@@ -139,6 +139,8 @@ impl PostgresSearchHistoryRepository {
             LEFT JOIN messaging_user_profiles pu ON pu.user_id = peer.id
             WHERE m.id = ANY($2)
               AND (m.sender_id = $1 OR m.recipient_id = $1)
+              AND m.invite_community_id IS NULL
+              AND m.call_status IS NULL
               AND NOT EXISTS (
                   SELECT 1 FROM user_blocks b
                   WHERE (b.blocker_id = $1 AND b.blocked_id = peer.id)
