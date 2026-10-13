@@ -61,6 +61,9 @@ impl PlanProjection {
                             break;
                         };
                         let backlog_drained = m.pending == Some(0);
+                        if m.pending.is_some_and(|pending| pending > 0) {
+                            self.caught_up.store(false, Ordering::SeqCst);
+                        }
                         match self.apply(&m.payload).await {
                             Ok(()) => {
                                 let _ = m.ack().await;
