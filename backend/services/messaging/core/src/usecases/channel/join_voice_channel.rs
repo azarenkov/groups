@@ -4,7 +4,7 @@ use ports::voice_service::ParticipantAccess;
 use crate::usecases::channel::voice_access::participant_access;
 
 use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
-use domain::{stream::StreamCeiling, user::id::UserId, user::name::UserName};
+use domain::{plan::Tier, stream::StreamCeiling, user::id::UserId, user::name::UserName};
 use messaging_domain::badge::BadgeRepository;
 use ports::repository::RepositoryError;
 
@@ -146,7 +146,7 @@ where
         let mute_record = channel.mute_record(&user_id);
         let deafen_record = channel.deafen_record(&user_id);
         let access = participant_access(&channel, &user_id);
-        let ceiling = StreamCeiling::for_tier(&self.badge_repository.tier_of(&user_id, chrono::Utc::now()).await?);
+        let ceiling = StreamCeiling::for_tier(Tier::parse(&self.badge_repository.tier_of(&user_id, chrono::Utc::now()).await?));
         let channel_token = if access == ParticipantAccess::FULL {
             self.voice_service
                 .create_token(&user_id, &user_name, channel.id(), ceiling)

@@ -5,6 +5,7 @@ use domain::user::id::UserId;
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use messaging::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
+use messaging::usecases::channel::apply_stream_ceiling::PlanChanged;
 use messaging_domain::badge::{BadgeEmojiStatus, BadgeRepository};
 
 const MAX_DELIVER: u32 = 20;
@@ -15,7 +16,7 @@ pub fn spawn<B>(
     subject_prefix: String,
     user_stream: String,
     badges: Arc<B>,
-    tier_changed: Arc<dyn super::stream_ceilings::TierChanged>,
+    plan_changed: Arc<dyn PlanChanged>,
 ) where
     B: BadgeRepository + 'static,
 {
@@ -44,7 +45,7 @@ pub fn spawn<B>(
                             tracing::warn!("Pro badge stream error");
                             break;
                         };
-                        match apply(&*badges, &*tier_changed, &m.subject, &m.payload).await {
+                        match apply(&*badges, &*plan_changed, &m.subject, &m.payload).await {
                             Ok(()) => {
                                 let _ = m.ack().await;
                             }
@@ -66,7 +67,7 @@ pub fn spawn<B>(
 
 async fn apply<B: BadgeRepository + ?Sized>(
     badges: &B,
-    tier_changed: &dyn super::stream_ceilings::TierChanged,
+    plan_changed: &dyn PlanChanged,
     subject: &str,
     payload: &[u8],
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -84,9 +85,9 @@ async fn apply<B: BadgeRepository + ?Sized>(
                 evt.occurred_at,
             )
             .await?;
-        if chrono::Utc::now() - evt.occurred_at <= chrono::Duration::hours(1) {
-            tier_changed.tier_changed(&UserId::new(evt.user_id)).await?;
-        }
+        plan_changed
+            .plan_changed(&UserId::new(evt.user_id), evt.occurred_at, chrono::Utc::now())
+            .await?;
         return Ok(());
     }
     if subject.ends_with(".profile_changed") {
@@ -122,8 +123,13 @@ mod tests {
     struct NoTier;
 
     #[async_trait]
-    impl super::super::stream_ceilings::TierChanged for NoTier {
-        async fn tier_changed(&self, _: &UserId) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    impl PlanChanged for NoTier {
+        async fn plan_changed(
+            &self,
+            _: &UserId,
+            _: DateTime<Utc>,
+            _: DateTime<Utc>,
+        ) -> Result<(), messaging::usecases::channel::apply_stream_ceiling::ApplyStreamCeilingError> {
             Ok(())
         }
     }

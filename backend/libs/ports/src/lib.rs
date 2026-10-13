@@ -5,6 +5,7 @@ pub mod mailer;
 pub mod outbox;
 pub mod outbox_publisher;
 pub mod outbox_writer;
+pub mod plan_directory;
 pub mod repository;
 pub mod text_moderation;
 pub mod user_profile;

@@ -1,9 +1,13 @@
 use async_trait::async_trait;
-use ports::{outbox::record::OutboxRecord, outbox_writer::OutboxWriter, repository::RepositoryError};
+use ports::{outbox_writer::OutboxWriter, repository::RepositoryError};
+use voice_domain::stream::StreamLimited;
 use voice::ports::webhook_outbox::WebhookOutbox;
 use voice_domain::webhook::WebhookEvent;
 
-use crate::{database::postgres::repositories::outbox_writer::PostgresOutboxWriter, outbox::mapping::to_record};
+use crate::{
+    database::postgres::repositories::outbox_writer::PostgresOutboxWriter,
+    outbox::mapping::{stream_limited_record, to_record},
+};
 
 pub struct PostgresWebhookOutbox {
     writer: PostgresOutboxWriter,
@@ -22,7 +26,7 @@ impl WebhookOutbox for PostgresWebhookOutbox {
         self.writer.save(&[record]).await
     }
 
-    async fn save_record(&self, record: OutboxRecord) -> Result<(), RepositoryError> {
-        self.writer.save(&[record]).await
+    async fn record_stream_limited(&self, event: &StreamLimited) -> Result<(), RepositoryError> {
+        self.writer.save(&[stream_limited_record(event)]).await
     }
 }

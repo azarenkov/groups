@@ -30,6 +30,3 @@ async-nats = { workspace = true }
 validator = { workspace = true }
 dotenv = { workspace = true }
 envy = { workspace = true }
-
-[dev-dependencies]
-async-trait = { workspace = true }

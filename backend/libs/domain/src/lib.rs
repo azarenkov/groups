@@ -3,6 +3,7 @@ pub mod channel;
 pub mod context;
 pub mod event;
 pub mod pagination;
+pub mod plan;
 pub mod password_hash;
 pub mod sticker;
 pub mod stream;

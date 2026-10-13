@@ -211,7 +211,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         nats_config.subject_prefix.clone(),
         user_stream,
         badge_repository.clone(),
-        Arc::new(messaging_infrastructure::consumers::stream_ceilings::ChannelStreamCeilings::new(
+        Arc::new(messaging::usecases::channel::apply_stream_ceiling::ApplyStreamCeiling::new(
             badge_repository.clone(),
             channel_repository.clone(),
             livekit_service.clone(),

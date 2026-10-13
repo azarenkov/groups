@@ -49,37 +49,42 @@ pub struct JoinCallResult {
     pub video: bool,
 }
 
-pub struct JoinCall<C, V, F, U>
+pub struct JoinCall<C, V, F, U, L>
 where
     C: CallRepository,
     V: VoiceService,
     F: FriendshipLookup,
     U: ports::user_profile::UserProfileRepository,
+    L: crate::ports::plan_directory::PlanDirectory,
 {
     call_repository: Arc<C>,
     voice_service: Arc<V>,
     friendship_repository: Arc<F>,
     user_repository: Arc<U>,
+    plans: Arc<L>,
 }
 
-impl<C, V, F, U> JoinCall<C, V, F, U>
+impl<C, V, F, U, L> JoinCall<C, V, F, U, L>
 where
     C: CallRepository,
     V: VoiceService,
     F: FriendshipLookup,
     U: ports::user_profile::UserProfileRepository,
+    L: crate::ports::plan_directory::PlanDirectory,
 {
     pub fn new(
         call_repository: Arc<C>,
         voice_service: Arc<V>,
         friendship_repository: Arc<F>,
         user_repository: Arc<U>,
+        plans: Arc<L>,
     ) -> Self {
         Self {
             call_repository,
             voice_service,
             friendship_repository,
             user_repository,
+            plans,
         }
     }
 
@@ -114,8 +119,7 @@ where
         }
 
         let stream_ceiling = domain::stream::StreamCeiling::for_tier(
-
-            &self.user_repository.tier_of(&user_id, chrono::Utc::now()).await?,
+            self.plans.tier_of(&user_id, chrono::Utc::now()).await?,
 
         );
 

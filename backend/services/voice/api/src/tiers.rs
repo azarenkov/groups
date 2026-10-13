@@ -1,23 +1,22 @@
 use std::sync::Arc;
 
 use contracts::events::user::UserEntitlementsChangedV1;
-use domain::{channel::id::ChannelId, stream::StreamCeiling, user::id::UserId};
+use domain::{plan::Tier, user::id::UserId};
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
-use ports::user_profile::UserProfileRepository;
 use voice::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
+use voice::ports::plan_directory::PlanDirectory;
 use voice::ports::voice_service::VoiceService;
+use voice::usecases::stream::apply_plan_change::{ApplyPlanChange, PlanChange};
 use voice_domain::call::repository::CallRepository;
 
 pub fn spawn<P, C, V>(
     jetstream: async_nats::jetstream::Context,
     subject_prefix: String,
     stream: String,
-    profiles: Arc<P>,
-    calls: Arc<C>,
-    voice: Arc<V>,
+    usecase: Arc<ApplyPlanChange<P, C, V>>,
 ) where
-    P: UserProfileRepository + Send + Sync + 'static,
+    P: PlanDirectory + 'static,
     C: CallRepository + Send + Sync + 'static,
     V: VoiceService + Send + Sync + 'static,
 {
@@ -42,7 +41,18 @@ pub fn spawn<P, C, V>(
                             tracing::warn!("Voice tier projection stream error");
                             break;
                         };
-                        match apply(&*profiles, &*calls, &*voice, &m.payload).await {
+                        let Ok(evt) = serde_json::from_slice::<UserEntitlementsChangedV1>(&m.payload) else {
+                            tracing::warn!("Malformed entitlements event; dropping");
+                            let _ = m.ack().await;
+                            continue;
+                        };
+                        let change = PlanChange {
+                            user_id: UserId::new(evt.user_id),
+                            tier: Tier::parse(&evt.tier),
+                            valid_until: evt.valid_until,
+                            occurred_at: evt.occurred_at,
+                        };
+                        match usecase.execute(change, chrono::Utc::now()).await {
                             Ok(()) => {
                                 let _ = m.ack().await;
                             }
@@ -60,33 +70,4 @@ pub fn spawn<P, C, V>(
             actix_web::rt::time::sleep(std::time::Duration::from_secs(5)).await;
         }
     });
-}
-
-async fn apply<P, C, V>(
-    profiles: &P,
-    calls: &C,
-    voice: &V,
-    payload: &[u8],
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
-where
-    P: UserProfileRepository + Send + Sync,
-    C: CallRepository + Send + Sync,
-    V: VoiceService + Send + Sync,
-{
-    let Ok(evt) = serde_json::from_slice::<UserEntitlementsChangedV1>(payload) else {
-        tracing::warn!("Malformed entitlements event; dropping");
-        return Ok(());
-    };
-    let user = UserId::new(evt.user_id);
-    profiles.apply_tier(&user, &evt.tier, evt.valid_until, evt.occurred_at).await?;
-    if chrono::Utc::now() - evt.occurred_at > chrono::Duration::hours(1) {
-        return Ok(());
-    }
-    let Some(call_id) = calls.active_call_for(&user).await? else {
-        return Ok(());
-    };
-    let room = ChannelId::new(call_id);
-    let ceiling = StreamCeiling::for_tier(&profiles.tier_of(&user, chrono::Utc::now()).await?);
-    voice.set_stream_ceiling(&room, &user, ceiling).await?;
-    Ok(())
 }

@@ -1,3 +1,4 @@
+pub mod apply_stream_ceiling;
 pub mod abort_voice_connection;
 pub mod admit_voice_participant;
 pub mod create_channel;

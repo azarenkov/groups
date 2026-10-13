@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use crate::plan::Tier;
+
 pub const STREAM_CEILING_ATTRIBUTE: &str = "rift.streamCeiling";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -16,11 +18,11 @@ impl StreamCeiling {
     pub const PRO: Self = Self { width: 2560, height: 1440, frame_rate: 60, max_bitrate: 12_000_000 };
     pub const PREMIUM: Self = Self { width: 3840, height: 2160, frame_rate: 60, max_bitrate: 20_000_000 };
 
-    pub fn for_tier(tier: &str) -> Self {
+    pub fn for_tier(tier: Tier) -> Self {
         match tier {
-            "premium" => Self::PREMIUM,
-            "pro" => Self::PRO,
-            _ => Self::FREE,
+            Tier::Premium => Self::PREMIUM,
+            Tier::Pro => Self::PRO,
+            Tier::Free => Self::FREE,
         }
     }
 
@@ -40,10 +42,9 @@ mod tests {
 
     #[test]
     fn each_tier_gets_its_ceiling() {
-        assert_eq!(StreamCeiling::for_tier("free"), StreamCeiling::FREE);
-        assert_eq!(StreamCeiling::for_tier("pro"), StreamCeiling::PRO);
-        assert_eq!(StreamCeiling::for_tier("premium"), StreamCeiling::PREMIUM);
-        assert_eq!(StreamCeiling::for_tier("unknown"), StreamCeiling::FREE);
+        assert_eq!(StreamCeiling::for_tier(Tier::Free), StreamCeiling::FREE);
+        assert_eq!(StreamCeiling::for_tier(Tier::Pro), StreamCeiling::PRO);
+        assert_eq!(StreamCeiling::for_tier(Tier::Premium), StreamCeiling::PREMIUM);
     }
 
     #[test]
