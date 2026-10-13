@@ -16,12 +16,3 @@ WHERE tier_updated_at IS NOT NULL OR tier <> 'free' OR member_number IS NOT NULL
 CREATE INDEX messaging_user_tiers_paid_idx
     ON messaging.messaging_user_tiers (user_id)
     WHERE tier <> 'free';
-
-DROP INDEX IF EXISTS messaging.messaging_user_profiles_paid_idx;
-
-ALTER TABLE messaging.messaging_user_profiles
-    DROP CONSTRAINT IF EXISTS messaging_user_profiles_tier_check,
-    DROP COLUMN IF EXISTS member_number,
-    DROP COLUMN IF EXISTS tier_updated_at,
-    DROP COLUMN IF EXISTS tier_valid_until,
-    DROP COLUMN IF EXISTS tier;
