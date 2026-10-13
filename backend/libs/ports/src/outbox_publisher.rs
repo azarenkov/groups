@@ -1,9 +1,13 @@
 use async_trait::async_trait;
-use crate::outbox::record::OutboxRecord;
+use crate::outbox::record::{OutboxRecord, PartitionSequence};
 
 #[async_trait]
 pub trait OutboxPublisher: Send + Sync {
-    async fn publish(&self, record: &OutboxRecord) -> Result<(), OutboxPublisherError>;
+    async fn publish(
+        &self,
+        record: &OutboxRecord,
+        sequence: Option<PartitionSequence>,
+    ) -> Result<(), OutboxPublisherError>;
 }
 
 #[derive(Debug, thiserror::Error)]

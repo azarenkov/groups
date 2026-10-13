@@ -29,6 +29,11 @@ output "ingress_namespace" {
   value = var.ingress_nginx.enabled ? kubernetes_namespace_v1.ingress_nginx[0].metadata[0].name : ""
 }
 
+output "monitoring_crds_release" {
+  description = "Identifier of the Prometheus Operator CRDs release, empty without monitoring; pass it as monitoring_ready so monitoring resources are created after the CRDs exist"
+  value       = var.monitoring.enabled ? helm_release.prometheus_operator_crds[0].id : ""
+}
+
 output "argocd_release" {
   description = "Identifier of the Argo CD release; pass it as argocd_ready so Applications are created after the CRDs exist"
   value       = var.argocd.enabled ? helm_release.argocd[0].id : ""

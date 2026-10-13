@@ -115,11 +115,13 @@ impl AcceptCommunityInviteResponse {
 #[derive(Debug, Serialize)]
 pub struct ListDmMessagesResponse {
     pub messages: Vec<DmMessageResponse>,
+    pub partition: String,
+    pub seq: i64,
 }
 
 impl ListDmMessagesResponse {
-    pub fn new(messages: Vec<DmMessageResponse>) -> Self {
-        Self { messages }
+    pub fn new(messages: Vec<DmMessageResponse>, partition: String, seq: i64) -> Self {
+        Self { messages, partition, seq }
     }
 }
 

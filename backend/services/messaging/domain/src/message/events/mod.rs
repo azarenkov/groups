@@ -55,6 +55,13 @@ impl MessageDomainEvent {
         self
     }
 
+    pub fn with_skipped(mut self, skipped_ids: &[UserId]) -> Self {
+        if let Self::Edited(e) = &mut self {
+            e.skipped_ids = skipped_ids.to_vec();
+        }
+        self
+    }
+
     pub fn with_attachments(mut self, attachments: &[AttachmentSnapshot]) -> Self {
         match &mut self {
             Self::Sent(e) => e.attachments = attachments.to_vec(),

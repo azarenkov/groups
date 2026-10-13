@@ -24,6 +24,8 @@ pub struct WorkerConfig {
     pub health_port: u16,
     #[serde(default = "default_liveness_stale_secs")]
     pub outbox_liveness_stale_secs: u64,
+    #[serde(default = "default_metrics_interval_secs")]
+    pub outbox_metrics_interval_secs: u64,
 }
 
 impl WorkerConfig {
@@ -95,6 +97,10 @@ fn default_health_port() -> u16 {
 
 fn default_liveness_stale_secs() -> u64 {
     60
+}
+
+fn default_metrics_interval_secs() -> u64 {
+    15
 }
 
 #[cfg(test)]

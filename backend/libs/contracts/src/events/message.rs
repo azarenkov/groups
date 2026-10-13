@@ -35,6 +35,8 @@ pub struct ChannelMessageEditedV1 {
     #[serde(default)]
     pub recipient_ids: Vec<Uuid>,
     #[serde(default)]
+    pub skipped_ids: Vec<Uuid>,
+    #[serde(default)]
     pub attachments: Option<Value>,
 }
 
@@ -61,6 +63,8 @@ pub struct MessageHiddenV1 {
     pub user_id: Uuid,
     pub message_id: Uuid,
     pub hidden_at: DateTime<Utc>,
+    #[serde(default)]
+    pub skipped_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,6 +73,8 @@ pub struct VoiceListenedV1 {
     pub listener_id: Uuid,
     pub listened_at: DateTime<Utc>,
     pub recipients: Vec<Uuid>,
+    #[serde(default)]
+    pub skipped_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -3,7 +3,7 @@ import i18n from "../../../i18n";
 import { ApiError } from "../../../shared/lib/apiError";
 import type { ChannelMessage } from "../../../shared/types/channel";
 import { PAGE_LIMIT } from "../constants";
-import { mergeWithLive, reconcileSyncedWindow } from "../lib/messageFormat";
+import { cursorAfter, mergeWithLive, reconcileSyncedWindow, type MessageCursor } from "../lib/messageFormat";
 import { appendedOwnMessage, shouldStickToBottom } from "../lib/scrollRules";
 import type { Messenger } from "./useMessenger";
 import {
@@ -13,6 +13,57 @@ import {
   saveConversation,
   type ScrollMemory,
 } from "../lib/messageCache";
+import { ws } from "../../../shared/ws/websocket";
+
+const adoptBaseline = (res: { partition?: string; seq?: number }) => {
+  if (res.partition && typeof res.seq === "number") ws.baseline(res.partition, res.seq);
+};
+
+type LoadedWindow = { messages: ChannelMessage[]; reachedStart: boolean; version: { partition?: string; seq?: number } };
+
+const STALE_WINDOW_RETRIES = 4;
+const STALE_WINDOW_BACKOFF_MS = 400;
+
+const behindLive = (version: { partition?: string; seq?: number }): boolean => {
+  if (!version.partition || typeof version.seq !== "number") return false;
+  return ws.overwrittenAfter(version.partition, version.seq);
+};
+
+async function loadLoadedWindow(
+  messenger: Messenger,
+  oldestLoaded: MessageCursor | undefined,
+  alive: () => boolean,
+): Promise<LoadedWindow | null> {
+  for (let attempt = 0; attempt <= STALE_WINDOW_RETRIES; attempt++) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, STALE_WINDOW_BACKOFF_MS * attempt));
+    if (!alive()) return null;
+    const loaded = await loadWindowOnce(messenger, oldestLoaded, alive);
+    if (!loaded || !behindLive(loaded.version)) return loaded;
+  }
+  return null;
+}
+
+async function loadWindowOnce(
+  messenger: Messenger,
+  oldestLoaded: MessageCursor | undefined,
+  alive: () => boolean,
+): Promise<LoadedWindow | null> {
+  const acc: ChannelMessage[] = [];
+  let before: string | undefined;
+  let version: { partition?: string; seq?: number } = {};
+  while (alive()) {
+    const res = await messenger.listMessages({ limit: PAGE_LIMIT, before });
+    if (!before) version = { partition: res.partition, seq: res.seq };
+    acc.unshift(...[...res.messages].reverse());
+    if (res.messages.length < PAGE_LIMIT) return { messages: acc, reachedStart: true, version };
+    if (!oldestLoaded || (acc[0] && !cursorAfter(acc[0], oldestLoaded))) {
+      return { messages: acc, reachedStart: false, version };
+    }
+    before = acc[0]?.id;
+    if (!before) return { messages: acc, reachedStart: false, version };
+  }
+  return null;
+}
 
 export function captureScroll(body: HTMLDivElement | null, atBottom: boolean): ScrollMemory {
   if (!body || atBottom) return { atBottom: true, anchorId: null, offset: 0 };
@@ -167,10 +218,16 @@ export function useMessages(params: {
         if (!fromCache) {
           setMessages((prev) => mergeWithLive(ordered, prev));
           setHasMore(fullPage);
+          adoptBaseline(res);
           return;
         }
         const reconciled = reconcileLatestPage(restored ?? [], ordered, fullPage, knownBefore);
         setMessages((prev) => reconcileLatestPage(prev, ordered, fullPage, knownBefore).messages);
+        const oldestFetched = ordered[0];
+        const pageCoversCache =
+          !fullPage || (restored ?? []).every((m) => oldestFetched !== undefined && !cursorAfter(oldestFetched, m));
+        if (pageCoversCache) adoptBaseline(res);
+        else if (res.partition && typeof res.seq === "number") ws.checkSnapshot(res.partition, res.seq);
         if (!fullPage) setHasMore(false);
         else if (reconciled.gap) setHasMore(true);
       })
@@ -220,32 +277,18 @@ export function useMessages(params: {
     }
     let cancelled = false;
     const targetId = convIdRef.current;
-    const oldestLoadedAt = messagesRef.current[0]?.createdAt;
+    const oldestLoaded = messagesRef.current[0];
     const knownBefore = new Set(messagesRef.current.map((m) => m.id));
+    const alive = () => !cancelled && convIdRef.current === targetId;
     (async () => {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          const acc: ChannelMessage[] = [];
-          let before: string | undefined;
-          let reachedStart = false;
-          while (!cancelled && convIdRef.current === targetId) {
-            const res = await messengerNow.listMessages({
-              limit: PAGE_LIMIT,
-              before,
-            });
-            const ordered = [...res.messages].reverse();
-            acc.unshift(...ordered);
-            if (res.messages.length < PAGE_LIMIT) {
-              reachedStart = true;
-              break;
-            }
-            if (!oldestLoadedAt || (acc[0] && acc[0].createdAt <= oldestLoadedAt)) break;
-            before = acc[0]?.id;
-            if (!before) break;
-          }
-          if (cancelled || convIdRef.current !== targetId) return;
-          if (acc.length === 0 && !reachedStart) return;
-          setMessages((prev) => reconcileSyncedWindow(acc, prev, reachedStart, knownBefore));
+          const loaded = await loadLoadedWindow(messengerNow, oldestLoaded, alive);
+          if (!loaded || !alive()) return;
+          if (loaded.messages.length === 0 && !loaded.reachedStart) return;
+          setMessages((prev) => reconcileSyncedWindow(loaded.messages, prev, loaded.reachedStart, knownBefore));
+          setHasMore(!loaded.reachedStart);
+          adoptBaseline(loaded.version);
           return;
         } catch {
           await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -340,13 +383,16 @@ export function useMessages(params: {
     const messengerNow = messengerRef.current;
     if (!messengerNow) return;
     const requestConvId = convIdRef.current;
+    const knownBefore = new Set(messagesRef.current.map((m) => m.id));
+    const oldestLoaded = messagesRef.current[0];
     reseedChannelReads();
     try {
-      const res = await messengerNow.listMessages({ limit: PAGE_LIMIT });
-      if (convIdRef.current !== requestConvId) return;
-      const ordered = [...res.messages].reverse();
-      setMessages((prev) => mergeWithLive(ordered, prev));
-      setHasMore(res.messages.length >= PAGE_LIMIT);
+      const alive = () => convIdRef.current === requestConvId;
+      const loaded = await loadLoadedWindow(messengerNow, oldestLoaded, alive);
+      if (!loaded || !alive()) return;
+      setMessages((prev) => reconcileSyncedWindow(loaded.messages, prev, loaded.reachedStart, knownBefore));
+      adoptBaseline(loaded.version);
+      setHasMore(!loaded.reachedStart);
     } catch (err) {
       console.warn("[ChatView] failed to refresh history after join:", err);
     }

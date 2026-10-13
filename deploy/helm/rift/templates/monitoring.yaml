@@ -1,0 +1,83 @@
+{{- $outbox := index .Values.workers "outbox-worker" }}
+{{- if and .Values.monitoring.enabled $outbox $outbox.enabled }}
+{{- $m := .Values.monitoring }}
+{{- $ns := printf "namespace=%q" .Release.Namespace }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: outbox-worker
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "rift.selectorLabels" (dict "root" . "component" "outbox-worker") | nindent 6 }}
+  podMetricsEndpoints:
+    - port: health
+      path: /metrics
+      interval: {{ $m.scrapeInterval }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-outbox
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: rift-outbox
+      rules:
+        - alert: RiftOutboxStuckEvents
+          expr: max by (namespace, source) (rift_outbox_stuck_events{ {{- $ns -}} }) > 0
+          for: {{ $m.outbox.stuckFor }}
+          labels:
+            severity: critical
+          annotations:
+            summary: "Outbox events of {{ "{{" }} $labels.source {{ "}}" }} keep failing to publish"
+            description: "{{ "{{" }} $value {{ "}}" }} event(s) used up their publish attempts and hold back the rest of their conversation."
+        - alert: RiftOutboxBacklogAging
+          expr: max by (namespace, source) (rift_outbox_oldest_pending_age_seconds{ {{- $ns -}} }) > {{ $m.outbox.oldestPendingSeconds }}
+          for: {{ $m.outbox.oldestPendingFor }}
+          labels:
+            severity: warning
+          annotations:
+            summary: "Outbox of {{ "{{" }} $labels.source {{ "}}" }} is falling behind"
+            description: "The oldest unpublished event has waited {{ "{{" }} $value | humanizeDuration {{ "}}" }}."
+        - alert: RiftOutboxSamplingFailing
+          expr: min by (namespace, source) (rift_outbox_sample_up{ {{- $ns -}} }) == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Outbox worker cannot read the backlog of {{ "{{" }} $labels.source {{ "}}" }}"
+            description: "Backlog sampling keeps failing, so the other outbox alerts for this source are blind."
+        - alert: RiftOutboxMetricsMissing
+          expr: absent(rift_outbox_sample_up{ {{- $ns -}} })
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Outbox worker metrics are missing"
+            description: "Prometheus has not scraped outbox-worker metrics for 10 minutes."
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: outbox-worker-metrics
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "rift.selectorLabels" (dict "root" . "component" "outbox-worker") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            {{- toYaml $m.namespaceSelector | nindent 12 }}
+      ports:
+        - port: {{ $outbox.healthPort }}
+{{- end }}
+{{- end }}

@@ -1,11 +1,13 @@
-use crate::messaging::partitions::{partition_for, partition_token};
-use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, outbox_publisher::OutboxPublisher, outbox_publisher::OutboxPublisherError};
+use crate::messaging::partitions::{outbox_partition_key, partition_for, partition_token};
+use ports::{outbox::record::OutboxRecord, outbox::record::PartitionSequence, outbox_publisher::OutboxPublisher, outbox_publisher::OutboxPublisherError};
 use async_nats::{HeaderMap, jetstream::Context};
 use async_trait::async_trait;
-use uuid::Uuid;
 
 const MSG_ID_HEADER: &str = "Nats-Msg-Id";
 const REQUEST_ID_HEADER: &str = "X-Request-Id";
+pub const PARTITION_HEADER: &str = "Rift-Partition";
+pub const PARTITION_SEQ_HEADER: &str = "Rift-Partition-Seq";
+pub const PARTITION_MEMBERS_HEADER: &str = "Rift-Partition-Members";
 
 pub struct NatsOutboxPublisher {
     jetstream: Context,
@@ -28,7 +30,7 @@ impl NatsOutboxPublisher {
 }
 
 pub fn partitioned_subject(prefix: &str, record: &OutboxRecord, partitions: u32) -> String {
-    let key = partition_key(record);
+    let key = outbox_partition_key(record);
     let partition = partition_for(key, partitions);
     format!(
         "{}.{}.{}.{}",
@@ -39,42 +41,13 @@ pub fn partitioned_subject(prefix: &str, record: &OutboxRecord, partitions: u32)
     )
 }
 
-fn partition_key(record: &OutboxRecord) -> Uuid {
-    if matches!(record.aggregate_type, AggregateType::DmMessage)
-        && let (Some(a), Some(b)) = (
-            payload_uuid(record, "sender_id"),
-            payload_uuid(record, "recipient_id"),
-        )
-    {
-        return conversation_key(a, b);
-    }
-    if matches!(record.aggregate_type, AggregateType::User)
-        && let Some(parent) = record.parent_id
-    {
-        return conversation_key(record.aggregate_id, parent);
-    }
-    record.parent_id.unwrap_or(record.aggregate_id)
-}
-
-fn payload_uuid(record: &OutboxRecord, field: &str) -> Option<Uuid> {
-    record
-        .payload
-        .get(field)
-        .and_then(|v| v.as_str())
-        .and_then(|s| Uuid::parse_str(s).ok())
-}
-
-fn conversation_key(a: Uuid, b: Uuid) -> Uuid {
-    let mut bytes = [0u8; 16];
-    for (i, byte) in bytes.iter_mut().enumerate() {
-        *byte = a.as_bytes()[i] ^ b.as_bytes()[i];
-    }
-    Uuid::from_bytes(bytes)
-}
-
 #[async_trait]
 impl OutboxPublisher for NatsOutboxPublisher {
-    async fn publish(&self, record: &OutboxRecord) -> Result<(), OutboxPublisherError> {
+    async fn publish(
+        &self,
+        record: &OutboxRecord,
+        sequence: Option<PartitionSequence>,
+    ) -> Result<(), OutboxPublisherError> {
         let subject = self.subject_for(record);
         let payload = serde_json::to_vec(&record.payload)
             .map_err(|e| OutboxPublisherError::Serialization(e.to_string()))?;
@@ -83,6 +56,14 @@ impl OutboxPublisher for NatsOutboxPublisher {
         headers.insert(MSG_ID_HEADER, record.id.to_string().as_str());
         if let Some(request_id) = record.request_id.as_deref() {
             headers.insert(REQUEST_ID_HEADER, request_id);
+        }
+        if let Some(sequence) = sequence {
+            headers.insert(PARTITION_HEADER, sequence.partition.as_str());
+            headers.insert(PARTITION_SEQ_HEADER, sequence.seq.to_string().as_str());
+            if !sequence.members.is_empty() {
+                let members: Vec<String> = sequence.members.iter().map(|m| m.to_string()).collect();
+                headers.insert(PARTITION_MEMBERS_HEADER, members.join(",").as_str());
+            }
         }
 
         let ack_future = self

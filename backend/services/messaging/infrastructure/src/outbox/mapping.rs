@@ -209,6 +209,7 @@ fn message_record(event: &MessageDomainEvent) -> Result<OutboxRecord, Repository
             new_content: value(&e.new_content)?,
             occurred_at: e.occurred_at,
             recipient_ids: uuids(&e.recipient_ids),
+            skipped_ids: uuids(&e.skipped_ids),
             attachments: Some(value(&e.attachments)?),
         })?,
         MessageDomainEvent::Deleted(e) => encode(&ChannelMessageDeletedV1 {
