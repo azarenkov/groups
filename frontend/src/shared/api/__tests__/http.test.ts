@@ -1,6 +1,9 @@
 import type { AxiosRequestConfig, AxiosResponse } from "axios";
 
 import { http } from "../http";
+import { useAuthStore } from "../../../features/auth/store/authStore";
+
+jest.mock("../../../features/auth/api/auth", () => ({ authAPI: { handleRefreshFlow: jest.fn() } }));
 
 const captureAdapter = (seen: { config?: AxiosRequestConfig }) =>
   (async (config: AxiosRequestConfig) => {
@@ -41,5 +44,51 @@ describe("shared http client", () => {
     expect(String(seen.config?.headers?.["Content-Type"])).toContain(
       "application/json",
     );
+  });
+
+  it("never retries a request under an account that signed in after it was sent", async () => {
+    const { authAPI } = jest.requireMock("../../../features/auth/api/auth");
+    useAuthStore.setState({ user: { id: "a" } as never, tokens: { accessToken: "token-a", refreshToken: "r" } as never });
+    authAPI.handleRefreshFlow.mockImplementation(async () => {
+      useAuthStore.setState({ user: { id: "b" } as never, tokens: { accessToken: "token-b", refreshToken: "r" } as never });
+    });
+    const sent: string[] = [];
+    const adapter = (async (config: AxiosRequestConfig) => {
+      sent.push(String(config.headers?.Authorization));
+      const error = Object.assign(new Error("unauthorized"), {
+        isAxiosError: true,
+        config,
+        response: { status: 401, data: {}, headers: {}, statusText: "", config },
+      });
+      throw error;
+    }) as never;
+
+    await expect(http.delete("/v1/search/history", { adapter })).rejects.toBeTruthy();
+
+    expect(sent).toEqual(["Bearer token-a"]);
+  });
+
+  it("retries with the refreshed token when the account stayed the same", async () => {
+    const { authAPI } = jest.requireMock("../../../features/auth/api/auth");
+    useAuthStore.setState({ user: { id: "a" } as never, tokens: { accessToken: "old", refreshToken: "r" } as never });
+    authAPI.handleRefreshFlow.mockImplementation(async () => {
+      useAuthStore.setState({ tokens: { accessToken: "fresh", refreshToken: "r" } as never });
+    });
+    const sent: string[] = [];
+    const adapter = (async (config: AxiosRequestConfig) => {
+      sent.push(String(config.headers?.Authorization));
+      if (sent.length === 1) {
+        throw Object.assign(new Error("unauthorized"), {
+          isAxiosError: true,
+          config,
+          response: { status: 401, data: {}, headers: {}, statusText: "", config },
+        });
+      }
+      return { data: { data: {} }, status: 200, statusText: "OK", headers: {}, config } as AxiosResponse;
+    }) as never;
+
+    await http.delete("/v1/search/history", { adapter });
+
+    expect(sent).toEqual(["Bearer old", "Bearer fresh"]);
   });
 });

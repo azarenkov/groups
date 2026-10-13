@@ -22,7 +22,7 @@ const REFRESH_EXEMPT_PATHS = [
   "/v1/auth/challenge",
 ];
 
-type RetriableConfig = AxiosRequestConfig & { _retry?: boolean };
+type RetriableConfig = AxiosRequestConfig & { _retry?: boolean; _sentAs?: string | null };
 
 export const http = axios.create({
   baseURL: API_BASE_URL,
@@ -31,6 +31,8 @@ export const http = axios.create({
 });
 
 http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const stamped = config as InternalAxiosRequestConfig & RetriableConfig;
+  if (stamped._sentAs === undefined) stamped._sentAs = useAuthStore.getState().user?.id ?? null;
   if (!config.headers.Authorization) {
     const accessToken = useAuthStore.getState().tokens?.accessToken;
     if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
@@ -67,7 +69,11 @@ function refreshAllowed(request: RetriableConfig): boolean {
 async function retryWithFreshToken(request: RetriableConfig): Promise<AxiosResponse> {
   const { authAPI } = await import("../../features/auth/api/auth");
   await authAPI.handleRefreshFlow();
-  const tokens = useAuthStore.getState().tokens;
+  const current = useAuthStore.getState();
+  if (request._sentAs && current.user?.id !== request._sentAs) {
+    throw new Error("The signed-in account changed before this request could be retried");
+  }
+  const tokens = current.tokens;
   if (tokens?.accessToken) {
     request.headers = { ...request.headers, Authorization: `Bearer ${tokens.accessToken}` };
   }
