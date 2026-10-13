@@ -73,11 +73,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
     crate::evictions::spawn(call_repository.clone(), livekit_service.clone());
+    let plans_ready = Arc::new(std::sync::atomic::AtomicBool::new(false));
     crate::stream_sweep::spawn(Arc::new(voice::usecases::stream::sweep_screen_shares::SweepScreenShares::new(
         plan_directory.clone(),
         livekit_service.clone(),
         webhook_outbox.clone(),
-    )));
+    )), plans_ready.clone());
     crate::tiers::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
@@ -87,6 +88,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             call_repository.clone(),
             livekit_service.clone(),
         )),
+        plans_ready.clone(),
     );
     crate::projection::spawn(
         nats_jetstream,

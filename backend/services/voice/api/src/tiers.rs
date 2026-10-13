@@ -1,4 +1,6 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use contracts::events::user::UserEntitlementsChangedV1;
 use domain::{plan::Tier, user::id::UserId};
@@ -10,11 +12,14 @@ use voice::ports::voice_service::VoiceService;
 use voice::usecases::stream::apply_plan_change::{ApplyPlanChange, PlanChange};
 use voice_domain::call::repository::CallRepository;
 
+const CAUGHT_UP_AFTER_IDLE: Duration = Duration::from_secs(5);
+
 pub fn spawn<P, C, V>(
     jetstream: async_nats::jetstream::Context,
     subject_prefix: String,
     stream: String,
     usecase: Arc<ApplyPlanChange<P, C, V>>,
+    caught_up: Arc<AtomicBool>,
 ) where
     P: PlanDirectory + 'static,
     C: CallRepository + Send + Sync + 'static,
@@ -36,7 +41,17 @@ pub fn spawn<P, C, V>(
             match consumer.subscribe(opts).await {
                 Ok(mut messages) => {
                     tracing::info!(%stream, "Voice tier projection subscribed");
-                    while let Some(msg) = messages.next().await {
+                    loop {
+                        let msg = match tokio::time::timeout(CAUGHT_UP_AFTER_IDLE, messages.next()).await {
+                            Ok(Some(msg)) => msg,
+                            Ok(None) => break,
+                            Err(_) => {
+                                if !caught_up.swap(true, Ordering::SeqCst) {
+                                    tracing::info!("Voice tier projection caught up with the plan history");
+                                }
+                                continue;
+                            }
+                        };
                         let Ok(m) = msg else {
                             tracing::warn!("Voice tier projection stream error");
                             break;
