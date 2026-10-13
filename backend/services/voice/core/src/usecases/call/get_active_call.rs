@@ -129,7 +129,7 @@ where
         );
         let token = self
             .voice_service
-            .create_token(&user_id, &user_name, &room, stream_ceiling)
+            .create_token(&user_id, &user_name, &room, Some(stream_ceiling))
             .await?;
 
         let video = self.call_repository.call_video(call_id).await?;

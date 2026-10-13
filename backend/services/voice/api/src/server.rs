@@ -79,17 +79,20 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         livekit_service.clone(),
         webhook_outbox.clone(),
     )), plans_ready.clone());
-    crate::tiers::spawn(
-        nats_jetstream.clone(),
-        nats_config.subject_prefix.clone(),
-        user_stream.clone(),
-        Arc::new(voice::usecases::stream::apply_plan_change::ApplyPlanChange::new(
+    infrastructure_common::messaging::nats::plan_projection::PlanProjection {
+        jetstream: nats_jetstream.clone(),
+        subject_prefix: nats_config.subject_prefix.clone(),
+        stream: user_stream.clone(),
+        consumer_name: "voice-projection-tiers",
+        dlq_suffix: "voice.tiers",
+        plans: plan_directory.clone(),
+        listener: Arc::new(voice::usecases::stream::refresh_stream_ceilings::RefreshStreamCeilings::new(
             plan_directory.clone(),
-            call_repository.clone(),
             livekit_service.clone(),
         )),
-        plans_ready.clone(),
-    );
+        caught_up: plans_ready.clone(),
+    }
+    .spawn();
     crate::projection::spawn(
         nats_jetstream,
         nats_config.subject_prefix.clone(),

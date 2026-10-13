@@ -190,7 +190,11 @@ where
                         .await?;
                         return Ok(());
                     }
-                    WebhookJoinOutcome::NotCallRoom => {}
+                    WebhookJoinOutcome::NotCallRoom => {
+                        if let Err(e) = self.refresh_stream_ceiling(channel_id, user_id).await {
+                            tracing::warn!(error = %e, %channel_id, %user_id, "Failed to set the stream ceiling of a channel participant; the sweep still enforces it");
+                        }
+                    }
                 }
                 (channel_id, user_id, session_id, WebhookKind::Joined)
             }

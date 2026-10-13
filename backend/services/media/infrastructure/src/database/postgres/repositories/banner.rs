@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
 use media_domain::banner::BannerRepository;
 use ports::repository::RepositoryError;
@@ -98,67 +97,5 @@ impl BannerRepository for PostgresBannerRepository {
         };
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(old)
-    }
-
-    async fn apply_tier(
-        &self,
-        user_id: &UserId,
-        tier: &str,
-        valid_until: Option<DateTime<Utc>>,
-        occurred_at: DateTime<Utc>,
-    ) -> Result<(), RepositoryError> {
-        sqlx::query!(
-            r#"
-            INSERT INTO media_user_tiers (user_id, tier, valid_until, updated_at)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (user_id) DO UPDATE
-                SET tier = EXCLUDED.tier,
-                    valid_until = EXCLUDED.valid_until,
-                    updated_at = EXCLUDED.updated_at
-                WHERE media_user_tiers.updated_at <= EXCLUDED.updated_at
-            "#,
-            user_id.uuid(),
-            tier,
-            valid_until,
-            occurred_at,
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
-    }
-
-    async fn is_paid(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<bool, RepositoryError> {
-        sqlx::query_scalar!(
-            r#"
-            SELECT EXISTS (
-                SELECT 1 FROM media_user_tiers
-                WHERE user_id = $1
-                  AND tier <> 'free'
-                  AND (valid_until IS NULL OR valid_until > $2)
-            ) AS "exists!"
-            "#,
-            user_id.uuid(),
-            now,
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)
-    }
-
-    async fn tier_of(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<String, RepositoryError> {
-        let tier = sqlx::query_scalar!(
-            r#"
-            SELECT tier FROM media_user_tiers
-            WHERE user_id = $1
-              AND (valid_until IS NULL OR valid_until > $2)
-            "#,
-            user_id.uuid(),
-            now,
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(tier.unwrap_or_else(|| "free".to_string()))
     }
 }

@@ -54,7 +54,7 @@ where
     friendship_repository: Arc<F>,
     privacy_repository: Arc<P>,
     user_profile_repository: Arc<U>,
-    plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
+    plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
 }
 
 impl<M, W, A, F, P, U> EditDmMessage<M, W, A, F, P, U>
@@ -73,7 +73,7 @@ where
         friendship_repository: Arc<F>,
         privacy_repository: Arc<P>,
         user_profile_repository: Arc<U>,
-        plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
+        plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
     ) -> Self {
         Self {
             dm_repository,
@@ -159,7 +159,7 @@ where
         }
         let remaining = current_ids.len() - remove_ids.len() + add_ids.len();
         let tier = self.plans.tier_of(&editor_id, Utc::now()).await?;
-        if !add_ids.is_empty() && remaining > attachments_per_message(&tier) {
+        if !add_ids.is_empty() && remaining > attachments_per_message(tier) {
             return Err(EditDmMessageError::InvalidAttachments);
         }
 

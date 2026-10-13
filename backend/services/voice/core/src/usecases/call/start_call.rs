@@ -152,7 +152,7 @@ where
 
         let token = self
             .voice_service
-            .create_token(&caller_id, &caller_name, &room, stream_ceiling)
+            .create_token(&caller_id, &caller_name, &room, Some(stream_ceiling))
             .await?;
 
         let participants = vec![CallParticipantView {

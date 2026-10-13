@@ -8,7 +8,7 @@ pub trait VoiceService {
         user_id: &UserId,
         username: &UserName,
         channel_id: &ChannelId,
-        ceiling: StreamCeiling,
+        ceiling: Option<StreamCeiling>,
     ) -> Result<ChannelToken, VoiceServiceError>;
     async fn create_voice_channel(
         &self,
@@ -30,7 +30,7 @@ pub trait VoiceService {
         username: &UserName,
         channel_id: &ChannelId,
         access: ParticipantAccess,
-        ceiling: StreamCeiling,
+        ceiling: Option<StreamCeiling>,
     ) -> Result<ChannelToken, VoiceServiceError>;
     async fn apply_participant_access(
         &self,
@@ -51,6 +51,7 @@ pub trait VoiceService {
         track_sid: &str,
     ) -> Result<(), VoiceServiceError>;
     async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError>;
+    async fn room_participants(&self, channel_id: &ChannelId) -> Result<Vec<UserId>, VoiceServiceError>;
     async fn room_videos(&self, channel_id: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError>;
     fn client_url(&self) -> String;
 }

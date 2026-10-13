@@ -135,7 +135,7 @@ where
 
         let token = self
             .voice_service
-            .create_token(&user_id, &user_name, &room, stream_ceiling)
+            .create_token(&user_id, &user_name, &room, Some(stream_ceiling))
             .await?;
 
         let accepted = self

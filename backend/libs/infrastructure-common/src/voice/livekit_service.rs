@@ -23,6 +23,18 @@ impl LiveKitService {
     pub fn new(config: LiveKitConfig) -> Self {
         Self { config }
     }
+
+    async fn list_participants(&self, channel_id: &ChannelId) -> Result<Vec<livekit_protocol::ParticipantInfo>, VoiceServiceError> {
+        let livekit_room = RoomClient::new(self.config.url())
+            .map_err(|e| VoiceServiceError::ParticipantUpdate(e.to_string()))?;
+        let room = channel_id.uuid().to_string();
+        match timeout(LIVEKIT_REQUEST_TIMEOUT, livekit_room.list_participants(&room)).await {
+            Ok(Ok(participants)) => Ok(participants),
+            Ok(Err(ServiceError::Twirp(TwirpError::Twirp(code)))) if code.code == TwirpErrorCode::NOT_FOUND => Ok(Vec::new()),
+            Ok(Err(e)) => Err(VoiceServiceError::ParticipantUpdate(e.to_string())),
+            Err(_) => Err(VoiceServiceError::ParticipantUpdate("LiveKit request timed out".into())),
+        }
+    }
 }
 
 #[async_trait]
@@ -32,12 +44,12 @@ impl VoiceService for LiveKitService {
         user_id: &UserId,
         username: &UserName,
         channel_id: &ChannelId,
-        ceiling: StreamCeiling,
+        ceiling: Option<StreamCeiling>,
     ) -> Result<ChannelToken, VoiceServiceError> {
         let token = AccessToken::with_api_key(self.config.api_key(), self.config.api_secret())
             .with_identity(&user_id.uuid().to_string())
             .with_name(username.as_str())
-            .with_attributes([(STREAM_CEILING_ATTRIBUTE, ceiling.to_attribute())])
+            .with_attributes(ceiling.map(|ceiling| (STREAM_CEILING_ATTRIBUTE, ceiling.to_attribute())))
             .with_grants(access_token::VideoGrants {
                 room_join: true,
                 room: channel_id.uuid().to_string(),
@@ -57,7 +69,7 @@ impl VoiceService for LiveKitService {
         username: &UserName,
         channel_id: &ChannelId,
         access: ParticipantAccess,
-        ceiling: StreamCeiling,
+        ceiling: Option<StreamCeiling>,
     ) -> Result<ChannelToken, VoiceServiceError> {
         let can_publish_sources = if access.can_publish_microphone {
             Vec::new()
@@ -71,7 +83,7 @@ impl VoiceService for LiveKitService {
         let token = AccessToken::with_api_key(self.config.api_key(), self.config.api_secret())
             .with_identity(&user_id.uuid().to_string())
             .with_name(username.as_str())
-            .with_attributes([(STREAM_CEILING_ATTRIBUTE, ceiling.to_attribute())])
+            .with_attributes(ceiling.map(|ceiling| (STREAM_CEILING_ATTRIBUTE, ceiling.to_attribute())))
             .with_grants(access_token::VideoGrants {
                 room_join: true,
                 room: channel_id.uuid().to_string(),
@@ -276,25 +288,23 @@ impl VoiceService for LiveKitService {
         };
         Ok(rooms
             .into_iter()
-            .filter(|room| room.num_publishers > 0)
+            .filter(|room| room.num_participants > 0)
             .filter_map(|room| uuid::Uuid::parse_str(&room.name).ok().map(ChannelId::new))
             .collect())
     }
 
+    async fn room_participants(&self, channel_id: &ChannelId) -> Result<Vec<UserId>, VoiceServiceError> {
+        Ok(self
+            .list_participants(channel_id)
+            .await?
+            .iter()
+            .filter_map(|participant| uuid::Uuid::parse_str(&participant.identity).ok().map(UserId::new))
+            .collect())
+    }
+
     async fn room_videos(&self, channel_id: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
-        let livekit_room = RoomClient::new(self.config.url())
-            .map_err(|e| VoiceServiceError::ParticipantUpdate(e.to_string()))?;
-        let room = channel_id.uuid().to_string();
-        let participants = match timeout(LIVEKIT_REQUEST_TIMEOUT, livekit_room.list_participants(&room)).await {
-            Ok(Ok(participants)) => participants,
-            Ok(Err(ServiceError::Twirp(TwirpError::Twirp(code)))) if code.code == TwirpErrorCode::NOT_FOUND => {
-                return Ok(Vec::new());
-            }
-            Ok(Err(e)) => return Err(VoiceServiceError::ParticipantUpdate(e.to_string())),
-            Err(_) => return Err(VoiceServiceError::ParticipantUpdate("LiveKit request timed out".into())),
-        };
         let mut shares = Vec::new();
-        for participant in participants {
+        for participant in self.list_participants(channel_id).await? {
             let Ok(user) = uuid::Uuid::parse_str(&participant.identity) else {
                 continue;
             };

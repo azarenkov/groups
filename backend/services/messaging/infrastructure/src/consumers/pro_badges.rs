@@ -5,7 +5,6 @@ use domain::user::id::UserId;
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use messaging::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
-use messaging::usecases::channel::apply_stream_ceiling::PlanChanged;
 use messaging_domain::badge::{BadgeEmojiStatus, BadgeRepository};
 
 const MAX_DELIVER: u32 = 20;
@@ -16,7 +15,6 @@ pub fn spawn<B>(
     subject_prefix: String,
     user_stream: String,
     badges: Arc<B>,
-    plan_changed: Arc<dyn PlanChanged>,
 ) where
     B: BadgeRepository + 'static,
 {
@@ -45,7 +43,7 @@ pub fn spawn<B>(
                             tracing::warn!("Pro badge stream error");
                             break;
                         };
-                        match apply(&*badges, &*plan_changed, &m.subject, &m.payload).await {
+                        match apply(&*badges, &m.subject, &m.payload).await {
                             Ok(()) => {
                                 let _ = m.ack().await;
                             }
@@ -67,7 +65,6 @@ pub fn spawn<B>(
 
 async fn apply<B: BadgeRepository + ?Sized>(
     badges: &B,
-    plan_changed: &dyn PlanChanged,
     subject: &str,
     payload: &[u8],
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -76,18 +73,9 @@ async fn apply<B: BadgeRepository + ?Sized>(
             tracing::warn!(%subject, "Malformed entitlements event; dropping");
             return Ok(());
         };
-        badges
-            .apply_tier(
-                &UserId::new(evt.user_id),
-                &evt.tier,
-                evt.valid_until,
-                evt.member_number,
-                evt.occurred_at,
-            )
-            .await?;
-        plan_changed
-            .plan_changed(&UserId::new(evt.user_id), chrono::Utc::now())
-            .await?;
+        if let Some(member_number) = evt.member_number {
+            badges.apply_member_number(&UserId::new(evt.user_id), member_number).await?;
+        }
         return Ok(());
     }
     if subject.ends_with(".profile_changed") {
@@ -120,33 +108,17 @@ mod tests {
 
     use super::*;
 
-    struct NoTier;
-
-    #[async_trait]
-    impl PlanChanged for NoTier {
-        async fn plan_changed(
-            &self,
-            _: &UserId,
-            _: DateTime<Utc>,
-        ) -> Result<(), messaging::usecases::channel::apply_stream_ceiling::ApplyStreamCeilingError> {
-            Ok(())
-        }
-    }
-
     #[derive(Default)]
     struct Perks(Mutex<Vec<Option<Option<BadgeEmojiStatus>>>>);
 
     #[async_trait]
     impl BadgeRepository for Perks {
-        async fn apply_tier(&self, _: &UserId, _: &str, _: Option<DateTime<Utc>>, _: Option<i64>, _: DateTime<Utc>) -> Result<(), RepositoryError> {
+        async fn apply_member_number(&self, _: &UserId, _: i64) -> Result<(), RepositoryError> {
             Ok(())
         }
         async fn apply_profile_perks(&self, _: &UserId, _: &str, emoji_status: Option<Option<BadgeEmojiStatus>>, _: DateTime<Utc>) -> Result<(), RepositoryError> {
             self.0.lock().unwrap().push(emoji_status);
             Ok(())
-        }
-        async fn tier_of(&self, _: &UserId, _: DateTime<Utc>) -> Result<String, RepositoryError> {
-            Ok("free".to_string())
         }
         async fn paid_badges(&self, _: &[UserId], _: DateTime<Utc>) -> Result<Vec<UserBadge>, RepositoryError> {
             Ok(Vec::new())
@@ -171,16 +143,15 @@ mod tests {
     async fn events_from_older_identities_keep_the_status_and_new_ones_set_or_clear_it() {
         let perks = Perks::default();
         let sticker = Uuid::new_v4();
-        apply(&perks, &NoTier, "rift.user.profile_changed", &event(serde_json::json!({}))).await.unwrap();
+        apply(&perks, "rift.user.profile_changed", &event(serde_json::json!({}))).await.unwrap();
         apply(
             &perks,
-            &NoTier,
             "rift.user.profile_changed",
             &event(serde_json::json!({ "emoji_status_included": true, "emoji_status_sticker_id": sticker })),
         )
         .await
         .unwrap();
-        apply(&perks, &NoTier, "rift.user.profile_changed", &event(serde_json::json!({ "emoji_status_included": true })))
+        apply(&perks, "rift.user.profile_changed", &event(serde_json::json!({ "emoji_status_included": true })))
             .await
             .unwrap();
         let seen = perks.0.lock().unwrap().clone();

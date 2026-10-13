@@ -104,7 +104,6 @@ pub struct AppState {
         PostgresUserProfileRepository,
         BcryptHasher,
         PostgresCommunityRepository,
-        PostgresBadgeRepository,
     >,
     pub disconnect_voice_member_usecase: DisconnectVoiceMember<
         PostgresChannelRepository,

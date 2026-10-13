@@ -6,16 +6,54 @@ use sqlx::{Pool, Postgres, Row};
 
 use crate::database::postgres::error::map_sqlx_error_to_domain_error;
 
+struct PlanTable {
+    name: &'static str,
+    valid_until: &'static str,
+    updated_at: &'static str,
+    seed_columns: &'static str,
+    seed_values: &'static str,
+}
+
+const PROFILE_SEED_COLUMNS: &str = ", name, updated_at";
+const PROFILE_SEED_VALUES: &str = ", '', to_timestamp(0)";
+
 pub struct PostgresPlanDirectory {
     pool: Pool<Postgres>,
-    table: &'static str,
+    table: PlanTable,
 }
 
 impl PostgresPlanDirectory {
     pub fn voice(pool: Pool<Postgres>) -> Self {
+        Self::profiles(pool, "voice_user_profiles")
+    }
+
+    pub fn messaging(pool: Pool<Postgres>) -> Self {
+        Self::profiles(pool, "messaging_user_profiles")
+    }
+
+    pub fn media(pool: Pool<Postgres>) -> Self {
         Self {
             pool,
-            table: "voice_user_profiles",
+            table: PlanTable {
+                name: "media_user_tiers",
+                valid_until: "valid_until",
+                updated_at: "updated_at",
+                seed_columns: "",
+                seed_values: "",
+            },
+        }
+    }
+
+    fn profiles(pool: Pool<Postgres>, name: &'static str) -> Self {
+        Self {
+            pool,
+            table: PlanTable {
+                name,
+                valid_until: "tier_valid_until",
+                updated_at: "tier_updated_at",
+                seed_columns: PROFILE_SEED_COLUMNS,
+                seed_values: PROFILE_SEED_VALUES,
+            },
         }
     }
 }
@@ -29,18 +67,18 @@ impl PlanDirectory for PostgresPlanDirectory {
         valid_until: Option<DateTime<Utc>>,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), RepositoryError> {
+        let PlanTable { name, valid_until: until, updated_at, seed_columns, seed_values } = &self.table;
         sqlx::query(&format!(
             r#"
-            INSERT INTO {table} (user_id, name, updated_at, tier, tier_valid_until, tier_updated_at)
-            VALUES ($1, '', to_timestamp(0), $2, $3, $4)
+            INSERT INTO {name} (user_id, tier, {until}, {updated_at}{seed_columns})
+            VALUES ($1, $2, $3, $4{seed_values})
             ON CONFLICT (user_id) DO UPDATE
                 SET tier = EXCLUDED.tier,
-                    tier_valid_until = EXCLUDED.tier_valid_until,
-                    tier_updated_at = EXCLUDED.tier_updated_at
-                WHERE {table}.tier_updated_at IS NULL
-                   OR {table}.tier_updated_at <= EXCLUDED.tier_updated_at
-            "#,
-            table = self.table
+                    {until} = EXCLUDED.{until},
+                    {updated_at} = EXCLUDED.{updated_at}
+                WHERE {name}.{updated_at} IS NULL
+                   OR {name}.{updated_at} <= EXCLUDED.{updated_at}
+            "#
         ))
         .bind(user_id.uuid())
         .bind(tier.as_str())
@@ -53,9 +91,9 @@ impl PlanDirectory for PostgresPlanDirectory {
     }
 
     async fn tier_of(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<Tier, RepositoryError> {
+        let PlanTable { name, valid_until, .. } = &self.table;
         let row = sqlx::query(&format!(
-            "SELECT tier FROM {} WHERE user_id = $1 AND (tier_valid_until IS NULL OR tier_valid_until > $2)",
-            self.table
+            "SELECT tier FROM {name} WHERE user_id = $1 AND ({valid_until} IS NULL OR {valid_until} > $2)"
         ))
         .bind(user_id.uuid())
         .bind(now)

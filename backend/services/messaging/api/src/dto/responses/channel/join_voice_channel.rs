@@ -9,7 +9,6 @@ pub struct JoinVoiceChannelResponse {
     pub muted_by: Option<uuid::Uuid>,
     pub self_muted: bool,
     pub deafened_by: Option<uuid::Uuid>,
-    pub stream_ceiling: domain::stream::StreamCeiling,
 }
 
 impl From<messaging::dto::responses::channel::join_voice_channel::JoinVoiceChannelResponse>
@@ -25,7 +24,6 @@ impl From<messaging::dto::responses::channel::join_voice_channel::JoinVoiceChann
             muted_by: value.muted_by,
             self_muted: value.self_muted,
             deafened_by: value.deafened_by,
-            stream_ceiling: value.stream_ceiling,
         }
     }
 }

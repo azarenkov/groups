@@ -142,7 +142,7 @@ mod tests {
 
     #[async_trait]
     impl VoiceService for Rooms {
-        async fn create_token(&self, _: &UserId, _: &UserName, _: &ChannelId, _: StreamCeiling) -> Result<ChannelToken, VoiceServiceError> {
+        async fn create_token(&self, _: &UserId, _: &UserName, _: &ChannelId, _: Option<StreamCeiling>) -> Result<ChannelToken, VoiceServiceError> {
             unimplemented!()
         }
         async fn create_voice_channel(&self, _: &ChannelId, _: &CommunityId) -> Result<(), VoiceServiceError> {
@@ -160,7 +160,7 @@ mod tests {
             _: &UserName,
             _: &ChannelId,
             _: ParticipantAccess,
-            _: StreamCeiling,
+            _: Option<StreamCeiling>,
         ) -> Result<ChannelToken, VoiceServiceError> {
             unimplemented!()
         }
@@ -177,6 +177,9 @@ mod tests {
         async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError> {
             Ok(vec![self.room])
         }
+        async fn room_participants(&self, _: &ChannelId) -> Result<Vec<UserId>, VoiceServiceError> {
+            unimplemented!()
+        }
         async fn room_videos(&self, _: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
             Ok(self.shares.clone())
         }
@@ -189,7 +192,7 @@ mod tests {
 
     #[async_trait]
     impl VoiceService for Unreachable {
-        async fn create_token(&self, _: &UserId, _: &UserName, _: &ChannelId, _: StreamCeiling) -> Result<ChannelToken, VoiceServiceError> {
+        async fn create_token(&self, _: &UserId, _: &UserName, _: &ChannelId, _: Option<StreamCeiling>) -> Result<ChannelToken, VoiceServiceError> {
             unimplemented!()
         }
         async fn create_voice_channel(&self, _: &ChannelId, _: &CommunityId) -> Result<(), VoiceServiceError> {
@@ -207,7 +210,7 @@ mod tests {
             _: &UserName,
             _: &ChannelId,
             _: ParticipantAccess,
-            _: StreamCeiling,
+            _: Option<StreamCeiling>,
         ) -> Result<ChannelToken, VoiceServiceError> {
             unimplemented!()
         }
@@ -222,6 +225,9 @@ mod tests {
         }
         async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError> {
             Err(VoiceServiceError::ParticipantUpdate("down".into()))
+        }
+        async fn room_participants(&self, _: &ChannelId) -> Result<Vec<UserId>, VoiceServiceError> {
+            unimplemented!()
         }
         async fn room_videos(&self, _: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
             unimplemented!()

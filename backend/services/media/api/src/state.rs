@@ -35,7 +35,7 @@ pub struct AppState {
         PostgresAttachmentRepository,
         MinioStorage,
     >,
-    pub get_user_avatar_usecase: GetUserAvatar<PostgresMediaRepository, PostgresBannerRepository, MinioStorage>,
+    pub get_user_avatar_usecase: GetUserAvatar<PostgresMediaRepository, MinioStorage>,
     pub update_user_banner_usecase: media::usecases::user::banner::UpdateUserBanner<
         PostgresBannerRepository,
         PostgresAttachmentRepository,
@@ -44,7 +44,6 @@ pub struct AppState {
     >,
     pub sticker_packs: media::usecases::sticker::StickerPacks<
         media_infrastructure::database::postgres::repositories::sticker::PostgresStickerRepository,
-        PostgresBannerRepository,
         PostgresAttachmentRepository,
         MinioStorage,
         NsfwDetector,

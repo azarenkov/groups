@@ -35,7 +35,6 @@ use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::webhook::{MediaSourceV1, WebhookEventV1 as WebhookEventDto};
 use domain::channel::webhook_source::WebhookSource;
 
-#[allow(clippy::too_many_arguments)]
 pub fn spawn<T, W, S, V>(
     jetstream: async_nats::jetstream::Context,
     subject_prefix: String,
@@ -44,7 +43,6 @@ pub fn spawn<T, W, S, V>(
     channel_unit_of_work: Arc<W>,
     community_repository: Arc<S>,
     voice_service: Arc<V>,
-    participant_joined: Arc<dyn messaging::usecases::channel::apply_stream_ceiling::ParticipantJoined>,
 ) where
     T: ChannelRepository + Send + Sync + 'static,
     W: messaging_domain::channel::unit_of_work::ChannelUnitOfWork + Send + Sync + 'static,
@@ -99,7 +97,6 @@ pub fn spawn<T, W, S, V>(
                                         &leave_uc,
                                         &track_uc,
                                         &admit_uc,
-                                        &*participant_joined,
                                     )
                                     .await
                                     {
@@ -164,7 +161,6 @@ async fn apply<T, W, S, V>(
     leave_uc: &LeaveVoiceConnection<W>,
     track_uc: &TrackMediaConnection<W>,
     admit_uc: &AdmitVoiceParticipant<T, S, V>,
-    participant_joined: &dyn messaging::usecases::channel::apply_stream_ceiling::ParticipantJoined,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     T: ChannelRepository + Send + Sync,
@@ -196,13 +192,6 @@ where
             if admission == Admission::Rejected {
                 return Ok(());
             }
-            participant_joined
-                .participant_joined(
-                    &domain::channel::id::ChannelId::new(evt.channel_id),
-                    &domain::user::id::UserId::new(evt.user_id),
-                    chrono::Utc::now(),
-                )
-                .await?;
             let result = join_uc
                 .execute(JoinVoiceConnectionRequest {
                     channel_id: evt.channel_id,

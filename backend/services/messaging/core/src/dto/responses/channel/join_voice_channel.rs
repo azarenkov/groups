@@ -1,4 +1,3 @@
-use domain::stream::StreamCeiling;
 use messaging_domain::channel::token::ChannelToken;
 
 #[derive(Debug)]
@@ -9,7 +8,6 @@ pub struct JoinVoiceChannelResponse {
     pub muted_by: Option<uuid::Uuid>,
     pub self_muted: bool,
     pub deafened_by: Option<uuid::Uuid>,
-    pub stream_ceiling: StreamCeiling,
 }
 
 impl JoinVoiceChannelResponse {
@@ -20,7 +18,6 @@ impl JoinVoiceChannelResponse {
         muted_by: Option<uuid::Uuid>,
         self_muted: bool,
         deafened_by: Option<uuid::Uuid>,
-        stream_ceiling: StreamCeiling,
     ) -> Self {
         Self {
             token,
@@ -29,7 +26,6 @@ impl JoinVoiceChannelResponse {
             muted_by,
             self_muted,
             deafened_by,
-            stream_ceiling,
         }
     }
 }

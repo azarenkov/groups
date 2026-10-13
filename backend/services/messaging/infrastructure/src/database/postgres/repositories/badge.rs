@@ -20,32 +20,17 @@ impl PostgresBadgeRepository {
 
 #[async_trait]
 impl BadgeRepository for PostgresBadgeRepository {
-    async fn apply_tier(
-        &self,
-        user_id: &UserId,
-        tier: &str,
-        valid_until: Option<DateTime<Utc>>,
-        member_number: Option<i64>,
-        occurred_at: DateTime<Utc>,
-    ) -> Result<(), RepositoryError> {
-        sqlx::query!(
+    async fn apply_member_number(&self, user_id: &UserId, member_number: i64) -> Result<(), RepositoryError> {
+        sqlx::query(
             r#"
-            INSERT INTO messaging_user_profiles (user_id, name, updated_at, tier, tier_valid_until, member_number, tier_updated_at)
-            VALUES ($1, '', to_timestamp(0), $2, $3, $4, $5)
+            INSERT INTO messaging_user_profiles (user_id, name, updated_at, member_number)
+            VALUES ($1, '', to_timestamp(0), $2)
             ON CONFLICT (user_id) DO UPDATE
-                SET tier = EXCLUDED.tier,
-                    tier_valid_until = EXCLUDED.tier_valid_until,
-                    member_number = COALESCE(EXCLUDED.member_number, messaging_user_profiles.member_number),
-                    tier_updated_at = EXCLUDED.tier_updated_at
-                WHERE messaging_user_profiles.tier_updated_at IS NULL
-                   OR messaging_user_profiles.tier_updated_at <= EXCLUDED.tier_updated_at
+                SET member_number = EXCLUDED.member_number
             "#,
-            user_id.uuid(),
-            tier,
-            valid_until,
-            member_number,
-            occurred_at,
         )
+        .bind(user_id.uuid())
+        .bind(member_number)
         .execute(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
@@ -96,22 +81,6 @@ impl BadgeRepository for PostgresBadgeRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
-    }
-
-    async fn tier_of(&self, user_id: &UserId, now: DateTime<Utc>) -> Result<String, RepositoryError> {
-        let tier = sqlx::query_scalar!(
-            r#"
-            SELECT tier FROM messaging_user_profiles
-            WHERE user_id = $1
-              AND (tier_valid_until IS NULL OR tier_valid_until > $2)
-            "#,
-            user_id.uuid(),
-            now,
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(tier.unwrap_or_else(|| "free".to_string()))
     }
 
     async fn paid_badges(

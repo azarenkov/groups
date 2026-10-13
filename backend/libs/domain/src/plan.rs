@@ -21,6 +21,10 @@ impl Tier {
             Self::Premium => "premium",
         }
     }
+
+    pub fn is_paid(&self) -> bool {
+        !matches!(self, Self::Free)
+    }
 }
 
 #[cfg(test)]

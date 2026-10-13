@@ -7,7 +7,6 @@ mod routes;
 mod server;
 mod state;
 mod stream_sweep;
-mod tiers;
 mod webhook;
 
 use std::error::Error;
