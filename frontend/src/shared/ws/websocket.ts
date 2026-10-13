@@ -92,12 +92,14 @@ export interface WsEnvelope<T = unknown> {
   partition?: string;
   seq?: number;
   covered?: boolean;
+  eventId?: string;
 }
 
 type Listener = (env: WsEnvelope) => void;
 type Filter = (env: WsEnvelope) => boolean;
 
 const RECONNECT_MIN_MS = 1000;
+const RECENT_EVENTS_LIMIT = 1000;
 const RECONNECT_MAX_MS = 30_000;
 const HEARTBEAT_MS = 25_000;
 const REFRESH_MIN_INTERVAL_MS = 60_000;
@@ -119,6 +121,7 @@ class WsClient {
   private lastRefreshAttemptAt = 0;
   private openListeners = new Set<() => void>();
   private sequencer = new Sequencer((env) => this.deliver(env));
+  private recentEvents = new Set<string>();
 
   constructor(endpoint: string = defaultEndpoint()) {
     this.endpoint = endpoint;
@@ -141,7 +144,20 @@ class WsClient {
   }
 
   receive(env: WsEnvelope): void {
+    if (this.isRepeat(env)) return;
     this.sequencer.accept(env);
+  }
+
+  private isRepeat(env: WsEnvelope): boolean {
+    if (typeof env.eventId !== "string") return false;
+    const key = `${env.eventId}|${env.type}`;
+    if (this.recentEvents.has(key)) return true;
+    this.recentEvents.add(key);
+    if (this.recentEvents.size > RECENT_EVENTS_LIMIT) {
+      const oldest = this.recentEvents.values().next().value;
+      if (oldest !== undefined) this.recentEvents.delete(oldest);
+    }
+    return false;
   }
 
   connect() {
