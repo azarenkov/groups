@@ -15,6 +15,7 @@ pub fn spawn<B>(
     subject_prefix: String,
     user_stream: String,
     badges: Arc<B>,
+    tier_changed: Arc<dyn super::stream_ceilings::TierChanged>,
 ) where
     B: BadgeRepository + 'static,
 {
@@ -43,7 +44,7 @@ pub fn spawn<B>(
                             tracing::warn!("Pro badge stream error");
                             break;
                         };
-                        match apply(&*badges, &m.subject, &m.payload).await {
+                        match apply(&*badges, &*tier_changed, &m.subject, &m.payload).await {
                             Ok(()) => {
                                 let _ = m.ack().await;
                             }
@@ -65,6 +66,7 @@ pub fn spawn<B>(
 
 async fn apply<B: BadgeRepository + ?Sized>(
     badges: &B,
+    tier_changed: &dyn super::stream_ceilings::TierChanged,
     subject: &str,
     payload: &[u8],
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -82,6 +84,7 @@ async fn apply<B: BadgeRepository + ?Sized>(
                 evt.occurred_at,
             )
             .await?;
+        tier_changed.tier_changed(&UserId::new(evt.user_id)).await?;
         return Ok(());
     }
     if subject.ends_with(".profile_changed") {
@@ -113,6 +116,15 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
+
+    struct NoTier;
+
+    #[async_trait]
+    impl super::super::stream_ceilings::TierChanged for NoTier {
+        async fn tier_changed(&self, _: &UserId) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            Ok(())
+        }
+    }
 
     #[derive(Default)]
     struct Perks(Mutex<Vec<Option<Option<BadgeEmojiStatus>>>>);
@@ -152,15 +164,16 @@ mod tests {
     async fn events_from_older_identities_keep_the_status_and_new_ones_set_or_clear_it() {
         let perks = Perks::default();
         let sticker = Uuid::new_v4();
-        apply(&perks, "rift.user.profile_changed", &event(serde_json::json!({}))).await.unwrap();
+        apply(&perks, &NoTier, "rift.user.profile_changed", &event(serde_json::json!({}))).await.unwrap();
         apply(
             &perks,
+            &NoTier,
             "rift.user.profile_changed",
             &event(serde_json::json!({ "emoji_status_included": true, "emoji_status_sticker_id": sticker })),
         )
         .await
         .unwrap();
-        apply(&perks, "rift.user.profile_changed", &event(serde_json::json!({ "emoji_status_included": true })))
+        apply(&perks, &NoTier, "rift.user.profile_changed", &event(serde_json::json!({ "emoji_status_included": true })))
             .await
             .unwrap();
         let seen = perks.0.lock().unwrap().clone();

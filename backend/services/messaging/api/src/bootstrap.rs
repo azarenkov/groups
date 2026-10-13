@@ -211,6 +211,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         nats_config.subject_prefix.clone(),
         user_stream,
         badge_repository.clone(),
+        Arc::new(messaging_infrastructure::consumers::stream_ceilings::ChannelStreamCeilings::new(
+            badge_repository.clone(),
+            channel_repository.clone(),
+            livekit_service.clone(),
+            Arc::new(infrastructure_common::database::postgres::repositories::outbox_writer::PostgresOutboxWriter::new(
+                postgres_pool.clone(),
+            )),
+        )),
     );
 
     let nats_core = nats_jetstream.client().clone();
@@ -237,6 +245,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             user_repository.clone(),
             hasher.clone(),
             community_repository.clone(),
+            badge_repository.clone(),
         ),
         disconnect_voice_member_usecase: DisconnectVoiceMember::new(
             channel_repository.clone(),

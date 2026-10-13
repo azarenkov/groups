@@ -4,7 +4,8 @@ use ports::voice_service::ParticipantAccess;
 use crate::usecases::channel::voice_access::participant_access;
 
 use messaging_domain::{channel::ChannelError, channel::id::ChannelId, channel::repository::ChannelRepository};
-use domain::{user::id::UserId, user::name::UserName};
+use domain::{stream::StreamCeiling, user::id::UserId, user::name::UserName};
+use messaging_domain::badge::BadgeRepository;
 use ports::repository::RepositoryError;
 
 use crate::{
@@ -45,28 +46,31 @@ pub enum JoinVoiceChannelError {
 }
 
 #[derive(Debug)]
-pub struct JoinVoiceChannel<T, U, R, H, S>
+pub struct JoinVoiceChannel<T, U, R, H, S, B>
 where
     T: VoiceService,
     U: ChannelRepository,
     R: ports::user_profile::UserProfileRepository,
     H: Hasher,
     S: messaging_domain::community::repository::CommunityRepository,
+    B: BadgeRepository,
 {
     voice_service: Arc<T>,
     channel_repository: Arc<U>,
     user_repository: Arc<R>,
     hasher: Arc<H>,
     community_repository: Arc<S>,
+    badge_repository: Arc<B>,
 }
 
-impl<T, U, R, H, S> JoinVoiceChannel<T, U, R, H, S>
+impl<T, U, R, H, S, B> JoinVoiceChannel<T, U, R, H, S, B>
 where
     T: VoiceService,
     U: ChannelRepository,
     R: ports::user_profile::UserProfileRepository,
     H: Hasher,
     S: messaging_domain::community::repository::CommunityRepository,
+    B: BadgeRepository,
 {
     pub fn new(
         voice_service: Arc<T>,
@@ -74,6 +78,7 @@ where
         user_repository: Arc<R>,
         hasher: Arc<H>,
         community_repository: Arc<S>,
+        badge_repository: Arc<B>,
     ) -> Self {
         Self {
             voice_service,
@@ -81,6 +86,7 @@ where
             user_repository,
             hasher,
             community_repository,
+            badge_repository,
         }
     }
 
@@ -140,13 +146,14 @@ where
         let mute_record = channel.mute_record(&user_id);
         let deafen_record = channel.deafen_record(&user_id);
         let access = participant_access(&channel, &user_id);
+        let ceiling = StreamCeiling::for_tier(&self.badge_repository.tier_of(&user_id, chrono::Utc::now()).await?);
         let channel_token = if access == ParticipantAccess::FULL {
             self.voice_service
-                .create_token(&user_id, &user_name, channel.id())
+                .create_token(&user_id, &user_name, channel.id(), ceiling)
                 .await?
         } else {
             self.voice_service
-                .create_token_with_access(&user_id, &user_name, channel.id(), access)
+                .create_token_with_access(&user_id, &user_name, channel.id(), access, ceiling)
                 .await?
         };
 
@@ -162,6 +169,7 @@ where
             mute_record.map(|m| m.muted_by.uuid()),
             mute_record.is_some_and(|m| m.self_muted),
             deafen_record.map(|d| d.deafened_by.uuid()),
+            ceiling,
         );
         Ok(response)
     }
