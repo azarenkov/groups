@@ -88,6 +88,7 @@ where
                 if let Err(e) = self.voice.mute_track(&room, &user, &video.sid).await {
                     tracing::warn!(error = %e, user_id = %user.uuid(), "Failed to mute a screen share above the plan ceiling");
                 }
+                current.insert(key);
                 limited += 1;
             }
         }
@@ -219,6 +220,8 @@ mod tests {
         *sweep.suspects.lock().unwrap() = suspects;
         assert_eq!(sweep.execute(Utc::now()).await.unwrap(), 1);
         assert_eq!(*republished.muted.lock().unwrap(), vec!["second".to_string()]);
+        assert_eq!(sweep.execute(Utc::now()).await.unwrap(), 1);
+        assert_eq!(republished.muted.lock().unwrap().len(), 2);
     }
 
     #[tokio::test]

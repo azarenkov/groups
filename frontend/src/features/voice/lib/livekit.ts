@@ -1349,7 +1349,12 @@ export class LiveKitService {
     } finally {
       this.republishingScreen = false;
     }
-    if (!failed) return;
+    if (!failed) {
+      if (this.screenShareQuality !== quality) {
+        await this.applyScreenShareQuality(this.screenShareQuality, quality);
+      }
+      return;
+    }
     try {
       await this.setScreenShareEnabled(false);
     } catch (e) {
