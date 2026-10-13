@@ -395,10 +395,10 @@ it("hides recent entries for people who blocked the viewer", async () => {
   await waitFor(() => expect(searchHistoryAPI.list).toHaveBeenCalled());
 });
 
-it("holds back cached people recents until blocks or the server have vouched for them", async () => {
+it("holds back cached people recents until the server has vouched for them", async () => {
   resetSearchHistorySession();
   signIn();
-  useBlockStore.setState({ loaded: false, blocked: {}, blockedBy: {} });
+  useBlockStore.setState({ loaded: true, blocked: {}, blockedBy: {} });
   storeHistory("me", [
     { id: "h9", usedAt: "2026-10-13T09:00:00Z", type: "dm", userId: "u9", name: "Eve" },
     { id: "h10", usedAt: "2026-10-13T08:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" },

@@ -52,7 +52,6 @@ export function useSearchHistory(load: boolean) {
   );
   const blocked = useBlockStore((s) => s.blocked);
   const blockedBy = useBlockStore((s) => s.blockedBy);
-  const blocksLoaded = useBlockStore((s) => s.loaded);
   const seenBlocks = React.useRef({ blocked, blockedBy });
   React.useEffect(() => {
     if (seenBlocks.current.blocked === blocked && seenBlocks.current.blockedBy === blockedBy) return;
@@ -64,10 +63,10 @@ export function useSearchHistory(load: boolean) {
       ((userId ? query.data : undefined) ?? []).filter((item) => {
         const peer = blockedPeerOf(item);
         if (!peer) return true;
-        if (!blocksLoaded && !(userId && historyVerified(userId))) return false;
+        if (!userId || !historyVerified(userId)) return false;
         return !blocked[peer] && !blockedBy[peer];
       }),
-    [userId, query.data, blocked, blockedBy, blocksLoaded],
+    [userId, query.data, blocked, blockedBy],
   );
   return {
     items,
