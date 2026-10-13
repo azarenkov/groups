@@ -1535,12 +1535,7 @@ export class LiveKitService {
     const sid = this.pendingScreenStopSid;
     if (!sid || this.room?.state !== "connected") return;
     this.pendingScreenStopSid = null;
-    if (this.getScreenShareTrackSid() !== sid) return;
-    try {
-      await this.setScreenShareEnabled(false);
-    } catch (e) {
-      console.warn("[LiveKitService] failed to stop a limited screen share:", e);
-    }
+    await this.stopScreenShareTrack(sid);
   }
 
   getScreenShareTrackSid(): string | null {

@@ -82,6 +82,7 @@ pub fn spawn<P, C, V>(
                     tracing::warn!(error = %e, "Voice tier projection subscribe failed; retrying");
                 }
             }
+            caught_up.store(false, Ordering::SeqCst);
             actix_web::rt::time::sleep(std::time::Duration::from_secs(5)).await;
         }
     });
