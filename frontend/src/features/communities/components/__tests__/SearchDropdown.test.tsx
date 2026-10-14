@@ -279,7 +279,7 @@ it("opens a recent community and lifts it to the top", async () => {
   const { picks, input } = setup();
   fireEvent.focus(input);
   fireEvent.click(await screen.findByText("Alpha Squad"));
-  expect(picks.community).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
+  await waitFor(() => expect(picks.community).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" })));
   await waitFor(() => expect(searchHistoryAPI.record).toHaveBeenCalledWith(expect.objectContaining({ type: "community", communityId: "c1" })));
   await act(async () => {});
 });
@@ -331,7 +331,7 @@ it("opens the first recent entry on Enter and never clears the history from the 
   expect(document.activeElement).toHaveTextContent("Alpha Squad");
   fireEvent.keyDown(document.activeElement as Element, { key: "ArrowUp" });
   fireEvent.keyDown(input, { key: "Enter" });
-  expect(picks.community).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
+  await waitFor(() => expect(picks.community).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" })));
   expect(searchHistoryAPI.clear).not.toHaveBeenCalled();
   await act(async () => {});
 });
@@ -491,4 +491,26 @@ it("hides access-dependent recents while a target-invalidating refetch is in fli
   await act(async () => answer([]));
   await waitFor(() => expect(screen.getByText(i18n.t("sidebar:recentEmpty"))).toBeInTheDocument());
   expect(screen.queryByText("Alpha Squad")).toBeNull();
+});
+
+it("loads a recent community before opening it and keeps the search open if it is gone", async () => {
+  signIn();
+  const { useCommunityStore } = jest.requireActual("../../store/communityStore");
+  const fetchCommunities = jest.fn(async () => {
+    useCommunityStore.setState({ communities: [{ id: "c7", name: "Night Owls", ownerId: "x" }] });
+  });
+  useCommunityStore.setState({ fetchCommunities, communities: [] });
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h15", usedAt: "2026-10-13T09:00:00Z", type: "community", communityId: "c7", name: "Night Owls" },
+    { id: "h16", usedAt: "2026-10-13T08:00:00Z", type: "community", communityId: "gone", name: "Old Club" },
+  ]);
+  const { picks, input } = setup();
+  fireEvent.focus(input);
+  fireEvent.click(await screen.findByText("Old Club"));
+  await waitFor(() => expect(fetchCommunities).toHaveBeenCalled());
+  await act(async () => {});
+  expect(picks.community).not.toHaveBeenCalled();
+  expect(searchHistoryAPI.record).not.toHaveBeenCalled();
+  fireEvent.click(await screen.findByText("Night Owls"));
+  await waitFor(() => expect(picks.community).toHaveBeenCalledWith(expect.objectContaining({ id: "c7" })));
 });

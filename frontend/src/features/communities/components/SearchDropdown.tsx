@@ -18,6 +18,8 @@ import type { HistoryItem, HistoryTarget } from "../../search/api/searchHistory"
 import { placeLink } from "../../search/components/GlobalSearchResults";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import { useChannelStore } from "../store/channelStore";
+import { useCommunityStore } from "../store/communityStore";
+import { revalidateSearchHistory } from "../../search/lib/searchHistory";
 
 const QUICK_LIMIT = 5;
 
@@ -98,45 +100,57 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
     onDone();
   };
 
-  const openRecent = (item: HistoryItem) => {
-    if (item.type === "query") {
-      history.record({ type: "query", text: item.text });
-      onSearch(item.text);
+  const resolveCommunity = async (communityId: string): Promise<Community | undefined> => {
+    const known = communities.find((c) => c.id === communityId);
+    if (known) return known;
+    await useCommunityStore.getState().fetchCommunities().catch(() => {});
+    return useCommunityStore.getState().communities.find((c) => c.id === communityId);
+  };
+
+  const resolveChannel = async (communityId: string, channelId: string): Promise<Channel | undefined> => {
+    const known = (channelsByCommunity[communityId] ?? []).find((c) => c.id === channelId);
+    if (known) return known;
+    await useChannelStore.getState().fetchChannels(communityId).catch(() => false);
+    return (useChannelStore.getState().channelsByCommunity[communityId] ?? []).find((c) => c.id === channelId);
+  };
+
+  const openRecentPlace = async (item: Extract<HistoryItem, { type: "community" | "channel" }>) => {
+    const community = await resolveCommunity(item.communityId);
+    if (!community) {
+      revalidateSearchHistory();
       return;
     }
     history.record(item);
+    if (item.type === "channel") {
+      const channel = await resolveChannel(item.communityId, item.channelId);
+      if (channel) onPickChannel(community, channel);
+      else onPickCommunity(community);
+    } else {
+      onPickCommunity(community);
+    }
+    onDone();
+  };
+
+  const openRecent = (item: HistoryItem) => {
     switch (item.type) {
+      case "query":
+        history.record({ type: "query", text: item.text });
+        onSearch(item.text);
+        return;
+      case "community":
+      case "channel":
+        void openRecentPlace(item);
+        return;
       case "person":
+        history.record(item);
         useProfileModalStore.getState().open(item.userId);
         break;
       case "dm":
+        history.record(item);
         onMessagePerson(item.userId, item.name, isFriend(item.userId));
         break;
-      case "community": {
-        const community = communities.find((c) => c.id === item.communityId);
-        if (community) onPickCommunity(community);
-        break;
-      }
-      case "channel": {
-        const community = communities.find((c) => c.id === item.communityId);
-        if (!community) break;
-        const known = (channelsByCommunity[item.communityId] ?? []).find((c) => c.id === item.channelId);
-        if (known) {
-          onPickChannel(community, known);
-          break;
-        }
-        void (async () => {
-          const store = useChannelStore.getState();
-          await store.fetchChannels(item.communityId).catch(() => false);
-          const loaded = (useChannelStore.getState().channelsByCommunity[item.communityId] ?? []).find(
-            (c) => c.id === item.channelId,
-          );
-          if (loaded) onPickChannel(community, loaded);
-          else onPickCommunity(community);
-        })();
-        break;
-      }
       case "message":
+        history.record(item);
         onOpenResult(placeLink(item.place, item.messageId));
         break;
     }
