@@ -6,6 +6,7 @@ import { formatDayDivider, sameDay } from "../lib/messageFormat";
 import Message from "./Message";
 import { sharesTimeWithNext } from "../lib/messageTime";
 import type { PendingFile } from "../types";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 import { displayUserName } from "../../../shared/lib/displayName";
 
 interface MessageListProps {
@@ -101,7 +102,7 @@ const MessageList: React.FC<MessageListProps> = ({
   <div className="inner">
             {loadingOlder && (
               <div className="msg-loader">
-                <span className="loading-spinner" />
+                <LoadingDots />
               </div>
             )}
             {messages.map((m, i) => {

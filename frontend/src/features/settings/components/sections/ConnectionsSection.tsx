@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Icon, { type IconName } from "../../../../shared/ui/Icon";
 import { userAPI, type Connection } from "../../../social/api/user";
 import { ApiError } from "../../../../shared/lib/apiError";
+import LoadingDots from "../../../../shared/ui/LoadingDots";
 
 
 export function ConnectionsSection() {
@@ -112,7 +113,7 @@ export function ConnectionsSection() {
         <h2>{t("connections.available")}</h2>
         {error && <div className="s-error">{error}</div>}
         {!connections && !error ? (
-          <div className="s-row"><span className="loading-spinner" /></div>
+          <div className="s-row"><LoadingDots /></div>
         ) : (
           providers.map((p) => {
             const linked = connections?.find((c) => c.provider === p.id);

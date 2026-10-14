@@ -1640,14 +1640,15 @@ body.electron .topbar .account-dropdown { -webkit-app-region: no-drag; }
 .search-dd-icon { background: var(--surface-sunken); color: var(--fg-2); }
 .search-dd-text { display: flex; flex-direction: column; min-width: 0; }
 .search-dd-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.search-dd-name mark { background: transparent; color: var(--fg-1); font-weight: 700; }
+.search-dd-name mark { background: var(--accent-tint-2); color: var(--fg-1); font-weight: 700; border-radius: 3px; }
 .search-dd-sub { font-size: 12px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .search-dd .sb-global-search .sb-view { padding: 0; }
 .search-dd-person { display: flex; align-items: center; gap: 8px; }
 .search-dd-person > .search-dd-item { flex: 1; min-width: 0; }
 .search-dd-static { cursor: default; }
 .search-dd-static:hover { background: transparent; }
-.search-dd-name { display: flex; align-items: center; gap: 6px; }
+.search-dd-name-badged { display: flex; align-items: center; gap: 6px; }
+.search-dd-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .search-dd-ava-wrap { position: relative; flex-shrink: 0; display: flex; }
 .search-dd-online {
   position: absolute; right: -1px; bottom: -1px;

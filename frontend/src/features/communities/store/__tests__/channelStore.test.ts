@@ -1,5 +1,6 @@
 import { channelsFullyLoaded, useChannelStore } from "../channelStore";
 import { channelAPI } from "../../api/channel";
+import { ApiError } from "../../../../shared/lib/apiError";
 
 jest.mock("../../api/channel", () => ({
   channelAPI: { listByCommunity: jest.fn() },
@@ -61,5 +62,15 @@ describe("channelStore.fetchChannels", () => {
     reject(new Error("forbidden"));
     await expect(pending).resolves.toBe(false);
     expect(useChannelStore.getState().error).toBeNull();
+  });
+
+  it("stays quiet when the community is no longer accessible", async () => {
+    useChannelStore.setState({ error: null });
+    listByCommunity.mockRejectedValue(new ApiError("Вы не состоите в этом сообществе.", 403, "COMMUNITY_NOT_MEMBER"));
+    expect(await useChannelStore.getState().fetchChannels("left")).toBe(false);
+    expect(useChannelStore.getState().error).toBeNull();
+    listByCommunity.mockRejectedValue(new ApiError("boom", 500, "INTERNAL"));
+    await useChannelStore.getState().fetchChannels("other");
+    expect(useChannelStore.getState().error).toBe("boom");
   });
 });

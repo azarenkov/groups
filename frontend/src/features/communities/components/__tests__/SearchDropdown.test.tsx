@@ -530,3 +530,26 @@ it("drops a person from the people results as soon as either side blocks", async
   expect(screen.queryByText("rand", { exact: false, selector: ".search-dd-name, .search-dd-name *" })).toBeNull();
   await act(async () => {});
 });
+
+it("keeps a highlighted nickname in one piece next to the badge", async () => {
+  (peopleAPI.search as jest.Mock).mockResolvedValue([
+    { id: "p10", name: "Alexey", relation: "none", acceptsFriendRequests: true },
+  ]);
+  const { input } = setup();
+  fireEvent.change(input, { target: { value: "ale" } });
+  await waitFor(() => expect(document.querySelector(".search-dd-name-text")).toHaveTextContent(/^Alexey$/));
+});
+
+it("never shows a cached invite community once the link stopped working", async () => {
+  const token = "QwErTyUiOpAsDfGhJkLzXc";
+  queryClient.setQueryData(["invitePreview", token], {
+    status: "active",
+    community: { id: "c9", name: "Stale Club", description: null, accentColor: null, memberCount: 2 },
+  });
+  (communityAPI.previewInvite as jest.Mock).mockResolvedValue({ status: "revoked", community: null });
+  const { input } = setup();
+  fireEvent.change(input, { target: { value: `https://rift.app/join/${token}` } });
+  expect(screen.queryByText("Stale Club")).toBeNull();
+  expect(await screen.findByText(i18n.t("sidebar:inviteUnavailable"))).toBeInTheDocument();
+  expect(screen.queryByText("Stale Club")).toBeNull();
+});

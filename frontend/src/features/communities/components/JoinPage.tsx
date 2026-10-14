@@ -11,6 +11,7 @@ import { useAuthStore } from "../../auth/store/authStore";
 import type { InvitePreview } from "../../../shared/types/community";
 import { appDeepLink, extractInviteToken } from "../../../shared/lib/inviteLinks";
 import { isAccessTokenVerified } from "../../../shared/lib/jwt";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 
 const JoinPage: React.FC = () => {
   const { token: rawToken = "" } = useParams();
@@ -60,7 +61,7 @@ const JoinPage: React.FC = () => {
           {preview?.community && <InvitePreviewCard community={preview.community} />}
           {!preview && !unavailable && (
             <div className="join-loading">
-              <span className="loading-spinner" />
+              <LoadingDots />
             </div>
           )}
           {message && (

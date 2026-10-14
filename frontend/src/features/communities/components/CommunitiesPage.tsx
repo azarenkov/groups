@@ -63,12 +63,14 @@ import ErrorToast from "../../../shared/ui/ErrorToast";
 import TrialEndingNotice from "../../subscription/components/TrialEndingNotice";
 import PanelResizer from "../../../shared/ui/PanelResizer";
 import ContextMenuHost from "../../../shared/ui/contextMenu/ContextMenuHost";
+import { purgeCommunityLocally } from "../../../shared/ws/context";
 import { useDmOpenerStore } from "../../social/store/dmOpenerStore";
 import { parseMessageLink } from "../../chat/lib/messageLink";
 import type { OpenMessageLink } from "../../chat/lib/messageLink";
 import { Channel, ChannelKind } from "../../../shared/types/channel";
 import { Community } from "../../../shared/types/community";
 import "../../../styles/rift.css";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 
 const DETAILS_OVERLAY_QUERY = "(max-width: 900px)";
 const DETAILS_ANIMATION_MS = 260;
@@ -383,9 +385,7 @@ const CommunitiesPage: React.FC = () => {
     if (deleteConfirm?.type !== "leave-community") return;
     try {
       await communityAPI.leave(deleteConfirm.id);
-      useConversationPinsStore.getState().forget("communities", deleteConfirm.id);
-      if (selectedCommunityId === deleteConfirm.id) setSelectedCommunity(null);
-      clearChannels(deleteConfirm.id);
+      purgeCommunityLocally(deleteConfirm.id);
       if (joinedChannel?.communityId === deleteConfirm.id) {
         setJoinedChannel(null);
         setVoiceJoinFailed(false);
@@ -862,7 +862,7 @@ const CommunitiesPage: React.FC = () => {
               </div>
             ) : !selectedCommunityChannelsLoaded ? (
               <div className="empty-state" style={{ padding: 60 }}>
-                <span className="loading-spinner" />
+                <LoadingDots />
               </div>
             ) : selectedVoiceChannelNotJoined && selectedCommunity ? (
               <VoiceChannelPreview

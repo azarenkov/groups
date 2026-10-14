@@ -14,6 +14,7 @@ import AttachmentItem from "./AttachmentItem";
 import VideoNotePlayer from "./VideoNotePlayer";
 import VoicePlayer from "./VoicePlayer";
 import { dmClearedFor } from "../../dm/lib/dmCleared";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 
 const TABS: SharedKind[] = ["media", "files", "voice", "links"];
 
@@ -258,7 +259,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onShowM
         )}
         {(content.loading || waitingForBlocks) && (
           <div className="shared-loading">
-            <span className="loading-spinner" />
+            <LoadingDots />
           </div>
         )}
         <div ref={sentinelRef} className="shared-sentinel" />

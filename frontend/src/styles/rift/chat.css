@@ -802,7 +802,7 @@
 .voice-msg-play svg { margin-left: 1px; }
 .voice-msg.playing .voice-msg-play svg { margin-left: 0; }
 .msg.bubble.mine .voice-msg-play { background: #fff; color: var(--accent); }
-.voice-msg-spinner { width: 16px; height: 16px; border-width: 2px; }
+.voice-msg-spinner > span { width: 4px; height: 4px; }
 .voice-msg-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding-top: 6px; }
 .voice-msg-wave {
   height: 20px;

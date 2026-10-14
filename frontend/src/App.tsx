@@ -38,6 +38,7 @@ import {
   extractResetToken,
 } from "./shared/lib/inviteLinks";
 import "styles/App.css";
+import LoadingDots from "./shared/ui/LoadingDots";
 import TooltipHost from "./shared/ui/tooltip/TooltipHost";
 
 const AuthRedirect: React.FC = () => {
@@ -258,7 +259,7 @@ const App: React.FC = () => {
     return (
       <div className="app">
         <div className="loading-screen">
-          <div className="spinner" />
+          <LoadingDots />
         </div>
       </div>
     );

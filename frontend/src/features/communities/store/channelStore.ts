@@ -5,6 +5,9 @@ import {
   ChannelVisibility,
 } from "../../../shared/types/channel";
 import { channelAPI } from "../api/channel";
+import { ApiError } from "../../../shared/lib/apiError";
+
+const ACCESS_GONE = new Set(["COMMUNITY_NOT_MEMBER", "COMMUNITY_NOT_FOUND"]);
 
 interface ChannelState {
   channelsByCommunity: Record<string, Channel[]>;
@@ -117,6 +120,10 @@ export const useChannelStore = create<ChannelState>((set, get) => {
       return true;
     } catch (error) {
       if (stale()) return false;
+      if (error instanceof ApiError && error.code && ACCESS_GONE.has(error.code)) {
+        set({ isLoading: false });
+        return false;
+      }
       set({
         error:
           error instanceof Error ? error.message : "Failed to fetch channels",

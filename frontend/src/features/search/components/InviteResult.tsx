@@ -20,12 +20,15 @@ const InviteResult: React.FC<InviteResultProps> = ({ token, onJoin, onDone }) =>
       queryKey: queryKeys.invitePreview(token),
       queryFn: () => communityAPI.previewInvite(token),
       retry: false,
+      staleTime: 0,
+      refetchOnMount: "always",
     },
     queryClient,
   );
   const [joining, setJoining] = React.useState(false);
   const [joinFailed, setJoinFailed] = React.useState(false);
-  const community = preview.data?.status === "active" ? preview.data.community : null;
+  const fresh = preview.isFetchedAfterMount && !preview.isFetching;
+  const community = fresh && preview.data?.status === "active" ? preview.data.community : null;
 
   const join = async () => {
     setJoining(true);
@@ -35,6 +38,7 @@ const InviteResult: React.FC<InviteResultProps> = ({ token, onJoin, onDone }) =>
       onDone();
     } catch {
       setJoinFailed(true);
+      void preview.refetch();
     } finally {
       setJoining(false);
     }
@@ -64,7 +68,7 @@ const InviteResult: React.FC<InviteResultProps> = ({ token, onJoin, onDone }) =>
           </button>
         </div>
       ) : (
-        <div className="search-dd-note">{preview.isPending ? t("inviteChecking") : t("inviteUnavailable")}</div>
+        <div className="search-dd-note">{fresh ? t("inviteUnavailable") : t("inviteChecking")}</div>
       )}
     </section>
   );

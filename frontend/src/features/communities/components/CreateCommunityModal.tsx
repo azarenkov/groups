@@ -10,6 +10,7 @@ import type { InvitePreview } from "../../../shared/types/community";
 import { extractInviteToken } from "../../../shared/lib/inviteLinks";
 import InvitePreviewCard, { inviteStatusMessage } from "./InvitePreviewCard";
 import "../../../styles/rift.css";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 
 export type CommunityModalView = "choose" | "create" | "join";
 
@@ -449,7 +450,7 @@ const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
               disabled={isLoading || !trimmed}
             >
               {isLoading ? (
-                <span className="loading-spinner" />
+                <LoadingDots />
               ) : (
                 t("createCommunity.create")
               )}
@@ -515,7 +516,7 @@ const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
                 onClick={handleJoin}
               >
                 {joining ? (
-                  <span className="loading-spinner" />
+                  <LoadingDots />
                 ) : (
                   t("communityModal.joinCta")
                 )}
@@ -528,7 +529,7 @@ const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
                 onClick={() => void loadPreview(linkInput)}
               >
                 {joining ? (
-                  <span className="loading-spinner" />
+                  <LoadingDots />
                 ) : (
                   t("communityModal.continue")
                 )}

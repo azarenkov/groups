@@ -8,6 +8,7 @@ import { useAuthStore } from "../../../auth/store/authStore";
 import { useBlockStore } from "../../../social/store/blockStore";
 
 import { SettingsRow, Switch } from "../controls";
+import LoadingDots from "../../../../shared/ui/LoadingDots";
 
 export function PrivacySection() {
   const { t } = useTranslation("settings");
@@ -43,7 +44,7 @@ export function PrivacySection() {
         {failed ? (
           <div className="s-error">{t("privacy.loadFailed")}</div>
         ) : !settings ? (
-          <div className="s-row"><span className="loading-spinner" /></div>
+          <div className="s-row"><LoadingDots /></div>
         ) : (
           <>
             <SettingsRow label={t("privacy.whoCanDm")} hint={t("privacy.whoCanDmHint")}>
@@ -120,7 +121,7 @@ function BlockedUsersSection() {
             </button>
           </div>
         ) : (
-          <div className="s-row"><span className="loading-spinner" /></div>
+          <div className="s-row"><LoadingDots /></div>
         )
       ) : items.length === 0 ? (
         <div className="s-row s-muted">{t("privacy.noBlockedUsers")}</div>
