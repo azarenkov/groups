@@ -59,6 +59,40 @@ impl LegacyInvitations for PostgresLegacyInvitations {
                 .await
                 .map_err(map_sqlx_error_to_domain_error)?;
         }
+        let communities: Vec<Uuid> = taken.iter().map(|t| t.community_id).collect();
+        let senders: Vec<Uuid> = taken.iter().map(|t| t.sender_id).collect();
+        let recipients: Vec<Uuid> = taken.iter().map(|t| t.recipient_id).collect();
+        let created: Vec<_> = taken.iter().map(|t| t.created_at).collect();
+        sqlx::query!(
+            r#"
+            DELETE FROM community_invitations ci
+            USING (
+                SELECT m.invite_community_id, m.recipient_id, max(m.created_at) AS created_at
+                FROM unnest($1::uuid[], $2::uuid[], $3::uuid[], $4::timestamptz[])
+                    AS m(invite_community_id, sender_id, recipient_id, created_at)
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM community_members cm
+                    WHERE cm.community_id = m.invite_community_id AND cm.user_id = m.recipient_id
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM user_blocks b
+                    WHERE (b.blocker_id = m.sender_id AND b.blocked_id = m.recipient_id)
+                       OR (b.blocker_id = m.recipient_id AND b.blocked_id = m.sender_id)
+                )
+                GROUP BY m.invite_community_id, m.recipient_id
+            ) l
+            WHERE ci.community_id = l.invite_community_id
+              AND ci.invitee_id = l.recipient_id
+              AND ci.created_at < l.created_at
+            "#,
+            &communities,
+            &senders,
+            &recipients,
+            &created,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
         let notified = sqlx::query!(
             r#"
             WITH legacy AS (
@@ -92,10 +126,10 @@ impl LegacyInvitations for PostgresLegacyInvitations {
             ON CONFLICT (user_id, source_event_id) DO NOTHING
             RETURNING id, user_id
             "#,
-            &taken.iter().map(|t| t.community_id).collect::<Vec<Uuid>>(),
-            &taken.iter().map(|t| t.sender_id).collect::<Vec<Uuid>>(),
-            &taken.iter().map(|t| t.recipient_id).collect::<Vec<Uuid>>(),
-            &taken.iter().map(|t| t.created_at).collect::<Vec<_>>(),
+            &communities,
+            &senders,
+            &recipients,
+            &created,
         )
         .fetch_all(&mut *tx)
         .await

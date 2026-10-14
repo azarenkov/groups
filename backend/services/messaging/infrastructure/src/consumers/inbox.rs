@@ -1,5 +1,6 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use contracts::events::{
@@ -108,11 +109,18 @@ fn source_event_id(event_id: Option<&str>, subject: &str, payload: &[u8]) -> Str
     }
 }
 
-pub fn spawn<R>(jetstream: async_nats::jetstream::Context, subject_prefix: String, feed: InboxFeed, usecase: Arc<ApplyInboxTrigger<R>>)
+pub fn spawn<R>(
+    jetstream: async_nats::jetstream::Context,
+    subject_prefix: String,
+    feed: InboxFeed,
+    usecase: Arc<ApplyInboxTrigger<R>>,
+) -> Arc<AtomicBool>
 where
     R: InboxRepository + 'static,
 {
     let prefix = subject_prefix.trim_end_matches('.').to_string();
+    let subscribed = Arc::new(AtomicBool::new(false));
+    let flag = subscribed.clone();
     tokio::spawn(async move {
         let consumer = NatsEventConsumer::new(jetstream, feed.stream.clone());
         let mut subjects = feed.subjects.clone();
@@ -129,6 +137,7 @@ where
             };
             match consumer.subscribe(opts).await {
                 Ok(mut messages) => {
+                    flag.store(true, Ordering::Release);
                     tracing::info!(stream = %feed.stream, consumer = feed.consumer_name, "Inbox feed subscribed");
                     while let Some(msg) = messages.next().await {
                         let Ok(m) = msg else {
@@ -164,6 +173,7 @@ where
             tokio::time::sleep(RESUBSCRIBE_DELAY).await;
         }
     });
+    subscribed
 }
 
 #[cfg(test)]

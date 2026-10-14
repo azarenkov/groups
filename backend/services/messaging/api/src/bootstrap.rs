@@ -226,13 +226,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     .spawn();
     let inbox_triggers = Arc::new(messaging::usecases::inbox::apply_trigger::ApplyInboxTrigger::new(inbox_repository.clone()));
     let inbox_prefix = nats_config.subject_prefix.trim_end_matches('.').to_string();
-    messaging_infrastructure::consumers::inbox::spawn(
+    let inbox_users_subscribed = messaging_infrastructure::consumers::inbox::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
         messaging_infrastructure::consumers::inbox::InboxFeed::users(&inbox_prefix, user_stream.clone()),
         inbox_triggers.clone(),
     );
-    messaging_infrastructure::consumers::inbox::spawn(
+    let inbox_communities_subscribed = messaging_infrastructure::consumers::inbox::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
         messaging_infrastructure::consumers::inbox::InboxFeed::communities(&inbox_prefix, inbox_community_stream),
@@ -585,6 +585,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
                 let pool = pool.clone();
                 async move { ping_pool(&pool).await }
             }
+        })
+        .add_probe(move || {
+            let ready = inbox_users_subscribed.load(std::sync::atomic::Ordering::Acquire)
+                && inbox_communities_subscribed.load(std::sync::atomic::Ordering::Acquire);
+            async move { ready }
         })
         .add_probe({
             let url = livekit_url.clone();
