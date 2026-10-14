@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH legacy AS (\n                SELECT DISTINCT ON (m.invite_community_id, m.recipient_id)\n                       m.invite_community_id AS community_id, m.sender_id, m.recipient_id, m.created_at\n                FROM (\n                    SELECT o.invite_community_id, o.sender_id, o.recipient_id, o.created_at\n                    FROM unnest($1::uuid[], $2::uuid[], $3::uuid[], $4::timestamptz[])\n                        AS o(invite_community_id, sender_id, recipient_id, created_at)\n                ) m\n                WHERE NOT EXISTS (\n                    SELECT 1 FROM community_members cm\n                    WHERE cm.community_id = m.invite_community_id AND cm.user_id = m.recipient_id\n                )\n                AND NOT EXISTS (\n                    SELECT 1 FROM user_blocks b\n                    WHERE (b.blocker_id = m.sender_id AND b.blocked_id = m.recipient_id)\n                       OR (b.blocker_id = m.recipient_id AND b.blocked_id = m.sender_id)\n                )\n                AND NOT EXISTS (\n                    SELECT 1 FROM messaging_deleted_users d\n                    WHERE d.user_id = m.sender_id OR d.user_id = m.recipient_id\n                )\n                ORDER BY m.invite_community_id, m.recipient_id, m.created_at DESC\n            ),\n            issued AS (\n                INSERT INTO community_invitations (id, community_id, inviter_id, invitee_id, created_at)\n                SELECT gen_random_uuid(), l.community_id, l.sender_id, l.recipient_id, l.created_at FROM legacy l\n                ON CONFLICT (community_id, invitee_id) DO NOTHING\n                RETURNING id, community_id, inviter_id, invitee_id, created_at\n            )\n            INSERT INTO inbox_notifications (id, user_id, kind, actor_id, community_id, invitation_id, source_event_id, created_at)\n            SELECT gen_random_uuid(), i.invitee_id, 'community_invitation', i.inviter_id, i.community_id, i.id, 'migrated:' || i.id, i.created_at\n            FROM issued i\n            ON CONFLICT (user_id, source_event_id) DO NOTHING\n            RETURNING id, user_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray",
+        "UuidArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "aa70c661e67e380d8fc817d44e9658110000ee396895b144d6f847a9eeb3d77e"
+}

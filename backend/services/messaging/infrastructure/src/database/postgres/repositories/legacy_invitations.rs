@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use domain::user::id::UserId;
-use messaging_domain::community::invitation::LegacyInvitations;
+use messaging_domain::community::{id::CommunityId, invitation::LegacyInvitations};
 use messaging_domain::dm_message::events::{DmMessageDomainEvent, lifecycle::DmMessageDeleted};
 use messaging_domain::dm_message::id::DmMessageId;
 use messaging_domain::events::MessagingEvent;
@@ -12,6 +12,7 @@ use uuid::Uuid;
 use crate::outbox::mapping::to_records;
 use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error,
+    repositories::community_unit_of_work::lock_community,
     repositories::friendship_unit_of_work::pair_key,
     repositories::inbox::{INBOX_UPDATED, NOTIFICATION_CREATED, save_inbox_event},
     repositories::outbox_record::save_outbox_records,
@@ -76,6 +77,10 @@ impl LegacyInvitations for PostgresLegacyInvitations {
             return Ok(0);
         }
         announce_deleted(&mut tx, taken.iter().map(|t| (t.id, t.sender_id, t.recipient_id))).await?;
+        let communities: std::collections::BTreeSet<Uuid> = taken.iter().map(|t| t.community_id).collect();
+        for community in communities {
+            lock_community(&mut tx, &CommunityId::new(community)).await?;
+        }
         let pairs: std::collections::BTreeSet<String> =
             taken.iter().map(|t| pair_key(&UserId::new(t.sender_id), &UserId::new(t.recipient_id))).collect();
         for key in pairs {
@@ -103,6 +108,10 @@ impl LegacyInvitations for PostgresLegacyInvitations {
                     SELECT 1 FROM user_blocks b
                     WHERE (b.blocker_id = m.sender_id AND b.blocked_id = m.recipient_id)
                        OR (b.blocker_id = m.recipient_id AND b.blocked_id = m.sender_id)
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM messaging_deleted_users d
+                    WHERE d.user_id = m.sender_id OR d.user_id = m.recipient_id
                 )
                 GROUP BY m.invite_community_id, m.recipient_id
             ) l
@@ -137,6 +146,10 @@ impl LegacyInvitations for PostgresLegacyInvitations {
                     WHERE (b.blocker_id = m.sender_id AND b.blocked_id = m.recipient_id)
                        OR (b.blocker_id = m.recipient_id AND b.blocked_id = m.sender_id)
                 )
+                AND NOT EXISTS (
+                    SELECT 1 FROM messaging_deleted_users d
+                    WHERE d.user_id = m.sender_id OR d.user_id = m.recipient_id
+                )
                 ORDER BY m.invite_community_id, m.recipient_id, m.created_at DESC
             ),
             issued AS (
@@ -166,7 +179,7 @@ impl LegacyInvitations for PostgresLegacyInvitations {
         Ok(taken.len() as u64)
     }
 
-    async fn release_blocked(&self, limit: i64) -> Result<u64, RepositoryError> {
+    async fn release_unreachable(&self, limit: i64) -> Result<u64, RepositoryError> {
         let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
         let invitees = sqlx::query_scalar!(
             r#"
@@ -176,6 +189,10 @@ impl LegacyInvitations for PostgresLegacyInvitations {
                     SELECT 1 FROM user_blocks b
                     WHERE (b.blocker_id = i.inviter_id AND b.blocked_id = i.invitee_id)
                        OR (b.blocker_id = i.invitee_id AND b.blocked_id = i.inviter_id)
+                )
+                OR EXISTS (
+                    SELECT 1 FROM messaging_deleted_users d
+                    WHERE d.user_id = i.inviter_id OR d.user_id = i.invitee_id
                 )
                 LIMIT $1
                 FOR UPDATE SKIP LOCKED

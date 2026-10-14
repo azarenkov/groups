@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM community_invitations ci\n            USING (\n                SELECT m.invite_community_id, m.recipient_id, max(m.created_at) AS created_at\n                FROM unnest($1::uuid[], $2::uuid[], $3::uuid[], $4::timestamptz[])\n                    AS m(invite_community_id, sender_id, recipient_id, created_at)\n                WHERE NOT EXISTS (\n                    SELECT 1 FROM community_members cm\n                    WHERE cm.community_id = m.invite_community_id AND cm.user_id = m.recipient_id\n                )\n                AND NOT EXISTS (\n                    SELECT 1 FROM user_blocks b\n                    WHERE (b.blocker_id = m.sender_id AND b.blocked_id = m.recipient_id)\n                       OR (b.blocker_id = m.recipient_id AND b.blocked_id = m.sender_id)\n                )\n                AND NOT EXISTS (\n                    SELECT 1 FROM messaging_deleted_users d\n                    WHERE d.user_id = m.sender_id OR d.user_id = m.recipient_id\n                )\n                GROUP BY m.invite_community_id, m.recipient_id\n            ) l\n            WHERE ci.community_id = l.invite_community_id\n              AND ci.invitee_id = l.recipient_id\n              AND ci.created_at < l.created_at\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray",
+        "UuidArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "041e3fd80cdf500f4606790b69a0906ace4b6007c221ddda8d49f2193d4c1568"
+}

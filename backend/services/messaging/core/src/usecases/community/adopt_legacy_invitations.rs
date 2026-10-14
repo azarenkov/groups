@@ -24,7 +24,7 @@ impl<L: LegacyInvitations> AdoptLegacyInvitations<L> {
             }
         }
         loop {
-            if self.legacy.release_blocked(ADOPT_BATCH).await? < ADOPT_BATCH as u64 {
+            if self.legacy.release_unreachable(ADOPT_BATCH).await? < ADOPT_BATCH as u64 {
                 break;
             }
         }
@@ -57,7 +57,7 @@ mod tests {
             assert_eq!(limit, ADOPT_BATCH);
             Ok(self.legacy.lock().unwrap().pop().unwrap_or(0))
         }
-        async fn release_blocked(&self, limit: i64) -> Result<u64, RepositoryError> {
+        async fn release_unreachable(&self, limit: i64) -> Result<u64, RepositoryError> {
             assert_eq!(limit, ADOPT_BATCH);
             Ok(self.blocked.lock().unwrap().pop().unwrap_or(0))
         }
@@ -68,7 +68,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn drains_legacy_invitations_releases_blocked_pairs_and_announces_removed_messages() {
+    async fn drains_legacy_invitations_releases_unreachable_invitations_and_announces_removed_messages() {
         let backlog = Arc::new(Backlog::default());
         *backlog.legacy.lock().unwrap() = vec![4, ADOPT_BATCH as u64, ADOPT_BATCH as u64];
         *backlog.blocked.lock().unwrap() = vec![2, ADOPT_BATCH as u64];
