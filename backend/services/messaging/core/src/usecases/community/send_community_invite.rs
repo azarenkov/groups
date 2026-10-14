@@ -107,10 +107,6 @@ where
         if matches!(self.privacy_repository.get(&invitee_id).await?.dm_policy, ContactPolicy::NoOne) {
             return Err(SendCommunityInviteError::DmsClosed);
         }
-        if self.invitations.is_pending(&community_id, &invitee_id).await? {
-            return Err(SendCommunityInviteError::InviteAlreadyPending);
-        }
-
         let mut tx = self.unit_of_work.begin(&community_id).await?;
         let community = match tx.load_community().await {
             Ok(community) => community,
@@ -122,6 +118,9 @@ where
             return Err(SendCommunityInviteError::Blocked);
         }
         let (invitation, event) = Invitation::issue(&community, inviter_id, invitee_id, Utc::now())?;
+        if self.invitations.is_pending(&community_id, &invitee_id).await? {
+            return Err(SendCommunityInviteError::InviteAlreadyPending);
+        }
         match tx.insert_invitation(&invitation).await {
             Ok(()) => {}
             Err(RepositoryError::AlreadyExists) => return Err(SendCommunityInviteError::InviteAlreadyPending),

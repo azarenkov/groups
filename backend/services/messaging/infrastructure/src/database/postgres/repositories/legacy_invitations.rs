@@ -58,6 +58,11 @@ impl LegacyInvitations for PostgresLegacyInvitations {
                     SELECT 1 FROM community_members cm
                     WHERE cm.community_id = m.invite_community_id AND cm.user_id = m.recipient_id
                 )
+                AND NOT EXISTS (
+                    SELECT 1 FROM user_blocks b
+                    WHERE (b.blocker_id = m.sender_id AND b.blocked_id = m.recipient_id)
+                       OR (b.blocker_id = m.recipient_id AND b.blocked_id = m.sender_id)
+                )
                 ORDER BY m.invite_community_id, m.recipient_id, m.created_at DESC
             ),
             issued AS (
