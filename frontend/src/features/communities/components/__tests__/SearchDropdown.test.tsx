@@ -514,3 +514,19 @@ it("loads a recent community before opening it and keeps the search open if it i
   fireEvent.click(await screen.findByText("Night Owls"));
   await waitFor(() => expect(picks.community).toHaveBeenCalledWith(expect.objectContaining({ id: "c7" })));
 });
+
+it("drops a person from the people results as soon as either side blocks", async () => {
+  useBlockStore.setState({ loaded: true, blocked: {}, blockedBy: {} });
+  (peopleAPI.search as jest.Mock).mockResolvedValue([
+    { id: "p8", name: "Bertha", relation: "none", acceptsFriendRequests: true },
+    { id: "p9", name: "Bertrand", relation: "none", acceptsFriendRequests: true },
+  ]);
+  const { input } = setup();
+  fireEvent.change(input, { target: { value: "bert" } });
+  await screen.findByText("ha", { exact: false, selector: ".search-dd-name, .search-dd-name *" });
+  act(() => useBlockStore.setState({ blocked: { p8: true } }));
+  expect(screen.queryByText("ha", { exact: false, selector: ".search-dd-name, .search-dd-name *" })).toBeNull();
+  act(() => useBlockStore.setState({ blockedBy: { p9: true } }));
+  expect(screen.queryByText("rand", { exact: false, selector: ".search-dd-name, .search-dd-name *" })).toBeNull();
+  await act(async () => {});
+});

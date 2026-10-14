@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryClient, queryKeys } from "../../../shared/query/queryClient";
 import type { FriendshipStatus } from "../../../shared/types/friendship";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
+import { useBlockStore } from "../../social/store/blockStore";
 import { peopleAPI, type PersonHit, type PersonRelation } from "../api/people";
 
 export const PEOPLE_SEARCH_MIN_CHARS = 2;
@@ -54,14 +55,24 @@ export function usePeopleSearch(raw: string) {
   );
   const statusById = useFriendshipStore((s) => s.statusById);
   const loaded = useFriendshipStore((s) => s.loaded);
+  const blocked = useBlockStore((s) => s.blocked);
+  const blockedBy = useBlockStore((s) => s.blockedBy);
+  const seenBlocks = React.useRef({ blocked, blockedBy });
+  React.useEffect(() => {
+    if (seenBlocks.current.blocked === blocked && seenBlocks.current.blockedBy === blockedBy) return;
+    seenBlocks.current = { blocked, blockedBy };
+    void queryClient.invalidateQueries({ queryKey: ["peopleSearch"] });
+  }, [blocked, blockedBy]);
   const current = searched !== null && searched === normalized;
   const people = React.useMemo(
     () =>
-      (current ? query.data ?? [] : []).map((hit) => ({
-        ...hit,
-        relation: liveRelation(hit, { loaded, statusById }),
-      })),
-    [current, query.data, loaded, statusById],
+      (current ? query.data ?? [] : [])
+        .filter((hit) => !blocked[hit.id] && !blockedBy[hit.id])
+        .map((hit) => ({
+          ...hit,
+          relation: liveRelation(hit, { loaded, statusById }),
+        })),
+    [current, query.data, loaded, statusById, blocked, blockedBy],
   );
   return {
     people,
