@@ -85,6 +85,7 @@ pub trait CommunityTransaction: Send {
     async fn insert_invitation(&mut self, invitation: &Invitation) -> Result<(), RepositoryError>;
     async fn join_by_invitation(&mut self, invitation_id: &InvitationId, user_id: &UserId) -> Result<bool, RepositoryError>;
     async fn delete_invitation(&mut self, invitation_id: &InvitationId) -> Result<bool, RepositoryError>;
+    async fn find_pending_invitation(&mut self, invitee_id: &UserId) -> Result<Option<Invitation>, RepositoryError>;
     async fn delete_community_by_owner(&mut self, owner_id: &UserId) -> Result<Option<Vec<String>>, RepositoryError>;
     async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError>;
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError>;

@@ -105,6 +105,19 @@ it("puts a declined invitation back when the server refuses", async () => {
   expect(screen.getByText(/Night Owls/)).toBeInTheDocument();
 });
 
+it("refetches the inbox after rolling back so newer notifications are not lost", async () => {
+  api.declineInvitation.mockRejectedValue(new Error("down"));
+  render(<InboxMenu onOpenCommunity={jest.fn()} onOpenFriendRequests={jest.fn()} />);
+  await openInbox();
+  await screen.findByText(/Night Owls/);
+  const newer: InboxItem = { ...friendRequest, id: "n3", actor: { id: "u3", name: "Carol" }, read: false };
+  api.list.mockResolvedValue({ items: [newer, invitation, friendRequest], nextCursor: null });
+  const row = screen.getByText(/Night Owls/).closest(".inbox-item") as HTMLElement;
+  const decline = Array.from(row.querySelectorAll(".inbox-action")).find((b) => !b.classList.contains("primary")) as HTMLElement;
+  fireEvent.click(decline);
+  expect(await screen.findByText(/Carol/)).toBeInTheDocument();
+});
+
 it("offers friend request actions only while the request is still incoming", async () => {
   const accept = jest.fn().mockResolvedValue(undefined);
   useFriendshipStore.setState({ accept });

@@ -1022,6 +1022,24 @@ impl CommunityTransaction for PostgresCommunityTransaction {
         Ok(deleted.rows_affected() > 0)
     }
 
+    async fn find_pending_invitation(&mut self, invitee_id: &UserId) -> Result<Option<Invitation>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT id, inviter_id, created_at FROM community_invitations
+            WHERE community_id = $1 AND invitee_id = $2
+            FOR UPDATE
+            "#,
+            self.community_id.uuid(),
+            invitee_id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|r| {
+            Invitation::restore(InvitationId::new(r.id), self.community_id, UserId::new(r.inviter_id), *invitee_id, r.created_at)
+        }))
+    }
+
     async fn delete_community_by_owner(&mut self, owner_id: &UserId) -> Result<Option<Vec<String>>, RepositoryError> {
         sqlx::query!(
             r#"SELECT id FROM communities WHERE id = $1 FOR UPDATE"#,

@@ -31,6 +31,7 @@ export function markReadLocally(userId: string, ids?: ReadonlySet<string>): () =
   return () => {
     queryClient.setQueryData(listKey, previousList);
     queryClient.setQueryData(unreadKey, previousUnread);
+    refreshInbox();
   };
 }
 
@@ -49,5 +50,6 @@ export function removeLocally(userId: string, id: string): () => void {
   return () => {
     queryClient.setQueryData(listKey, previousList);
     queryClient.setQueryData(unreadKey, previousUnread);
+    refreshInbox();
   };
 }

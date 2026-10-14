@@ -122,6 +122,17 @@ impl Invitation {
         }))
     }
 
+    pub fn settle_by_joining(&self, now: DateTime<Utc>) -> CommunityEvent {
+        CommunityEvent::InvitationResolved(CommunityInvitationResolved {
+            id: EventId::generate(),
+            invitation_id: self.id,
+            community_id: self.community_id,
+            invitee_id: self.invitee_id,
+            accepted: true,
+            occurred_at: now,
+        })
+    }
+
     pub fn id(&self) -> &InvitationId {
         &self.id
     }
@@ -173,4 +184,31 @@ pub trait InvitationRepository: Send + Sync {
 #[async_trait]
 pub trait LegacyInvitations: Send + Sync {
     async fn adopt(&self, limit: i64) -> Result<u64, RepositoryError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn joining_another_way_settles_the_invitation_as_accepted() {
+        let invitee = UserId::new(Uuid::new_v4());
+        let invitation = Invitation::restore(
+            InvitationId::generate(),
+            CommunityId::new(Uuid::new_v4()),
+            UserId::new(Uuid::new_v4()),
+            invitee,
+            Utc::now(),
+        );
+        let now = Utc::now();
+        match invitation.settle_by_joining(now) {
+            CommunityEvent::InvitationResolved(e) => {
+                assert_eq!(e.invitation_id, *invitation.id());
+                assert_eq!(e.invitee_id, invitee);
+                assert!(e.accepted);
+                assert_eq!(e.occurred_at, now);
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+    }
 }
