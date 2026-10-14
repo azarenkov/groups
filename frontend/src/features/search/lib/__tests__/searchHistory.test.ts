@@ -216,3 +216,33 @@ it("keeps the saved copy of an entry in the browser while its newer save is pend
   await saving;
   expect(readStoredHistory("me")).toEqual([expect.objectContaining({ id: "s2", usedAt: "2026-10-13T12:00:00Z" })]);
 });
+
+it("deletes the saved entry behind a re-recorded row whose save failed", async () => {
+  const stable: HistoryItem = { id: "s3", usedAt: "2026-10-13T09:00:00Z", type: "person", userId: "u3", name: "Cy" };
+  queryClient.setQueryData(key, [stable]);
+  let fail: (e: Error) => void = () => {};
+  api.record.mockReturnValue(new Promise((_, reject) => (fail = reject)));
+  api.remove.mockResolvedValue();
+  const saving = recordSearch("me", { type: "person", userId: "u3", name: "Cy" });
+  await flush();
+  const removing = removeSearch("me", items()[0].id);
+  fail(new Error("down"));
+  await expect(saving).rejects.toThrow("down");
+  await removing;
+  expect(api.remove).toHaveBeenCalledWith("s3");
+});
+
+it("keeps an entry pushed out of a full history in the browser copy until the new save lands", async () => {
+  installHistoryPersistence();
+  const full = Array.from({ length: 20 }, (_, i) => query(`q${i}`, `term ${i}`));
+  queryClient.setQueryData(key, full);
+  let finish: (v: { id: string; usedAt: string }) => void = () => {};
+  api.record.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+  const saving = recordSearch("me", { type: "query", text: "brand new" });
+  await flush();
+  expect(items()).toHaveLength(20);
+  expect(readStoredHistory("me")?.map((i) => i.id)).toEqual(full.map((i) => i.id));
+  finish({ id: "server-9", usedAt: "2026-10-13T12:00:00Z" });
+  await saving;
+  expect(readStoredHistory("me")?.map((i) => i.id)).toEqual(["server-9", ...full.slice(0, 19).map((i) => i.id)]);
+});

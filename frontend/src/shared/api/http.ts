@@ -66,7 +66,13 @@ function refreshAllowed(request: RetriableConfig): boolean {
   return !REFRESH_EXEMPT_PATHS.some((path) => url.endsWith(path));
 }
 
+const sentByAnotherAccount = (request: RetriableConfig): boolean =>
+  !!request._sentAs && useAuthStore.getState().user?.id !== request._sentAs;
+
 async function retryWithFreshToken(request: RetriableConfig): Promise<AxiosResponse> {
+  if (sentByAnotherAccount(request)) {
+    throw new Error("The signed-in account changed before this request could be retried");
+  }
   const { authAPI } = await import("../../features/auth/api/auth");
   await authAPI.handleRefreshFlow();
   const current = useAuthStore.getState();

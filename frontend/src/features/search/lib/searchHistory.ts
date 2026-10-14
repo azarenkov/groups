@@ -24,6 +24,8 @@ export function readStoredHistory(userId: string): HistoryItem[] | undefined {
 }
 
 const replacedStable = new Map<string, HistoryItem>();
+const displacedStable = new Map<string, HistoryItem[]>();
+const stableIdOfTemp = new Map<string, string>();
 
 export function storeHistory(userId: string, items: HistoryItem[]): void {
   const stable = items.flatMap((item) => {
@@ -31,6 +33,15 @@ export function storeHistory(userId: string, items: HistoryItem[]): void {
     const previous = replacedStable.get(item.id);
     return previous ? [previous] : [];
   });
+  const kept = new Set(stable.map((item) => item.id));
+  for (const tail of displacedStable.values()) {
+    for (const item of tail) {
+      if (stable.length >= SEARCH_HISTORY_LIMIT) break;
+      if (kept.has(item.id)) continue;
+      kept.add(item.id);
+      stable.push(item);
+    }
+  }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ userId, items: stable }));
   } catch {
@@ -120,6 +131,8 @@ export function resetSearchHistorySession(): void {
   savedTemps.clear();
   pendingChanges.clear();
   replacedStable.clear();
+  displacedStable.clear();
+  stableIdOfTemp.clear();
   setVerified(null);
 }
 
@@ -161,11 +174,17 @@ export function recordSearch(userId: string, target: HistoryTarget): Promise<voi
     userId,
     (items) => {
       const previous = items.find((item) => historyKey(item) === key && !item.id.startsWith(TEMP_PREFIX));
-      if (previous && !replacedStable.has(tempId)) replacedStable.set(tempId, previous);
-      return [
+      if (previous && !replacedStable.has(tempId)) {
+        replacedStable.set(tempId, previous);
+        stableIdOfTemp.set(tempId, previous.id);
+      }
+      const next = [
         { ...target, id: tempId, usedAt: new Date().toISOString() } as HistoryItem,
         ...items.filter((item) => historyKey(item) !== key),
-      ].slice(0, SEARCH_HISTORY_LIMIT);
+      ];
+      const evicted = next.slice(SEARCH_HISTORY_LIMIT).filter((item) => !item.id.startsWith(TEMP_PREFIX));
+      if (evicted.length > 0 && !displacedStable.has(tempId)) displacedStable.set(tempId, evicted);
+      return next.slice(0, SEARCH_HISTORY_LIMIT);
     },
     async () => {
       try {
@@ -183,7 +202,10 @@ export function recordSearch(userId: string, target: HistoryTarget): Promise<voi
         throw err;
       }
     },
-  ).finally(() => replacedStable.delete(tempId));
+  ).finally(() => {
+    replacedStable.delete(tempId);
+    displacedStable.delete(tempId);
+  });
 }
 
 export function removeSearch(userId: string, id: string): Promise<void> {
@@ -191,7 +213,7 @@ export function removeSearch(userId: string, id: string): Promise<void> {
     userId,
     (items) => items.filter((item) => item.id !== id && item.id !== savedTemps.get(id)),
     async () => {
-      const serverId = id.startsWith(TEMP_PREFIX) ? savedTemps.get(id) : id;
+      const serverId = id.startsWith(TEMP_PREFIX) ? savedTemps.get(id) ?? stableIdOfTemp.get(id) : id;
       if (serverId) await searchHistoryAPI.remove(serverId);
     },
   );

@@ -91,4 +91,23 @@ describe("shared http client", () => {
 
     expect(sent).toEqual(["Bearer old", "Bearer fresh"]);
   });
+
+  it("does not refresh tokens for a response that belongs to a signed-out account", async () => {
+    const { authAPI } = jest.requireMock("../../../features/auth/api/auth");
+    authAPI.handleRefreshFlow.mockReset();
+    useAuthStore.setState({ user: { id: "a" } as never, tokens: { accessToken: "token-a", refreshToken: "r" } as never });
+    const adapter = (async (config: AxiosRequestConfig) => {
+      useAuthStore.setState({ user: { id: "b" } as never, tokens: { accessToken: "token-b", refreshToken: "rb" } as never });
+      throw Object.assign(new Error("unauthorized"), {
+        isAxiosError: true,
+        config,
+        response: { status: 401, data: {}, headers: {}, statusText: "", config },
+      });
+    }) as never;
+
+    await expect(http.get("/v1/search/history", { adapter })).rejects.toBeTruthy();
+
+    expect(authAPI.handleRefreshFlow).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().tokens).toEqual(expect.objectContaining({ accessToken: "token-b" }));
+  });
 });
