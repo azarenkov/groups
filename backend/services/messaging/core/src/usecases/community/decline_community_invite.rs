@@ -1,8 +1,14 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork};
 use domain::user::id::UserId;
+use messaging_domain::{
+    community::{
+        invitation::{InvitationError, InvitationId, InvitationRepository, InvitationResolution},
+        unit_of_work::CommunityUnitOfWork,
+    },
+    events::MessagingEvent,
+};
 use ports::repository::RepositoryError;
 
 use crate::dto::RequestContext;
@@ -11,58 +17,48 @@ use crate::dto::RequestContext;
 pub enum DeclineCommunityInviteError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("This message is not a community invite")]
-    NotAnInvite,
+    #[error("This invite no longer exists")]
+    NotFound,
     #[error("This invite was not addressed to you")]
     NotRecipient,
 }
 
-pub struct DeclineCommunityInvite<M, W>
+pub struct DeclineCommunityInvite<I, W>
 where
-    M: DmMessageRepository,
-    W: DmUnitOfWork,
+    I: InvitationRepository,
+    W: CommunityUnitOfWork,
 {
-    dm_repository: Arc<M>,
+    invitations: Arc<I>,
     unit_of_work: Arc<W>,
 }
 
-impl<M, W> DeclineCommunityInvite<M, W>
+impl<I, W> DeclineCommunityInvite<I, W>
 where
-    M: DmMessageRepository,
-    W: DmUnitOfWork,
+    I: InvitationRepository,
+    W: CommunityUnitOfWork,
 {
-    pub fn new(dm_repository: Arc<M>, unit_of_work: Arc<W>) -> Self {
-        Self {
-            dm_repository,
-            unit_of_work,
-        }
+    pub fn new(invitations: Arc<I>, unit_of_work: Arc<W>) -> Self {
+        Self { invitations, unit_of_work }
     }
 
     pub async fn execute(
         &self,
-        message_id: DmMessageId,
+        invitation_id: InvitationId,
         requester_id: UserId,
         ctx: RequestContext,
     ) -> Result<(), DeclineCommunityInviteError> {
-        let mut message = self.dm_repository.find_by_id(&message_id).await?;
-
-        if message.invite_community_id().is_none() {
-            return Err(DeclineCommunityInviteError::NotAnInvite);
+        let invitation = self.invitations.find(&invitation_id).await?.ok_or(DeclineCommunityInviteError::NotFound)?;
+        let resolved = invitation
+            .resolve(&requester_id, InvitationResolution::Declined, Utc::now())
+            .map_err(|e| match e {
+                InvitationError::NotInvitee => DeclineCommunityInviteError::NotRecipient,
+                _ => DeclineCommunityInviteError::NotFound,
+            })?;
+        let mut tx = self.unit_of_work.begin(invitation.community_id()).await?;
+        if !tx.delete_invitation(&invitation_id).await? {
+            return Err(DeclineCommunityInviteError::NotFound);
         }
-
-        if message.recipient_id() != &requester_id {
-            return Err(DeclineCommunityInviteError::NotRecipient);
-        }
-
-        message.record_invite_deleted(Utc::now());
-
-        let request_id = ctx.request_id.clone();
-        let events = message.pull_events();
-
-        let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
-        let mut tx = self.unit_of_work.begin().await?;
-        tx.delete_message(&message_id).await?;
-        tx.save_events(&events, request_id.as_deref()).await?;
+        tx.save_events(&[MessagingEvent::from(resolved)], ctx.request_id.as_deref()).await?;
         tx.commit().await?;
         Ok(())
     }

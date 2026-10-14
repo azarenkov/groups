@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{events::MessagingEvent, friendship::block::BlockRelation, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::Message, message::id::MessageId, community::Community, community::id::CommunityId, community::invite_link::InviteJoinOutcome, community::invite_link::InviteLink, community::invite_link::InviteToken, community::role::CommunityRole};
+use crate::{events::MessagingEvent, friendship::block::BlockRelation, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, community::invitation::{Invitation, InvitationId}, message::Message, message::id::MessageId, community::Community, community::id::CommunityId, community::invite_link::InviteJoinOutcome, community::invite_link::InviteLink, community::invite_link::InviteToken, community::role::CommunityRole};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 
@@ -79,15 +79,12 @@ pub trait CommunityTransaction: Send {
         requester: &UserId,
         any_creator: bool,
     ) -> Result<Option<InviteLink>, RepositoryError>;
-    async fn insert_dm_message(&mut self, message: &DmMessage) -> Result<(), RepositoryError>;
     async fn insert_community(&mut self, community: &Community) -> Result<(), RepositoryError>;
     async fn is_user_deleted(&mut self, user_id: &UserId) -> Result<bool, RepositoryError>;
     async fn lock_user(&mut self, user_id: &UserId) -> Result<(), RepositoryError>;
-    async fn accept_invite(
-        &mut self,
-        invite_message_id: &DmMessageId,
-        user_id: &UserId,
-    ) -> Result<bool, RepositoryError>;
+    async fn insert_invitation(&mut self, invitation: &Invitation) -> Result<(), RepositoryError>;
+    async fn join_by_invitation(&mut self, invitation_id: &InvitationId, user_id: &UserId) -> Result<bool, RepositoryError>;
+    async fn delete_invitation(&mut self, invitation_id: &InvitationId) -> Result<bool, RepositoryError>;
     async fn delete_community_by_owner(&mut self, owner_id: &UserId) -> Result<Option<Vec<String>>, RepositoryError>;
     async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError>;
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError>;

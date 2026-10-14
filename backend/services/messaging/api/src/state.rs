@@ -283,19 +283,16 @@ pub struct AppState {
     pub list_dm_messages_usecase: ListDmMessages<PostgresDmMessageRepository>,
     pub search_dm_messages_usecase: SearchDmMessages<PostgresDmMessageRepository>,
     pub send_community_invite_usecase: SendCommunityInvite<
-        PostgresDmMessageRepository,
         PostgresFriendshipRepository,
-        PostgresCommunityRepository,
+        messaging_infrastructure::database::postgres::repositories::invitation::PostgresInvitationRepository,
         PostgresCommunityUnitOfWork,
         PostgresPrivacyRepository,
         PostgresUserProfileRepository,
     >,
-    pub accept_community_invite_usecase:
-        AcceptCommunityInvite<PostgresDmMessageRepository, PostgresCommunityUnitOfWork>,
-    pub decline_community_invite_usecase:
-        DeclineCommunityInvite<PostgresDmMessageRepository, PostgresDmUnitOfWork>,
-    pub list_sent_community_invites_usecase:
-        ListSentCommunityInvites<PostgresDmMessageRepository, PostgresCommunityRepository>,
+    pub accept_community_invite_usecase: AcceptCommunityInvite<messaging_infrastructure::database::postgres::repositories::invitation::PostgresInvitationRepository, PostgresCommunityUnitOfWork>,
+    pub decline_community_invite_usecase: DeclineCommunityInvite<messaging_infrastructure::database::postgres::repositories::invitation::PostgresInvitationRepository, PostgresCommunityUnitOfWork>,
+    pub list_sent_community_invites_usecase: ListSentCommunityInvites<messaging_infrastructure::database::postgres::repositories::invitation::PostgresInvitationRepository, PostgresCommunityRepository>,
+    pub read_inbox_usecase: messaging::usecases::inbox::read_inbox::ReadInbox<messaging_infrastructure::database::postgres::repositories::inbox::PostgresInboxRepository>,
     pub create_community_usecase: CreateCommunity<PostgresCommunityUnitOfWork, TextModerationClient>,
     pub delete_community_usecase: DeleteCommunity<
         PostgresCommunityRepository,

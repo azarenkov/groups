@@ -40,6 +40,8 @@ export const queryKeys = {
   privacySettings: () => ["privacySettings"] as const,
   peopleSearch: (term: string) => ["peopleSearch", term] as const,
   searchHistory: (userId: string) => ["searchHistory", userId] as const,
+  inbox: (userId: string) => ["inbox", userId] as const,
+  inboxUnread: (userId: string) => ["inboxUnread", userId] as const,
   publicProfile: (userId: string) => ["publicProfile", userId] as const,
   userConnections: (userId: string) => ["userConnections", userId] as const,
 };

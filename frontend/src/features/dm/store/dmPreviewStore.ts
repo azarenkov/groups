@@ -9,7 +9,6 @@ export interface DmPreview {
   senderId: string;
   content: string;
   callStatus: string | null;
-  inviteCommunityId: string | null;
   hasAttachments: boolean;
   voiceDurationMs?: number | null;
   videoNoteDurationMs?: number | null;
@@ -97,7 +96,6 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
           senderId: it.senderId,
           content: it.content,
           callStatus: it.callStatus,
-          inviteCommunityId: it.inviteCommunityId,
           hasAttachments: it.hasAttachments,
           voiceDurationMs: it.voiceDurationMs ?? null,
           videoNoteDurationMs: it.videoNoteDurationMs ?? null,

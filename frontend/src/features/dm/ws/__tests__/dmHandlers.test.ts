@@ -160,7 +160,6 @@ it("removes the cleared conversation preview right away", () => {
     senderId: "peer",
     content: "secret",
     callStatus: null,
-    inviteCommunityId: null,
     hasAttachments: false,
     createdAt: "2026-10-11T09:00:00Z",
   });

@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::{community::events::lifecycle::CommunityCreated, community::events::lifecycle::CommunityDeleted, community::events::lifecycle::CommunityMemberJoined, community::events::lifecycle::CommunityMemberLeft, community::events::lifecycle::CommunityOwnerChanged, community::events::lifecycle::CommunityRolesChanged, community::events::lifecycle::CommunityUpdated, community::id::CommunityId};
+use crate::{community::invitation::{CommunityInvitationIssued, CommunityInvitationResolved}, community::events::lifecycle::CommunityCreated, community::events::lifecycle::CommunityDeleted, community::events::lifecycle::CommunityMemberJoined, community::events::lifecycle::CommunityMemberLeft, community::events::lifecycle::CommunityOwnerChanged, community::events::lifecycle::CommunityRolesChanged, community::events::lifecycle::CommunityUpdated, community::id::CommunityId};
 
 pub mod lifecycle;
 
@@ -13,6 +13,8 @@ pub enum CommunityEvent {
     MemberLeft(CommunityMemberLeft),
     RolesChanged(CommunityRolesChanged),
     OwnerChanged(CommunityOwnerChanged),
+    InvitationIssued(CommunityInvitationIssued),
+    InvitationResolved(CommunityInvitationResolved),
 }
 
 impl CommunityEvent {
@@ -25,6 +27,8 @@ impl CommunityEvent {
             Self::MemberLeft(e) => &e.community_id,
             Self::RolesChanged(e) => &e.community_id,
             Self::OwnerChanged(e) => &e.community_id,
+            Self::InvitationIssued(e) => &e.community_id,
+            Self::InvitationResolved(e) => &e.community_id,
         }
     }
 
@@ -37,6 +41,8 @@ impl CommunityEvent {
             Self::MemberLeft(e) => e.occurred_at,
             Self::RolesChanged(e) => e.occurred_at,
             Self::OwnerChanged(e) => e.occurred_at,
+            Self::InvitationIssued(e) => e.occurred_at,
+            Self::InvitationResolved(e) => e.occurred_at,
         }
     }
 
@@ -49,6 +55,8 @@ impl CommunityEvent {
             Self::MemberLeft(_) => "member_left",
             Self::RolesChanged(_) => "community.roles.changed",
             Self::OwnerChanged(_) => "owner_changed",
+            Self::InvitationIssued(_) => "invitation_issued",
+            Self::InvitationResolved(_) => "invitation_resolved",
         }
     }
 }

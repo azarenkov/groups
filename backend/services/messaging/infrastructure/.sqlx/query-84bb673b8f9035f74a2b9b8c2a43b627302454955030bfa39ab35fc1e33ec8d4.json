@@ -1,0 +1,105 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT m.id AS \"message_id!\", m.sender_id AS \"author_id!\", COALESCE(u.name, '') AS \"author_name!\",\n                           (m.forwarded_from->>'authorId')::uuid AS \"forwarded_author_id?\",\n                           m.created_at AS \"created_at!\", m.content AS \"content!\",\n                           peer.id AS \"peer_id!\", COALESCE(pu.name, '') AS \"peer_name!\",\n                           a.attachment_id AS \"attachment_id!\", a.file_name AS \"file_name!\", a.content_type AS \"content_type!\",\n                           a.size_bytes AS \"size_bytes!\", a.storage_key AS \"storage_key!\", a.created_at AS \"attached_at!\"\n                    FROM dm_message_attachments a\n                    JOIN dm_messages m ON m.id = a.dm_message_id\n                    CROSS JOIN LATERAL (SELECT CASE WHEN m.sender_id = $1 THEN m.recipient_id ELSE m.sender_id END AS id) peer\n                    LEFT JOIN messaging_user_profiles u ON u.user_id = m.sender_id\n                    LEFT JOIN messaging_user_profiles pu ON pu.user_id = peer.id\n                    WHERE (m.sender_id = $1 OR m.recipient_id = $1)\n                      AND NOT EXISTS (\n                          SELECT 1 FROM user_blocks b\n                          WHERE (b.blocker_id = $1 AND b.blocked_id = peer.id)\n                             OR (b.blocker_id = peer.id AND b.blocked_id = $1)\n                      )\n                      AND m.call_status IS NULL\n                      AND a.voice_duration_ms IS NULL AND a.video_duration_ms IS NULL\n                      AND lower(a.file_name) LIKE $2 ESCAPE '\\'\n                      AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)\n                      AND ($3::timestamptz IS NULL OR (m.created_at, m.id, a.attachment_id) < ($3, $4, $5))\n                    ORDER BY m.created_at DESC, m.id DESC, a.attachment_id DESC\n                    LIMIT $6\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "author_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "author_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "forwarded_author_id?",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "content!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "peer_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "peer_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "attachment_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 9,
+        "name": "file_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "content_type!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "size_bytes!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "storage_key!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "attached_at!",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Uuid",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      false,
+      false,
+      null,
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "84bb673b8f9035f74a2b9b8c2a43b627302454955030bfa39ab35fc1e33ec8d4"
+}

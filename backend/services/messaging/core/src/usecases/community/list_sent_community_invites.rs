@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use messaging_domain::{dm_message::repository::DmMessageRepository, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::user::id::UserId;
+use messaging_domain::community::{id::CommunityId, invitation::InvitationRepository, repository::CommunityRepository};
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
@@ -13,44 +13,29 @@ pub enum ListSentCommunityInvitesError {
     NotMember,
 }
 
-pub struct ListSentCommunityInvites<M, S>
+pub struct ListSentCommunityInvites<I, S>
 where
-    M: DmMessageRepository,
+    I: InvitationRepository,
     S: CommunityRepository,
 {
-    dm_repository: Arc<M>,
+    invitations: Arc<I>,
     community_repository: Arc<S>,
 }
 
-impl<M, S> ListSentCommunityInvites<M, S>
+impl<I, S> ListSentCommunityInvites<I, S>
 where
-    M: DmMessageRepository,
+    I: InvitationRepository,
     S: CommunityRepository,
 {
-    pub fn new(dm_repository: Arc<M>, community_repository: Arc<S>) -> Self {
-        Self {
-            dm_repository,
-            community_repository,
-        }
+    pub fn new(invitations: Arc<I>, community_repository: Arc<S>) -> Self {
+        Self { invitations, community_repository }
     }
 
-    pub async fn execute(
-        &self,
-        community_id: CommunityId,
-        sender_id: UserId,
-    ) -> Result<Vec<Uuid>, ListSentCommunityInvitesError> {
-        if !self
-            .community_repository
-            .is_community_member(&community_id, &sender_id)
-            .await?
-        {
+    pub async fn execute(&self, community_id: CommunityId, viewer_id: UserId) -> Result<Vec<Uuid>, ListSentCommunityInvitesError> {
+        if !self.community_repository.is_community_member(&community_id, &viewer_id).await? {
             return Err(ListSentCommunityInvitesError::NotMember);
         }
-
-        let recipients = self
-            .dm_repository
-            .find_invite_recipients(&sender_id, &community_id)
-            .await?;
-        Ok(recipients.into_iter().map(|u| u.uuid()).collect())
+        let invitees = self.invitations.pending_invitees(&community_id).await?;
+        Ok(invitees.into_iter().map(|u| u.uuid()).collect())
     }
 }

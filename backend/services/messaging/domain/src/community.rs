@@ -2,6 +2,7 @@ pub use domain::community::id;
 
 pub mod description;
 pub mod events;
+pub mod invitation;
 pub mod invite_link;
 pub mod name;
 pub mod policy;
@@ -357,7 +358,7 @@ impl Community {
         if !self.outranks_member(actor, target) {
             return Err(PolicyError::HierarchyViolation);
         }
-        self.remove_membership(target, now);
+        self.remove_membership(target, Some(*actor), now);
         Ok(())
     }
 
@@ -368,7 +369,7 @@ impl Community {
         if !self.is_member(member) {
             return Err(PolicyError::NotMember);
         }
-        self.remove_membership(member, now);
+        self.remove_membership(member, None, now);
         Ok(())
     }
 
@@ -628,11 +629,11 @@ impl Community {
         Ok(())
     }
 
-    fn remove_membership(&mut self, user: &UserId, now: DateTime<Utc>) {
+    fn remove_membership(&mut self, user: &UserId, removed_by: Option<UserId>, now: DateTime<Utc>) {
         self.members.remove(user);
         self.assignments.retain(|(u, _)| u != user);
         self.record(CommunityEvent::MemberLeft(CommunityMemberLeft::record(
-            self.id, *user, now,
+            self.id, *user, removed_by, now,
         )));
     }
 

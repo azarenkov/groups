@@ -1603,7 +1603,6 @@ impl HttpMapping for SendCommunityInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             SendCommunityInviteError::Repository(e) => e.to_http_status(),
-            SendCommunityInviteError::Domain(e) => e.to_http_status(),
             SendCommunityInviteError::NotFriends => StatusCode::FORBIDDEN,
             SendCommunityInviteError::Blocked => StatusCode::FORBIDDEN,
             SendCommunityInviteError::DmsClosed => StatusCode::FORBIDDEN,
@@ -1613,12 +1612,12 @@ impl HttpMapping for SendCommunityInviteError {
             SendCommunityInviteError::NotAllowed => StatusCode::FORBIDDEN,
             SendCommunityInviteError::AlreadyMember => StatusCode::CONFLICT,
             SendCommunityInviteError::InviteAlreadyPending => StatusCode::CONFLICT,
+            SendCommunityInviteError::SelfInvite => StatusCode::BAD_REQUEST,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             SendCommunityInviteError::Repository(e) => e.to_user_message(),
-            SendCommunityInviteError::Domain(e) => e.to_user_message(),
             SendCommunityInviteError::DmsClosed => {
                 "This user does not accept direct messages".to_string()
             }
@@ -1638,14 +1637,14 @@ impl HttpMapping for SendCommunityInviteError {
                 "This user is already a member of the community".to_string()
             }
             SendCommunityInviteError::InviteAlreadyPending => {
-                "You've already invited this user to this community".to_string()
+                "This user already has a pending invite to this community".to_string()
             }
+            SendCommunityInviteError::SelfInvite => "You can't invite yourself".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             SendCommunityInviteError::Repository(e) => e.to_error_code(),
-            SendCommunityInviteError::Domain(e) => e.to_error_code(),
             SendCommunityInviteError::NotFriends => "NOT_FRIENDS",
             SendCommunityInviteError::Blocked => "USER_BLOCKED",
             SendCommunityInviteError::DmsClosed => "DMS_CLOSED",
@@ -1655,6 +1654,7 @@ impl HttpMapping for SendCommunityInviteError {
             SendCommunityInviteError::NotAllowed => "INVITE_NOT_ALLOWED",
             SendCommunityInviteError::AlreadyMember => "ALREADY_MEMBER",
             SendCommunityInviteError::InviteAlreadyPending => "INVITE_ALREADY_PENDING",
+            SendCommunityInviteError::SelfInvite => "INVITE_SELF",
         }
     }
 }
@@ -1738,20 +1738,39 @@ impl HttpMapping for ListSentCommunityInvitesError {
     }
 }
 
+impl HttpMapping for messaging::usecases::inbox::read_inbox::ReadInboxError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            Self::Repository(e) => e.to_http_status(),
+            Self::InvalidCursor => StatusCode::BAD_REQUEST,
+        }
+    }
+    fn to_user_message(&self) -> String {
+        match self {
+            Self::Repository(e) => e.to_user_message(),
+            other => other.to_string(),
+        }
+    }
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            Self::Repository(e) => e.to_error_code(),
+            Self::InvalidCursor => "INVALID_CURSOR",
+        }
+    }
+}
+
 impl HttpMapping for DeclineCommunityInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             DeclineCommunityInviteError::Repository(e) => e.to_http_status(),
-            DeclineCommunityInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
+            DeclineCommunityInviteError::NotFound => StatusCode::NOT_FOUND,
             DeclineCommunityInviteError::NotRecipient => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
         match self {
             DeclineCommunityInviteError::Repository(e) => e.to_user_message(),
-            DeclineCommunityInviteError::NotAnInvite => {
-                "This message is not a community invite".to_string()
-            }
+            DeclineCommunityInviteError::NotFound => "This invite no longer exists".to_string(),
             DeclineCommunityInviteError::NotRecipient => {
                 "This invite was not addressed to you".to_string()
             }
@@ -1760,7 +1779,7 @@ impl HttpMapping for DeclineCommunityInviteError {
     fn to_error_code(&self) -> &'static str {
         match self {
             DeclineCommunityInviteError::Repository(e) => e.to_error_code(),
-            DeclineCommunityInviteError::NotAnInvite => "INVITE_INVALID",
+            DeclineCommunityInviteError::NotFound => "INVITE_NOT_FOUND",
             DeclineCommunityInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
         }
     }
@@ -1770,7 +1789,7 @@ impl HttpMapping for AcceptCommunityInviteError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             AcceptCommunityInviteError::Repository(e) => e.to_http_status(),
-            AcceptCommunityInviteError::NotAnInvite => StatusCode::BAD_REQUEST,
+            AcceptCommunityInviteError::NotFound => StatusCode::NOT_FOUND,
             AcceptCommunityInviteError::NotRecipient => StatusCode::FORBIDDEN,
             AcceptCommunityInviteError::Blocked => StatusCode::FORBIDDEN,
         }
@@ -1778,9 +1797,7 @@ impl HttpMapping for AcceptCommunityInviteError {
     fn to_user_message(&self) -> String {
         match self {
             AcceptCommunityInviteError::Repository(e) => e.to_user_message(),
-            AcceptCommunityInviteError::NotAnInvite => {
-                "This message is not a community invite".to_string()
-            }
+            AcceptCommunityInviteError::NotFound => "This invite no longer exists".to_string(),
             AcceptCommunityInviteError::NotRecipient => {
                 "This invite was not addressed to you".to_string()
             }
@@ -1790,7 +1807,7 @@ impl HttpMapping for AcceptCommunityInviteError {
     fn to_error_code(&self) -> &'static str {
         match self {
             AcceptCommunityInviteError::Repository(e) => e.to_error_code(),
-            AcceptCommunityInviteError::NotAnInvite => "INVITE_INVALID",
+            AcceptCommunityInviteError::NotFound => "INVITE_NOT_FOUND",
             AcceptCommunityInviteError::NotRecipient => "INVITE_NOT_RECIPIENT",
             AcceptCommunityInviteError::Blocked => "USER_BLOCKED",
         }
@@ -2404,7 +2421,6 @@ impl HttpMapping for DmMessageError {
         match self {
             DmMessageError::NotSender => StatusCode::FORBIDDEN,
             DmMessageError::ContentUnchanged => StatusCode::BAD_REQUEST,
-            DmMessageError::NotEditable => StatusCode::BAD_REQUEST,
             DmMessageError::Forwarded => StatusCode::BAD_REQUEST,
             DmMessageError::Sticker => StatusCode::BAD_REQUEST,
         }
@@ -2416,7 +2432,6 @@ impl HttpMapping for DmMessageError {
         match self {
             DmMessageError::NotSender => "DM_NOT_SENDER",
             DmMessageError::ContentUnchanged => "DM_CONTENT_UNCHANGED",
-            DmMessageError::NotEditable => "DM_NOT_EDITABLE",
             DmMessageError::Forwarded => "MESSAGE_FORWARDED",
             DmMessageError::Sticker => "MESSAGE_STICKER",
         }

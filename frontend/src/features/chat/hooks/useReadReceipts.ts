@@ -53,7 +53,7 @@ export function useReadReceipts(params: {
     m: ChannelMessage,
     mine: boolean,
   ): "sent" | "read" | null => {
-    if (!mine || m.callStatus || m.inviteCommunityId) return null;
+    if (!mine || m.callStatus) return null;
     const created = new Date(m.createdAt).getTime();
     if (dmFriendId) {
       return dmPeerReadAt && new Date(dmPeerReadAt).getTime() >= created

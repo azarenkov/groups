@@ -31,18 +31,16 @@ export function useDirectConversations(params: {
       if (!p) return undefined;
       const body = p.callStatus
         ? tSidebar("previewCall")
-        : p.inviteCommunityId
-          ? tSidebar("previewInvite")
-          : p.content ||
-            (p.stickerEmoji
-              ? tSidebar("previewSticker", { emoji: p.stickerEmoji })
-              : typeof p.videoNoteDurationMs === "number"
-              ? tSidebar("previewVideoNote")
-              : typeof p.voiceDurationMs === "number"
-              ? tSidebar("previewVoice")
-              : p.hasAttachments
-                ? tSidebar("previewAttachment")
-                : "");
+        : p.content ||
+          (p.stickerEmoji
+            ? tSidebar("previewSticker", { emoji: p.stickerEmoji })
+            : typeof p.videoNoteDurationMs === "number"
+            ? tSidebar("previewVideoNote")
+            : typeof p.voiceDurationMs === "number"
+            ? tSidebar("previewVoice")
+            : p.hasAttachments
+              ? tSidebar("previewAttachment")
+              : "");
       return p.senderId === currentUserId
         ? `${tSidebar("previewYou")} ${body}`
         : body;

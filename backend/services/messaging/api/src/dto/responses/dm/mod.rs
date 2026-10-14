@@ -16,10 +16,6 @@ pub struct DmMessageResponse {
     pub recipient_id: Uuid,
     pub content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub invite_community_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub invite_community_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub call_status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub call_duration_seconds: Option<i32>,
@@ -56,8 +52,6 @@ impl From<SendDmMessageResponse> for DmMessageResponse {
             author_name: None,
             recipient_id: value.recipient_id,
             content: value.content,
-            invite_community_id: value.invite_community_id,
-            invite_community_name: value.invite_community_name,
             call_status: None,
             call_duration_seconds: None,
             created_at: value.created_at,
@@ -84,8 +78,6 @@ impl From<DmMessageDto> for DmMessageResponse {
             author_name: Some(value.sender_name),
             recipient_id: value.recipient_id,
             content: value.content,
-            invite_community_id: value.invite_community_id,
-            invite_community_name: value.invite_community_name,
             call_status: value.call_status,
             call_duration_seconds: value.call_duration_seconds,
             created_at: value.created_at,
@@ -97,18 +89,6 @@ impl From<DmMessageDto> for DmMessageResponse {
             sticker: value.sticker.as_ref().map(|s| s.to_json()),
             voice_listened: false,
         }
-    }
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AcceptCommunityInviteResponse {
-    pub community_id: Uuid,
-}
-
-impl AcceptCommunityInviteResponse {
-    pub fn new(community_id: Uuid) -> Self {
-        Self { community_id }
     }
 }
 

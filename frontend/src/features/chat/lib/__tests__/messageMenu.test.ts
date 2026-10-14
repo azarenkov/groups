@@ -50,10 +50,6 @@ describe("messageActions", () => {
     ]);
   });
 
-  it("does not let the recipient hide an invite they have not answered", () => {
-    expect(messageActions(ctx({ msg: msg({ inviteCommunityId: "s", content: "" }) }))).toEqual(["link"]);
-  });
-
   it("does not offer edit on a forwarded message", () => {
     const forwarded = msg({
       forwardedFrom: {
@@ -65,13 +61,6 @@ describe("messageActions", () => {
       },
     });
     expect(messageActions(ctx({ isMine: true, msg: forwarded }))).not.toContain("edit");
-  });
-
-  it("lets the sender delete their own invite card", () => {
-    expect(messageActions(ctx({ isMine: true, msg: msg({ inviteCommunityId: "s", content: "" }) }))).toEqual([
-      "link",
-      "delete",
-    ]);
   });
 
   it("offers copy of a selection even on an empty message", () => {
@@ -94,18 +83,14 @@ describe("messageCopyText", () => {
 
 describe("canDeleteForEveryone", () => {
   it("allows your own message", () => {
-    expect(canDeleteForEveryone(msg(), true, false)).toBe(true);
+    expect(canDeleteForEveryone(true, false)).toBe(true);
   });
 
   it("only hides someone else's message for a regular member", () => {
-    expect(canDeleteForEveryone(msg(), false, false)).toBe(false);
+    expect(canDeleteForEveryone(false, false)).toBe(false);
   });
 
   it("allows moderators to delete anyone's message", () => {
-    expect(canDeleteForEveryone(msg(), false, true)).toBe(true);
-  });
-
-  it("keeps your own invite card deletable only for you", () => {
-    expect(canDeleteForEveryone(msg({ inviteCommunityId: "s" }), true, false)).toBe(false);
+    expect(canDeleteForEveryone(false, true)).toBe(true);
   });
 });

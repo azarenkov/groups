@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT m.id, m.sender_id, m.recipient_id,\n                   u.name AS sender_name,\n                   m.content, m.invite_community_id,\n                   s.name AS \"invite_community_name?\",\n                   m.call_status, m.call_duration_seconds,\n                   m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS \"forwarded_from?\", m.sticker::text AS \"sticker?\"\n            FROM dm_messages m\n            INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id\n            LEFT JOIN communities s ON s.id = m.invite_community_id\n            WHERE m.id = $1\n              AND LEAST(m.sender_id, m.recipient_id) = LEAST($2::uuid, $3::uuid)\n              AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($2::uuid, $3::uuid)\n              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)\n            ",
+  "query": "\n            SELECT m.id, m.sender_id, m.recipient_id,\n                   u.name AS sender_name,\n                   m.content,\n                   m.call_status, m.call_duration_seconds,\n                   m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS \"forwarded_from?\", m.sticker::text AS \"sticker?\"\n            FROM dm_messages m\n            INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id\n            WHERE m.id = $1\n              AND LEAST(m.sender_id, m.recipient_id) = LEAST($2::uuid, $3::uuid)\n              AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($2::uuid, $3::uuid)\n              AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $2 AND h.message_id = m.id)\n            ",
   "describe": {
     "columns": [
       {
@@ -30,46 +30,36 @@
       },
       {
         "ordinal": 5,
-        "name": "invite_community_id",
-        "type_info": "Uuid"
-      },
-      {
-        "ordinal": 6,
-        "name": "invite_community_name?",
-        "type_info": "Varchar"
-      },
-      {
-        "ordinal": 7,
         "name": "call_status",
         "type_info": "Text"
       },
       {
-        "ordinal": 8,
+        "ordinal": 6,
         "name": "call_duration_seconds",
         "type_info": "Int4"
       },
       {
-        "ordinal": 9,
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 10,
+        "ordinal": 8,
         "name": "edited_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 11,
+        "ordinal": 9,
         "name": "reply_to_message_id",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 12,
+        "ordinal": 10,
         "name": "forwarded_from?",
         "type_info": "Text"
       },
       {
-        "ordinal": 13,
+        "ordinal": 11,
         "name": "sticker?",
         "type_info": "Text"
       }
@@ -88,8 +78,6 @@
       false,
       false,
       true,
-      false,
-      true,
       true,
       false,
       true,
@@ -98,5 +86,5 @@
       null
     ]
   },
-  "hash": "274ecb1e23c21c533298508268ca8aa96dbe30e5b6ea0c907c98ecadff39933d"
+  "hash": "c72b2cc7bc0f2a35dd4f436f70a6099bddace4dd4dbd5db751f61f782b39932e"
 }

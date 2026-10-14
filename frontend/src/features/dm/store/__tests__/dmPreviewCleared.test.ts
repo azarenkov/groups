@@ -5,7 +5,6 @@ const preview = (createdAt: string) => ({
   senderId: "peer",
   content: "secret",
   callStatus: null,
-  inviteCommunityId: null,
   hasAttachments: false,
   createdAt,
 });

@@ -12,7 +12,7 @@ export interface MessageMenuContext {
 
 export function messageActions(ctx: MessageMenuContext): MessageAction[] {
   const { msg, isMine, hasSelection, canPin } = ctx;
-  const card = !!msg.callStatus || !!msg.inviteCommunityId;
+  const card = !!msg.callStatus;
   const actions: MessageAction[] = [];
   if (!card && !msg.system) actions.push("reply");
   if (!card && !msg.system) actions.push("forward");
@@ -22,17 +22,13 @@ export function messageActions(ctx: MessageMenuContext): MessageAction[] {
   if (!msg.system) actions.push("link");
   if (canPin && !card && !msg.system) actions.push("pin");
   if (isMine && !card && !voice && !msg.system && !msg.forwardedFrom) actions.push("edit");
-  if (isMine || !msg.inviteCommunityId) actions.push("delete");
+  actions.push("delete");
   if (!isMine && !card && !msg.system) actions.push("report");
   return actions;
 }
 
-export function canDeleteForEveryone(
-  msg: ChannelMessage,
-  isMine: boolean,
-  canModerate: boolean,
-): boolean {
-  return (isMine && !msg.inviteCommunityId) || canModerate;
+export function canDeleteForEveryone(isMine: boolean, canModerate: boolean): boolean {
+  return isMine || canModerate;
 }
 
 export function messageCopyText(msg: ChannelMessage, selection: string): string {

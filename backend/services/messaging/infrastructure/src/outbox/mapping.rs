@@ -7,7 +7,7 @@ use contracts::events::{
     dm_message::{DmMessageDeletedV1, DmMessageEditedV1, DmMessageSentV1},
     friendship::{FriendRequestAcceptedV1, FriendRequestSentV1, FriendshipRemovedV1, UserBlockedV1, UserUnblockedV1},
     message::{ChannelMessageDeletedV1, ChannelMessageEditedV1, ChannelMessageSentV1},
-    community::{CommunityCreatedV1, CommunityDeletedV1, CommunityOwnerChangedV1, CommunityMemberV1, CommunityRolesChangedV1, CommunityUpdatedV1},
+    community::{CommunityCreatedV1, CommunityDeletedV1, CommunityInvitationIssuedV1, CommunityInvitationResolvedV1, CommunityOwnerChangedV1, CommunityMemberV1, CommunityRolesChangedV1, CommunityUpdatedV1},
 };
 use domain::user::id::UserId;
 use messaging_domain::{channel::events::ChannelEvent, dm_message::events::DmMessageDomainEvent, events::MessagingEvent, friendship::events::FriendshipDomainEvent, message::events::MessageDomainEvent, community::events::CommunityEvent};
@@ -158,11 +158,27 @@ fn community_record(event: &CommunityEvent) -> Result<OutboxRecord, RepositoryEr
         CommunityEvent::MemberJoined(e) => encode(&CommunityMemberV1 {
             community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
+            removed_by: None,
             occurred_at: e.occurred_at,
         })?,
         CommunityEvent::MemberLeft(e) => encode(&CommunityMemberV1 {
             community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
+            removed_by: e.removed_by.map(|u| u.uuid()),
+            occurred_at: e.occurred_at,
+        })?,
+        CommunityEvent::InvitationIssued(e) => encode(&CommunityInvitationIssuedV1 {
+            invitation_id: e.invitation_id.uuid(),
+            community_id: e.community_id.uuid(),
+            inviter_id: e.inviter_id.uuid(),
+            invitee_id: e.invitee_id.uuid(),
+            occurred_at: e.occurred_at,
+        })?,
+        CommunityEvent::InvitationResolved(e) => encode(&CommunityInvitationResolvedV1 {
+            invitation_id: e.invitation_id.uuid(),
+            community_id: e.community_id.uuid(),
+            invitee_id: e.invitee_id.uuid(),
+            accepted: e.accepted,
             occurred_at: e.occurred_at,
         })?,
         CommunityEvent::RolesChanged(e) => encode(&CommunityRolesChangedV1 {
@@ -238,8 +254,6 @@ fn dm_record(event: &DmMessageDomainEvent) -> Result<OutboxRecord, RepositoryErr
             recipient_id: e.recipient_id.uuid(),
             content: value(&e.content)?,
             occurred_at: e.occurred_at,
-            invite_community_id: e.invite_community_id.map(|s| s.uuid()),
-            invite_community_name: e.invite_community_name.clone(),
             call_status: e.call_status.clone(),
             call_duration_seconds: e.call_duration_seconds,
             attachments: Some(value(&e.attachments)?),

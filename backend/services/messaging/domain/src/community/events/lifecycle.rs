@@ -130,15 +130,17 @@ pub struct CommunityMemberLeft {
     pub id: EventId,
     pub community_id: CommunityId,
     pub user_id: UserId,
+    pub removed_by: Option<UserId>,
     pub occurred_at: DateTime<Utc>,
 }
 
 impl CommunityMemberLeft {
-    pub fn record(community_id: CommunityId, user_id: UserId, now: DateTime<Utc>) -> Self {
+    pub fn record(community_id: CommunityId, user_id: UserId, removed_by: Option<UserId>, now: DateTime<Utc>) -> Self {
         Self {
             id: EventId::generate(),
             community_id,
             user_id,
+            removed_by,
             occurred_at: now,
         }
     }

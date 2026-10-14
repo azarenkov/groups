@@ -149,7 +149,7 @@ async fn resolve_source(
                 .list_dm_messages_usecase
                 .find_one(friend_id, message_id, user_id)
                 .await?;
-            if dto.call_status.is_some() || dto.invite_community_id.is_some() {
+            if dto.call_status.is_some() {
                 return Err(not_forwardable());
             }
             let attachments = app_state

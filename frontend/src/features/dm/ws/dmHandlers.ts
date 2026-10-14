@@ -39,7 +39,6 @@ export const dmHandlers: WsHandlers = {
         senderId,
         content: asString(d.content) ?? "",
         callStatus: asString(d.callStatus) ?? null,
-        inviteCommunityId: asString(d.inviteCommunityId) ?? null,
         hasAttachments: Array.isArray(d.attachments) && d.attachments.length > 0,
         voiceDurationMs: voiceDurationFromPayload(d.attachments),
         videoNoteDurationMs: videoNoteDurationFromPayload(d.attachments),

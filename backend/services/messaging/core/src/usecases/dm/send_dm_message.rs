@@ -164,7 +164,7 @@ where
                     RepositoryError::NotFound => SendDmMessageError::InvalidReply,
                     other => SendDmMessageError::Repository(other),
                 })?;
-            if target.call_status.is_some() || target.invite_community_id.is_some() {
+            if target.call_status.is_some() {
                 return Err(SendDmMessageError::InvalidReply);
             }
             let reply_links: Vec<domain::attachment::AttachmentLink> = self

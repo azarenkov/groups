@@ -131,7 +131,7 @@ where
         if actor == friend {
             return Err(MessagePinError::SelfConversation);
         }
-        if message.call_status.is_some() || message.invite_community_id.is_some() {
+        if message.call_status.is_some() {
             return Err(MessagePinError::NotPinnable);
         }
         if self.friendships.block_relation(&actor, &friend).await?.any() {

@@ -1,98 +1,88 @@
-use messaging_domain::message::system::SystemMessageKind;
-
-use crate::usecases::community::membership_announcements::announce_membership;
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{events::MessagingEvent, dm_message::id::DmMessageId, dm_message::repository::DmMessageRepository, community::unit_of_work::CommunityUnitOfWork};
 use domain::user::id::UserId;
+use messaging_domain::{
+    community::{
+        events::{CommunityEvent, lifecycle::CommunityMemberJoined},
+        invitation::{InvitationError, InvitationId, InvitationRepository, InvitationResolution},
+        unit_of_work::CommunityUnitOfWork,
+    },
+    events::MessagingEvent,
+    message::system::SystemMessageKind,
+};
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
 use crate::dto::RequestContext;
+use crate::usecases::community::membership_announcements::announce_membership;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AcceptCommunityInviteError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("This message is not a community invite")]
-    NotAnInvite,
+    #[error("This invite no longer exists")]
+    NotFound,
     #[error("This invite was not addressed to you")]
     NotRecipient,
     #[error("This user is blocked")]
     Blocked,
 }
 
-pub struct AcceptCommunityInvite<M, W>
+pub struct AcceptCommunityInvite<I, W>
 where
-    M: DmMessageRepository,
+    I: InvitationRepository,
     W: CommunityUnitOfWork,
 {
-    dm_repository: Arc<M>,
+    invitations: Arc<I>,
     unit_of_work: Arc<W>,
 }
 
-impl<M, W> AcceptCommunityInvite<M, W>
+impl<I, W> AcceptCommunityInvite<I, W>
 where
-    M: DmMessageRepository,
+    I: InvitationRepository,
     W: CommunityUnitOfWork,
 {
-    pub fn new(dm_repository: Arc<M>, unit_of_work: Arc<W>) -> Self {
-        Self {
-            dm_repository,
-            unit_of_work,
-        }
+    pub fn new(invitations: Arc<I>, unit_of_work: Arc<W>) -> Self {
+        Self { invitations, unit_of_work }
     }
 
     pub async fn execute(
         &self,
-        message_id: DmMessageId,
+        invitation_id: InvitationId,
         requester_id: UserId,
         ctx: RequestContext,
     ) -> Result<Uuid, AcceptCommunityInviteError> {
-        let mut message = self.dm_repository.find_by_id(&message_id).await?;
-
-        let community_id = message
-            .invite_community_id()
-            .copied()
-            .ok_or(AcceptCommunityInviteError::NotAnInvite)?;
-
-        if message.recipient_id() != &requester_id {
-            return Err(AcceptCommunityInviteError::NotRecipient);
-        }
-        let sender_id = *message.sender_id();
-
-        message.record_invite_deleted(Utc::now());
-
-        let request_id = ctx.request_id.clone();
-        let mut events: Vec<MessagingEvent> =
-            message.pull_events().into_iter().map(MessagingEvent::from).collect();
-
+        let invitation = self.invitations.find(&invitation_id).await?.ok_or(AcceptCommunityInviteError::NotFound)?;
+        let now = Utc::now();
+        let resolved = invitation
+            .resolve(&requester_id, InvitationResolution::Accepted, now)
+            .map_err(|e| match e {
+                InvitationError::NotInvitee => AcceptCommunityInviteError::NotRecipient,
+                _ => AcceptCommunityInviteError::NotFound,
+            })?;
+        let community_id = *invitation.community_id();
         let mut tx = self.unit_of_work.begin(&community_id).await?;
-        tx.lock_pair(&sender_id, &requester_id).await?;
-        if tx.block_relation(&sender_id, &requester_id).await?.any() {
+        tx.lock_pair(invitation.inviter_id(), &requester_id).await?;
+        if tx.block_relation(invitation.inviter_id(), &requester_id).await?.any() {
             return Err(AcceptCommunityInviteError::Blocked);
         }
-        let joined = tx.accept_invite(&message_id, &requester_id).await?;
+        let joined = match tx.join_by_invitation(&invitation_id, &requester_id).await {
+            Ok(joined) => joined,
+            Err(RepositoryError::NotFound) => return Err(AcceptCommunityInviteError::NotFound),
+            Err(e) => return Err(e.into()),
+        };
+        let mut events = vec![MessagingEvent::from(resolved)];
         if joined {
-            let now = Utc::now();
-            events.push(MessagingEvent::from(
-                messaging_domain::community::events::CommunityEvent::MemberJoined(
-                    messaging_domain::community::events::lifecycle::CommunityMemberJoined::record(
-                        community_id,
-                        requester_id,
-                        now,
-                    ),
-                ),
-            ));
-            events.extend(
-                announce_membership(&mut *tx, requester_id, SystemMessageKind::MemberJoined, now)
-                    .await?,
-            );
+            events.push(MessagingEvent::from(CommunityEvent::MemberJoined(CommunityMemberJoined::record(
+                community_id,
+                requester_id,
+                now,
+            ))));
+            events.extend(announce_membership(&mut *tx, requester_id, SystemMessageKind::MemberJoined, now).await?);
         }
-        tx.save_events(&events, request_id.as_deref()).await?;
+        tx.save_events(&events, ctx.request_id.as_deref()).await?;
         tx.commit().await?;
-
         Ok(community_id.uuid())
     }
 }

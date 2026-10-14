@@ -5,6 +5,7 @@ pub mod dm_message;
 pub mod events;
 pub mod friendship;
 pub mod hidden_message;
+pub mod inbox;
 pub mod voice_listen;
 pub mod message;
 pub mod notification;

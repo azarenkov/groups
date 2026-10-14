@@ -134,8 +134,6 @@ export interface ChannelMessage {
   authorId: string;
   authorName?: string;
   content: string;
-  inviteCommunityId?: string;
-  inviteCommunityName?: string;
   callStatus?: string;
   callDurationSeconds?: number;
   attachments?: Attachment[];

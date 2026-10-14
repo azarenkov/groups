@@ -22,7 +22,6 @@ interface MessageListProps {
   editFiles: PendingFile[];
   savingEdit: boolean;
   highlightedMessageId: string | null;
-  myCommunityIds: Set<string>;
   receiptFor: (message: ChannelMessage, mine: boolean) => "sent" | "read" | null;
   onEditTextChange: (value: string) => void;
   onStartEdit: (message: ChannelMessage) => void;
@@ -37,9 +36,6 @@ interface MessageListProps {
   onCopyLink: (message: ChannelMessage) => void;
   onForward: (message: ChannelMessage) => void;
   onOpenForwardSource: (message: ChannelMessage) => void;
-  onAcceptInvite: (message: ChannelMessage) => void;
-  onDeclineInvite: (message: ChannelMessage) => void;
-  onOpenInviteCommunity?: (communityId: string) => void;
   onVoiceListened?: (message: ChannelMessage) => Promise<void>;
   pinnedIds?: Set<string>;
   onTogglePin?: (message: ChannelMessage, pinned: boolean) => void;
@@ -58,7 +54,6 @@ const MessageList: React.FC<MessageListProps> = ({
   editFiles,
   savingEdit,
   highlightedMessageId,
-  myCommunityIds,
   receiptFor,
   onEditTextChange,
   onStartEdit,
@@ -73,9 +68,6 @@ const MessageList: React.FC<MessageListProps> = ({
   onCopyLink,
   onForward,
   onOpenForwardSource,
-  onAcceptInvite,
-  onDeclineInvite,
-  onOpenInviteCommunity,
   onVoiceListened,
   pinnedIds,
   onTogglePin,
@@ -148,9 +140,6 @@ const MessageList: React.FC<MessageListProps> = ({
                   editing={editingId === m.id}
                   highlighted={highlightedMessageId === m.id}
                   editText={editText}
-                  inviteIsMember={
-                    !!m.inviteCommunityId && myCommunityIds.has(m.inviteCommunityId)
-                  }
                   editRemovedIds={editRemovedIds}
                   editFiles={editFiles}
                   editSaving={savingEdit}
@@ -175,11 +164,6 @@ const MessageList: React.FC<MessageListProps> = ({
                   onCopyLink={() => onCopyLink(m)}
                   onForward={() => onForward(m)}
                   onOpenForwardSource={() => onOpenForwardSource(m)}
-                  onAcceptInvite={() => onAcceptInvite(m)}
-                  onDeclineInvite={() => onDeclineInvite(m)}
-                  onOpenInviteCommunity={() =>
-                    m.inviteCommunityId && onOpenInviteCommunity?.(m.inviteCommunityId)
-                  }
                   onVoiceListened={onVoiceListened ? () => onVoiceListened(m) : undefined}
                   pinned={!!pinnedIds?.has(m.id)}
                   onTogglePin={onTogglePin ? () => onTogglePin(m, !pinnedIds?.has(m.id)) : undefined}

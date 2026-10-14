@@ -11,6 +11,7 @@ mod dm_conversations;
 mod forward;
 mod friendship;
 mod home;
+mod inbox;
 mod internal;
 mod invites;
 mod notifications;

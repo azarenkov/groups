@@ -275,6 +275,10 @@ class CommunityAPI {
     });
   }
 
+  async issueInvitation(communityId: string, userId: string): Promise<void> {
+    await this.client.post(`/v1/communities/${communityId}/invitations`, { userId });
+  }
+
   async listSentInvites(communityId: string): Promise<{ recipientIds: string[] }> {
     const response = await this.client.get(
       `/v1/communities/${communityId}/sent-invites`,

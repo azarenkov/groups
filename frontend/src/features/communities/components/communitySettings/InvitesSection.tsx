@@ -2,7 +2,6 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
 import { communityAPI } from "../../api/community";
-import { dmAPI } from "../../../dm/api/dm";
 import { ApiError } from "../../../../shared/lib/apiError";
 import { UserAvatar } from "../../../../shared/ui/Avatar";
 import type { Friendship } from "../../../../shared/types/friendship";
@@ -170,7 +169,7 @@ export const InvitesSection: React.FC<InvitesSectionProps> = ({
     setInviteError(null);
     setInvitePending(friendId);
     try {
-      await dmAPI.sendCommunityInvite(friendId, community.id);
+      await communityAPI.issueInvitation(community.id, friendId);
       setInvitedIds((prev) => new Set(prev).add(friendId));
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
