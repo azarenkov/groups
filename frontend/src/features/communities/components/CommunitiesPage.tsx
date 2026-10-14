@@ -153,6 +153,7 @@ const CommunitiesPage: React.FC = () => {
     setSearchParams({}, { replace: true });
     setPendingMessageLink(link);
   }, [searchParams, setSearchParams, user?.id]);
+  const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalCommunity, setInviteModalCommunity] = useState<Community | null>(null);
   const [communitySettings, setCommunitySettings] = useState<Community | null>(null);
   const [settingsChannels, setSettingsChannels] = useState<{
@@ -477,7 +478,8 @@ const CommunitiesPage: React.FC = () => {
     !!deleteConfirm ||
     !!channelModal ||
     !!inviteModalCommunity ||
-    isCommunityModalOpen;
+    isCommunityModalOpen ||
+    isPendingOpen;
   useHotkey("nextChannel", () => stepConversation(1), !navigationBlocked);
   useHotkey("prevChannel", () => stepConversation(-1), !navigationBlocked);
 
@@ -693,7 +695,7 @@ const CommunitiesPage: React.FC = () => {
   return (
     <div className="win">
       <AppTopBar
-        inbox={<InboxMenu onOpenCommunity={selection.handleGoToCommunity} />}
+        inbox={<InboxMenu onOpenCommunity={selection.handleGoToCommunity} onOpenFriendRequests={() => setIsPendingOpen(true)} />}
         navState={sidebarNav.navState}
         goHistory={sidebarNav.goHistory}
         homeActive={homeActive}
@@ -1045,6 +1047,9 @@ const CommunitiesPage: React.FC = () => {
         passwordPrompt={passwordPrompt}
         onClosePasswordPrompt={() => setPasswordPrompt(null)}
         onSubmitPassword={handlePasswordSubmit}
+        isPendingOpen={isPendingOpen}
+        onClosePending={() => setIsPendingOpen(false)}
+        onOpenAddFriend={() => useSearchFocusStore.getState().focus("people")}
         inviteModalCommunity={inviteModalCommunity}
         acceptedFriends={friends.filter((f) => f.status === "accepted")}
         onCloseInviteModal={() => setInviteModalCommunity(null)}

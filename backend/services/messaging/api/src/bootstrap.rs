@@ -526,7 +526,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         list_sent_community_invites_usecase: ListSentCommunityInvites::new(
             invitation_repository.clone(),
-            community_repository.clone(),
+            community_unit_of_work.clone(),
         ),
         read_inbox_usecase: messaging::usecases::inbox::read_inbox::ReadInbox::new(inbox_repository.clone()),
         create_community_usecase: CreateCommunity::new(community_unit_of_work.clone(), text_moderation.clone()),

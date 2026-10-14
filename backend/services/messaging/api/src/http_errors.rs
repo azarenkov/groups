@@ -1719,7 +1719,7 @@ impl HttpMapping for ListSentCommunityInvitesError {
     fn to_http_status(&self) -> StatusCode {
         match self {
             ListSentCommunityInvitesError::Repository(e) => e.to_http_status(),
-            ListSentCommunityInvitesError::NotMember => StatusCode::FORBIDDEN,
+            ListSentCommunityInvitesError::NotMember | ListSentCommunityInvitesError::NotAllowed => StatusCode::FORBIDDEN,
         }
     }
     fn to_user_message(&self) -> String {
@@ -1728,12 +1728,14 @@ impl HttpMapping for ListSentCommunityInvitesError {
             ListSentCommunityInvitesError::NotMember => {
                 "You are not a member of this community".to_string()
             }
+            ListSentCommunityInvitesError::NotAllowed => "Missing permission to manage invites".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
         match self {
             ListSentCommunityInvitesError::Repository(e) => e.to_error_code(),
             ListSentCommunityInvitesError::NotMember => "COMMUNITY_NOT_MEMBER",
+            ListSentCommunityInvitesError::NotAllowed => "INVITE_NOT_ALLOWED",
         }
     }
 }

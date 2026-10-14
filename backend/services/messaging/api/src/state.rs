@@ -291,7 +291,7 @@ pub struct AppState {
     >,
     pub accept_community_invite_usecase: AcceptCommunityInvite<messaging_infrastructure::database::postgres::repositories::invitation::PostgresInvitationRepository, PostgresCommunityUnitOfWork>,
     pub decline_community_invite_usecase: DeclineCommunityInvite<messaging_infrastructure::database::postgres::repositories::invitation::PostgresInvitationRepository, PostgresCommunityUnitOfWork>,
-    pub list_sent_community_invites_usecase: ListSentCommunityInvites<messaging_infrastructure::database::postgres::repositories::invitation::PostgresInvitationRepository, PostgresCommunityRepository>,
+    pub list_sent_community_invites_usecase: ListSentCommunityInvites<messaging_infrastructure::database::postgres::repositories::invitation::PostgresInvitationRepository, PostgresCommunityUnitOfWork>,
     pub read_inbox_usecase: messaging::usecases::inbox::read_inbox::ReadInbox<messaging_infrastructure::database::postgres::repositories::inbox::PostgresInboxRepository>,
     pub create_community_usecase: CreateCommunity<PostgresCommunityUnitOfWork, TextModerationClient>,
     pub delete_community_usecase: DeleteCommunity<

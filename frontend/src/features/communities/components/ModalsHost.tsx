@@ -5,6 +5,7 @@ import CreateChannelModal from "./CreateChannelModal";
 import CreateCommunityModal from "./CreateCommunityModal";
 import InviteFriendsModal from "./InviteFriendsModal";
 import PasswordPromptModal from "./PasswordPromptModal";
+import PendingFriendsModal from "../../social/components/PendingFriendsModal";
 import ActiveCallBar from "../../voice/components/ActiveCallBar";
 import ConfirmModal from "../../../shared/ui/ConfirmModal";
 import IncomingCallModal from "../../voice/components/IncomingCallModal";
@@ -46,6 +47,9 @@ interface ModalsHostProps {
   passwordPrompt: { community: Community; channel: Channel } | null;
   onClosePasswordPrompt: () => void;
   onSubmitPassword: (password: string) => void;
+  isPendingOpen: boolean;
+  onClosePending: () => void;
+  onOpenAddFriend: () => void;
   inviteModalCommunity: Community | null;
   acceptedFriends: Friendship[];
   onCloseInviteModal: () => void;
@@ -68,6 +72,9 @@ const ModalsHost: React.FC<ModalsHostProps> = ({
   passwordPrompt,
   onClosePasswordPrompt,
   onSubmitPassword,
+  isPendingOpen,
+  onClosePending,
+  onOpenAddFriend,
   inviteModalCommunity,
   acceptedFriends,
   onCloseInviteModal,
@@ -120,6 +127,12 @@ const ModalsHost: React.FC<ModalsHostProps> = ({
         onRemoveFriend={onRemoveFriend}
         onBlockUser={onBlockUser}
         onEditProfile={onEditProfile}
+      />
+
+      <PendingFriendsModal
+        isOpen={isPendingOpen}
+        onClose={onClosePending}
+        onAddFriend={onOpenAddFriend}
       />
 
       <InviteFriendsModal

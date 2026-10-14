@@ -10,10 +10,11 @@ import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import { inboxAPI, type InboxItem } from "../api/inbox";
 import { useInboxItems, useInboxUnread } from "../hooks/useInbox";
-import { markAllReadLocally, removeLocally } from "../lib/inbox";
+import { markReadLocally, removeLocally } from "../lib/inbox";
 
 interface InboxMenuProps {
   onOpenCommunity: (communityId: string) => Promise<void> | void;
+  onOpenFriendRequests: () => void;
 }
 
 const MESSAGE_KEY: Record<InboxItem["kind"], string> = {
@@ -23,7 +24,7 @@ const MESSAGE_KEY: Record<InboxItem["kind"], string> = {
   friend_request_accepted: "inboxFriendAccepted",
 };
 
-const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity }) => {
+const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity, onOpenFriendRequests }) => {
   const { t, i18n } = useTranslation("sidebar");
   const [open, setOpen] = React.useState(false);
   const [fresh, setFresh] = React.useState<ReadonlySet<string>>(new Set());
@@ -33,6 +34,7 @@ const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity }) => {
   const unread = useInboxUnread();
   const inbox = useInboxItems(open);
   const statusById = useFriendshipStore((s) => s.statusById);
+  const pendingRequests = Object.values(statusById).filter((s) => s === "pending_incoming" || s === "pending_outgoing").length;
   const now = new Date();
 
   React.useEffect(() => {
@@ -53,19 +55,18 @@ const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity }) => {
 
   const markAllRead = React.useCallback(() => {
     if (!inbox.userId) return;
-    const rollback = markAllReadLocally(inbox.userId);
+    const rollback = markReadLocally(inbox.userId);
     inboxAPI.markRead().catch(() => rollback());
   }, [inbox.userId]);
 
   React.useEffect(() => {
-    if (!open || inbox.loading || unread === 0) return;
-    setFresh((prev) => {
-      const next = new Set(prev);
-      for (const item of inbox.items) if (!item.read) next.add(item.id);
-      return next;
-    });
-    markAllRead();
-  }, [open, inbox.loading, inbox.items, unread, markAllRead]);
+    if (!open || inbox.loading || !inbox.userId) return;
+    const shown = inbox.items.filter((item) => !item.read).map((item) => item.id);
+    if (shown.length === 0) return;
+    setFresh((prev) => new Set([...Array.from(prev), ...shown]));
+    const rollback = markReadLocally(inbox.userId, new Set(shown));
+    inboxAPI.markRead(shown).catch(() => rollback());
+  }, [open, inbox.loading, inbox.items, inbox.userId]);
 
   const toggle = () => {
     setOpen((value) => {
@@ -146,6 +147,18 @@ const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity }) => {
               </button>
             )}
           </div>
+          <button
+            type="button"
+            className="inbox-requests"
+            onClick={() => {
+              setOpen(false);
+              onOpenFriendRequests();
+            }}
+          >
+            <Icon name="users" size={16} />
+            <span>{t("pendingRequests")}</span>
+            {pendingRequests > 0 && <span className="inbox-requests-count">{pendingRequests}</span>}
+          </button>
           <div className="inbox-list">
             {inbox.loading ? (
               <div className="inbox-note">

@@ -1558,6 +1558,22 @@ body.electron .topbar .inbox-dropdown { -webkit-app-region: no-drag; }
   cursor: pointer;
 }
 .inbox-read-all:hover, .inbox-read-all:focus-visible { color: var(--fg-1); outline: none; }
+.inbox-requests {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 8px 4px; padding: 8px 10px;
+  border: 0; border-radius: 6px;
+  background: var(--surface-sunken); color: var(--fg-2);
+  font: inherit; font-size: 13px; font-weight: 600; text-align: left;
+  cursor: pointer;
+}
+.inbox-requests:hover, .inbox-requests:focus-visible { background: var(--surface-hover); color: var(--fg-1); outline: none; }
+.inbox-requests-count {
+  margin-left: auto;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 999px;
+  background: var(--fg-4); color: var(--fg-1);
+  font-size: 12px; line-height: 20px; text-align: center;
+}
 .inbox-list { overflow-y: auto; padding: 4px; }
 .inbox-note {
   display: flex; justify-content: center;
