@@ -171,8 +171,9 @@ it("refetches after a failed save so a stable entry dropped by duplicates comes 
   const second = recordSearch("me", { type: "person", userId: "u1", name: "Bob" });
   await expect(first).rejects.toThrow("down");
   await expect(second).rejects.toThrow("down");
-  expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
-  await queryClient.fetchQuery({ queryKey: key, queryFn: () => searchHistoryAPI.list() });
+  installHistoryPersistence();
+  await queryClient.refetchQueries({ queryKey: key, type: "all" });
+  expect(api.list).toHaveBeenCalled();
   expect(items()).toEqual([stable]);
 });
 
@@ -287,4 +288,23 @@ it("settles a saved row to its server id even when a refetch re-applied the pend
     spy.mockRestore();
   }
   expect(items()).toEqual([expect.objectContaining({ id: "server-10", text: "race" })]);
+});
+
+it("refetches after a failed change even when no search box is watching the history", async () => {
+  installHistoryPersistence();
+  const stable: HistoryItem = { id: "s5", usedAt: "2026-10-13T09:00:00Z", type: "person", userId: "u5", name: "Fay" };
+  queryClient.setQueryData(key, [stable]);
+  let failRemove: (e: Error) => void = () => {};
+  api.remove.mockReturnValue(new Promise((_, reject) => (failRemove = reject)));
+  api.record.mockResolvedValue({ id: "server-11", usedAt: "2026-10-13T12:00:00Z" });
+  api.list.mockResolvedValue([stable]);
+  const removing = removeSearch("me", "s5");
+  const saving = recordSearch("me", { type: "query", text: "later" });
+  await flush();
+  failRemove(new Error("down"));
+  await expect(removing).rejects.toThrow("down");
+  await saving;
+  await flush();
+  expect(api.list).toHaveBeenCalled();
+  expect(items().map((i) => i.id)).toContain("s5");
 });

@@ -62,6 +62,9 @@ let persisting = false;
 export function installHistoryPersistence(): void {
   if (persisting) return;
   persisting = true;
+  queryClient.setQueryDefaults(["searchHistory"], {
+    queryFn: ({ queryKey }) => fetchSearchHistory(String(queryKey[1] ?? "")),
+  });
   queryClient.getQueryCache().subscribe((event) => {
     const [scope, userId] = event.query.queryKey as [unknown, unknown];
     if (scope !== "searchHistory" || typeof userId !== "string" || !userId) return;
@@ -97,6 +100,7 @@ export const subscribeHistoryVerification = (notify: () => void): (() => void) =
 };
 
 export async function fetchSearchHistory(userId: string): Promise<HistoryItem[]> {
+  if (!userId) return [];
   const items = await searchHistoryAPI.list();
   setVerified(userId);
   return withPendingChanges(userId, items);
@@ -158,7 +162,9 @@ async function apply(
     await enqueue(userId, request);
   } catch (err) {
     if (read(userId) === optimistic) write(userId, settled(before));
-    void queryClient.invalidateQueries({ queryKey: queryKeys.searchHistory(userId) });
+    void queryClient
+      .invalidateQueries({ queryKey: queryKeys.searchHistory(userId), refetchType: "all" })
+      .catch(() => {});
     throw err;
   } finally {
     changes.delete(change);
