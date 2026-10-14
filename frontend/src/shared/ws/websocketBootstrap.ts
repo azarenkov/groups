@@ -89,6 +89,7 @@ const HISTORY_TARGET_EVENTS = new Set<string>([
   "channel.renamed",
   "community.deleted",
   "community.updated",
+  "user.renamed",
 ]);
 
 export const touchesSearchHistory = (env: WsEnvelope): boolean => {

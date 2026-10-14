@@ -5,7 +5,7 @@ const env = (type: string, data: Record<string, unknown> = {}) => ({ type, data 
 
 it("refreshes history on events that change what its targets may show", () => {
   useAuthStore.setState({ user: { id: "me" } as never });
-  for (const type of ["message.edited", "dm_message.edited", "message.deleted", "message.hidden", "dm_message.deleted", "dm_conversation.cleared", "channel.deleted", "community.deleted"]) {
+  for (const type of ["message.edited", "dm_message.edited", "message.deleted", "message.hidden", "dm_message.deleted", "dm_conversation.cleared", "channel.deleted", "community.deleted", "user.renamed"]) {
     expect(touchesSearchHistory(env(type))).toBe(true);
   }
   expect(touchesSearchHistory(env("community.memberLeft", { userId: "me", communityId: "c1" }))).toBe(true);
