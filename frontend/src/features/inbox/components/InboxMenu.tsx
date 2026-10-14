@@ -68,12 +68,11 @@ const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity, onOpenFriendRequ
     inboxAPI.markRead(shown).catch(() => rollback());
   }, [open, inbox.loading, inbox.items, inbox.userId]);
 
-  const toggle = () => {
-    setOpen((value) => {
-      if (value) setFresh(new Set());
-      return !value;
-    });
-  };
+  React.useEffect(() => {
+    if (!open) setFresh(new Set());
+  }, [open]);
+
+  const toggle = () => setOpen((value) => !value);
 
   const run = async (item: InboxItem, action: () => Promise<void>, removeOnSuccess: boolean) => {
     if (!inbox.userId) return;

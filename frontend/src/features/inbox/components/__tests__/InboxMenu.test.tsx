@@ -135,3 +135,16 @@ it("opens friend request management from the inbox", async () => {
   expect(onOpenFriendRequests).toHaveBeenCalled();
   expect(screen.queryByRole("dialog", { name: i18n.t("sidebar:inboxTitle") })).toBeNull();
 });
+
+it("drops the unread highlight whichever way the menu closes", async () => {
+  render(<InboxMenu onOpenCommunity={jest.fn()} onOpenFriendRequests={jest.fn()} />);
+  const trigger = await openInbox();
+  await waitFor(() => expect(api.markRead).toHaveBeenCalledWith(["n1"]));
+  const row = () => screen.getByText(/Alice invited you to “Night Owls”/).closest(".inbox-item");
+  expect(row()).toHaveClass("unread");
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(screen.queryByRole("dialog", { name: i18n.t("sidebar:inboxTitle") })).toBeNull();
+  fireEvent.click(trigger);
+  expect(await screen.findByText(/Alice invited you to “Night Owls”/)).toBeInTheDocument();
+  expect(row()).not.toHaveClass("unread");
+});
