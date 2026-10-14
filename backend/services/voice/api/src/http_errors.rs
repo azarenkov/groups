@@ -418,6 +418,7 @@ impl HttpMapping for ports::voice_service::VoiceServiceError {
             ports::voice_service::VoiceServiceError::VoiceChannelCreation(_) => "VOICE_CHANNEL_CREATION_FAILED",
             ports::voice_service::VoiceServiceError::VoiceChannelDeletion(_) => "VOICE_CHANNEL_DELETION_FAILED",
             ports::voice_service::VoiceServiceError::ParticipantRemoval(_) => "VOICE_PARTICIPANT_REMOVAL_FAILED",
+            ports::voice_service::VoiceServiceError::ParticipantUpdate(_) => "VOICE_PARTICIPANT_UPDATE_FAILED",
         }
     }
 }

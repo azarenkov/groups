@@ -279,6 +279,7 @@ async fn list_channel_messages(
     let (community_id, channel_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
+    let seq = app_state.partition_sequences.current(channel_id).await.map_err(HttpError::from_error)?;
     let data = ListChannelMessagesRequest::new(
         community_id,
         channel_id,
@@ -307,7 +308,11 @@ async fn list_channel_messages(
     }
     fill_channel_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     crate::voice::fill_channel_listens(&app_state, &mut items, UserId::new(auth_token.id)).await?;
-    let response = ListChannelMessagesResponse::new(items);
+    let response = ListChannelMessagesResponse::new(
+        items,
+        infrastructure_common::messaging::partitions::partition_id(messaging_infrastructure::database::postgres::SCHEMA, channel_id),
+        seq,
+    );
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }

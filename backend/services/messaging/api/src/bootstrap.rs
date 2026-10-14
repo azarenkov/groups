@@ -1,5 +1,7 @@
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
 use messaging::usecases::pin::{conversation_pins::ConversationPins, message_pins::MessagePins};
+use messaging::usecases::dm_conversation::DmConversations;
+use messaging_infrastructure::database::postgres::repositories::dm_conversation::PostgresDmConversationRepository;
 use messaging::usecases::search::global_search::GlobalSearch;
 use messaging::usecases::shared::list_shared_content::ListSharedContent;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnail;
@@ -152,6 +154,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let attachment_claims = Arc::new(MediaClaimsClient::new(&media_internal_url));
     let privacy_repository = Arc::new(PostgresPrivacyRepository::new(postgres_pool.clone()));
     let badge_repository = Arc::new(PostgresBadgeRepository::new(postgres_pool.clone()));
+    let plan_directory = Arc::new(
+        infrastructure_common::database::postgres::repositories::plan_directory::PostgresPlanDirectory::messaging(
+            postgres_pool.clone(),
+        ),
+    );
     let report_repository = Arc::new(PostgresReportRepository::new(postgres_pool.clone()));
     let identity_internal_url = std::env::var("IDENTITY_INTERNAL_URL")
         .unwrap_or_else(|_| "http://identity-service:8080".to_string());
@@ -204,6 +211,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         "messaging-user-profiles",
         user_repository.clone(),
     );
+    infrastructure_common::messaging::nats::plan_projection::PlanProjection {
+        jetstream: nats_jetstream.clone(),
+        subject_prefix: nats_config.subject_prefix.clone(),
+        stream: user_stream.clone(),
+        consumer_name: "messaging-projection-tiers",
+        dlq_suffix: "messaging.tiers",
+        plans: plan_directory.clone(),
+        listener: Arc::new(ports::plan_directory::NoPlanListener),
+    }
+    .spawn();
     messaging_infrastructure::consumers::pro_badges::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
@@ -223,6 +240,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         .filter(|url| url.starts_with("https://") || url.starts_with("http://"))
         .ok_or("PUBLIC_APP_URL must be set to the public web app origin (http(s)://host), invite links are built from it")?;
 
+    let people_search_limiter = api_common::rate_limiting::create_limiter("people-search", 1, 15)
+        .await
+        .ok_or("Failed to create people search limiter")?;
     let app_state = web::Data::new(AppState {
         create_channel_usecase: CreateChannel::new(
             hasher.clone(),
@@ -284,7 +304,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             message_unit_of_work.clone(),
             attachment_claims.clone(),
             mention_resolver.clone(),
-            badge_repository.clone(),
+            plan_directory.clone(),
         ),
         edit_channel_message_usecase: EditChannelMessage::new(
             message_repository.clone(),
@@ -293,7 +313,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             message_unit_of_work.clone(),
             attachment_claims.clone(),
             mention_resolver.clone(),
-            badge_repository.clone(),
+            plan_directory.clone(),
         ),
         delete_channel_message_usecase: DeleteChannelMessage::new(
             message_repository.clone(),
@@ -311,6 +331,15 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             community_repository.clone(),
         ),
         global_search_usecase: GlobalSearch::new(Arc::new(PostgresSearchRepository::new(postgres_pool.clone()))),
+        search_people_usecase: messaging::usecases::search::search_people::SearchPeople::new(Arc::new(
+            messaging_infrastructure::database::postgres::repositories::people::PostgresPeopleDirectory::new(postgres_pool.clone()),
+        )),
+        people_search_limiter,
+        search_history_usecase: messaging::usecases::search::search_history::SearchHistory::new(Arc::new(
+            messaging_infrastructure::database::postgres::repositories::search_history::PostgresSearchHistoryRepository::new(
+                postgres_pool.clone(),
+            ),
+        )),
         message_pins_usecase: MessagePins::new(
             Arc::new(PostgresMessagePinRepository::new(postgres_pool.clone())),
             channel_repository.clone(),
@@ -319,6 +348,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             friendship_repository.clone(),
         ),
         conversation_pins_usecase: ConversationPins::new(Arc::new(PostgresConversationPinRepository::new(
+            postgres_pool.clone(),
+        ))),
+        partition_sequences: infrastructure_common::database::postgres::repositories::outbox_record::PostgresPartitionSequences::new(postgres_pool.clone()),
+        dm_conversations_usecase: DmConversations::new(Arc::new(PostgresDmConversationRepository::new(
             postgres_pool.clone(),
         ))),
         list_shared_content_usecase: ListSharedContent::new(
@@ -430,7 +463,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             attachment_claims.clone(),
             privacy_repository.clone(),
             user_repository.clone(),
-            badge_repository.clone(),
+            plan_directory.clone(),
         ),
         edit_dm_message_usecase: EditDmMessage::new(
             dm_repository.clone(),
@@ -439,7 +472,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             friendship_repository.clone(),
             privacy_repository.clone(),
             user_repository.clone(),
-            badge_repository.clone(),
+            plan_directory.clone(),
         ),
         delete_dm_message_usecase: DeleteDmMessage::new(
             dm_repository.clone(),

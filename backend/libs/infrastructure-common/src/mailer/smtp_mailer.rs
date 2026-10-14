@@ -8,10 +8,13 @@ use lettre::message::{Attachment, Mailbox, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use urlencoding::encode;
 
 use super::templates::{self, RenderedEmail};
+
+const SMTP_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Clone)]
 pub struct SmtpMailer {
@@ -36,6 +39,7 @@ impl SmtpMailer {
             .map_err(|e| MailerError::Sending(format!("failed to create relay: {}", e)))?
             .credentials(Credentials::new(config.username, config.password))
             .port(config.port)
+            .timeout(Some(SMTP_TIMEOUT))
             .build();
 
         Ok(Self {
@@ -49,6 +53,14 @@ impl SmtpMailer {
                     .filter(|url| !url.is_empty()),
             }),
         })
+    }
+
+    async fn deliver(&self, to: &Email, rendered: RenderedEmail) -> Result<(), MailerError> {
+        let mailer = self.clone();
+        let to = to.clone();
+        tokio::task::spawn_blocking(move || mailer.send(&to, rendered))
+            .await
+            .map_err(|e| MailerError::Sending(format!("mail task failed: {}", e)))?
     }
 
     fn send(&self, to: &Email, rendered: RenderedEmail) -> Result<(), MailerError> {
@@ -99,7 +111,8 @@ impl Mailer for SmtpMailer {
             self.inner.reset_base_url.trim_end_matches('/'),
             encode(token).into_owned()
         );
-        self.send(email, templates::password_reset(&reset_link, locale, self.inner.app_url.as_deref()))
+        self.deliver(email, templates::password_reset(&reset_link, locale, self.inner.app_url.as_deref()))
+            .await
     }
 
     async fn send_verification_code(
@@ -109,10 +122,11 @@ impl Mailer for SmtpMailer {
         purpose: CodePurpose,
         locale: Locale,
     ) -> Result<(), MailerError> {
-        self.send(
+        self.deliver(
             email,
             templates::verification_code(verification_code, purpose, locale, self.inner.app_url.as_deref()),
         )
+        .await
     }
 
     async fn send_trial_ending(
@@ -121,7 +135,8 @@ impl Mailer for SmtpMailer {
         ends_at: DateTime<Utc>,
         locale: Locale,
     ) -> Result<(), MailerError> {
-        self.send(email, templates::trial_ending(ends_at, locale, self.inner.app_url.as_deref()))
+        self.deliver(email, templates::trial_ending(ends_at, locale, self.inner.app_url.as_deref()))
+            .await
     }
 }
 

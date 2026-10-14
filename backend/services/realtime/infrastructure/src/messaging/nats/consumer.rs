@@ -11,7 +11,9 @@ use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 
 use std::sync::Arc;
 
-use realtime_core::{ports::directory::RecipientDirectory, ports::projection::RealtimeProjection, ports::publisher::RealtimePublisher, usecases::dispatch_event::DispatchEvent};
+use super::sequence_gate::SequenceGate;
+
+use realtime_core::{ports::directory::RecipientDirectory, ports::projection::RealtimeProjection, ports::publisher::RealtimePublisher, usecases::dispatch_event::{DispatchEvent, EventSequence}};
 
 #[derive(Clone)]
 pub struct ConsumerSpec {
@@ -29,6 +31,7 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
     dispatch: Arc<DispatchEvent<D, P, B>>,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
     heartbeat: Heartbeat,
+    gate: Option<Arc<SequenceGate>>,
 ) {
     let event_consumer =
         NatsEventConsumer::new(jetstream.clone(), spec.stream.clone());
@@ -76,13 +79,31 @@ pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, 
                                         subject = %subject,
                                     );
                                     async {
-                                        match dispatch.execute(&subject, &m.payload).await {
+                                        let sequence = m.sequence.clone().map(|s| EventSequence { partition: s.partition, seq: s.seq, members: s.members });
+                                        let gated = gate.as_ref().zip(sequence.clone());
+                                        let mut in_order = true;
+                                        if let Some((gate, s)) = &gated {
+                                            in_order = gate.wait_turn(&s.partition, s.seq).await;
+                                        }
+                                        let dispatched = if in_order {
+                                            dispatch.execute_event(&subject, &m.payload, sequence, m.event_id.as_deref()).await
+                                        } else {
+                                            tracing::debug!(%subject, "Event arrived after a later one of its partition; applying it without publishing");
+                                            dispatch.execute_unpublished(&subject, &m.payload).await
+                                        };
+                                        match dispatched {
                                             Ok(_) => {
+                                                if let Some((gate, s)) = &gated {
+                                                    gate.done(&s.partition, s.seq);
+                                                }
                                                 if let Err(e) = m.ack().await {
                                                     tracing::warn!(error = %e, %subject, "Failed to ack message");
                                                 }
                                             }
                                             Err(e) => {
+                                                if let Some((gate, s)) = &gated {
+                                                    gate.release(&s.partition, s.seq);
+                                                }
                                                 tracing::warn!(error = %e, %subject, "Dispatch failed; not acking, JetStream will redeliver");
                                             }
                                         }

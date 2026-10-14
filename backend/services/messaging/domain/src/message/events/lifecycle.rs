@@ -54,6 +54,7 @@ pub struct MessageEdited {
     pub new_content: MessageContent,
     pub occurred_at: DateTime<Utc>,
     pub recipient_ids: Vec<UserId>,
+    pub skipped_ids: Vec<UserId>,
     pub attachments: Vec<AttachmentSnapshot>,
 }
 
@@ -71,6 +72,7 @@ impl MessageEdited {
             new_content,
             occurred_at: now,
             recipient_ids: Vec::new(),
+            skipped_ids: Vec::new(),
             attachments: Vec::new(),
         }
     }

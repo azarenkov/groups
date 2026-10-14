@@ -1,0 +1,117 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                id,\n                aggregate_id,\n                aggregate_type AS \"aggregate_type: AggregateTypeDto\",\n                parent_id,\n                parent_type AS \"parent_type: AggregateTypeDto\",\n                event_type,\n                payload,\n                occurred_at,\n                request_id,\n                attempts,\n                partition_key,\n                partition_seq\n            FROM outbox o\n            WHERE processed_at IS NULL\n              AND (\n                  last_attempt_at IS NULL\n                  OR last_attempt_at < now()\n                     - (LEAST(attempts::int, $2) * $1 * interval '1 second')\n              )\n              AND NOT EXISTS (\n                  SELECT 1 FROM outbox earlier\n                  WHERE earlier.partition_key = o.partition_key\n                    AND earlier.processed_at IS NULL\n                    AND earlier.seq < o.seq\n              )\n              AND NOT EXISTS (\n                  SELECT 1 FROM outbox legacy\n                  WHERE legacy.partition_key IS NULL\n                    AND legacy.processed_at IS NULL\n                    AND legacy.seq < o.seq\n              )\n            ORDER BY last_attempt_at NULLS FIRST, seq\n            FOR UPDATE SKIP LOCKED\n            LIMIT 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "aggregate_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "aggregate_type: AggregateTypeDto",
+        "type_info": {
+          "Custom": {
+            "name": "aggregate_type",
+            "kind": {
+              "Enum": [
+                "channel",
+                "community",
+                "user",
+                "message",
+                "dm_message",
+                "storage"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "parent_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "parent_type: AggregateTypeDto",
+        "type_info": {
+          "Custom": {
+            "name": "aggregate_type",
+            "kind": {
+              "Enum": [
+                "channel",
+                "community",
+                "user",
+                "message",
+                "dm_message",
+                "storage"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "event_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "payload",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 7,
+        "name": "occurred_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "request_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "attempts",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 10,
+        "name": "partition_key",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 11,
+        "name": "partition_seq",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "5c8ccffc46105165596d92c824549627f37973e1de7c8c133ac9757da7ca4f7d"
+}

@@ -8,10 +8,12 @@ import { announceVoiceListened, sharedAPI, type SharedItem, type SharedKind, typ
 import { itemKey, useSharedContent } from "../hooks/useSharedContent";
 import { useWsChannelMessages, useWsDmMessages } from "../hooks/useWebSocketMessages";
 import { ws } from "../../../shared/ws/websocket";
+import { channelPartition, dmPartition } from "../lib/partitions";
 import { useBlockStore } from "../../social/store/blockStore";
 import AttachmentItem from "./AttachmentItem";
 import VideoNotePlayer from "./VideoNotePlayer";
 import VoicePlayer from "./VoicePlayer";
+import { dmClearedFor } from "../../dm/lib/dmCleared";
 
 const TABS: SharedKind[] = ["media", "files", "voice", "links"];
 
@@ -125,7 +127,7 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onShowM
   const blocksLoaded = useBlockStore((s) => s.loaded);
   const waitingForBlocks = scope.kind === "channel" && !blocksLoaded;
   const sentinelRef = React.useRef<HTMLDivElement>(null);
-  const { loadMore, refreshTop, dropMessage, applyEdit } = content;
+  const { loadMore, reload, refreshTop, dropMessage, applyEdit } = content;
 
   const affects = (message: { content?: string; newContent?: string; attachments?: unknown[] }) =>
     kind === "links"
@@ -147,6 +149,31 @@ const SharedPanel: React.FC<SharedPanelProps> = ({ scope, currentUserId, onShowM
   };
   useWsChannelMessages(scope.kind === "channel" ? scope.channelId : null, handlers);
   useWsDmMessages(scope.kind === "dm" ? scope.friendId : null, currentUserId, handlers);
+
+  const clearedFriendId = scope.kind === "dm" ? scope.friendId : null;
+  React.useEffect(
+    () =>
+      ws.on((env) => {
+        if (env.type !== "dm_conversation.cleared" || !clearedFriendId) return;
+        if (dmClearedFor(env.data, currentUserId)?.peerId === clearedFriendId) reload();
+      }),
+    [clearedFriendId, currentUserId, reload],
+  );
+
+  React.useEffect(() => ws.onOpen(() => reload()), [reload]);
+
+  const partition =
+    scope.kind === "dm"
+      ? currentUserId
+        ? dmPartition(currentUserId, scope.friendId)
+        : null
+      : channelPartition(scope.channelId);
+  React.useEffect(() => {
+    if (!partition) return;
+    return ws.onResync((resynced) => {
+      if (resynced === partition) reload();
+    });
+  }, [partition, reload]);
 
   React.useEffect(
     () =>

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    DELETE FROM dm_messages\n                    WHERE LEAST(sender_id, recipient_id) = LEAST($1::uuid, $2::uuid)\n                      AND GREATEST(sender_id, recipient_id) = GREATEST($1::uuid, $2::uuid)\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "997dc424ae60434067ee19ea8d06ee514d738e431fde8399434d4ab2aa6d33d1"
+}

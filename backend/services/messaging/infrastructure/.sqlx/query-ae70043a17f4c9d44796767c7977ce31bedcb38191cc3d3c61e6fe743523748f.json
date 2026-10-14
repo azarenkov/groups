@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT c.id, c.name, c.kind = 'voice' AS \"voice!\", s.id AS community_id, s.name AS community_name\n            FROM channels c\n            JOIN communities s ON s.id = c.community_id\n            WHERE c.id = ANY($2)\n              AND EXISTS (SELECT 1 FROM community_members m WHERE m.community_id = s.id AND m.user_id = $1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "voice!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "community_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "community_name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false,
+      false
+    ]
+  },
+  "hash": "ae70043a17f4c9d44796767c7977ce31bedcb38191cc3d3c61e6fe743523748f"
+}

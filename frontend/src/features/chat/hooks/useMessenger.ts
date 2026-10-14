@@ -1,6 +1,7 @@
 import React from "react";
 import { channelAPI } from "../../communities/api/channel";
 import { dmAPI } from "../../dm/api/dm";
+import { clearedAway } from "../../dm/lib/dmCleared";
 import type { ChannelMessage, PaginationMeta } from "../../../shared/types/channel";
 import type { ChannelMeta, DmMeta } from "../types";
 
@@ -9,7 +10,7 @@ export interface Messenger {
     before?: string;
     after?: string;
     limit?: number;
-  }) => Promise<{ messages: ChannelMessage[] }>;
+  }) => Promise<{ messages: ChannelMessage[]; partition?: string; seq?: number }>;
   sendMessage: (
     content: string,
     attachmentIds?: string[],
@@ -43,7 +44,11 @@ export function useMessenger(params: {
   return React.useMemo<Messenger | null>(() => {
     if (isDm && dm) {
       return {
-        listMessages: (opts) => dmAPI.listMessages(dm.friendId, opts),
+        listMessages: (opts) =>
+          dmAPI.listMessages(dm.friendId, opts).then((res) => ({
+            ...res,
+            messages: res.messages.filter((m) => !clearedAway(dm.friendId, m.createdAt)),
+          })),
         sendMessage: (content, attachmentIds, replyToMessageId, stickerId) =>
           dmAPI.sendMessage(dm.friendId, content, attachmentIds, replyToMessageId, stickerId),
         getMessage: (messageId) => dmAPI.getMessage(dm.friendId, messageId),

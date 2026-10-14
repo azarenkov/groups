@@ -108,6 +108,7 @@ macro_rules! impl_http_mapping_delegate {
 use messaging::usecases::attachment::get_attachment::GetAttachmentError;
 use messaging::usecases::attachment::list_message_attachments::ListMessageAttachmentsError;
 use messaging::usecases::pin::{conversation_pins::ConversationPinError, message_pins::MessagePinError};
+use messaging::usecases::dm_conversation::DmConversationError;
 use messaging::usecases::search::global_search::GlobalSearchError;
 use messaging::usecases::shared::list_shared_content::ListSharedContentError;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnailError;
@@ -1228,6 +1229,31 @@ impl HttpMapping for MessagePinError {
     }
 }
 
+impl HttpMapping for DmConversationError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            DmConversationError::Repository(e) => e.to_http_status(),
+            DmConversationError::SelfConversation => StatusCode::BAD_REQUEST,
+            DmConversationError::NotFound => StatusCode::NOT_FOUND,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            DmConversationError::Repository(e) => e.to_user_message(),
+            other => other.to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            DmConversationError::Repository(e) => e.to_error_code(),
+            DmConversationError::SelfConversation => "DM_SELF",
+            DmConversationError::NotFound => "DM_NOT_FOUND",
+        }
+    }
+}
+
 impl HttpMapping for ConversationPinError {
     fn to_http_status(&self) -> StatusCode {
         match self {
@@ -1252,6 +1278,52 @@ impl HttpMapping for ConversationPinError {
             ConversationPinError::TooMany => "PIN_LIMIT_REACHED",
             ConversationPinError::UnknownTarget => "PIN_TARGET_NOT_FOUND",
             ConversationPinError::SelfConversation => "DM_SELF",
+        }
+    }
+}
+
+impl HttpMapping for messaging::usecases::search::search_people::SearchPeopleError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            Self::Repository(e) => e.to_http_status(),
+            Self::InvalidQuery => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            Self::Repository(e) => e.to_user_message(),
+            other => other.to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            Self::Repository(e) => e.to_error_code(),
+            Self::InvalidQuery => "PEOPLE_QUERY_INVALID",
+        }
+    }
+}
+
+impl HttpMapping for messaging::usecases::search::search_history::SearchHistoryError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            Self::Repository(e) => e.to_http_status(),
+            Self::InvalidEntry => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            Self::Repository(e) => e.to_user_message(),
+            other => other.to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            Self::Repository(e) => e.to_error_code(),
+            Self::InvalidEntry => "SEARCH_HISTORY_ENTRY_INVALID",
         }
     }
 }
@@ -2366,6 +2438,7 @@ impl HttpMapping for ports::voice_service::VoiceServiceError {
             ports::voice_service::VoiceServiceError::VoiceChannelCreation(_) => "VOICE_CHANNEL_CREATION_FAILED",
             ports::voice_service::VoiceServiceError::VoiceChannelDeletion(_) => "VOICE_CHANNEL_DELETION_FAILED",
             ports::voice_service::VoiceServiceError::ParticipantRemoval(_) => "VOICE_PARTICIPANT_REMOVAL_FAILED",
+            ports::voice_service::VoiceServiceError::ParticipantUpdate(_) => "VOICE_PARTICIPANT_UPDATE_FAILED",
         }
     }
 }

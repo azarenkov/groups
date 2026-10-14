@@ -4,6 +4,7 @@ import Icon from "../../../shared/ui/Icon";
 import { effectiveBinding, useActiveBindings, useHotkey } from "../../settings/lib/hotkeys";
 import { IS_MAC, bindingKeycaps } from "../../settings/lib/hotkeyMatching";
 import AccountMenu from "./AccountMenu";
+import { useSearchFocusStore, type SearchFocusMode } from "../../search/store/searchFocusStore";
 
 interface AppTopBarProps {
   navState: { back: boolean; forward: boolean };
@@ -46,6 +47,23 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
     searchRef.current?.focus();
     searchRef.current?.select();
   });
+  const focusRequest = useSearchFocusStore((s) => s.request);
+  const handledFocusSeq = React.useRef(focusRequest?.seq ?? 0);
+  const [focusMode, setFocusMode] = React.useState<SearchFocusMode | null>(null);
+  React.useEffect(() => {
+    if (!focusRequest || focusRequest.seq === handledFocusSeq.current) return;
+    handledFocusSeq.current = focusRequest.seq;
+    setFocusMode(focusRequest.mode);
+    setOpen(true);
+    searchRef.current?.focus();
+    searchRef.current?.select();
+  }, [focusRequest]);
+  const placeholder =
+    focusMode === "people"
+      ? t("searchPlaceholderPeople")
+      : focusMode === "invite"
+        ? t("searchPlaceholderInvite")
+        : t("searchPlaceholder");
 
   React.useEffect(() => {
     if (!open) return;
@@ -57,7 +75,7 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
   }, [open]);
 
   const items = () =>
-    Array.from(wrapRef.current?.querySelectorAll<HTMLButtonElement>(".search-dd-list button:not(:disabled)") ?? []);
+    Array.from(wrapRef.current?.querySelectorAll<HTMLButtonElement>(".search-dd-list button:not(:disabled):not([data-search-manage])") ?? []);
   const moveFocus = (from: Element | null, delta: 1 | -1) => {
     const list = items();
     if (list.length === 0) return;
@@ -68,10 +86,11 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
   };
   const done = () => {
     setOpen(false);
+    setFocusMode(null);
     onQueryChange("");
     searchRef.current?.blur();
   };
-  const showResults = open && !!renderResults && query.trim().length > 0;
+  const showResults = open && !!renderResults;
 
   return (
     <header className="topbar">
@@ -135,14 +154,17 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
             <Icon name="search" size={18} />
             <input
               ref={searchRef}
-              placeholder={t("searchPlaceholder")}
-              aria-label={t("searchPlaceholder")}
+              placeholder={placeholder}
+              aria-label={placeholder}
               value={query}
               onChange={(e) => {
                 onQueryChange(e.target.value);
                 setOpen(true);
               }}
               onFocus={() => setOpen(true)}
+              onBlur={() => {
+                if (!query) setFocusMode(null);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
                   e.preventDefault();

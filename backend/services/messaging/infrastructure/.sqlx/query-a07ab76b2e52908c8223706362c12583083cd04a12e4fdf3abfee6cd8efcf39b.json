@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT peer_id FROM hidden_dm_chats WHERE user_id = $1 ORDER BY hidden_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "peer_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a07ab76b2e52908c8223706362c12583083cd04a12e4fdf3abfee6cd8efcf39b"
+}

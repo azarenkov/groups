@@ -36,6 +36,7 @@
   "add": "Add",
   "cancel": "Cancel",
   "noFriendsToAdd": "No friends to add",
+  "streamLimited": "Your screen share was stopped: its quality is above what your plan allows",
   "callNotAllowed": "This user doesn't accept calls",
   "callFailed": "Couldn't start the call",
   "pinToStage": "Pin to stage",

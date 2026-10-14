@@ -94,10 +94,24 @@ export const ceilingFor = (tier: Tier): StreamQuality => {
   return allowed[allowed.length - 1] ?? STREAM_QUALITIES[0];
 };
 
+export const qualitiesWithin = (ceiling: { width: number; height: number }): StreamQuality[] =>
+  STREAM_QUALITIES.filter((q) => q.width <= ceiling.width && q.height <= ceiling.height);
+
 export const bestAllowedQuality = (
   wanted: StreamQualityChoice,
   tier: Tier,
+  ceiling?: { width: number; height: number; frameRate: number; maxBitrate: number } | null,
 ): StreamQuality => {
+  if (ceiling) {
+    const allowed = qualitiesWithin(ceiling);
+    const top = allowed[allowed.length - 1] ?? STREAM_QUALITIES[0];
+    const target = wanted === "auto" ? top : allowed.find((q) => q.id === wanted) ?? top;
+    return {
+      ...target,
+      frameRate: Math.min(target.frameRate, ceiling.frameRate),
+      maxBitrate: Math.min(target.maxBitrate, ceiling.maxBitrate),
+    };
+  }
   if (wanted === "auto") return ceilingFor(tier);
   const target = streamQualityById(wanted);
   return hasTier(tier, target.requires) ? target : ceilingFor(tier);

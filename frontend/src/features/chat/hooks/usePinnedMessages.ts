@@ -6,6 +6,7 @@ import { ws } from "../../../shared/ws/websocket";
 import { pinsAPI, type PinnedMessage } from "../api/pins";
 import { sharedScopeKey, type SharedScope } from "../api/shared";
 import { useWsChannelMessages, useWsDmMessages } from "./useWebSocketMessages";
+import { dmClearedFor } from "../../dm/lib/dmCleared";
 
 export const pinEventMatches = (
   data: { channelId?: unknown; participants?: unknown },
@@ -112,6 +113,12 @@ export function usePinnedMessages(scope: SharedScope | null, currentUserId?: str
         void invalidate();
       } else if (env.type === "message.hidden" && typeof data.messageId === "string") {
         drop(data.messageId);
+      } else if (
+        env.type === "dm_conversation.cleared" &&
+        current.kind === "dm" &&
+        dmClearedFor(env.data, currentUserId)?.peerId === current.friendId
+      ) {
+        void invalidate();
       }
     });
   }, [key, currentUserId, invalidate, drop]);

@@ -41,6 +41,8 @@ import PinnedBar from "./PinnedBar";
 import type { ChannelMeta, DmMeta } from "../types";
 import { openForward } from "../store/forwardModalStore";
 import { canDeleteForEveryone } from "../lib/messageMenu";
+import { channelPartition, dmPartition } from "../lib/partitions";
+import { ws } from "../../../shared/ws/websocket";
 
 interface ChatViewProps {
   channel?: ChannelMeta;
@@ -163,6 +165,8 @@ const ChatView: React.FC<ChatViewProps> = ({
     messenger,
     convId,
     nameSyncTick,
+    dmFriendId,
+    currentUserId,
     onClose: () => setHighlightedMessageId(null),
   });
 
@@ -187,6 +191,20 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, [openMessageId, showInitialLoader, jumpToMessageId, closeSearch]);
 
   const searchActive = search.searchOpen && search.searchInput.trim().length > 0;
+
+  React.useEffect(() => {
+    const partition = dmFriendId
+      ? currentUserId
+        ? dmPartition(currentUserId, dmFriendId)
+        : null
+      : channelId
+        ? channelPartition(channelId)
+        : null;
+    if (!partition) return;
+    return ws.onResync((resynced) => {
+      if (resynced === partition) void refreshHistory();
+    });
+  }, [dmFriendId, channelId, currentUserId, refreshHistory]);
 
   const pull = usePullToRefresh({
     bodyRef,

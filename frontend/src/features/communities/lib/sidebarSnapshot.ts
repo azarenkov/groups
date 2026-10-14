@@ -6,6 +6,7 @@ import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useDmPreviewStore, type DmPreview } from "../../dm/store/dmPreviewStore";
 import { useCommunityStore } from "../store/communityStore";
 import { useConversationPinsStore } from "../store/conversationPinsStore";
+import { useHiddenDmStore } from "../../dm/store/hiddenDmStore";
 
 export const SIDEBAR_SNAPSHOT_KEY = "rift.sidebar.v1";
 export const SNAPSHOT_SAVE_DELAY_MS = 1000;
@@ -23,6 +24,7 @@ export interface SidebarSnapshot {
   statusById: Record<string, FriendshipStatus>;
   previews: (DmPreview & { peerId: string })[];
   pins: { dms: string[]; communities: string[] };
+  hiddenDms?: string[];
 }
 
 const storage = (): Storage | null => {
@@ -74,6 +76,7 @@ export function hydrateSidebar(expectedUserId?: string | null): boolean {
   }
   useDmPreviewStore.getState().hydrate(snapshot.previews);
   if (snapshot.pins) useConversationPinsStore.getState().hydrate(snapshot.pins);
+  if (Array.isArray(snapshot.hiddenDms)) useHiddenDmStore.getState().hydrate(snapshot.hiddenDms);
   return true;
 }
 
@@ -84,6 +87,7 @@ export function buildSidebarSnapshot(userId: string): SidebarSnapshot {
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
     .slice(0, MAX_PREVIEWS);
   const pins = useConversationPinsStore.getState();
+  const hidden = useHiddenDmStore.getState();
   const communities = useCommunityStore.getState().communities.slice(0, MAX_COMMUNITIES);
   const byCommunity = useChannelStore.getState().channelsByCommunity;
   const channels: Record<string, Channel[]> = {};
@@ -105,6 +109,7 @@ export function buildSidebarSnapshot(userId: string): SidebarSnapshot {
     ),
     previews,
     pins: { dms: pins.dms, communities: pins.communities },
+    hiddenDms: hidden.loaded ? hidden.hidden : readSidebarSnapshot()?.hiddenDms,
   };
 }
 
@@ -131,6 +136,7 @@ export function startSidebarSnapshots(userId: string): () => void {
     useFriendshipStore.subscribe(schedule),
     useDmPreviewStore.subscribe(schedule),
     useConversationPinsStore.subscribe(schedule),
+    useHiddenDmStore.subscribe(schedule),
   ];
   schedule();
   return () => {

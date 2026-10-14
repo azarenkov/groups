@@ -10,6 +10,7 @@ import { useConversationPinsStore } from "../../store/conversationPinsStore";
 import { useFriendshipStore } from "../../../social/store/friendshipStore";
 import { useDmPreviewStore } from "../../../dm/store/dmPreviewStore";
 import { useChannelStore } from "../../store/channelStore";
+import { useHiddenDmStore } from "../../../dm/store/hiddenDmStore";
 
 const community = { id: "c1", name: "Rift", ownerId: "u1" } as never;
 const friend = { friendId: "u2", friendName: "Bob", status: "accepted" } as never;
@@ -29,6 +30,7 @@ beforeEach(() => {
   useFriendshipStore.setState({ friends: [], statusById: {}, loaded: false, isLoading: false });
   useDmPreviewStore.getState().clear();
   useConversationPinsStore.getState().clearAll();
+  useHiddenDmStore.getState().clearAll();
 });
 
 it("saves the sidebar once friends and chats have loaded and restores it on the next start", () => {
@@ -117,4 +119,39 @@ it("does not save leftovers of the previous account before this account's commun
   stop();
   jest.useRealTimers();
   expect(localStorage.getItem(SIDEBAR_SNAPSHOT_KEY)).toBeNull();
+});
+
+it("remembers hidden chats so they stay hidden on the next start", () => {
+  jest.useFakeTimers();
+  useCommunityStore.setState({ communities: [community], loaded: true });
+  useFriendshipStore.setState({ friends: [friend], statusById: { u2: "accepted" }, loaded: true });
+  useDmPreviewStore.getState().setAll([{ ...preview, peerId: "u2" }], true);
+  useDmPreviewStore.setState({ loaded: true });
+  useHiddenDmStore.setState({ hidden: ["u2"], loaded: true });
+  const stop = startSidebarSnapshots("me");
+  jest.advanceTimersByTime(SNAPSHOT_SAVE_DELAY_MS);
+  stop();
+  jest.useRealTimers();
+  expect(readSidebarSnapshot()!.hiddenDms).toEqual(["u2"]);
+
+  useHiddenDmStore.getState().clearAll();
+  expect(hydrateSidebar("me")).toBe(true);
+  expect(useHiddenDmStore.getState()).toMatchObject({ hidden: ["u2"], hydrated: true, loaded: false });
+});
+
+it("keeps the saved hidden chats while the server list is still loading", () => {
+  jest.useFakeTimers();
+  localStorage.setItem(
+    SIDEBAR_SNAPSHOT_KEY,
+    JSON.stringify({ v: 1, userId: "me", communities: [], friends: [], statusById: {}, previews: [], pins: { dms: [], communities: [] }, hiddenDms: ["u9"] }),
+  );
+  useCommunityStore.setState({ communities: [community], loaded: true });
+  useFriendshipStore.setState({ friends: [friend], statusById: { u2: "accepted" }, loaded: true });
+  useDmPreviewStore.getState().setAll([{ ...preview, peerId: "u2" }], true);
+  useDmPreviewStore.setState({ loaded: true });
+  const stop = startSidebarSnapshots("me");
+  jest.advanceTimersByTime(SNAPSHOT_SAVE_DELAY_MS);
+  stop();
+  jest.useRealTimers();
+  expect(readSidebarSnapshot()!.hiddenDms).toEqual(["u9"]);
 });

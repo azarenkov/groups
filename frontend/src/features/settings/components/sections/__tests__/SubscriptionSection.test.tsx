@@ -29,4 +29,10 @@ describe("SubscriptionSection", () => {
     expect(screen.getByText("Шумоподавление: стандартное или высокое")).toBeInTheDocument();
     expect(screen.queryByText("Высокое шумоподавление")).toBeNull();
   });
+
+  it("shows the premium plan with the gold badge", () => {
+    render(<SubscriptionSection />);
+    expect(screen.getByText("PREMIUM")).toHaveClass("pro-badge-gold");
+    expect(screen.getByText("PRO")).toHaveClass("pro-badge-tint");
+  });
 });

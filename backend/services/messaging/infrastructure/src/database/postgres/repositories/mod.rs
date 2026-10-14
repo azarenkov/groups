@@ -1,6 +1,7 @@
 pub mod badge;
 pub mod channel;
 pub mod channel_unit_of_work;
+pub mod dm_conversation;
 pub mod dm_message;
 pub mod dm_unit_of_work;
 pub mod friendship;
@@ -22,4 +23,6 @@ pub use infrastructure_common::database::postgres::repositories::outbox_writer;
 pub mod pin;
 pub mod privacy;
 pub mod shared;
+pub mod people;
 pub mod search;
+pub mod search_history;

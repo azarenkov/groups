@@ -7,7 +7,9 @@ use domain::user::{email::Email, locale::Locale};
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use notification_core::usecases::send_verification_email::{SendVerificationEmail, VerificationIssued};
-use ports::{event_consumer::ConsumedMessage, event_consumer::EventConsumer, event_consumer::StartPosition, event_consumer::SubscribeOptions, mailer::Mailer};
+use ports::{event_consumer::EventConsumer, event_consumer::StartPosition, event_consumer::SubscribeOptions, mailer::Mailer};
+
+use crate::inbox::{CLAIM_RENEW_EVERY, Claim, HandledEvents};
 use tracing::Instrument;
 
 #[derive(Clone)]
@@ -22,28 +24,76 @@ pub async fn run<M: Mailer>(
     jetstream: async_nats::jetstream::Context,
     spec: VerificationConsumerSpec,
     usecase: Arc<SendVerificationEmail<M>>,
+    handled: Arc<dyn HandledEvents>,
     shutdown: tokio::sync::watch::Receiver<bool>,
     heartbeat: Heartbeat,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    consume(jetstream, spec, "verification.issued", StartPosition::New, shutdown, heartbeat, |msg| {
+    consume(jetstream, spec, "verification.issued", StartPosition::New, handled, shutdown, heartbeat, |payload| {
         let usecase = usecase.clone();
-        async move { handle(usecase.as_ref(), msg).await }
+        async move { handle(usecase.as_ref(), &payload).await }
     })
     .await
 }
 
+pub async fn handle_once<H, Fut>(
+    handled: &dyn HandledEvents,
+    consumer: &str,
+    event_id: Option<&str>,
+    payload: Vec<u8>,
+    handler: &H,
+) -> bool
+where
+    H: Fn(Vec<u8>) -> Fut,
+    Fut: std::future::Future<Output = bool>,
+{
+    let Some(event_id) = event_id else {
+        return handler(payload).await;
+    };
+    match handled.claim(consumer, event_id).await {
+        Claim::Done => {
+            tracing::info!(%event_id, "Event already handled; acking the repeat");
+            true
+        }
+        Claim::Busy => {
+            tracing::info!(%event_id, "Event is being handled elsewhere; leaving it for redelivery");
+            false
+        }
+        Claim::Unavailable => handler(payload).await,
+        Claim::Acquired(token) => {
+            let renewing = async {
+                loop {
+                    tokio::time::sleep(CLAIM_RENEW_EVERY).await;
+                    handled.renew(consumer, event_id, &token).await;
+                }
+            };
+            let succeeded = tokio::select! {
+                succeeded = handler(payload) => succeeded,
+                _ = renewing => false,
+            };
+            if succeeded {
+                handled.complete(consumer, event_id, &token).await;
+            } else {
+                handled.release(consumer, event_id, &token).await;
+            }
+            succeeded
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 pub async fn consume<H, Fut>(
     jetstream: async_nats::jetstream::Context,
     spec: VerificationConsumerSpec,
     event: &str,
     start_position: StartPosition,
+    handled: Arc<dyn HandledEvents>,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
     heartbeat: Heartbeat,
     handler: H,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
-    H: Fn(ConsumedMessage) -> Fut,
-    Fut: std::future::Future<Output = ()>,
+    H: Fn(Vec<u8>) -> Fut,
+    Fut: std::future::Future<Output = bool>,
 {
     let filter_subject = format!("{}.user.{event}", spec.subject_prefix);
     let partitioned_filter_subject = format!("{}.user.*.{event}", spec.subject_prefix);
@@ -83,10 +133,16 @@ where
                     Some(Ok(msg)) => {
                         let request_id = msg.request_id.clone();
                         let span = tracing::info_span!("nats_message", request_id = ?request_id);
-                        let fut = handler(msg).instrument(span);
-                        match request_id {
+                        let event_id = msg.event_id.clone();
+                        let payload = msg.payload.clone();
+                        let fut = handle_once(handled.as_ref(), &spec.consumer_name, event_id.as_deref(), payload, &handler)
+                            .instrument(span);
+                        let ack = match request_id {
                             Some(id) => REQUEST_ID.scope(id, fut).await,
                             None => fut.await,
+                        };
+                        if ack && let Err(e) = msg.ack().await {
+                            tracing::error!(error = %e, "Failed to ack message");
                         }
                     }
                     Some(Err(e)) => {
@@ -102,12 +158,12 @@ where
     }
 }
 
-async fn handle<M: Mailer>(usecase: &SendVerificationEmail<M>, msg: ConsumedMessage) {
-    let issued: VerificationIssuedV1 = match serde_json::from_slice(&msg.payload) {
+async fn handle<M: Mailer>(usecase: &SendVerificationEmail<M>, payload: &[u8]) -> bool {
+    let issued: VerificationIssuedV1 = match serde_json::from_slice(payload) {
         Ok(e) => e,
         Err(e) => {
             tracing::error!(error = %e, "Failed to deserialize verification event; not acking, JetStream will redeliver");
-            return;
+            return false;
         }
     };
     let email_str = issued.email.clone();
@@ -124,12 +180,114 @@ async fn handle<M: Mailer>(usecase: &SendVerificationEmail<M>, msg: ConsumedMess
     match usecase.execute(issued).await {
         Ok(()) => {
             tracing::info!(email = %email_str, "Verification email sent");
-            if let Err(e) = msg.ack().await {
-                tracing::error!(error = %e, "Failed to ack message");
-            }
+            true
         }
         Err(e) => {
             tracing::error!(error = %e, email = %email_str, "Failed to send verification email; redelivery will retry");
+            false
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use async_trait::async_trait;
+
+    use super::*;
+
+    #[derive(Default)]
+    struct Memory(Mutex<HashMap<String, String>>);
+
+    #[async_trait]
+    impl HandledEvents for Memory {
+        async fn claim(&self, consumer: &str, event_id: &str) -> Claim {
+            let mut keys = self.0.lock().unwrap();
+            let key = format!("{consumer}:{event_id}");
+            match keys.get(&key).map(String::as_str) {
+                Some("done") => Claim::Done,
+                Some(_) => Claim::Busy,
+                None => {
+                    let token = format!("pending:{key}");
+                    keys.insert(key, token.clone());
+                    Claim::Acquired(token)
+                }
+            }
+        }
+
+        async fn renew(&self, _: &str, _: &str, _: &str) {}
+
+        async fn complete(&self, consumer: &str, event_id: &str, token: &str) {
+            let mut keys = self.0.lock().unwrap();
+            let key = format!("{consumer}:{event_id}");
+            if keys.get(&key).map(String::as_str) == Some(token) {
+                keys.insert(key, "done".into());
+            }
+        }
+
+        async fn release(&self, consumer: &str, event_id: &str, token: &str) {
+            let mut keys = self.0.lock().unwrap();
+            let key = format!("{consumer}:{event_id}");
+            if keys.get(&key).map(String::as_str) == Some(token) {
+                keys.remove(&key);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn sends_once_when_the_same_event_is_delivered_twice() {
+        let handled = Memory::default();
+        let sent = AtomicUsize::new(0);
+        let handler = |_: Vec<u8>| {
+            sent.fetch_add(1, Ordering::SeqCst);
+            async { true }
+        };
+        assert!(handle_once(&handled, "mail", Some("e1"), vec![], &handler).await);
+        assert!(handle_once(&handled, "mail", Some("e1"), vec![], &handler).await);
+        assert!(handle_once(&handled, "other", Some("e1"), vec![], &handler).await);
+        assert_eq!(sent.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn leaves_an_event_claimed_elsewhere_for_redelivery() {
+        let handled = Memory::default();
+        assert!(matches!(handled.claim("mail", "e3").await, Claim::Acquired(_)));
+        let sent = AtomicUsize::new(0);
+        let handler = |_: Vec<u8>| {
+            sent.fetch_add(1, Ordering::SeqCst);
+            async { true }
+        };
+        assert!(!handle_once(&handled, "mail", Some("e3"), vec![], &handler).await);
+        assert_eq!(sent.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn retries_an_event_whose_handling_failed() {
+        let handled = Memory::default();
+        let attempts = AtomicUsize::new(0);
+        let handler = |_: Vec<u8>| {
+            let attempt = attempts.fetch_add(1, Ordering::SeqCst);
+            async move { attempt > 0 }
+        };
+        assert!(!handle_once(&handled, "mail", Some("e2"), vec![], &handler).await);
+        assert!(handle_once(&handled, "mail", Some("e2"), vec![], &handler).await);
+        assert!(handle_once(&handled, "mail", Some("e2"), vec![], &handler).await);
+        assert_eq!(attempts.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn handles_events_without_an_id_every_time() {
+        let handled = Memory::default();
+        let sent = AtomicUsize::new(0);
+        let handler = |_: Vec<u8>| {
+            sent.fetch_add(1, Ordering::SeqCst);
+            async { true }
+        };
+        handle_once(&handled, "mail", None, vec![], &handler).await;
+        handle_once(&handled, "mail", None, vec![], &handler).await;
+        assert_eq!(sent.load(Ordering::SeqCst), 2);
     }
 }

@@ -14,6 +14,7 @@ use std::sync::Arc;
 use realtime_core::{ports::directory::RecipientDirectory, ports::projection::RealtimeProjection, ports::publisher::RealtimePublisher, usecases::dispatch_event::DispatchEvent};
 
 use crate::messaging::nats::consumer::{ConsumerSpec, run_consumer};
+use crate::messaging::nats::sequence_gate::{SequenceGate, SequenceProgress};
 
 #[derive(Debug, Clone)]
 pub struct DispatcherSettings {
@@ -27,6 +28,8 @@ pub struct DispatcherSettings {
 }
 
 const BUCKET: &str = "dispatcher-partitions";
+const SEQUENCE_WAIT: Duration = Duration::from_millis(1500);
+const PROGRESS_SAVE_INTERVAL: Duration = Duration::from_secs(1);
 const LEASE_TTL: Duration = Duration::from_secs(20);
 const TICK: Duration = Duration::from_secs(5);
 const MEMBER_PREFIX: &str = "member.";
@@ -36,6 +39,7 @@ struct OwnedPartition {
     revision: u64,
     shutdown: watch::Sender<bool>,
     handles: Vec<actix_web::rt::task::JoinHandle<()>>,
+    gate: Arc<SequenceGate>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -49,6 +53,7 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
     mut shutdown: watch::Receiver<bool>,
     liveness: Liveness,
     stale_after: Duration,
+    progress: Option<Arc<dyn SequenceProgress>>,
 ) {
     let instance = uuid::Uuid::new_v4().to_string();
     let heartbeat = liveness.register(stale_after);
@@ -89,6 +94,7 @@ pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'stati
             &mut owned,
             &liveness,
             stale_after,
+            progress.as_ref(),
         )
         .await;
 
@@ -145,6 +151,7 @@ async fn tick<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimeP
     owned: &mut HashMap<u32, OwnedPartition>,
     liveness: &Liveness,
     stale_after: Duration,
+    progress: Option<&Arc<dyn SequenceProgress>>,
 ) {
     if let Err(e) = store
         .put(format!("{MEMBER_PREFIX}{instance}"), instance.to_string().into_bytes().into())
@@ -201,6 +208,7 @@ async fn tick<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimeP
                 jetstream, cfg, subject_prefix, partition, revision, dispatch,
                 liveness,
                 stale_after,
+                progress,
             );
             owned.insert(partition, state);
         }
@@ -241,17 +249,38 @@ fn start_partition<D: RecipientDirectory + RealtimeProjection + 'static, P: Real
     dispatch: &Arc<DispatchEvent<D, P, B>>,
     liveness: &Liveness,
     stale_after: Duration,
+    progress: Option<&Arc<dyn SequenceProgress>>,
 ) -> OwnedPartition {
     let (tx, rx) = watch::channel(false);
     let mut handles = Vec::new();
+    let gate = Arc::new(match progress {
+        Some(progress) => SequenceGate::with_progress(SEQUENCE_WAIT, progress.clone()),
+        None => SequenceGate::new(SEQUENCE_WAIT),
+    });
+    if progress.is_some() {
+        let gate = gate.clone();
+        let mut rx = rx.clone();
+        handles.push(actix_web::rt::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = rx.changed() => break,
+                    _ = tokio::time::sleep(PROGRESS_SAVE_INTERVAL) => gate.save_progress().await,
+                }
+                if *rx.borrow() {
+                    break;
+                }
+            }
+        }));
+    }
     for spec in partition_specs(cfg, subject_prefix, partition) {
+        let gate = gate.clone();
         let jetstream = jetstream.clone();
         let dispatch = dispatch.clone();
         let rx = rx.clone();
         let heartbeat = liveness.register(stale_after);
         let liveness = liveness.clone();
         handles.push(actix_web::rt::spawn(async move {
-            run_consumer(jetstream, spec, dispatch, rx, heartbeat.clone()).await;
+            run_consumer(jetstream, spec, dispatch, rx, heartbeat.clone(), Some(gate)).await;
             liveness.release(&heartbeat);
         }));
     }
@@ -259,6 +288,7 @@ fn start_partition<D: RecipientDirectory + RealtimeProjection + 'static, P: Real
         revision,
         shutdown: tx,
         handles,
+        gate,
     }
 }
 
@@ -267,6 +297,7 @@ async fn stop_partition(state: OwnedPartition) {
     for handle in state.handles {
         let _ = handle.await;
     }
+    state.gate.save_progress().await;
 }
 
 fn drain_in_background(store: &kv::Store, partition: u32, state: OwnedPartition, purge: bool) {

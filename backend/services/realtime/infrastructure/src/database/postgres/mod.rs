@@ -1,4 +1,5 @@
 pub mod projection;
+pub mod sequence_progress;
 
 pub const SCHEMA: &str = "realtime";
 

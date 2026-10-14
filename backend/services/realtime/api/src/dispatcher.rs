@@ -5,7 +5,8 @@ use infrastructure_common::{
     database::postgres::connection::{create_postgres_pool, ping_pool},
     messaging::nats::connection::{create_jetstream, is_nats_connected},
 };
-use realtime_infrastructure::database::postgres::{MIGRATOR, SCHEMA};
+use realtime_infrastructure::database::postgres::{MIGRATOR, SCHEMA, sequence_progress::PostgresSequenceProgress};
+use realtime_infrastructure::messaging::nats::sequence_gate::SequenceProgress;
 use api_common::health::{self, Liveness, Readiness};
 use api_common::shutdown::{ShutdownConfig, ShutdownSignal};
 use contracts::realtime::PresencePreferenceV1;
@@ -101,9 +102,11 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
         let dispatch = dispatch.clone();
         let rx = shutdown_rx.clone();
         let liveness = liveness.clone();
+        let progress: Arc<dyn SequenceProgress> = Arc::new(PostgresSequenceProgress::new(pool.clone()));
         consumer_handles.push(actix_web::rt::spawn(async move {
             run_partitioned(
                 jetstream, settings, prefix, partitions, replicas, dispatch, rx, liveness, stale_after,
+                Some(progress),
             )
             .await;
         }));

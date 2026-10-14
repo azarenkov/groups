@@ -439,6 +439,33 @@
   font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
   display: inline-flex; align-items: center; justify-content: center;
 }
+.sb-add-row-badge.muted { background: var(--fg-4); }
+.sb-hidden-folder { color: var(--fg-2); }
+.sb-folder-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 8px 4px 2px;
+}
+.sb-folder-back {
+  width: 32px; height: 32px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%;
+  background: transparent; color: var(--fg-2);
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast), transform var(--dur-fast);
+}
+.sb-folder-back:hover { background: color-mix(in srgb, var(--fg-1) 8%, transparent); color: var(--fg-1); transform: scale(1.04); }
+.sb-folder-back:active { transform: scale(0.97); }
+.sb-folder-title {
+  margin: 0; min-width: 0;
+  font-size: 18px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--fg-1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sb-folder-hint {
+  margin: 0; padding: 2px 8px 10px;
+  font-size: 12px; font-weight: 400; line-height: 16px;
+  color: var(--fg-3);
+}
 
 .community-tabs {
   display: flex;
@@ -1336,6 +1363,8 @@ textarea.ssv-input:focus-visible {
   background: var(--surface-sunken); color: var(--fg-2);
 }
 .sb-mini-more:hover { background: var(--surface-hover); color: var(--fg-1); }
+.sb-mini-hidden { margin: 0 0 4px; }
+.sb-mini-hidden.open { color: var(--fg-1); }
 .sb-mini-more .sb-mini-badge { top: -2px; right: -2px; }
 .sb-rail-open { width: 48px; height: 44px; color: var(--fg-2); }
 .sb-resizer {
@@ -1614,6 +1643,43 @@ body.electron .topbar .account-dropdown { -webkit-app-region: no-drag; }
 .search-dd-name mark { background: transparent; color: var(--fg-1); font-weight: 700; }
 .search-dd-sub { font-size: 12px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .search-dd .sb-global-search .sb-view { padding: 0; }
+.search-dd-person { display: flex; align-items: center; gap: 8px; }
+.search-dd-person > .search-dd-item { flex: 1; min-width: 0; }
+.search-dd-static { cursor: default; }
+.search-dd-static:hover { background: transparent; }
+.search-dd-name { display: flex; align-items: center; gap: 6px; }
+.search-dd-ava-wrap { position: relative; flex-shrink: 0; display: flex; }
+.search-dd-online {
+  position: absolute; right: -1px; bottom: -1px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--voice-live, #30d158); box-shadow: 0 0 0 2px var(--surface-raised);
+}
+.search-dd-action {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 0; border-radius: 8px;
+  background: var(--surface-sunken); color: var(--fg-1);
+  font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.search-dd-action:hover, .search-dd-action:focus-visible { background: var(--surface-hover); outline: none; }
+.search-dd-action:disabled { opacity: 0.6; cursor: default; }
+.search-dd-note { padding: 8px 10px; font-size: 13px; color: var(--fg-3); }
+.search-dd-footer { display: flex; justify-content: flex-end; padding: 6px 10px 2px; }
+.search-dd-clear {
+  border: 0; background: transparent; padding: 0;
+  color: var(--fg-3); font: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer;
+}
+.search-dd-clear:hover, .search-dd-clear:focus-visible { color: var(--fg-1); outline: none; }
+.search-dd-remove {
+  flex-shrink: 0;
+  width: 28px; height: 28px; border: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--fg-3);
+  cursor: pointer;
+}
+.search-dd-remove:hover, .search-dd-remove:focus-visible { background: var(--surface-hover); color: var(--fg-1); outline: none; }
 
 .sb-rail-actions {
   flex-shrink: 0;

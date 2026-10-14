@@ -149,13 +149,13 @@ where
             DmMessage::create_community_invite(sender_id, friend_id, community_id, content, now);
 
         let request_id = ctx.request_id.clone();
-        let events = message.pull_events();
-        let events: Vec<MessagingEvent> = events.into_iter().map(MessagingEvent::from).collect();
         let persisted = async {
             tx.lock_pair(&sender_id, &friend_id).await?;
             if tx.block_relation(&sender_id, &friend_id).await?.any() {
                 return Err(SendCommunityInviteError::Blocked);
             }
+            message.restamp(Utc::now());
+            let events: Vec<MessagingEvent> = message.pull_events().into_iter().map(MessagingEvent::from).collect();
             tx.insert_dm_message(&message).await?;
             tx.save_events(&events, request_id.as_deref()).await?;
             tx.commit().await?;

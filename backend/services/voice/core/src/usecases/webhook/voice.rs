@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use domain::{channel::id::ChannelId, user::id::UserId};
+use domain::{channel::id::ChannelId, stream::StreamCeiling, user::id::UserId};
 use ports::{repository::RepositoryError, user_profile::UserProfileRepository};
 use voice_domain::{call::repository::CallRepository, call::repository::WebhookJoinOutcome, webhook::WebhookEvent, webhook::WebhookKind};
 
@@ -9,6 +9,7 @@ use crate::{
     ports::{
         friendship_lookup::{FriendshipLookup, FriendshipLookupError},
         voice_service::{VoiceService, VoiceServiceError},
+        plan_directory::PlanDirectory,
         voice_webhook_verifier::{VoiceWebhookEvent, VoiceWebhookVerifier, VoiceWebhookVerifierError},
         webhook_outbox::WebhookOutbox,
     },
@@ -27,7 +28,7 @@ pub enum HandleVoiceWebhookError {
     FriendshipLookup(#[from] FriendshipLookupError),
 }
 
-pub struct HandleVoiceWebhook<V, C, O, P, S, F>
+pub struct HandleVoiceWebhook<V, C, O, P, S, F, L>
 where
     V: VoiceWebhookVerifier,
     C: CallRepository,
@@ -35,6 +36,7 @@ where
     P: UserProfileRepository,
     S: VoiceService,
     F: FriendshipLookup,
+    L: PlanDirectory,
 {
     verifier: Arc<V>,
     call_repository: Arc<C>,
@@ -42,9 +44,10 @@ where
     profiles: Arc<P>,
     voice_service: Arc<S>,
     friendship_repository: Arc<F>,
+    plans: Arc<L>,
 }
 
-impl<V, C, O, P, S, F> HandleVoiceWebhook<V, C, O, P, S, F>
+impl<V, C, O, P, S, F, L> HandleVoiceWebhook<V, C, O, P, S, F, L>
 where
     V: VoiceWebhookVerifier,
     C: CallRepository,
@@ -52,6 +55,7 @@ where
     P: UserProfileRepository,
     S: VoiceService,
     F: FriendshipLookup,
+    L: PlanDirectory,
 {
     pub fn new(
         verifier: Arc<V>,
@@ -60,6 +64,7 @@ where
         profiles: Arc<P>,
         voice_service: Arc<S>,
         friendship_repository: Arc<F>,
+        plans: Arc<L>,
     ) -> Self {
         Self {
             verifier,
@@ -68,7 +73,24 @@ where
             profiles,
             voice_service,
             friendship_repository,
+            plans,
         }
+    }
+
+    async fn ceiling_of(&self, user: &UserId) -> Result<StreamCeiling, HandleVoiceWebhookError> {
+        Ok(StreamCeiling::for_tier(self.plans.tier_of(user, chrono::Utc::now()).await?))
+    }
+
+    async fn refresh_stream_ceiling(&self, channel_id: uuid::Uuid, user_id: uuid::Uuid) -> Result<(), HandleVoiceWebhookError> {
+        if !self.plans.is_caught_up() {
+            return Ok(());
+        }
+        let user = UserId::new(user_id);
+        let ceiling = self.ceiling_of(&user).await?;
+        self.voice_service
+            .set_stream_ceiling(&ChannelId::new(channel_id), &user, ceiling)
+            .await?;
+        Ok(())
     }
 
     async fn evict_if_blocked(
@@ -139,6 +161,9 @@ where
                         .await?;
                     return Ok(());
                 }
+                if self.call_repository.is_call_room(channel_id).await? {
+                    self.refresh_stream_ceiling(channel_id, user_id).await?;
+                }
                 match self
                     .call_repository
                     .webhook_joined(
@@ -168,7 +193,11 @@ where
                         .await?;
                         return Ok(());
                     }
-                    WebhookJoinOutcome::NotCallRoom => {}
+                    WebhookJoinOutcome::NotCallRoom => {
+                        if let Err(e) = self.refresh_stream_ceiling(channel_id, user_id).await {
+                            tracing::warn!(error = %e, %channel_id, %user_id, "Failed to set the stream ceiling of a channel participant; the sweep still enforces it");
+                        }
+                    }
                 }
                 (channel_id, user_id, session_id, WebhookKind::Joined)
             }

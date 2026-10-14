@@ -1,5 +1,6 @@
 pub mod badge;
 pub mod channel;
+pub mod dm_conversation;
 pub mod dm_message;
 pub mod events;
 pub mod friendship;
@@ -10,7 +11,9 @@ pub mod notification;
 pub mod read_state;
 pub mod report;
 pub mod pin;
+pub mod people;
 pub mod privacy;
 pub mod search;
+pub mod search_history;
 pub mod shared;
 pub mod community;

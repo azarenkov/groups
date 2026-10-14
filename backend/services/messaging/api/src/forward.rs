@@ -171,6 +171,21 @@ async fn resolve_source(
     }
 }
 
+async fn source_still_visible(
+    app_state: &web::Data<AppState>,
+    source: &ForwardSourceBody,
+    user_id: UserId,
+) -> Result<(), ForwardFailure> {
+    if let ForwardSourceBody::Dm { friend_id, message_id } = *source {
+        app_state
+            .list_dm_messages_usecase
+            .find_one(friend_id, message_id, user_id)
+            .await
+            .map_err(failure)?;
+    }
+    Ok(())
+}
+
 async fn deliver(
     app_state: &web::Data<AppState>,
     req: &HttpRequest,
@@ -269,7 +284,10 @@ async fn forward_message(
         .map(str::to_string);
     let mut results = Vec::new();
     for target in unique_targets(body.targets).into_iter().take(MAX_FORWARD_TARGETS) {
-        let outcome = deliver(&app_state, &req, &target, comment.as_deref(), &forwarded, user_id).await;
+        let outcome = match source_still_visible(&app_state, &body.source, user_id).await {
+            Ok(()) => deliver(&app_state, &req, &target, comment.as_deref(), &forwarded, user_id).await,
+            Err(gone) => Delivery::failed(None, gone),
+        };
         results.push(ForwardResult {
             target,
             message_id: outcome.message_id,

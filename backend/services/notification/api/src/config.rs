@@ -14,6 +14,8 @@ pub struct NotificationConfig {
     pub health_port: u16,
     #[serde(default = "default_liveness_stale_secs")]
     pub notification_liveness_stale_secs: u64,
+    #[serde(default = "default_handled_ttl_secs")]
+    pub notification_handled_ttl_secs: u64,
 }
 
 impl NotificationConfig {
@@ -45,4 +47,8 @@ fn default_health_port() -> u16 {
 
 fn default_liveness_stale_secs() -> u64 {
     60
+}
+
+fn default_handled_ttl_secs() -> u64 {
+    7 * 24 * 60 * 60
 }

@@ -1,6 +1,7 @@
 import { useAuthStore } from "../../features/auth/store/authStore";
 import { ApiError } from "../lib/apiError";
 import { wsEndpoint } from "../config/runtime";
+import { Sequencer } from "./sequencer";
 
 const SESSION_DEAD_CODES = new Set([
   "REFRESH_TOKEN_REVOKED",
@@ -34,7 +35,12 @@ export type WsEventType =
   | "message.hidden"
   | "message.pin_changed"
   | "conversation_pins.updated"
+  | "search_history.updated"
+  | "dm_conversation.cleared"
+  | "dm_conversation.hidden_changed"
   | "voice.listened"
+  | "voice.stream_limited"
+  | "sequence.skip"
   | "channel.created"
   | "channel.renamed"
   | "channel.deleted"
@@ -85,11 +91,17 @@ export type WsEventType =
 export interface WsEnvelope<T = unknown> {
   type: WsEventType;
   data: T;
+  partition?: string;
+  seq?: number;
+  covered?: boolean;
+  eventId?: string;
 }
 
 type Listener = (env: WsEnvelope) => void;
+type Filter = (env: WsEnvelope) => boolean;
 
 const RECONNECT_MIN_MS = 1000;
+const RECENT_EVENTS_LIMIT = 1000;
 const RECONNECT_MAX_MS = 30_000;
 const HEARTBEAT_MS = 25_000;
 const REFRESH_MIN_INTERVAL_MS = 60_000;
@@ -102,6 +114,7 @@ class WsClient {
   private endpoint: string;
   private socket: WebSocket | null = null;
   private listeners = new Set<Listener>();
+  private filters = new Set<Filter>();
   private wantOpen = false;
   private reconnectAttempts = 0;
   private reconnectTimer: number | null = null;
@@ -109,9 +122,43 @@ class WsClient {
   private refreshInProgress = false;
   private lastRefreshAttemptAt = 0;
   private openListeners = new Set<() => void>();
+  private sequencer = new Sequencer((env) => this.deliver(env));
+  private recentEvents = new Set<string>();
 
   constructor(endpoint: string = defaultEndpoint()) {
     this.endpoint = endpoint;
+  }
+
+  baseline(partition: string, seq: number): void {
+    this.sequencer.baseline(partition, seq);
+  }
+
+  overwrittenAfter(partition: string, seq: number): boolean {
+    return this.sequencer.overwrittenAfter(partition, seq);
+  }
+
+  checkSnapshot(partition: string, seq: number): void {
+    this.sequencer.checkSnapshot(partition, seq);
+  }
+
+  onResync(listener: (partition: string) => void): () => void {
+    return this.sequencer.onResync(listener);
+  }
+
+  receive(env: WsEnvelope): void {
+    this.sequencer.accept(env);
+  }
+
+  private isRepeat(env: WsEnvelope): boolean {
+    if (typeof env.eventId !== "string") return false;
+    const key = `${env.eventId}|${env.type}`;
+    if (this.recentEvents.has(key)) return true;
+    this.recentEvents.add(key);
+    if (this.recentEvents.size > RECENT_EVENTS_LIMIT) {
+      const oldest = this.recentEvents.values().next().value;
+      if (oldest !== undefined) this.recentEvents.delete(oldest);
+    }
+    return false;
   }
 
   connect() {
@@ -129,6 +176,7 @@ class WsClient {
       this.socket = null;
     }
     this.reconnectAttempts = 0;
+    this.sequencer.reset();
   }
 
   on(handler: Listener): () => void {
@@ -143,6 +191,27 @@ class WsClient {
     return () => {
       this.openListeners.delete(handler);
     };
+  }
+
+  addFilter(filter: Filter): () => void {
+    this.filters.add(filter);
+    return () => {
+      this.filters.delete(filter);
+    };
+  }
+
+  deliver(env: WsEnvelope) {
+    if (this.isRepeat(env)) return;
+    for (const filter of this.filters) {
+      if (!filter(env)) return;
+    }
+    for (const l of this.listeners) {
+      try {
+        l(env);
+      } catch (err) {
+        console.warn("[ws] listener threw:", err);
+      }
+    }
   }
 
   isOpen(): boolean {
@@ -187,13 +256,7 @@ class WsClient {
         return;
       }
       if (!env || typeof env !== "object" || !env.type) return;
-      for (const l of this.listeners) {
-        try {
-          l(env);
-        } catch (err) {
-          console.warn("[ws] listener threw:", err);
-        }
-      }
+      this.receive(env);
     };
 
     socket.onerror = () => {

@@ -7,6 +7,52 @@ import { useStreamViewersStore } from "../store/streamViewersStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useVoiceSessionStore } from "../store/voiceSessionStore";
 import { asString } from "../../../shared/ws/context";
+import i18n from "../../../i18n";
+import { getLiveKitService } from "../lib/livekit";
+import { hiddenDmsKnown, hiddenDmsSettled, isDmHidden, useHiddenDmStore } from "../../dm/store/hiddenDmStore";
+
+interface HeldCall {
+  callId: string;
+  callerId: string;
+  callerName: string;
+  video: boolean;
+  selfId: string | undefined;
+}
+
+const heldCalls = new Map<string, HeldCall>();
+let stopHolding: (() => void) | null = null;
+
+const offerCall = (call: HeldCall) => {
+  if (call.selfId !== useAuthStore.getState().user?.id) return;
+  if (isBlockedEitherWay(call.callerId) || isDmHidden(call.callerId)) return;
+  const { callId, callerId, callerName, video } = call;
+  useCallStore.getState().setIncoming({ callId, callerId, callerName, video });
+};
+
+const holdUntilHiddenKnown = (call: HeldCall) => {
+  heldCalls.set(call.callId, call);
+  if (stopHolding) return;
+  stopHolding = useHiddenDmStore.subscribe((s) => {
+    if (!hiddenDmsSettled(s)) return;
+    stopHolding?.();
+    stopHolding = null;
+    const calls = Array.from(heldCalls.values());
+    heldCalls.clear();
+    calls.forEach(offerCall);
+  });
+};
+
+useHiddenDmStore.subscribe((s, prev) => {
+  if (s.hidden === prev.hidden) return;
+  const incoming = useCallStore.getState().incoming;
+  if (incoming && s.hidden.includes(incoming.callerId)) useCallStore.getState().clearIncoming();
+});
+
+export const dropHeldCalls = () => {
+  heldCalls.clear();
+  stopHolding?.();
+  stopHolding = null;
+};
 
 const endSessionIfEmpty = (channelId: string) => {
   if ((useVoicePresenceStore.getState().byChannel[channelId]?.length ?? 0) === 0) {
@@ -14,7 +60,26 @@ const endSessionIfEmpty = (channelId: string) => {
   }
 };
 
+let streamLimitNoticeInstalled = false;
+
+export function installStreamLimitNotice(): void {
+  if (streamLimitNoticeInstalled) return;
+  streamLimitNoticeInstalled = true;
+  getLiveKitService().onScreenShareLimited(() => {
+    useCallStore.getState().setCallError(i18n.t("streamLimited", { ns: "call" }));
+  });
+}
+
 export const voiceHandlers: WsHandlers = {
+  "voice.stream_limited": (d) => {
+    const roomId = asString(d.roomId);
+    const trackSid = asString(d.trackSid);
+    const livekit = getLiveKitService();
+    if (!roomId || !trackSid || livekit.getCurrentRoomName() !== roomId) return;
+    if (livekit.getScreenShareTrackSid() !== trackSid) return;
+    void livekit.stopScreenShareTrack(trackSid).catch(() => {});
+    useCallStore.getState().setCallError(i18n.t("streamLimited", { ns: "call" }));
+  },
   "channel.participant.joined": (d) => {
       const channelId = asString(d.channelId);
       const userId = asString(d.userId);
@@ -63,10 +128,15 @@ export const voiceHandlers: WsHandlers = {
       const callerId = asString(d.callerId);
       if (!callId || !callerId) return;
       if (isBlockedEitherWay(callerId)) return;
-      const callerName = asString(d.callerName) ?? callerId;
-      useCallStore
-        .getState()
-        .setIncoming({ callId, callerId, callerName, video: d.video === true });
+      const call: HeldCall = {
+        callId,
+        callerId,
+        callerName: asString(d.callerName) ?? callerId,
+        video: d.video === true,
+        selfId: useAuthStore.getState().user?.id,
+      };
+      if (hiddenDmsKnown()) offerCall(call);
+      else holdUntilHiddenKnown(call);
       return;
   },
   "call.participant.joined": (d) => {
@@ -102,7 +172,9 @@ export const voiceHandlers: WsHandlers = {
   },
   "call.ended": (d) => {
       const callId = asString(d.callId);
-      if (callId) useCallStore.getState().callEnded(callId);
+      if (!callId) return;
+      heldCalls.delete(callId);
+      useCallStore.getState().callEnded(callId);
       return;
   },
   "channel.participant.muted": (d, env) => {

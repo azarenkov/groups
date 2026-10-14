@@ -46,7 +46,7 @@ class DmAPI {
   async listMessages(
     friendId: string,
     opts: { before?: string; after?: string; limit?: number } = {},
-  ): Promise<{ messages: ChannelMessage[] }> {
+  ): Promise<{ messages: ChannelMessage[]; partition?: string; seq?: number }> {
     const params: Record<string, string | number> = {};
     if (opts.before) params.before = opts.before;
     if (opts.after) params.after = opts.after;
@@ -55,8 +55,11 @@ class DmAPI {
       `/v1/users/me/dms/${friendId}/messages`,
       { params },
     );
+    const { partition, seq } = response.data.data as { partition?: unknown; seq?: unknown };
     return {
       messages: (response.data.data.messages as DmRow[]).map(toChannelMessage),
+      partition: typeof partition === "string" ? partition : undefined,
+      seq: typeof seq === "number" ? seq : undefined,
     };
   }
 
@@ -151,6 +154,11 @@ class DmAPI {
 
   async hideMessage(friendId: string, messageId: string): Promise<void> {
     await this.client.post(`/v1/users/me/dms/${friendId}/messages/${messageId}/hide`);
+  }
+
+  async clearConversation(friendId: string, forEveryone: boolean): Promise<{ clearedAt: string }> {
+    const response = await this.client.post(`/v1/users/me/dms/${friendId}/clear`, { forEveryone });
+    return response.data.data;
   }
 
   async searchMessages(

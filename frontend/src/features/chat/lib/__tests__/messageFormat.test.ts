@@ -3,6 +3,7 @@ import {
   formatCallDuration,
   formatFileSize,
   mergeWithLive,
+  reconcileSyncedWindow,
   sameDay,
   splitForSend,
 } from "../messageFormat";
@@ -60,5 +61,23 @@ describe("formatting helpers", () => {
   it("compares calendar days", () => {
     expect(sameDay(new Date("2026-01-01T23:00:00"), new Date("2026-01-01T01:00:00"))).toBe(true);
     expect(sameDay(new Date("2026-01-01T23:00:00"), new Date("2026-01-02T01:00:00"))).toBe(false);
+  });
+});
+
+describe("reconcileSyncedWindow", () => {
+  const a = message("a", "2026-01-01T10:00:00Z");
+  const b = message("b", "2026-01-01T10:01:00Z");
+  const c = message("c", "2026-01-01T10:02:00Z");
+  const live = message("live", "2026-01-01T10:03:00Z");
+
+  it("drops everything the server no longer has once the whole history was read", () => {
+    const known = new Set(["a", "b", "c"]);
+    expect(reconcileSyncedWindow([], [a, b, c, live], true, known)).toEqual([live]);
+  });
+
+  it("drops missing messages only inside the synced window", () => {
+    const known = new Set(["a", "b", "c"]);
+    expect(reconcileSyncedWindow([a, c], [a, b, c], false, known)).toEqual([a, c]);
+    expect(reconcileSyncedWindow([b], [a, b, c], false, known)).toEqual([a, b]);
   });
 });

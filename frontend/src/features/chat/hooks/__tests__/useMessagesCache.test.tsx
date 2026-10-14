@@ -6,6 +6,7 @@ import { clearMessageCache, hasCachedConversation } from "../../lib/messageCache
 import { ApiError } from "../../../../shared/lib/apiError";
 import type { Messenger } from "../useMessenger";
 import { useMessages } from "../useMessages";
+import { PAGE_LIMIT } from "../../constants";
 
 const msg = (id: string, minute: number): ChannelMessage => ({
   id,
@@ -167,4 +168,41 @@ it("jumps to a message only after a cached chat has been reconciled", async () =
   await answer("a", [msg("a1", 1), msg("a2", 2)]);
   await waitFor(() => expect(callCount.a).toBeGreaterThan(1));
   expect(jumped).toBe(false);
+});
+
+it("lets older pages load after a refresh that stops before the start of history", async () => {
+  render(<Harness convId="r" />);
+  await answer("r", []);
+  const full = Array.from({ length: PAGE_LIMIT }, (_, i) => msg(`r${i}`, i % 60));
+  let refreshing: Promise<void> = Promise.resolve();
+  act(() => {
+    refreshing = latest!.refreshHistory();
+  });
+  await answer("r", full);
+  await act(async () => {
+    await refreshing;
+  });
+  olderCalls.length = 0;
+  act(() => {
+    latest!.handleScroll();
+  });
+  expect(olderCalls.some((c) => c.startsWith("r:"))).toBe(true);
+});
+
+it("keeps paging a refresh while older messages share the oldest loaded timestamp", async () => {
+  render(<Harness convId="s" />);
+  const id = (n: number) => `s${String(n).padStart(3, "0")}`;
+  const loaded = Array.from({ length: PAGE_LIMIT }, (_, i) => msg(id(i), 5));
+  await answer("s", loaded);
+  let refreshing: Promise<void> = Promise.resolve();
+  act(() => {
+    refreshing = latest!.refreshHistory();
+  });
+  await answer("s", [...loaded.slice(1), msg(id(999), 5)]);
+  await waitFor(() => expect(olderCalls).toContain(`s:${id(1)}`));
+  await answer("s", [loaded[0]]);
+  await act(async () => {
+    await refreshing;
+  });
+  expect(latest!.messages.map((m) => m.id)).toContain(id(0));
 });

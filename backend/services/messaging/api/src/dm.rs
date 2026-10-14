@@ -190,6 +190,8 @@ async fn list_dm_messages(
     let friend_id = path.into_inner();
     let user_id = UserId::new(auth_token.id);
 
+    let partition = infrastructure_common::messaging::partitions::conversation_key(user_id.uuid(), friend_id);
+    let seq = app_state.partition_sequences.current(partition).await.map_err(HttpError::from_error)?;
     let data = ListDmMessagesRequest::new(
         friend_id,
         query.before,
@@ -217,7 +219,11 @@ async fn list_dm_messages(
     }
     fill_dm_replies(&app_state, &mut items, UserId::new(auth_token.id)).await?;
     crate::voice::fill_dm_listens(&app_state, &mut items, UserId::new(auth_token.id)).await?;
-    let response = ListDmMessagesResponse::new(items);
+    let response = ListDmMessagesResponse::new(
+        items,
+        infrastructure_common::messaging::partitions::partition_id(messaging_infrastructure::database::postgres::SCHEMA, partition),
+        seq,
+    );
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }

@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
 use messaging::usecases::pin::{conversation_pins::ConversationPins, message_pins::MessagePins};
+use messaging::usecases::dm_conversation::DmConversations;
+use messaging_infrastructure::database::postgres::repositories::dm_conversation::PostgresDmConversationRepository;
 use messaging::usecases::search::global_search::GlobalSearch;
 use messaging::usecases::shared::list_shared_content::ListSharedContent;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnail;
@@ -174,6 +176,13 @@ pub struct AppState {
         PostgresCommunityRepository,
     >,
     pub global_search_usecase: GlobalSearch<PostgresSearchRepository>,
+    pub search_people_usecase: messaging::usecases::search::search_people::SearchPeople<
+        messaging_infrastructure::database::postgres::repositories::people::PostgresPeopleDirectory,
+    >,
+    pub people_search_limiter: api_common::rate_limiting::KeyedRateLimiter,
+    pub search_history_usecase: messaging::usecases::search::search_history::SearchHistory<
+        messaging_infrastructure::database::postgres::repositories::search_history::PostgresSearchHistoryRepository,
+    >,
     pub message_pins_usecase: MessagePins<
         PostgresMessagePinRepository,
         PostgresChannelRepository,
@@ -182,6 +191,8 @@ pub struct AppState {
         PostgresFriendshipRepository,
     >,
     pub conversation_pins_usecase: ConversationPins<PostgresConversationPinRepository>,
+    pub dm_conversations_usecase: DmConversations<PostgresDmConversationRepository>,
+    pub partition_sequences: infrastructure_common::database::postgres::repositories::outbox_record::PostgresPartitionSequences,
     pub list_shared_content_usecase:
         ListSharedContent<PostgresSharedContentRepository, PostgresChannelRepository, PostgresCommunityRepository>,
     pub list_message_attachments_usecase:

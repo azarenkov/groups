@@ -56,6 +56,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         postgres_pool.clone(),
     )));
     let user_repository = Arc::new(PostgresUserProfileRepository::voice(postgres_pool.clone()));
+    let plan_directory = Arc::new(
+        infrastructure_common::database::postgres::repositories::plan_directory::PostgresPlanDirectory::voice(
+            postgres_pool.clone(),
+        ),
+    );
     let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
         .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
     let friendship_lookup = Arc::new(MessagingFriendshipClient::new(&messaging_internal_url));
@@ -68,6 +73,24 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
     crate::evictions::spawn(call_repository.clone(), livekit_service.clone());
+    crate::stream_sweep::spawn(Arc::new(voice::usecases::stream::sweep_screen_shares::SweepScreenShares::new(
+        plan_directory.clone(),
+        livekit_service.clone(),
+        webhook_outbox.clone(),
+    )));
+    infrastructure_common::messaging::nats::plan_projection::PlanProjection {
+        jetstream: nats_jetstream.clone(),
+        subject_prefix: nats_config.subject_prefix.clone(),
+        stream: user_stream.clone(),
+        consumer_name: "voice-projection-tiers",
+        dlq_suffix: "voice.tiers",
+        plans: plan_directory.clone(),
+        listener: Arc::new(voice::usecases::stream::refresh_stream_ceilings::RefreshStreamCeilings::new(
+            plan_directory.clone(),
+            livekit_service.clone(),
+        )),
+    }
+    .spawn();
     crate::projection::spawn(
         nats_jetstream,
         nats_config.subject_prefix.clone(),
@@ -130,6 +153,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             user_repository.clone(),
             livekit_service.clone(),
             friendship_lookup.clone(),
+            plan_directory.clone(),
         ),
         call_repository: call_repository.clone(),
     });

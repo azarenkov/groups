@@ -16,6 +16,13 @@ pub struct OutboxRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PartitionSequence {
+    pub partition: String,
+    pub seq: i64,
+    pub members: Vec<Uuid>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AggregateType {
     Channel,
     Community,

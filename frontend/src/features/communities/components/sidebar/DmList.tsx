@@ -20,6 +20,8 @@ import {
 import type { MenuEntry } from "../../../../shared/ui/contextMenu/contextMenuStore";
 import { useLongPress } from "../../../../shared/ui/contextMenu/useLongPress";
 import { useCallStore } from "../../../voice/store/callStore";
+import { hiddenDmsReady, useHiddenDmStore } from "../../../dm/store/hiddenDmStore";
+import { useClearDmDialog } from "../../../dm/components/ClearDmDialog";
 
 interface DmListProps {
   directs: DirectConversation[];
@@ -67,6 +69,19 @@ const DmList: React.FC<DmListProps> = ({
   const joinableByPeer = useCallStore((s) => s.joinableByPeer);
   const callPeer = useCallStore((s) => (s.activeCallId ? s.peerId : null));
   const inCallWith = (id: string) => !!joinableByPeer[id] || callPeer === id;
+  const hiddenIds = useHiddenDmStore((s) => s.hidden);
+  const hiddenReady = useHiddenDmStore(hiddenDmsReady);
+  const [showHidden, setShowHidden] = React.useState(false);
+  const hiddenSet = new Set(hiddenIds);
+  const directsComplete = friendsComplete && previewsComplete && !hasMoreDirects;
+  const directIds = new Set(directs.map((d) => d.id));
+  const reachableHidden = directsComplete ? hiddenIds.filter((id) => directIds.has(id)) : hiddenIds;
+  const hasHidden = reachableHidden.length > 0;
+  React.useEffect(() => {
+    if (!hasHidden) setShowHidden(false);
+  }, [hasHidden]);
+  const shown = hiddenReady ? directs.filter((d) => hiddenSet.has(d.id) === showHidden) : [];
+  const hiddenUnread = reachableHidden.reduce((sum, id) => sum + (unreadByDm[id] ?? 0), 0);
   const [now, setNow] = React.useState(() => new Date());
   React.useEffect(() => {
     const timer = setTimeout(() => setNow(new Date()), msUntilNextDay(now));
@@ -107,6 +122,18 @@ const DmList: React.FC<DmListProps> = ({
             },
           },
         ]),
+    {
+      kind: "item",
+      id: "hide",
+      label: t(hiddenSet.has(d.id) ? "unhideChat" : "hideChat"),
+      icon: hiddenSet.has(d.id) ? "eye" : "eye-off",
+      onSelect: () => {
+        void useHiddenDmStore
+          .getState()
+          .setHidden(d.id, !hiddenSet.has(d.id))
+          .catch((e) => console.warn("[DmList] hide failed:", e));
+      },
+    },
     { kind: "separator", id: "s1" },
     {
       kind: "item",
@@ -114,6 +141,14 @@ const DmList: React.FC<DmListProps> = ({
       label: t("memberProfile"),
       icon: "user",
       onSelect: () => useProfileModalStore.getState().open(d.id),
+    },
+    {
+      kind: "item",
+      id: "clear",
+      label: t("clearChat"),
+      icon: "trash",
+      danger: true,
+      onSelect: () => useClearDmDialog.getState().open({ id: d.id, name: d.name }),
     },
   ];
   const dmLongPress = useLongPress((point, el) => {
@@ -123,9 +158,24 @@ const DmList: React.FC<DmListProps> = ({
   if (compact) {
     return (
       <div className="sb-mini-list" role="list" aria-label={t("directMessages")}>
-        {directs.map((d) => {
+        {(hasHidden || showHidden) && (
+          <button
+            type="button"
+            className={"sb-mini sb-mini-more sb-mini-hidden" + (showHidden ? " open" : "")}
+            title={showHidden ? t("hiddenChatsBack") : t("hiddenChats")}
+            aria-label={showHidden ? t("hiddenChatsBack") : t("hiddenChats")}
+            aria-pressed={showHidden}
+            onClick={() => setShowHidden((v) => !v)}
+          >
+            <Icon name={showHidden ? "chev-left" : "eye-off"} size={16} />
+            {!showHidden && hiddenUnread > 0 && (
+              <span className="sb-mini-badge muted">{hiddenUnread > 99 ? "99+" : hiddenUnread}</span>
+            )}
+          </button>
+        )}
+        {shown.map((d) => {
           const unread = unreadByDm[d.id] ?? 0;
-          const muted = dmLevelOf(dmLevels, d.id, globalMentions) === "none";
+          const muted = dmLevelOf(dmLevels, d.id, globalMentions) === "none" || hiddenSet.has(d.id);
           return (
             <button
               key={d.id}
@@ -162,6 +212,115 @@ const DmList: React.FC<DmListProps> = ({
       </div>
     );
   }
+  const renderRow = (d: DirectConversation) => {
+    const unread = unreadByDm[d.id] ?? 0;
+    const activity = d.online ? activities[d.id] : undefined;
+    const muted = dmLevelOf(dmLevels, d.id, globalMentions) === "none";
+    const quiet = muted || hiddenSet.has(d.id);
+    const sub =
+      d.lastMessage ||
+      (d.online ? t("statusOnline") : t("statusOffline"));
+    return (
+      <div
+        key={d.id}
+        role="button"
+        tabIndex={0}
+        className={
+          "sb-dm" +
+          (selectedDmId === d.id ? " active" : "") +
+          (!d.online ? " off" : "")
+        }
+        data-dm-id={d.id}
+        {...dmLongPress}
+        onClick={() => onPick(d)}
+        onContextMenu={(e) => openContextMenu(e, dmMenu(d))}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onPick(d);
+          } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+            e.preventDefault();
+            openContextMenuAt(e.currentTarget, dmMenu(d));
+          }
+        }}
+      >
+        <div className={"sb-dm-ava-wrap" + (inCallWith(d.id) ? " in-call" : "")}>
+          <UserAvatar
+            userId={d.id}
+            name={d.name}
+            className="sb-dm-ava"
+            style={{ background: d.color }}
+          />
+          {d.online && <span className="sb-dm-dot" />}
+        </div>
+        <div className="sb-dm-main">
+          <div className="sb-dm-name">
+            <span className="sb-dm-name-text">{d.name}</span>
+            <UserBadge userId={d.id} size="sm" />
+            {muted && (
+              <span className="sb-dm-muted" title={t("dmMuted")} aria-label={t("dmMuted")}>
+                <Icon name="bell" size={12} />
+                <span className="nb-dot" />
+              </span>
+            )}
+            {activity && (
+              <span className="sb-dm-game" title={activity.name}>
+                {activity.name}
+              </span>
+            )}
+            {pinnedDms.includes(d.id) && (
+              <span className="sb-pinned" title={t("pinned")} aria-label={t("pinned")}>
+                <Icon name="pin" size={11} />
+              </span>
+            )}
+            {d.lastAt && (
+              <time className="sb-dm-time" dateTime={d.lastAt}>
+                {formatListTime(d.lastAt, now, i18n.language)}
+              </time>
+            )}
+          </div>
+          <div className="sb-dm-subrow">
+            {inCallWith(d.id) ? (
+              <div className="sb-dm-sub sb-dm-call">
+                <Icon name="phone" size={12} />
+                <span>{i18n.t("ongoingCall", { ns: "call" })}</span>
+              </div>
+            ) : (
+              <div className={"sb-dm-sub" + (unread > 0 ? " unread" : "")}>
+                {sub}
+              </div>
+            )}
+            {unread > 0 && <span className={"sb-dm-badge" + (quiet ? " muted" : "")}>{unread}</span>}
+          </div>
+        </div>
+      </div>
+    );
+  };
+  if (showHidden) {
+    return (
+      <div className="sb-view">
+        <div className="sb-folder-head">
+          <button
+            type="button"
+            className="sb-folder-back"
+            title={t("hiddenChatsBack")}
+            aria-label={t("hiddenChatsBack")}
+            onClick={() => setShowHidden(false)}
+          >
+            <Icon name="chev-left" size={18} />
+          </button>
+          <h3 className="sb-folder-title">{t("hiddenChats")}</h3>
+        </div>
+        <p className="sb-folder-hint">{t("hiddenChatsHint")}</p>
+        {shown.map(renderRow)}
+        {hasMoreDirects && onLoadMoreDirects && (
+          <button type="button" className="sb-load-more" onClick={onLoadMoreDirects}>
+            {t("loadMore")}
+          </button>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="sb-view">
       <button type="button" className="sb-add-row" onClick={onAddFriend}>
@@ -183,97 +342,24 @@ const DmList: React.FC<DmListProps> = ({
           <span className="sb-add-row-badge">{pendingCount}</span>
         )}
       </button>
+      {hasHidden && (
+        <button type="button" className="sb-add-row secondary sb-hidden-folder" onClick={() => setShowHidden(true)}>
+          <span className="sb-add-row-ico">
+            <Icon name="eye-off" size={20} />
+          </span>
+          <span>{t("hiddenChats")}</span>
+          {hiddenUnread > 0 && <span className="sb-add-row-badge muted">{hiddenUnread}</span>}
+        </button>
+      )}
       <div className="sb-vhead">
         <span className="sb-vhead-label">{t("directMessages")}</span>
       </div>
-      {directs.length === 0 && (
+      {shown.length === 0 && (
         <div className="sb-empty">
-          {t("noDirects")}
+          {hiddenReady ? t("noDirects") : t("loading", { ns: "common" })}
         </div>
       )}
-      {directs.map((d) => {
-        const unread = unreadByDm[d.id] ?? 0;
-        const activity = d.online ? activities[d.id] : undefined;
-        const muted = dmLevelOf(dmLevels, d.id, globalMentions) === "none";
-        const sub =
-          d.lastMessage ||
-          (d.online ? t("statusOnline") : t("statusOffline"));
-        return (
-          <div
-            key={d.id}
-            role="button"
-            tabIndex={0}
-            className={
-              "sb-dm" +
-              (selectedDmId === d.id ? " active" : "") +
-              (!d.online ? " off" : "")
-            }
-            data-dm-id={d.id}
-            {...dmLongPress}
-            onClick={() => onPick(d)}
-            onContextMenu={(e) => openContextMenu(e, dmMenu(d))}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onPick(d);
-              } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
-                e.preventDefault();
-                openContextMenuAt(e.currentTarget, dmMenu(d));
-              }
-            }}
-          >
-            <div className={"sb-dm-ava-wrap" + (inCallWith(d.id) ? " in-call" : "")}>
-              <UserAvatar
-                userId={d.id}
-                name={d.name}
-                className="sb-dm-ava"
-                style={{ background: d.color }}
-              />
-              {d.online && <span className="sb-dm-dot" />}
-            </div>
-            <div className="sb-dm-main">
-              <div className="sb-dm-name">
-                <span className="sb-dm-name-text">{d.name}</span>
-                <UserBadge userId={d.id} size="sm" />
-                {muted && (
-                  <span className="sb-dm-muted" title={t("dmMuted")} aria-label={t("dmMuted")}>
-                    <Icon name="bell" size={12} />
-                    <span className="nb-dot" />
-                  </span>
-                )}
-                {activity && (
-                  <span className="sb-dm-game" title={activity.name}>
-                    {activity.name}
-                  </span>
-                )}
-                {pinnedDms.includes(d.id) && (
-                  <span className="sb-pinned" title={t("pinned")} aria-label={t("pinned")}>
-                    <Icon name="pin" size={11} />
-                  </span>
-                )}
-                {d.lastAt && (
-                  <time className="sb-dm-time" dateTime={d.lastAt}>
-                    {formatListTime(d.lastAt, now, i18n.language)}
-                  </time>
-                )}
-              </div>
-              <div className="sb-dm-subrow">
-                {inCallWith(d.id) ? (
-                  <div className="sb-dm-sub sb-dm-call">
-                    <Icon name="phone" size={12} />
-                    <span>{i18n.t("ongoingCall", { ns: "call" })}</span>
-                  </div>
-                ) : (
-                  <div className={"sb-dm-sub" + (unread > 0 ? " unread" : "")}>
-                    {sub}
-                  </div>
-                )}
-                {unread > 0 && <span className={"sb-dm-badge" + (muted ? " muted" : "")}>{unread}</span>}
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      {shown.map(renderRow)}
       {hasMoreDirects && onLoadMoreDirects && (
         <button type="button" className="sb-load-more" onClick={onLoadMoreDirects}>
           {t("loadMore")}

@@ -8,6 +8,7 @@ use ports::repository::RepositoryError;
 use crate::ports::{
     file_storage::{ByteStream, FileStorage, FileStorageError},
     image_moderation::{ImageModeration, ImageModerationError},
+    plan_directory::PlanDirectory,
 };
 use crate::usecases::user::update_avatar::cleanup_object;
 
@@ -33,6 +34,7 @@ where
     IM: ImageModeration,
 {
     banners: Arc<B>,
+    plans: Arc<dyn PlanDirectory>,
     attachment_repository: Arc<A>,
     storage: Arc<FS>,
     moderation: Arc<IM>,
@@ -47,12 +49,14 @@ where
 {
     pub fn new(
         banners: Arc<B>,
+        plans: Arc<dyn PlanDirectory>,
         attachment_repository: Arc<A>,
         storage: Arc<FS>,
         moderation: Arc<IM>,
     ) -> Self {
         Self {
             banners,
+            plans,
             attachment_repository,
             storage,
             moderation,
@@ -60,7 +64,7 @@ where
     }
 
     pub async fn ensure_allowed(&self, user_id: &UserId) -> Result<(), BannerError> {
-        if self.banners.is_paid(user_id, Utc::now()).await? {
+        if self.plans.tier_of(user_id, Utc::now()).await?.is_paid() {
             Ok(())
         } else {
             Err(BannerError::ProRequired)
@@ -107,6 +111,7 @@ where
     FS: FileStorage,
 {
     banners: Arc<B>,
+    plans: Arc<dyn PlanDirectory>,
     storage: Arc<FS>,
 }
 
@@ -115,12 +120,12 @@ where
     B: BannerRepository,
     FS: FileStorage,
 {
-    pub fn new(banners: Arc<B>, storage: Arc<FS>) -> Self {
-        Self { banners, storage }
+    pub fn new(banners: Arc<B>, plans: Arc<dyn PlanDirectory>, storage: Arc<FS>) -> Self {
+        Self { banners, plans, storage }
     }
 
     pub async fn execute(&self, user_id: UserId) -> Result<ByteStream, BannerError> {
-        if !self.banners.is_paid(&user_id, Utc::now()).await? {
+        if !self.plans.tier_of(&user_id, Utc::now()).await?.is_paid() {
             return Err(BannerError::NotFound);
         }
         let key = self

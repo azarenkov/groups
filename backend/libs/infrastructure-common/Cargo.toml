@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 domain = { workspace = true }
 ports = { workspace = true }
+contracts = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
@@ -24,7 +25,7 @@ livekit-api = "0.4.14"
 livekit-protocol = "0.7.1"
 async-nats = { workspace = true }
 rust-s3 = { workspace = true }
-tokio = { workspace = true, features = ["net", "time"] }
+tokio = { workspace = true, features = ["net", "time", "rt"] }
 tokio-util = { workspace = true }
 bytes = "1"
 lettre = "0.11.21"
@@ -33,3 +34,4 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid", "migrate"] }

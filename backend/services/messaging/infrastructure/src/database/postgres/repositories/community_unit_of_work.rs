@@ -71,6 +71,10 @@ impl UserLifecycleTransaction for PostgresUserLifecycleTransaction {
         .execute(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!("DELETE FROM search_history WHERE user_id = $1", self.user_id.uuid())
+            .execute(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
     }
 

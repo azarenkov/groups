@@ -3,6 +3,8 @@ import { ws } from "../../../shared/ws/websocket";
 import { useAuthStore } from "../../auth/store/authStore";
 import { PAGE_LIMIT } from "../constants";
 import { markReplyDeleted, refreshReplySnippet } from "./replies";
+import { cursorAfter } from "./messageFormat";
+import { clearedBefore, dmClearedFor } from "../../dm/lib/dmCleared";
 
 export const MESSAGE_CACHE_LIMIT = 20;
 
@@ -77,10 +79,10 @@ export function reconcileLatestPage(
   if (!fullPage || latest.length === 0) {
     return { messages: [...latest, ...live], gap: false };
   }
-  const cutoff = latest[0].createdAt;
-  const reachesWindow = current.some((m) => knownBefore.has(m.id) && m.createdAt >= cutoff);
+  const cutoff = latest[0];
+  const reachesWindow = current.some((m) => knownBefore.has(m.id) && !cursorAfter(cutoff, m));
   if (!reachesWindow) return { messages: [...latest, ...live], gap: true };
-  const older = current.filter((m) => m.createdAt < cutoff && !ids.has(m.id) && knownBefore.has(m.id));
+  const older = current.filter((m) => cursorAfter(cutoff, m) && !ids.has(m.id) && knownBefore.has(m.id));
   return { messages: [...older, ...latest, ...live], gap: false };
 }
 
@@ -146,15 +148,25 @@ export function installMessageCacheSync(): void {
         return;
       }
       case "message.edited":
-        edit(str(d.channelId));
+        if (!env.covered) edit(str(d.channelId));
         return;
       case "dm_message.edited":
-        edit(dmKey());
+        if (!env.covered) edit(dmKey());
         return;
       case "message.hidden": {
         const id = str(d.messageId);
         if (!id) return;
         for (const key of Array.from(entries.keys())) dropMessage(key, id);
+        return;
+      }
+      case "dm_conversation.cleared": {
+        const cleared = dmClearedFor(d, useAuthStore.getState().user?.id);
+        if (!cleared) return;
+        patchConversation(cleared.peerId, (messages) =>
+          messages.some((m) => clearedBefore(m.createdAt, cleared.clearedAt))
+            ? messages.filter((m) => !clearedBefore(m.createdAt, cleared.clearedAt))
+            : messages,
+        );
         return;
       }
       case "voice.listened": {

@@ -1,4 +1,6 @@
 use futures::future::BoxFuture;
+
+use crate::outbox::record::PartitionSequence;
 use futures::stream::BoxStream;
 
 pub trait EventConsumer: Send + Sync {
@@ -41,6 +43,9 @@ pub struct ConsumedMessage {
     pub payload: Vec<u8>,
     pub request_id: Option<String>,
     pub subject: String,
+    pub sequence: Option<PartitionSequence>,
+    pub event_id: Option<String>,
+    pub pending: Option<u64>,
     ack_fn: DispositionFn,
 }
 
@@ -49,14 +54,28 @@ impl ConsumedMessage {
         payload: Vec<u8>,
         request_id: Option<String>,
         subject: String,
+        sequence: Option<PartitionSequence>,
         ack_fn: DispositionFn,
     ) -> Self {
         Self {
             payload,
             request_id,
             subject,
+            sequence,
+            event_id: None,
+            pending: None,
             ack_fn,
         }
+    }
+
+    pub fn with_pending(mut self, pending: Option<u64>) -> Self {
+        self.pending = pending;
+        self
+    }
+
+    pub fn with_event_id(mut self, event_id: Option<String>) -> Self {
+        self.event_id = event_id;
+        self
     }
 
     pub async fn ack(self) -> Result<(), EventConsumerError> {

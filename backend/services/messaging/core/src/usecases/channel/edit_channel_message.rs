@@ -42,7 +42,7 @@ where
     unit_of_work: Arc<W>,
     attachment_claims: Arc<A>,
     mention_resolver: Arc<R>,
-    plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
+    plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
 }
 
 impl<M, C, S, W, A, R> EditChannelMessage<M, C, S, W, A, R>
@@ -61,7 +61,7 @@ where
         unit_of_work: Arc<W>,
         attachment_claims: Arc<A>,
         mention_resolver: Arc<R>,
-        plans: Arc<dyn messaging_domain::badge::BadgeRepository>,
+        plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
     ) -> Self {
         Self {
             message_repository,
@@ -138,7 +138,7 @@ where
         }
         let remaining = current_ids.len() - remove_ids.len() + add_ids.len();
         let tier = self.plans.tier_of(&editor_id, Utc::now()).await?;
-        if !add_ids.is_empty() && remaining > attachments_per_message(&tier) {
+        if !add_ids.is_empty() && remaining > attachments_per_message(tier) {
             return Err(EditChannelMessageError::InvalidAttachments);
         }
 
@@ -178,11 +178,8 @@ where
             .message_repository
             .list_users_hiding(message.id().uuid())
             .await?;
-        let event_recipients: Vec<_> = recipient_ids
-            .iter()
-            .copied()
-            .filter(|id| !hidden_for.contains(id))
-            .collect();
+        let (event_recipients, skipped_recipients): (Vec<_>, Vec<_>) =
+            recipient_ids.iter().copied().partition(|id| !hidden_for.contains(id));
         let request_id = request.ctx.request_id.clone();
         let events = message.pull_events();
         let claim_token = uuid::Uuid::new_v4();
@@ -236,7 +233,7 @@ where
 
         let persisted = async {
             let snapshots: Vec<AttachmentSnapshot> = final_attachments.iter().map(AttachmentSnapshot::from).collect();
-        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_recipients(&event_recipients).with_attachments(&snapshots))).collect();
+        let events: Vec<MessagingEvent> = events.into_iter().map(|e| MessagingEvent::from(e.with_recipients(&event_recipients).with_skipped(&skipped_recipients).with_attachments(&snapshots))).collect();
         let mut tx = self.unit_of_work.begin().await?;
             tx.update_message(
                 &message,

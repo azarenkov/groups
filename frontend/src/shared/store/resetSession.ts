@@ -7,11 +7,15 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
   void import("../../features/chat/lib/messageCache").then((m) => m.clearMessageCache());
   void import("../../features/chat/lib/imageUrlCache").then((m) => m.clearImageUrlCache());
   void import("../query/queryClient").then((m) => m.resetQueryCache());
+  void import("../../features/search/lib/searchHistory").then((m) => m.resetSearchHistorySession());
   void import("../../features/chat/hooks/usePinnedMessages").then((m) => m.clearPinTombstones());
 
   void import("../../features/social/store/activityStore").then((m) => m.useActivityStore.getState().clearAll());
   void import("../../features/social/store/blockStore").then((m) => m.useBlockStore.getState().clearAll());
   void import("../../features/dm/store/dmPreviewStore").then((m) => m.useDmPreviewStore.getState().clear());
+  void import("../../features/dm/store/hiddenDmStore").then((m) => m.useHiddenDmStore.getState().clearAll());
+  void import("../../features/dm/lib/dmCleared").then((m) => m.forgetDmClears());
+  void import("../../features/voice/ws/voiceHandlers").then((m) => m.dropHeldCalls());
   void import("../../features/social/store/friendshipStore").then((m) => m.useFriendshipStore.getState().clearAll());
   void import("../../features/home/store/homeStore").then((m) => m.useHomeStore.getState().clear());
   void import("../../features/settings/store/notificationPrefsStore").then((m) =>

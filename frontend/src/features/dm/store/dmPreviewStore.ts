@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { coalesce } from "../../../shared/lib/coalesce";
+import { clearedBefore } from "../lib/dmCleared";
 
 export interface DmPreview {
   messageId: string;
@@ -34,6 +35,7 @@ interface DmPreviewState {
     hasAttachments?: boolean,
   ) => void;
   hasMessage: (messageId: string) => boolean;
+  dropCleared: (friendId: string, clearedAt: string) => void;
   clear: () => void;
   hydrate: (items: (DmPreview & { peerId: string })[]) => void;
 }
@@ -135,6 +137,15 @@ export const useDmPreviewStore = create<DmPreviewState>()((set, get) => ({
           },
         },
       };
+    }),
+
+  dropCleared: (friendId, clearedAt) =>
+    set((s) => {
+      const cur = s.byFriend[friendId];
+      if (!cur || !clearedBefore(cur.createdAt, clearedAt)) return s;
+      const byFriend = { ...s.byFriend };
+      delete byFriend[friendId];
+      return { byFriend };
     }),
 
   hasMessage: (messageId) =>

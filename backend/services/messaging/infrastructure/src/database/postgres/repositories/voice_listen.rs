@@ -69,18 +69,48 @@ impl VoiceListenRepository for PostgresVoiceListenRepository {
         if !recipients.contains(&listener.uuid()) {
             recipients.push(listener.uuid());
         }
+        let dm_pair: Option<(Uuid, Uuid)> =
+            sqlx::query_as("SELECT sender_id, recipient_id FROM dm_messages WHERE id = $1")
+                .bind(message_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+        let (aggregate_type, parent_id, parent_type, skipped_ids) = match dm_pair {
+            Some((sender, recipient)) => {
+                let peer = if sender == listener.uuid() { recipient } else { sender };
+                (AggregateType::User, peer, AggregateType::User, Vec::new())
+            }
+            None => {
+                let channel_id: Uuid = sqlx::query_scalar("SELECT channel_id FROM messages WHERE id = $1")
+                    .bind(message_id)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(map_sqlx_error_to_domain_error)?;
+                let others: Vec<Uuid> = sqlx::query_scalar(
+                    "SELECT user_id FROM channel_text_participants WHERE channel_id = $1 AND user_id <> ALL($2)",
+                )
+                .bind(channel_id)
+                .bind(&recipients)
+                .fetch_all(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+                (AggregateType::Message, channel_id, AggregateType::Channel, others)
+            }
+        };
+        let aggregate_id = if aggregate_type == AggregateType::User { listener.uuid() } else { message_id };
         let record = OutboxRecord {
             id: Uuid::new_v4(),
-            aggregate_id: listener.uuid(),
-            aggregate_type: AggregateType::User,
-            parent_id: None,
-            parent_type: None,
+            aggregate_id,
+            aggregate_type,
+            parent_id: Some(parent_id),
+            parent_type: Some(parent_type),
             event_type: "voice.listened".to_string(),
             payload: serde_json::json!({
                 "message_id": message_id,
                 "listener_id": listener.uuid(),
                 "listened_at": listened_at,
                 "recipients": recipients,
+                "skipped_ids": skipped_ids,
             }),
             occurred_at: listened_at,
             request_id: None,
