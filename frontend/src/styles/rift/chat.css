@@ -295,7 +295,7 @@
   border: 1px solid transparent;
   transition: all var(--dur-fast);
 }
-.composer-wrap:focus-within {
+.composer-wrap:has(> .composer-input:focus) {
   background: var(--surface-panel);
   border-color: var(--accent);
   box-shadow: var(--shadow-focus);
@@ -853,11 +853,16 @@
   z-index: 2;
   display: flex; align-items: center; gap: 10px;
   padding: 0 12px;
-  border-radius: 12px 0 0 12px;
-  background: inherit;
+  border-radius: inherit;
+  border-top-right-radius: 0; border-bottom-right-radius: 0;
+  background: var(--surface-panel);
   animation: popIn 0.16s ease;
 }
-.composer-wrap.voice-recording { background: var(--surface-panel); border-color: var(--hairline); }
+.composer-wrap.voice-recording,
+.composer-wrap.voice-recording:hover { background: var(--surface-panel); border-color: var(--hairline); }
+.composer-wrap.voice-recording > .composer-input,
+.composer-wrap.voice-recording > .attach-btn,
+.composer-wrap.voice-recording > .sticker-picker { visibility: hidden; }
 .voice-rec-dot {
   width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
   background: var(--danger, #ff453a);
@@ -1536,7 +1541,7 @@
   align-items: flex-end;
 }
 .composer-wrap:hover { background: var(--surface-hover); }
-.composer-wrap:focus-within {
+.composer-wrap:has(> .composer-input:focus) {
   background: var(--surface-panel);
   border-color: transparent;
   box-shadow: inset 0 0 0 2px var(--fg-1);

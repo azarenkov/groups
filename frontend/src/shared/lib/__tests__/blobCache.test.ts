@@ -15,7 +15,8 @@ import {
   writeCachedBlob,
 } from "../blobCache";
 
-const blobOf = (size: number) => ({ size } as Blob);
+const blobOf = (size: number) =>
+  ({ size, type: "image/webp", arrayBuffer: () => Promise.resolve(new ArrayBuffer(size)) }) as unknown as Blob;
 
 beforeEach(() => {
   setBlobBackend(memoryBlobBackend());
@@ -28,7 +29,9 @@ afterAll(() => {
 it("stores and returns blobs", async () => {
   const blob = blobOf(10);
   await writeCachedBlob("a", blob);
-  expect(await readCachedBlob("a")).toBe(blob);
+  const read = await readCachedBlob("a");
+  expect(read?.size).toBe(10);
+  expect(read?.type).toBe("image/webp");
   await deleteCachedBlob("a");
   expect(await readCachedBlob("a")).toBeNull();
 });
@@ -223,4 +226,12 @@ it("does not let a read's usage update overwrite a newer blob", async () => {
   await reading;
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect((await memory.get("avatar"))?.blob).toBe(newBlob);
+});
+
+it("drops a cached blob whose data can no longer be read", async () => {
+  const broken = { size: 10, type: "image/webp", arrayBuffer: () => Promise.reject(new Error("WebKitBlobResource")) } as unknown as Blob;
+  await writeCachedBlob("lost", broken);
+  expect(await readCachedBlob("lost")).toBeNull();
+  await writeCachedBlob("lost", blobOf(10));
+  expect((await readCachedBlob("lost"))?.size).toBe(10);
 });

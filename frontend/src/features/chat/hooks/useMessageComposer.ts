@@ -48,6 +48,7 @@ export function useMessageComposer(params: {
   const [replyTarget, setReplyTarget] = React.useState<ReplyPreview | null>(null);
   const composerRef = React.useRef<HTMLTextAreaElement>(null);
   const wasSendingRef = React.useRef(false);
+  const refocusAfterSendRef = React.useRef(false);
 
   React.useEffect(() => {
     setText("");
@@ -66,7 +67,7 @@ export function useMessageComposer(params: {
   }, [dmFriendId]);
 
   React.useEffect(() => {
-    if (wasSendingRef.current && !sending) {
+    if (wasSendingRef.current && !sending && refocusAfterSendRef.current) {
       composerRef.current?.focus();
     }
     wasSendingRef.current = sending;
@@ -95,6 +96,7 @@ export function useMessageComposer(params: {
     const chunks = v ? splitForSend(v, MAX_CONTENT) : [""];
     if (chunks.length === 0) return;
 
+    refocusAfterSendRef.current = true;
     setSending(true);
     setComposerError(null);
 
@@ -232,6 +234,7 @@ export function useMessageComposer(params: {
     const originConvId = currentChannelIdRef.current;
     const stillHere = () => currentChannelIdRef.current === originConvId;
     const reply = replyTarget;
+    refocusAfterSendRef.current = false;
     setSending(true);
     setComposerError(null);
     let pending: Attachment | null = null;
@@ -306,6 +309,7 @@ export function useMessageComposer(params: {
   const sendSticker = async (sticker: PackSticker): Promise<boolean> => {
     if (!messenger || sending || stickerInFlightRef.current) return false;
     stickerInFlightRef.current = true;
+    refocusAfterSendRef.current = false;
     setSending(true);
     const originConvId = currentChannelIdRef.current;
     const stillHere = () => currentChannelIdRef.current === originConvId;
