@@ -17,6 +17,7 @@ import type { GlobalSearchHit } from "../../search/api/globalSearch";
 import type { HistoryItem, HistoryTarget } from "../../search/api/searchHistory";
 import { placeLink } from "../../search/components/GlobalSearchResults";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
+import { useChannelStore } from "../store/channelStore";
 
 const QUICK_LIMIT = 5;
 
@@ -118,9 +119,21 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
       }
       case "channel": {
         const community = communities.find((c) => c.id === item.communityId);
-        const channel = (channelsByCommunity[item.communityId] ?? []).find((c) => c.id === item.channelId);
-        if (community && channel) onPickChannel(community, channel);
-        else if (community) onPickCommunity(community);
+        if (!community) break;
+        const known = (channelsByCommunity[item.communityId] ?? []).find((c) => c.id === item.channelId);
+        if (known) {
+          onPickChannel(community, known);
+          break;
+        }
+        void (async () => {
+          const store = useChannelStore.getState();
+          await store.fetchChannels(item.communityId).catch(() => false);
+          const loaded = (useChannelStore.getState().channelsByCommunity[item.communityId] ?? []).find(
+            (c) => c.id === item.channelId,
+          );
+          if (loaded) onPickChannel(community, loaded);
+          else onPickCommunity(community);
+        })();
         break;
       }
       case "message":

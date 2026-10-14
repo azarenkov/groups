@@ -435,3 +435,38 @@ it("reveals verified recents as soon as an unchanged history comes back from the
   await act(async () => answer(JSON.parse(JSON.stringify(cached))));
   expect(await screen.findByText("Alpha Squad")).toBeInTheDocument();
 });
+
+it("loads a recent channel's community channels before opening it", async () => {
+  signIn();
+  const { useChannelStore } = jest.requireActual("../../store/channelStore");
+  const fetchChannels = jest.fn(async (communityId: string) => {
+    useChannelStore.setState((state: { channelsByCommunity: Record<string, unknown[]> }) => ({
+      channelsByCommunity: {
+        ...state.channelsByCommunity,
+        [communityId]: [{ id: "ch9", name: "lore", kind: "text", communityId }],
+      },
+    }));
+    return true;
+  });
+  useChannelStore.setState({ fetchChannels, channelsByCommunity: {} });
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    {
+      id: "h13",
+      usedAt: "2026-10-13T09:00:00Z",
+      type: "channel",
+      communityId: "c1",
+      communityName: "Alpha Squad",
+      channelId: "ch9",
+      name: "lore",
+      voice: false,
+    },
+  ]);
+  const { picks, input } = setup();
+  fireEvent.focus(input);
+  fireEvent.click(await screen.findByText("lore"));
+  await waitFor(() =>
+    expect(picks.channel).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }), expect.objectContaining({ id: "ch9" })),
+  );
+  expect(fetchChannels).toHaveBeenCalledWith("c1");
+  expect(picks.community).not.toHaveBeenCalled();
+});
