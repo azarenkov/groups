@@ -204,4 +204,78 @@ impl InboxRepository for PostgresInboxRepository {
         }
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)
     }
+
+    async fn expire(&self, before: DateTime<Utc>, kept_kinds: &[&str], limit: i64) -> Result<u64, RepositoryError> {
+        let kept: Vec<String> = kept_kinds.iter().map(|k| k.to_string()).collect();
+        let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+        let owners = sqlx::query_scalar!(
+            r#"
+            WITH doomed AS (
+                SELECT id FROM inbox_notifications
+                WHERE created_at < $1 AND NOT (kind = ANY($2))
+                ORDER BY created_at
+                LIMIT $3
+                FOR UPDATE SKIP LOCKED
+            )
+            DELETE FROM inbox_notifications n USING doomed
+            WHERE n.id = doomed.id
+            RETURNING n.user_id
+            "#,
+            before,
+            &kept,
+            limit,
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        announce_pruned(tx, owners).await
+    }
+
+    async fn trim(&self, keep_per_user: i64, kept_kinds: &[&str], limit: i64) -> Result<u64, RepositoryError> {
+        let kept: Vec<String> = kept_kinds.iter().map(|k| k.to_string()).collect();
+        let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+        let owners = sqlx::query_scalar!(
+            r#"
+            WITH crowded AS (
+                SELECT user_id FROM inbox_notifications
+                WHERE NOT (kind = ANY($2))
+                GROUP BY user_id
+                HAVING COUNT(*) > $1
+            ),
+            ranked AS (
+                SELECT n.id, row_number() OVER (PARTITION BY n.user_id ORDER BY n.created_at DESC, n.id DESC) AS position
+                FROM inbox_notifications n
+                JOIN crowded c ON c.user_id = n.user_id
+                WHERE NOT (n.kind = ANY($2))
+            ),
+            doomed AS (
+                SELECT n.id FROM inbox_notifications n
+                JOIN ranked r ON r.id = n.id
+                WHERE r.position > $1
+                LIMIT $3
+                FOR UPDATE OF n SKIP LOCKED
+            )
+            DELETE FROM inbox_notifications n USING doomed
+            WHERE n.id = doomed.id
+            RETURNING n.user_id
+            "#,
+            keep_per_user,
+            &kept,
+            limit,
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        announce_pruned(tx, owners).await
+    }
+}
+
+async fn announce_pruned(mut tx: Transaction<'_, Postgres>, owners: Vec<Uuid>) -> Result<u64, RepositoryError> {
+    let removed = owners.len() as u64;
+    let affected: std::collections::BTreeSet<Uuid> = owners.into_iter().collect();
+    for user_id in affected {
+        save_inbox_event(&mut tx, user_id, INBOX_UPDATED, None).await?;
+    }
+    tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+    Ok(removed)
 }

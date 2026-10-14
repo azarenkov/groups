@@ -12,6 +12,7 @@ mod forward;
 mod friendship;
 mod home;
 mod inbox;
+mod inbox_prune;
 mod internal;
 mod invites;
 mod notifications;

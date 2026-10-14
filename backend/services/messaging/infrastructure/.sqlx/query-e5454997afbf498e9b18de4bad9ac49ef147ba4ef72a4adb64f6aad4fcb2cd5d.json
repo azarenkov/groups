@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH doomed AS (\n                SELECT id FROM inbox_notifications\n                WHERE created_at < $1 AND NOT (kind = ANY($2))\n                ORDER BY created_at\n                LIMIT $3\n                FOR UPDATE SKIP LOCKED\n            )\n            DELETE FROM inbox_notifications n USING doomed\n            WHERE n.id = doomed.id\n            RETURNING n.user_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "TextArray",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e5454997afbf498e9b18de4bad9ac49ef147ba4ef72a4adb64f6aad4fcb2cd5d"
+}

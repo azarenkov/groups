@@ -62,6 +62,12 @@ mod tests {
         async fn mark_read(&self, _: &UserId, _: Option<&[Uuid]>, _: DateTime<Utc>) -> Result<(), RepositoryError> {
             unimplemented!()
         }
+        async fn expire(&self, _: DateTime<Utc>, _: &[&str], _: i64) -> Result<u64, RepositoryError> {
+            unimplemented!()
+        }
+        async fn trim(&self, _: i64, _: &[&str], _: i64) -> Result<u64, RepositoryError> {
+            unimplemented!()
+        }
     }
 
     #[tokio::test]

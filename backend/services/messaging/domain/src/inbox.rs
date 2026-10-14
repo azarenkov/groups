@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use uuid::Uuid;
@@ -8,6 +8,26 @@ use crate::community::{id::CommunityId, invitation::InvitationId};
 
 pub const INBOX_PAGE_DEFAULT: i64 = 30;
 pub const INBOX_PAGE_MAX: i64 = 50;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InboxRetention {
+    pub max_age: Duration,
+    pub max_per_user: i64,
+}
+
+impl InboxRetention {
+    pub const KEPT_UNTIL_RESOLVED: &'static [&'static str] = &[NotificationKind::COMMUNITY_INVITATION];
+
+    pub fn expired_before(&self, now: DateTime<Utc>) -> DateTime<Utc> {
+        now - self.max_age
+    }
+}
+
+impl Default for InboxRetention {
+    fn default() -> Self {
+        Self { max_age: Duration::days(30), max_per_user: 200 }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum InboxTrigger {
@@ -56,9 +76,11 @@ pub enum NotificationKind {
 }
 
 impl NotificationKind {
+    pub const COMMUNITY_INVITATION: &'static str = "community_invitation";
+
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::CommunityInvitation { .. } => "community_invitation",
+            Self::CommunityInvitation { .. } => Self::COMMUNITY_INVITATION,
             Self::RemovedFromCommunity { .. } => "removed_from_community",
             Self::FriendRequestReceived { .. } => "friend_request_received",
             Self::FriendRequestAccepted { .. } => "friend_request_accepted",
@@ -203,6 +225,8 @@ pub trait InboxRepository: Send + Sync {
     async fn list(&self, user_id: &UserId, before: Option<&InboxCursor>, limit: i64) -> Result<Vec<InboxItem>, RepositoryError>;
     async fn unread_count(&self, user_id: &UserId) -> Result<i64, RepositoryError>;
     async fn mark_read(&self, user_id: &UserId, ids: Option<&[Uuid]>, now: DateTime<Utc>) -> Result<(), RepositoryError>;
+    async fn expire(&self, before: DateTime<Utc>, kept_kinds: &[&str], limit: i64) -> Result<u64, RepositoryError>;
+    async fn trim(&self, keep_per_user: i64, kept_kinds: &[&str], limit: i64) -> Result<u64, RepositoryError>;
 }
 
 #[cfg(test)]
@@ -258,6 +282,21 @@ mod tests {
             accepted.effect(Utc::now()),
             Some(InboxEffect::Deliver(n)) if n.recipient_id == sender && n.kind == NotificationKind::FriendRequestAccepted { by: receiver }
         ));
+    }
+
+    #[test]
+    fn retention_keeps_a_month_of_notifications_and_pending_invitations() {
+        let retention = InboxRetention::default();
+        let now = DateTime::from_timestamp(1_800_000_000, 0).unwrap();
+        assert_eq!(retention.expired_before(now), now - Duration::days(30));
+        assert_eq!(retention.max_per_user, 200);
+        let invitation = NotificationKind::CommunityInvitation {
+            invitation_id: InvitationId::generate(),
+            community_id: CommunityId::new(Uuid::new_v4()),
+            inviter_id: user(),
+        };
+        assert!(InboxRetention::KEPT_UNTIL_RESOLVED.contains(&invitation.as_str()));
+        assert!(!InboxRetention::KEPT_UNTIL_RESOLVED.contains(&NotificationKind::FriendRequestAccepted { by: user() }.as_str()));
     }
 
     #[test]

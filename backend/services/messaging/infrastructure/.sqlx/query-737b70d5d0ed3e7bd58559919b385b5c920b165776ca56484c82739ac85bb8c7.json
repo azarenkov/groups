@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH crowded AS (\n                SELECT user_id FROM inbox_notifications\n                WHERE NOT (kind = ANY($2))\n                GROUP BY user_id\n                HAVING COUNT(*) > $1\n            ),\n            ranked AS (\n                SELECT n.id, row_number() OVER (PARTITION BY n.user_id ORDER BY n.created_at DESC, n.id DESC) AS position\n                FROM inbox_notifications n\n                JOIN crowded c ON c.user_id = n.user_id\n                WHERE NOT (n.kind = ANY($2))\n            ),\n            doomed AS (\n                SELECT n.id FROM inbox_notifications n\n                JOIN ranked r ON r.id = n.id\n                WHERE r.position > $1\n                LIMIT $3\n                FOR UPDATE OF n SKIP LOCKED\n            )\n            DELETE FROM inbox_notifications n USING doomed\n            WHERE n.id = doomed.id\n            RETURNING n.user_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "TextArray",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "737b70d5d0ed3e7bd58559919b385b5c920b165776ca56484c82739ac85bb8c7"
+}
