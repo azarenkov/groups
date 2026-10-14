@@ -113,6 +113,15 @@ where
             Err(RepositoryError::NotFound) => return Err(SendCommunityInviteError::CommunityNotFound),
             Err(e) => return Err(e.into()),
         };
+        let (first, second) = if inviter_id.uuid() < invitee_id.uuid() { (inviter_id, invitee_id) } else { (invitee_id, inviter_id) };
+        tx.lock_user(&first).await?;
+        tx.lock_user(&second).await?;
+        if tx.is_user_deleted(&invitee_id).await? {
+            return Err(SendCommunityInviteError::RecipientInactive);
+        }
+        if tx.is_user_deleted(&inviter_id).await? {
+            return Err(SendCommunityInviteError::NotAllowed);
+        }
         tx.lock_pair(&inviter_id, &invitee_id).await?;
         if tx.block_relation(&inviter_id, &invitee_id).await?.any() {
             return Err(SendCommunityInviteError::Blocked);
