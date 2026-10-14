@@ -125,7 +125,7 @@ struct UnreadResponse {
     count: i64,
 }
 
-#[derive(Debug, Default, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 struct MarkReadBody {
     ids: Option<Vec<Uuid>>,
 }
@@ -201,9 +201,9 @@ async fn inbox_unread(auth_token: RateLimitedAuthToken, app_state: web::Data<App
 async fn mark_inbox_read(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
-    body: Option<web::Json<MarkReadBody>>,
+    body: web::Json<MarkReadBody>,
 ) -> Result<impl Responder, HttpError> {
-    let ids = body.map(|b| b.into_inner()).unwrap_or_default().ids;
+    let ids = body.into_inner().ids;
     app_state.read_inbox_usecase.mark_read(UserId::new(auth_token.id), ids).await?;
     Ok(HttpResponse::NoContent().finish())
 }
@@ -214,4 +214,32 @@ pub fn inbox_routes(cfg: &mut web::ServiceConfig) {
         .service(mark_inbox_read)
         .service(accept_invitation)
         .service(decline_invitation);
+}
+
+#[cfg(test)]
+mod tests {
+    use actix_web::{App, http::StatusCode, test};
+
+    use super::*;
+
+    async fn echo(body: web::Json<MarkReadBody>) -> HttpResponse {
+        HttpResponse::Ok().body(body.into_inner().ids.map_or("all".to_string(), |ids| ids.len().to_string()))
+    }
+
+    #[actix_web::test]
+    async fn mark_read_bodies_must_be_valid_json() {
+        let app = test::init_service(App::new().route("/read", web::post().to(echo))).await;
+        let all = test::TestRequest::post().uri("/read").set_json(serde_json::json!({})).to_request();
+        assert_eq!(test::call_and_read_body(&app, all).await, "all");
+        let some = test::TestRequest::post().uri("/read").set_json(serde_json::json!({ "ids": [Uuid::new_v4()] })).to_request();
+        assert_eq!(test::call_and_read_body(&app, some).await, "1");
+        let truncated = test::TestRequest::post()
+            .uri("/read")
+            .insert_header(("content-type", "application/json"))
+            .set_payload("{\"ids\": [")
+            .to_request();
+        assert_eq!(test::call_service(&app, truncated).await.status(), StatusCode::BAD_REQUEST);
+        let wrong_type = test::TestRequest::post().uri("/read").insert_header(("content-type", "text/plain")).set_payload("{}").to_request();
+        assert_eq!(test::call_service(&app, wrong_type).await.status(), StatusCode::BAD_REQUEST);
+    }
 }
