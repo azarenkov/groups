@@ -1,3 +1,13 @@
+CREATE TABLE messaging.removed_legacy_invitation_messages (
+    id uuid NOT NULL,
+    sender_id uuid NOT NULL,
+    recipient_id uuid NOT NULL,
+    CONSTRAINT removed_legacy_invitation_messages_pkey PRIMARY KEY (id)
+);
+
+INSERT INTO messaging.removed_legacy_invitation_messages (id, sender_id, recipient_id)
+SELECT id, sender_id, recipient_id FROM messaging.dm_messages WHERE invite_community_id IS NOT NULL;
+
 DELETE FROM messaging.dm_messages m
 USING messaging.user_blocks b
 WHERE m.invite_community_id IS NOT NULL

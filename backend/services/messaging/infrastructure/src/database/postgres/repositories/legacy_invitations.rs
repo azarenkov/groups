@@ -6,7 +6,7 @@ use messaging_domain::dm_message::events::{DmMessageDomainEvent, lifecycle::DmMe
 use messaging_domain::dm_message::id::DmMessageId;
 use messaging_domain::events::MessagingEvent;
 use ports::repository::RepositoryError;
-use sqlx::{Pool, Postgres};
+use sqlx::{Pool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::outbox::mapping::to_records;
@@ -19,6 +19,24 @@ use crate::database::postgres::{
 
 pub struct PostgresLegacyInvitations {
     pool: Pool<Postgres>,
+}
+
+async fn announce_deleted(
+    tx: &mut Transaction<'_, Postgres>,
+    messages: impl Iterator<Item = (Uuid, Uuid, Uuid)>,
+) -> Result<(), RepositoryError> {
+    let now = Utc::now();
+    let deleted: Vec<MessagingEvent> = messages
+        .map(|(id, sender_id, recipient_id)| {
+            MessagingEvent::DmMessage(DmMessageDomainEvent::Deleted(DmMessageDeleted::record(
+                DmMessageId::new(id),
+                UserId::new(sender_id),
+                UserId::new(recipient_id),
+                now,
+            )))
+        })
+        .collect();
+    save_outbox_records(tx, &to_records(&deleted, None)?).await
 }
 
 impl PostgresLegacyInvitations {
@@ -57,19 +75,7 @@ impl LegacyInvitations for PostgresLegacyInvitations {
         if taken.is_empty() {
             return Ok(0);
         }
-        let now = Utc::now();
-        let deleted: Vec<MessagingEvent> = taken
-            .iter()
-            .map(|t| {
-                MessagingEvent::DmMessage(DmMessageDomainEvent::Deleted(DmMessageDeleted::record(
-                    DmMessageId::new(t.id),
-                    UserId::new(t.sender_id),
-                    UserId::new(t.recipient_id),
-                    now,
-                )))
-            })
-            .collect();
-        save_outbox_records(&mut tx, &to_records(&deleted, None)?).await?;
+        announce_deleted(&mut tx, taken.iter().map(|t| (t.id, t.sender_id, t.recipient_id))).await?;
         let pairs: std::collections::BTreeSet<String> =
             taken.iter().map(|t| pair_key(&UserId::new(t.sender_id), &UserId::new(t.recipient_id))).collect();
         for key in pairs {
@@ -189,5 +195,29 @@ impl LegacyInvitations for PostgresLegacyInvitations {
         }
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(invitees.len() as u64)
+    }
+
+    async fn announce_removed(&self, limit: i64) -> Result<u64, RepositoryError> {
+        let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+        let removed = sqlx::query!(
+            r#"
+            WITH batch AS (
+                SELECT id FROM removed_legacy_invitation_messages
+                ORDER BY id
+                LIMIT $1
+                FOR UPDATE SKIP LOCKED
+            )
+            DELETE FROM removed_legacy_invitation_messages r USING batch
+            WHERE r.id = batch.id
+            RETURNING r.id, r.sender_id, r.recipient_id
+            "#,
+            limit,
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        announce_deleted(&mut tx, removed.iter().map(|r| (r.id, r.sender_id, r.recipient_id))).await?;
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(removed.len() as u64)
     }
 }

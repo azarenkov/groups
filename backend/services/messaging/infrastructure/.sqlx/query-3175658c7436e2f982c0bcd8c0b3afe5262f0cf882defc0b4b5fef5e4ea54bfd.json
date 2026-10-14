@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH batch AS (\n                SELECT id FROM removed_legacy_invitation_messages\n                ORDER BY id\n                LIMIT $1\n                FOR UPDATE SKIP LOCKED\n            )\n            DELETE FROM removed_legacy_invitation_messages r USING batch\n            WHERE r.id = batch.id\n            RETURNING r.id, r.sender_id, r.recipient_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "sender_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "recipient_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3175658c7436e2f982c0bcd8c0b3afe5262f0cf882defc0b4b5fef5e4ea54bfd"
+}
