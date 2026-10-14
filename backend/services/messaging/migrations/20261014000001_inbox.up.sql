@@ -46,6 +46,11 @@ WHERE m.invite_community_id IS NOT NULL
       SELECT 1 FROM messaging.community_members cm
       WHERE cm.community_id = m.invite_community_id AND cm.user_id = m.recipient_id
   )
+  AND NOT EXISTS (
+      SELECT 1 FROM messaging.user_blocks b
+      WHERE (b.blocker_id = m.sender_id AND b.blocked_id = m.recipient_id)
+         OR (b.blocker_id = m.recipient_id AND b.blocked_id = m.sender_id)
+  )
 ORDER BY m.invite_community_id, m.recipient_id, m.created_at DESC;
 
 INSERT INTO messaging.inbox_notifications (id, user_id, kind, actor_id, community_id, invitation_id, source_event_id, created_at)

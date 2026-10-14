@@ -27,12 +27,17 @@ impl LegacyInvitations for PostgresLegacyInvitations {
         let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
         let taken = sqlx::query!(
             r#"
-            WITH legacy AS (
-                SELECT id FROM dm_messages
+            WITH keys AS (
+                SELECT DISTINCT invite_community_id, recipient_id FROM dm_messages
                 WHERE invite_community_id IS NOT NULL
-                ORDER BY created_at
+                ORDER BY invite_community_id, recipient_id
                 LIMIT $1
-                FOR UPDATE SKIP LOCKED
+            ),
+            legacy AS (
+                SELECT d.id FROM dm_messages d
+                JOIN keys k ON k.invite_community_id = d.invite_community_id AND k.recipient_id = d.recipient_id
+                ORDER BY d.id
+                FOR UPDATE OF d
             )
             DELETE FROM dm_messages m USING legacy
             WHERE m.id = legacy.id
