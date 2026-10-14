@@ -6,6 +6,7 @@ use contracts::events::{
     community::{CommunityInvitationIssuedV1, CommunityInvitationResolvedV1, CommunityMemberV1},
     friendship::{FriendRequestAcceptedV1, FriendRequestSentV1},
 };
+use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
@@ -49,38 +50,50 @@ impl InboxFeed {
     }
 }
 
-pub fn trigger_for(subject: &str, payload: &[u8]) -> Result<Option<InboxTrigger>, serde_json::Error> {
-    let trigger = if subject.ends_with(".request_sent") {
+pub fn trigger_for(
+    subject: &str,
+    payload: &[u8],
+) -> Result<Option<(InboxTrigger, DateTime<Utc>)>, serde_json::Error> {
+    let occurred = if subject.ends_with(".request_sent") {
         let evt: FriendRequestSentV1 = serde_json::from_slice(payload)?;
-        InboxTrigger::FriendRequestSent { sender_id: UserId::new(evt.sender_id), receiver_id: UserId::new(evt.receiver_id) }
+        (InboxTrigger::FriendRequestSent { sender_id: UserId::new(evt.sender_id), receiver_id: UserId::new(evt.receiver_id) }, evt.occurred_at)
     } else if subject.ends_with(".request_accepted") {
         let evt: FriendRequestAcceptedV1 = serde_json::from_slice(payload)?;
-        InboxTrigger::FriendRequestAccepted { accepter_id: UserId::new(evt.accepter_id), sender_id: UserId::new(evt.sender_id) }
+        (InboxTrigger::FriendRequestAccepted { accepter_id: UserId::new(evt.accepter_id), sender_id: UserId::new(evt.sender_id) }, evt.occurred_at)
     } else if subject.ends_with(".invitation_issued") {
         let evt: CommunityInvitationIssuedV1 = serde_json::from_slice(payload)?;
-        InboxTrigger::InvitationIssued {
-            invitation_id: InvitationId::new(evt.invitation_id),
-            community_id: CommunityId::new(evt.community_id),
-            inviter_id: UserId::new(evt.inviter_id),
-            invitee_id: UserId::new(evt.invitee_id),
-        }
+        (
+            InboxTrigger::InvitationIssued {
+                invitation_id: InvitationId::new(evt.invitation_id),
+                community_id: CommunityId::new(evt.community_id),
+                inviter_id: UserId::new(evt.inviter_id),
+                invitee_id: UserId::new(evt.invitee_id),
+            },
+            evt.occurred_at,
+        )
     } else if subject.ends_with(".invitation_resolved") {
         let evt: CommunityInvitationResolvedV1 = serde_json::from_slice(payload)?;
-        InboxTrigger::InvitationResolved {
-            invitation_id: InvitationId::new(evt.invitation_id),
-            invitee_id: UserId::new(evt.invitee_id),
-        }
+        (
+            InboxTrigger::InvitationResolved {
+                invitation_id: InvitationId::new(evt.invitation_id),
+                invitee_id: UserId::new(evt.invitee_id),
+            },
+            evt.occurred_at,
+        )
     } else if subject.ends_with(".member_left") {
         let evt: CommunityMemberV1 = serde_json::from_slice(payload)?;
-        InboxTrigger::MemberRemoved {
-            community_id: CommunityId::new(evt.community_id),
-            user_id: UserId::new(evt.user_id),
-            removed_by: evt.removed_by.map(UserId::new),
-        }
+        (
+            InboxTrigger::MemberRemoved {
+                community_id: CommunityId::new(evt.community_id),
+                user_id: UserId::new(evt.user_id),
+                removed_by: evt.removed_by.map(UserId::new),
+            },
+            evt.occurred_at,
+        )
     } else {
         return Ok(None);
     };
-    Ok(Some(trigger))
+    Ok(Some(occurred))
 }
 
 fn source_event_id(event_id: Option<&str>, subject: &str, payload: &[u8]) -> String {
@@ -122,8 +135,8 @@ where
                             tracing::warn!(consumer = feed.consumer_name, "Inbox feed stream error");
                             break;
                         };
-                        let trigger = match trigger_for(&m.subject, &m.payload) {
-                            Ok(Some(trigger)) => trigger,
+                        let (trigger, occurred_at) = match trigger_for(&m.subject, &m.payload) {
+                            Ok(Some(occurred)) => occurred,
                             Ok(None) => {
                                 let _ = m.ack().await;
                                 continue;
@@ -135,7 +148,7 @@ where
                             }
                         };
                         let source = source_event_id(m.event_id.as_deref(), &m.subject, &m.payload);
-                        match usecase.execute(&trigger, &source).await {
+                        match usecase.execute(&trigger, occurred_at, &source).await {
                             Ok(()) => {
                                 let _ = m.ack().await;
                             }
@@ -166,17 +179,17 @@ mod tests {
         let sent = serde_json::to_vec(&FriendRequestSentV1 { sender_id: a, receiver_id: b, occurred_at: now }).unwrap();
         assert_eq!(
             trigger_for("rift.events.user.p1.request_sent", &sent).unwrap(),
-            Some(InboxTrigger::FriendRequestSent { sender_id: UserId::new(a), receiver_id: UserId::new(b) })
+            Some((InboxTrigger::FriendRequestSent { sender_id: UserId::new(a), receiver_id: UserId::new(b) }, now))
         );
         let kicked = serde_json::to_vec(&CommunityMemberV1 { community_id: c, user_id: a, removed_by: Some(b), occurred_at: now }).unwrap();
         assert_eq!(
             trigger_for("rift.events.community.p2.member_left", &kicked).unwrap(),
-            Some(InboxTrigger::MemberRemoved { community_id: CommunityId::new(c), user_id: UserId::new(a), removed_by: Some(UserId::new(b)) })
+            Some((InboxTrigger::MemberRemoved { community_id: CommunityId::new(c), user_id: UserId::new(a), removed_by: Some(UserId::new(b)) }, now))
         );
         let legacy_left = br#"{"community_id":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000002","occurred_at":"2026-10-14T10:00:00Z"}"#;
         assert!(matches!(
             trigger_for("rift.events.community.p2.member_left", legacy_left).unwrap(),
-            Some(InboxTrigger::MemberRemoved { removed_by: None, .. })
+            Some((InboxTrigger::MemberRemoved { removed_by: None, .. }, _))
         ));
         assert_eq!(trigger_for("rift.events.user.p1.renamed", b"{}").unwrap(), None);
     }

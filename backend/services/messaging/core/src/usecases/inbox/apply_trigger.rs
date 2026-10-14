@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use messaging_domain::inbox::{InboxEffect, InboxRepository, InboxTrigger};
 use ports::repository::RepositoryError;
 
@@ -13,8 +13,13 @@ impl<R: InboxRepository> ApplyInboxTrigger<R> {
         Self { repository }
     }
 
-    pub async fn execute(&self, trigger: &InboxTrigger, source_event_id: &str) -> Result<(), RepositoryError> {
-        match trigger.effect(Utc::now()) {
+    pub async fn execute(
+        &self,
+        trigger: &InboxTrigger,
+        occurred_at: DateTime<Utc>,
+        source_event_id: &str,
+    ) -> Result<(), RepositoryError> {
+        match trigger.effect(occurred_at) {
             Some(InboxEffect::Deliver(notification)) => {
                 self.repository.deliver(&notification, source_event_id).await?;
             }
@@ -32,7 +37,6 @@ mod tests {
     use std::sync::Mutex;
 
     use async_trait::async_trait;
-    use chrono::DateTime;
     use domain::user::id::UserId;
     use messaging_domain::community::{id::CommunityId, invitation::InvitationId};
     use messaging_domain::inbox::{InboxCursor, InboxItem, Notification};
@@ -46,7 +50,7 @@ mod tests {
     #[async_trait]
     impl InboxRepository for Calls {
         async fn deliver(&self, n: &Notification, source: &str) -> Result<bool, RepositoryError> {
-            self.0.lock().unwrap().push(format!("deliver:{}:{source}", n.kind.as_str()));
+            self.0.lock().unwrap().push(format!("deliver:{}:{source}:{}", n.kind.as_str(), n.created_at.timestamp()));
             Ok(true)
         }
         async fn withdraw_invitation(&self, _: &UserId, _: &InvitationId) -> Result<bool, RepositoryError> {
@@ -76,12 +80,13 @@ mod tests {
         let usecase = ApplyInboxTrigger::new(calls.clone());
         let (a, b) = (UserId::new(Uuid::new_v4()), UserId::new(Uuid::new_v4()));
         let community_id = CommunityId::new(Uuid::new_v4());
-        usecase.execute(&InboxTrigger::FriendRequestSent { sender_id: a, receiver_id: b }, "e1").await.unwrap();
+        let at = DateTime::from_timestamp(1_790_000_000, 0).unwrap();
+        usecase.execute(&InboxTrigger::FriendRequestSent { sender_id: a, receiver_id: b }, at, "e1").await.unwrap();
         usecase
-            .execute(&InboxTrigger::InvitationResolved { invitation_id: InvitationId::generate(), invitee_id: b }, "e2")
+            .execute(&InboxTrigger::InvitationResolved { invitation_id: InvitationId::generate(), invitee_id: b }, at, "e2")
             .await
             .unwrap();
-        usecase.execute(&InboxTrigger::MemberRemoved { community_id, user_id: a, removed_by: None }, "e3").await.unwrap();
-        assert_eq!(*calls.0.lock().unwrap(), vec!["deliver:friend_request_received:e1".to_string(), "withdraw".to_string()]);
+        usecase.execute(&InboxTrigger::MemberRemoved { community_id, user_id: a, removed_by: None }, at, "e3").await.unwrap();
+        assert_eq!(*calls.0.lock().unwrap(), vec!["deliver:friend_request_received:e1:1790000000".to_string(), "withdraw".to_string()]);
     }
 }

@@ -81,7 +81,8 @@ impl InboxRepository for PostgresInboxRepository {
             INSERT INTO inbox_notifications
                 (id, user_id, kind, actor_id, community_id, community_name, invitation_id, source_event_id, created_at)
             SELECT $1, $2, $3, $4, $5, (SELECT c.name FROM communities c WHERE c.id = $5), $6, $7, $8
-            WHERE $6::uuid IS NULL OR EXISTS (SELECT 1 FROM community_invitations i WHERE i.id = $6)
+            WHERE ($5::uuid IS NULL OR EXISTS (SELECT 1 FROM communities c WHERE c.id = $5))
+              AND ($6::uuid IS NULL OR EXISTS (SELECT 1 FROM community_invitations i WHERE i.id = $6))
             ON CONFLICT (user_id, source_event_id) DO NOTHING
             RETURNING id
             "#,
