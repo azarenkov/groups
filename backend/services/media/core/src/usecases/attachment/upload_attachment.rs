@@ -17,6 +17,7 @@ use super::voice_probe::VoiceSpool;
 
 const MEGABYTE: u64 = 1024 * 1024;
 pub const MAX_UNLINKED_COUNT: i64 = 50;
+pub const MAX_ATTACHMENTS_PER_MESSAGE: usize = 20;
 const MIN_UNLINKED_BYTES: u64 = 200 * MEGABYTE;
 const MULTIPART_OVERHEAD_BYTES: u64 = 64 * 1024;
 
@@ -89,7 +90,7 @@ pub struct UploadLimits {
 impl UploadLimits {
     pub fn for_tier(tier: Tier) -> Self {
         let (max_file_bytes, per_message) = match tier {
-            Tier::Premium => (500 * MEGABYTE, 20),
+            Tier::Premium => (500 * MEGABYTE, MAX_ATTACHMENTS_PER_MESSAGE as u64),
             Tier::Pro => (100 * MEGABYTE, 10),
             Tier::Free => (15 * MEGABYTE, 5),
         };

@@ -4,6 +4,7 @@ use domain::user::id::UserId;
 use serde::Deserialize;
 use uuid::Uuid;
 
+use media::usecases::attachment::upload_attachment::MAX_ATTACHMENTS_PER_MESSAGE;
 use media_domain::attachment::repository::AttachmentRepository;
 
 use crate::state::AppState;
@@ -15,7 +16,7 @@ async fn claim_attachments(
     body: web::Json<ClaimRequestV1>,
 ) -> Result<impl Responder, HttpError> {
     let body = body.into_inner();
-    if body.attachment_ids.is_empty() || body.attachment_ids.len() > 10 {
+    if body.attachment_ids.is_empty() || body.attachment_ids.len() > MAX_ATTACHMENTS_PER_MESSAGE {
         return Err(HttpError::new(
             "Invalid attachments".to_string(),
             actix_web::http::StatusCode::UNPROCESSABLE_ENTITY,
