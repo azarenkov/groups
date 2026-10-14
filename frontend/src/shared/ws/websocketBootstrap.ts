@@ -79,6 +79,8 @@ const handlers: WsHandlers = {
 };
 
 const HISTORY_TARGET_EVENTS = new Set<string>([
+  "message.edited",
+  "dm_message.edited",
   "message.deleted",
   "message.hidden",
   "dm_message.deleted",
