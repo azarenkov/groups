@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::outbox::mapping::to_records;
 use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error,
-    repositories::community_unit_of_work::lock_community,
+    repositories::community_unit_of_work::{lock_community, lock_user},
     repositories::friendship_unit_of_work::pair_key,
     repositories::inbox::{INBOX_UPDATED, NOTIFICATION_CREATED, save_inbox_event},
     repositories::outbox_record::save_outbox_records,
@@ -80,6 +80,10 @@ impl LegacyInvitations for PostgresLegacyInvitations {
         let communities: std::collections::BTreeSet<Uuid> = taken.iter().map(|t| t.community_id).collect();
         for community in communities {
             lock_community(&mut tx, &CommunityId::new(community)).await?;
+        }
+        let users: std::collections::BTreeSet<Uuid> = taken.iter().flat_map(|t| [t.sender_id, t.recipient_id]).collect();
+        for user in users {
+            lock_user(&mut tx, &UserId::new(user)).await?;
         }
         let pairs: std::collections::BTreeSet<String> =
             taken.iter().map(|t| pair_key(&UserId::new(t.sender_id), &UserId::new(t.recipient_id))).collect();

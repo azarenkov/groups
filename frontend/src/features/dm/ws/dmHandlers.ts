@@ -91,6 +91,16 @@ export const dmHandlers: WsHandlers = {
       if (id && useDmPreviewStore.getState().hasMessage(id)) {
         refetchDmPreviews(true);
       }
+      const senderId = asString(d.senderId);
+      if (
+        senderId &&
+        asString(d.recipientId) === useAuthStore.getState().user?.id &&
+        (useUnreadStore.getState().byDm[senderId] ?? 0) > 0
+      ) {
+        void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
+          refetchUnread().catch(() => {}),
+        );
+      }
       return;
   },
   "message.hidden": (d) => {
