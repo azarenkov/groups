@@ -83,6 +83,9 @@ mod tests {
             self.calls.lock().unwrap().push(format!("trim {keep} {:?} {limit}", kept));
             Ok(self.overflow.lock().unwrap().pop().unwrap_or(0))
         }
+        async fn feed_started_at(&self) -> Result<DateTime<Utc>, RepositoryError> {
+            unimplemented!()
+        }
     }
 
     #[tokio::test]

@@ -28,6 +28,7 @@ pub struct SubscribeOptions {
 pub enum StartPosition {
     New,
     All,
+    Since(chrono::DateTime<chrono::Utc>),
 }
 
 #[derive(Debug, Clone, Copy)]

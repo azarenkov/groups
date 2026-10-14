@@ -269,6 +269,13 @@ impl InboxRepository for PostgresInboxRepository {
         .map_err(map_sqlx_error_to_domain_error)?;
         announce_pruned(tx, owners).await
     }
+
+    async fn feed_started_at(&self) -> Result<DateTime<Utc>, RepositoryError> {
+        sqlx::query_scalar!("SELECT started_at FROM inbox_feed_start WHERE singleton")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)
+    }
 }
 
 async fn announce_pruned(mut tx: Transaction<'_, Postgres>, owners: Vec<Uuid>) -> Result<u64, RepositoryError> {

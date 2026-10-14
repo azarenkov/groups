@@ -47,6 +47,10 @@ impl EventConsumer for NatsEventConsumer {
         let deliver_policy = match start_position {
             StartPosition::New => DeliverPolicy::New,
             StartPosition::All => DeliverPolicy::All,
+            StartPosition::Since(at) => DeliverPolicy::ByStartTime {
+                start_time: time::OffsetDateTime::from_unix_timestamp_nanos(i128::from(at.timestamp_micros()) * 1_000)
+                    .unwrap_or(time::OffsetDateTime::UNIX_EPOCH),
+            },
         };
         let max_deliver_i64: i64 = match (max_deliver, dlq_subject.as_ref()) {
             (Some(n), None) => n as i64,

@@ -224,18 +224,24 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         listener: Arc::new(ports::plan_directory::NoPlanListener),
     }
     .spawn();
-    let inbox_triggers = Arc::new(messaging::usecases::inbox::apply_trigger::ApplyInboxTrigger::new(inbox_repository.clone()));
+    let inbox_triggers = Arc::new(messaging::usecases::inbox::apply_trigger::ApplyInboxTrigger::new(
+        inbox_repository.clone(),
+        messaging_domain::inbox::InboxRetention::default(),
+    ));
+    let inbox_feed_start = messaging_domain::inbox::InboxRepository::feed_started_at(inbox_repository.as_ref()).await?;
     let inbox_prefix = nats_config.subject_prefix.trim_end_matches('.').to_string();
     let inbox_users_subscribed = messaging_infrastructure::consumers::inbox::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
         messaging_infrastructure::consumers::inbox::InboxFeed::users(&inbox_prefix, user_stream.clone()),
+        inbox_feed_start,
         inbox_triggers.clone(),
     );
     let inbox_communities_subscribed = messaging_infrastructure::consumers::inbox::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
         messaging_infrastructure::consumers::inbox::InboxFeed::communities(&inbox_prefix, inbox_community_stream),
+        inbox_feed_start,
         inbox_triggers,
     );
     crate::housekeeping::spawn(

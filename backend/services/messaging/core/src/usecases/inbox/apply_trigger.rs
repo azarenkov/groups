@@ -1,16 +1,17 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use messaging_domain::inbox::{InboxEffect, InboxRepository, InboxTrigger};
+use messaging_domain::inbox::{InboxEffect, InboxRepository, InboxRetention, InboxTrigger};
 use ports::repository::RepositoryError;
 
 pub struct ApplyInboxTrigger<R: InboxRepository> {
     repository: Arc<R>,
+    retention: InboxRetention,
 }
 
 impl<R: InboxRepository> ApplyInboxTrigger<R> {
-    pub fn new(repository: Arc<R>) -> Self {
-        Self { repository }
+    pub fn new(repository: Arc<R>, retention: InboxRetention) -> Self {
+        Self { repository, retention }
     }
 
     pub async fn execute(
@@ -18,8 +19,10 @@ impl<R: InboxRepository> ApplyInboxTrigger<R> {
         trigger: &InboxTrigger,
         occurred_at: DateTime<Utc>,
         source_event_id: &str,
+        now: DateTime<Utc>,
     ) -> Result<(), RepositoryError> {
         match trigger.effect(occurred_at) {
+            Some(InboxEffect::Deliver(notification)) if !self.retention.admits(&notification, now) => {}
             Some(InboxEffect::Deliver(notification)) => {
                 self.repository.deliver(&notification, source_event_id).await?;
             }
@@ -72,21 +75,28 @@ mod tests {
         async fn trim(&self, _: i64, _: &[&str], _: i64) -> Result<u64, RepositoryError> {
             unimplemented!()
         }
+        async fn feed_started_at(&self) -> Result<DateTime<Utc>, RepositoryError> {
+            unimplemented!()
+        }
     }
 
     #[tokio::test]
     async fn turns_triggers_into_deliveries_withdrawals_or_nothing() {
         let calls = Arc::new(Calls::default());
-        let usecase = ApplyInboxTrigger::new(calls.clone());
+        let usecase = ApplyInboxTrigger::new(calls.clone(), InboxRetention::default());
         let (a, b) = (UserId::new(Uuid::new_v4()), UserId::new(Uuid::new_v4()));
         let community_id = CommunityId::new(Uuid::new_v4());
         let at = DateTime::from_timestamp(1_790_000_000, 0).unwrap();
-        usecase.execute(&InboxTrigger::FriendRequestSent { sender_id: a, receiver_id: b }, at, "e1").await.unwrap();
+        usecase.execute(&InboxTrigger::FriendRequestSent { sender_id: a, receiver_id: b }, at, "e1", at).await.unwrap();
         usecase
-            .execute(&InboxTrigger::InvitationResolved { invitation_id: InvitationId::generate(), invitee_id: b }, at, "e2")
+            .execute(&InboxTrigger::InvitationResolved { invitation_id: InvitationId::generate(), invitee_id: b }, at, "e2", at)
             .await
             .unwrap();
-        usecase.execute(&InboxTrigger::MemberRemoved { community_id, user_id: a, removed_by: None }, at, "e3").await.unwrap();
+        usecase.execute(&InboxTrigger::MemberRemoved { community_id, user_id: a, removed_by: None }, at, "e3", at).await.unwrap();
+        usecase
+            .execute(&InboxTrigger::FriendRequestSent { sender_id: a, receiver_id: b }, at, "e4", at + chrono::Duration::days(31))
+            .await
+            .unwrap();
         assert_eq!(*calls.0.lock().unwrap(), vec!["deliver:friend_request_received:e1:1790000000".to_string(), "withdraw".to_string()]);
     }
 }

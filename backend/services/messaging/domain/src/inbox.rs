@@ -21,6 +21,10 @@ impl InboxRetention {
     pub fn expired_before(&self, now: DateTime<Utc>) -> DateTime<Utc> {
         now - self.max_age
     }
+
+    pub fn admits(&self, notification: &Notification, now: DateTime<Utc>) -> bool {
+        Self::KEPT_UNTIL_RESOLVED.contains(&notification.kind.as_str()) || notification.created_at >= self.expired_before(now)
+    }
 }
 
 impl Default for InboxRetention {
@@ -227,6 +231,7 @@ pub trait InboxRepository: Send + Sync {
     async fn mark_read(&self, user_id: &UserId, ids: Option<&[Uuid]>, now: DateTime<Utc>) -> Result<(), RepositoryError>;
     async fn expire(&self, before: DateTime<Utc>, kept_kinds: &[&str], limit: i64) -> Result<u64, RepositoryError>;
     async fn trim(&self, keep_per_user: i64, kept_kinds: &[&str], limit: i64) -> Result<u64, RepositoryError>;
+    async fn feed_started_at(&self) -> Result<DateTime<Utc>, RepositoryError>;
 }
 
 #[cfg(test)]
@@ -297,6 +302,34 @@ mod tests {
         };
         assert!(InboxRetention::KEPT_UNTIL_RESOLVED.contains(&invitation.as_str()));
         assert!(!InboxRetention::KEPT_UNTIL_RESOLVED.contains(&NotificationKind::FriendRequestAccepted { by: user() }.as_str()));
+    }
+
+    #[test]
+    fn replayed_events_older_than_retention_are_not_delivered_unless_kept_until_resolved() {
+        let retention = InboxRetention::default();
+        let now = DateTime::from_timestamp(1_800_000_000, 0).unwrap();
+        let old = now - Duration::days(31);
+        let (sender, receiver) = (user(), user());
+        let stale = match (InboxTrigger::FriendRequestSent { sender_id: sender, receiver_id: receiver }).effect(old) {
+            Some(InboxEffect::Deliver(n)) => n,
+            other => panic!("unexpected {other:?}"),
+        };
+        assert!(!retention.admits(&stale, now));
+        let fresh = match (InboxTrigger::FriendRequestSent { sender_id: sender, receiver_id: receiver }).effect(now - Duration::days(1)) {
+            Some(InboxEffect::Deliver(n)) => n,
+            other => panic!("unexpected {other:?}"),
+        };
+        assert!(retention.admits(&fresh, now));
+        let invitation = InboxTrigger::InvitationIssued {
+            invitation_id: InvitationId::generate(),
+            community_id: CommunityId::new(Uuid::new_v4()),
+            inviter_id: sender,
+            invitee_id: receiver,
+        };
+        match invitation.effect(old) {
+            Some(InboxEffect::Deliver(n)) => assert!(retention.admits(&n, now)),
+            other => panic!("unexpected {other:?}"),
+        }
     }
 
     #[test]

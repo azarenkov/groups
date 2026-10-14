@@ -30,7 +30,7 @@ pub struct InboxFeed {
 impl InboxFeed {
     pub fn users(prefix: &str, stream: String) -> Self {
         Self {
-            consumer_name: "messaging-inbox-users",
+            consumer_name: "messaging-inbox-feed-users",
             stream,
             subjects: vec![format!("{prefix}.user.*.request_sent"), format!("{prefix}.user.*.request_accepted")],
             dlq_suffix: "messaging.inbox.users",
@@ -39,7 +39,7 @@ impl InboxFeed {
 
     pub fn communities(prefix: &str, stream: String) -> Self {
         Self {
-            consumer_name: "messaging-inbox-communities",
+            consumer_name: "messaging-inbox-feed-communities",
             stream,
             subjects: vec![
                 format!("{prefix}.community.*.invitation_issued"),
@@ -113,6 +113,7 @@ pub fn spawn<R>(
     jetstream: async_nats::jetstream::Context,
     subject_prefix: String,
     feed: InboxFeed,
+    started_at: DateTime<Utc>,
     usecase: Arc<ApplyInboxTrigger<R>>,
 ) -> Arc<AtomicBool>
 where
@@ -129,7 +130,7 @@ where
             let opts = SubscribeOptions {
                 consumer_name: feed.consumer_name.to_string(),
                 subject: subject.clone(),
-                start_position: StartPosition::New,
+                start_position: StartPosition::Since(started_at),
                 max_deliver: Some(MAX_DELIVER),
                 dlq_subject: Some(format!("{prefix}.dlq.{}", feed.dlq_suffix)),
                 extra_subjects: subjects.clone(),
@@ -157,7 +158,7 @@ where
                             }
                         };
                         let source = source_event_id(m.event_id.as_deref(), &m.subject, &m.payload);
-                        match usecase.execute(&trigger, occurred_at, &source).await {
+                        match usecase.execute(&trigger, occurred_at, &source, Utc::now()).await {
                             Ok(()) => {
                                 let _ = m.ack().await;
                             }
