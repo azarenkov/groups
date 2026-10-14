@@ -121,7 +121,18 @@ impl LegacyInvitations for PostgresLegacyInvitations {
             ) l
             WHERE ci.community_id = l.invite_community_id
               AND ci.invitee_id = l.recipient_id
-              AND ci.created_at < l.created_at
+              AND (
+                  ci.created_at < l.created_at
+                  OR EXISTS (
+                      SELECT 1 FROM user_blocks b
+                      WHERE (b.blocker_id = ci.inviter_id AND b.blocked_id = ci.invitee_id)
+                         OR (b.blocker_id = ci.invitee_id AND b.blocked_id = ci.inviter_id)
+                  )
+                  OR EXISTS (
+                      SELECT 1 FROM messaging_deleted_users d
+                      WHERE d.user_id = ci.inviter_id OR d.user_id = ci.invitee_id
+                  )
+              )
             "#,
             &communities,
             &senders,
