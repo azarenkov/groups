@@ -30,7 +30,7 @@ it("does not bring back the old avatar from disk after it changed", async () => 
       await memory.delete(key);
     },
   });
-  await writeCachedBlob("avatar:user:u1", { size: 1 } as Blob);
+  await writeCachedBlob("avatar:user:u1", new Blob([new Uint8Array(1)]));
   download.mockRejectedValue(new Error("offline"));
   render(<Probe />);
   await act(async () => {
