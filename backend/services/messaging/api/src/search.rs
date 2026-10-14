@@ -234,6 +234,8 @@ enum HistoryTargetResponse {
         message_id: Uuid,
         author_id: Uuid,
         author_name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        forwarded_author_id: Option<Uuid>,
         snippet: String,
         created_at: DateTime<Utc>,
         place: SearchPlaceResponse,
@@ -250,10 +252,11 @@ impl From<HistoryTarget> for HistoryTargetResponse {
             HistoryTarget::Channel { community_id, community_name, channel_id, name, voice } => {
                 Self::Channel { community_id, community_name, channel_id, name, voice }
             }
-            HistoryTarget::Message { message_id, author_id, author_name, snippet, created_at, place } => Self::Message {
+            HistoryTarget::Message { message_id, author_id, author_name, forwarded_author_id, snippet, created_at, place } => Self::Message {
                 message_id,
                 author_id,
                 author_name,
+                forwarded_author_id,
                 snippet,
                 created_at,
                 place: place.into(),

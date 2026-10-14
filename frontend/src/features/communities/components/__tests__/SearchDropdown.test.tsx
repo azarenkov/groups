@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import i18n from "../../../../i18n";
 import AppTopBar from "../AppTopBar";
@@ -10,7 +10,24 @@ import { useFriendshipStore } from "../../../social/store/friendshipStore";
 import { useSearchFocusStore } from "../../../search/store/searchFocusStore";
 import { queryClient } from "../../../../shared/query/queryClient";
 
+import { searchHistoryAPI } from "../../../search/api/searchHistory";
+import { useAuthStore } from "../../../auth/store/authStore";
+import { useBlockStore } from "../../../social/store/blockStore";
+import {
+  clearStoredHistory,
+  resetSearchHistorySession,
+  revalidateSearchHistory,
+  storeHistory,
+} from "../../../search/lib/searchHistory";
+
 jest.mock("../../../search/api/people", () => ({ peopleAPI: { search: jest.fn() } }));
+jest.mock("../../../search/api/searchHistory", () => {
+  const actual = jest.requireActual("../../../search/api/searchHistory");
+  return {
+    ...actual,
+    searchHistoryAPI: { list: jest.fn(), record: jest.fn(), remove: jest.fn(), clear: jest.fn() },
+  };
+});
 
 jest.mock("../../../search/components/GlobalSearchResults", () => {
   const actual = jest.requireActual("../../../search/components/GlobalSearchResults");
@@ -46,6 +63,8 @@ const Harness: React.FC<{ picks: Picks }> = ({ picks }) => {
           onOpenResult={jest.fn()}
           onMessagePerson={picks.message}
           onJoinInvite={picks.join}
+          onSearch={setQuery}
+          isFriend={() => true}
           onDone={done}
         />
       )}
@@ -75,7 +94,16 @@ beforeEach(() => {
   jest.spyOn(communityAPI, "previewInvite").mockReset();
   jest.spyOn(communityAPI, "downloadLogo").mockRejectedValue(new Error("no logo"));
   useFriendshipStore.setState({ loaded: false, statusById: {} });
+  useAuthStore.setState({ user: null });
+  clearStoredHistory();
+  const history = searchHistoryAPI as jest.Mocked<typeof searchHistoryAPI>;
+  history.list.mockReset().mockResolvedValue([]);
+  history.record.mockReset().mockResolvedValue({ id: "saved", usedAt: "2026-10-13T12:00:00Z" });
+  history.remove.mockReset().mockResolvedValue();
+  history.clear.mockReset().mockResolvedValue();
 });
+
+const signIn = () => useAuthStore.setState({ user: { id: "me", name: "me" } as never });
 
 it("lists chats, communities and channels under the search box", () => {
   const { input } = setup();
@@ -157,7 +185,7 @@ it("hides people already listed as chats and offers a message to friends", async
   await screen.findByText("na", { exact: false, selector: ".search-dd-name, .search-dd-name *" });
   expect(section).not.toHaveTextContent("Alice");
   fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:peopleMessage") }));
-  expect(picks.message).toHaveBeenCalledWith("f2", "Alina");
+  expect(picks.message).toHaveBeenCalledWith("f2", "Alina", true);
 });
 
 it("prefers the live friendship state over the search snapshot", async () => {
@@ -226,4 +254,263 @@ it("returns to the plain search hint after a focused search is closed", () => {
   fireEvent.change(input, { target: { value: "bo" } });
   fireEvent.keyDown(input, { key: "Escape" });
   expect(screen.getByRole("textbox", { name: i18n.t("sidebar:searchPlaceholder") })).toBe(input);
+});
+
+it("shows recent searches in an empty search and reruns a recent query", async () => {
+  signIn();
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h1", usedAt: "2026-10-13T10:00:00Z", type: "query", text: "deploy" },
+    { id: "h2", usedAt: "2026-10-13T09:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" },
+  ]);
+  const { input } = setup();
+  fireEvent.focus(input);
+  const recent = await screen.findByLabelText(i18n.t("sidebar:recentTitle"));
+  expect(recent).toHaveTextContent("deploy");
+  fireEvent.click(screen.getByText("deploy"));
+  expect(input).toHaveValue("deploy");
+  await waitFor(() => expect(searchHistoryAPI.record).toHaveBeenCalledWith({ type: "query", text: "deploy" }));
+});
+
+it("opens a recent community and lifts it to the top", async () => {
+  signIn();
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h2", usedAt: "2026-10-13T09:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" },
+  ]);
+  const { picks, input } = setup();
+  fireEvent.focus(input);
+  fireEvent.click(await screen.findByText("Alpha Squad"));
+  await waitFor(() => expect(picks.community).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" })));
+  await waitFor(() => expect(searchHistoryAPI.record).toHaveBeenCalledWith(expect.objectContaining({ type: "community", communityId: "c1" })));
+  await act(async () => {});
+});
+
+it("removes one recent entry or clears them all at once", async () => {
+  signIn();
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h1", usedAt: "2026-10-13T10:00:00Z", type: "query", text: "deploy" },
+    { id: "h3", usedAt: "2026-10-13T08:00:00Z", type: "query", text: "release" },
+  ]);
+  let answerRemove: () => void = () => {};
+  (searchHistoryAPI.remove as jest.Mock).mockReturnValue(new Promise<void>((resolve) => (answerRemove = resolve)));
+  let answerClear: () => void = () => {};
+  (searchHistoryAPI.clear as jest.Mock).mockReturnValue(new Promise<void>((resolve) => (answerClear = resolve)));
+  const { input } = setup();
+  fireEvent.focus(input);
+  await screen.findByText("deploy");
+  fireEvent.click(screen.getAllByRole("button", { name: i18n.t("sidebar:recentRemove") })[0]);
+  await waitFor(() => expect(screen.queryByText("deploy")).toBeNull());
+  expect(searchHistoryAPI.remove).toHaveBeenCalledWith("h1");
+  await act(async () => answerRemove());
+  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:recentClear") }));
+  await waitFor(() => expect(screen.queryByText("release")).toBeNull());
+  expect(searchHistoryAPI.clear).toHaveBeenCalled();
+  await act(async () => answerClear());
+  expect(screen.getByText(i18n.t("sidebar:recentEmpty"))).toBeInTheDocument();
+});
+
+it("remembers what was opened from the results", async () => {
+  signIn();
+  const { input } = setup();
+  fireEvent.change(input, { target: { value: "alpha" } });
+  fireEvent.click(screen.getByText("Squad", { exact: false }));
+  await waitFor(() => expect(searchHistoryAPI.record).toHaveBeenCalledWith({ type: "community", communityId: "c1", name: "Alpha Squad" }));
+  await act(async () => {});
+});
+
+it("opens the first recent entry on Enter and never clears the history from the keyboard", async () => {
+  signIn();
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h2", usedAt: "2026-10-13T09:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" },
+  ]);
+  const { picks, input } = setup();
+  fireEvent.focus(input);
+  await screen.findByText("Alpha Squad");
+  fireEvent.keyDown(input, { key: "ArrowDown" });
+  expect(document.activeElement).toHaveTextContent("Alpha Squad");
+  fireEvent.keyDown(document.activeElement as Element, { key: "ArrowDown" });
+  expect(document.activeElement).toHaveTextContent("Alpha Squad");
+  fireEvent.keyDown(document.activeElement as Element, { key: "ArrowUp" });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await waitFor(() => expect(picks.community).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" })));
+  expect(searchHistoryAPI.clear).not.toHaveBeenCalled();
+  await act(async () => {});
+});
+
+it("masks recent channel messages from blocked authors", async () => {
+  signIn();
+  useBlockStore.setState({ loaded: true, blocked: { u9: true } });
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    {
+      id: "h5",
+      usedAt: "2026-10-13T09:00:00Z",
+      type: "message",
+      messageId: "m5",
+      authorId: "u9",
+      authorName: "Mallory",
+      snippet: "secret plans",
+      createdAt: "2026-10-12T09:00:00Z",
+      place: { type: "channel", communityId: "c1", communityName: "Alpha Squad", channelId: "ch1", channelName: "alerts" },
+    },
+  ]);
+  const { input } = setup();
+  fireEvent.focus(input);
+  expect(await screen.findByText(i18n.t("chat:blockedMessage"))).toBeInTheDocument();
+  expect(screen.queryByText("secret plans")).toBeNull();
+  expect(screen.queryByText("Mallory", { exact: false })).toBeNull();
+  expect(screen.getByText("#alerts")).toBeInTheDocument();
+});
+
+it("hides recent DMs with people blocked since they were cached and refetches the history", async () => {
+  signIn();
+  useBlockStore.setState({ loaded: true, blocked: {} });
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h6", usedAt: "2026-10-13T09:00:00Z", type: "dm", userId: "u7", name: "Trudy" },
+    {
+      id: "h7",
+      usedAt: "2026-10-13T08:00:00Z",
+      type: "message",
+      messageId: "m7",
+      authorId: "u7",
+      authorName: "Trudy",
+      snippet: "private words",
+      createdAt: "2026-10-12T09:00:00Z",
+      place: { type: "dm", peerId: "u7", peerName: "Trudy" },
+    },
+  ]);
+  const { input } = setup();
+  fireEvent.focus(input);
+  expect(await screen.findByText("private words")).toBeInTheDocument();
+  (searchHistoryAPI.list as jest.Mock).mockClear();
+  act(() => useBlockStore.setState({ blocked: { u7: true } }));
+  expect(screen.queryByText("Trudy")).toBeNull();
+  expect(screen.queryByText("private words")).toBeNull();
+  await waitFor(() => expect(searchHistoryAPI.list).toHaveBeenCalled());
+});
+
+it("hides recent entries for people who blocked the viewer", async () => {
+  signIn();
+  useBlockStore.setState({ loaded: true, blocked: {}, blockedBy: {} });
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h8", usedAt: "2026-10-13T09:00:00Z", type: "person", userId: "u8", name: "Oscar" },
+  ]);
+  const { input } = setup();
+  fireEvent.focus(input);
+  expect(await screen.findByText("Oscar")).toBeInTheDocument();
+  (searchHistoryAPI.list as jest.Mock).mockClear();
+  act(() => useBlockStore.setState({ blockedBy: { u8: true } }));
+  expect(screen.queryByText("Oscar")).toBeNull();
+  await waitFor(() => expect(searchHistoryAPI.list).toHaveBeenCalled());
+});
+
+it("holds back cached access-dependent recents until the server has vouched for them", async () => {
+  resetSearchHistorySession();
+  signIn();
+  useBlockStore.setState({ loaded: true, blocked: {}, blockedBy: {} });
+  storeHistory("me", [
+    { id: "h9", usedAt: "2026-10-13T09:00:00Z", type: "dm", userId: "u9", name: "Eve" },
+    { id: "h10", usedAt: "2026-10-13T08:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" },
+    { id: "h11", usedAt: "2026-10-13T07:00:00Z", type: "query", text: "roadmap" },
+  ]);
+  let answer: (items: unknown[]) => void = () => {};
+  (searchHistoryAPI.list as jest.Mock).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+  const { input } = setup();
+  fireEvent.focus(input);
+  expect(await screen.findByText("roadmap")).toBeInTheDocument();
+  expect(screen.queryByText("Eve")).toBeNull();
+  expect(screen.queryByText("Alpha Squad")).toBeNull();
+  await act(async () =>
+    answer([{ id: "h9", usedAt: "2026-10-13T09:00:00Z", type: "dm", userId: "u9", name: "Eve" }]),
+  );
+  expect(await screen.findByText("Eve")).toBeInTheDocument();
+  expect(screen.queryByText("Alpha Squad")).toBeNull();
+});
+
+it("reveals verified recents as soon as an unchanged history comes back from the server", async () => {
+  resetSearchHistorySession();
+  signIn();
+  const cached = [
+    { id: "h12", usedAt: "2026-10-13T09:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" },
+  ];
+  storeHistory("me", cached as never);
+  let answer: (items: unknown[]) => void = () => {};
+  (searchHistoryAPI.list as jest.Mock).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+  const { input } = setup();
+  fireEvent.focus(input);
+  expect(await screen.findByText(i18n.t("sidebar:recentEmpty"))).toBeInTheDocument();
+  await act(async () => answer(JSON.parse(JSON.stringify(cached))));
+  expect(await screen.findByText("Alpha Squad")).toBeInTheDocument();
+});
+
+it("loads a recent channel's community channels before opening it", async () => {
+  signIn();
+  const { useChannelStore } = jest.requireActual("../../store/channelStore");
+  const fetchChannels = jest.fn(async (communityId: string) => {
+    useChannelStore.setState((state: { channelsByCommunity: Record<string, unknown[]> }) => ({
+      channelsByCommunity: {
+        ...state.channelsByCommunity,
+        [communityId]: [{ id: "ch9", name: "lore", kind: "text", communityId }],
+      },
+    }));
+    return true;
+  });
+  useChannelStore.setState({ fetchChannels, channelsByCommunity: {} });
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    {
+      id: "h13",
+      usedAt: "2026-10-13T09:00:00Z",
+      type: "channel",
+      communityId: "c1",
+      communityName: "Alpha Squad",
+      channelId: "ch9",
+      name: "lore",
+      voice: false,
+    },
+  ]);
+  const { picks, input } = setup();
+  fireEvent.focus(input);
+  fireEvent.click(await screen.findByText("lore"));
+  await waitFor(() =>
+    expect(picks.channel).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }), expect.objectContaining({ id: "ch9" })),
+  );
+  expect(fetchChannels).toHaveBeenCalledWith("c1");
+  expect(picks.community).not.toHaveBeenCalled();
+});
+
+it("hides access-dependent recents while a target-invalidating refetch is in flight", async () => {
+  resetSearchHistorySession();
+  signIn();
+  const entry = { id: "h14", usedAt: "2026-10-13T09:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" };
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([entry]);
+  const { input } = setup();
+  fireEvent.focus(input);
+  expect(await screen.findByText("Alpha Squad")).toBeInTheDocument();
+  let answer: (items: unknown[]) => void = () => {};
+  (searchHistoryAPI.list as jest.Mock).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+  act(() => revalidateSearchHistory());
+  expect(screen.queryByText("Alpha Squad")).toBeNull();
+  await act(async () => answer([]));
+  await waitFor(() => expect(screen.getByText(i18n.t("sidebar:recentEmpty"))).toBeInTheDocument());
+  expect(screen.queryByText("Alpha Squad")).toBeNull();
+});
+
+it("loads a recent community before opening it and keeps the search open if it is gone", async () => {
+  signIn();
+  const { useCommunityStore } = jest.requireActual("../../store/communityStore");
+  const fetchCommunities = jest.fn(async () => {
+    useCommunityStore.setState({ communities: [{ id: "c7", name: "Night Owls", ownerId: "x" }] });
+  });
+  useCommunityStore.setState({ fetchCommunities, communities: [] });
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h15", usedAt: "2026-10-13T09:00:00Z", type: "community", communityId: "c7", name: "Night Owls" },
+    { id: "h16", usedAt: "2026-10-13T08:00:00Z", type: "community", communityId: "gone", name: "Old Club" },
+  ]);
+  const { picks, input } = setup();
+  fireEvent.focus(input);
+  fireEvent.click(await screen.findByText("Old Club"));
+  await waitFor(() => expect(fetchCommunities).toHaveBeenCalled());
+  await act(async () => {});
+  expect(picks.community).not.toHaveBeenCalled();
+  expect(searchHistoryAPI.record).not.toHaveBeenCalled();
+  fireEvent.click(await screen.findByText("Night Owls"));
+  await waitFor(() => expect(picks.community).toHaveBeenCalledWith(expect.objectContaining({ id: "c7" })));
 });

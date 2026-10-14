@@ -102,6 +102,7 @@ pub enum HistoryTarget {
         message_id: Uuid,
         author_id: Uuid,
         author_name: String,
+        forwarded_author_id: Option<Uuid>,
         snippet: String,
         created_at: DateTime<Utc>,
         place: SearchPlace,

@@ -726,9 +726,11 @@ const CommunitiesPage: React.FC = () => {
               sidebarNav.setOpenCommunityId(community.id);
             }}
             onOpenResult={setPendingMessageLink}
-            onMessagePerson={(userId, name) => {
-              handleOpenDmFromHome(userId, name, true);
+            onMessagePerson={(userId, name, friend) => {
+              handleOpenDmFromHome(userId, name, friend);
             }}
+            onSearch={setSidebarQuery}
+            isFriend={(userId) => useFriendshipStore.getState().statusById[userId] === "accepted"}
             onJoinInvite={handleJoinByLink}
             onDone={done}
           />

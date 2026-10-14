@@ -1665,6 +1665,21 @@ body.electron .topbar .account-dropdown { -webkit-app-region: no-drag; }
 .search-dd-action:hover, .search-dd-action:focus-visible { background: var(--surface-hover); outline: none; }
 .search-dd-action:disabled { opacity: 0.6; cursor: default; }
 .search-dd-note { padding: 8px 10px; font-size: 13px; color: var(--fg-3); }
+.search-dd-footer { display: flex; justify-content: flex-end; padding: 6px 10px 2px; }
+.search-dd-clear {
+  border: 0; background: transparent; padding: 0;
+  color: var(--fg-3); font: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer;
+}
+.search-dd-clear:hover, .search-dd-clear:focus-visible { color: var(--fg-1); outline: none; }
+.search-dd-remove {
+  flex-shrink: 0;
+  width: 28px; height: 28px; border: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--fg-3);
+  cursor: pointer;
+}
+.search-dd-remove:hover, .search-dd-remove:focus-visible { background: var(--surface-hover); color: var(--fg-1); outline: none; }
 
 .sb-rail-actions {
   flex-shrink: 0;

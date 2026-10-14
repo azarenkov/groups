@@ -7,13 +7,14 @@ import { formatFileSize } from "../../chat/lib/messageFormat";
 import type { OpenMessageLink } from "../../chat/lib/messageLink";
 import { formatListTime } from "../../dm/lib/directOrder";
 import { useBlockStore } from "../../social/store/blockStore";
-import { GLOBAL_SEARCH_KINDS, type GlobalSearchHit, type GlobalSearchKind } from "../api/globalSearch";
+import { GLOBAL_SEARCH_KINDS, type GlobalSearchHit, type GlobalSearchKind, type GlobalSearchPlace } from "../api/globalSearch";
 import { globalHitKey, useGlobalSearch } from "../hooks/useGlobalSearch";
 
 interface GlobalSearchResultsProps {
   query: string;
   currentUserId?: string;
-  onOpen: (link: OpenMessageLink) => void;
+  onOpen: (link: OpenMessageLink, hit: GlobalSearchHit) => void;
+  onVisitLink?: (hit: GlobalSearchHit) => void;
 }
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -30,15 +31,12 @@ export function highlightTerms(text: string, query: string): React.ReactNode[] {
     .map((part, i) => (i % 2 === 1 ? <mark key={i}>{part}</mark> : <React.Fragment key={i}>{part}</React.Fragment>));
 }
 
-export const hitLink = (hit: GlobalSearchHit): OpenMessageLink =>
-  hit.place.type === "channel"
-    ? {
-        kind: "channel",
-        communityId: hit.place.communityId,
-        channelId: hit.place.channelId,
-        messageId: hit.messageId,
-      }
-    : { kind: "dm", peerId: hit.place.peerId, messageId: hit.messageId, peerName: hit.place.peerName || undefined };
+export const placeLink = (place: GlobalSearchPlace, messageId: string): OpenMessageLink =>
+  place.type === "channel"
+    ? { kind: "channel", communityId: place.communityId, channelId: place.channelId, messageId }
+    : { kind: "dm", peerId: place.peerId, messageId, peerName: place.peerName || undefined };
+
+export const hitLink = (hit: GlobalSearchHit): OpenMessageLink => placeLink(hit.place, hit.messageId);
 
 const SearchHitRow: React.FC<{
   hit: GlobalSearchHit;
@@ -46,8 +44,9 @@ const SearchHitRow: React.FC<{
   query: string;
   now: Date;
   mine: boolean;
-  onOpen: (link: OpenMessageLink) => void;
-}> = ({ hit, kind, query, now, mine, onOpen }) => {
+  onOpen: (link: OpenMessageLink, hit: GlobalSearchHit) => void;
+  onVisitLink?: (hit: GlobalSearchHit) => void;
+}> = ({ hit, kind, query, now, mine, onOpen, onVisitLink }) => {
   const { t, i18n } = useTranslation(["sidebar", "chat"]);
   const blocked = useBlockStore((s) => !!s.blocked[hit.authorId] || (!!hit.forwardedAuthorId && !!s.blocked[hit.forwardedAuthorId]));
   const blocksLoaded = useBlockStore((s) => s.loaded);
@@ -87,7 +86,7 @@ const SearchHitRow: React.FC<{
       </span>
     );
   }
-  const open = () => onOpen(hitLink(hit));
+  const open = () => onOpen(hitLink(hit), hit);
   return (
     <div
       role="button"
@@ -117,7 +116,10 @@ const SearchHitRow: React.FC<{
             rel="noopener noreferrer"
             title={t("search.openLink", { domain: domainOf(hit.url) })}
             aria-label={t("search.openLink", { domain: domainOf(hit.url) })}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onVisitLink?.(hit);
+            }}
             onKeyDown={(e) => e.stopPropagation()}
           >
             <Icon name="globe" size={12} />
@@ -128,7 +130,7 @@ const SearchHitRow: React.FC<{
   );
 };
 
-const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ query, currentUserId, onOpen }) => {
+const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ query, currentUserId, onOpen, onVisitLink }) => {
   const { t } = useTranslation("sidebar");
   const search = useGlobalSearch(query);
   const now = new Date();
@@ -152,6 +154,7 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ query, curren
                 now={now}
                 mine={!!currentUserId && hit.authorId === currentUserId}
                 onOpen={onOpen}
+                onVisitLink={onVisitLink}
               />
             ))}
             {pending && (

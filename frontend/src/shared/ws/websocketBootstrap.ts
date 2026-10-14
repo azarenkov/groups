@@ -34,6 +34,7 @@ import { useUserNamesStore } from "../../features/social/store/userNamesStore";
 import { markNotificationPrefsStale, useNotificationPrefsStore } from "../../features/settings/store/notificationPrefsStore";
 import { useNotificationSettingsStore } from "../../features/settings/store/notificationSettingsStore";
 import { useConversationPinsStore } from "../../features/communities/store/conversationPinsStore";
+import { refreshSearchHistory, revalidateSearchHistory } from "../../features/search/lib/searchHistory";
 import { useHiddenDmStore } from "../../features/dm/store/hiddenDmStore";
 import { refetchDmPreviews } from "../../features/dm/store/dmPreviewStore";
 import { admitDmEvent } from "../../features/dm/lib/dmCleared";
@@ -67,6 +68,9 @@ const handlers: WsHandlers = {
   "conversation_pins.updated": () => {
     useConversationPinsStore.getState().remoteChanged();
   },
+  "search_history.updated": () => {
+    refreshSearchHistory();
+  },
   ...communityHandlers,
   ...chatHandlers,
   ...dmHandlers,
@@ -74,10 +78,31 @@ const handlers: WsHandlers = {
   ...socialHandlers,
 };
 
+const HISTORY_TARGET_EVENTS = new Set<string>([
+  "message.edited",
+  "dm_message.edited",
+  "message.deleted",
+  "message.hidden",
+  "dm_message.deleted",
+  "dm_conversation.cleared",
+  "channel.deleted",
+  "channel.renamed",
+  "community.deleted",
+  "community.updated",
+  "user.renamed",
+]);
+
+export const touchesSearchHistory = (env: WsEnvelope): boolean => {
+  if (HISTORY_TARGET_EVENTS.has(env.type)) return true;
+  if (env.type !== "community.memberLeft") return false;
+  const data = env.data as Record<string, unknown> | undefined;
+  return data?.userId === useAuthStore.getState().user?.id;
+};
+
 function dispatch(env: WsEnvelope) {
   const handler = handlers[env.type];
-  if (!handler) return;
-  handler(env.data as Record<string, unknown>, env);
+  if (handler) handler(env.data as Record<string, unknown>, env);
+  if (touchesSearchHistory(env)) revalidateSearchHistory();
 }
 
 
@@ -96,6 +121,7 @@ export function installWsBootstrap() {
     void useFriendshipStore.getState().fetchFriends().catch(() => {});
     void useBlockStore.getState().fetch().catch(() => {});
     useHiddenDmStore.getState().resync();
+    revalidateSearchHistory();
   });
   const onForeground = () => {
     if (!viewIsForeground()) return;
@@ -149,6 +175,7 @@ export function installWsBootstrap() {
       .fetch()
       .catch((err) => console.warn("[ws] failed to reload conversation pins:", err));
     useHiddenDmStore.getState().markStale();
+    revalidateSearchHistory();
     dropHeldCalls();
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();
