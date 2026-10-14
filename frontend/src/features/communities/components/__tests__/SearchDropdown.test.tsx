@@ -13,6 +13,7 @@ import { queryClient } from "../../../../shared/query/queryClient";
 import { searchHistoryAPI } from "../../../search/api/searchHistory";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { useBlockStore } from "../../../social/store/blockStore";
+import { useBadgeStore } from "../../../subscription/store/badgeStore";
 import {
   clearStoredHistory,
   resetSearchHistorySession,
@@ -552,4 +553,24 @@ it("never shows a cached invite community once the link stopped working", async 
   expect(screen.queryByText("Stale Club")).toBeNull();
   expect(await screen.findByText(i18n.t("sidebar:inviteUnavailable"))).toBeInTheDocument();
   expect(screen.queryByText("Stale Club")).toBeNull();
+});
+
+it("shows the plan badge next to chats and recent people", async () => {
+  signIn();
+  useBadgeStore.setState({
+    byUser: {
+      u1: { tier: "premium", badgeStyle: "tint", memberNumber: null },
+      u2: { tier: "pro", badgeStyle: "tint", memberNumber: null },
+    },
+  });
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
+    { id: "h20", usedAt: "2026-10-13T09:00:00Z", type: "person", userId: "u2", name: "Pro Pal" },
+  ]);
+  const { input } = setup();
+  fireEvent.focus(input);
+  const recentRow = (await screen.findByText("Pro Pal")).closest(".search-dd-item") as HTMLElement;
+  expect(recentRow.querySelector(".pro-badge")).not.toBeNull();
+  fireEvent.change(input, { target: { value: "al" } });
+  const chatRow = screen.getByLabelText(i18n.t("sidebar:searchChats")).querySelector(".search-dd-item") as HTMLElement;
+  expect(chatRow.querySelector(".pro-badge")).not.toBeNull();
 });

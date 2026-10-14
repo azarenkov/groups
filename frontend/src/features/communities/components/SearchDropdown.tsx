@@ -17,6 +17,7 @@ import type { GlobalSearchHit } from "../../search/api/globalSearch";
 import type { HistoryItem, HistoryTarget } from "../../search/api/searchHistory";
 import { placeLink } from "../../search/components/GlobalSearchResults";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
+import UserBadge from "../../subscription/components/UserBadge";
 import { useChannelStore } from "../store/channelStore";
 import { useCommunityStore } from "../store/communityStore";
 import { revalidateSearchHistory } from "../../search/lib/searchHistory";
@@ -186,7 +187,10 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
               <button key={d.id} type="button" className="search-dd-item" onClick={choose(() => onPickDm(d), { type: "dm", userId: d.id, name: d.name })}>
                 <UserAvatar userId={d.id} name={d.name} className="search-dd-ava round" style={{ background: d.color }} />
                 <span className="search-dd-text">
-                  <span className="search-dd-name">{highlightTerms(d.name, query)}</span>
+                  <span className="search-dd-name search-dd-name-badged">
+                    <span className="search-dd-name-text">{highlightTerms(d.name, query)}</span>
+                    <UserBadge userId={d.id} size="sm" />
+                  </span>
                   <span className="search-dd-sub">{t("searchDirect")}</span>
                 </span>
               </button>
