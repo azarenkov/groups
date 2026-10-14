@@ -173,7 +173,9 @@ export function recordSearch(userId: string, target: HistoryTarget): Promise<voi
   return apply(
     userId,
     (items) => {
-      const previous = items.find((item) => historyKey(item) === key && !item.id.startsWith(TEMP_PREFIX));
+      const duplicate = items.find((item) => historyKey(item) === key);
+      const previous =
+        duplicate && duplicate.id.startsWith(TEMP_PREFIX) ? replacedStable.get(duplicate.id) : duplicate;
       if (previous && !replacedStable.has(tempId)) {
         replacedStable.set(tempId, previous);
         stableIdOfTemp.set(tempId, previous.id);

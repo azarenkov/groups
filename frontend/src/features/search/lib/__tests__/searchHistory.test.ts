@@ -246,3 +246,23 @@ it("keeps an entry pushed out of a full history in the browser copy until the ne
   await saving;
   expect(readStoredHistory("me")?.map((i) => i.id)).toEqual(["server-9", ...full.slice(0, 19).map((i) => i.id)]);
 });
+
+it("keeps the saved copy through several pending re-records of the same entry", async () => {
+  installHistoryPersistence();
+  const stable: HistoryItem = { id: "s4", usedAt: "2026-10-13T09:00:00Z", type: "person", userId: "u4", name: "Dee" };
+  queryClient.setQueryData(key, [stable]);
+  const finishers: Array<(v: { id: string; usedAt: string }) => void> = [];
+  api.record.mockImplementation(() => new Promise((resolve) => finishers.push(resolve)));
+  const first = recordSearch("me", { type: "person", userId: "u4", name: "Dee" });
+  const second = recordSearch("me", { type: "person", userId: "u4", name: "Dee" });
+  await flush();
+  expect(items()).toHaveLength(1);
+  expect(items()[0].id).toMatch(/^pending:/);
+  expect(readStoredHistory("me")).toEqual([stable]);
+  finishers[0]({ id: "s4", usedAt: "2026-10-13T12:00:00Z" });
+  await first;
+  await flush();
+  finishers[1]({ id: "s4", usedAt: "2026-10-13T12:01:00Z" });
+  await second;
+  expect(readStoredHistory("me")).toEqual([expect.objectContaining({ id: "s4", usedAt: "2026-10-13T12:01:00Z" })]);
+});
