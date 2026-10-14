@@ -248,7 +248,7 @@ fn notification_settings_validate_mentions_and_time() {
 #[test]
 fn appearance_settings_validate_theme_accent_and_font_size() {
     let base = AppearanceSettings::default();
-    assert_eq!(base.theme(), Theme::System);
+    assert_eq!(base.theme(), Theme::Dark);
     let next = base
         .apply(&AppearancePatch {
             theme: Some("dark".to_string()),
