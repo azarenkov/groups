@@ -169,3 +169,8 @@ pub trait InvitationRepository: Send + Sync {
     async fn is_pending(&self, community_id: &CommunityId, invitee_id: &UserId) -> Result<bool, RepositoryError>;
     async fn pending_invitees(&self, community_id: &CommunityId) -> Result<Vec<UserId>, RepositoryError>;
 }
+
+#[async_trait]
+pub trait LegacyInvitations: Send + Sync {
+    async fn adopt(&self, limit: i64) -> Result<u64, RepositoryError>;
+}

@@ -59,6 +59,7 @@ impl<W: FriendshipUnitOfWork, U: UserProfileRepository> BlockUser<W, U> {
                 UserBlocked::record(blocker_id, blocked_id, now),
             )));
         }
+        tx.withdraw_invitations_between(&blocker_id, &blocked_id).await?;
         tx.save_events(&events, None).await?;
         tx.commit().await?;
         Ok(now)

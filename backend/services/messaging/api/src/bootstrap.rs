@@ -238,10 +238,17 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         messaging_infrastructure::consumers::inbox::InboxFeed::communities(&inbox_prefix, inbox_community_stream),
         inbox_triggers,
     );
-    crate::inbox_prune::spawn(Arc::new(messaging::usecases::inbox::prune_inbox::PruneInbox::new(
-        inbox_repository.clone(),
-        messaging_domain::inbox::InboxRetention::default(),
-    )));
+    crate::housekeeping::spawn(
+        Arc::new(messaging::usecases::inbox::prune_inbox::PruneInbox::new(
+            inbox_repository.clone(),
+            messaging_domain::inbox::InboxRetention::default(),
+        )),
+        Arc::new(messaging::usecases::community::adopt_legacy_invitations::AdoptLegacyInvitations::new(Arc::new(
+            messaging_infrastructure::database::postgres::repositories::legacy_invitations::PostgresLegacyInvitations::new(
+                postgres_pool.clone(),
+            ),
+        ))),
+    );
     messaging_infrastructure::consumers::pro_badges::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),

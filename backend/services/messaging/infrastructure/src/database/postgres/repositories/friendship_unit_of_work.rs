@@ -9,6 +9,7 @@ use sqlx::{Pool, Postgres, Transaction};
 
 use crate::database::postgres::{
     dto::friendship_status::FriendshipStatusDto, error::map_sqlx_error_to_domain_error,
+    repositories::inbox::{INBOX_UPDATED, save_inbox_event},
     repositories::outbox_record::save_outbox_records,
 };
 
@@ -153,6 +154,26 @@ impl FriendshipTransaction for PostgresFriendshipTransaction {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
         Ok(deleted.rows_affected() > 0)
+    }
+
+    async fn withdraw_invitations_between(&mut self, a: &UserId, b: &UserId) -> Result<u64, RepositoryError> {
+        let invitees = sqlx::query_scalar!(
+            r#"
+            DELETE FROM community_invitations
+            WHERE (inviter_id = $1 AND invitee_id = $2) OR (inviter_id = $2 AND invitee_id = $1)
+            RETURNING invitee_id
+            "#,
+            a.uuid(),
+            b.uuid(),
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let affected: std::collections::BTreeSet<_> = invitees.iter().copied().collect();
+        for invitee in affected {
+            save_inbox_event(&mut self.tx, invitee, INBOX_UPDATED, None).await?;
+        }
+        Ok(invitees.len() as u64)
     }
 
     async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {
