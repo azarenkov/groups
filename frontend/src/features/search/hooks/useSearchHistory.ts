@@ -10,6 +10,7 @@ import {
   HistorySessionChanged,
   installHistoryPersistence,
   readStoredHistory,
+  subscribeHistoryVerification,
   recordSearch,
   refreshSearchHistory,
   fetchSearchHistory,
@@ -51,6 +52,9 @@ export function useSearchHistory(load: boolean) {
     },
     queryClient,
   );
+  const verified = React.useSyncExternalStore(subscribeHistoryVerification, () =>
+    userId ? historyVerified(userId) : false,
+  );
   const blocked = useBlockStore((s) => s.blocked);
   const blockedBy = useBlockStore((s) => s.blockedBy);
   const seenBlocks = React.useRef({ blocked, blockedBy });
@@ -62,13 +66,13 @@ export function useSearchHistory(load: boolean) {
   const items = React.useMemo(
     () =>
       ((userId ? query.data : undefined) ?? []).filter((item) => {
-        if (item.type !== "query" && !isPendingHistoryId(item.id) && !(userId && historyVerified(userId))) {
+        if (item.type !== "query" && !isPendingHistoryId(item.id) && !verified) {
           return false;
         }
         const peer = blockedPeerOf(item);
         return !peer || (!blocked[peer] && !blockedBy[peer]);
       }),
-    [userId, query.data, blocked, blockedBy],
+    [userId, query.data, blocked, blockedBy, verified],
   );
   return {
     items,

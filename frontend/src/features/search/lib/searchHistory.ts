@@ -65,12 +65,25 @@ const savedTemps = new Map<string, string | null>();
 const pendingChanges = new Map<string, Set<(items: HistoryItem[]) => HistoryItem[]>>();
 
 const verifiedUsers = new Set<string>();
+const verificationListeners = new Set<() => void>();
+
+const setVerified = (userId: string | null) => {
+  if (userId === null) verifiedUsers.clear();
+  else if (verifiedUsers.has(userId)) return;
+  else verifiedUsers.add(userId);
+  verificationListeners.forEach((notify) => notify());
+};
 
 export const historyVerified = (userId: string): boolean => verifiedUsers.has(userId);
 
+export const subscribeHistoryVerification = (notify: () => void): (() => void) => {
+  verificationListeners.add(notify);
+  return () => verificationListeners.delete(notify);
+};
+
 export async function fetchSearchHistory(userId: string): Promise<HistoryItem[]> {
   const items = await searchHistoryAPI.list();
-  verifiedUsers.add(userId);
+  setVerified(userId);
   return withPendingChanges(userId, items);
 }
 
@@ -102,7 +115,7 @@ export function resetSearchHistorySession(): void {
   queues.clear();
   savedTemps.clear();
   pendingChanges.clear();
-  verifiedUsers.clear();
+  setVerified(null);
 }
 
 const settled = (items: HistoryItem[]): HistoryItem[] =>

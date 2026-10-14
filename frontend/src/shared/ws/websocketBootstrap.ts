@@ -78,10 +78,28 @@ const handlers: WsHandlers = {
   ...socialHandlers,
 };
 
+const HISTORY_TARGET_EVENTS = new Set<string>([
+  "message.deleted",
+  "message.hidden",
+  "dm_message.deleted",
+  "dm_conversation.cleared",
+  "channel.deleted",
+  "channel.renamed",
+  "community.deleted",
+  "community.updated",
+]);
+
+export const touchesSearchHistory = (env: WsEnvelope): boolean => {
+  if (HISTORY_TARGET_EVENTS.has(env.type)) return true;
+  if (env.type !== "community.memberLeft") return false;
+  const data = env.data as Record<string, unknown> | undefined;
+  return data?.userId === useAuthStore.getState().user?.id;
+};
+
 function dispatch(env: WsEnvelope) {
   const handler = handlers[env.type];
-  if (!handler) return;
-  handler(env.data as Record<string, unknown>, env);
+  if (handler) handler(env.data as Record<string, unknown>, env);
+  if (touchesSearchHistory(env)) refreshSearchHistory();
 }
 
 

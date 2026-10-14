@@ -419,3 +419,19 @@ it("holds back cached access-dependent recents until the server has vouched for 
   expect(await screen.findByText("Eve")).toBeInTheDocument();
   expect(screen.queryByText("Alpha Squad")).toBeNull();
 });
+
+it("reveals verified recents as soon as an unchanged history comes back from the server", async () => {
+  resetSearchHistorySession();
+  signIn();
+  const cached = [
+    { id: "h12", usedAt: "2026-10-13T09:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" },
+  ];
+  storeHistory("me", cached as never);
+  let answer: (items: unknown[]) => void = () => {};
+  (searchHistoryAPI.list as jest.Mock).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+  const { input } = setup();
+  fireEvent.focus(input);
+  expect(await screen.findByText(i18n.t("sidebar:recentEmpty"))).toBeInTheDocument();
+  await act(async () => answer(JSON.parse(JSON.stringify(cached))));
+  expect(await screen.findByText("Alpha Squad")).toBeInTheDocument();
+});
