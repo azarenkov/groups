@@ -93,7 +93,15 @@ impl UserLifecycleTransaction for PostgresUserLifecycleTransaction {
             .execute(&mut *self.tx)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        for invitee in invitees {
+        let recipients = sqlx::query_scalar!(
+            r#"SELECT DISTINCT user_id AS "user_id!" FROM inbox_notifications WHERE actor_id = $1"#,
+            self.user_id.uuid(),
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let affected: std::collections::BTreeSet<_> = invitees.into_iter().chain(recipients).collect();
+        for invitee in affected {
             save_inbox_event(&mut self.tx, invitee, INBOX_UPDATED, None).await?;
         }
         Ok(())

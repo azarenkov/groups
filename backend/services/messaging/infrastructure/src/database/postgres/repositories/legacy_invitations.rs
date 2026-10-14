@@ -1,14 +1,20 @@
 use async_trait::async_trait;
+use chrono::Utc;
 use domain::user::id::UserId;
 use messaging_domain::community::invitation::LegacyInvitations;
+use messaging_domain::dm_message::events::{DmMessageDomainEvent, lifecycle::DmMessageDeleted};
+use messaging_domain::dm_message::id::DmMessageId;
+use messaging_domain::events::MessagingEvent;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
+use crate::outbox::mapping::to_records;
 use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error,
     repositories::friendship_unit_of_work::pair_key,
     repositories::inbox::{INBOX_UPDATED, NOTIFICATION_CREATED, save_inbox_event},
+    repositories::outbox_record::save_outbox_records,
 };
 
 pub struct PostgresLegacyInvitations {
@@ -41,7 +47,7 @@ impl LegacyInvitations for PostgresLegacyInvitations {
             )
             DELETE FROM dm_messages m USING legacy
             WHERE m.id = legacy.id
-            RETURNING m.invite_community_id AS "community_id!", m.sender_id, m.recipient_id, m.created_at
+            RETURNING m.id, m.invite_community_id AS "community_id!", m.sender_id, m.recipient_id, m.created_at
             "#,
             limit,
         )
@@ -51,6 +57,19 @@ impl LegacyInvitations for PostgresLegacyInvitations {
         if taken.is_empty() {
             return Ok(0);
         }
+        let now = Utc::now();
+        let deleted: Vec<MessagingEvent> = taken
+            .iter()
+            .map(|t| {
+                MessagingEvent::DmMessage(DmMessageDomainEvent::Deleted(DmMessageDeleted::record(
+                    DmMessageId::new(t.id),
+                    UserId::new(t.sender_id),
+                    UserId::new(t.recipient_id),
+                    now,
+                )))
+            })
+            .collect();
+        save_outbox_records(&mut tx, &to_records(&deleted, None)?).await?;
         let pairs: std::collections::BTreeSet<String> =
             taken.iter().map(|t| pair_key(&UserId::new(t.sender_id), &UserId::new(t.recipient_id))).collect();
         for key in pairs {
