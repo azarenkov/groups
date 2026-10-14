@@ -43,6 +43,7 @@ import { openForward } from "../store/forwardModalStore";
 import { canDeleteForEveryone } from "../lib/messageMenu";
 import { channelPartition, dmPartition } from "../lib/partitions";
 import { ws } from "../../../shared/ws/websocket";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 
 interface ChatViewProps {
   channel?: ChannelMeta;
@@ -506,7 +507,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           <div className="search-results">
             {search.searchLoading ? (
               <div className="empty-state">
-                <span className="loading-spinner" />
+                <LoadingDots />
               </div>
             ) : search.searchError ? (
               <div className="empty-state">
@@ -514,7 +515,7 @@ const ChatView: React.FC<ChatViewProps> = ({
               </div>
             ) : !dm && !blocksLoaded ? (
               <div className="msg-loader">
-                <span className="loading-spinner" />
+                <LoadingDots />
               </div>
             ) : search.searchResults.length === 0 ? (
               <div className="empty-state">
@@ -548,7 +549,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           </div>
         ) : showInitialLoader ? (
           <div className="empty-state">
-            <span className="loading-spinner" />
+            <LoadingDots />
           </div>
         ) : accessError ? (
           <div className="empty-state">
@@ -571,7 +572,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           </div>
         ) : !dm && !blocksLoaded ? (
           <div className="msg-loader">
-            <span className="loading-spinner" />
+            <LoadingDots />
           </div>
         ) : messages.length === 0 ? (
           <div className="empty-state">

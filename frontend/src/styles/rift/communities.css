@@ -1647,7 +1647,8 @@ body.electron .topbar .account-dropdown { -webkit-app-region: no-drag; }
 .search-dd-person > .search-dd-item { flex: 1; min-width: 0; }
 .search-dd-static { cursor: default; }
 .search-dd-static:hover { background: transparent; }
-.search-dd-name { display: flex; align-items: center; gap: 6px; }
+.search-dd-name-badged { display: flex; align-items: center; gap: 6px; }
+.search-dd-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .search-dd-ava-wrap { position: relative; flex-shrink: 0; display: flex; }
 .search-dd-online {
   position: absolute; right: -1px; bottom: -1px;

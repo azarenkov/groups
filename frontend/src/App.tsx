@@ -38,6 +38,7 @@ import {
   extractResetToken,
 } from "./shared/lib/inviteLinks";
 import "styles/App.css";
+import LoadingDots from "./shared/ui/LoadingDots";
 
 const AuthRedirect: React.FC = () => {
   const { search } = useLocation();
@@ -257,7 +258,7 @@ const App: React.FC = () => {
     return (
       <div className="app">
         <div className="loading-screen">
-          <div className="spinner" />
+          <LoadingDots />
         </div>
       </div>
     );

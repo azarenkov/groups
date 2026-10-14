@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChannelKind, ChannelVisibility } from "../../../shared/types/channel";
 import Icon from "../../../shared/ui/Icon";
 import "../../../styles/rift.css";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 
 interface CreateChannelModalProps {
   isOpen: boolean;
@@ -243,7 +244,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({
             className="primary"
             disabled={isLoading || !name.trim()}
           >
-            {isLoading ? <span className="loading-spinner" /> : t("createChannel.create")}
+            {isLoading ? <LoadingDots /> : t("createChannel.create")}
           </button>
         </div>
       </form>

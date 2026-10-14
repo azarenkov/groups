@@ -19,6 +19,7 @@ import {
 import Icon from "../../../shared/ui/Icon";
 import { OriginalImageViewer, VideoViewer } from "./MediaViewers";
 import { PosterExtractionError } from "../lib/videoPoster";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 
 export const IMAGE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
 export const THUMBNAIL_SOURCE_MAX_BYTES = 25 * 1024 * 1024;
@@ -186,7 +187,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
             />
           ) : (
             <span className="msg-attach-image-loading">
-              <span className="loading-spinner" />
+              <LoadingDots />
             </span>
           )}
         </button>
@@ -238,7 +239,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
             />
           ) : (
             <span className="msg-attach-image-loading">
-              <span className="loading-spinner" />
+              <LoadingDots />
             </span>
           )}
           <span className="msg-attach-video-play" aria-hidden="true">

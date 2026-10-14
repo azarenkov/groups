@@ -4,6 +4,7 @@ import Icon from "../../../../shared/ui/Icon";
 import { authAPI } from "../../api/auth";
 import { ApiError } from "../../../../shared/lib/apiError";
 import { ArrowLeft, FormError, passwordStrength } from "../authHelpers";
+import LoadingDots from "../../../../shared/ui/LoadingDots";
 
 export const RESET_PASSWORD_MIN = 8;
 export const RESET_PASSWORD_MAX = 30;
@@ -153,7 +154,7 @@ export const ResetPassword: React.FC<{
             cursor: canSubmit ? "pointer" : "not-allowed",
           }}
         >
-          {saving ? <span className="loading-spinner" /> : t("updatePassword")}
+          {saving ? <LoadingDots /> : t("updatePassword")}
         </button>
       </form>
     </>

@@ -8,6 +8,7 @@ import { ApiError } from "../../../../shared/lib/apiError";
 import { isAccessTokenVerified } from "../../../../shared/lib/jwt";
 import Icon from "../../../../shared/ui/Icon";
 import { ArrowLeft, OtpInput } from "../authHelpers";
+import LoadingDots from "../../../../shared/ui/LoadingDots";
 
 
 export const VerifyEmail: React.FC<{
@@ -212,7 +213,7 @@ export const VerifyEmail: React.FC<{
               className="auth-link"
               disabled={changeBusy || !newEmail.includes("@") || !changePassword}
             >
-              {changeBusy ? <span className="loading-spinner" /> : t("sendCodeToNewEmail")}
+              {changeBusy ? <LoadingDots /> : t("sendCodeToNewEmail")}
             </button>
           </div>
         </form>
@@ -270,7 +271,7 @@ export const VerifyEmail: React.FC<{
               code.length === 6 && !isSubmitting ? "pointer" : "not-allowed",
           }}
         >
-          {isSubmitting ? <span className="loading-spinner" /> : t("verifyAndContinue")}
+          {isSubmitting ? <LoadingDots /> : t("verifyAndContinue")}
         </button>
       </form>
 

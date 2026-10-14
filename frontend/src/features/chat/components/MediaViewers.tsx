@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { attachmentAPI } from "../api/attachment";
 import { takeRecentVideo } from "../lib/imageUrlCache";
 import type { Attachment } from "../../../shared/types/channel";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 
 const useEscape = (onClose: () => void) => {
   React.useEffect(() => {
@@ -45,7 +46,7 @@ export const OriginalImageViewer: React.FC<{ attachment: Attachment; placeholder
   const shown = url ?? placeholder;
   return createPortal(
     <div className="image-viewer-overlay" onClick={onClose}>
-      {shown ? <img src={shown} alt={attachment.fileName} /> : <span className="loading-spinner" />}
+      {shown ? <img src={shown} alt={attachment.fileName} /> : <LoadingDots />}
     </div>,
     document.body,
   );
@@ -83,7 +84,7 @@ export const VideoViewer: React.FC<{ attachment: Attachment; onClose: () => void
         ) : failed ? (
           <span className="video-viewer-error">{t("videoLoadFailed")}</span>
         ) : (
-          <span className="loading-spinner" />
+          <LoadingDots />
         )}
         <div className="video-viewer-bar">
           <span className="video-viewer-name">{attachment.fileName}</span>

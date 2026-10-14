@@ -13,6 +13,7 @@ import { isAccessTokenVerified, decodeAccessToken } from "../../../../shared/lib
 import Icon from "../../../../shared/ui/Icon";
 import { CaptchaSolveError } from "../../lib/captcha";
 import { isCaptchaError, useCaptcha } from "../../lib/useCaptcha";
+import LoadingDots from "../../../../shared/ui/LoadingDots";
 
 
 interface SignInData {
@@ -419,10 +420,10 @@ export const SignInUp: React.FC<SignInUpProps> = ({
         <button type="submit" className="btn primary" disabled={isLoading}>
           {captcha.solving ? (
             <>
-              <span className="loading-spinner" /> {t("captchaChecking")}
+              <LoadingDots /> {t("captchaChecking")}
             </>
           ) : isLoading ? (
-            <span className="loading-spinner" />
+            <LoadingDots />
           ) : isSignup ? (
             t("createAccount")
           ) : (

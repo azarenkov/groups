@@ -102,8 +102,8 @@ const PeopleResults: React.FC<PeopleResultsProps> = ({ query, hiddenIds, onMessa
                 {online[person.id] && <span className="search-dd-online" aria-hidden="true" />}
               </span>
               <span className="search-dd-text">
-                <span className="search-dd-name">
-                  {highlightTerms(person.name, query)}
+                <span className="search-dd-name search-dd-name-badged">
+                  <span className="search-dd-name-text">{highlightTerms(person.name, query)}</span>
                   <UserBadge userId={person.id} size="sm" />
                 </span>
                 <span className="search-dd-sub">{sub}</span>

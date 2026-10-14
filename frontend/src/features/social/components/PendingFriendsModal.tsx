@@ -6,6 +6,7 @@ import { friendshipAPI } from "../api/friendship";
 import type { Friendship, FriendshipStatus } from "../../../shared/types/friendship";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import { useProfileModalStore } from "../store/profileModalStore";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 
 interface PendingFriendsModalProps {
   isOpen: boolean;
@@ -218,7 +219,7 @@ const PendingFriendsModal: React.FC<PendingFriendsModalProps> = ({
           {error && <div className="m-error">{error}</div>}
           {!anyVisible && anyLoading && (
             <div className="m-empty">
-              <span className="loading-spinner" />
+              <LoadingDots />
             </div>
           )}
           {nothingPending && (

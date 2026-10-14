@@ -18,6 +18,7 @@ import { useLongPress } from "../../../shared/ui/contextMenu/useLongPress";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import i18n from "../../../i18n";
 import "../../../styles/home.css";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 
 export interface HomeViewProps {
   overview: HomeOverview | null;
@@ -123,7 +124,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                 </button>
               </>
             ) : (
-              <span className="loading-spinner" />
+              <LoadingDots />
             )}
           </div>
         ) : (

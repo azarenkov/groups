@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
 import { ArrowLeft, FormError } from "../authHelpers";
 import { useForgotPassword } from "../../lib/useForgotPassword";
+import LoadingDots from "../../../../shared/ui/LoadingDots";
 
 
 export const Forgot: React.FC<{
@@ -49,10 +50,10 @@ export const Forgot: React.FC<{
         <button type="submit" className="btn primary" disabled={!canSubmit} style={{ marginTop: 14 }}>
           {solving ? (
             <>
-              <span className="loading-spinner" /> {t("captchaChecking")}
+              <LoadingDots /> {t("captchaChecking")}
             </>
           ) : sending ? (
-            <span className="loading-spinner" />
+            <LoadingDots />
           ) : (
             t("sendResetLink")
           )}

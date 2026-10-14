@@ -9,6 +9,7 @@ import { formatListTime } from "../../dm/lib/directOrder";
 import { useBlockStore } from "../../social/store/blockStore";
 import { GLOBAL_SEARCH_KINDS, type GlobalSearchHit, type GlobalSearchKind, type GlobalSearchPlace } from "../api/globalSearch";
 import { globalHitKey, useGlobalSearch } from "../hooks/useGlobalSearch";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 
 interface GlobalSearchResultsProps {
   query: string;
@@ -159,7 +160,7 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ query, curren
             ))}
             {pending && (
               <div className="sb-hit-loading">
-                <span className="loading-spinner" />
+                <LoadingDots />
               </div>
             )}
             {search.settled && section.loaded && !section.loading && !section.failed && section.items.length === 0 && (

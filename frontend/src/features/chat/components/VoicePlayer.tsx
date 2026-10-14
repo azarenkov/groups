@@ -11,6 +11,7 @@ import {
   registerVoicePlayer,
   useVoicePlaybackStore,
 } from "../store/voicePlaybackStore";
+import LoadingDots from "../../../shared/ui/LoadingDots";
 
 type SinkAudio = HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
 
@@ -234,7 +235,7 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({
         title={failed ? i18n.t("voiceInvalid", { ns: "chat" }) : undefined}
       >
         {loading ? (
-          <span className="loading-spinner voice-msg-spinner" />
+          <LoadingDots className="voice-msg-spinner" />
         ) : (
           <Icon name={playing ? "pause" : "play"} size={14} />
         )}
