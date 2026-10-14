@@ -266,3 +266,25 @@ it("keeps the saved copy through several pending re-records of the same entry", 
   await second;
   expect(readStoredHistory("me")).toEqual([expect.objectContaining({ id: "s4", usedAt: "2026-10-13T12:01:00Z" })]);
 });
+
+it("settles a saved row to its server id even when a refetch re-applied the pending change", async () => {
+  queryClient.setQueryData(key, []);
+  api.record.mockResolvedValue({ id: "server-10", usedAt: "2026-10-13T12:00:00Z" });
+  const original = queryClient.setQueryData.bind(queryClient);
+  let raced = false;
+  const spy = jest.spyOn(queryClient, "setQueryData").mockImplementation(((queryKey: unknown, data: unknown) => {
+    const result = original(queryKey as never, data as never);
+    const rows = data as HistoryItem[];
+    if (!raced && Array.isArray(rows) && rows.some((row) => row.id === "server-10")) {
+      raced = true;
+      original(queryKey as never, withPendingChanges("me", []) as never);
+    }
+    return result;
+  }) as never);
+  try {
+    await recordSearch("me", { type: "query", text: "race" });
+  } finally {
+    spy.mockRestore();
+  }
+  expect(items()).toEqual([expect.objectContaining({ id: "server-10", text: "race" })]);
+});

@@ -162,6 +162,8 @@ async function apply(
     throw err;
   } finally {
     changes.delete(change);
+    const current = read(userId);
+    if (current?.some((item) => savedTemps.has(item.id))) write(userId, settled(current));
   }
 }
 
