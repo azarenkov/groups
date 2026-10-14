@@ -161,3 +161,16 @@ it("drops the unread highlight whichever way the menu closes", async () => {
   expect(await screen.findByText(/Alice invited you to “Night Owls”/)).toBeInTheDocument();
   expect(row()).not.toHaveClass("unread");
 });
+
+it("does not retry marking notifications read after the server refuses while the menu stays open", async () => {
+  api.markRead.mockRejectedValue(new Error("down"));
+  render(<InboxMenu onOpenCommunity={jest.fn()} onOpenFriendRequests={jest.fn()} />);
+  await openInbox();
+  await waitFor(() => expect(api.markRead).toHaveBeenCalledWith(["n1"]));
+  await waitFor(() => expect(api.list).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(document.querySelector(".inbox-badge")).toHaveTextContent("1"));
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+  expect(api.markRead).toHaveBeenCalledTimes(1);
+});

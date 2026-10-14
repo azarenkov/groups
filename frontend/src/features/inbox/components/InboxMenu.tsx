@@ -31,6 +31,7 @@ const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity, onOpenFriendRequ
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [failedId, setFailedId] = React.useState<string | null>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const attempted = React.useRef<Set<string>>(new Set());
   const unread = useInboxUnread();
   const inbox = useInboxItems(open);
   const statusById = useFriendshipStore((s) => s.statusById);
@@ -61,15 +62,18 @@ const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity, onOpenFriendRequ
 
   React.useEffect(() => {
     if (!open || inbox.loading || !inbox.userId) return;
-    const shown = inbox.items.filter((item) => !item.read).map((item) => item.id);
+    const shown = inbox.items.filter((item) => !item.read && !attempted.current.has(item.id)).map((item) => item.id);
     if (shown.length === 0) return;
+    shown.forEach((id) => attempted.current.add(id));
     setFresh((prev) => new Set([...Array.from(prev), ...shown]));
     const rollback = markReadLocally(inbox.userId, new Set(shown));
     inboxAPI.markRead(shown).catch(() => rollback());
   }, [open, inbox.loading, inbox.items, inbox.userId]);
 
   React.useEffect(() => {
-    if (!open) setFresh(new Set());
+    if (open) return;
+    setFresh(new Set());
+    attempted.current = new Set();
   }, [open]);
 
   const toggle = () => setOpen((value) => !value);
