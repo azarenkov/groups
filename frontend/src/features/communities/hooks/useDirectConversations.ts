@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { colorForId, initialFor } from "../../../shared/lib/avatar";
+import { displayUserName } from "../../../shared/lib/displayName";
 import { useBlockStore } from "../../social/store/blockStore";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { usePresenceStore } from "../../social/store/presenceStore";
@@ -54,8 +55,8 @@ export function useDirectConversations(params: {
       .filter((f) => f.status === "accepted")
       .map((f) => ({
         id: f.friendId,
-        name: f.friendName,
-        initials: initialFor(f.friendName),
+        name: displayUserName(f.friendName),
+        initials: initialFor(displayUserName(f.friendName)),
         color: colorForId(f.friendId),
         online: !!onlineUsers[f.friendId],
         unread: 0,
@@ -76,12 +77,13 @@ export function useDirectConversations(params: {
       )
         continue;
       const pending = pendingById.get(peerId);
-      const name =
+      const rawName =
         nameOverrides[peerId] ??
         pending?.friendName ??
         p.peerName ??
         (selectedDm?.id === peerId ? selectedDm.name : undefined);
-      if (!name) continue;
+      if (!rawName) continue;
+      const name = displayUserName(rawName);
       const status = friendStatuses[peerId];
       const accepted = status === "accepted";
       items.push({
