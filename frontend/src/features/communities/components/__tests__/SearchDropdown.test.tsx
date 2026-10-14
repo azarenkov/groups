@@ -13,7 +13,12 @@ import { queryClient } from "../../../../shared/query/queryClient";
 import { searchHistoryAPI } from "../../../search/api/searchHistory";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { useBlockStore } from "../../../social/store/blockStore";
-import { clearStoredHistory, resetSearchHistorySession, storeHistory } from "../../../search/lib/searchHistory";
+import {
+  clearStoredHistory,
+  resetSearchHistorySession,
+  revalidateSearchHistory,
+  storeHistory,
+} from "../../../search/lib/searchHistory";
 
 jest.mock("../../../search/api/people", () => ({ peopleAPI: { search: jest.fn() } }));
 jest.mock("../../../search/api/searchHistory", () => {
@@ -469,4 +474,21 @@ it("loads a recent channel's community channels before opening it", async () => 
   );
   expect(fetchChannels).toHaveBeenCalledWith("c1");
   expect(picks.community).not.toHaveBeenCalled();
+});
+
+it("hides access-dependent recents while a target-invalidating refetch is in flight", async () => {
+  resetSearchHistorySession();
+  signIn();
+  const entry = { id: "h14", usedAt: "2026-10-13T09:00:00Z", type: "community", communityId: "c1", name: "Alpha Squad" };
+  (searchHistoryAPI.list as jest.Mock).mockResolvedValue([entry]);
+  const { input } = setup();
+  fireEvent.focus(input);
+  expect(await screen.findByText("Alpha Squad")).toBeInTheDocument();
+  let answer: (items: unknown[]) => void = () => {};
+  (searchHistoryAPI.list as jest.Mock).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+  act(() => revalidateSearchHistory());
+  expect(screen.queryByText("Alpha Squad")).toBeNull();
+  await act(async () => answer([]));
+  await waitFor(() => expect(screen.getByText(i18n.t("sidebar:recentEmpty"))).toBeInTheDocument());
+  expect(screen.queryByText("Alpha Squad")).toBeNull();
 });

@@ -34,7 +34,7 @@ import { useUserNamesStore } from "../../features/social/store/userNamesStore";
 import { markNotificationPrefsStale, useNotificationPrefsStore } from "../../features/settings/store/notificationPrefsStore";
 import { useNotificationSettingsStore } from "../../features/settings/store/notificationSettingsStore";
 import { useConversationPinsStore } from "../../features/communities/store/conversationPinsStore";
-import { refreshSearchHistory } from "../../features/search/lib/searchHistory";
+import { refreshSearchHistory, revalidateSearchHistory } from "../../features/search/lib/searchHistory";
 import { useHiddenDmStore } from "../../features/dm/store/hiddenDmStore";
 import { refetchDmPreviews } from "../../features/dm/store/dmPreviewStore";
 import { admitDmEvent } from "../../features/dm/lib/dmCleared";
@@ -102,7 +102,7 @@ export const touchesSearchHistory = (env: WsEnvelope): boolean => {
 function dispatch(env: WsEnvelope) {
   const handler = handlers[env.type];
   if (handler) handler(env.data as Record<string, unknown>, env);
-  if (touchesSearchHistory(env)) refreshSearchHistory();
+  if (touchesSearchHistory(env)) revalidateSearchHistory();
 }
 
 

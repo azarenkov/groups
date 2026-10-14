@@ -201,3 +201,18 @@ it("keeps a later optimistic save through a refetch triggered by an earlier fail
   await second;
   expect(items()).toEqual([expect.objectContaining({ id: "server-8", text: "second" })]);
 });
+
+it("keeps the saved copy of an entry in the browser while its newer save is pending", async () => {
+  installHistoryPersistence();
+  const stable: HistoryItem = { id: "s2", usedAt: "2026-10-13T09:00:00Z", type: "person", userId: "u2", name: "Ann" };
+  queryClient.setQueryData(key, [stable]);
+  let finish: (v: { id: string; usedAt: string }) => void = () => {};
+  api.record.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+  const saving = recordSearch("me", { type: "person", userId: "u2", name: "Ann" });
+  await flush();
+  expect(items()[0].id).toMatch(/^pending:/);
+  expect(readStoredHistory("me")).toEqual([stable]);
+  finish({ id: "s2", usedAt: "2026-10-13T12:00:00Z" });
+  await saving;
+  expect(readStoredHistory("me")).toEqual([expect.objectContaining({ id: "s2", usedAt: "2026-10-13T12:00:00Z" })]);
+});

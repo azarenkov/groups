@@ -23,12 +23,16 @@ export function readStoredHistory(userId: string): HistoryItem[] | undefined {
   }
 }
 
+const replacedStable = new Map<string, HistoryItem>();
+
 export function storeHistory(userId: string, items: HistoryItem[]): void {
+  const stable = items.flatMap((item) => {
+    if (!item.id.startsWith(TEMP_PREFIX)) return [item];
+    const previous = replacedStable.get(item.id);
+    return previous ? [previous] : [];
+  });
   try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ userId, items: items.filter((item) => !item.id.startsWith(TEMP_PREFIX)) }),
-    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ userId, items: stable }));
   } catch {
     return;
   }
@@ -115,6 +119,7 @@ export function resetSearchHistorySession(): void {
   queues.clear();
   savedTemps.clear();
   pendingChanges.clear();
+  replacedStable.clear();
   setVerified(null);
 }
 
@@ -154,11 +159,14 @@ export function recordSearch(userId: string, target: HistoryTarget): Promise<voi
   const key = historyKey(target);
   return apply(
     userId,
-    (items) =>
-      [
+    (items) => {
+      const previous = items.find((item) => historyKey(item) === key && !item.id.startsWith(TEMP_PREFIX));
+      if (previous && !replacedStable.has(tempId)) replacedStable.set(tempId, previous);
+      return [
         { ...target, id: tempId, usedAt: new Date().toISOString() } as HistoryItem,
         ...items.filter((item) => historyKey(item) !== key),
-      ].slice(0, SEARCH_HISTORY_LIMIT),
+      ].slice(0, SEARCH_HISTORY_LIMIT);
+    },
     async () => {
       try {
         const saved = await searchHistoryAPI.record(target);
@@ -175,7 +183,7 @@ export function recordSearch(userId: string, target: HistoryTarget): Promise<voi
         throw err;
       }
     },
-  );
+  ).finally(() => replacedStable.delete(tempId));
 }
 
 export function removeSearch(userId: string, id: string): Promise<void> {
@@ -195,4 +203,9 @@ export function clearSearches(userId: string): Promise<void> {
 
 export function refreshSearchHistory(): void {
   void queryClient.invalidateQueries({ queryKey: ["searchHistory"] });
+}
+
+export function revalidateSearchHistory(): void {
+  setVerified(null);
+  refreshSearchHistory();
 }
