@@ -169,11 +169,14 @@ impl FriendshipTransaction for PostgresFriendshipTransaction {
         .fetch_all(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        let affected: std::collections::BTreeSet<_> = invitees.iter().copied().collect();
-        for invitee in affected {
-            save_inbox_event(&mut self.tx, invitee, INBOX_UPDATED, None).await?;
-        }
         Ok(invitees.len() as u64)
+    }
+
+    async fn announce_inbox_change(&mut self, users: &[UserId]) -> Result<(), RepositoryError> {
+        for user in users {
+            save_inbox_event(&mut self.tx, user.uuid(), INBOX_UPDATED, None).await?;
+        }
+        Ok(())
     }
 
     async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError> {

@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use domain::user::id::UserId;
 use messaging_domain::community::invitation::LegacyInvitations;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
@@ -6,7 +7,8 @@ use uuid::Uuid;
 
 use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error,
-    repositories::inbox::{NOTIFICATION_CREATED, save_inbox_event},
+    repositories::friendship_unit_of_work::pair_key,
+    repositories::inbox::{INBOX_UPDATED, NOTIFICATION_CREATED, save_inbox_event},
 };
 
 pub struct PostgresLegacyInvitations {
@@ -43,6 +45,14 @@ impl LegacyInvitations for PostgresLegacyInvitations {
         .map_err(map_sqlx_error_to_domain_error)?;
         if taken.is_empty() {
             return Ok(0);
+        }
+        let pairs: std::collections::BTreeSet<String> =
+            taken.iter().map(|t| pair_key(&UserId::new(t.sender_id), &UserId::new(t.recipient_id))).collect();
+        for key in pairs {
+            sqlx::query!("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 43))", key)
+                .execute(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
         }
         let notified = sqlx::query!(
             r#"
@@ -90,5 +100,36 @@ impl LegacyInvitations for PostgresLegacyInvitations {
         }
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(taken.len() as u64)
+    }
+
+    async fn release_blocked(&self, limit: i64) -> Result<u64, RepositoryError> {
+        let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+        let invitees = sqlx::query_scalar!(
+            r#"
+            WITH blocked AS (
+                SELECT i.id FROM community_invitations i
+                WHERE EXISTS (
+                    SELECT 1 FROM user_blocks b
+                    WHERE (b.blocker_id = i.inviter_id AND b.blocked_id = i.invitee_id)
+                       OR (b.blocker_id = i.invitee_id AND b.blocked_id = i.inviter_id)
+                )
+                LIMIT $1
+                FOR UPDATE SKIP LOCKED
+            )
+            DELETE FROM community_invitations i USING blocked
+            WHERE i.id = blocked.id
+            RETURNING i.invitee_id
+            "#,
+            limit,
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let affected: std::collections::BTreeSet<_> = invitees.iter().copied().collect();
+        for invitee in affected {
+            save_inbox_event(&mut tx, invitee, INBOX_UPDATED, None).await?;
+        }
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(invitees.len() as u64)
     }
 }

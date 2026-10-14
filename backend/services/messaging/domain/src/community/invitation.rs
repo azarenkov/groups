@@ -184,6 +184,7 @@ pub trait InvitationRepository: Send + Sync {
 #[async_trait]
 pub trait LegacyInvitations: Send + Sync {
     async fn adopt(&self, limit: i64) -> Result<u64, RepositoryError>;
+    async fn release_blocked(&self, limit: i64) -> Result<u64, RepositoryError>;
 }
 
 #[cfg(test)]

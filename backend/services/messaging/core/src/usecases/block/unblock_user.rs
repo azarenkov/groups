@@ -37,6 +37,7 @@ impl<W: FriendshipUnitOfWork> UnblockUser<W> {
             UserUnblocked::record(blocker_id, blocked_id, now),
         ))];
         tx.save_events(&events, None).await?;
+        tx.announce_inbox_change(&[blocker_id, blocked_id]).await?;
         tx.commit().await?;
         Ok(now)
     }
