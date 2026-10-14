@@ -29,12 +29,11 @@ const handlers = () => ({
   onAddChannel: jest.fn(),
   onDeleteChannel: jest.fn(),
   onAddFriend: jest.fn(),
-  onOpenPending: jest.fn(),
   onCreateCommunity: jest.fn(),
   onJoinCommunity: jest.fn(),
 });
 
-const Harness: React.FC<{ h: ReturnType<typeof handlers>; pendingCount: number }> = ({ h, pendingCount }) => {
+const Harness: React.FC<{ h: ReturnType<typeof handlers> }> = ({ h }) => {
   const [tab, setTab] = React.useState<"dms" | "communities">("dms");
   const [openCommunityId, setOpenCommunityId] = React.useState<string | null>(null);
   const nav: SidebarNav = { tab, setTab, openCommunityId, setOpenCommunityId };
@@ -54,15 +53,14 @@ const Harness: React.FC<{ h: ReturnType<typeof handlers>; pendingCount: number }
       joinedChannelId={null}
       selectedDmId={null}
       directs={[dm("u1", "Alice", true), dm("u2", "Bob")]}
-      pendingCount={pendingCount}
       currentUserId="me"
       unreadByDm={{ u1: 4 }}
     />
   );
 };
 
-const renderSidebar = (h = handlers(), pendingCount = 0) => {
-  render(<Harness h={h} pendingCount={pendingCount} />);
+const renderSidebar = (h = handlers()) => {
+  render(<Harness h={h} />);
   return h;
 };
 
@@ -90,11 +88,9 @@ it("collapses to a rail of pictures and expands back", () => {
 
 it("keeps friend actions and the tab switch on the rail", () => {
   act(() => useSidebarLayoutStore.setState({ collapsed: true }));
-  const h = renderSidebar(handlers(), 3);
+  const h = renderSidebar();
   fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:addFriend") }));
   expect(h.onAddFriend).toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: `${i18n.t("sidebar:pendingRequests")}: 3` }));
-  expect(h.onOpenPending).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("listitem", { name: "Bob" }));
   expect(h.onSelectDm).toHaveBeenCalledWith(expect.objectContaining({ id: "u2" }));
   expect(screen.getByRole("tab", { name: i18n.t("sidebar:showDirects") })).toHaveAttribute("aria-selected", "true");
@@ -159,7 +155,6 @@ it("shows friend actions only with direct messages", () => {
   expect(screen.getByRole("button", { name: i18n.t("sidebar:addFriend") })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
   expect(screen.queryByRole("button", { name: i18n.t("sidebar:addFriend") })).toBeNull();
-  expect(screen.queryByRole("button", { name: i18n.t("sidebar:pendingRequests") })).toBeNull();
 });
 
 it("keeps the rail actions outside the scrolling list", () => {
@@ -198,7 +193,7 @@ it("marks a chat with an ongoing call", () => {
 it("lights the chats dot only for unread chats that are known to be visible", () => {
   act(() => useSidebarLayoutStore.setState({ collapsed: true }));
   act(() => useHiddenDmStore.setState({ hidden: [], loaded: false, hydrated: false }));
-  const { container } = render(<Harness h={handlers()} pendingCount={0} />);
+  const { container } = render(<Harness h={handlers()} />);
   fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
   expect(container.querySelector(".sb-rail-dot")).toBeNull();
   act(() => useHiddenDmStore.setState({ hidden: ["u1"], loaded: true }));

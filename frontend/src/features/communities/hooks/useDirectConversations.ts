@@ -144,15 +144,9 @@ export function useDirectConversations(params: {
     );
   }, [acceptedFriends, selectedDm, friendStatuses, setSelectedDm]);
 
-  const pendingCount = React.useMemo(
-    () => Object.values(friendStatuses).filter((s) => s === "pending_incoming").length,
-    [friendStatuses],
-  );
-
   return {
     friends,
     acceptedFriends,
-    pendingCount,
     onlineUsers,
     nameOverrides,
     dmPreviews,
