@@ -193,7 +193,8 @@ export function recordSearch(userId: string, target: HistoryTarget): Promise<voi
         ...items.filter((item) => historyKey(item) !== key),
       ];
       const evicted = next.slice(SEARCH_HISTORY_LIMIT).filter((item) => !item.id.startsWith(TEMP_PREFIX));
-      if (evicted.length > 0 && !displacedStable.has(tempId)) displacedStable.set(tempId, evicted);
+      if (evicted.length > 0) displacedStable.set(tempId, evicted);
+      else displacedStable.delete(tempId);
       return next.slice(0, SEARCH_HISTORY_LIMIT);
     },
     async () => {

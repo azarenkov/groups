@@ -121,7 +121,7 @@ export function installWsBootstrap() {
     void useFriendshipStore.getState().fetchFriends().catch(() => {});
     void useBlockStore.getState().fetch().catch(() => {});
     useHiddenDmStore.getState().resync();
-    refreshSearchHistory();
+    revalidateSearchHistory();
   });
   const onForeground = () => {
     if (!viewIsForeground()) return;
@@ -175,7 +175,7 @@ export function installWsBootstrap() {
       .fetch()
       .catch((err) => console.warn("[ws] failed to reload conversation pins:", err));
     useHiddenDmStore.getState().markStale();
-    refreshSearchHistory();
+    revalidateSearchHistory();
     dropHeldCalls();
     void useCallStore.getState().rehydrate();
     useUserNamesStore.getState().bumpSyncTick();

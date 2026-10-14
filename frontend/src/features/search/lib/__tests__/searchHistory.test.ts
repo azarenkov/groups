@@ -308,3 +308,23 @@ it("refetches after a failed change even when no search box is watching the hist
   expect(api.list).toHaveBeenCalled();
   expect(items().map((i) => i.id)).toContain("s5");
 });
+
+it("recomputes the displaced tail when a queued save is replayed on a restored list", async () => {
+  installHistoryPersistence();
+  const full = Array.from({ length: 20 }, (_, i) => query(`f${i}`, `full ${i}`));
+  queryClient.setQueryData(key, full);
+  api.list.mockResolvedValue(full);
+  let failFirst: (e: Error) => void = () => {};
+  api.record
+    .mockReturnValueOnce(new Promise((_, reject) => (failFirst = reject)))
+    .mockReturnValueOnce(new Promise(() => {}));
+  const first = recordSearch("me", { type: "query", text: "first new" });
+  void recordSearch("me", { type: "query", text: "second new" }).catch(() => {});
+  await flush();
+  failFirst(new Error("down"));
+  await expect(first).rejects.toThrow("down");
+  await queryClient.refetchQueries({ queryKey: key, type: "all" });
+  const stored = readStoredHistory("me")?.map((i) => i.id) ?? [];
+  expect(new Set(stored).size).toBe(20);
+  expect(stored).toEqual(full.map((i) => i.id));
+});
