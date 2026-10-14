@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO search_history (id, user_id, kind, key, query, target_id, used_at)\n            SELECT $1, $2, $3, $4, $5, $6, $7\n            WHERE NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id = $2)\n            ON CONFLICT (user_id, kind, key) DO UPDATE\n                SET used_at = GREATEST(search_history.used_at, EXCLUDED.used_at),\n                    query = CASE\n                        WHEN EXCLUDED.used_at >= search_history.used_at THEN EXCLUDED.query\n                        ELSE search_history.query\n                    END\n            RETURNING id, used_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "used_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Varchar",
+        "Text",
+        "Text",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "f33796f12222f6ff745ca4d7af76b7d8eb4d7ea0574a258a2a2ffa52801c1bcd"
+}

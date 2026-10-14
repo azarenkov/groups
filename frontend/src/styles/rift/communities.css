@@ -1643,6 +1643,43 @@ body.electron .topbar .account-dropdown { -webkit-app-region: no-drag; }
 .search-dd-name mark { background: transparent; color: var(--fg-1); font-weight: 700; }
 .search-dd-sub { font-size: 12px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .search-dd .sb-global-search .sb-view { padding: 0; }
+.search-dd-person { display: flex; align-items: center; gap: 8px; }
+.search-dd-person > .search-dd-item { flex: 1; min-width: 0; }
+.search-dd-static { cursor: default; }
+.search-dd-static:hover { background: transparent; }
+.search-dd-name { display: flex; align-items: center; gap: 6px; }
+.search-dd-ava-wrap { position: relative; flex-shrink: 0; display: flex; }
+.search-dd-online {
+  position: absolute; right: -1px; bottom: -1px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--voice-live, #30d158); box-shadow: 0 0 0 2px var(--surface-raised);
+}
+.search-dd-action {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 0; border-radius: 8px;
+  background: var(--surface-sunken); color: var(--fg-1);
+  font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.search-dd-action:hover, .search-dd-action:focus-visible { background: var(--surface-hover); outline: none; }
+.search-dd-action:disabled { opacity: 0.6; cursor: default; }
+.search-dd-note { padding: 8px 10px; font-size: 13px; color: var(--fg-3); }
+.search-dd-footer { display: flex; justify-content: flex-end; padding: 6px 10px 2px; }
+.search-dd-clear {
+  border: 0; background: transparent; padding: 0;
+  color: var(--fg-3); font: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer;
+}
+.search-dd-clear:hover, .search-dd-clear:focus-visible { color: var(--fg-1); outline: none; }
+.search-dd-remove {
+  flex-shrink: 0;
+  width: 28px; height: 28px; border: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--fg-3);
+  cursor: pointer;
+}
+.search-dd-remove:hover, .search-dd-remove:focus-visible { background: var(--surface-hover); color: var(--fg-1); outline: none; }
 
 .sb-rail-actions {
   flex-shrink: 0;

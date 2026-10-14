@@ -96,3 +96,8 @@ pub struct ConversationPinsUpdatedV1 {
     pub dms: Vec<Uuid>,
     pub communities: Vec<Uuid>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchHistoryUpdatedV1 {
+    pub user_id: Uuid,
+}

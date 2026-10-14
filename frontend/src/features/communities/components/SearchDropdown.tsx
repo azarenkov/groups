@@ -8,6 +8,18 @@ import type { Channel } from "../../../shared/types/channel";
 import type { DirectConversation } from "../../dm/types";
 import type { OpenMessageLink } from "../../chat/lib/messageLink";
 import GlobalSearchResults, { highlightTerms } from "../../search/components/GlobalSearchResults";
+import InviteResult from "../../search/components/InviteResult";
+import PeopleResults from "../../search/components/PeopleResults";
+import { extractInviteToken } from "../../../shared/lib/inviteLinks";
+import RecentSearches from "../../search/components/RecentSearches";
+import { useSearchHistory } from "../../search/hooks/useSearchHistory";
+import type { GlobalSearchHit } from "../../search/api/globalSearch";
+import type { HistoryItem, HistoryTarget } from "../../search/api/searchHistory";
+import { placeLink } from "../../search/components/GlobalSearchResults";
+import { useProfileModalStore } from "../../social/store/profileModalStore";
+import { useChannelStore } from "../store/channelStore";
+import { useCommunityStore } from "../store/communityStore";
+import { revalidateSearchHistory } from "../../search/lib/searchHistory";
 
 const QUICK_LIMIT = 5;
 
@@ -21,8 +33,32 @@ interface SearchDropdownProps {
   onPickCommunity: (community: Community) => void;
   onPickChannel: (community: Community, channel: Channel) => void;
   onOpenResult: (link: OpenMessageLink) => void;
+  onMessagePerson: (userId: string, name: string, friend: boolean) => void;
+  onJoinInvite: (token: string) => Promise<void>;
+  onSearch: (text: string) => void;
+  isFriend: (userId: string) => boolean;
   onDone: () => void;
 }
+
+const messageTarget = (hit: GlobalSearchHit): HistoryTarget => ({
+  type: "message",
+  messageId: hit.messageId,
+  authorId: hit.authorId,
+  authorName: hit.authorName,
+  forwardedAuthorId: hit.forwardedAuthorId,
+  snippet: hit.snippet,
+  createdAt: hit.createdAt,
+  place: hit.place,
+});
+
+const channelTarget = (community: Community, channel: Channel): HistoryTarget => ({
+  type: "channel",
+  communityId: community.id,
+  communityName: community.name,
+  channelId: channel.id,
+  name: channel.name,
+  voice: channel.kind === "voice",
+});
 
 const SearchDropdown: React.FC<SearchDropdownProps> = ({
   query,
@@ -34,9 +70,14 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
   onPickCommunity,
   onPickChannel,
   onOpenResult,
+  onMessagePerson,
+  onJoinInvite,
+  onSearch,
+  isFriend,
   onDone,
 }) => {
   const { t } = useTranslation("sidebar");
+  const history = useSearchHistory(true);
   const needle = query.trim().toLowerCase();
   const matches = (name: string) => name.toLowerCase().includes(needle);
 
@@ -50,10 +91,81 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
     )
     .slice(0, QUICK_LIMIT);
 
-  const choose = (action: () => void) => () => {
+  const inviteToken = extractInviteToken(query);
+  const shownChatIds = new Set(people.map((d) => d.id));
+
+  const choose = (action: () => void, target?: HistoryTarget) => () => {
+    if (target) history.record(target);
     action();
     onDone();
   };
+
+  const resolveCommunity = async (communityId: string): Promise<Community | undefined> => {
+    const known = communities.find((c) => c.id === communityId);
+    if (known) return known;
+    await useCommunityStore.getState().fetchCommunities().catch(() => {});
+    return useCommunityStore.getState().communities.find((c) => c.id === communityId);
+  };
+
+  const resolveChannel = async (communityId: string, channelId: string): Promise<Channel | undefined> => {
+    const known = (channelsByCommunity[communityId] ?? []).find((c) => c.id === channelId);
+    if (known) return known;
+    await useChannelStore.getState().fetchChannels(communityId).catch(() => false);
+    return (useChannelStore.getState().channelsByCommunity[communityId] ?? []).find((c) => c.id === channelId);
+  };
+
+  const openRecentPlace = async (item: Extract<HistoryItem, { type: "community" | "channel" }>) => {
+    const community = await resolveCommunity(item.communityId);
+    if (!community) {
+      revalidateSearchHistory();
+      return;
+    }
+    history.record(item);
+    if (item.type === "channel") {
+      const channel = await resolveChannel(item.communityId, item.channelId);
+      if (channel) onPickChannel(community, channel);
+      else onPickCommunity(community);
+    } else {
+      onPickCommunity(community);
+    }
+    onDone();
+  };
+
+  const openRecent = (item: HistoryItem) => {
+    switch (item.type) {
+      case "query":
+        history.record({ type: "query", text: item.text });
+        onSearch(item.text);
+        return;
+      case "community":
+      case "channel":
+        void openRecentPlace(item);
+        return;
+      case "person":
+        history.record(item);
+        useProfileModalStore.getState().open(item.userId);
+        break;
+      case "dm":
+        history.record(item);
+        onMessagePerson(item.userId, item.name, isFriend(item.userId));
+        break;
+      case "message":
+        history.record(item);
+        onOpenResult(placeLink(item.place, item.messageId));
+        break;
+    }
+    onDone();
+  };
+
+  if (!needle) {
+    return (
+      <div className="search-dd">
+        <div className="search-dd-list">
+          <RecentSearches items={history.items} onPick={openRecent} onRemove={history.remove} onClear={history.clear} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="search-dd">
@@ -66,11 +178,12 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
         <span>{t("searchOpen")}</span>
       </div>
       <div className="search-dd-list">
+        {inviteToken && <InviteResult token={inviteToken} onJoin={onJoinInvite} onDone={onDone} />}
         {people.length > 0 && (
-          <section className="search-dd-section" aria-label={t("searchPeople")}>
-            <div className="search-dd-label">{t("searchPeople")}</div>
+          <section className="search-dd-section" aria-label={t("searchChats")}>
+            <div className="search-dd-label">{t("searchChats")}</div>
             {people.map((d) => (
-              <button key={d.id} type="button" className="search-dd-item" onClick={choose(() => onPickDm(d))}>
+              <button key={d.id} type="button" className="search-dd-item" onClick={choose(() => onPickDm(d), { type: "dm", userId: d.id, name: d.name })}>
                 <UserAvatar userId={d.id} name={d.name} className="search-dd-ava round" style={{ background: d.color }} />
                 <span className="search-dd-text">
                   <span className="search-dd-name">{highlightTerms(d.name, query)}</span>
@@ -80,11 +193,18 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
             ))}
           </section>
         )}
+        <PeopleResults
+          query={query}
+          hiddenIds={shownChatIds}
+          onMessage={(userId, name) => onMessagePerson(userId, name, true)}
+          onRecord={history.record}
+          onDone={onDone}
+        />
         {groups.length > 0 && (
           <section className="search-dd-section" aria-label={t("searchCommunities")}>
             <div className="search-dd-label">{t("searchCommunities")}</div>
             {groups.map((c) => (
-              <button key={c.id} type="button" className="search-dd-item" onClick={choose(() => onPickCommunity(c))}>
+              <button key={c.id} type="button" className="search-dd-item" onClick={choose(() => onPickCommunity(c), { type: "community", communityId: c.id, name: c.name })}>
                 <CommunityLogo
                   communityId={c.id}
                   name={c.name}
@@ -107,7 +227,7 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
                 key={channel.id}
                 type="button"
                 className="search-dd-item"
-                onClick={choose(() => onPickChannel(community, channel))}
+                onClick={choose(() => onPickChannel(community, channel), channelTarget(community, channel))}
               >
                 <span className="search-dd-ava search-dd-icon">
                   <Icon name={channel.kind === "voice" ? "volume" : "hash"} size={16} />
@@ -123,9 +243,15 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
         <GlobalSearchResults
           query={query}
           currentUserId={currentUserId}
-          onOpen={(link) => {
+          onOpen={(link, hit) => {
+            history.record({ type: "query", text: query.trim() });
+            history.record(messageTarget(hit));
             onOpenResult(link);
             onDone();
+          }}
+          onVisitLink={(hit) => {
+            history.record({ type: "query", text: query.trim() });
+            history.record(messageTarget(hit));
           }}
         />
       </div>
