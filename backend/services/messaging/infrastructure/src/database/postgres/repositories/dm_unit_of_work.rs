@@ -155,8 +155,16 @@ impl DmTransaction for PostgresDmTransaction {
         sender_id: &UserId,
         recipient_id: &UserId,
     ) -> Result<(), RepositoryError> {
-        sqlx::query!(
-            r#"INSERT INTO call_log_consumed (call_id, sender_id, recipient_id) VALUES ($1, LEAST($2::uuid, $3::uuid), GREATEST($2::uuid, $3::uuid))"#,
+        let inserted = sqlx::query!(
+            r#"
+            INSERT INTO call_log_consumed (call_id, sender_id, recipient_id)
+            SELECT $1, LEAST($2::uuid, $3::uuid), GREATEST($2::uuid, $3::uuid)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM call_log_consumed c
+                WHERE c.call_id = $1
+                  AND ((c.sender_id = $2 AND c.recipient_id = $3) OR (c.sender_id = $3 AND c.recipient_id = $2))
+            )
+            "#,
             call_id,
             sender_id.uuid(),
             recipient_id.uuid(),
@@ -164,6 +172,9 @@ impl DmTransaction for PostgresDmTransaction {
         .execute(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
+        if inserted.rows_affected() == 0 {
+            return Err(RepositoryError::AlreadyExists);
+        }
         Ok(())
     }
 
