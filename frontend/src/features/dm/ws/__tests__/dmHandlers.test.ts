@@ -256,21 +256,39 @@ it("rereads unread counts when an unread message to me is deleted", async () => 
   expect(refetchUnread).not.toHaveBeenCalled();
 });
 
-it("raises a missed call like an unread message with a call notice", async () => {
+const missedCall = (id: string) => ({
+  id,
+  senderId: "peer",
+  senderName: "Peer",
+  recipientId: "me",
+  content: "call",
+  callStatus: "missed",
+  occurredAt: new Date(Date.now() - 60_000).toISOString(),
+});
+
+it("raises a missed call once the server counts it as unread", async () => {
   const { useCallStore } = await import("../../../voice/store/callStore");
   useCallStore.setState({ callNotice: null });
-  dmHandlers["dm_message.sent"]!({
-    id: "call-1",
-    senderId: "peer",
-    senderName: "Peer",
-    recipientId: "me",
-    content: "call",
-    callStatus: "missed",
-    occurredAt: new Date().toISOString(),
+  (refetchUnread as jest.Mock).mockImplementation(async () => {
+    useUnreadStore.setState({ byDm: { peer: 1 } } as never);
   });
+  dmHandlers["dm_message.sent"]!(missedCall("call-1"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   expect(useUnreadStore.getState().byDm.peer).toBe(1);
   expect(useCallStore.getState().callNotice).toEqual({ kind: "missed", userId: "peer", name: "Peer" });
   expect(desktop).toHaveBeenCalledWith("Peer", "Missed call");
+});
+
+it("stays quiet about a missed call the server already counts as read", async () => {
+  const { useCallStore } = await import("../../../voice/store/callStore");
+  useCallStore.setState({ callNotice: null });
+  dmHandlers["dm_message.sent"]!(missedCall("call-read"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(refetchUnread).toHaveBeenCalledTimes(1);
+  expect(useUnreadStore.getState().byDm.peer).toBeUndefined();
+  expect(useCallStore.getState().callNotice).toBeNull();
+  expect(sound).not.toHaveBeenCalled();
+  expect(desktop).not.toHaveBeenCalled();
 });
 
 it("keeps answered and declined call cards out of unread and notifications", () => {
@@ -290,34 +308,11 @@ it("keeps answered and declined call cards out of unread and notifications", () 
   expect(desktop).not.toHaveBeenCalled();
 });
 
-it("does not raise a missed call that was already read before its card arrived", () => {
-  const endedAt = new Date(Date.now() - 60_000).toISOString();
-  dmHandlers["dm.read"]!({ readerId: "me", peerId: "late", readAt: new Date(Date.now() - 30_000).toISOString() });
-  dmHandlers["dm_message.sent"]!({
-    id: "call-late",
-    senderId: "late",
-    senderName: "Late",
-    recipientId: "me",
-    content: "call",
-    callStatus: "missed",
-    occurredAt: endedAt,
-  });
-  expect(useUnreadStore.getState().byDm.late).toBeUndefined();
-  expect(desktop).not.toHaveBeenCalled();
-});
 
-it("forgets the previous account's read marks when the session resets", async () => {
-  const { forgetDmTracking } = await import("../../../../shared/ws/context");
-  dmHandlers["dm.read"]!({ readerId: "me", peerId: "shared", readAt: new Date().toISOString() });
+it("forgets the previous account's pending bumps when the session resets", async () => {
+  const { forgetDmTracking, lastDmBumpAt } = await import("../../../../shared/ws/context");
+  dmHandlers["dm_message.sent"]!({ id: "m-bump", senderId: "bumper", recipientId: "me", content: "hi", occurredAt: new Date().toISOString() });
+  expect(lastDmBumpAt.bumper).toBeDefined();
   forgetDmTracking();
-  dmHandlers["dm_message.sent"]!({
-    id: "call-shared",
-    senderId: "shared",
-    senderName: "Shared",
-    recipientId: "me",
-    content: "call",
-    callStatus: "missed",
-    occurredAt: new Date(Date.now() - 60_000).toISOString(),
-  });
-  expect(useUnreadStore.getState().byDm.shared).toBe(1);
+  expect(lastDmBumpAt.bumper).toBeUndefined();
 });

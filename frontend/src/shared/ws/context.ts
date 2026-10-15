@@ -65,11 +65,8 @@ let unreadRefetchTimer: ReturnType<typeof setTimeout> | null = null;
 export const lastChannelBumpAt: Record<string, number> = {};
 export const lastDmBumpAt: Record<string, number> = {};
 
-export const dmReadWatermark: Record<string, number> = {};
-
 export function forgetDmTracking(): void {
   for (const peerId of Object.keys(lastDmBumpAt)) delete lastDmBumpAt[peerId];
-  for (const peerId of Object.keys(dmReadWatermark)) delete dmReadWatermark[peerId];
 }
 
 export function eventTs(v: unknown): number {

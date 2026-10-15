@@ -6,7 +6,7 @@ import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { notificationPrefsLoaded, useNotificationPrefsStore } from "../../settings/store/notificationPrefsStore";
 import { defaultMentionLevel, desktopNotifAllowed, messageSoundAllowed } from "../../settings/store/notificationSettingsStore";
 import { useReadReceiptStore } from "../../chat/store/readReceiptStore";
-import { useUnreadStore } from "../../chat/store/unreadStore";
+import { refetchUnread, useUnreadStore } from "../../chat/store/unreadStore";
 import { useUserNamesStore } from "../../social/store/userNamesStore";
 import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
@@ -20,7 +20,7 @@ import type { PinnedMessage } from "../../chat/api/pins";
 import type { InfiniteData } from "@tanstack/react-query";
 import type { GlobalSearchPage } from "../../search/api/globalSearch";
 import { queryClient, queryKeys } from "../../../shared/query/queryClient";
-import { asString, dmReadWatermark, eventTs, getActiveDmView, lastDmBumpAt, scheduleUnreadRefetch, throttleMarkDmRead, viewIsForeground } from "../../../shared/ws/context";
+import { asString, eventTs, getActiveDmView, lastDmBumpAt, scheduleUnreadRefetch, throttleMarkDmRead, viewIsForeground } from "../../../shared/ws/context";
 
 export const dmHandlers: WsHandlers = {
   "dm_message.sent": (d) => {
@@ -51,7 +51,6 @@ export const dmHandlers: WsHandlers = {
       if (recipientId !== selfId) return;
       const callStatus = asString(d.callStatus);
       if (!countsAsUnread(callStatus)) return;
-      if (eventTs(d.occurredAt) <= (dmReadWatermark[senderId] ?? 0)) return;
       if (getActiveDmView() === senderId && viewIsForeground()) {
         throttleMarkDmRead(senderId);
         return;
@@ -60,20 +59,33 @@ export const dmHandlers: WsHandlers = {
         scheduleUnreadRefetch();
         return;
       }
-      const dmLevel =
-        useNotificationPrefsStore.getState().dmLevels[senderId] ??
-        (defaultMentionLevel() === "none" ? "none" : "all");
+      const alert = () => {
+        const dmLevel =
+          useNotificationPrefsStore.getState().dmLevels[senderId] ??
+          (defaultMentionLevel() === "none" ? "none" : "all");
+        if (dmLevel === "none" || !hiddenDmsKnown() || isDmHidden(senderId)) return;
+        if (callStatus) useCallStore.getState().setCallNotice({ kind: "missed", userId: senderId, name: peerName });
+        if (messageSoundAllowed()) playNotificationSound();
+        if (desktopNotifAllowed()) {
+          showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments, d.sticker, callStatus));
+        }
+      };
+      if (callStatus) {
+        const before = useUnreadStore.getState().byDm[senderId] ?? 0;
+        refetchUnread().then(
+          () => {
+            if ((useUnreadStore.getState().byDm[senderId] ?? 0) > before) alert();
+          },
+          () => {},
+        );
+        return;
+      }
       lastDmBumpAt[senderId] = Math.max(
         lastDmBumpAt[senderId] ?? 0,
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpDm(senderId);
-      if (dmLevel === "none" || !hiddenDmsKnown() || isDmHidden(senderId)) return;
-      if (callStatus) useCallStore.getState().setCallNotice({ kind: "missed", userId: senderId, name: peerName });
-      if (messageSoundAllowed()) playNotificationSound();
-      if (desktopNotifAllowed()) {
-        showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments, d.sticker, callStatus));
-      }
+      alert();
       return;
   },
   "dm_message.edited": (d) => {
@@ -103,9 +115,7 @@ export const dmHandlers: WsHandlers = {
         asString(d.recipientId) === useAuthStore.getState().user?.id &&
         (useUnreadStore.getState().byDm[senderId] ?? 0) > 0
       ) {
-        void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
-          refetchUnread().catch(() => {}),
-        );
+        void refetchUnread().catch(() => {});
       }
       return;
   },
@@ -114,9 +124,7 @@ export const dmHandlers: WsHandlers = {
       if (id && useDmPreviewStore.getState().hasMessage(id)) {
         refetchDmPreviews(true);
       }
-      void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
-        refetchUnread().catch(() => {}),
-      );
+      void refetchUnread().catch(() => {});
       return;
   },
   "dm_conversation.cleared": (d) => {
@@ -152,9 +160,7 @@ export const dmHandlers: WsHandlers = {
           : prev,
       );
       void queryClient.invalidateQueries({ queryKey: ["globalSearch"] });
-      void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
-        refetchUnread().catch(() => {}),
-      );
+      void refetchUnread().catch(() => {});
       return;
   },
   "dm_conversation.hidden_changed": (d) => {
@@ -171,7 +177,6 @@ export const dmHandlers: WsHandlers = {
         const peerId = asString(d.peerId);
         if (!peerId) return;
         const readTs = Date.parse(readAt ?? "");
-        if (Number.isFinite(readTs)) dmReadWatermark[peerId] = Math.max(dmReadWatermark[peerId] ?? 0, readTs);
         const bumpTs = lastDmBumpAt[peerId];
         if (
           bumpTs !== undefined &&
