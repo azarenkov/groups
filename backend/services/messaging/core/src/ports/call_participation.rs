@@ -15,6 +15,18 @@ pub struct CallOutcome {
     pub callee_declined: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CallInvitation {
+    pub inviter: UserId,
+    pub invitee: UserId,
+}
+
+#[derive(Debug, Clone)]
+pub struct EndedCall {
+    pub ended_at: DateTime<Utc>,
+    pub invitations: Vec<CallInvitation>,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum CallParticipationError {
     #[error("Call outcome lookup unavailable: {0}")]
@@ -29,4 +41,6 @@ pub trait CallParticipationLookup: Send + Sync {
         caller: &UserId,
         callee: &UserId,
     ) -> Result<CallOutcome, CallParticipationError>;
+
+    async fn ended_call(&self, call_id: Uuid) -> Result<Option<EndedCall>, CallParticipationError>;
 }

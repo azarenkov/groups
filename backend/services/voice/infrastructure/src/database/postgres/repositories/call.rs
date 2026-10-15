@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use contracts::events::call::CallInvitationV1;
-use voice_domain::{call::repository::AddParticipantsOutcome, call::repository::CallPairOutcome, call::repository::CallRepository, call::repository::JoinOutcome, call::repository::PendingEviction, call::repository::WebhookJoinOutcome, call::CallParticipantStatus, call::CallRoster};
+use voice_domain::{call::repository::AddParticipantsOutcome, call::repository::CallPairOutcome, call::repository::EndedCall, call::repository::CallInvitation, call::repository::CallRepository, call::repository::JoinOutcome, call::repository::PendingEviction, call::repository::WebhookJoinOutcome, call::CallParticipantStatus, call::CallRoster};
 use domain::user::id::UserId;
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -270,19 +269,6 @@ async fn end_call_when(
     .fetch_all(&mut **tx)
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
-    let invitations = sqlx::query!(
-        r#"
-        SELECT inviter_id AS "inviter_id!", user_id AS "invitee_id!" FROM call_participants
-        WHERE call_id = $1 AND inviter_id <> user_id
-        UNION
-        SELECT inviter_id, user_id FROM call_invite_outcomes
-        WHERE call_id = $1 AND inviter_id <> user_id
-        "#,
-        call_id,
-    )
-    .fetch_all(&mut **tx)
-    .await
-    .map_err(map_sqlx_error_to_domain_error)?;
 
     sqlx::query!(
         r#"
@@ -300,13 +286,7 @@ async fn end_call_when(
     if recipients.is_empty() {
         return Ok(());
     }
-    let invitations: Vec<CallInvitationV1> = invitations
-        .into_iter()
-        .map(|i| CallInvitationV1 { inviter_id: i.inviter_id, invitee_id: i.invitee_id })
-        .collect();
-    let mut record = call_event(call_id, "call.ended", actor, &recipients, request_id, now);
-    record.payload["invitations"] = encode(&invitations)?;
-    record.payload["ended_at"] = encode(&now)?;
+    let record = call_event(call_id, "call.ended", actor, &recipients, request_id, now);
     save_outbox_records(tx, std::slice::from_ref(&record)).await
 }
 
@@ -1051,6 +1031,45 @@ impl CallRepository for PostgresCallRepository {
         })
     }
 
+    async fn ended_call(&self, call_id: Uuid) -> Result<Option<EndedCall>, RepositoryError> {
+        let state = sqlx::query!(
+            r#"
+            SELECT
+                COUNT(*) FILTER (WHERE status IN ('invited', 'joined')) AS "active!",
+                MAX(updated_at) AS ended_at
+            FROM call_participants
+            WHERE call_id = $1
+            "#,
+            call_id,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let Some(ended_at) = state.ended_at.filter(|_| state.active == 0) else {
+            return Ok(None);
+        };
+        let invitations = sqlx::query!(
+            r#"
+            SELECT inviter_id AS "inviter_id!", user_id AS "invitee_id!" FROM call_participants
+            WHERE call_id = $1 AND inviter_id <> user_id
+            UNION
+            SELECT inviter_id, user_id FROM call_invite_outcomes
+            WHERE call_id = $1 AND inviter_id <> user_id
+            "#,
+            call_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(Some(EndedCall {
+            ended_at,
+            invitations: invitations
+                .into_iter()
+                .map(|i| CallInvitation { inviter: UserId::new(i.inviter_id), invitee: UserId::new(i.invitee_id) })
+                .collect(),
+        }))
+    }
+
     async fn webhook_joined(
         &self,
         call_id: Uuid,
@@ -1091,6 +1110,7 @@ impl CallRepository for PostgresCallRepository {
             if current.is_some() && usize::try_from(active).unwrap_or(usize::MAX) > max_participants {
                 return Ok(WebhookJoinOutcome::CallFull);
             }
+            archive_outcome(&mut tx, call_id, user_id.uuid(), now).await?;
         }
 
         let updated = sqlx::query!(

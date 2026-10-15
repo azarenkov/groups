@@ -19,3 +19,17 @@ pub struct CallOutcomeResponseV1 {
     pub callee_answered_at: Option<chrono::DateTime<chrono::Utc>>,
     pub callee_declined: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CallInvitationV1 {
+    pub inviter_id: uuid::Uuid,
+    pub invitee_id: uuid::Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EndedCallResponseV1 {
+    pub ended_at: chrono::DateTime<chrono::Utc>,
+    pub invitations: Vec<CallInvitationV1>,
+}

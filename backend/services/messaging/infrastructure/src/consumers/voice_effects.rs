@@ -8,7 +8,7 @@ use messaging::{
     ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions},
     ports::call_participation::CallParticipationLookup,
     ports::voice_service::VoiceService,
-    usecases::call::log_call::{CallInvitation, LogCall},
+    usecases::call::log_call::LogCall,
     usecases::channel::enforce_user_deactivation::EnforceUserDeactivation,
     usecases::channel::enforce_voice_mute::EnforceVoiceMute,
     usecases::community::enforce_departure::EnforceCommunityDeparture,
@@ -85,12 +85,7 @@ pub fn spawn<C, W, V, P, D, L>(
                     let log_call = log_call.clone();
                     async move {
                         let evt: CallEventV1 = serde_json::from_slice(&payload)?;
-                        let invitations: Vec<CallInvitation> = evt
-                            .invitations
-                            .iter()
-                            .map(|i| CallInvitation { inviter: UserId::new(i.inviter_id), invitee: UserId::new(i.invitee_id) })
-                            .collect();
-                        log_call.execute(evt.call_id, evt.ended_at.unwrap_or_else(chrono::Utc::now), &invitations).await?;
+                        log_call.execute(evt.call_id).await?;
                         Ok(())
                     }
                 },

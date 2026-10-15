@@ -162,6 +162,8 @@ pub trait CallRepository {
         callee: &UserId,
     ) -> Result<CallPairOutcome, RepositoryError>;
 
+    async fn ended_call(&self, call_id: Uuid) -> Result<Option<EndedCall>, RepositoryError>;
+
     async fn webhook_joined(
         &self,
         call_id: Uuid,
@@ -180,6 +182,18 @@ pub trait CallRepository {
         now: DateTime<Utc>,
         request_id: Option<String>,
     ) -> Result<bool, RepositoryError>;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CallInvitation {
+    pub inviter: UserId,
+    pub invitee: UserId,
+}
+
+#[derive(Debug, Clone)]
+pub struct EndedCall {
+    pub ended_at: DateTime<Utc>,
+    pub invitations: Vec<CallInvitation>,
 }
 
 #[derive(Debug, Clone)]
