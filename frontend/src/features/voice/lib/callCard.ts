@@ -13,3 +13,11 @@ export function callCardLabel(callStatus: string, durationSeconds: number | null
   if (callStatus === "declined") return i18n.t("callDeclined", { ns: "call" });
   return i18n.t(isMine ? "callNoAnswer" : "callMissed", { ns: "call" });
 }
+
+export interface DeclineOwner {
+  inviterId: string | undefined;
+  selfId: string | undefined;
+}
+
+export const declinedOwnInvite = (owner: DeclineOwner, declinerId: string, ringing: readonly string[]): boolean =>
+  owner.inviterId ? owner.inviterId === owner.selfId : ringing.includes(declinerId);

@@ -165,11 +165,8 @@ export const voiceHandlers: WsHandlers = {
   "call.declined": (d) => {
       const callId = asString(d.callId);
       const userId = asString(d.userId);
-      const inviterId = asString(d.inviterId);
-      const invitedBySelf = inviterId
-        ? inviterId === useAuthStore.getState().user?.id
-        : !!userId && useCallStore.getState().ringing.includes(userId);
-      if (callId && userId) useCallStore.getState().participantDeclined(callId, userId, asString(d.userName), invitedBySelf);
+      const owner = { inviterId: asString(d.inviterId), selfId: useAuthStore.getState().user?.id };
+      if (callId && userId) useCallStore.getState().participantDeclined(callId, userId, asString(d.userName), owner);
       return;
   },
   "call.available": (d) => {

@@ -38,7 +38,7 @@ beforeEach(() => {
 
 it("applies a decline and the call end that arrived before the start response", async () => {
   api.start.mockImplementation(async () => {
-    useCallStore.getState().participantDeclined("c1", "peer", "Peer", true);
+    useCallStore.getState().participantDeclined("c1", "peer", "Peer", { inviterId: undefined, selfId: "me" });
     useCallStore.getState().callEnded("c1");
     return { callId: "c1", token: "tok", url: "wss://lk", participants: [] } as never;
   });
@@ -58,4 +58,19 @@ it("ignores early events that belong to another call", async () => {
   await useCallStore.getState().start(["peer"]);
   expect(useCallStore.getState().activeCallId).toBe("c2");
   expect(useCallStore.getState().callNotice).toBeNull();
+});
+
+it("decides who placed a buffered legacy decline once ringing is known", async () => {
+  api.start.mockImplementation(async () => {
+    useCallStore.getState().participantDeclined("c3", "peer", "Peer", { inviterId: undefined, selfId: "me" });
+    return { callId: "c3", token: "tok", url: "wss://lk", participants: [] } as never;
+  });
+  await useCallStore.getState().start(["peer"]);
+  expect(useCallStore.getState().callNotice).toEqual({ kind: "declined", userId: "peer", name: "Peer" });
+});
+
+it("clears call notices when the session resets", () => {
+  useCallStore.setState({ callNotice: { kind: "missed", userId: "peer", name: "Peer" }, callError: "x", endedCallId: "c9" });
+  useCallStore.getState().resetNotices();
+  expect(useCallStore.getState()).toMatchObject({ callNotice: null, callError: null, endedCallId: null });
 });

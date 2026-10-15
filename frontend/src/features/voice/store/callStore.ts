@@ -4,6 +4,7 @@ import { homeAPI } from "../../home/api/home";
 import i18n from "../../../i18n";
 import { getLiveKitService } from "../lib/livekit";
 import { ApiError } from "../../../shared/lib/apiError";
+import { declinedOwnInvite, type DeclineOwner } from "../lib/callCard";
 import {
   awaitVoiceSettingsSyncedFor,
   connectToRoom,
@@ -96,7 +97,8 @@ interface CallState {
   participantJoined: (callId: string, userId: string, userName: string) => void;
   participantRenamed: (userId: string, userName: string) => void;
   participantLeft: (callId: string, userId: string) => void;
-  participantDeclined: (callId: string, userId: string, userName: string | undefined, invitedBySelf: boolean) => void;
+  participantDeclined: (callId: string, userId: string, userName: string | undefined, owner: DeclineOwner) => void;
+  resetNotices: () => void;
   callEnded: (callId: string) => void;
 
   rehydrate: () => Promise<void>;
@@ -113,7 +115,7 @@ interface CallState {
 const without = (list: string[], id: string) => list.filter((x) => x !== id);
 
 interface EarlyCallEvents {
-  declines: { userId: string; userName: string | undefined; invitedBySelf: boolean }[];
+  declines: { userId: string; userName: string | undefined; owner: DeclineOwner }[];
   ended: boolean;
 }
 
@@ -177,6 +179,10 @@ export const useCallStore = create<CallState>()((set, get) => ({
   },
   setCallError: (callError) => set({ callError }),
   setCallNotice: (callNotice) => set({ callNotice }),
+  resetNotices: () => {
+    earlyCallEvents.clear();
+    set({ callNotice: null, callError: null, endedCallId: null });
+  },
   callAvailable: (peerId, callId) =>
     set((s) => ({ joinableByPeer: { ...s.joinableByPeer, [peerId]: callId } })),
   clearJoinable: (peerId) =>
@@ -220,16 +226,16 @@ export const useCallStore = create<CallState>()((set, get) => ({
         attention: s.focused ? s.attention : true,
       };
     }),
-  participantDeclined: (callId, userId, userName, invitedBySelf) => {
+  participantDeclined: (callId, userId, userName, owner) => {
     const s = get();
     const ours = s.activeCallId === callId || (!s.activeCallId && s.endedCallId === callId);
     if (!ours) {
-      if (s.connecting && !s.activeCallId) earlyEventsFor(callId).declines.push({ userId, userName, invitedBySelf });
+      if (s.connecting && !s.activeCallId) earlyEventsFor(callId).declines.push({ userId, userName, owner });
       return;
     }
     set({
       ringing: without(s.ringing, userId),
-      ...(invitedBySelf ? { callNotice: { kind: "declined" as const, userId, name: userName } } : {}),
+      ...(declinedOwnInvite(owner, userId, s.ringing) ? { callNotice: { kind: "declined" as const, userId, name: userName } } : {}),
     });
   },
 
@@ -474,7 +480,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     });
     const early = earlyCallEvents.get(callId);
     earlyCallEvents.clear();
-    for (const decline of early?.declines ?? []) get().participantDeclined(callId, decline.userId, decline.userName, decline.invitedBySelf);
+    for (const decline of early?.declines ?? []) get().participantDeclined(callId, decline.userId, decline.userName, decline.owner);
     if (early?.ended) get().callEnded(callId);
     const muteSeqBeforeWait = get().micMuteSeq;
     const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
