@@ -1,5 +1,6 @@
 pub mod attachment_claims;
 pub mod call_participation;
+pub mod feed_start;
 pub mod mention_resolver;
 pub mod sticker_packs;
 pub mod storage_releases;

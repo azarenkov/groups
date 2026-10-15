@@ -21,19 +21,24 @@ use tracing::Instrument;
 const ACK_WAIT: std::time::Duration = std::time::Duration::from_secs(300);
 
 #[derive(Clone, Copy)]
-struct RetryPolicy {
+struct Delivery {
+    start: StartPosition,
     max_deliver: u32,
-    delay: std::time::Duration,
+    retry_delay: std::time::Duration,
 }
 
-const EFFECT_RETRY: RetryPolicy = RetryPolicy { max_deliver: 20, delay: std::time::Duration::from_secs(5) };
-const CALL_LOG_RETRY: RetryPolicy = RetryPolicy { max_deliver: 120, delay: std::time::Duration::from_secs(30) };
+const EFFECT_DELIVERY: Delivery = Delivery { start: StartPosition::All, max_deliver: 20, retry_delay: std::time::Duration::from_secs(5) };
+
+fn call_log_delivery(since: chrono::DateTime<chrono::Utc>) -> Delivery {
+    Delivery { start: StartPosition::Since(since), max_deliver: 120, retry_delay: std::time::Duration::from_secs(30) }
+}
 
 pub struct VoiceEffectsSpec {
     pub subject_prefix: String,
     pub channel_stream: String,
     pub community_stream: String,
     pub user_stream: String,
+    pub call_log_since: chrono::DateTime<chrono::Utc>,
 }
 
 pub fn spawn<C, W, V, P, D, L>(
@@ -78,6 +83,7 @@ pub fn spawn<C, W, V, P, D, L>(
     {
         let jetstream = jetstream.clone();
         let subject = format!("{prefix}.user.*.call.ended");
+        let delivery = call_log_delivery(spec.call_log_since);
         let dlq = dlq.clone();
         let user_stream = spec.user_stream.clone();
         tokio::spawn(async move {
@@ -88,7 +94,7 @@ pub fn spawn<C, W, V, P, D, L>(
                 subject,
                 Vec::new(),
                 dlq,
-                CALL_LOG_RETRY,
+                delivery,
                 move |_subject, payload| {
                     let log_call = log_call.clone();
                     async move {
@@ -120,7 +126,7 @@ pub fn spawn<C, W, V, P, D, L>(
                 subject,
                 extra,
                 dlq,
-                EFFECT_RETRY,
+                EFFECT_DELIVERY,
                 move |subject, payload| {
                     let enforce_deactivation = enforce_deactivation.clone();
                     let resolve_communities = resolve_communities.clone();
@@ -166,7 +172,7 @@ pub fn spawn<C, W, V, P, D, L>(
                 subject,
                 extra,
                 dlq,
-                EFFECT_RETRY,
+                EFFECT_DELIVERY,
                 move |subject, payload| {
                     let enforce_mute = enforce_mute.clone();
                     async move {
@@ -205,7 +211,7 @@ pub fn spawn<C, W, V, P, D, L>(
                 subject,
                 vec![format!("{prefix}.community.member_left")],
                 dlq,
-                EFFECT_RETRY,
+                EFFECT_DELIVERY,
                 move |subject, payload| {
                     let enforce_departure = enforce_departure.clone();
                     async move {
@@ -233,7 +239,7 @@ async fn run<F, Fut>(
     subject: String,
     extra_subjects: Vec<String>,
     dlq: String,
-    retry: RetryPolicy,
+    delivery: Delivery,
     handler: F,
 ) where
     F: Fn(String, Vec<u8>) -> Fut,
@@ -244,8 +250,8 @@ async fn run<F, Fut>(
         let opts = SubscribeOptions {
             consumer_name: consumer_name.clone(),
             subject: subject.clone(),
-            start_position: StartPosition::All,
-            max_deliver: Some(retry.max_deliver),
+            start_position: delivery.start,
+            max_deliver: Some(delivery.max_deliver),
             dlq_subject: Some(dlq.clone()),
             extra_subjects: extra_subjects.clone(),
             ack_wait: Some(ACK_WAIT),
@@ -270,7 +276,7 @@ async fn run<F, Fut>(
                                     }
                                     Err(e) => {
                                         tracing::warn!(error = %e, subject = %m.subject, "Voice effect failed; scheduling retry");
-                                        if let Err(e) = m.retry_after(retry.delay).await {
+                                        if let Err(e) = m.retry_after(delivery.retry_delay).await {
                                             tracing::warn!(error = %e, "Voice effect nak failed");
                                         }
                                     }

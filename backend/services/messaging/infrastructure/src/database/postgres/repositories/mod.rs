@@ -7,6 +7,7 @@ pub mod dm_unit_of_work;
 pub mod friendship;
 pub mod friendship_unit_of_work;
 pub mod hidden_message;
+pub mod feed_start;
 pub mod inbox;
 pub mod invitation;
 pub mod legacy_invitations;
