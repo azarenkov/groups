@@ -29,7 +29,6 @@ interface DmListProps {
   unreadByDm: Record<string, number>;
   hasMoreDirects?: boolean;
   onLoadMoreDirects?: () => void;
-  onAddFriend: () => void;
   onPick: (dm: DirectConversation) => void;
   onCall?: (dm: DirectConversation) => void;
   compact?: boolean;
@@ -41,7 +40,6 @@ const DmList: React.FC<DmListProps> = ({
   unreadByDm,
   hasMoreDirects,
   onLoadMoreDirects,
-  onAddFriend,
   onPick,
   onCall,
   compact,
@@ -319,12 +317,6 @@ const DmList: React.FC<DmListProps> = ({
   }
   return (
     <div className="sb-view">
-      <button type="button" className="sb-add-row" onClick={onAddFriend}>
-        <span className="sb-add-row-ico">
-          <Icon name="user-plus" size={20} />
-        </span>
-        <span>{t("addFriend")}</span>
-      </button>
       {hasHidden && (
         <button type="button" className="sb-add-row secondary sb-hidden-folder" onClick={() => setShowHidden(true)}>
           <span className="sb-add-row-ico">

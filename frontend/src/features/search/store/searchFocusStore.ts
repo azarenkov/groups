@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type SearchFocusMode = "people" | "invite";
+export type SearchFocusMode = "people";
 
 interface SearchFocusState {
   request: { mode: SearchFocusMode; seq: number } | null;
