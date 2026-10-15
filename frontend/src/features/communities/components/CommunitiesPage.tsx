@@ -682,7 +682,9 @@ const CommunitiesPage: React.FC = () => {
       if ("messageId" in link && link.messageId) setOpenMessage({ convId, messageId: link.messageId });
     };
     if (link.kind === "dm") {
-      if (openDmRef.current(link.peerId, link.peerName)) {
+      const friendships = useFriendshipStore.getState();
+      const confirmedFriend = friendships.loaded && friendships.statusById[link.peerId] === "accepted";
+      if (confirmedFriend && openDmRef.current(link.peerId, link.peerName)) {
         opened(link.peerId);
         return;
       }
