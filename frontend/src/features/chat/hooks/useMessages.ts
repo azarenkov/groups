@@ -91,6 +91,11 @@ const CHANNEL_ACCESS_ERRORS = new Set([
 
 const DM_ACCESS_ERRORS = new Set(["USER_BLOCKED", "USER_NOT_FOUND", "TARGET_USER_NOT_FOUND", "DM_SELF", "SELF_DM"]);
 
+export type JumpResult = "shown" | "missing" | "failed";
+
+const isNotFound = (err: unknown): boolean =>
+  err instanceof ApiError && (err.status === 404 || !!err.code?.endsWith("NOT_FOUND"));
+
 export function useMessages(params: {
   messenger: Messenger | null;
   convId?: string;
@@ -460,21 +465,21 @@ export function useMessages(params: {
   }, [highlightedMessageId, messages]);
 
   const jumpToMessageId = React.useCallback(
-    async (messageId: string): Promise<boolean> => {
+    async (messageId: string): Promise<JumpResult> => {
       if (messagesRef.current.some((m) => m.id === messageId)) {
         setHighlightedMessageId(null);
         requestAnimationFrame(() => setHighlightedMessageId(messageId));
-        return true;
+        return "shown";
       }
       const messengerNow = messengerRef.current;
-      if (!messengerNow) return false;
+      if (!messengerNow) return "failed";
       try {
         const target = await messengerNow.getMessage(messageId);
         await jumpToMessage(target);
-        return true;
+        return "shown";
       } catch (err) {
         console.warn("[ChatView] failed to open the original message:", err);
-        return false;
+        return isNotFound(err) ? "missing" : "failed";
       }
     },
     [jumpToMessage],

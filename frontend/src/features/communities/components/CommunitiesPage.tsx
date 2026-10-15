@@ -147,6 +147,7 @@ const CommunitiesPage: React.FC = () => {
   }, [searchParams, setSearchParams]);
   const [pendingMessageLink, setPendingMessageLink] = useState<ChatLocation | null>(null);
   const [unavailable, setUnavailable] = useState<ChatLocation | null>(null);
+  const communitiesLoaded = useCommunityStore((s) => s.loaded);
   const pendingLinkRef = React.useRef(pendingMessageLink);
   pendingLinkRef.current = pendingMessageLink;
   const linkRefreshRef = React.useRef<{ link: ChatLocation | null; communities: boolean; channels: boolean }>({
@@ -694,23 +695,26 @@ const CommunitiesPage: React.FC = () => {
     }
     const refreshed = linkRefreshRef.current.link === link ? linkRefreshRef.current : { link, communities: false, channels: false };
     linkRefreshRef.current = refreshed;
-    if (!communities.some((c) => c.id === link.communityId)) {
-      if (refreshed.communities) return;
-      refreshed.communities = true;
-      void fetchCommunities().then(() => {
-        if (!useCommunityStore.getState().communities.some((c) => c.id === link.communityId)) drop();
-      });
+    const hasCommunity = (list: Community[]) => list.some((c) => c.id === link.communityId);
+    const hasChannel = (list: Record<string, Channel[]>) => !!list[link.communityId]?.some((c) => c.id === link.channelId);
+    if (!communitiesLoaded || !hasCommunity(communities)) {
+      if (communitiesLoaded) drop();
+      else if (!refreshed.communities) {
+        refreshed.communities = true;
+        void fetchCommunities().then(() => {
+          if (!hasCommunity(useCommunityStore.getState().communities)) drop();
+        });
+      }
       return;
     }
-    if (!channelsByCommunity[link.communityId]?.some((c) => c.id === link.channelId)) {
-      if (refreshed.channels) return;
-      refreshed.channels = true;
-      void fetchChannels(link.communityId).then((ok) => {
-        const found = useChannelStore
-          .getState()
-          .channelsByCommunity[link.communityId]?.some((c) => c.id === link.channelId);
-        if (!ok || (!found && channelsFullyLoaded(link.communityId))) drop();
-      });
+    if (!channelsFullyLoaded(link.communityId) || !hasChannel(channelsByCommunity)) {
+      if (channelsFullyLoaded(link.communityId)) drop();
+      else if (!refreshed.channels) {
+        refreshed.channels = true;
+        void fetchChannels(link.communityId).then((ok) => {
+          if (!ok || !hasChannel(useChannelStore.getState().channelsByCommunity)) drop();
+        });
+      }
       return;
     }
     expandCommunityRef.current(link.communityId);
@@ -722,6 +726,7 @@ const CommunitiesPage: React.FC = () => {
   }, [
     pendingMessageLink,
     communities,
+    communitiesLoaded,
     channelsByCommunity,
     fetchChannels,
     fetchCommunities,

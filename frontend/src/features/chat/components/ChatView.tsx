@@ -182,11 +182,11 @@ const ChatView: React.FC<ChatViewProps> = ({
   const onOpenHandledRef = React.useRef(onOpenMessageHandled);
   onOpenHandledRef.current = onOpenMessageHandled;
   const { closeSearch } = search;
-  const [missingMessage, setMissingMessage] = React.useState(false);
+  const [jumpProblem, setJumpProblem] = React.useState<"missing" | "failed" | null>(null);
   React.useEffect(() => {
     if (!openMessageId || showInitialLoader) return;
     closeSearch();
-    void jumpToMessageId(openMessageId).then((found) => setMissingMessage(!found));
+    void jumpToMessageId(openMessageId).then((result) => setJumpProblem(result === "shown" ? null : result));
     onOpenHandledRef.current?.();
   }, [openMessageId, showInitialLoader, jumpToMessageId, closeSearch]);
 
@@ -696,7 +696,10 @@ const ChatView: React.FC<ChatViewProps> = ({
             onConfirm={() => void editing.confirmDelete("me")}
           />
         ))}
-      <ErrorToast message={missingMessage ? i18n.t("messageNotFound", { ns: "chat" }) : null} onDismiss={() => setMissingMessage(false)} />
+      <ErrorToast
+        message={jumpProblem ? i18n.t(jumpProblem === "missing" ? "messageNotFound" : "messageOpenFailed", { ns: "chat" }) : null}
+        onDismiss={() => setJumpProblem(null)}
+      />
     </>
   );
 };
