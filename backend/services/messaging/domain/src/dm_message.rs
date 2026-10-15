@@ -145,6 +145,14 @@ impl DmMessage {
         self
     }
 
+    pub fn hide_for(&mut self, users: Vec<UserId>) {
+        for event in &mut self.events {
+            if let DmMessageDomainEvent::Sent(sent) = event {
+                sent.hidden_for = users.clone();
+            }
+        }
+    }
+
     pub fn set_reply_hidden_for(&mut self, users: Vec<UserId>) {
         for event in &mut self.events {
             if let DmMessageDomainEvent::Sent(sent) = event

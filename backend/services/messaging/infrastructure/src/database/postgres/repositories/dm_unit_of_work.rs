@@ -121,18 +121,32 @@ impl DmTransaction for PostgresDmTransaction {
         crate::database::postgres::repositories::read_state::dm_last_read_at(&mut self.tx, reader, peer).await
     }
 
-    async fn last_cleared_at(&mut self, a: &UserId, b: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+    async fn last_cleared_at(&mut self, user: &UserId, peer: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError> {
         sqlx::query_scalar!(
-            r#"
-            SELECT MAX(cleared_at) FROM dm_clear_marks
-            WHERE (user_id = $1 AND peer_id = $2) OR (user_id = $2 AND peer_id = $1)
-            "#,
-            a.uuid(),
-            b.uuid(),
+            r#"SELECT cleared_at FROM dm_clear_marks WHERE user_id = $1 AND peer_id = $2"#,
+            user.uuid(),
+            peer.uuid(),
         )
-        .fetch_one(&mut *self.tx)
+        .fetch_optional(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)
+    }
+
+    async fn hide_message(&mut self, id: &DmMessageId, users: &[UserId]) -> Result<(), RepositoryError> {
+        let users: Vec<Uuid> = users.iter().map(|u| u.uuid()).collect();
+        sqlx::query!(
+            r#"
+            INSERT INTO hidden_messages (user_id, message_id)
+            SELECT u, $2 FROM unnest($1::uuid[]) AS u
+            ON CONFLICT (user_id, message_id) DO NOTHING
+            "#,
+            &users,
+            id.uuid(),
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
     }
 
     async fn consume_call_log(

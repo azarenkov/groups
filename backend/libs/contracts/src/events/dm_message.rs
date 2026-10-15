@@ -16,6 +16,8 @@ pub struct DmMessageSentV1 {
     pub call_duration_seconds: Option<i32>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub read_by_recipient: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hidden_for: Vec<Uuid>,
     #[serde(default)]
     pub attachments: Option<Value>,
     #[serde(default)]

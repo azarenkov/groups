@@ -257,6 +257,7 @@ fn dm_record(event: &DmMessageDomainEvent) -> Result<OutboxRecord, RepositoryErr
             call_status: e.call_status.clone(),
             call_duration_seconds: e.call_duration_seconds,
             read_by_recipient: e.read_by_recipient,
+            hidden_for: uuids(&e.hidden_for),
             attachments: Some(value(&e.attachments)?),
             reply_to: e.reply.as_ref().map(reply_json),
             forwarded_from: e.forward.as_ref().map(|f| f.to_json()),

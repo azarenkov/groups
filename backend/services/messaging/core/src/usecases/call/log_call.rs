@@ -73,13 +73,21 @@ where
             Err(RepositoryError::AlreadyExists) => return Ok(()),
             result => result?,
         };
-        if CallStatus::predates(ended_at, tx.last_cleared_at(&inviter, &invitee).await?) {
+        let mut cleared_by = Vec::new();
+        for (user, peer) in [(inviter, invitee), (invitee, inviter)] {
+            if CallStatus::predates(ended_at, tx.last_cleared_at(&user, &peer).await?) {
+                cleared_by.push(user);
+            }
+        }
+        if cleared_by.len() == 2 {
             return Ok(());
         }
         let recipient_read_at = tx.last_read_at(&invitee, &inviter).await?;
         let mut message = DmMessage::create_call(inviter, invitee, call_id, status, content, ended_at, recipient_read_at);
+        message.hide_for(cleared_by.clone());
         let events: Vec<MessagingEvent> = message.pull_events().into_iter().map(MessagingEvent::from).collect();
         tx.insert_message(&message, &[]).await?;
+        tx.hide_message(message.id(), &cleared_by).await?;
         tx.save_events(&events, None).await?;
         tx.commit().await?;
         Ok(())
@@ -102,7 +110,8 @@ mod tests {
         consumed: Mutex<HashSet<(Uuid, UserId, UserId)>>,
         logged: Mutex<Vec<(UserId, UserId, String)>>,
         created: Mutex<Vec<DateTime<Utc>>>,
-        cleared: Mutex<Option<DateTime<Utc>>>,
+        cleared: Mutex<std::collections::HashMap<UserId, DateTime<Utc>>>,
+        hidden: Mutex<Vec<UserId>>,
     }
 
     struct Uow(Arc<Store>);
@@ -141,8 +150,12 @@ mod tests {
         async fn last_read_at(&mut self, _: &UserId, _: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError> {
             Ok(None)
         }
-        async fn last_cleared_at(&mut self, _: &UserId, _: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError> {
-            Ok(*self.store.cleared.lock().unwrap())
+        async fn last_cleared_at(&mut self, user: &UserId, _: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+            Ok(self.store.cleared.lock().unwrap().get(user).copied())
+        }
+        async fn hide_message(&mut self, _: &DmMessageId, users: &[UserId]) -> Result<(), RepositoryError> {
+            self.store.hidden.lock().unwrap().extend_from_slice(users);
+            Ok(())
         }
         async fn consume_call_log(&mut self, call_id: Uuid, sender: &UserId, recipient: &UserId) -> Result<(), RepositoryError> {
             if self.store.consumed.lock().unwrap().insert((call_id, *sender, *recipient)) {
@@ -219,12 +232,21 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_call_that_ended_before_the_conversation_was_cleared_leaves_no_card() {
-        let (store, log_call) = usecase(ended(false));
+    async fn a_clear_after_the_call_hides_the_card_only_from_whoever_cleared() {
         let ended_at = DateTime::from_timestamp(1_800_000_000, 0).unwrap();
-        *store.cleared.lock().unwrap() = Some(ended_at + chrono::Duration::seconds(5));
+        let after = ended_at + chrono::Duration::seconds(5);
         let (caller, callee) = (UserId::new(Uuid::new_v4()), UserId::new(Uuid::new_v4()));
-        log_call.execute(Uuid::new_v4(), ended_at, &[CallInvitation { inviter: caller, invitee: callee }]).await.unwrap();
+        let invitation = [CallInvitation { inviter: caller, invitee: callee }];
+
+        let (store, log_call) = usecase(ended(false));
+        store.cleared.lock().unwrap().insert(caller, after);
+        log_call.execute(Uuid::new_v4(), ended_at, &invitation).await.unwrap();
+        assert_eq!(store.logged.lock().unwrap().len(), 1);
+        assert_eq!(*store.hidden.lock().unwrap(), vec![caller]);
+
+        let (store, log_call) = usecase(ended(false));
+        store.cleared.lock().unwrap().extend([(caller, after), (callee, after)]);
+        log_call.execute(Uuid::new_v4(), ended_at, &invitation).await.unwrap();
         assert!(store.logged.lock().unwrap().is_empty());
     }
 }

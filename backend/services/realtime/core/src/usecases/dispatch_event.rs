@@ -307,13 +307,15 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             "forwardedFrom": evt.forwarded_from,
             "sticker": evt.sticker,
         });
+        let mut recipients = unique([evt.sender_id, evt.recipient_id]);
+        recipients.retain(|r| !evt.hidden_for.contains(r));
         publish_with_reply(
             publisher,
             "dm_message.sent",
             data,
             reply_to,
             &hidden_for,
-            unique([evt.sender_id, evt.recipient_id]),
+            recipients,
         )
         .await?;
         return Ok(());

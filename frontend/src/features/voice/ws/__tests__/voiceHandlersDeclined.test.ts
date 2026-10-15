@@ -29,7 +29,7 @@ it("tells the caller who declined and plays the refusal sound", () => {
 it("still tells the caller when the call already ended before the decline arrived, even after a reload", () => {
   useCallStore.setState({ activeCallId: "c2", ringing: ["peer"] });
   voiceHandlers["call.ended"]!({ callId: "c2" });
-  voiceHandlers["call.declined"]!({ callId: "c2", userId: "peer", userName: "Peer" });
+  voiceHandlers["call.declined"]!({ callId: "c2", userId: "peer", userName: "Peer", inviterId: "me" });
   expect(useCallStore.getState().activeCallId).toBeNull();
   expect(useCallStore.getState().callNotice?.kind).toBe("declined");
 });
@@ -56,4 +56,12 @@ it("ignores a late decline for an earlier call once another call is active", () 
   voiceHandlers["call.declined"]!({ callId: "old", userId: "peer", userName: "Peer", inviterId: "me" });
   expect(useCallStore.getState().ringing).toEqual(["peer"]);
   expect(useCallStore.getState().callNotice).toBeNull();
+});
+
+it("falls back to who this user is ringing when the inviter is unknown", () => {
+  useCallStore.setState({ activeCallId: "c5", ringing: ["mine"] });
+  voiceHandlers["call.declined"]!({ callId: "c5", userId: "theirs", userName: "Theirs" });
+  expect(useCallStore.getState().callNotice).toBeNull();
+  voiceHandlers["call.declined"]!({ callId: "c5", userId: "mine", userName: "Mine" });
+  expect(useCallStore.getState().callNotice?.userId).toBe("mine");
 });

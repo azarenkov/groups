@@ -35,7 +35,8 @@ pub trait DmTransaction: Send {
         attachments: &[AttachmentLink],
     ) -> Result<(), RepositoryError>;
     async fn last_read_at(&mut self, reader: &UserId, peer: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError>;
-    async fn last_cleared_at(&mut self, a: &UserId, b: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError>;
+    async fn last_cleared_at(&mut self, user: &UserId, peer: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError>;
+    async fn hide_message(&mut self, id: &DmMessageId, users: &[UserId]) -> Result<(), RepositoryError>;
     async fn consume_call_log(
         &mut self,
         call_id: Uuid,
