@@ -401,7 +401,7 @@ export function useMessages(params: {
     }
   }, [reseedChannelReads]);
 
-  const jumpToMessage = React.useCallback(async (target: ChannelMessage): Promise<boolean> => {
+  const jumpToMessage = React.useCallback(async (target: ChannelMessage, isCurrent: () => boolean = () => true): Promise<boolean> => {
     const messengerNow = messengerRef.current;
     const targetId = convIdRef.current;
     if (!messengerNow || !targetId) return false;
@@ -422,7 +422,7 @@ export function useMessages(params: {
           limit: JUMP_CONTEXT,
         }),
       ]);
-      if (currentChannelIdRef.current !== targetId) return true;
+      if (currentChannelIdRef.current !== targetId || !isCurrent()) return true;
       const older = [...olderRes.messages].reverse();
       const newer = [...newerRes.messages].reverse();
       const combined = [...older, target, ...newer];
@@ -479,7 +479,7 @@ export function useMessages(params: {
       try {
         const target = await messengerNow.getMessage(messageId);
         if (superseded()) return "stale";
-        const shown = await jumpToMessage(target);
+        const shown = await jumpToMessage(target, () => !superseded());
         if (superseded()) return "stale";
         return shown ? "shown" : "failed";
       } catch (err) {
