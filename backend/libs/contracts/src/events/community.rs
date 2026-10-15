@@ -45,6 +45,8 @@ pub struct CommunityDeletedV1 {
 pub struct CommunityMemberV1 {
     pub community_id: Uuid,
     pub user_id: Uuid,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub removed_by: Option<Uuid>,
     pub occurred_at: DateTime<Utc>,
 }
 
@@ -53,4 +55,22 @@ pub struct CommunityRolesChangedV1 {
     pub community_id: Uuid,
     #[serde(default)]
     pub recipients: Vec<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommunityInvitationIssuedV1 {
+    pub invitation_id: Uuid,
+    pub community_id: Uuid,
+    pub inviter_id: Uuid,
+    pub invitee_id: Uuid,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommunityInvitationResolvedV1 {
+    pub invitation_id: Uuid,
+    pub community_id: Uuid,
+    pub invitee_id: Uuid,
+    pub accepted: bool,
+    pub occurred_at: DateTime<Utc>,
 }

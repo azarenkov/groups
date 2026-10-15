@@ -20,7 +20,6 @@ const props = (msg: ChannelMessage, displayName: string) => ({
   editRemovedIds: [],
   editFiles: [],
   editSaving: false,
-  inviteIsMember: false,
   onEditTextChange: noop,
   onStartEdit: noop,
   onCancelEdit: noop,
@@ -29,9 +28,6 @@ const props = (msg: ChannelMessage, displayName: string) => ({
   onAddEditFiles: noop,
   onRemoveEditFile: noop,
   onDelete: noop,
-  onAcceptInvite: noop,
-  onDeclineInvite: noop,
-  onOpenInviteCommunity: noop,
 });
 
 const base: ChannelMessage = {

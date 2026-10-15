@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM community_invitations WHERE id = $1 AND community_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ad468ff8593e5295989ec8bb9c8a118a93c1de056f68018e7e820b133b700af5"
+}

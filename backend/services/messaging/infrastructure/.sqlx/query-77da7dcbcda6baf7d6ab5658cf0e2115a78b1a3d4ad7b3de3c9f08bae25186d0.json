@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH removed AS (\n                DELETE FROM community_invitations\n                WHERE inviter_id = $1 OR invitee_id = $1\n                RETURNING invitee_id\n            )\n            SELECT DISTINCT invitee_id AS \"invitee_id!\" FROM removed WHERE invitee_id <> $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "invitee_id!",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "77da7dcbcda6baf7d6ab5658cf0e2115a78b1a3d4ad7b3de3c9f08bae25186d0"
+}

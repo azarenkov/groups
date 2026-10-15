@@ -115,7 +115,6 @@ impl SearchRepository for PostgresSearchRepository {
                           WHERE (b.blocker_id = $1 AND b.blocked_id = peer.id)
                              OR (b.blocker_id = peer.id AND b.blocked_id = $1)
                       )
-                      AND m.invite_community_id IS NULL
                       AND m.call_status IS NULL
                       AND m.search_tsv @@ to_tsquery('simple', (SELECT string_agg(quote_literal(t.lexeme) || ':*', ' & ') FROM unnest(to_tsvector('simple', $2)) AS t))
                       AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
@@ -232,7 +231,6 @@ impl SearchRepository for PostgresSearchRepository {
                           WHERE (b.blocker_id = $1 AND b.blocked_id = peer.id)
                              OR (b.blocker_id = peer.id AND b.blocked_id = $1)
                       )
-                      AND m.invite_community_id IS NULL
                       AND m.call_status IS NULL
                       AND a.voice_duration_ms IS NULL AND a.video_duration_ms IS NULL
                       AND lower(a.file_name) LIKE $2 ESCAPE '\'
@@ -355,7 +353,6 @@ impl SearchRepository for PostgresSearchRepository {
                           WHERE (b.blocker_id = $1 AND b.blocked_id = peer.id)
                              OR (b.blocker_id = peer.id AND b.blocked_id = $1)
                       )
-                      AND m.invite_community_id IS NULL
                       AND m.call_status IS NULL
                       AND lower(m.content) LIKE $3 ESCAPE '\'
                       AND m.content ~ 'https?://'

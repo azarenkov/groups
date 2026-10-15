@@ -31,18 +31,16 @@ export function useDirectConversations(params: {
       if (!p) return undefined;
       const body = p.callStatus
         ? tSidebar("previewCall")
-        : p.inviteCommunityId
-          ? tSidebar("previewInvite")
-          : p.content ||
-            (p.stickerEmoji
-              ? tSidebar("previewSticker", { emoji: p.stickerEmoji })
-              : typeof p.videoNoteDurationMs === "number"
-              ? tSidebar("previewVideoNote")
-              : typeof p.voiceDurationMs === "number"
-              ? tSidebar("previewVoice")
-              : p.hasAttachments
-                ? tSidebar("previewAttachment")
-                : "");
+        : p.content ||
+          (p.stickerEmoji
+            ? tSidebar("previewSticker", { emoji: p.stickerEmoji })
+            : typeof p.videoNoteDurationMs === "number"
+            ? tSidebar("previewVideoNote")
+            : typeof p.voiceDurationMs === "number"
+            ? tSidebar("previewVoice")
+            : p.hasAttachments
+              ? tSidebar("previewAttachment")
+              : "");
       return p.senderId === currentUserId
         ? `${tSidebar("previewYou")} ${body}`
         : body;
@@ -146,15 +144,9 @@ export function useDirectConversations(params: {
     );
   }, [acceptedFriends, selectedDm, friendStatuses, setSelectedDm]);
 
-  const pendingCount = React.useMemo(
-    () => Object.values(friendStatuses).filter((s) => s === "pending_incoming").length,
-    [friendStatuses],
-  );
-
   return {
     friends,
     acceptedFriends,
-    pendingCount,
     onlineUsers,
     nameOverrides,
     dmPreviews,

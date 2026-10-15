@@ -2,7 +2,7 @@ import type { ChannelMessage } from "../../../shared/types/channel";
 
 const MINUTE_MS = 60 * 1000;
 
-const showsTime = (m: ChannelMessage) => !m.system && !m.callStatus && !m.inviteCommunityId;
+const showsTime = (m: ChannelMessage) => !m.system && !m.callStatus;
 
 export function sharesTimeWithNext(m: ChannelMessage, next: ChannelMessage | undefined): boolean {
   if (!next || !showsTime(m) || !showsTime(next)) return false;

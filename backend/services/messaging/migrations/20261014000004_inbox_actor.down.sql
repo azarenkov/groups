@@ -1,0 +1,1 @@
+DROP INDEX messaging.inbox_notifications_actor_idx;

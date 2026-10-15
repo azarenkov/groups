@@ -54,10 +54,15 @@ impl<W: FriendshipUnitOfWork, U: UserProfileRepository> BlockUser<W, U> {
                 tx.save_pair(&pair).await?;
             }
         }
-        if tx.insert_block(&blocker_id, &blocked_id, now).await? {
+        let blocked = tx.insert_block(&blocker_id, &blocked_id, now).await?;
+        if blocked {
             events.push(MessagingEvent::from(FriendshipDomainEvent::Blocked(
                 UserBlocked::record(blocker_id, blocked_id, now),
             )));
+        }
+        let withdrawn = tx.withdraw_invitations_between(&blocker_id, &blocked_id).await?;
+        if blocked || withdrawn > 0 {
+            tx.announce_inbox_change(&[blocker_id, blocked_id]).await?;
         }
         tx.save_events(&events, None).await?;
         tx.commit().await?;

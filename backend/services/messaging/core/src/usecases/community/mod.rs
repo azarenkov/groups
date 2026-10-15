@@ -1,4 +1,5 @@
 pub mod accept_community_invite;
+pub mod adopt_legacy_invitations;
 pub mod can_manage_community;
 pub mod create_community;
 pub mod decline_community_invite;

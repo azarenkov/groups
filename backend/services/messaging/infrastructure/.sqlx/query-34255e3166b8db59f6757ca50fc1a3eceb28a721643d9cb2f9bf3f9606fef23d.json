@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH blocked AS (\n                SELECT i.id FROM community_invitations i\n                WHERE EXISTS (\n                    SELECT 1 FROM user_blocks b\n                    WHERE (b.blocker_id = i.inviter_id AND b.blocked_id = i.invitee_id)\n                       OR (b.blocker_id = i.invitee_id AND b.blocked_id = i.inviter_id)\n                )\n                OR EXISTS (\n                    SELECT 1 FROM messaging_deleted_users d\n                    WHERE d.user_id = i.inviter_id OR d.user_id = i.invitee_id\n                )\n                LIMIT $1\n                FOR UPDATE SKIP LOCKED\n            )\n            DELETE FROM community_invitations i USING blocked\n            WHERE i.id = blocked.id\n            RETURNING i.invitee_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "invitee_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "34255e3166b8db59f6757ca50fc1a3eceb28a721643d9cb2f9bf3f9606fef23d"
+}

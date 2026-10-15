@@ -4,7 +4,6 @@ use messaging::dto::requests::dm::{
     list_dm_messages::ListDmMessagesRequest, search_dm_messages::SearchDmMessagesRequest,
     send_dm_message::SendDmMessageRequest,
 };
-use messaging_domain::{dm_message::id::DmMessageId, community::id::CommunityId};
 use domain::user::id::UserId;
 use api_common::middleware::auth::RateLimitedAuthToken;
 use uuid::Uuid;
@@ -14,7 +13,7 @@ use crate::state::AppState;
 use api_common::{context::request_context};
 use api_common::dto::{pagination::PaginationMeta, responses::ApiResponse};
 use crate::dto::responses::reply::{fill_replies, reply_ids};
-use crate::dto::{requests::dm::{ EditDmMessageBody, ListDmMessagesQuery, SearchDmMessagesQuery, SendDmMessageBody, SendCommunityInviteBody, }, responses::dm::{ AcceptCommunityInviteResponse, DmMessageResponse, ListDmMessagesResponse, SearchDmMessagesResponse, }};
+use crate::dto::{requests::dm::{ EditDmMessageBody, ListDmMessagesQuery, SearchDmMessagesQuery, SendDmMessageBody, }, responses::dm::{ DmMessageResponse, ListDmMessagesResponse, SearchDmMessagesResponse, }};
 use crate::http_errors::HttpError;
 
 #[post("/me/dms/{friend_id}/messages")]
@@ -47,62 +46,6 @@ async fn send_dm_message(
     Ok(HttpResponse::Created().json(ApiResponse::success(DmMessageResponse::from(response))))
 }
 
-#[post("/me/dms/{friend_id}/community-invite")]
-async fn send_community_invite(
-    req: HttpRequest,
-    auth_token: RateLimitedAuthToken,
-    app_state: web::Data<AppState>,
-    path: web::Path<Uuid>,
-    body: web::Json<SendCommunityInviteBody>,
-) -> Result<impl Responder, HttpError> {
-    let friend_id = UserId::new(path.into_inner());
-    let community_id = CommunityId::new(body.into_inner().community_id);
-    let sender_id = UserId::new(auth_token.id);
-
-    let response = app_state
-        .send_community_invite_usecase
-        .execute(community_id, friend_id, sender_id, request_context(&req))
-        .await?;
-
-    Ok(HttpResponse::Created().json(ApiResponse::success(DmMessageResponse::from(response))))
-}
-
-#[post("/me/dms/messages/{message_id}/accept-invite")]
-async fn accept_community_invite(
-    req: HttpRequest,
-    auth_token: RateLimitedAuthToken,
-    app_state: web::Data<AppState>,
-    path: web::Path<Uuid>,
-) -> Result<impl Responder, HttpError> {
-    let message_id = DmMessageId::new(path.into_inner());
-    let requester_id = UserId::new(auth_token.id);
-
-    let community_id = app_state
-        .accept_community_invite_usecase
-        .execute(message_id, requester_id, request_context(&req))
-        .await?;
-
-    Ok(HttpResponse::Ok().json(ApiResponse::success(AcceptCommunityInviteResponse::new(community_id))))
-}
-
-#[post("/me/dms/messages/{message_id}/decline-invite")]
-async fn decline_community_invite(
-    req: HttpRequest,
-    auth_token: RateLimitedAuthToken,
-    app_state: web::Data<AppState>,
-    path: web::Path<Uuid>,
-) -> Result<impl Responder, HttpError> {
-    let message_id = DmMessageId::new(path.into_inner());
-    let requester_id = UserId::new(auth_token.id);
-
-    app_state
-        .decline_community_invite_usecase
-        .execute(message_id, requester_id, request_context(&req))
-        .await?;
-
-    Ok(HttpResponse::NoContent().finish())
-}
-
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DmPreviewItem {
@@ -112,7 +55,6 @@ struct DmPreviewItem {
     sender_id: Uuid,
     content: String,
     call_status: Option<String>,
-    invite_community_id: Option<Uuid>,
     has_attachments: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     voice_duration_ms: Option<i32>,
@@ -167,7 +109,6 @@ async fn list_dm_previews(
                 sender_id: p.sender_id,
                 content: p.content,
                 call_status: p.call_status,
-                invite_community_id: p.invite_community_id,
                 has_attachments: p.has_attachments,
                 voice_duration_ms: p.voice_duration_ms,
                 video_note_duration_ms: p.video_note_duration_ms,
@@ -260,17 +201,10 @@ async fn hide_dm_message(
 ) -> Result<impl Responder, HttpError> {
     let (friend_id, message_id) = path.into_inner();
     let user_id = UserId::new(auth_token.id);
-    let message = app_state
+    app_state
         .list_dm_messages_usecase
         .find_one(friend_id, message_id, user_id)
         .await?;
-    if message.invite_community_id.is_some() && message.sender_id != user_id.uuid() {
-        return Err(HttpError::new(
-            "Accept or decline the invite instead of hiding it.".to_string(),
-            actix_web::http::StatusCode::BAD_REQUEST,
-            "INVITE_NOT_HIDEABLE",
-        ));
-    }
     app_state
         .hide_message_usecase
         .execute(user_id, message_id)

@@ -286,6 +286,10 @@ impl<S: CommunityRepository, W: CommunityUnitOfWork> JoinByInviteLink<S, W> {
                 CommunityMemberJoined::record(community_id, user_id, now),
             ))];
             events.extend(announce_membership(&mut *tx, user_id, SystemMessageKind::MemberJoined, now).await?);
+            if let Some(invitation) = tx.find_pending_invitation(&user_id).await? {
+                tx.delete_invitation(invitation.id()).await?;
+                events.push(MessagingEvent::from(invitation.settle_by_joining(now)));
+            }
             tx.save_events(&events, None).await?;
         }
         tx.commit().await?;

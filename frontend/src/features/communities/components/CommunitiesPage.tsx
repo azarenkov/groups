@@ -64,6 +64,7 @@ import TrialEndingNotice from "../../subscription/components/TrialEndingNotice";
 import PanelResizer from "../../../shared/ui/PanelResizer";
 import ContextMenuHost from "../../../shared/ui/contextMenu/ContextMenuHost";
 import { purgeCommunityLocally } from "../../../shared/ws/context";
+import InboxMenu from "../../inbox/components/InboxMenu";
 import { useDmOpenerStore } from "../../social/store/dmOpenerStore";
 import { parseMessageLink } from "../../chat/lib/messageLink";
 import type { OpenMessageLink } from "../../chat/lib/messageLink";
@@ -230,7 +231,6 @@ const CommunitiesPage: React.FC = () => {
   const {
     friends,
     acceptedFriends,
-    pendingCount,
     onlineUsers,
     nameOverrides,
     dmPreviews,
@@ -695,6 +695,7 @@ const CommunitiesPage: React.FC = () => {
   return (
     <div className="win">
       <AppTopBar
+        inbox={<InboxMenu onOpenCommunity={selection.handleGoToCommunity} onOpenFriendRequests={() => setIsPendingOpen(true)} />}
         navState={sidebarNav.navState}
         goHistory={sidebarNav.goHistory}
         homeActive={homeActive}
@@ -777,8 +778,6 @@ const CommunitiesPage: React.FC = () => {
             })
           }
           onAddFriend={() => useSearchFocusStore.getState().focus("people")}
-          onOpenPending={() => setIsPendingOpen(true)}
-          pendingCount={pendingCount}
           onCreateCommunity={() => {
             setCommunityModalView("create");
             setIsCommunityModalOpen(true);

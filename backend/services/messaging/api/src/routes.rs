@@ -10,10 +10,9 @@ use crate::channel::{
     deafen_channel, disconnect_voice_member, get_channel_message, hide_channel_message, mute_channel, search_channel_messages, send_channel_message, undeafen_channel, unmute_channel,
 };
 use crate::dm::{
-    accept_community_invite, decline_community_invite, delete_dm_message, edit_dm_message,
+    delete_dm_message, edit_dm_message,
     get_dm_message, hide_dm_message, list_dm_messages, list_dm_previews, search_dm_messages, send_dm_message,
-    send_community_invite,
-};
+    };
 use crate::home::{get_home_overview, get_user_profile};
 use crate::internal::internal_routes;
 use crate::friendship::{
@@ -61,6 +60,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(list_voice_presence)
                         .service(update_stream_viewer)
                         .service(list_sent_community_invites)
+                        .service(crate::inbox::issue_invitation)
                         .service(create_channel)
                         .service(join_voice_channel)
                         .service(join_text_channel)
@@ -96,9 +96,6 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(list_dm_previews)
                         .service(list_dm_messages)
                         .service(send_dm_message)
-                        .service(send_community_invite)
-                        .service(accept_community_invite)
-                        .service(decline_community_invite)
                         .service(edit_dm_message)
                         .service(delete_dm_message)
                         .service(list_friend_ids)
@@ -117,7 +114,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .configure(read_state_routes)
                         .configure(notification_routes)
                         .configure(presence_routes)
-                        .configure(crate::search::search_routes),
+                        .configure(crate::search::search_routes)
+                        .configure(crate::inbox::inbox_routes),
                 ),
         );
 }

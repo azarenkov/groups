@@ -7,7 +7,6 @@ import Icon from "../../../shared/ui/Icon";
 import CallJoinBanner from "../../voice/components/CallJoinBanner";
 import ConfirmModal from "../../../shared/ui/ConfirmModal";
 import { channelAPI } from "../../communities/api/channel";
-import { dmAPI } from "../../dm/api/dm";
 import { ChannelMessage } from "../../../shared/types/channel";
 import { Community } from "../../../shared/types/community";
 import { ApiError } from "../../../shared/lib/apiError";
@@ -68,7 +67,6 @@ const ChatView: React.FC<ChatViewProps> = ({
   communities,
   onRemoveFriend,
   onBlockUser,
-  onGoToCommunity,
   topSlot,
   callMode,
   openMessageId,
@@ -356,40 +354,6 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
   };
 
-  const myCommunityIds = React.useMemo(
-    () => new Set((communities ?? []).map((s) => s.id)),
-    [communities],
-  );
-
-  const handleAcceptInvite = async (msg: ChannelMessage) => {
-    if (!msg.inviteCommunityId) return;
-    setComposerError(null);
-    try {
-      await dmAPI.acceptCommunityInvite(msg.id);
-    } catch (err) {
-      const apiErr = err instanceof ApiError ? err : null;
-      setComposerError(apiErr?.message || i18n.t("couldNotJoinCommunity", { ns: "chat" }));
-      return;
-    }
-    try {
-      await onGoToCommunity?.(msg.inviteCommunityId);
-    } catch (err) {
-      console.warn("[ChatView] post-accept navigation failed:", err);
-    }
-  };
-
-  const handleDeclineInvite = async (msg: ChannelMessage) => {
-    if (!msg.inviteCommunityId) return;
-    setComposerError(null);
-    try {
-      await dmAPI.declineCommunityInvite(msg.id);
-      setMessages((prev) => prev.filter((m) => m.id !== msg.id));
-    } catch (err) {
-      const apiErr = err instanceof ApiError ? err : null;
-      setComposerError(apiErr?.message || "Couldn't decline the invite.");
-    }
-  };
-
   if (!channel && !dm) return null;
 
   const placeholder = dm
@@ -611,7 +575,6 @@ const ChatView: React.FC<ChatViewProps> = ({
             editFiles={editFiles}
             savingEdit={editing.savingEdit}
             highlightedMessageId={highlightedMessageId}
-            myCommunityIds={myCommunityIds}
             receiptFor={receiptFor}
             onEditTextChange={editing.setEditText}
             onStartEdit={editing.startEdit}
@@ -658,9 +621,6 @@ const ChatView: React.FC<ChatViewProps> = ({
                 navigate(link.pathname + link.search);
               }}
               onDelete={editing.setDeleteTarget}
-            onAcceptInvite={handleAcceptInvite}
-            onDeclineInvite={handleDeclineInvite}
-            onOpenInviteCommunity={onGoToCommunity}
             pinnedIds={pinned.pinnedIds}
             onTogglePin={canPin ? (message, pin) => togglePin(message.id, pin) : undefined}
           />
@@ -715,11 +675,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         />
       )}
       {editing.deleteTarget &&
-        (canDeleteForEveryone(
-          editing.deleteTarget,
-          editing.deleteTarget.authorId === currentUserId,
-          canModerateMessages,
-        ) ? (
+        (canDeleteForEveryone(editing.deleteTarget.authorId === currentUserId, canModerateMessages) ? (
           <ConfirmModal
             title={i18n.t("deleteMessage", { ns: "chat" })}
             subtitle={i18n.t("deleteMessageChoose", { ns: "chat" })}

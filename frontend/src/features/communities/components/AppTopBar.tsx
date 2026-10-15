@@ -20,6 +20,7 @@ interface AppTopBarProps {
   onSetStatus?: (status: "online" | "offline") => void;
   onSignOut?: () => void;
   renderResults?: (done: () => void) => React.ReactNode;
+  inbox?: React.ReactNode;
 }
 
 const AppTopBar: React.FC<AppTopBarProps> = ({
@@ -36,6 +37,7 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
   onSetStatus,
   onSignOut,
   renderResults,
+  inbox,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   const searchRef = React.useRef<HTMLInputElement>(null);
@@ -205,6 +207,7 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
       </div>
 
       <div className="topbar-side topbar-end">
+        {inbox}
         <AccountMenu
           currentUserId={currentUserId}
           currentUserName={currentUserName}

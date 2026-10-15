@@ -53,7 +53,6 @@ export function useMessageEditing(params: {
         (m) =>
           m.authorId === currentUserId &&
           !m.callStatus &&
-          !m.inviteCommunityId &&
           !m.forwardedFrom &&
           !m.system &&
           !m.sticker &&

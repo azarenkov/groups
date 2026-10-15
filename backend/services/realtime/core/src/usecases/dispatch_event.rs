@@ -20,7 +20,7 @@ use contracts::events::{
     },
     message::{
         ChannelMessageDeletedV1 as ChannelMsgDeleted, ChannelMessageEditedV1 as ChannelMsgEdited,
-        ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto, ConversationPinsUpdatedV1 as ConversationPinsUpdatedDto, SearchHistoryUpdatedV1 as SearchHistoryUpdatedDto,
+        ChannelMessageSentV1 as ChannelMsgSent, ChannelReadV1 as ChannelReadDto, ConversationPinsUpdatedV1 as ConversationPinsUpdatedDto, SearchHistoryUpdatedV1 as SearchHistoryUpdatedDto, InboxChangedV1 as InboxChangedDto,
         MessageHiddenV1 as MessageHiddenDto, MessagePinChangedV1 as MessagePinChangedDto, VoiceListenedV1 as VoiceListenedDto,
     },
     community::{
@@ -300,8 +300,6 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             "recipientId": evt.recipient_id,
             "content": evt.content,
             "occurredAt": evt.occurred_at,
-            "inviteCommunityId": evt.invite_community_id,
-            "inviteCommunityName": evt.invite_community_name,
             "callStatus": evt.call_status,
             "callDurationSeconds": evt.call_duration_seconds,
             "attachments": evt.attachments.unwrap_or_else(|| json!([])),
@@ -456,6 +454,14 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "communities": evt.communities,
             }),
         );
+        publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
+        return Ok(());
+    }
+
+    if ends_with(subject, ".notification.created") || ends_with(subject, ".inbox.updated") {
+        let evt: InboxChangedDto = serde_json::from_slice(payload)?;
+        let kind = if ends_with(subject, ".notification.created") { "notification.created" } else { "inbox.updated" };
+        let envelope = Envelope::new(kind, json!({ "notificationId": evt.notification_id }));
         publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
         return Ok(());
     }
@@ -1577,6 +1583,30 @@ mod tests {
             assert_eq!(sent[1]["type"], json!("sequence.skip"));
             assert_eq!(sent[1]["seq"], json!(9));
             assert_eq!(to[1], vec![peer]);
+        }
+
+        #[tokio::test]
+        async fn delivers_inbox_changes_only_to_the_inbox_owner() {
+            let publisher = std::sync::Arc::new(Captured::default());
+            let dispatch = DispatchEvent::new(
+                std::sync::Arc::new(Directory::default()),
+                publisher.clone(),
+                std::sync::Arc::new(Relations { peers: vec![] }),
+            );
+            let (user, notification) = (Uuid::new_v4(), Uuid::new_v4());
+            let created = serde_json::to_vec(&json!({ "user_id": user, "notification_id": notification })).unwrap();
+            dispatch
+                .execute_sequenced("rift.events.user.p1.notification.created", &created, None)
+                .await
+                .unwrap();
+            let updated = serde_json::to_vec(&json!({ "user_id": user })).unwrap();
+            dispatch.execute_sequenced("rift.events.user.p1.inbox.updated", &updated, None).await.unwrap();
+            let sent = publisher.sent.lock().unwrap();
+            let to = publisher.to.lock().unwrap();
+            assert_eq!(sent[0]["type"], json!("notification.created"));
+            assert_eq!(sent[0]["data"]["notificationId"], json!(notification));
+            assert_eq!(sent[1]["type"], json!("inbox.updated"));
+            assert_eq!(to.as_slice(), &[vec![user], vec![user]]);
         }
 
         #[tokio::test]

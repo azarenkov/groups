@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO dm_messages (id, sender_id, recipient_id, content, call_status, call_duration_seconds, call_id, created_at, edited_at, reply_to_message_id, forwarded_from, sticker)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, ($11::text)::jsonb, ($12::text)::jsonb)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f9cbf00893fd92409735d1b530f196da8831b205558007914e1fd67f29bb57e4"
+}

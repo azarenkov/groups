@@ -6,6 +6,7 @@ pub mod dm;
 pub mod dm_conversation;
 pub mod friendship;
 pub mod hidden_message;
+pub mod inbox;
 pub mod voice_listen;
 pub mod notification;
 pub mod pin;

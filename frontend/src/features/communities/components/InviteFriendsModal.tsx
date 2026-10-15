@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
-import { dmAPI } from "../../dm/api/dm";
 import { communityAPI } from "../api/community";
 import { ApiError } from "../../../shared/lib/apiError";
 import { UserAvatar } from "../../../shared/ui/Avatar";
@@ -88,7 +87,7 @@ const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
     setError(null);
     setPending(friendId);
     try {
-      await dmAPI.sendCommunityInvite(friendId, community.id);
+      await communityAPI.issueInvitation(community.id, friendId);
       setInvited((prev) => {
         const next = new Set(prev);
         next.add(friendId);

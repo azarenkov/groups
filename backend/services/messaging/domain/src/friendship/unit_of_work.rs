@@ -18,6 +18,8 @@ pub trait FriendshipTransaction: Send {
     async fn block_relation(&mut self, viewer: &UserId, other: &UserId) -> Result<BlockRelation, RepositoryError>;
     async fn insert_block(&mut self, blocker: &UserId, blocked: &UserId, now: DateTime<Utc>) -> Result<bool, RepositoryError>;
     async fn delete_block(&mut self, blocker: &UserId, blocked: &UserId) -> Result<bool, RepositoryError>;
+    async fn withdraw_invitations_between(&mut self, a: &UserId, b: &UserId) -> Result<u64, RepositoryError>;
+    async fn announce_inbox_change(&mut self, users: &[UserId]) -> Result<(), RepositoryError>;
     async fn save_events(&mut self, events: &[MessagingEvent], request_id: Option<&str>) -> Result<(), RepositoryError>;
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError>;
 }

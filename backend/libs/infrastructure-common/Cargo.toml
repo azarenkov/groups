@@ -24,6 +24,7 @@ bcrypt = "0.18"
 livekit-api = "0.4.14"
 livekit-protocol = "0.7.1"
 async-nats = { workspace = true }
+time = "0.3"
 rust-s3 = { workspace = true }
 tokio = { workspace = true, features = ["net", "time", "rt"] }
 tokio-util = { workspace = true }

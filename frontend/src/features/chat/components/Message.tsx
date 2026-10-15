@@ -10,7 +10,7 @@ import { copyTextToClipboard } from "../../../shared/lib/clipboard";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import ProfileLink from "../../social/components/ProfileLink";
 import { rememberMentionTarget } from "../lib/mentionTargets";
-import { UserAvatar, CommunityLogo } from "../../../shared/ui/Avatar";
+import { UserAvatar } from "../../../shared/ui/Avatar";
 import Icon from "../../../shared/ui/Icon";
 import { openReport } from "../../moderation/store/reportModalStore";
 import AttachmentItem from "./AttachmentItem";
@@ -66,7 +66,6 @@ export interface MessageProps {
   editRemovedIds: string[];
   editFiles: PendingFile[];
   editSaving: boolean;
-  inviteIsMember: boolean;
   onEditTextChange: (v: string) => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
@@ -75,9 +74,6 @@ export interface MessageProps {
   onAddEditFiles: (files: FileList | File[]) => void;
   onRemoveEditFile: (localId: string) => void;
   onDelete: () => void;
-  onAcceptInvite: () => void;
-  onDeclineInvite: () => void;
-  onOpenInviteCommunity: () => void;
   onReply?: () => void;
   onJumpToReply?: (messageId: string) => void;
   onCopyLink?: () => void;
@@ -110,7 +106,6 @@ export const Message: React.FC<MessageProps> = ({
   editRemovedIds,
   editFiles,
   editSaving,
-  inviteIsMember,
   onEditTextChange,
   onStartEdit,
   onCancelEdit,
@@ -119,9 +114,6 @@ export const Message: React.FC<MessageProps> = ({
   onAddEditFiles,
   onRemoveEditFile,
   onDelete,
-  onAcceptInvite,
-  onDeclineInvite,
-  onOpenInviteCommunity,
   onReply,
   onJumpToReply,
   onCopyLink,
@@ -252,7 +244,7 @@ export const Message: React.FC<MessageProps> = ({
     ];
   };
   const longPress = useLongPress((point) => !editing && openContextMenu(point, menuEntries()));
-  const canSwipe = !!onReply && !editing && !msg.system && !msg.callStatus && !msg.inviteCommunityId;
+  const canSwipe = !!onReply && !editing && !msg.system && !msg.callStatus;
   const [swipeOffset, setSwipeOffset] = React.useState(0);
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const wheelSwipeRef = React.useRef(IDLE_WHEEL_SWIPE);
@@ -453,60 +445,6 @@ export const Message: React.FC<MessageProps> = ({
             <time className="dm-call-time" dateTime={msg.createdAt}>
               {time}
             </time>
-          </div>
-        ) : msg.inviteCommunityId ? (
-          <div className="dm-invite-card">
-            <div className="dm-invite-card-label">
-              {i18n.t("invite.label", { ns: "chat" })}
-            </div>
-            <div className="dm-invite-card-row">
-              <CommunityLogo
-                communityId={msg.inviteCommunityId}
-                name={msg.inviteCommunityName ?? "?"}
-                className="dm-invite-card-glyph"
-                style={{ display: "inline-flex" }}
-              />
-              <div className="dm-invite-card-info">
-                <div className="dm-invite-card-name">
-                  {msg.inviteCommunityName ??
-                    i18n.t("invite.communityFallback", { ns: "chat" })}
-                </div>
-                <div className="dm-invite-card-sub">
-                  {isMine
-                    ? i18n.t("invite.youSent", { ns: "chat" })
-                    : i18n.t("invite.invitedYou", {
-                        ns: "chat",
-                        name: displayName,
-                      })}
-                </div>
-              </div>
-              {inviteIsMember ? (
-                <button
-                  type="button"
-                  className="dm-invite-card-btn joined"
-                  onClick={onOpenInviteCommunity}
-                >
-                  {i18n.t("invite.open", { ns: "chat" })}
-                </button>
-              ) : isMine ? null : (
-                <div className="dm-invite-card-actions">
-                  <button
-                    type="button"
-                    className="dm-invite-card-btn"
-                    onClick={onAcceptInvite}
-                  >
-                    {i18n.t("invite.join", { ns: "chat" })}
-                  </button>
-                  <button
-                    type="button"
-                    className="dm-invite-card-btn decline"
-                    onClick={onDeclineInvite}
-                  >
-                    {i18n.t("invite.decline", { ns: "chat" })}
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         ) : editing ? (
           <div className="msg-edit">
@@ -844,7 +782,7 @@ export const Message: React.FC<MessageProps> = ({
             </span>
           </div>
         )}
-        {!editing && !hideMeta && !msg.callStatus && !msg.inviteCommunityId && (
+        {!editing && !hideMeta && !msg.callStatus && (
           <div className="msg-meta">
             {pinned && (
               <span className="msg-pinned" title={i18n.t("pins.pinned", { ns: "chat" })} aria-label={i18n.t("pins.pinned", { ns: "chat" })}>

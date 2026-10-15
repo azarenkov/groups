@@ -3,7 +3,7 @@ use crate::database::postgres::repositories::invite_link::{INVITE_LINK_COLUMNS, 
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{events::MessagingEvent, friendship::block::BlockRelation, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, dm_message::DmMessage, dm_message::id::DmMessageId, message::Message, message::id::MessageId, community::Community, community::description::CommunityDescription, community::name::CommunityName, community::id::CommunityId, community::invite_link::InviteJoinOutcome, community::invite_link::InviteLink, community::invite_link::InviteLinkStatus, community::invite_link::InviteToken, community::role::CommunityRole, community::unit_of_work::CommunityTransaction, community::unit_of_work::CommunityUnitOfWork, community::unit_of_work::UserLifecycleTransaction};
+use messaging_domain::{events::MessagingEvent, friendship::block::BlockRelation, channel::Channel, channel::id::ChannelId, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, community::invitation::{Invitation, InvitationId}, message::Message, message::id::MessageId, community::Community, community::description::CommunityDescription, community::name::CommunityName, community::id::CommunityId, community::invite_link::InviteJoinOutcome, community::invite_link::InviteLink, community::invite_link::InviteLinkStatus, community::invite_link::InviteToken, community::role::CommunityRole, community::unit_of_work::CommunityTransaction, community::unit_of_work::CommunityUnitOfWork, community::unit_of_work::UserLifecycleTransaction};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres, Transaction};
@@ -15,7 +15,7 @@ use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error,
     repositories::{
         channel::{count_stream_viewers, load_channel_for_update, stream_viewers_record},
-        dm_message::insert_dm_message,
+        inbox::{INBOX_UPDATED, save_inbox_event},
         friendship::block_relation_for,
         friendship_unit_of_work::pair_key,
         outbox_record::save_outbox_records,
@@ -75,6 +75,35 @@ impl UserLifecycleTransaction for PostgresUserLifecycleTransaction {
             .execute(&mut *self.tx)
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        let invitees = sqlx::query_scalar!(
+            r#"
+            WITH removed AS (
+                DELETE FROM community_invitations
+                WHERE inviter_id = $1 OR invitee_id = $1
+                RETURNING invitee_id
+            )
+            SELECT DISTINCT invitee_id AS "invitee_id!" FROM removed WHERE invitee_id <> $1
+            "#,
+            self.user_id.uuid(),
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        sqlx::query!("DELETE FROM inbox_notifications WHERE user_id = $1", self.user_id.uuid())
+            .execute(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        let recipients = sqlx::query_scalar!(
+            r#"SELECT DISTINCT user_id AS "user_id!" FROM inbox_notifications WHERE actor_id = $1"#,
+            self.user_id.uuid(),
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let affected: std::collections::BTreeSet<_> = invitees.into_iter().chain(recipients).collect();
+        for invitee in affected {
+            save_inbox_event(&mut self.tx, invitee, INBOX_UPDATED, None).await?;
+        }
         Ok(())
     }
 
@@ -906,10 +935,6 @@ impl CommunityTransaction for PostgresCommunityTransaction {
         Ok(row.map(InviteLink::from))
     }
 
-    async fn insert_dm_message(&mut self, message: &DmMessage) -> Result<(), RepositoryError> {
-        insert_dm_message(&mut self.tx, message).await
-    }
-
     async fn lock_user(&mut self, user_id: &UserId) -> Result<(), RepositoryError> {
         lock_user(&mut self.tx, user_id).await
     }
@@ -956,24 +981,26 @@ impl CommunityTransaction for PostgresCommunityTransaction {
         Ok(())
     }
 
-    async fn accept_invite(
-        &mut self,
-        invite_message_id: &DmMessageId,
-        user_id: &UserId,
-    ) -> Result<bool, RepositoryError> {
-        let deleted = sqlx::query!(
+    async fn insert_invitation(&mut self, invitation: &Invitation) -> Result<(), RepositoryError> {
+        sqlx::query!(
             r#"
-                DELETE FROM dm_messages
-                WHERE id = $1 AND recipient_id = $2 AND invite_community_id = $3
+            INSERT INTO community_invitations (id, community_id, inviter_id, invitee_id, created_at)
+            VALUES ($1, $2, $3, $4, $5)
             "#,
-            invite_message_id.uuid(),
-            user_id.uuid(),
-            self.community_id.uuid(),
+            invitation.id().uuid(),
+            invitation.community_id().uuid(),
+            invitation.inviter_id().uuid(),
+            invitation.invitee_id().uuid(),
+            invitation.created_at(),
         )
         .execute(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        if deleted.rows_affected() == 0 {
+        Ok(())
+    }
+
+    async fn join_by_invitation(&mut self, invitation_id: &InvitationId, user_id: &UserId) -> Result<bool, RepositoryError> {
+        if !self.delete_invitation(invitation_id).await? {
             return Err(RepositoryError::NotFound);
         }
         let inserted = sqlx::query!(
@@ -989,6 +1016,36 @@ impl CommunityTransaction for PostgresCommunityTransaction {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(inserted.rows_affected() > 0)
+    }
+
+    async fn delete_invitation(&mut self, invitation_id: &InvitationId) -> Result<bool, RepositoryError> {
+        let deleted = sqlx::query!(
+            "DELETE FROM community_invitations WHERE id = $1 AND community_id = $2",
+            invitation_id.uuid(),
+            self.community_id.uuid(),
+        )
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(deleted.rows_affected() > 0)
+    }
+
+    async fn find_pending_invitation(&mut self, invitee_id: &UserId) -> Result<Option<Invitation>, RepositoryError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT id, inviter_id, created_at FROM community_invitations
+            WHERE community_id = $1 AND invitee_id = $2
+            FOR UPDATE
+            "#,
+            self.community_id.uuid(),
+            invitee_id.uuid(),
+        )
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|r| {
+            Invitation::restore(InvitationId::new(r.id), self.community_id, UserId::new(r.inviter_id), *invitee_id, r.created_at)
+        }))
     }
 
     async fn delete_community_by_owner(&mut self, owner_id: &UserId) -> Result<Option<Vec<String>>, RepositoryError> {
@@ -1035,6 +1092,13 @@ impl CommunityTransaction for PostgresCommunityTransaction {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         release_storage_keys(&mut self.tx, &storage_keys).await?;
+        let invitees = sqlx::query_scalar!(
+            r#"SELECT invitee_id FROM community_invitations WHERE community_id = $1"#,
+            self.community_id.uuid(),
+        )
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
         let result = sqlx::query!(
             r#"
                 DELETE FROM communities WHERE id = $1 AND owner_id = $2
@@ -1047,6 +1111,9 @@ impl CommunityTransaction for PostgresCommunityTransaction {
         .map_err(map_sqlx_error_to_domain_error)?;
         if result.rows_affected() == 0 {
             return Ok(None);
+        }
+        for invitee in invitees {
+            save_inbox_event(&mut self.tx, invitee, INBOX_UPDATED, None).await?;
         }
         Ok(Some(storage_keys))
     }

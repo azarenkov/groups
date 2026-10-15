@@ -8,8 +8,6 @@ interface DmRow {
   authorName?: string;
   recipientId: string;
   content: string;
-  inviteCommunityId?: string;
-  inviteCommunityName?: string;
   callStatus?: string;
   callDurationSeconds?: number;
   attachments?: Attachment[];
@@ -27,8 +25,6 @@ const toChannelMessage = (r: DmRow): ChannelMessage => ({
   authorId: r.authorId,
   authorName: r.authorName,
   content: r.content,
-  inviteCommunityId: r.inviteCommunityId,
-  inviteCommunityName: r.inviteCommunityName,
   callStatus: r.callStatus,
   callDurationSeconds: r.callDurationSeconds,
   attachments: r.attachments,
@@ -71,7 +67,6 @@ class DmAPI {
       senderId: string;
       content: string;
       callStatus: string | null;
-      inviteCommunityId: string | null;
       hasAttachments: boolean;
       voiceDurationMs?: number | null;
       videoNoteDurationMs?: number | null;
@@ -105,30 +100,6 @@ class DmAPI {
       `/v1/users/me/dms/${friendId}/messages/${messageId}`,
     );
     return toChannelMessage(response.data.data);
-  }
-
-  async sendCommunityInvite(
-    friendId: string,
-    communityId: string,
-  ): Promise<ChannelMessage> {
-    const response = await this.client.post(
-      `/v1/users/me/dms/${friendId}/community-invite`,
-      { communityId },
-    );
-    return toChannelMessage(response.data.data);
-  }
-
-  async acceptCommunityInvite(messageId: string): Promise<{ communityId: string }> {
-    const response = await this.client.post(
-      `/v1/users/me/dms/messages/${messageId}/accept-invite`,
-    );
-    return { communityId: response.data.data.communityId };
-  }
-
-  async declineCommunityInvite(messageId: string): Promise<void> {
-    await this.client.post(
-      `/v1/users/me/dms/messages/${messageId}/decline-invite`,
-    );
   }
 
   async editMessage(

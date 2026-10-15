@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
-use messaging_domain::{dm_message::repository::DmMessageRepository, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::user::id::UserId;
+use messaging_domain::community::{
+    id::CommunityId, invitation::InvitationRepository, policy::PolicyError, unit_of_work::CommunityUnitOfWork,
+};
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
@@ -11,46 +13,47 @@ pub enum ListSentCommunityInvitesError {
     Repository(#[from] RepositoryError),
     #[error("You are not a member of this community")]
     NotMember,
+    #[error("Missing permission to manage invites")]
+    NotAllowed,
 }
 
-pub struct ListSentCommunityInvites<M, S>
-where
-    M: DmMessageRepository,
-    S: CommunityRepository,
-{
-    dm_repository: Arc<M>,
-    community_repository: Arc<S>,
-}
-
-impl<M, S> ListSentCommunityInvites<M, S>
-where
-    M: DmMessageRepository,
-    S: CommunityRepository,
-{
-    pub fn new(dm_repository: Arc<M>, community_repository: Arc<S>) -> Self {
-        Self {
-            dm_repository,
-            community_repository,
+impl From<PolicyError> for ListSentCommunityInvitesError {
+    fn from(err: PolicyError) -> Self {
+        match err {
+            PolicyError::NotMember => Self::NotMember,
+            _ => Self::NotAllowed,
         }
     }
+}
 
-    pub async fn execute(
-        &self,
-        community_id: CommunityId,
-        sender_id: UserId,
-    ) -> Result<Vec<Uuid>, ListSentCommunityInvitesError> {
-        if !self
-            .community_repository
-            .is_community_member(&community_id, &sender_id)
-            .await?
-        {
-            return Err(ListSentCommunityInvitesError::NotMember);
-        }
+pub struct ListSentCommunityInvites<I, W>
+where
+    I: InvitationRepository,
+    W: CommunityUnitOfWork,
+{
+    invitations: Arc<I>,
+    unit_of_work: Arc<W>,
+}
 
-        let recipients = self
-            .dm_repository
-            .find_invite_recipients(&sender_id, &community_id)
-            .await?;
-        Ok(recipients.into_iter().map(|u| u.uuid()).collect())
+impl<I, W> ListSentCommunityInvites<I, W>
+where
+    I: InvitationRepository,
+    W: CommunityUnitOfWork,
+{
+    pub fn new(invitations: Arc<I>, unit_of_work: Arc<W>) -> Self {
+        Self { invitations, unit_of_work }
+    }
+
+    pub async fn execute(&self, community_id: CommunityId, viewer_id: UserId) -> Result<Vec<Uuid>, ListSentCommunityInvitesError> {
+        let mut tx = self.unit_of_work.begin(&community_id).await?;
+        let community = match tx.load_community().await {
+            Ok(community) => community,
+            Err(RepositoryError::NotFound) => return Err(ListSentCommunityInvitesError::NotMember),
+            Err(e) => return Err(e.into()),
+        };
+        community.ensure_can_manage_invites(&viewer_id)?;
+        tx.commit().await?;
+        let invitees = self.invitations.pending_invitees(&community_id).await?;
+        Ok(invitees.into_iter().map(|u| u.uuid()).collect())
     }
 }

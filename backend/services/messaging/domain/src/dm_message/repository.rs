@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::view::DmMessageView, message::view::ReplyPreviewView, community::id::CommunityId};
+use crate::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::view::DmMessageView, message::view::ReplyPreviewView};
 use domain::{pagination::KeysetCursor, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
 
@@ -14,7 +14,6 @@ pub struct DmConversationPreview {
     pub sender_id: Uuid,
     pub content: String,
     pub call_status: Option<String>,
-    pub invite_community_id: Option<Uuid>,
     pub has_attachments: bool,
     pub voice_duration_ms: Option<i32>,
     pub video_note_duration_ms: Option<i32>,
@@ -69,18 +68,6 @@ pub trait DmMessageRepository {
         pagination: Pagination,
     ) -> Result<PaginatedResult<DmMessageView>, RepositoryError>;
 
-    async fn has_pending_community_invite(
-        &self,
-        sender_id: &UserId,
-        recipient_id: &UserId,
-        community_id: &CommunityId,
-    ) -> Result<bool, RepositoryError>;
-
-    async fn find_invite_recipients(
-        &self,
-        sender_id: &UserId,
-        community_id: &CommunityId,
-    ) -> Result<Vec<UserId>, RepositoryError>;
 
     async fn list_conversation_previews(
         &self,

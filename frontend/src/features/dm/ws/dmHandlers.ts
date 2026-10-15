@@ -39,7 +39,6 @@ export const dmHandlers: WsHandlers = {
         senderId,
         content: asString(d.content) ?? "",
         callStatus: asString(d.callStatus) ?? null,
-        inviteCommunityId: asString(d.inviteCommunityId) ?? null,
         hasAttachments: Array.isArray(d.attachments) && d.attachments.length > 0,
         voiceDurationMs: voiceDurationFromPayload(d.attachments),
         videoNoteDurationMs: videoNoteDurationFromPayload(d.attachments),
@@ -91,6 +90,16 @@ export const dmHandlers: WsHandlers = {
       const id = asString(d.id);
       if (id && useDmPreviewStore.getState().hasMessage(id)) {
         refetchDmPreviews(true);
+      }
+      const senderId = asString(d.senderId);
+      if (
+        senderId &&
+        asString(d.recipientId) === useAuthStore.getState().user?.id &&
+        (useUnreadStore.getState().byDm[senderId] ?? 0) > 0
+      ) {
+        void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
+          refetchUnread().catch(() => {}),
+        );
       }
       return;
   },

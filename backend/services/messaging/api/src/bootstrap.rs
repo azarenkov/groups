@@ -154,6 +154,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let attachment_claims = Arc::new(MediaClaimsClient::new(&media_internal_url));
     let privacy_repository = Arc::new(PostgresPrivacyRepository::new(postgres_pool.clone()));
     let badge_repository = Arc::new(PostgresBadgeRepository::new(postgres_pool.clone()));
+    let invitation_repository = Arc::new(messaging_infrastructure::database::postgres::repositories::invitation::PostgresInvitationRepository::new(postgres_pool.clone()));
+    let inbox_repository = Arc::new(messaging_infrastructure::database::postgres::repositories::inbox::PostgresInboxRepository::new(postgres_pool.clone()));
     let plan_directory = Arc::new(
         infrastructure_common::database::postgres::repositories::plan_directory::PostgresPlanDirectory::messaging(
             postgres_pool.clone(),
@@ -187,6 +189,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
     let community_stream = std::env::var("MESSAGING_COMMUNITY_STREAM")
         .unwrap_or_else(|_| "RIFT_COMMUNITY_EVENTS".to_string());
+    let inbox_community_stream = community_stream.clone();
     messaging_infrastructure::consumers::voice_effects::spawn(
         nats_jetstream.clone(),
         messaging_infrastructure::consumers::voice_effects::VoiceEffectsSpec {
@@ -221,6 +224,37 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         listener: Arc::new(ports::plan_directory::NoPlanListener),
     }
     .spawn();
+    let inbox_triggers = Arc::new(messaging::usecases::inbox::apply_trigger::ApplyInboxTrigger::new(
+        inbox_repository.clone(),
+        messaging_domain::inbox::InboxRetention::default(),
+    ));
+    let inbox_feed_start = messaging_domain::inbox::InboxRepository::feed_started_at(inbox_repository.as_ref()).await?;
+    let inbox_prefix = nats_config.subject_prefix.trim_end_matches('.').to_string();
+    let inbox_users_subscribed = messaging_infrastructure::consumers::inbox::spawn(
+        nats_jetstream.clone(),
+        nats_config.subject_prefix.clone(),
+        messaging_infrastructure::consumers::inbox::InboxFeed::users(&inbox_prefix, user_stream.clone()),
+        inbox_feed_start,
+        inbox_triggers.clone(),
+    );
+    let inbox_communities_subscribed = messaging_infrastructure::consumers::inbox::spawn(
+        nats_jetstream.clone(),
+        nats_config.subject_prefix.clone(),
+        messaging_infrastructure::consumers::inbox::InboxFeed::communities(&inbox_prefix, inbox_community_stream),
+        inbox_feed_start,
+        inbox_triggers,
+    );
+    crate::housekeeping::spawn(
+        Arc::new(messaging::usecases::inbox::prune_inbox::PruneInbox::new(
+            inbox_repository.clone(),
+            messaging_domain::inbox::InboxRetention::default(),
+        )),
+        Arc::new(messaging::usecases::community::adopt_legacy_invitations::AdoptLegacyInvitations::new(Arc::new(
+            messaging_infrastructure::database::postgres::repositories::legacy_invitations::PostgresLegacyInvitations::new(
+                postgres_pool.clone(),
+            ),
+        ))),
+    );
     messaging_infrastructure::consumers::pro_badges::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
@@ -482,25 +516,25 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_dm_messages_usecase: ListDmMessages::new(dm_repository.clone()),
         search_dm_messages_usecase: SearchDmMessages::new(dm_repository.clone()),
         send_community_invite_usecase: SendCommunityInvite::new(
-            dm_repository.clone(),
             friendship_repository.clone(),
-            community_repository.clone(),
+            invitation_repository.clone(),
             community_unit_of_work.clone(),
             privacy_repository.clone(),
             user_repository.clone(),
         ),
         accept_community_invite_usecase: AcceptCommunityInvite::new(
-            dm_repository.clone(),
+            invitation_repository.clone(),
             community_unit_of_work.clone(),
         ),
         decline_community_invite_usecase: DeclineCommunityInvite::new(
-            dm_repository.clone(),
-            dm_unit_of_work.clone(),
+            invitation_repository.clone(),
+            community_unit_of_work.clone(),
         ),
         list_sent_community_invites_usecase: ListSentCommunityInvites::new(
-            dm_repository.clone(),
-            community_repository.clone(),
+            invitation_repository.clone(),
+            community_unit_of_work.clone(),
         ),
+        read_inbox_usecase: messaging::usecases::inbox::read_inbox::ReadInbox::new(inbox_repository.clone()),
         create_community_usecase: CreateCommunity::new(community_unit_of_work.clone(), text_moderation.clone()),
         delete_community_usecase: DeleteCommunity::new(
             community_repository.clone(),
@@ -557,6 +591,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
                 let pool = pool.clone();
                 async move { ping_pool(&pool).await }
             }
+        })
+        .add_probe(move || {
+            let ready = inbox_users_subscribed.load(std::sync::atomic::Ordering::Acquire)
+                && inbox_communities_subscribed.load(std::sync::atomic::Ordering::Acquire);
+            async move { ready }
         })
         .add_probe({
             let url = livekit_url.clone();

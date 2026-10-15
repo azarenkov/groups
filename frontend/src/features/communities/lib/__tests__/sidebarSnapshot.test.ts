@@ -19,7 +19,6 @@ const preview = {
   senderId: "u2",
   content: "hi",
   callStatus: null,
-  inviteCommunityId: null,
   hasAttachments: false,
   createdAt: "2026-10-01T10:00:00Z",
 };

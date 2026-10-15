@@ -101,3 +101,10 @@ pub struct ConversationPinsUpdatedV1 {
 pub struct SearchHistoryUpdatedV1 {
     pub user_id: Uuid,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InboxChangedV1 {
+    pub user_id: Uuid,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notification_id: Option<Uuid>,
+}

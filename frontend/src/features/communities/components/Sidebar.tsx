@@ -55,8 +55,6 @@ interface SidebarProps {
   onAddChannel: (community: Community, kind: ChannelKind) => void;
   onDeleteChannel: (community: Community, channel: Channel) => void;
   onAddFriend: () => void;
-  onOpenPending: () => void;
-  pendingCount: number;
   onCreateCommunity: () => void;
   onJoinCommunity: () => void;
   currentUserId?: string;
@@ -95,8 +93,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAddChannel,
   onDeleteChannel,
   onAddFriend,
-  onOpenPending,
-  pendingCount,
   onCreateCommunity,
   onJoinCommunity,
   currentUserId,
@@ -313,11 +309,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       directs={visibleDirects}
       selectedDmId={selectedDmId}
       unreadByDm={unreadByDm}
-      pendingCount={pendingCount}
       hasMoreDirects={hasMoreDirects}
       onLoadMoreDirects={onLoadMoreDirects}
       onAddFriend={onAddFriend}
-      onOpenPending={onOpenPending}
       onPick={pickDm}
       onCall={onCallDm}
     />
@@ -399,7 +393,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => setTab("dms")}
             >
               <Icon name="message" size={17} />
-              {tab !== "dms" && totalDmUnread + pendingCount > 0 && <span className="sb-rail-dot" />}
+              {tab !== "dms" && totalDmUnread > 0 && <span className="sb-rail-dot" />}
             </button>
             <button
               type="button"
@@ -421,16 +415,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               <button type="button" className="sb-mini sb-mini-more" title={t("addFriend")} aria-label={t("addFriend")} onClick={onAddFriend}>
                 <Icon name="user-plus" size={17} />
               </button>
-              <button
-                type="button"
-                className="sb-mini sb-mini-more"
-                title={t("pendingRequests")}
-                aria-label={pendingCount > 0 ? `${t("pendingRequests")}: ${pendingCount}` : t("pendingRequests")}
-                onClick={onOpenPending}
-              >
-                <Icon name="mail" size={17} />
-                {pendingCount > 0 && <span className="sb-mini-badge">{pendingCount > 99 ? "99+" : pendingCount}</span>}
-              </button>
             </>
           ) : (
             <>
@@ -450,11 +434,9 @@ const Sidebar: React.FC<SidebarProps> = ({
               directs={visibleDirects}
               selectedDmId={selectedDmId}
               unreadByDm={unreadByDm}
-              pendingCount={pendingCount}
               hasMoreDirects={hasMoreDirects}
               onLoadMoreDirects={onLoadMoreDirects}
               onAddFriend={onAddFriend}
-              onOpenPending={onOpenPending}
               onPick={pickDm}
               onCall={onCallDm}
             />
@@ -502,7 +484,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         onSetTab={setTab}
         openCommunityId={openCommunityId}
         onCloseCommunity={() => setOpenCommunityId(null)}
-        dmDotVisible={totalDmUnread + pendingCount > 0}
+        dmDotVisible={totalDmUnread > 0}
         communityDotVisible={totalCommunityUnread > 0}
         onCollapse={collapse}
       />

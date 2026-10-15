@@ -1,19 +1,26 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use messaging_domain::{privacy::ContactPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent, community::id::CommunityId, community::policy::PolicyError, community::repository::CommunityRepository, community::unit_of_work::CommunityUnitOfWork};
 use domain::user::id::UserId;
+use messaging_domain::{
+    community::{
+        id::CommunityId,
+        invitation::{Invitation, InvitationError, InvitationRepository},
+        unit_of_work::CommunityUnitOfWork,
+    },
+    events::MessagingEvent,
+    friendship::{repository::FriendshipRepository, status::FriendshipStatus},
+    privacy::{ContactPolicy, PrivacyRepository},
+};
 use ports::repository::RepositoryError;
 use ports::user_profile::UserProfileRepository;
 
-use crate::dto::{RequestContext, responses::dm::send_dm_message::SendDmMessageResponse};
+use crate::dto::RequestContext;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SendCommunityInviteError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Message error: {0}")]
-    Domain(#[from] MessageError),
     #[error("Not friends with this user")]
     NotFriends,
     #[error("This user is blocked")]
@@ -30,146 +37,106 @@ pub enum SendCommunityInviteError {
     NotCommunityMember,
     #[error("This user is already a member of the community")]
     AlreadyMember,
-    #[error("You've already invited this user to this community")]
+    #[error("This user already has a pending invite to this community")]
     InviteAlreadyPending,
+    #[error("You can't invite yourself")]
+    SelfInvite,
 }
 
-impl From<PolicyError> for SendCommunityInviteError {
-    fn from(err: PolicyError) -> Self {
+impl From<InvitationError> for SendCommunityInviteError {
+    fn from(err: InvitationError) -> Self {
         match err {
-            PolicyError::NotMember => SendCommunityInviteError::NotCommunityMember,
-            _ => SendCommunityInviteError::NotAllowed,
+            InvitationError::NotMember => Self::NotCommunityMember,
+            InvitationError::AlreadyMember => Self::AlreadyMember,
+            InvitationError::SelfInvite => Self::SelfInvite,
+            InvitationError::NotAllowed | InvitationError::NotInvitee => Self::NotAllowed,
         }
     }
 }
 
-pub struct SendCommunityInvite<M, F, S, W, P, U>
+pub struct SendCommunityInvite<F, I, W, P, U>
 where
-    M: DmMessageRepository,
     F: FriendshipRepository,
-    S: CommunityRepository,
+    I: InvitationRepository,
     W: CommunityUnitOfWork,
     P: PrivacyRepository,
     U: UserProfileRepository,
 {
-    dm_repository: Arc<M>,
     friendship_repository: Arc<F>,
-    community_repository: Arc<S>,
+    invitations: Arc<I>,
     unit_of_work: Arc<W>,
     privacy_repository: Arc<P>,
     user_profile_repository: Arc<U>,
 }
 
-impl<M, F, S, W, P, U> SendCommunityInvite<M, F, S, W, P, U>
+impl<F, I, W, P, U> SendCommunityInvite<F, I, W, P, U>
 where
-    M: DmMessageRepository,
     F: FriendshipRepository,
-    S: CommunityRepository,
+    I: InvitationRepository,
     W: CommunityUnitOfWork,
     P: PrivacyRepository,
     U: UserProfileRepository,
 {
     pub fn new(
-        dm_repository: Arc<M>,
         friendship_repository: Arc<F>,
-        community_repository: Arc<S>,
+        invitations: Arc<I>,
         unit_of_work: Arc<W>,
         privacy_repository: Arc<P>,
         user_profile_repository: Arc<U>,
     ) -> Self {
-        Self {
-            dm_repository,
-            friendship_repository,
-            community_repository,
-            unit_of_work,
-            privacy_repository,
-            user_profile_repository,
-        }
+        Self { friendship_repository, invitations, unit_of_work, privacy_repository, user_profile_repository }
     }
 
     pub async fn execute(
         &self,
         community_id: CommunityId,
-        friend_id: UserId,
-        sender_id: UserId,
+        invitee_id: UserId,
+        inviter_id: UserId,
         ctx: RequestContext,
-    ) -> Result<SendDmMessageResponse, SendCommunityInviteError> {
-        if self
-            .friendship_repository
-            .block_relation(&sender_id, &friend_id)
-            .await?
-            .any()
-        {
+    ) -> Result<Invitation, SendCommunityInviteError> {
+        if self.friendship_repository.block_relation(&inviter_id, &invitee_id).await?.any() {
             return Err(SendCommunityInviteError::Blocked);
         }
-        let pair = self
-            .friendship_repository
-            .find_pair(&sender_id, &friend_id)
-            .await?;
+        let pair = self.friendship_repository.find_pair(&inviter_id, &invitee_id).await?;
         if !matches!(pair, Some(ref f) if f.status == FriendshipStatus::Accepted) {
             return Err(SendCommunityInviteError::NotFriends);
         }
-
-        if !self.user_profile_repository.is_active(&friend_id).await? {
+        if !self.user_profile_repository.is_active(&invitee_id).await? {
             return Err(SendCommunityInviteError::RecipientInactive);
         }
-
-        if matches!(
-            self.privacy_repository.get(&friend_id).await?.dm_policy,
-            ContactPolicy::NoOne
-        ) {
+        if matches!(self.privacy_repository.get(&invitee_id).await?.dm_policy, ContactPolicy::NoOne) {
             return Err(SendCommunityInviteError::DmsClosed);
         }
-
-        let community = self
-            .community_repository
-            .find_community_by_id(&community_id)
-            .await?
-            .ok_or(SendCommunityInviteError::CommunityNotFound)?;
-
-        if self
-            .dm_repository
-            .has_pending_community_invite(&sender_id, &friend_id, &community_id)
-            .await?
-        {
+        let mut tx = self.unit_of_work.begin(&community_id).await?;
+        let community = match tx.load_community().await {
+            Ok(community) => community,
+            Err(RepositoryError::NotFound) => return Err(SendCommunityInviteError::CommunityNotFound),
+            Err(e) => return Err(e.into()),
+        };
+        let (first, second) = if inviter_id.uuid() < invitee_id.uuid() { (inviter_id, invitee_id) } else { (invitee_id, inviter_id) };
+        tx.lock_user(&first).await?;
+        tx.lock_user(&second).await?;
+        if tx.is_user_deleted(&invitee_id).await? {
+            return Err(SendCommunityInviteError::RecipientInactive);
+        }
+        if tx.is_user_deleted(&inviter_id).await? {
+            return Err(SendCommunityInviteError::NotAllowed);
+        }
+        tx.lock_pair(&inviter_id, &invitee_id).await?;
+        if tx.block_relation(&inviter_id, &invitee_id).await?.any() {
+            return Err(SendCommunityInviteError::Blocked);
+        }
+        let (invitation, event) = Invitation::issue(&community, inviter_id, invitee_id, Utc::now())?;
+        if self.invitations.is_pending(&community_id, &invitee_id).await? {
             return Err(SendCommunityInviteError::InviteAlreadyPending);
         }
-
-        let mut tx = self.unit_of_work.begin(&community_id).await?;
-        let membership = tx.load_community().await?;
-        membership.ensure_can_manage_invites(&sender_id)?;
-        if membership.is_member(&friend_id) {
-            return Err(SendCommunityInviteError::AlreadyMember);
-        }
-
-        let community_name = community.name().as_str().to_string();
-        let content = MessageContent::new(community_name.clone())?;
-        let now = Utc::now();
-        let mut message =
-            DmMessage::create_community_invite(sender_id, friend_id, community_id, content, now);
-
-        let request_id = ctx.request_id.clone();
-        let persisted = async {
-            tx.lock_pair(&sender_id, &friend_id).await?;
-            if tx.block_relation(&sender_id, &friend_id).await?.any() {
-                return Err(SendCommunityInviteError::Blocked);
-            }
-            message.restamp(Utc::now());
-            let events: Vec<MessagingEvent> = message.pull_events().into_iter().map(MessagingEvent::from).collect();
-            tx.insert_dm_message(&message).await?;
-            tx.save_events(&events, request_id.as_deref()).await?;
-            tx.commit().await?;
-            Ok::<(), SendCommunityInviteError>(())
-        }
-        .await;
-        match persisted {
+        match tx.insert_invitation(&invitation).await {
             Ok(()) => {}
-            Err(SendCommunityInviteError::Repository(RepositoryError::AlreadyExists)) => {
-                return Err(SendCommunityInviteError::InviteAlreadyPending);
-            }
-            Err(e) => return Err(e),
+            Err(RepositoryError::AlreadyExists) => return Err(SendCommunityInviteError::InviteAlreadyPending),
+            Err(e) => return Err(e.into()),
         }
-
-        Ok(SendDmMessageResponse::from_invite(&message, community_name))
+        tx.save_events(&[MessagingEvent::from(event)], ctx.request_id.as_deref()).await?;
+        tx.commit().await?;
+        Ok(invitation)
     }
 }

@@ -1,7 +1,7 @@
 import { dmHandlers } from "../dmHandlers";
 import { chatHandlers } from "../../../chat/ws/chatHandlers";
 import { useAuthStore } from "../../../auth/store/authStore";
-import { useUnreadStore } from "../../../chat/store/unreadStore";
+import { refetchUnread, useUnreadStore } from "../../../chat/store/unreadStore";
 import { useNotificationPrefsStore } from "../../../settings/store/notificationPrefsStore";
 import { playNotificationSound } from "../../../../shared/lib/notificationSound";
 import { showDesktopNotification } from "../../../../shared/lib/desktopNotification";
@@ -14,6 +14,10 @@ jest.mock("../../../../shared/lib/desktopNotification", () => ({ showDesktopNoti
 jest.mock("../../store/dmPreviewStore", () => {
   const actual = jest.requireActual("../../store/dmPreviewStore");
   return { ...actual, refetchDmPreviews: jest.fn() };
+});
+jest.mock("../../../chat/store/unreadStore", () => {
+  const actual = jest.requireActual("../../../chat/store/unreadStore");
+  return { ...actual, refetchUnread: jest.fn() };
 });
 jest.mock("../../../settings/store/notificationPrefsStore", () => {
   const actual = jest.requireActual("../../../settings/store/notificationPrefsStore");
@@ -39,6 +43,7 @@ beforeEach(() => {
   useUnreadStore.setState({ byDm: {}, byChannel: {} } as never);
   useHiddenDmStore.setState({ hidden: [], loaded: true });
   (refetchDmPreviews as jest.Mock).mockReset();
+  (refetchUnread as jest.Mock).mockReset().mockResolvedValue(undefined);
 });
 
 it("keeps counting a muted DM but stays silent", () => {
@@ -160,7 +165,6 @@ it("removes the cleared conversation preview right away", () => {
     senderId: "peer",
     content: "secret",
     callStatus: null,
-    inviteCommunityId: null,
     hasAttachments: false,
     createdAt: "2026-10-11T09:00:00Z",
   });
@@ -239,4 +243,15 @@ it("drops cleared DM hits from cached global search", () => {
   const data = queryClient.getQueryData(key) as { pages: { items: { messageId: string }[] }[] };
   expect(data.pages[0].items.map((h) => h.messageId)).toEqual(["new", "other"]);
   queryClient.removeQueries({ queryKey: key });
+});
+
+it("rereads unread counts when an unread message to me is deleted", async () => {
+  useUnreadStore.setState({ byDm: { peer: 1 } } as never);
+  dmHandlers["dm_message.deleted"]!({ id: "m1", senderId: "peer", recipientId: "me" });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(refetchUnread).toHaveBeenCalledTimes(1);
+  (refetchUnread as jest.Mock).mockClear();
+  dmHandlers["dm_message.deleted"]!({ id: "m2", senderId: "me", recipientId: "peer" });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(refetchUnread).not.toHaveBeenCalled();
 });

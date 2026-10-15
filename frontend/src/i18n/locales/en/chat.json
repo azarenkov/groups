@@ -42,7 +42,6 @@
   "resultsForPlural": "{{count}} results for \"{{query}}\"",
   "you": "You",
   "couldNotJoin": "Couldn't join channel.",
-  "couldNotJoinCommunity": "Couldn't join the community.",
   "couldNotSend": "Couldn't send message.",
   "dmsClosed": "This user does not accept direct messages.",
   "userBlocked": "You cannot interact with this user.",
@@ -66,15 +65,6 @@
     "bell": "Notification settings",
     "dmTitle": "Notifications for {{name}}",
     "dmNothingHint": "Direct messages are muted"
-  },
-  "invite": {
-    "label": "Community invite",
-    "communityFallback": "Community",
-    "youSent": "You sent a community invite",
-    "invitedYou": "{{name}} invited you to join",
-    "open": "Open",
-    "join": "Join",
-    "decline": "Decline"
   },
   "system": {
     "memberJoined": "<0>{{name}}</0> joined the community",

@@ -118,7 +118,6 @@ textarea,
 .msg-system-text,
 .msg.system time,
 .dm-call-info,
-.dm-invite-card-info,
 .search-result .head,
 .search-result .content,
 .main-header .ch-name,
@@ -1572,71 +1571,6 @@ textarea.s-input {
   color: var(--accent); cursor: pointer;
 }
 .link-btn:hover { text-decoration: underline; }
-.dm-invite-card {
-  margin-top: 3px;
-  max-width: 380px;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: var(--surface-canvas);
-  padding: 10px 12px;
-}
-.dm-invite-card-label {
-  font-size: 10px; font-weight: 700;
-  color: var(--fg-3);
-  text-transform: uppercase; letter-spacing: 0.07em;
-  margin-bottom: 8px;
-}
-.dm-invite-card-row {
-  display: flex; align-items: center; gap: 10px;
-}
-.dm-invite-card-glyph {
-  width: 42px; height: 42px; flex-shrink: 0;
-  border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 14px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-}
-.dm-invite-card-info { flex: 1; min-width: 0; }
-.dm-invite-card-name {
-  font-size: 14px; font-weight: 600; color: var(--fg-1);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.dm-invite-card-sub {
-  font-size: 12px; color: var(--fg-3); margin-top: 1px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.dm-invite-card-btn {
-  flex-shrink: 0;
-  padding: 7px 16px;
-  border: 0;
-  border-radius: 7px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 13px; font-weight: 600;
-  cursor: pointer;
-}
-.dm-invite-card-btn:hover { background: var(--accent-hover); }
-.dm-invite-card-btn.joined {
-  background: var(--surface-hover);
-  color: var(--fg-1);
-}
-.dm-invite-card-btn.joined:hover {
-  background: var(--surface-hover);
-  filter: brightness(0.95);
-}
-.dm-invite-card-actions {
-  display: inline-flex; gap: 6px; flex-shrink: 0;
-}
-.dm-invite-card-btn.decline {
-  background: var(--surface-hover);
-  color: var(--fg-2);
-}
-.dm-invite-card-btn.decline:hover {
-  background: var(--surface-hover);
-  color: var(--fg-1);
-  filter: brightness(0.95);
-}
 
 /* ── Voice calls ───────────────────────────────────────── */
 .incoming-call {

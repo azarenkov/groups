@@ -3,7 +3,7 @@ use domain::pagination::KeysetCursor;
 use async_trait::async_trait;
 use domain::{attachment::AttachmentLink, attachment::VideoNoteMeta, attachment::VoiceMeta, pagination::PaginatedResult, pagination::Pagination, user::id::UserId};
 use ports::repository::RepositoryError;
-use messaging_domain::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::repository::DmConversationPreview, dm_message::repository::DmMessageRepository, dm_message::view::DmMessageView, message::content::MessageContent, message::view::ReplyPreviewView, community::id::CommunityId};
+use messaging_domain::{dm_message::DmMessage, dm_message::id::DmMessageId, dm_message::repository::DmConversationPreview, dm_message::repository::DmMessageRepository, dm_message::view::DmMessageView, message::content::MessageContent, message::view::ReplyPreviewView};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
@@ -58,14 +58,13 @@ pub(crate) async fn insert_dm_message(
 ) -> Result<(), RepositoryError> {
     sqlx::query!(
         r#"
-        INSERT INTO dm_messages (id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, call_id, created_at, edited_at, reply_to_message_id, forwarded_from, sticker)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, ($12::text)::jsonb, ($13::text)::jsonb)
+        INSERT INTO dm_messages (id, sender_id, recipient_id, content, call_status, call_duration_seconds, call_id, created_at, edited_at, reply_to_message_id, forwarded_from, sticker)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, ($11::text)::jsonb, ($12::text)::jsonb)
         "#,
         message.id().uuid(),
         message.sender_id().uuid(),
         message.recipient_id().uuid(),
         message.content().as_str(),
-        message.invite_community_id().map(|id| id.uuid()),
         message.call_status(),
         message.call_duration_seconds(),
         message.call_id(),
@@ -156,7 +155,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
     async fn find_by_id(&self, id: &DmMessageId) -> Result<DmMessage, RepositoryError> {
         let row = sqlx::query!(
             r#"
-            SELECT id, sender_id, recipient_id, content, invite_community_id, call_status, call_duration_seconds, created_at, edited_at, forwarded_from::text AS "forwarded_from?", sticker::text AS "sticker?"
+            SELECT id, sender_id, recipient_id, content, call_status, call_duration_seconds, created_at, edited_at, forwarded_from::text AS "forwarded_from?", sticker::text AS "sticker?"
             FROM dm_messages
             WHERE id = $1
             "#,
@@ -175,7 +174,6 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             UserId::new(row.sender_id),
             UserId::new(row.recipient_id),
             content,
-            row.invite_community_id.map(CommunityId::new),
             row.call_status,
             row.call_duration_seconds,
             row.created_at,
@@ -198,13 +196,11 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             r#"
             SELECT m.id, m.sender_id, m.recipient_id,
                    u.name AS sender_name,
-                   m.content, m.invite_community_id,
-                   s.name AS "invite_community_name?",
+                   m.content,
                    m.call_status, m.call_duration_seconds,
                    m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?", m.sticker::text AS "sticker?"
             FROM dm_messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
-            LEFT JOIN communities s ON s.id = m.invite_community_id
             WHERE m.id = $1
               AND LEAST(m.sender_id, m.recipient_id) = LEAST($2::uuid, $3::uuid)
               AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($2::uuid, $3::uuid)
@@ -224,8 +220,6 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             sender_name: r.sender_name,
             recipient_id: UserId::new(r.recipient_id),
             content: r.content,
-            invite_community_id: r.invite_community_id.map(CommunityId::new),
-            invite_community_name: r.invite_community_name,
             call_status: r.call_status,
             call_duration_seconds: r.call_duration_seconds,
             created_at: r.created_at,
@@ -297,13 +291,11 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     r#"
                     SELECT m.id, m.sender_id, m.recipient_id,
                            u.name AS sender_name,
-                           m.content, m.invite_community_id,
-                           s.name AS "invite_community_name?",
+                           m.content,
                            m.call_status, m.call_duration_seconds,
                            m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?", m.sticker::text AS "sticker?"
                     FROM dm_messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
-                    LEFT JOIN communities s ON s.id = m.invite_community_id
                     WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                       AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
                       AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
@@ -327,8 +319,6 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     sender_name: r.sender_name,
                     recipient_id: UserId::new(r.recipient_id),
                     content: r.content,
-                    invite_community_id: r.invite_community_id.map(CommunityId::new),
-                    invite_community_name: r.invite_community_name,
                     call_status: r.call_status,
                     call_duration_seconds: r.call_duration_seconds,
                     created_at: r.created_at,
@@ -345,13 +335,11 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     r#"
                     SELECT m.id, m.sender_id, m.recipient_id,
                            u.name AS sender_name,
-                           m.content, m.invite_community_id,
-                           s.name AS "invite_community_name?",
+                           m.content,
                            m.call_status, m.call_duration_seconds,
                            m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?", m.sticker::text AS "sticker?"
                     FROM dm_messages m
                     INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
-                    LEFT JOIN communities s ON s.id = m.invite_community_id
                     WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                       AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
                       AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
@@ -375,8 +363,6 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                     sender_name: r.sender_name,
                     recipient_id: UserId::new(r.recipient_id),
                     content: r.content,
-                    invite_community_id: r.invite_community_id.map(CommunityId::new),
-                    invite_community_name: r.invite_community_name,
                     call_status: r.call_status,
                     call_duration_seconds: r.call_duration_seconds,
                     created_at: r.created_at,
@@ -393,13 +379,11 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 r#"
                 SELECT m.id, m.sender_id, m.recipient_id,
                        u.name AS sender_name,
-                       m.content, m.invite_community_id,
-                       s.name AS "invite_community_name?",
+                       m.content,
                        m.call_status, m.call_duration_seconds,
                        m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?", m.sticker::text AS "sticker?"
                 FROM dm_messages m
                 INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
-                LEFT JOIN communities s ON s.id = m.invite_community_id
                 WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
                   AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
                   AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
@@ -420,8 +404,6 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 sender_name: r.sender_name,
                 recipient_id: UserId::new(r.recipient_id),
                 content: r.content,
-                invite_community_id: r.invite_community_id.map(CommunityId::new),
-                invite_community_name: r.invite_community_name,
                 call_status: r.call_status,
                 call_duration_seconds: r.call_duration_seconds,
                 created_at: r.created_at,
@@ -465,13 +447,11 @@ impl DmMessageRepository for PostgresDmMessageRepository {
             r#"
             SELECT m.id, m.sender_id, m.recipient_id,
                    u.name AS sender_name,
-                   m.content, m.invite_community_id,
-                   s.name AS "invite_community_name?",
+                   m.content,
                    m.call_status, m.call_duration_seconds,
                    m.created_at, m.edited_at, m.reply_to_message_id, m.forwarded_from::text AS "forwarded_from?", m.sticker::text AS "sticker?"
             FROM dm_messages m
             INNER JOIN messaging_user_profiles u ON u.user_id = m.sender_id
-            LEFT JOIN communities s ON s.id = m.invite_community_id
             WHERE LEAST(m.sender_id, m.recipient_id) = LEAST($1::uuid, $2::uuid)
               AND GREATEST(m.sender_id, m.recipient_id) = GREATEST($1::uuid, $2::uuid)
               AND NOT EXISTS (SELECT 1 FROM hidden_messages h WHERE h.user_id = $1 AND h.message_id = m.id)
@@ -498,8 +478,6 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                 sender_name: r.sender_name,
                 recipient_id: UserId::new(r.recipient_id),
                 content: r.content,
-                invite_community_id: r.invite_community_id.map(CommunityId::new),
-                invite_community_name: r.invite_community_name,
                 call_status: r.call_status,
                 call_duration_seconds: r.call_duration_seconds,
                 created_at: r.created_at,
@@ -534,54 +512,6 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         Ok(row.exists)
     }
 
-    async fn has_pending_community_invite(
-        &self,
-        sender_id: &UserId,
-        recipient_id: &UserId,
-        community_id: &CommunityId,
-    ) -> Result<bool, RepositoryError> {
-        let row = sqlx::query!(
-            r#"
-            SELECT EXISTS(
-                SELECT 1 FROM dm_messages
-                WHERE sender_id = $1
-                  AND recipient_id = $2
-                  AND invite_community_id = $3
-            ) AS "exists!"
-            "#,
-            sender_id.uuid(),
-            recipient_id.uuid(),
-            community_id.uuid(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.exists)
-    }
-
-    async fn find_invite_recipients(
-        &self,
-        sender_id: &UserId,
-        community_id: &CommunityId,
-    ) -> Result<Vec<UserId>, RepositoryError> {
-        let rows = sqlx::query!(
-            r#"
-            SELECT DISTINCT recipient_id
-            FROM dm_messages
-            WHERE sender_id = $1 AND invite_community_id = $2
-            "#,
-            sender_id.uuid(),
-            community_id.uuid(),
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(rows
-            .into_iter()
-            .map(|r| UserId::new(r.recipient_id))
-            .collect())
-    }
-
     async fn peers_with_history(
         &self,
         user_id: &UserId,
@@ -613,11 +543,10 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         let cursor_at = cursor.map(|c| c.at);
         let cursor_id = cursor.and_then(|c| Uuid::parse_str(&c.key).ok());
         #[allow(clippy::type_complexity)]
-        let rows: Vec<(Uuid, Uuid, String, Uuid, String, Option<String>, Option<Uuid>, bool, Option<i32>, Option<i32>, Option<String>, DateTime<Utc>)> =
+        let rows: Vec<(Uuid, Uuid, String, Uuid, String, Option<String>, bool, Option<i32>, Option<i32>, Option<String>, DateTime<Utc>)> =
             sqlx::query_as(
                 r#"
                 SELECT e.message_id, c.peer_id, u.name AS peer_name, m.sender_id, m.content, m.call_status,
-                       m.invite_community_id,
                        EXISTS(
                            SELECT 1 FROM dm_message_attachments att WHERE att.dm_message_id = m.id
                        ) AS has_attachments,
@@ -682,7 +611,7 @@ impl DmMessageRepository for PostgresDmMessageRepository {
         Ok(rows
             .into_iter()
             .map(
-                |(message_id, peer_id, peer_name, sender_id, content, call_status, invite_community_id, has_attachments, voice_duration_ms, video_note_duration_ms, sticker_emoji, created_at)| {
+                |(message_id, peer_id, peer_name, sender_id, content, call_status, has_attachments, voice_duration_ms, video_note_duration_ms, sticker_emoji, created_at)| {
                     DmConversationPreview {
                         message_id,
                         peer_id,
@@ -690,7 +619,6 @@ impl DmMessageRepository for PostgresDmMessageRepository {
                         sender_id,
                         content,
                         call_status,
-                        invite_community_id,
                         has_attachments,
                         voice_duration_ms,
                         video_note_duration_ms,

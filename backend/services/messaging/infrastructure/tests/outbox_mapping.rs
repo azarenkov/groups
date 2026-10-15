@@ -73,19 +73,6 @@ fn dm_call_and_invite_facts_are_part_of_the_event() {
     assert_eq!(evt.call_status.as_deref(), Some("missed"));
     assert_eq!(evt.call_duration_seconds, Some(42));
 
-    let community_id = CommunityId::generate();
-    let mut invite = DmMessage::create_community_invite(
-        sender,
-        recipient,
-        community_id,
-        MessageContent::new("Rift HQ".to_string()).unwrap(),
-        Utc::now(),
-    );
-    let record = to_record(&MessagingEvent::from(invite.pull_events().remove(0)), None).unwrap();
-    assert_eq!(record.aggregate_type, AggregateType::DmMessage);
-    let evt: DmMessageSentV1 = decode(record.payload);
-    assert_eq!(evt.invite_community_id, Some(community_id.uuid()));
-    assert_eq!(evt.invite_community_name.as_deref(), Some("Rift HQ"));
 }
 
 #[test]
@@ -135,4 +122,55 @@ fn friend_request_maps_both_parties() {
     assert_eq!(record.parent_id, Some(b.uuid()));
     let evt: FriendRequestSentV1 = decode(record.payload);
     assert_eq!((evt.sender_id, evt.receiver_id), (a.uuid(), b.uuid()));
+}
+
+#[test]
+fn invitation_events_map_to_community_subjects_with_their_parties() {
+    use contracts::events::community::{CommunityInvitationIssuedV1, CommunityInvitationResolvedV1, CommunityMemberV1};
+    use messaging_domain::community::events::{CommunityEvent, lifecycle::CommunityMemberLeft};
+    use messaging_domain::community::invitation::{CommunityInvitationIssued, CommunityInvitationResolved, InvitationId};
+
+    let community_id = CommunityId::generate();
+    let (inviter, invitee) = (UserId::generate(), UserId::generate());
+    let invitation_id = InvitationId::generate();
+    let issued = to_record(
+        &MessagingEvent::from(CommunityEvent::InvitationIssued(CommunityInvitationIssued {
+            id: domain::event::EventId::generate(),
+            invitation_id,
+            community_id,
+            inviter_id: inviter,
+            invitee_id: invitee,
+            occurred_at: Utc::now(),
+        })),
+        None,
+    )
+    .unwrap();
+    assert_eq!(issued.aggregate_type, AggregateType::Community);
+    assert_eq!(issued.event_type, "invitation_issued");
+    let evt: CommunityInvitationIssuedV1 = decode(issued.payload);
+    assert_eq!((evt.invitation_id, evt.inviter_id, evt.invitee_id), (invitation_id.uuid(), inviter.uuid(), invitee.uuid()));
+
+    let resolved = to_record(
+        &MessagingEvent::from(CommunityEvent::InvitationResolved(CommunityInvitationResolved {
+            id: domain::event::EventId::generate(),
+            invitation_id,
+            community_id,
+            invitee_id: invitee,
+            accepted: true,
+            occurred_at: Utc::now(),
+        })),
+        None,
+    )
+    .unwrap();
+    assert_eq!(resolved.event_type, "invitation_resolved");
+    let evt: CommunityInvitationResolvedV1 = decode(resolved.payload);
+    assert!(evt.accepted);
+
+    let kicked = to_record(
+        &MessagingEvent::from(CommunityEvent::MemberLeft(CommunityMemberLeft::record(community_id, invitee, Some(inviter), Utc::now()))),
+        None,
+    )
+    .unwrap();
+    let evt: CommunityMemberV1 = decode(kicked.payload);
+    assert_eq!(evt.removed_by, Some(inviter.uuid()));
 }

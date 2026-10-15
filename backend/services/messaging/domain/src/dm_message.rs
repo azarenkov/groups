@@ -5,7 +5,7 @@ pub mod view;
 
 use chrono::{DateTime, Utc};
 
-use crate::{message::forward::ForwardInfo, message::reply::ReplyPreview, dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent, community::id::CommunityId};
+use crate::{message::forward::ForwardInfo, message::reply::ReplyPreview, dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent};
 use domain::{sticker::StickerSnapshot, user::id::UserId};
 use uuid::Uuid;
 
@@ -15,8 +15,6 @@ pub enum DmMessageError {
     NotSender,
     #[error("Message content unchanged")]
     ContentUnchanged,
-    #[error("Community invite messages cannot be edited")]
-    NotEditable,
     #[error("Forwarded messages cannot be edited")]
     Forwarded,
     #[error("Sticker messages cannot be edited")]
@@ -29,7 +27,6 @@ pub struct DmMessage {
     sender_id: UserId,
     recipient_id: UserId,
     content: MessageContent,
-    invite_community_id: Option<CommunityId>,
     call_status: Option<String>,
     call_duration_seconds: Option<i32>,
     call_id: Option<Uuid>,
@@ -54,7 +51,6 @@ impl DmMessage {
             sender_id,
             recipient_id,
             content: content.clone(),
-            invite_community_id: None,
             call_status: None,
             call_duration_seconds: None,
             call_id: None,
@@ -86,7 +82,6 @@ impl DmMessage {
             sender_id,
             recipient_id,
             content: content.clone(),
-            invite_community_id: None,
             call_status: Some(call_status),
             call_duration_seconds,
             call_id: Some(call_id),
@@ -100,38 +95,6 @@ impl DmMessage {
         message.events.push(DmMessageDomainEvent::Sent(
             DmMessageSent::record(id, sender_id, recipient_id, content, now)
                 .for_call(message.call_status.as_deref().unwrap_or_default(), call_duration_seconds),
-        ));
-        message
-    }
-
-    pub fn create_community_invite(
-        sender_id: UserId,
-        recipient_id: UserId,
-        community_id: CommunityId,
-        content: MessageContent,
-        now: DateTime<Utc>,
-    ) -> Self {
-        let id = DmMessageId::generate();
-        let mut message = Self {
-            id,
-            sender_id,
-            recipient_id,
-            content: content.clone(),
-            invite_community_id: Some(community_id),
-            call_status: None,
-            call_duration_seconds: None,
-            call_id: None,
-            created_at: now,
-            edited_at: None,
-            reply: None,
-            forward: None,
-            sticker: None,
-            events: Vec::new(),
-        };
-        let community_name = content.as_str().to_string();
-        message.events.push(DmMessageDomainEvent::Sent(
-            DmMessageSent::record(id, sender_id, recipient_id, content, now)
-                .for_invite(community_id, &community_name),
         ));
         message
     }
@@ -206,7 +169,6 @@ impl DmMessage {
         sender_id: UserId,
         recipient_id: UserId,
         content: MessageContent,
-        invite_community_id: Option<CommunityId>,
         call_status: Option<String>,
         call_duration_seconds: Option<i32>,
         created_at: DateTime<Utc>,
@@ -217,7 +179,6 @@ impl DmMessage {
             sender_id,
             recipient_id,
             content,
-            invite_community_id,
             call_status,
             call_duration_seconds,
             call_id: None,
@@ -248,9 +209,6 @@ impl DmMessage {
     ) -> Result<(), DmMessageError> {
         if self.sender_id != editor_id {
             return Err(DmMessageError::NotSender);
-        }
-        if self.invite_community_id.is_some() {
-            return Err(DmMessageError::NotEditable);
         }
         if self.forward.is_some() {
             return Err(DmMessageError::Forwarded);
@@ -287,16 +245,6 @@ impl DmMessage {
         Ok(())
     }
 
-    pub fn record_invite_deleted(&mut self, now: DateTime<Utc>) {
-        self.events
-            .push(DmMessageDomainEvent::Deleted(DmMessageDeleted::record(
-                self.id,
-                self.sender_id,
-                self.recipient_id,
-                now,
-            )));
-    }
-
     pub fn pull_events(&mut self) -> Vec<DmMessageDomainEvent> {
         std::mem::take(&mut self.events)
     }
@@ -312,9 +260,6 @@ impl DmMessage {
     }
     pub fn content(&self) -> &MessageContent {
         &self.content
-    }
-    pub fn invite_community_id(&self) -> Option<&CommunityId> {
-        self.invite_community_id.as_ref()
     }
     pub fn call_status(&self) -> Option<&str> {
         self.call_status.as_deref()

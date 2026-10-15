@@ -1,0 +1,73 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT n.id, n.kind, n.actor_id, COALESCE(a.name, '') AS \"actor_name!\",\n                   n.community_id, COALESCE(c.name, n.community_name, '') AS \"community_name!\",\n                   n.invitation_id, n.created_at, n.read_at IS NOT NULL AS \"read!\"\n            FROM inbox_notifications n\n            LEFT JOIN messaging_user_profiles a ON a.user_id = n.actor_id\n            LEFT JOIN communities c ON c.id = n.community_id\n            WHERE n.user_id = $1\n              AND NOT EXISTS (SELECT 1 FROM messaging_deleted_users d WHERE d.user_id = n.actor_id)\n              AND NOT EXISTS (\n                  SELECT 1 FROM user_blocks b\n                  WHERE (b.blocker_id = $1 AND b.blocked_id = n.actor_id)\n                     OR (b.blocker_id = n.actor_id AND b.blocked_id = $1)\n              )\n              AND ($2::timestamptz IS NULL OR (n.created_at, n.id) < ($2, $3))\n            ORDER BY n.created_at DESC, n.id DESC\n            LIMIT $4\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "actor_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "actor_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "community_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
+        "name": "community_name!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "invitation_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "read!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      true,
+      null,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "173d4c6bd26c8a236855b6dc50950424fbb7ef5975629fe0e4fb3e4cc0c248be"
+}

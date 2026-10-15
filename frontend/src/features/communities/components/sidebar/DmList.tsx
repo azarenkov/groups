@@ -27,11 +27,9 @@ interface DmListProps {
   directs: DirectConversation[];
   selectedDmId: string | null;
   unreadByDm: Record<string, number>;
-  pendingCount: number;
   hasMoreDirects?: boolean;
   onLoadMoreDirects?: () => void;
   onAddFriend: () => void;
-  onOpenPending: () => void;
   onPick: (dm: DirectConversation) => void;
   onCall?: (dm: DirectConversation) => void;
   compact?: boolean;
@@ -41,11 +39,9 @@ const DmList: React.FC<DmListProps> = ({
   directs,
   selectedDmId,
   unreadByDm,
-  pendingCount,
   hasMoreDirects,
   onLoadMoreDirects,
   onAddFriend,
-  onOpenPending,
   onPick,
   onCall,
   compact,
@@ -328,19 +324,6 @@ const DmList: React.FC<DmListProps> = ({
           <Icon name="user-plus" size={20} />
         </span>
         <span>{t("addFriend")}</span>
-      </button>
-      <button
-        type="button"
-        className="sb-add-row secondary"
-        onClick={onOpenPending}
-      >
-        <span className="sb-add-row-ico">
-          <Icon name="mail" size={20} />
-        </span>
-        <span>{t("pendingRequests")}</span>
-        {pendingCount > 0 && (
-          <span className="sb-add-row-badge">{pendingCount}</span>
-        )}
       </button>
       {hasHidden && (
         <button type="button" className="sb-add-row secondary sb-hidden-folder" onClick={() => setShowHidden(true)}>
