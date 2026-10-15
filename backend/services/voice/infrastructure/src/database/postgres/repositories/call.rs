@@ -200,8 +200,21 @@ async fn end_call_when(
         return Ok(());
     }
 
-    let participants = sqlx::query!(
-        r#"SELECT user_id, inviter_id FROM call_participants WHERE call_id = $1"#,
+    let recipients = sqlx::query_scalar!(
+        r#"SELECT user_id FROM call_participants WHERE call_id = $1"#,
+        call_id,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    let invitations = sqlx::query!(
+        r#"
+        SELECT inviter_id AS "inviter_id!", user_id AS "invitee_id!" FROM call_participants
+        WHERE call_id = $1 AND inviter_id <> user_id
+        UNION
+        SELECT inviter_id, user_id FROM call_invite_outcomes
+        WHERE call_id = $1 AND inviter_id <> user_id
+        "#,
         call_id,
     )
     .fetch_all(&mut **tx)
@@ -221,17 +234,16 @@ async fn end_call_when(
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
 
-    if participants.is_empty() {
+    if recipients.is_empty() {
         return Ok(());
     }
-    let recipients: Vec<Uuid> = participants.iter().map(|p| p.user_id).collect();
-    let invitations: Vec<CallInvitationV1> = participants
-        .iter()
-        .filter(|p| p.inviter_id != p.user_id)
-        .map(|p| CallInvitationV1 { inviter_id: p.inviter_id, invitee_id: p.user_id })
+    let invitations: Vec<CallInvitationV1> = invitations
+        .into_iter()
+        .map(|i| CallInvitationV1 { inviter_id: i.inviter_id, invitee_id: i.invitee_id })
         .collect();
     let mut record = call_event(call_id, "call.ended", actor, &recipients, request_id, now);
     record.payload["invitations"] = encode(&invitations)?;
+    record.payload["ended_at"] = encode(&now)?;
     save_outbox_records(tx, std::slice::from_ref(&record)).await
 }
 

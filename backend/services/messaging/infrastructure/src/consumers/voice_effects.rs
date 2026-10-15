@@ -90,7 +90,7 @@ pub fn spawn<C, W, V, P, D, L>(
                             .iter()
                             .map(|i| CallInvitation { inviter: UserId::new(i.inviter_id), invitee: UserId::new(i.invitee_id) })
                             .collect();
-                        log_call.execute(evt.call_id, &invitations).await?;
+                        log_call.execute(evt.call_id, evt.ended_at.unwrap_or_else(chrono::Utc::now), &invitations).await?;
                         Ok(())
                     }
                 },

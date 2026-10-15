@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use messaging_domain::{dm_message::DmMessage, dm_message::call::CallStatus, dm_message::unit_of_work::DmUnitOfWork, events::MessagingEvent, message::MessageError, message::content::MessageContent};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
@@ -45,14 +45,14 @@ where
         }
     }
 
-    pub async fn execute(&self, call_id: Uuid, invitations: &[CallInvitation]) -> Result<(), LogCallError> {
+    pub async fn execute(&self, call_id: Uuid, ended_at: DateTime<Utc>, invitations: &[CallInvitation]) -> Result<(), LogCallError> {
         for invitation in invitations {
-            self.log(call_id, invitation).await?;
+            self.log(call_id, ended_at, invitation).await?;
         }
         Ok(())
     }
 
-    async fn log(&self, call_id: Uuid, invitation: &CallInvitation) -> Result<(), LogCallError> {
+    async fn log(&self, call_id: Uuid, ended_at: DateTime<Utc>, invitation: &CallInvitation) -> Result<(), LogCallError> {
         let CallInvitation { inviter, invitee } = *invitation;
         if inviter == invitee {
             return Ok(());
@@ -61,17 +61,15 @@ where
         if !outcome.participated || !outcome.callee_invited_by_caller || outcome.caller_in_call || outcome.callee_pending {
             return Ok(());
         }
-        let now = Utc::now();
-        let status = CallStatus::resolve(outcome.callee_answered_at, outcome.caller_left_at.unwrap_or(now), outcome.callee_declined);
+        let status = CallStatus::resolve(outcome.callee_answered_at, outcome.caller_left_at.unwrap_or(ended_at), outcome.callee_declined);
         let content = MessageContent::new("call".to_string())?;
-        let mut message = DmMessage::create_call(inviter, invitee, call_id, status, content, now);
+        let mut message = DmMessage::create_call(inviter, invitee, call_id, status, content, ended_at);
         let mut tx = self.unit_of_work.begin().await?;
         tx.lock_pair(&inviter, &invitee).await?;
         match tx.consume_call_log(call_id, &inviter, &invitee).await {
             Err(RepositoryError::AlreadyExists) => return Ok(()),
             result => result?,
         };
-        message.restamp(Utc::now());
         let events: Vec<MessagingEvent> = message.pull_events().into_iter().map(MessagingEvent::from).collect();
         tx.insert_message(&message, &[]).await?;
         tx.save_events(&events, None).await?;
@@ -95,6 +93,7 @@ mod tests {
     struct Store {
         consumed: Mutex<HashSet<(Uuid, UserId, UserId)>>,
         logged: Mutex<Vec<(UserId, UserId, String)>>,
+        created: Mutex<Vec<DateTime<Utc>>>,
     }
 
     struct Uow(Arc<Store>);
@@ -127,6 +126,7 @@ mod tests {
         }
         async fn insert_message(&mut self, message: &DmMessage, _: &[AttachmentLink]) -> Result<(), RepositoryError> {
             self.logged.push((*message.sender_id(), *message.recipient_id(), message.call_status().unwrap_or_default().to_string()));
+            self.store.created.lock().unwrap().push(message.created_at());
             Ok(())
         }
         async fn consume_call_log(&mut self, call_id: Uuid, sender: &UserId, recipient: &UserId) -> Result<(), RepositoryError> {
@@ -178,25 +178,27 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn an_unanswered_ended_call_leaves_one_missed_card_for_each_invitee() {
+    async fn an_unanswered_ended_call_leaves_one_missed_card_dated_when_the_call_ended() {
         let (store, log_call) = usecase(ended(false));
         let (caller, callee) = (UserId::new(Uuid::new_v4()), UserId::new(Uuid::new_v4()));
         let call_id = Uuid::new_v4();
         let invitations = [CallInvitation { inviter: caller, invitee: callee }];
-        log_call.execute(call_id, &invitations).await.unwrap();
-        log_call.execute(call_id, &invitations).await.unwrap();
+        let ended_at = DateTime::from_timestamp(1_800_000_000, 0).unwrap();
+        log_call.execute(call_id, ended_at, &invitations).await.unwrap();
+        log_call.execute(call_id, ended_at, &invitations).await.unwrap();
         assert_eq!(*store.logged.lock().unwrap(), vec![(caller, callee, "missed".to_string())]);
+        assert_eq!(store.created.lock().unwrap()[0], ended_at);
     }
 
     #[tokio::test]
     async fn a_declined_call_is_logged_as_declined_and_unverified_calls_are_skipped() {
         let (store, log_call) = usecase(ended(true));
         let (caller, callee) = (UserId::new(Uuid::new_v4()), UserId::new(Uuid::new_v4()));
-        log_call.execute(Uuid::new_v4(), &[CallInvitation { inviter: caller, invitee: callee }]).await.unwrap();
+        log_call.execute(Uuid::new_v4(), Utc::now(), &[CallInvitation { inviter: caller, invitee: callee }]).await.unwrap();
         assert_eq!(*store.logged.lock().unwrap(), vec![(caller, callee, "declined".to_string())]);
 
         let (store, log_call) = usecase(CallOutcome { callee_pending: true, ..ended(false) });
-        log_call.execute(Uuid::new_v4(), &[CallInvitation { inviter: caller, invitee: callee }]).await.unwrap();
+        log_call.execute(Uuid::new_v4(), Utc::now(), &[CallInvitation { inviter: caller, invitee: callee }]).await.unwrap();
         assert!(store.logged.lock().unwrap().is_empty());
     }
 }
