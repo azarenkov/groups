@@ -10,7 +10,7 @@ import type { OpenMessageLink } from "../../chat/lib/messageLink";
 import GlobalSearchResults, { highlightTerms } from "../../search/components/GlobalSearchResults";
 import InviteResult from "../../search/components/InviteResult";
 import PeopleResults from "../../search/components/PeopleResults";
-import { extractInviteToken } from "../../../shared/lib/inviteLinks";
+import { extractInviteToken, extractProfileLinkId } from "../../../shared/lib/inviteLinks";
 import RecentSearches from "../../search/components/RecentSearches";
 import { useSearchHistory } from "../../search/hooks/useSearchHistory";
 import type { GlobalSearchHit } from "../../search/api/globalSearch";
@@ -82,7 +82,8 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
   const needle = query.trim().toLowerCase();
   const matches = (name: string) => name.toLowerCase().includes(needle);
 
-  const people = directs.filter((d) => matches(d.name)).slice(0, QUICK_LIMIT);
+  const linkedProfileId = extractProfileLinkId(query);
+  const people = directs.filter((d) => d.id === linkedProfileId || matches(d.name)).slice(0, QUICK_LIMIT);
   const groups = communities.filter((c) => matches(c.name)).slice(0, QUICK_LIMIT);
   const channels = communities
     .flatMap((community) =>
@@ -92,7 +93,7 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
     )
     .slice(0, QUICK_LIMIT);
 
-  const inviteToken = extractInviteToken(query);
+  const inviteToken = linkedProfileId ? null : extractInviteToken(query);
   const shownChatIds = new Set(people.map((d) => d.id));
 
   const choose = (action: () => void, target?: HistoryTarget) => () => {

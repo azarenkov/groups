@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
+use uuid::Uuid;
 
 pub const PEOPLE_QUERY_MIN_CHARS: usize = 2;
 pub const PEOPLE_QUERY_MAX_CHARS: usize = 32;
@@ -34,12 +35,23 @@ pub struct PersonMatch {
     pub accepts_friend_requests: bool,
 }
 
-pub fn normalize_people_query(raw: &str) -> Option<String> {
-    let trimmed = raw.trim();
-    let chars = trimmed.chars().count();
-    (PEOPLE_QUERY_MIN_CHARS..=PEOPLE_QUERY_MAX_CHARS)
-        .contains(&chars)
-        .then(|| trimmed.to_lowercase())
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PeopleQuery {
+    Id(UserId),
+    Name(String),
+}
+
+impl PeopleQuery {
+    pub fn parse(raw: &str) -> Option<Self> {
+        let trimmed = raw.trim();
+        if let Ok(id) = Uuid::parse_str(trimmed) {
+            return Some(Self::Id(UserId::new(id)));
+        }
+        let chars = trimmed.chars().count();
+        (PEOPLE_QUERY_MIN_CHARS..=PEOPLE_QUERY_MAX_CHARS)
+            .contains(&chars)
+            .then(|| Self::Name(trimmed.to_lowercase()))
+    }
 }
 
 pub fn clamp_people_limit(limit: Option<i64>) -> i64 {
@@ -48,7 +60,7 @@ pub fn clamp_people_limit(limit: Option<i64>) -> i64 {
 
 #[async_trait]
 pub trait PeopleDirectory: Send + Sync {
-    async fn search(&self, viewer: &UserId, prefix: &str, limit: i64) -> Result<Vec<PersonMatch>, RepositoryError>;
+    async fn search(&self, viewer: &UserId, query: &PeopleQuery, limit: i64) -> Result<Vec<PersonMatch>, RepositoryError>;
 }
 
 #[cfg(test)]
@@ -56,10 +68,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn queries_are_trimmed_folded_and_bounded() {
-        assert_eq!(normalize_people_query("  AlEx "), Some("alex".to_string()));
-        assert_eq!(normalize_people_query("a"), None);
-        assert_eq!(normalize_people_query(&"x".repeat(33)), None);
+    fn name_queries_are_trimmed_folded_and_bounded() {
+        assert_eq!(PeopleQuery::parse("  AlEx "), Some(PeopleQuery::Name("alex".to_string())));
+        assert_eq!(PeopleQuery::parse("a"), None);
+        assert_eq!(PeopleQuery::parse(&"x".repeat(33)), None);
+    }
+
+    #[test]
+    fn a_user_id_looks_up_that_person() {
+        let id = Uuid::new_v4();
+        assert_eq!(PeopleQuery::parse(&format!(" {} ", id.to_string().to_uppercase())), Some(PeopleQuery::Id(UserId::new(id))));
     }
 
     #[test]

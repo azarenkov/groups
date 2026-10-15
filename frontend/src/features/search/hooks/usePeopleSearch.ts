@@ -6,6 +6,7 @@ import type { FriendshipStatus } from "../../../shared/types/friendship";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useBlockStore } from "../../social/store/blockStore";
 import { peopleAPI, type PersonHit, type PersonRelation } from "../api/people";
+import { extractProfileLinkId } from "../../../shared/lib/inviteLinks";
 
 export const PEOPLE_SEARCH_MIN_CHARS = 2;
 export const PEOPLE_SEARCH_MAX_CHARS = 32;
@@ -13,6 +14,8 @@ export const PEOPLE_SEARCH_DEBOUNCE_MS = 300;
 export const PEOPLE_SEARCH_LIMIT = 8;
 
 export const normalizePeopleQuery = (raw: string): string | null => {
+  const profileId = extractProfileLinkId(raw);
+  if (profileId) return profileId;
   const trimmed = raw.trim();
   const length = Array.from(trimmed).length;
   return length >= PEOPLE_SEARCH_MIN_CHARS && length <= PEOPLE_SEARCH_MAX_CHARS ? trimmed.toLowerCase() : null;
