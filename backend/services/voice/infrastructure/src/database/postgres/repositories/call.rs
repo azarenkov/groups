@@ -173,6 +173,15 @@ async fn notify_withdrawn_invitation(
     save_outbox_records(tx, std::slice::from_ref(&record)).await
 }
 
+async fn lock_call(tx: &mut sqlx::Transaction<'_, Postgres>, call_id: Uuid) -> Result<(), RepositoryError> {
+    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
+        .bind(call_id.to_string())
+        .execute(&mut **tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(())
+}
+
 async fn end_call_when(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     call_id: Uuid,
@@ -181,6 +190,7 @@ async fn end_call_when(
     now: DateTime<Utc>,
     is_over: fn(&CallRoster) -> bool,
 ) -> Result<(), RepositoryError> {
+    lock_call(tx, call_id).await?;
     let roster = sqlx::query!(
         r#"
         SELECT
@@ -355,6 +365,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
 
         let status = if accept {
             CallParticipantStatus::Joined
@@ -407,11 +418,7 @@ impl CallRepository for PostgresCallRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
-            .bind(call_id.to_string())
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
         let existing: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM call_participants WHERE call_id = $1 AND user_id <> $2 AND status IN ('invited', 'joined')",
         )
@@ -498,6 +505,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
 
         let previous = participant_status(&mut tx, call_id, user_id.uuid()).await?;
         let updated = sqlx::query!(
@@ -551,6 +559,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
 
         for user_id in user_ids {
             mark_left(&mut tx, call_id, user_id.uuid(), now, request_id.clone()).await?;
@@ -577,6 +586,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
 
         for user_id in user_ids {
             mark_left(&mut tx, call_id, user_id.uuid(), now, request_id.clone()).await?;
@@ -845,11 +855,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
-            .bind(call_id.to_string())
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
         let current = participant_status(&mut tx, call_id, user_id.uuid()).await?;
         let reactivating = !matches!(current.as_deref(), Some("invited") | Some("joined"));
         if reactivating {
@@ -1015,11 +1021,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
-            .bind(call_id.to_string())
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
 
         let current = participant_status(&mut tx, call_id, user_id.uuid()).await?;
         if !matches!(current.as_deref(), Some("invited") | Some("joined")) {
@@ -1121,6 +1123,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
 
         let updated = sqlx::query!(
             r#"

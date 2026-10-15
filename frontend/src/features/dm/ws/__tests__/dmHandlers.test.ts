@@ -289,3 +289,19 @@ it("keeps answered and declined call cards out of unread and notifications", () 
   expect(sound).not.toHaveBeenCalled();
   expect(desktop).not.toHaveBeenCalled();
 });
+
+it("does not raise a missed call that was already read before its card arrived", () => {
+  const endedAt = new Date(Date.now() - 60_000).toISOString();
+  dmHandlers["dm.read"]!({ readerId: "me", peerId: "late", readAt: new Date(Date.now() - 30_000).toISOString() });
+  dmHandlers["dm_message.sent"]!({
+    id: "call-late",
+    senderId: "late",
+    senderName: "Late",
+    recipientId: "me",
+    content: "call",
+    callStatus: "missed",
+    occurredAt: endedAt,
+  });
+  expect(useUnreadStore.getState().byDm.late).toBeUndefined();
+  expect(desktop).not.toHaveBeenCalled();
+});

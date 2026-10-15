@@ -65,6 +65,8 @@ let unreadRefetchTimer: ReturnType<typeof setTimeout> | null = null;
 export const lastChannelBumpAt: Record<string, number> = {};
 export const lastDmBumpAt: Record<string, number> = {};
 
+export const dmReadWatermark: Record<string, number> = {};
+
 export function eventTs(v: unknown): number {
   const t = Date.parse(asString(v) ?? "");
   return Number.isFinite(t) ? t : Date.now();

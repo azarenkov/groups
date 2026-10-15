@@ -20,7 +20,7 @@ import type { PinnedMessage } from "../../chat/api/pins";
 import type { InfiniteData } from "@tanstack/react-query";
 import type { GlobalSearchPage } from "../../search/api/globalSearch";
 import { queryClient, queryKeys } from "../../../shared/query/queryClient";
-import { asString, eventTs, getActiveDmView, lastDmBumpAt, scheduleUnreadRefetch, throttleMarkDmRead, viewIsForeground } from "../../../shared/ws/context";
+import { asString, dmReadWatermark, eventTs, getActiveDmView, lastDmBumpAt, scheduleUnreadRefetch, throttleMarkDmRead, viewIsForeground } from "../../../shared/ws/context";
 
 export const dmHandlers: WsHandlers = {
   "dm_message.sent": (d) => {
@@ -51,6 +51,7 @@ export const dmHandlers: WsHandlers = {
       if (recipientId !== selfId) return;
       const callStatus = asString(d.callStatus);
       if (!countsAsUnread(callStatus)) return;
+      if (eventTs(d.occurredAt) <= (dmReadWatermark[senderId] ?? 0)) return;
       if (getActiveDmView() === senderId && viewIsForeground()) {
         throttleMarkDmRead(senderId);
         return;
@@ -170,6 +171,7 @@ export const dmHandlers: WsHandlers = {
         const peerId = asString(d.peerId);
         if (!peerId) return;
         const readTs = Date.parse(readAt ?? "");
+        if (Number.isFinite(readTs)) dmReadWatermark[peerId] = Math.max(dmReadWatermark[peerId] ?? 0, readTs);
         const bumpTs = lastDmBumpAt[peerId];
         if (
           bumpTs !== undefined &&
