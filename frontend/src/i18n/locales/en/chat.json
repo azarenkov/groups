@@ -203,5 +203,8 @@
   "unavailableHint": "The link points to a conversation, channel or community you can't access, or it no longer exists.",
   "unavailableHome": "Go home",
   "messageNotFound": "Message not found — it may have been deleted",
-  "messageOpenFailed": "Couldn't open the message — try again"
+  "messageOpenFailed": "Couldn't open the message — try again",
+  "unavailableFailedTitle": "Couldn't open this chat",
+  "unavailableFailedHint": "The connection may have dropped or the server didn't respond.",
+  "unavailableRetry": "Try again"
 }

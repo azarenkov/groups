@@ -72,7 +72,8 @@ import { registerAppNavigator } from "../../navigation/lib/appNavigator";
 import { useBrowserHistory } from "../../navigation/hooks/useBrowserHistory";
 import { useLocationSync } from "../../navigation/hooks/useLocationSync";
 import type { SectionId } from "../../settings/components/types";
-import UnavailableView from "../../navigation/components/UnavailableView";
+import UnavailableView, { type UnavailableReason } from "../../navigation/components/UnavailableView";
+import { isNotFoundError } from "../../../shared/lib/apiError";
 import { Channel, ChannelKind } from "../../../shared/types/channel";
 import { Community } from "../../../shared/types/community";
 import "../../../styles/rift.css";
@@ -146,7 +147,7 @@ const CommunitiesPage: React.FC = () => {
     if (id) useProfileModalStore.getState().open(id);
   }, [searchParams, setSearchParams]);
   const [pendingMessageLink, setPendingMessageLink] = useState<ChatLocation | null>(null);
-  const [unavailable, setUnavailable] = useState<ChatLocation | null>(null);
+  const [unavailable, setUnavailable] = useState<{ location: ChatLocation; reason: UnavailableReason } | null>(null);
   const communitiesLoaded = useCommunityStore((s) => s.loaded);
   const pendingLinkRef = React.useRef(pendingMessageLink);
   pendingLinkRef.current = pendingMessageLink;
@@ -157,7 +158,7 @@ const CommunitiesPage: React.FC = () => {
   });
   const [openMessage, setOpenMessage] = useState<{ convId: string; messageId: string } | null>(null);
   const navigate = useNavigate();
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const pathLocation = parseAppPath(pathname, user?.id);
   const settingsSection = pathLocation?.kind === "settings" ? pathLocation.section : null;
   const settingsOpen = settingsSection !== null;
@@ -187,12 +188,16 @@ const CommunitiesPage: React.FC = () => {
   };
   const [channelModal, setChannelModal] = useState<{ communityId: string; kind: ChannelKind } | null>(null);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
-  const settingsReturn = React.useRef<string | null>(null);
+  const settingsOpenedInApp = React.useRef(false);
   useEffect(() => {
-    if (!settingsOpen) settingsReturn.current = null;
+    if (!settingsOpen) settingsOpenedInApp.current = false;
   }, [settingsOpen]);
   const openSettings = (section: SectionId) => {
-    settingsReturn.current = settingsReturn.current ?? `${pathname}${search}`;
+    if (settingsOpenedInApp.current) {
+      navigate(appPath({ kind: "settings", section }), { replace: true });
+      return;
+    }
+    settingsOpenedInApp.current = true;
     navigate(appPath({ kind: "settings", section }));
   };
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -603,9 +608,10 @@ const CommunitiesPage: React.FC = () => {
   }, [selectedDm, selectedChannelId, navigate]);
   const goHome = () => navigate(appPath({ kind: "home" }));
   const closeSettings = () => {
-    const back = settingsReturn.current;
-    settingsReturn.current = null;
-    navigate(back ?? appPath(chatLocation ?? { kind: "home" }), { replace: true });
+    const openedInApp = settingsOpenedInApp.current;
+    settingsOpenedInApp.current = false;
+    if (openedInApp) navigate(-1);
+    else navigate(appPath(chatLocation ?? { kind: "home" }), { replace: true });
   };
   const browserHistory = useBrowserHistory();
   const sidebarNav = useSidebarNavigation({
@@ -666,10 +672,10 @@ const CommunitiesPage: React.FC = () => {
   useEffect(() => {
     const link = pendingMessageLink;
     if (!link) return;
-    const drop = () =>
+    const drop = (reason: UnavailableReason) =>
       setPendingMessageLink((current) => {
         if (current !== link) return current;
-        setUnavailable(link);
+        setUnavailable({ location: link, reason });
         return null;
       });
     const opened = (convId: string) => {
@@ -687,9 +693,9 @@ const CommunitiesPage: React.FC = () => {
         (profile) => {
           if (pendingLinkRef.current !== link) return;
           if (profile.active && openDmRef.current(link.peerId, profile.name)) opened(link.peerId);
-          else drop();
+          else drop("missing");
         },
-        drop,
+        (err) => drop(isNotFoundError(err) ? "missing" : "failed"),
       );
       return;
     }
@@ -698,22 +704,31 @@ const CommunitiesPage: React.FC = () => {
     const hasCommunity = (list: Community[]) => list.some((c) => c.id === link.communityId);
     const hasChannel = (list: Record<string, Channel[]>) => !!list[link.communityId]?.some((c) => c.id === link.channelId);
     if (!communitiesLoaded || !hasCommunity(communities)) {
-      if (communitiesLoaded) drop();
+      if (communitiesLoaded) drop("missing");
       else if (!refreshed.communities) {
         refreshed.communities = true;
-        void fetchCommunities().then(() => {
-          if (!hasCommunity(useCommunityStore.getState().communities)) drop();
-        });
+        void Promise.resolve(fetchCommunities()).then(
+          () => {
+            const state = useCommunityStore.getState();
+            if (!state.loaded) drop("failed");
+            else if (!hasCommunity(state.communities)) drop("missing");
+          },
+          () => drop("failed"),
+        );
       }
       return;
     }
     if (!channelsFullyLoaded(link.communityId) || !hasChannel(channelsByCommunity)) {
-      if (channelsFullyLoaded(link.communityId)) drop();
+      if (channelsFullyLoaded(link.communityId)) drop("missing");
       else if (!refreshed.channels) {
         refreshed.channels = true;
-        void fetchChannels(link.communityId).then((ok) => {
-          if (!ok || !hasChannel(useChannelStore.getState().channelsByCommunity)) drop();
-        });
+        void fetchChannels(link.communityId).then(
+          (ok) => {
+            if (!ok) drop("failed");
+            else if (!hasChannel(useChannelStore.getState().channelsByCommunity)) drop("missing");
+          },
+          () => drop("failed"),
+        );
       }
       return;
     }
@@ -853,7 +868,14 @@ const CommunitiesPage: React.FC = () => {
                 onMinimize={() => useCallStore.getState().setFocused(false)}
               />
             ) : unavailable ? (
-              <UnavailableView onGoHome={goHome} />
+              <UnavailableView
+                reason={unavailable.reason}
+                onGoHome={goHome}
+                onRetry={() => {
+                  setUnavailable(null);
+                  setPendingMessageLink({ ...unavailable.location });
+                }}
+              />
             ) : !selectedCommunity && !selectedDm ? (
               <HomeView
                 overview={homeOverview}

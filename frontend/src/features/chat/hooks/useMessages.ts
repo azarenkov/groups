@@ -1,6 +1,6 @@
 import React from "react";
 import i18n from "../../../i18n";
-import { ApiError } from "../../../shared/lib/apiError";
+import { ApiError, isNotFoundError } from "../../../shared/lib/apiError";
 import type { ChannelMessage } from "../../../shared/types/channel";
 import { PAGE_LIMIT } from "../constants";
 import { cursorAfter, mergeWithLive, reconcileSyncedWindow, type MessageCursor } from "../lib/messageFormat";
@@ -92,9 +92,6 @@ const CHANNEL_ACCESS_ERRORS = new Set([
 const DM_ACCESS_ERRORS = new Set(["USER_BLOCKED", "USER_NOT_FOUND", "TARGET_USER_NOT_FOUND", "DM_SELF", "SELF_DM"]);
 
 export type JumpResult = "shown" | "missing" | "failed";
-
-const isNotFound = (err: unknown): boolean =>
-  err instanceof ApiError && (err.status === 404 || !!err.code?.endsWith("NOT_FOUND"));
 
 export function useMessages(params: {
   messenger: Messenger | null;
@@ -403,14 +400,14 @@ export function useMessages(params: {
     }
   }, [reseedChannelReads]);
 
-  const jumpToMessage = React.useCallback(async (target: ChannelMessage) => {
+  const jumpToMessage = React.useCallback(async (target: ChannelMessage): Promise<boolean> => {
     const messengerNow = messengerRef.current;
     const targetId = convIdRef.current;
-    if (!messengerNow || !targetId) return;
+    if (!messengerNow || !targetId) return false;
     const pendingRevalidation = revalidationRef.current;
     if (pendingRevalidation) {
       await pendingRevalidation.done;
-      if (convIdRef.current !== targetId) return;
+      if (convIdRef.current !== targetId) return true;
     }
     setLoadingInitial(true);
     try {
@@ -424,7 +421,7 @@ export function useMessages(params: {
           limit: JUMP_CONTEXT,
         }),
       ]);
-      if (currentChannelIdRef.current !== targetId) return;
+      if (currentChannelIdRef.current !== targetId) return true;
       const older = [...olderRes.messages].reverse();
       const newer = [...newerRes.messages].reverse();
       const combined = [...older, target, ...newer];
@@ -433,8 +430,10 @@ export function useMessages(params: {
       setMessages((prev) => mergeWithLive(combined, prev));
       setHasMore(olderRes.messages.length >= JUMP_CONTEXT);
       setHighlightedMessageId(target.id);
+      return true;
     } catch (err) {
       console.warn("[ChatView] failed to jump to message:", err);
+      return false;
     } finally {
       if (currentChannelIdRef.current === targetId) {
         setLoadingInitial(false);
@@ -475,11 +474,10 @@ export function useMessages(params: {
       if (!messengerNow) return "failed";
       try {
         const target = await messengerNow.getMessage(messageId);
-        await jumpToMessage(target);
-        return "shown";
+        return (await jumpToMessage(target)) ? "shown" : "failed";
       } catch (err) {
         console.warn("[ChatView] failed to open the original message:", err);
-        return isNotFound(err) ? "missing" : "failed";
+        return isNotFoundError(err) ? "missing" : "failed";
       }
     },
     [jumpToMessage],
