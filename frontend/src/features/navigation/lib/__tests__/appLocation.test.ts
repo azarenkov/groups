@@ -13,6 +13,7 @@ describe("app locations", () => {
       { kind: "settings" as const, section: "privacy" as const },
       { kind: "dm" as const, peerId: peer },
       { kind: "dm" as const, peerId: peer, messageId: message },
+      { kind: "community" as const, communityId: community },
       { kind: "channel" as const, communityId: community, channelId: channel },
       { kind: "channel" as const, communityId: community, channelId: channel, messageId: message },
     ];
@@ -30,7 +31,7 @@ describe("app locations", () => {
     expect(parseAppPath("/app", me)).toBeNull();
     expect(parseAppPath("/app/dm/not-an-id", me)).toBeNull();
     expect(parseAppPath(`/app/dm/${me}`, me)).toBeNull();
-    expect(parseAppPath(`/app/c/${community}`, me)).toBeNull();
+    expect(parseAppPath(`/app/c/not-an-id`, me)).toBeNull();
     expect(parseAppPath("/app/settings/unknown", me)).toBeNull();
     expect(parseAppPath(`/elsewhere/dm/${peer}`, me)).toBeNull();
   });

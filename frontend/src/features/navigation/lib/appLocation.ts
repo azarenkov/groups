@@ -3,6 +3,7 @@ import { SETTINGS_SECTIONS, type SectionId } from "../../settings/components/typ
 
 export type ChatLocation =
   | { kind: "dm"; peerId: string; messageId?: string; peerName?: string }
+  | { kind: "community"; communityId: string }
   | { kind: "channel"; communityId: string; channelId: string; messageId?: string };
 
 export type AppLocation = { kind: "home" } | { kind: "settings"; section: SectionId } | ChatLocation;
@@ -21,6 +22,7 @@ type ParsedPath =
   | { kind: "home" }
   | { kind: "settings"; section: SectionId }
   | { kind: "dm"; participants: string[]; messageId?: string }
+  | { kind: "community"; communityId: string }
   | { kind: "channel"; communityId: string; channelId: string; messageId?: string };
 
 function participantsOf(segment: string): string[] | null {
@@ -46,6 +48,10 @@ function parsePath(pathname: string): ParsedPath | null {
   if (kind === "dm" && (rest.length === 1 || rest.length === 2)) {
     const participants = participantsOf(rest[0]);
     return participants ? { kind: "dm", participants, ...(messageId ? { messageId } : {}) } : null;
+  }
+  if (kind === "c" && rest.length === 1) {
+    const communityId = extractUuid(rest[0]);
+    return communityId ? { kind: "community", communityId } : null;
   }
   if (kind === "c" && (rest.length === 2 || rest.length === 3)) {
     const communityId = extractUuid(rest[0]);
@@ -74,6 +80,8 @@ export function appPath(location: AppLocation): string {
       return `${APP_ROOT}/settings/${location.section}`;
     case "dm":
       return [APP_ROOT, "dm", location.peerId, location.messageId].filter(Boolean).join("/");
+    case "community":
+      return [APP_ROOT, "c", location.communityId].join("/");
     case "channel":
       return [APP_ROOT, "c", location.communityId, location.channelId, location.messageId].filter(Boolean).join("/");
   }
@@ -102,6 +110,8 @@ export function sameLocation(a: AppLocation | null, b: AppLocation | null): bool
       return a.section === (b as typeof a).section;
     case "dm":
       return a.peerId === (b as typeof a).peerId;
+    case "community":
+      return a.communityId === (b as typeof a).communityId;
     case "channel":
       return a.communityId === (b as typeof a).communityId && a.channelId === (b as typeof a).channelId;
   }

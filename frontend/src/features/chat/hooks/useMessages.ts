@@ -91,7 +91,7 @@ const CHANNEL_ACCESS_ERRORS = new Set([
 
 const DM_ACCESS_ERRORS = new Set(["USER_BLOCKED", "USER_NOT_FOUND", "TARGET_USER_NOT_FOUND", "DM_SELF", "SELF_DM"]);
 
-export type JumpResult = "shown" | "missing" | "failed";
+export type JumpResult = "shown" | "missing" | "failed" | "stale";
 
 export function useMessages(params: {
   messenger: Messenger | null;
@@ -471,11 +471,16 @@ export function useMessages(params: {
         return "shown";
       }
       const messengerNow = messengerRef.current;
+      const conversation = convIdRef.current;
       if (!messengerNow) return "failed";
       try {
         const target = await messengerNow.getMessage(messageId);
-        return (await jumpToMessage(target)) ? "shown" : "failed";
+        if (convIdRef.current !== conversation) return "stale";
+        const shown = await jumpToMessage(target);
+        if (convIdRef.current !== conversation) return "stale";
+        return shown ? "shown" : "failed";
       } catch (err) {
+        if (convIdRef.current !== conversation) return "stale";
         console.warn("[ChatView] failed to open the original message:", err);
         return isNotFoundError(err) ? "missing" : "failed";
       }

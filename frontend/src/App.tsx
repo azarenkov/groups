@@ -47,8 +47,8 @@ const Router = typeof window !== "undefined" && window.electron ? HashRouter : B
 
 const SignInFirst: React.FC<{ unverified: boolean }> = ({ unverified }) => {
   const { pathname } = useLocation();
-  if (unverified) return <Navigate to="/register" />;
-  return <Navigate to={isAppPath(pathname) ? `/login?next=${encodeURIComponent(pathname)}` : "/login"} />;
+  const next = isAppPath(pathname) ? `?next=${encodeURIComponent(pathname)}` : "";
+  return <Navigate to={`${unverified ? "/register" : "/login"}${next}`} />;
 };
 
 const AuthRedirect: React.FC = () => {

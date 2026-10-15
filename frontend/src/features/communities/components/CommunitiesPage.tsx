@@ -585,7 +585,7 @@ const CommunitiesPage: React.FC = () => {
     : selectedCommunityId
       ? selectedChannelId
         ? { kind: "channel", communityId: selectedCommunityId, channelId: selectedChannelId }
-        : null
+        : { kind: "community", communityId: selectedCommunityId }
       : { kind: "home" };
   useLocationSync({
     viewerId: user?.id,
@@ -680,7 +680,7 @@ const CommunitiesPage: React.FC = () => {
       });
     const opened = (convId: string) => {
       setPendingMessageLink(null);
-      if (link.messageId) setOpenMessage({ convId, messageId: link.messageId });
+      if ("messageId" in link && link.messageId) setOpenMessage({ convId, messageId: link.messageId });
     };
     if (link.kind === "dm") {
       if (openDmRef.current(link.peerId, link.peerName)) {
@@ -702,7 +702,6 @@ const CommunitiesPage: React.FC = () => {
     const refreshed = linkRefreshRef.current.link === link ? linkRefreshRef.current : { link, communities: false, channels: false };
     linkRefreshRef.current = refreshed;
     const hasCommunity = (list: Community[]) => list.some((c) => c.id === link.communityId);
-    const hasChannel = (list: Record<string, Channel[]>) => !!list[link.communityId]?.some((c) => c.id === link.channelId);
     if (!communitiesLoaded || !hasCommunity(communities)) {
       if (communitiesLoaded) drop("missing");
       else if (!refreshed.communities) {
@@ -718,6 +717,17 @@ const CommunitiesPage: React.FC = () => {
       }
       return;
     }
+    if (link.kind === "community") {
+      setPendingMessageLink(null);
+      expandCommunityRef.current(link.communityId);
+      useCallStore.getState().setFocused(false);
+      setSelectedDm(null);
+      setSelectedCommunity(link.communityId);
+      setSelectedChannel(null);
+      return;
+    }
+    const channelId = link.channelId;
+    const hasChannel = (list: Record<string, Channel[]>) => !!list[link.communityId]?.some((c) => c.id === channelId);
     if (!channelsFullyLoaded(link.communityId) || !hasChannel(channelsByCommunity)) {
       if (channelsFullyLoaded(link.communityId)) drop("missing");
       else if (!refreshed.channels) {

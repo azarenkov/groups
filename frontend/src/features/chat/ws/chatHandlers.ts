@@ -1,12 +1,12 @@
 import type { WsHandlers } from "../../../shared/ws/types";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useBlockStore } from "../../social/store/blockStore";
-import { useChannelStore } from "../../communities/store/channelStore";
 import { notificationPrefsLoaded, useNotificationPrefsStore } from "../../settings/store/notificationPrefsStore";
 import { defaultMentionLevel, desktopNotifAllowed, messageSoundAllowed } from "../../settings/store/notificationSettingsStore";
 import { useReadReceiptStore } from "../store/readReceiptStore";
 import { useUnreadStore } from "../store/unreadStore";
 import { openAppLocation } from "../../navigation/lib/appNavigator";
+import { findLoadedChannel, resolveChannelCommunity } from "../../communities/lib/channelLookup";
 import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
 import { mentionsUser } from "../lib/mentions";
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
@@ -42,17 +42,9 @@ export const chatHandlers: WsHandlers = {
           : !!myName && mentionsUser(asString(d.content) ?? "", myName);
         if (!mentioned) return;
       }
-      const byCommunity = useChannelStore.getState().channelsByCommunity;
-      let communityId: string | undefined;
-      let channelName: string | undefined;
-      for (const [sid, chans] of Object.entries(byCommunity)) {
-        const found = chans.find((c) => c.id === channelId);
-        if (found) {
-          communityId = sid;
-          channelName = found.name;
-          break;
-        }
-      }
+      const loaded = findLoadedChannel(channelId);
+      const communityId = loaded?.communityId;
+      const channelName = loaded?.channel.name;
       lastChannelBumpAt[channelId] = Math.max(
         lastChannelBumpAt[channelId] ?? 0,
         eventTs(d.occurredAt),
@@ -62,11 +54,13 @@ export const chatHandlers: WsHandlers = {
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
         const messageId = asString(d.id);
-        const target = communityId ? { kind: "channel" as const, communityId, channelId, messageId } : null;
         showDesktopNotification(
           channelName ? `#${channelName}` : "Rift",
           notificationBody(asString(d.content), d.attachments, d.sticker),
-          target ? () => openAppLocation(target) : undefined,
+          () =>
+            void resolveChannelCommunity(channelId).then((resolved) => {
+              if (resolved) openAppLocation({ kind: "channel", communityId: resolved, channelId, messageId });
+            }),
         );
       }
       return;

@@ -186,7 +186,9 @@ const ChatView: React.FC<ChatViewProps> = ({
   React.useEffect(() => {
     if (!openMessageId || showInitialLoader) return;
     closeSearch();
-    void jumpToMessageId(openMessageId).then((result) => setJumpProblem(result === "shown" ? null : result));
+    void jumpToMessageId(openMessageId).then((result) =>
+      setJumpProblem(result === "missing" || result === "failed" ? result : null),
+    );
     onOpenHandledRef.current?.();
   }, [openMessageId, showInitialLoader, jumpToMessageId, closeSearch]);
 

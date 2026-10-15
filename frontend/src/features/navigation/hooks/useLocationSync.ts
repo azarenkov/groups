@@ -36,12 +36,14 @@ export function useLocationSync(params: {
         navigate({ pathname: appPath(HOME), search: location.search }, { replace: true });
         return;
       }
-      const jump = urlLocation.kind !== "home" && urlLocation.kind !== "settings" && !!urlLocation.messageId;
+      const jump = "messageId" in urlLocation && !!urlLocation.messageId;
       if (urlLocation.kind !== "settings" && (jump || !sameLocation(urlLocation, current))) openRef.current(urlLocation);
       return;
     }
     if (currentChanged && current && !resolving && urlLocation?.kind !== "settings" && !sameLocation(urlLocation, current)) {
-      navigate(appPath(current));
+      const settlesCommunity =
+        urlLocation?.kind === "community" && current.kind === "channel" && current.communityId === urlLocation.communityId;
+      navigate(appPath(current), { replace: settlesCommunity });
     }
   }, [location.pathname, location.search, urlLocation, current, currentKey, resolving, viewerId, navigate]);
 
