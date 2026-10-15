@@ -68,6 +68,10 @@ describe("profile links in search", () => {
     expect(extractInviteToken(`rift://u/${id}`)).toBeNull();
     expect(extractInviteToken(`https://rift.localtest.me/join/${id}`)).toBe(id);
     expect(extractInviteToken(id)).toBe(id);
+    expect(extractInviteToken(`https://rift.localtest.me/join/AbCdEfGhIjKlMnOpQrStUvWxYz012345?next=/u/${id}`)).toBe(
+      "AbCdEfGhIjKlMnOpQrStUvWxYz012345",
+    );
+    expect(extractProfileLinkId(`https://rift.localtest.me/join/AbCdEfGhIjKlMnOpQrStUvWxYz012345#/u/${id}`)).toBeNull();
     expect(extractInviteToken("https://rift.localtest.me/join/AbCdEfGhIjKlMnOpQrStUvWxYz012345")).toBe(
       "AbCdEfGhIjKlMnOpQrStUvWxYz012345",
     );
