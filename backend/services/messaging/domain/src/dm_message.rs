@@ -75,6 +75,7 @@ impl DmMessage {
         status: CallStatus,
         content: MessageContent,
         now: DateTime<Utc>,
+        recipient_read_at: Option<DateTime<Utc>>,
     ) -> Self {
         let call_status = status.as_str().to_string();
         let call_duration_seconds = status.duration_seconds();
@@ -96,7 +97,11 @@ impl DmMessage {
         };
         message.events.push(DmMessageDomainEvent::Sent(
             DmMessageSent::record(id, sender_id, recipient_id, content, now)
-                .for_call(message.call_status.as_deref().unwrap_or_default(), call_duration_seconds),
+                .for_call(
+                    message.call_status.as_deref().unwrap_or_default(),
+                    call_duration_seconds,
+                    CallStatus::read_by_recipient(now, recipient_read_at),
+                ),
         ));
         message
     }

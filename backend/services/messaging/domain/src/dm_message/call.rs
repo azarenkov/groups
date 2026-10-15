@@ -28,6 +28,10 @@ impl CallStatus {
         }
     }
 
+    pub fn read_by_recipient(ended_at: DateTime<Utc>, recipient_read_at: Option<DateTime<Utc>>) -> bool {
+        recipient_read_at.is_some_and(|read_at| read_at >= ended_at)
+    }
+
     pub fn duration_seconds(&self) -> Option<i32> {
         match self {
             Self::Completed { duration_seconds } => Some(*duration_seconds),
@@ -60,6 +64,15 @@ mod tests {
         let now = DateTime::from_timestamp(1_800_000_000, 0).unwrap();
         assert_eq!(CallStatus::resolve(None, now, true), CallStatus::Declined);
         assert_eq!(CallStatus::resolve(None, now, false), CallStatus::Missed);
+    }
+
+    #[test]
+    fn a_card_is_already_read_when_the_conversation_was_read_after_the_call_ended() {
+        let ended = DateTime::from_timestamp(1_800_000_000, 0).unwrap();
+        assert!(CallStatus::read_by_recipient(ended, Some(ended + Duration::seconds(1))));
+        assert!(CallStatus::read_by_recipient(ended, Some(ended)));
+        assert!(!CallStatus::read_by_recipient(ended, Some(ended - Duration::seconds(1))));
+        assert!(!CallStatus::read_by_recipient(ended, None));
     }
 
     #[test]

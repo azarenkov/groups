@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use std::collections::HashSet;
 
 use async_trait::async_trait;
@@ -114,6 +115,10 @@ impl DmTransaction for PostgresDmTransaction {
             crate::outbox::storage::ensure_storage_keys_linked(&mut self.tx, &keys).await?;
         }
         insert_dm_links(&mut self.tx, message.id().uuid(), attachments).await
+    }
+
+    async fn last_read_at(&mut self, reader: &UserId, peer: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+        crate::database::postgres::repositories::read_state::dm_last_read_at(&mut self.tx, reader, peer).await
     }
 
     async fn consume_call_log(

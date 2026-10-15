@@ -67,6 +67,7 @@ fn dm_call_and_invite_facts_are_part_of_the_event() {
         CallStatus::Completed { duration_seconds: 42 },
         MessageContent::new("call".to_string()).unwrap(),
         Utc::now(),
+        None,
     );
     let record = to_record(&MessagingEvent::from(call.pull_events().remove(0)), None).unwrap();
     let evt: DmMessageSentV1 = decode(record.payload);

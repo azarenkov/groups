@@ -14,6 +14,7 @@ pub struct DmMessageSent {
     pub occurred_at: DateTime<Utc>,
     pub call_status: Option<String>,
     pub call_duration_seconds: Option<i32>,
+    pub read_by_recipient: bool,
     pub attachments: Vec<AttachmentSnapshot>,
     pub reply: Option<crate::message::reply::ReplyPreview>,
     pub forward: Option<crate::message::forward::ForwardInfo>,
@@ -37,6 +38,7 @@ impl DmMessageSent {
             occurred_at: now,
             call_status: None,
             call_duration_seconds: None,
+            read_by_recipient: false,
             attachments: Vec::new(),
             reply: None,
             forward: None,
@@ -44,9 +46,10 @@ impl DmMessageSent {
         }
     }
 
-    pub fn for_call(mut self, status: &str, duration_seconds: Option<i32>) -> Self {
+    pub fn for_call(mut self, status: &str, duration_seconds: Option<i32>, read_by_recipient: bool) -> Self {
         self.call_status = Some(status.to_string());
         self.call_duration_seconds = duration_seconds;
+        self.read_by_recipient = read_by_recipient;
         self
     }
 }

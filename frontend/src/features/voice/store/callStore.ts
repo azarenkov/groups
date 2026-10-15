@@ -112,6 +112,21 @@ interface CallState {
 
 const without = (list: string[], id: string) => list.filter((x) => x !== id);
 
+interface EarlyCallEvents {
+  declines: { userId: string; userName: string | undefined }[];
+  ended: boolean;
+}
+
+const earlyCallEvents = new Map<string, EarlyCallEvents>();
+
+const earlyEventsFor = (callId: string): EarlyCallEvents => {
+  const known = earlyCallEvents.get(callId);
+  if (known) return known;
+  const fresh: EarlyCallEvents = { declines: [], ended: false };
+  earlyCallEvents.set(callId, fresh);
+  return fresh;
+};
+
 export const useCallStore = create<CallState>()((set, get) => ({
   incoming: null,
   activeCallId: null, startedAt: null, attention: false,
@@ -207,13 +222,17 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }),
   participantDeclined: (callId, userId, userName) => {
     const s = get();
-    if (s.activeCallId !== callId && s.endedCallId !== callId) return false;
+    if (s.activeCallId !== callId && s.endedCallId !== callId) {
+      if (s.connecting && !s.activeCallId) earlyEventsFor(callId).declines.push({ userId, userName });
+      return false;
+    }
     set({ ringing: without(s.ringing, userId), callNotice: { kind: "declined", userId, name: userName } });
     return true;
   },
 
   callEnded: (callId) => {
     const s = get();
+    if (s.connecting && !s.activeCallId && s.incoming?.callId !== callId) earlyEventsFor(callId).ended = true;
     const joinable = Object.fromEntries(
       Object.entries(s.joinableByPeer).filter(([, cid]) => cid !== callId),
     );
@@ -424,6 +443,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       }
       await get().leave();
     }
+    earlyCallEvents.clear();
     set({ connecting: true });
     const initiator = await getAuthedIdentity().catch((e) => {
       set({ connecting: false });
@@ -449,6 +469,10 @@ export const useCallStore = create<CallState>()((set, get) => ({
       deafened: false,
       micMutedBeforeDeafen: false,
     });
+    const early = earlyCallEvents.get(callId);
+    earlyCallEvents.clear();
+    for (const decline of early?.declines ?? []) get().participantDeclined(callId, decline.userId, decline.userName);
+    if (early?.ended) get().callEnded(callId);
     const muteSeqBeforeWait = get().micMuteSeq;
     const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
     if (get().activeCallId !== callId) {

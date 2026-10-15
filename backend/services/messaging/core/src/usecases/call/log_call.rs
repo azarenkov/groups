@@ -63,13 +63,14 @@ where
         }
         let status = CallStatus::resolve(outcome.callee_answered_at, outcome.caller_left_at.unwrap_or(ended_at), outcome.callee_declined);
         let content = MessageContent::new("call".to_string())?;
-        let mut message = DmMessage::create_call(inviter, invitee, call_id, status, content, ended_at);
         let mut tx = self.unit_of_work.begin().await?;
         tx.lock_pair(&inviter, &invitee).await?;
         match tx.consume_call_log(call_id, &inviter, &invitee).await {
             Err(RepositoryError::AlreadyExists) => return Ok(()),
             result => result?,
         };
+        let recipient_read_at = tx.last_read_at(&invitee, &inviter).await?;
+        let mut message = DmMessage::create_call(inviter, invitee, call_id, status, content, ended_at, recipient_read_at);
         let events: Vec<MessagingEvent> = message.pull_events().into_iter().map(MessagingEvent::from).collect();
         tx.insert_message(&message, &[]).await?;
         tx.save_events(&events, None).await?;
@@ -128,6 +129,9 @@ mod tests {
             self.logged.push((*message.sender_id(), *message.recipient_id(), message.call_status().unwrap_or_default().to_string()));
             self.store.created.lock().unwrap().push(message.created_at());
             Ok(())
+        }
+        async fn last_read_at(&mut self, _: &UserId, _: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+            Ok(None)
         }
         async fn consume_call_log(&mut self, call_id: Uuid, sender: &UserId, recipient: &UserId) -> Result<(), RepositoryError> {
             if self.store.consumed.lock().unwrap().insert((call_id, *sender, *recipient)) {

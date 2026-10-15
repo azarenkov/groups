@@ -302,6 +302,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             "occurredAt": evt.occurred_at,
             "callStatus": evt.call_status,
             "callDurationSeconds": evt.call_duration_seconds,
+            "readByRecipient": evt.read_by_recipient,
             "attachments": evt.attachments.unwrap_or_else(|| json!([])),
             "forwardedFrom": evt.forwarded_from,
             "sticker": evt.sticker,

@@ -42,6 +42,25 @@ fn read_event(
     }
 }
 
+pub(crate) async fn dm_last_read_at(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    reader: &UserId,
+    peer: &UserId,
+) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+    sqlx::query_scalar!(
+        r#"
+        SELECT last_read_at
+        FROM dm_read_state
+        WHERE user_id = $1 AND friend_id = $2
+        "#,
+        reader.uuid(),
+        peer.uuid(),
+    )
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)
+}
+
 #[async_trait]
 impl ReadStateRepository for PostgresReadStateRepository {
     async fn mark_channel_read(
@@ -266,18 +285,7 @@ impl ReadStateRepository for PostgresReadStateRepository {
         if block_relation_for(&mut *tx, user_id, friend_id).await?.any() {
             return Ok(DmReadReceipt::Blocked);
         }
-        let read_at = sqlx::query_scalar!(
-            r#"
-            SELECT last_read_at
-            FROM dm_read_state
-            WHERE user_id = $1 AND friend_id = $2
-            "#,
-            friend_id.uuid(),
-            user_id.uuid(),
-        )
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
+        let read_at = dm_last_read_at(&mut tx, friend_id, user_id).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(DmReadReceipt::ReadAt(read_at))
     }

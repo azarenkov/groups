@@ -50,7 +50,7 @@ export const dmHandlers: WsHandlers = {
       if (!knownPeerName) refetchDmPreviews();
       if (recipientId !== selfId) return;
       const callStatus = asString(d.callStatus);
-      if (!countsAsUnread(callStatus)) return;
+      if (!countsAsUnread(callStatus) || d.readByRecipient === true) return;
       if (getActiveDmView() === senderId && viewIsForeground()) {
         throttleMarkDmRead(senderId);
         return;
@@ -59,33 +59,20 @@ export const dmHandlers: WsHandlers = {
         scheduleUnreadRefetch();
         return;
       }
-      const alert = () => {
-        const dmLevel =
-          useNotificationPrefsStore.getState().dmLevels[senderId] ??
-          (defaultMentionLevel() === "none" ? "none" : "all");
-        if (dmLevel === "none" || !hiddenDmsKnown() || isDmHidden(senderId)) return;
-        if (callStatus) useCallStore.getState().setCallNotice({ kind: "missed", userId: senderId, name: peerName });
-        if (messageSoundAllowed()) playNotificationSound();
-        if (desktopNotifAllowed()) {
-          showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments, d.sticker, callStatus));
-        }
-      };
-      if (callStatus) {
-        const before = useUnreadStore.getState().byDm[senderId] ?? 0;
-        refetchUnread().then(
-          () => {
-            if ((useUnreadStore.getState().byDm[senderId] ?? 0) > before) alert();
-          },
-          () => {},
-        );
-        return;
-      }
+      const dmLevel =
+        useNotificationPrefsStore.getState().dmLevels[senderId] ??
+        (defaultMentionLevel() === "none" ? "none" : "all");
       lastDmBumpAt[senderId] = Math.max(
         lastDmBumpAt[senderId] ?? 0,
         eventTs(d.occurredAt),
       );
       useUnreadStore.getState().bumpDm(senderId);
-      alert();
+      if (dmLevel === "none" || !hiddenDmsKnown() || isDmHidden(senderId)) return;
+      if (callStatus) useCallStore.getState().setCallNotice({ kind: "missed", userId: senderId, name: peerName });
+      if (messageSoundAllowed()) playNotificationSound();
+      if (desktopNotifAllowed()) {
+        showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments, d.sticker, callStatus));
+      }
       return;
   },
   "dm_message.edited": (d) => {
