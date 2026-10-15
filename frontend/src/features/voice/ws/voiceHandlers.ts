@@ -9,7 +9,7 @@ import { useVoiceSessionStore } from "../store/voiceSessionStore";
 import { asString } from "../../../shared/ws/context";
 import i18n from "../../../i18n";
 import { getLiveKitService } from "../lib/livekit";
-import { callAlertsAllowed } from "../../settings/store/notificationSettingsStore";
+import { callSoundAllowed } from "../../settings/store/notificationSettingsStore";
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
 import { DECLINED_CHIME } from "../../../shared/lib/chime";
 import { hiddenDmsKnown, hiddenDmsSettled, isDmHidden, useHiddenDmStore } from "../../dm/store/hiddenDmStore";
@@ -161,7 +161,7 @@ export const voiceHandlers: WsHandlers = {
       const callId = asString(d.callId);
       const userId = asString(d.userId);
       if (callId && userId && useCallStore.getState().participantDeclined(callId, userId, asString(d.userName))) {
-        if (callAlertsAllowed()) playNotificationSound(DECLINED_CHIME);
+        if (callSoundAllowed()) playNotificationSound(DECLINED_CHIME);
       }
       return;
   },

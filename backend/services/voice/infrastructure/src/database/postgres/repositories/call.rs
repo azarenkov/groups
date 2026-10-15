@@ -419,6 +419,9 @@ impl CallRepository for PostgresCallRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
 
         lock_call(&mut tx, call_id).await?;
+        if participant_status(&mut tx, call_id, inviter.uuid()).await?.as_deref() != Some(CallParticipantStatus::Joined.as_str()) {
+            return Ok(AddParticipantsOutcome::InviterLeft);
+        }
         let existing: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM call_participants WHERE call_id = $1 AND user_id <> $2 AND status IN ('invited', 'joined')",
         )

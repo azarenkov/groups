@@ -6,7 +6,7 @@ import { DECLINED_CHIME } from "../../../../shared/lib/chime";
 jest.mock("../../../../shared/lib/notificationSound", () => ({ playNotificationSound: jest.fn() }));
 jest.mock("../../../settings/store/notificationSettingsStore", () => {
   const actual = jest.requireActual("../../../settings/store/notificationSettingsStore");
-  return { ...actual, callAlertsAllowed: () => true };
+  return { ...actual, callSoundAllowed: () => true };
 });
 
 const sound = playNotificationSound as jest.Mock;

@@ -136,6 +136,9 @@ where
             AddParticipantsOutcome::CapExceeded => {
                 return Err(AddCallParticipantsError::TooManyRecipients);
             }
+            AddParticipantsOutcome::InviterLeft => {
+                return Err(AddCallParticipantsError::NotParticipant);
+            }
         };
 
         let roster = match self.roster(request.call_id).await {

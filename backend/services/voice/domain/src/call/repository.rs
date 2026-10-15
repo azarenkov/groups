@@ -24,6 +24,7 @@ pub enum JoinOutcome {
 pub enum AddParticipantsOutcome {
     Added(Vec<UserId>),
     CapExceeded,
+    InviterLeft,
 }
 
 #[derive(Debug, Clone)]

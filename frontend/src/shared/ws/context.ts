@@ -67,6 +67,11 @@ export const lastDmBumpAt: Record<string, number> = {};
 
 export const dmReadWatermark: Record<string, number> = {};
 
+export function forgetDmTracking(): void {
+  for (const peerId of Object.keys(lastDmBumpAt)) delete lastDmBumpAt[peerId];
+  for (const peerId of Object.keys(dmReadWatermark)) delete dmReadWatermark[peerId];
+}
+
 export function eventTs(v: unknown): number {
   const t = Date.parse(asString(v) ?? "");
   return Number.isFinite(t) ? t : Date.now();

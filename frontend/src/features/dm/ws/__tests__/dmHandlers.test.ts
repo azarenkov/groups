@@ -305,3 +305,19 @@ it("does not raise a missed call that was already read before its card arrived",
   expect(useUnreadStore.getState().byDm.late).toBeUndefined();
   expect(desktop).not.toHaveBeenCalled();
 });
+
+it("forgets the previous account's read marks when the session resets", async () => {
+  const { forgetDmTracking } = await import("../../../../shared/ws/context");
+  dmHandlers["dm.read"]!({ readerId: "me", peerId: "shared", readAt: new Date().toISOString() });
+  forgetDmTracking();
+  dmHandlers["dm_message.sent"]!({
+    id: "call-shared",
+    senderId: "shared",
+    senderName: "Shared",
+    recipientId: "me",
+    content: "call",
+    callStatus: "missed",
+    occurredAt: new Date(Date.now() - 60_000).toISOString(),
+  });
+  expect(useUnreadStore.getState().byDm.shared).toBe(1);
+});
