@@ -777,12 +777,10 @@ const CommunitiesPage: React.FC = () => {
               name: channel.name,
             })
           }
-          onAddFriend={() => useSearchFocusStore.getState().focus("people")}
           onCreateCommunity={() => {
             setCommunityModalView("create");
             setIsCommunityModalOpen(true);
           }}
-          onJoinCommunity={() => useSearchFocusStore.getState().focus("invite")}
           currentUserId={user?.id}
           unreadByChannel={unreadByChannel}
           unreadByDm={unreadByDm}

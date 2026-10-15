@@ -28,9 +28,7 @@ const handlers = () => ({
   onOpenCommunitySettings: jest.fn(),
   onAddChannel: jest.fn(),
   onDeleteChannel: jest.fn(),
-  onAddFriend: jest.fn(),
   onCreateCommunity: jest.fn(),
-  onJoinCommunity: jest.fn(),
 });
 
 const Harness: React.FC<{ h: ReturnType<typeof handlers> }> = ({ h }) => {
@@ -86,11 +84,9 @@ it("collapses to a rail of pictures and expands back", () => {
   expect(screen.getByText("Alice")).toBeInTheDocument();
 });
 
-it("keeps friend actions and the tab switch on the rail", () => {
+it("keeps the chats and the tab switch on the rail", () => {
   act(() => useSidebarLayoutStore.setState({ collapsed: true }));
   const h = renderSidebar();
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:addFriend") }));
-  expect(h.onAddFriend).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("listitem", { name: "Bob" }));
   expect(h.onSelectDm).toHaveBeenCalledWith(expect.objectContaining({ id: "u2" }));
   expect(screen.getByRole("tab", { name: i18n.t("sidebar:showDirects") })).toHaveAttribute("aria-selected", "true");
@@ -139,30 +135,15 @@ it("closes the channel panel with Escape or a second click", () => {
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
-it("offers creating and joining a community from the rail", () => {
+it("offers only creating a community from the rail", () => {
   act(() => useSidebarLayoutStore.setState({ collapsed: true }));
   const h = renderSidebar();
+  expect(screen.queryByRole("button", { name: i18n.t("sidebar:createCommunity") })).toBeNull();
   fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:joinCommunity") }));
-  expect(h.onJoinCommunity).toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:createCommunity") }));
+  const create = screen.getByRole("button", { name: i18n.t("sidebar:createCommunity") });
+  expect(create.closest(".sb-scroll")).toBeNull();
+  fireEvent.click(create);
   expect(h.onCreateCommunity).toHaveBeenCalled();
-});
-
-it("shows friend actions only with direct messages", () => {
-  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
-  renderSidebar();
-  expect(screen.getByRole("button", { name: i18n.t("sidebar:addFriend") })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
-  expect(screen.queryByRole("button", { name: i18n.t("sidebar:addFriend") })).toBeNull();
-});
-
-it("keeps the rail actions outside the scrolling list", () => {
-  act(() => useSidebarLayoutStore.setState({ collapsed: true }));
-  renderSidebar();
-  expect(screen.getByRole("button", { name: i18n.t("sidebar:addFriend") }).closest(".sb-scroll")).toBeNull();
-  fireEvent.click(screen.getByRole("tab", { name: i18n.t("sidebar:showCommunities") }));
-  expect(screen.getByRole("button", { name: i18n.t("sidebar:joinCommunity") }).closest(".sb-scroll")).toBeNull();
 });
 
 it("finishes a drag that collapses the panel when the pointer is released", () => {

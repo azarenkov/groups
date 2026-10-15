@@ -60,12 +60,7 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
     searchRef.current?.focus();
     searchRef.current?.select();
   }, [focusRequest]);
-  const placeholder =
-    focusMode === "people"
-      ? t("searchPlaceholderPeople")
-      : focusMode === "invite"
-        ? t("searchPlaceholderInvite")
-        : t("searchPlaceholder");
+  const placeholder = focusMode === "people" ? t("searchPlaceholderPeople") : t("searchPlaceholder");
 
   React.useEffect(() => {
     if (!open) return;
