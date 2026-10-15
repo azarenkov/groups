@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
+use domain::user::id::UserId;
 use messaging_domain::{dm_message::DmMessage, dm_message::call::{CallStatus, conversation_of}, dm_message::unit_of_work::DmUnitOfWork, events::MessagingEvent, message::MessageError, message::content::MessageContent};
 use ports::repository::RepositoryError;
 use uuid::Uuid;
@@ -42,29 +43,42 @@ where
         let Some(ended) = self.call_participation.ended_call(call_id).await? else {
             return Ok(());
         };
-        let mut logged = std::collections::HashSet::new();
+        let mut conversations: Vec<((UserId, UserId), CallInvitation, CallStatus)> = Vec::new();
         for invitation in &ended.invitations {
-            if logged.insert(conversation_of(invitation.inviter, invitation.invitee)) {
-                self.log(call_id, ended.ended_at, invitation).await?;
+            let Some(status) = self.resolve(call_id, ended.ended_at, invitation).await? else {
+                continue;
+            };
+            let key = conversation_of(invitation.inviter, invitation.invitee);
+            match conversations.iter_mut().find(|(k, _, _)| *k == key) {
+                Some(best) if status.outranks(&best.2) => *best = (key, *invitation, status),
+                Some(_) => {}
+                None => conversations.push((key, *invitation, status)),
             }
+        }
+        for (_, invitation, status) in conversations {
+            self.record(call_id, ended.ended_at, invitation, status).await?;
         }
         Ok(())
     }
 
-    async fn log(&self, call_id: Uuid, ended_at: DateTime<Utc>, invitation: &CallInvitation) -> Result<(), LogCallError> {
+    async fn resolve(&self, call_id: Uuid, ended_at: DateTime<Utc>, invitation: &CallInvitation) -> Result<Option<CallStatus>, LogCallError> {
         let CallInvitation { inviter, invitee } = *invitation;
         if inviter == invitee {
-            return Ok(());
+            return Ok(None);
         }
         let outcome: CallOutcome = self.call_participation.call_outcome(call_id, &inviter, &invitee).await?;
         if !outcome.participated || !outcome.callee_invited_by_caller || outcome.caller_in_call || outcome.callee_pending {
-            return Ok(());
+            return Ok(None);
         }
-        let status = CallStatus::resolve(
+        Ok(Some(CallStatus::resolve(
             outcome.callee_answered_at,
             CallStatus::conversation_end(outcome.caller_left_at, outcome.callee_left_at, ended_at),
             outcome.callee_declined,
-        );
+        )))
+    }
+
+    async fn record(&self, call_id: Uuid, ended_at: DateTime<Utc>, invitation: CallInvitation, status: CallStatus) -> Result<(), LogCallError> {
+        let CallInvitation { inviter, invitee } = invitation;
         let content = MessageContent::new("call".to_string())?;
         let mut tx = self.unit_of_work.begin().await?;
         tx.lock_pair(&inviter, &invitee).await?;
@@ -103,7 +117,6 @@ mod tests {
     use messaging_domain::{dm_message::id::DmMessageId, dm_message::unit_of_work::DmTransaction, friendship::block::BlockRelation};
 
     use super::*;
-    use domain::user::id::UserId;
     use crate::ports::call_participation::EndedCall;
 
     #[derive(Default)]
@@ -183,12 +196,13 @@ mod tests {
     struct Outcomes {
         outcome: CallOutcome,
         ended: Mutex<Option<EndedCall>>,
+        by_direction: Mutex<std::collections::HashMap<(UserId, UserId), CallOutcome>>,
     }
 
     #[async_trait]
     impl CallParticipationLookup for Outcomes {
-        async fn call_outcome(&self, _: Uuid, _: &UserId, _: &UserId) -> Result<CallOutcome, CallParticipationError> {
-            Ok(self.outcome.clone())
+        async fn call_outcome(&self, _: Uuid, caller: &UserId, callee: &UserId) -> Result<CallOutcome, CallParticipationError> {
+            Ok(self.by_direction.lock().unwrap().get(&(*caller, *callee)).cloned().unwrap_or_else(|| self.outcome.clone()))
         }
         async fn ended_call(&self, _: Uuid) -> Result<Option<EndedCall>, CallParticipationError> {
             Ok(self.ended.lock().unwrap().clone())
@@ -209,9 +223,19 @@ mod tests {
     }
 
     fn usecase(outcome: CallOutcome, ended_at: DateTime<Utc>, invitations: &[CallInvitation]) -> (Arc<Store>, LogCall<Uow, Outcomes>) {
+        let (store, log_call, _) = usecase_with_lookup(outcome, ended_at, invitations);
+        (store, log_call)
+    }
+
+    fn usecase_with_lookup(
+        outcome: CallOutcome,
+        ended_at: DateTime<Utc>,
+        invitations: &[CallInvitation],
+    ) -> (Arc<Store>, LogCall<Uow, Outcomes>, Arc<Outcomes>) {
         let store = Arc::new(Store::default());
-        let lookup = Outcomes { outcome, ended: Mutex::new(Some(EndedCall { ended_at, invitations: invitations.to_vec() })) };
-        (store.clone(), LogCall::new(Arc::new(Uow(store)), Arc::new(lookup)))
+        let lookup = Outcomes { outcome, ended: Mutex::new(Some(EndedCall { ended_at, invitations: invitations.to_vec() })), by_direction: Mutex::default() };
+        let lookup = Arc::new(lookup);
+        (store.clone(), LogCall::new(Arc::new(Uow(store)), lookup.clone()), lookup)
     }
 
     #[tokio::test]
@@ -242,7 +266,7 @@ mod tests {
     #[tokio::test]
     async fn a_call_that_has_not_ended_leaves_no_card() {
         let store = Arc::new(Store::default());
-        let lookup = Outcomes { outcome: ended(false), ended: Mutex::new(None) };
+        let lookup = Outcomes { outcome: ended(false), ended: Mutex::new(None), by_direction: Mutex::default() };
         LogCall::new(Arc::new(Uow(store.clone())), Arc::new(lookup)).execute(Uuid::new_v4()).await.unwrap();
         assert!(store.logged.lock().unwrap().is_empty());
     }
@@ -273,5 +297,19 @@ mod tests {
         let (store, log_call) = usecase(ended(false), Utc::now(), &invitations);
         log_call.execute(Uuid::new_v4()).await.unwrap();
         assert_eq!(*store.logged.lock().unwrap(), vec![(a, b, "missed".to_string())]);
+    }
+
+    #[tokio::test]
+    async fn the_most_telling_direction_wins_the_conversation_card() {
+        let (a, b) = (UserId::new(Uuid::new_v4()), UserId::new(Uuid::new_v4()));
+        let invitations = [CallInvitation { inviter: a, invitee: b }, CallInvitation { inviter: b, invitee: a }];
+        let ended_at = DateTime::from_timestamp(1_800_000_000, 0).unwrap();
+        let (store, log_call, lookup) = usecase_with_lookup(ended(true), ended_at, &invitations);
+        lookup.by_direction.lock().unwrap().insert(
+            (b, a),
+            CallOutcome { callee_answered_at: Some(ended_at - chrono::Duration::seconds(30)), callee_declined: false, ..ended(false) },
+        );
+        log_call.execute(Uuid::new_v4()).await.unwrap();
+        assert_eq!(*store.logged.lock().unwrap(), vec![(b, a, "completed".to_string())]);
     }
 }

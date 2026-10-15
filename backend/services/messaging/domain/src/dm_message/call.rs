@@ -45,6 +45,15 @@ impl CallStatus {
         mark.is_some_and(|mark| mark >= ended_at)
     }
 
+    pub fn outranks(&self, other: &CallStatus) -> bool {
+        let rank = |status: &CallStatus| match status {
+            Self::Completed { duration_seconds } => (2, *duration_seconds),
+            Self::Declined => (1, 0),
+            Self::Missed => (0, 0),
+        };
+        rank(self) > rank(other)
+    }
+
     pub fn duration_seconds(&self) -> Option<i32> {
         match self {
             Self::Completed { duration_seconds } => Some(*duration_seconds),
@@ -96,6 +105,16 @@ mod tests {
         assert!(CallStatus::predates(ended, Some(ended)));
         assert!(!CallStatus::predates(ended, Some(ended - Duration::seconds(1))));
         assert!(!CallStatus::predates(ended, None));
+    }
+
+    #[test]
+    fn an_answered_call_outranks_a_decline_which_outranks_a_miss() {
+        let short = CallStatus::Completed { duration_seconds: 10 };
+        let long = CallStatus::Completed { duration_seconds: 60 };
+        assert!(long.outranks(&short));
+        assert!(short.outranks(&CallStatus::Declined));
+        assert!(CallStatus::Declined.outranks(&CallStatus::Missed));
+        assert!(!CallStatus::Missed.outranks(&CallStatus::Missed));
     }
 
     #[test]
