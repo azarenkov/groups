@@ -4,7 +4,7 @@ import { MemoryRouter, useLocation, useNavigate, type NavigateFunction } from "r
 
 import { useLocationSync } from "../useLocationSync";
 import { useBrowserHistory } from "../useBrowserHistory";
-import { rememberLocation } from "../../lib/lastLocation";
+import { lastLocationPath, rememberLocation } from "../../lib/lastLocation";
 import type { AppLocation } from "../../lib/appLocation";
 
 const me = "11111111-1111-1111-1111-111111111111";
@@ -98,4 +98,25 @@ it("jumps again when the same message address is opened a second time", () => {
   expect(open).toHaveBeenCalledTimes(1);
   act(() => navigateTo(`/app/dm/${peer}/${message}`));
   expect(open).toHaveBeenCalledTimes(2);
+});
+
+it("does not forget the last chat while settings or a link is open", () => {
+  rememberLocation(me, `/app/dm/${peer}`);
+  renderAt("/app/settings/privacy", { current: { kind: "home" }, open: jest.fn() });
+  renderAt(`/app/dm/${other}`, { current: { kind: "home" }, resolving: true, open: jest.fn() });
+  expect(lastLocationPath(me)).toBe(`/app/dm/${peer}`);
+});
+
+it("writes a selection made while a link was resolving once the link is dropped", () => {
+  const open = jest.fn();
+  const routed = (current: AppLocation, resolving: boolean) => (
+    <MemoryRouter initialEntries={[`/app/dm/${other}`]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Harness current={current} resolving={resolving} open={open} />
+    </MemoryRouter>
+  );
+  const view = render(routed({ kind: "home" }, true));
+  view.rerender(routed({ kind: "dm", peerId: peer }, true));
+  expect(seenPath).toBe(`/app/dm/${other}`);
+  view.rerender(routed({ kind: "dm", peerId: peer }, false));
+  expect(seenPath).toBe(`/app/dm/${peer}`);
 });

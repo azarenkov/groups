@@ -25,7 +25,7 @@ export function useLocationSync(params: {
     const path = location.pathname.replace(/\/+$/, "");
     const entryChanged = seen.current.entry !== location.key;
     const currentChanged = seen.current.current !== currentKey;
-    seen.current = { entry: location.key, current: currentKey };
+    seen.current = { entry: location.key, current: resolving && currentChanged && !entryChanged ? seen.current.current : currentKey };
     if (!viewerId) return;
     if (path === APP_ROOT) {
       navigate({ pathname: lastLocationPath(viewerId) ?? appPath(HOME), search: location.search }, { replace: true });
@@ -48,7 +48,7 @@ export function useLocationSync(params: {
   }, [location.key, location.pathname, location.search, urlLocation, current, currentKey, resolving, viewerId, navigate]);
 
   React.useEffect(() => {
-    if (viewerId && current) rememberLocation(viewerId, appPath(current));
-  }, [viewerId, current, currentKey]);
+    if (viewerId && current && sameLocation(urlLocation, current)) rememberLocation(viewerId, appPath(current));
+  }, [viewerId, current, currentKey, urlLocation]);
 
 }
