@@ -183,6 +183,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   onOpenHandledRef.current = onOpenMessageHandled;
   const { closeSearch } = search;
   const [jumpProblem, setJumpProblem] = React.useState<"missing" | "failed" | null>(null);
+  React.useEffect(() => setJumpProblem(null), [convId]);
   React.useEffect(() => {
     if (!openMessageId || showInitialLoader) return;
     closeSearch();

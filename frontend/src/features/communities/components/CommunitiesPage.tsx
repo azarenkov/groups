@@ -605,8 +605,11 @@ const CommunitiesPage: React.FC = () => {
     if (!unavailableRef.current) return;
     setUnavailable(null);
     if (chatPathRef.current) navigate(chatPathRef.current, { replace: true });
-  }, [selectedDm, selectedChannelId, navigate]);
-  const goHome = () => navigate(appPath({ kind: "home" }));
+  }, [selectedDm, selectedChannelId, selectedCommunityId, navigate]);
+  const goHome = () => {
+    setUnavailable(null);
+    navigate(appPath({ kind: "home" }));
+  };
   const closeSettings = () => {
     const openedInApp = settingsOpenedInApp.current;
     settingsOpenedInApp.current = false;
