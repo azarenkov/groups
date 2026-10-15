@@ -10,7 +10,7 @@ jest.mock("../../../settings/store/notificationSettingsStore", () => {
   return { ...actual, callSoundAllowed: () => true };
 });
 jest.mock("../../api/call", () => ({
-  callAPI: { start: jest.fn(), leave: jest.fn() },
+  callAPI: { start: jest.fn(), leave: jest.fn(), accept: jest.fn(), join: jest.fn() },
 }));
 jest.mock("../../lib/callSession", () => ({
   awaitVoiceSettingsSyncedFor: jest.fn(),
@@ -19,6 +19,7 @@ jest.mock("../../lib/callSession", () => ({
   getAuthedUserId: jest.fn(),
   leaveAsInitiator: jest.fn(),
 }));
+jest.mock("../voiceChannelStore", () => ({ leaveVoiceChannel: jest.fn().mockResolvedValue(true) }));
 jest.mock("../../lib/livekit", () => ({
   getLiveKitService: () => ({ disconnect: jest.fn().mockResolvedValue(undefined), getActiveRoomName: () => null }),
 }));
@@ -73,4 +74,21 @@ it("clears call notices when the session resets", () => {
   useCallStore.setState({ callNotice: { kind: "missed", userId: "peer", name: "Peer" }, callError: "x", endedCallId: "c9" });
   useCallStore.getState().resetNotices();
   expect(useCallStore.getState()).toMatchObject({ callNotice: null, callError: null, endedCallId: null });
+});
+
+it("applies a call end that arrived while accepting the call", async () => {
+  useCallStore.setState({ incoming: { callId: "c4", callerId: "peer", callerName: "Peer", video: false } as never });
+  api.accept.mockImplementation(async () => {
+    useCallStore.getState().callEnded("c4");
+    return { token: "tok", url: "wss://lk", participants: [] } as never;
+  });
+  await useCallStore.getState().accept();
+  expect(useCallStore.getState().activeCallId).toBeNull();
+});
+
+it("forgets the previous ended call once another call becomes active", async () => {
+  useCallStore.setState({ endedCallId: "old" });
+  api.start.mockResolvedValue({ callId: "c5", token: "tok", url: "wss://lk", participants: [] } as never);
+  await useCallStore.getState().start(["peer"]);
+  expect(useCallStore.getState().endedCallId).toBeNull();
 });

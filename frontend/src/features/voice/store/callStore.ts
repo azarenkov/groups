@@ -129,7 +129,33 @@ const earlyEventsFor = (callId: string): EarlyCallEvents => {
   return fresh;
 };
 
-export const useCallStore = create<CallState>()((set, get) => ({
+export const useCallStore = create<CallState>()((set, get) => {
+  const activate = (
+    callId: string,
+    participants: { userId: string; userName: string }[],
+    ringing: string[],
+    peerId: string | null,
+  ) => {
+    set({
+      activeCallId: callId,
+      endedCallId: null,
+      startedAt: Date.now(),
+      attention: false,
+      participants: Object.fromEntries(participants.map((p) => [p.userId, p.userName])),
+      ringing,
+      focused: true,
+      peerId,
+      micMuted: false,
+      deafened: false,
+      micMutedBeforeDeafen: false,
+    });
+    const early = earlyCallEvents.get(callId);
+    earlyCallEvents.clear();
+    for (const decline of early?.declines ?? []) get().participantDeclined(callId, decline.userId, decline.userName, decline.owner);
+    if (early?.ended) get().callEnded(callId);
+  };
+
+  return {
   incoming: null,
   activeCallId: null, startedAt: null, attention: false,
   connecting: false,
@@ -302,6 +328,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
           ? { ...participants, ...s.participants }
           : participants,
       ringing: s.activeCallId === active.callId ? s.ringing : [],
+      endedCallId: s.activeCallId === active.callId ? s.endedCallId : null,
       focused: s.activeCallId === active.callId ? s.focused : true,
       ...(settingsSynced ? {} : { micMuted: true }),
     }));
@@ -356,20 +383,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       const initiator = await getAuthedIdentity();
       const initiatorId = initiator.userId;
       const { token, url, participants } = await callAPI.join(callId);
-      set({
-        activeCallId: callId,
-        startedAt: Date.now(),
-        attention: false,
-        participants: Object.fromEntries(
-          participants.map((p) => [p.userId, p.userName]),
-        ),
-        ringing: [],
-        focused: true,
-        peerId: peerId ?? null,
-        micMuted: false,
-        deafened: false,
-        micMutedBeforeDeafen: false,
-      });
+      activate(callId, participants, [], peerId ?? null);
       const muteSeqBeforeWait = get().micMuteSeq;
       const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
       if (get().activeCallId !== callId) {
@@ -464,24 +478,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       throw e;
     });
     const { callId, token, url, participants } = session;
-    set({
-      activeCallId: callId,
-      startedAt: Date.now(),
-      attention: false,
-      participants: Object.fromEntries(
-        participants.map((p) => [p.userId, p.userName]),
-      ),
-      ringing: recipientIds,
-      focused: true,
-      peerId: recipientIds[0] ?? null,
-      micMuted: false,
-      deafened: false,
-      micMutedBeforeDeafen: false,
-    });
-    const early = earlyCallEvents.get(callId);
-    earlyCallEvents.clear();
-    for (const decline of early?.declines ?? []) get().participantDeclined(callId, decline.userId, decline.userName, decline.owner);
-    if (early?.ended) get().callEnded(callId);
+    activate(callId, participants, recipientIds, recipientIds[0] ?? null);
     const muteSeqBeforeWait = get().micMuteSeq;
     const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
     if (get().activeCallId !== callId) {
@@ -555,20 +552,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       const initiator = await getAuthedIdentity();
       const initiatorId = initiator.userId;
       const { token, url, participants } = await callAPI.accept(inc.callId);
-      set({
-        activeCallId: inc.callId,
-        startedAt: Date.now(),
-        attention: false,
-        participants: Object.fromEntries(
-          participants.map((p) => [p.userId, p.userName]),
-        ),
-        ringing: [],
-        focused: true,
-        peerId: inc.callerId,
-        micMuted: false,
-        deafened: false,
-        micMutedBeforeDeafen: false,
-      });
+      activate(inc.callId, participants, [], inc.callerId);
       const muteSeqBeforeWait = get().micMuteSeq;
       const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
       if (get().activeCallId !== inc.callId) {
@@ -708,4 +692,5 @@ export const useCallStore = create<CallState>()((set, get) => ({
       throw e;
     }
   },
-}));
+  };
+});
