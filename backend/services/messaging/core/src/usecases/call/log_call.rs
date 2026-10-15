@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use messaging_domain::{dm_message::DmMessage, dm_message::call::CallStatus, dm_message::unit_of_work::DmUnitOfWork, events::MessagingEvent, message::MessageError, message::content::MessageContent};
+use messaging_domain::{dm_message::DmMessage, dm_message::call::{CallStatus, conversation_of}, dm_message::unit_of_work::DmUnitOfWork, events::MessagingEvent, message::MessageError, message::content::MessageContent};
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
@@ -42,8 +42,11 @@ where
         let Some(ended) = self.call_participation.ended_call(call_id).await? else {
             return Ok(());
         };
+        let mut logged = std::collections::HashSet::new();
         for invitation in &ended.invitations {
-            self.log(call_id, ended.ended_at, invitation).await?;
+            if logged.insert(conversation_of(invitation.inviter, invitation.invitee)) {
+                self.log(call_id, ended.ended_at, invitation).await?;
+            }
         }
         Ok(())
     }
@@ -261,5 +264,14 @@ mod tests {
         store.cleared.lock().unwrap().extend([(caller, after), (callee, after)]);
         log_call.execute(Uuid::new_v4()).await.unwrap();
         assert!(store.logged.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn invitations_in_both_directions_leave_one_card_in_the_conversation() {
+        let (a, b) = (UserId::new(Uuid::new_v4()), UserId::new(Uuid::new_v4()));
+        let invitations = [CallInvitation { inviter: a, invitee: b }, CallInvitation { inviter: b, invitee: a }];
+        let (store, log_call) = usecase(ended(false), Utc::now(), &invitations);
+        log_call.execute(Uuid::new_v4()).await.unwrap();
+        assert_eq!(*store.logged.lock().unwrap(), vec![(a, b, "missed".to_string())]);
     }
 }

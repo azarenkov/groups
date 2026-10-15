@@ -1,10 +1,15 @@
 use chrono::{DateTime, Utc};
+use domain::user::id::UserId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CallStatus {
     Completed { duration_seconds: i32 },
     Declined,
     Missed,
+}
+
+pub fn conversation_of(a: UserId, b: UserId) -> (UserId, UserId) {
+    if a.uuid() <= b.uuid() { (a, b) } else { (b, a) }
 }
 
 impl CallStatus {
@@ -91,6 +96,12 @@ mod tests {
         assert!(CallStatus::predates(ended, Some(ended)));
         assert!(!CallStatus::predates(ended, Some(ended - Duration::seconds(1))));
         assert!(!CallStatus::predates(ended, None));
+    }
+
+    #[test]
+    fn both_directions_of_a_pair_share_one_conversation() {
+        let (a, b) = (UserId::new(uuid::Uuid::new_v4()), UserId::new(uuid::Uuid::new_v4()));
+        assert_eq!(conversation_of(a, b), conversation_of(b, a));
     }
 
     #[test]

@@ -156,7 +156,7 @@ impl DmTransaction for PostgresDmTransaction {
         recipient_id: &UserId,
     ) -> Result<(), RepositoryError> {
         sqlx::query!(
-            r#"INSERT INTO call_log_consumed (call_id, sender_id, recipient_id) VALUES ($1, $2, $3)"#,
+            r#"INSERT INTO call_log_consumed (call_id, sender_id, recipient_id) VALUES ($1, LEAST($2::uuid, $3::uuid), GREATEST($2::uuid, $3::uuid))"#,
             call_id,
             sender_id.uuid(),
             recipient_id.uuid(),
