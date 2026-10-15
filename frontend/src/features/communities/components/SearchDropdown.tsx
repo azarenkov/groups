@@ -93,7 +93,7 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
     )
     .slice(0, QUICK_LIMIT);
 
-  const inviteToken = extractInviteToken(query);
+  const inviteToken = linkedProfileId ? null : extractInviteToken(query);
   const shownChatIds = new Set(people.map((d) => d.id));
 
   const choose = (action: () => void, target?: HistoryTarget) => () => {

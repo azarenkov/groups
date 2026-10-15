@@ -2,7 +2,7 @@ const TOKEN_RE = /^[A-Za-z0-9_-]{22,64}$/;
 
 export function extractInviteToken(input: string): string | null {
   const raw = input.trim();
-  if (!raw || extractProfileLinkId(raw)) return null;
+  if (!raw || linkedProfileId(raw)) return null;
   const withoutQuery = raw.split(/[?#]/)[0];
   const segments = withoutQuery.split(/[/\s]+/).filter(Boolean);
   const candidate = (segments[segments.length - 1] ?? "").replace(/^\+/, "");
@@ -61,10 +61,14 @@ export function extractProfileId(input: string): string | null {
 
 const PROFILE_PATH_RE = /(?:^|\/)u\/([^/?#\s]+)\/?(?:[?#].*)?$/;
 
+function linkedProfileId(raw: string): string | null {
+  const path = PROFILE_PATH_RE.exec(raw);
+  return path ? extractProfileId(path[1]) : null;
+}
+
 export function extractProfileLinkId(input: string): string | null {
   const raw = input.trim();
-  const path = PROFILE_PATH_RE.exec(raw);
-  return extractProfileId(path ? path[1] : raw);
+  return linkedProfileId(raw) ?? extractProfileId(raw);
 }
 
 export function profileDeepLink(userId: string): string {

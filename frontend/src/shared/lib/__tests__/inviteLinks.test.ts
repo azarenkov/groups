@@ -65,6 +65,9 @@ describe("profile links in search", () => {
 
   it("does not mistake a profile link for a community invite", () => {
     expect(extractInviteToken(`https://rift.localtest.me/u/${id}`)).toBeNull();
+    expect(extractInviteToken(`rift://u/${id}`)).toBeNull();
+    expect(extractInviteToken(`https://rift.localtest.me/join/${id}`)).toBe(id);
+    expect(extractInviteToken(id)).toBe(id);
     expect(extractInviteToken("https://rift.localtest.me/join/AbCdEfGhIjKlMnOpQrStUvWxYz012345")).toBe(
       "AbCdEfGhIjKlMnOpQrStUvWxYz012345",
     );
