@@ -603,7 +603,7 @@ const CommunitiesPage: React.FC = () => {
   }, [selectedDm, selectedChannelId, selectedCommunityId, navigate]);
   const goHome = () => {
     setUnavailable(null);
-    navigate(appPath({ kind: "home" }));
+    if (pathLocation?.kind !== "home") navigate(appPath({ kind: "home" }));
   };
   const closeSettings = () => {
     if (settingsOpenedInApp) navigate(-1);

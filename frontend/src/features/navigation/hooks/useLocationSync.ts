@@ -18,20 +18,20 @@ export function useLocationSync(params: {
   const openRef = React.useRef(open);
   openRef.current = open;
   const currentKey = current ? appPath(current) : null;
-  const seen = React.useRef<{ path: string | null; current: string | null }>({ path: null, current: null });
+  const seen = React.useRef<{ entry: string | null; current: string | null }>({ entry: null, current: null });
   const urlLocation = React.useMemo(() => parseAppPath(location.pathname, viewerId), [location.pathname, viewerId]);
 
   React.useEffect(() => {
     const path = location.pathname.replace(/\/+$/, "");
-    const pathChanged = seen.current.path !== path;
+    const entryChanged = seen.current.entry !== location.key;
     const currentChanged = seen.current.current !== currentKey;
-    seen.current = { path, current: currentKey };
+    seen.current = { entry: location.key, current: currentKey };
     if (!viewerId) return;
     if (path === APP_ROOT) {
       navigate({ pathname: lastLocationPath(viewerId) ?? appPath(HOME), search: location.search }, { replace: true });
       return;
     }
-    if (pathChanged) {
+    if (entryChanged) {
       if (!urlLocation) {
         navigate({ pathname: appPath(HOME), search: location.search }, { replace: true });
         return;
@@ -45,7 +45,7 @@ export function useLocationSync(params: {
         urlLocation?.kind === "community" && current.kind === "channel" && current.communityId === urlLocation.communityId;
       navigate(appPath(current), { replace: settlesCommunity });
     }
-  }, [location.pathname, location.search, urlLocation, current, currentKey, resolving, viewerId, navigate]);
+  }, [location.key, location.pathname, location.search, urlLocation, current, currentKey, resolving, viewerId, navigate]);
 
   React.useEffect(() => {
     if (viewerId && current) rememberLocation(viewerId, appPath(current));

@@ -91,3 +91,11 @@ it("follows browser back and forward through visited chats", () => {
   expect(seenPath).toBe("/app/home");
   expect(history?.navState).toEqual({ back: false, forward: true });
 });
+
+it("jumps again when the same message address is opened a second time", () => {
+  const open = jest.fn();
+  renderAt(`/app/dm/${peer}/${message}`, { current: { kind: "dm", peerId: peer }, open });
+  expect(open).toHaveBeenCalledTimes(1);
+  act(() => navigateTo(`/app/dm/${peer}/${message}`));
+  expect(open).toHaveBeenCalledTimes(2);
+});
