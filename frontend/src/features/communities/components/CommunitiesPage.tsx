@@ -158,7 +158,7 @@ const CommunitiesPage: React.FC = () => {
   });
   const [openMessage, setOpenMessage] = useState<{ convId: string; messageId: string } | null>(null);
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, state: routeState } = useLocation();
   const pathLocation = parseAppPath(pathname, user?.id);
   const settingsSection = pathLocation?.kind === "settings" ? pathLocation.section : null;
   const settingsOpen = settingsSection !== null;
@@ -188,17 +188,12 @@ const CommunitiesPage: React.FC = () => {
   };
   const [channelModal, setChannelModal] = useState<{ communityId: string; kind: ChannelKind } | null>(null);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
-  const settingsOpenedInApp = React.useRef(false);
-  useEffect(() => {
-    if (!settingsOpen) settingsOpenedInApp.current = false;
-  }, [settingsOpen]);
+  const settingsOpenedInApp = (routeState as { settingsFromApp?: boolean } | null)?.settingsFromApp === true;
   const openSettings = (section: SectionId) => {
-    if (settingsOpenedInApp.current) {
-      navigate(appPath({ kind: "settings", section }), { replace: true });
-      return;
-    }
-    settingsOpenedInApp.current = true;
-    navigate(appPath({ kind: "settings", section }));
+    navigate(appPath({ kind: "settings", section }), {
+      replace: settingsOpen,
+      state: { settingsFromApp: settingsOpen ? settingsOpenedInApp : true },
+    });
   };
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "community" | "leave-community" | "channel" | "friend" | "block";
@@ -611,9 +606,7 @@ const CommunitiesPage: React.FC = () => {
     navigate(appPath({ kind: "home" }));
   };
   const closeSettings = () => {
-    const openedInApp = settingsOpenedInApp.current;
-    settingsOpenedInApp.current = false;
-    if (openedInApp) navigate(-1);
+    if (settingsOpenedInApp) navigate(-1);
     else navigate(appPath(chatLocation ?? { kind: "home" }), { replace: true });
   };
   const browserHistory = useBrowserHistory();
@@ -1070,7 +1063,7 @@ const CommunitiesPage: React.FC = () => {
           <SettingsView
             open
             section={settingsSection}
-            onSection={(section) => navigate(appPath({ kind: "settings", section }), { replace: true })}
+            onSection={openSettings}
             onClose={closeSettings}
             onSignOut={handleLogout}
           />

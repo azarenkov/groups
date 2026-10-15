@@ -140,6 +140,7 @@ export function useMessages(params: {
   const currentChannelIdRef = React.useRef<string | undefined>();
   const convIdRef = React.useRef(convId);
   convIdRef.current = convId;
+  const jumpRequestRef = React.useRef(0);
   currentChannelIdRef.current = convId;
 
   const isConversation = isText || isDm;
@@ -465,6 +466,7 @@ export function useMessages(params: {
 
   const jumpToMessageId = React.useCallback(
     async (messageId: string): Promise<JumpResult> => {
+      const request = ++jumpRequestRef.current;
       if (messagesRef.current.some((m) => m.id === messageId)) {
         setHighlightedMessageId(null);
         requestAnimationFrame(() => setHighlightedMessageId(messageId));
@@ -472,15 +474,16 @@ export function useMessages(params: {
       }
       const messengerNow = messengerRef.current;
       const conversation = convIdRef.current;
+      const superseded = () => convIdRef.current !== conversation || jumpRequestRef.current !== request;
       if (!messengerNow) return "failed";
       try {
         const target = await messengerNow.getMessage(messageId);
-        if (convIdRef.current !== conversation) return "stale";
+        if (superseded()) return "stale";
         const shown = await jumpToMessage(target);
-        if (convIdRef.current !== conversation) return "stale";
+        if (superseded()) return "stale";
         return shown ? "shown" : "failed";
       } catch (err) {
-        if (convIdRef.current !== conversation) return "stale";
+        if (superseded()) return "stale";
         console.warn("[ChatView] failed to open the original message:", err);
         return isNotFoundError(err) ? "missing" : "failed";
       }
