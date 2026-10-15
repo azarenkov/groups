@@ -117,13 +117,13 @@ export function sameLocation(a: AppLocation | null, b: AppLocation | null): bool
   }
 }
 
-export function legacyMessageLink(params: URLSearchParams, viewerId: string | undefined): ChatLocation | null {
-  const messageId = params.get("message");
+export function legacyMessagePath(params: URLSearchParams): string | null {
+  const messageId = extractUuid(params.get("message") ?? "");
   if (!messageId) return null;
-  const community = params.get("community");
-  const channel = params.get("channel");
-  if (community && channel) return { kind: "channel", communityId: community, channelId: channel, messageId };
+  const communityId = extractUuid(params.get("community") ?? "");
+  const channelId = extractUuid(params.get("channel") ?? "");
+  if (communityId && channelId) return appPath({ kind: "channel", communityId, channelId, messageId });
   const participants = participantsOf(params.get("dm") ?? "");
-  const peerId = participants && participants.length === 2 ? peerOf(participants, viewerId) : null;
-  return peerId ? { kind: "dm", peerId, messageId } : null;
+  if (!participants || participants.length !== 2) return null;
+  return messageLinkPath({ kind: "dm", participants: [participants[0], participants[1]], messageId });
 }

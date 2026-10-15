@@ -67,7 +67,7 @@ import ContextMenuHost from "../../../shared/ui/contextMenu/ContextMenuHost";
 import { purgeCommunityLocally } from "../../../shared/ws/context";
 import InboxMenu from "../../inbox/components/InboxMenu";
 import { useDmOpenerStore } from "../../social/store/dmOpenerStore";
-import { appPath, legacyMessageLink, parseAppPath, type AppLocation, type ChatLocation } from "../../navigation/lib/appLocation";
+import { appPath, legacyMessagePath, parseAppPath, type AppLocation, type ChatLocation } from "../../navigation/lib/appLocation";
 import { registerAppNavigator } from "../../navigation/lib/appNavigator";
 import { useBrowserHistory } from "../../navigation/hooks/useBrowserHistory";
 import { useLocationSync } from "../../navigation/hooks/useLocationSync";
@@ -163,9 +163,9 @@ const CommunitiesPage: React.FC = () => {
   const settingsSection = pathLocation?.kind === "settings" ? pathLocation.section : null;
   const settingsOpen = settingsSection !== null;
   useEffect(() => {
-    const link = legacyMessageLink(searchParams, user?.id);
-    if (link) navigate(appPath(link), { replace: true });
-  }, [searchParams, navigate, user?.id]);
+    const path = legacyMessagePath(searchParams);
+    if (path) navigate(path, { replace: true });
+  }, [searchParams, navigate]);
   useEffect(() => {
     registerAppNavigator((path) => navigate(path));
     return () => registerAppNavigator(null);
@@ -604,6 +604,12 @@ const CommunitiesPage: React.FC = () => {
     setUnavailable(null);
     if (chatPathRef.current) navigate(chatPathRef.current, { replace: true });
   }, [selectedDm, selectedChannelId, selectedCommunityId, selection.selectionSeq, navigate]);
+  const lastSelection = React.useRef(selection.selectionSeq);
+  useEffect(() => {
+    if (lastSelection.current === selection.selectionSeq) return;
+    lastSelection.current = selection.selectionSeq;
+    setPendingMessageLink(null);
+  }, [selection.selectionSeq]);
   const goHome = () => {
     setUnavailable(null);
     if (pathLocation?.kind !== "home") navigate(appPath({ kind: "home" }));

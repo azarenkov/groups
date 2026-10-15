@@ -1,4 +1,4 @@
-import { appPath, appPathFromDeepLink, isAppPath, legacyMessageLink, messageLinkPath, parseAppPath, sameLocation } from "../appLocation";
+import { appPath, appPathFromDeepLink, isAppPath, legacyMessagePath, messageLinkPath, parseAppPath, sameLocation } from "../appLocation";
 
 const me = "11111111-1111-1111-1111-111111111111";
 const peer = "22222222-2222-2222-2222-222222222222";
@@ -47,19 +47,13 @@ describe("app locations", () => {
     expect(sameLocation({ kind: "home" }, { kind: "dm", peerId: peer })).toBe(false);
   });
 
-  it("still opens message links in the previous query format", () => {
-    expect(legacyMessageLink(new URLSearchParams(`community=${community}&channel=${channel}&message=${message}`), me)).toEqual({
-      kind: "channel",
-      communityId: community,
-      channelId: channel,
-      messageId: message,
-    });
-    expect(legacyMessageLink(new URLSearchParams(`dm=${me}~${peer}&message=${message}`), me)).toEqual({
-      kind: "dm",
-      peerId: peer,
-      messageId: message,
-    });
-    expect(legacyMessageLink(new URLSearchParams("join=abc"), me)).toBeNull();
+  it("turns message links in the previous query format into app addresses", () => {
+    expect(legacyMessagePath(new URLSearchParams(`community=${community}&channel=${channel}&message=${message}`))).toBe(
+      `/app/c/${community}/${channel}/${message}`,
+    );
+    const dmPath = legacyMessagePath(new URLSearchParams(`dm=${me}~${peer}&message=${message}`));
+    expect(dmPath && parseAppPath(dmPath, me)).toEqual({ kind: "dm", peerId: peer, messageId: message });
+    expect(legacyMessagePath(new URLSearchParams("join=abc"))).toBeNull();
   });
 });
 

@@ -11,7 +11,7 @@ import {
   useParams,
 } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
-import { appPathFromDeepLink, isAppPath } from "./features/navigation/lib/appLocation";
+import { appPathFromDeepLink, isAppPath, legacyMessagePath } from "./features/navigation/lib/appLocation";
 import LoginPage from "./features/auth/components/LoginPage";
 import RegisterPage from "./features/auth/components/RegisterPage";
 import ResetPasswordPage from "./features/auth/components/ResetPasswordPage";
@@ -46,8 +46,9 @@ import TooltipHost from "./shared/ui/tooltip/TooltipHost";
 const Router = typeof window !== "undefined" && window.electron ? HashRouter : BrowserRouter;
 
 const SignInFirst: React.FC<{ unverified: boolean }> = ({ unverified }) => {
-  const { pathname } = useLocation();
-  const next = isAppPath(pathname) ? `?next=${encodeURIComponent(pathname)}` : "";
+  const { pathname, search } = useLocation();
+  const target = isAppPath(pathname) ? pathname : legacyMessagePath(new URLSearchParams(search));
+  const next = target ? `?next=${encodeURIComponent(target)}` : "";
   return <Navigate to={`${unverified ? "/register" : "/login"}${next}`} />;
 };
 
