@@ -121,6 +121,20 @@ impl DmTransaction for PostgresDmTransaction {
         crate::database::postgres::repositories::read_state::dm_last_read_at(&mut self.tx, reader, peer).await
     }
 
+    async fn last_cleared_at(&mut self, a: &UserId, b: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+        sqlx::query_scalar!(
+            r#"
+            SELECT MAX(cleared_at) FROM dm_clear_marks
+            WHERE (user_id = $1 AND peer_id = $2) OR (user_id = $2 AND peer_id = $1)
+            "#,
+            a.uuid(),
+            b.uuid(),
+        )
+        .fetch_one(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)
+    }
+
     async fn consume_call_log(
         &mut self,
         call_id: Uuid,

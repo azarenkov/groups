@@ -96,7 +96,7 @@ interface CallState {
   participantJoined: (callId: string, userId: string, userName: string) => void;
   participantRenamed: (userId: string, userName: string) => void;
   participantLeft: (callId: string, userId: string) => void;
-  participantDeclined: (callId: string, userId: string, userName: string | undefined, invitedBySelf: boolean) => boolean;
+  participantDeclined: (callId: string, userId: string, userName: string | undefined, invitedBySelf: boolean) => void;
   callEnded: (callId: string) => void;
 
   rehydrate: () => Promise<void>;
@@ -222,16 +222,15 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }),
   participantDeclined: (callId, userId, userName, invitedBySelf) => {
     const s = get();
-    if (s.activeCallId !== callId && s.endedCallId !== callId) {
+    const ours = s.activeCallId === callId || (!s.activeCallId && s.endedCallId === callId);
+    if (!ours) {
       if (s.connecting && !s.activeCallId) earlyEventsFor(callId).declines.push({ userId, userName, invitedBySelf });
-      return false;
+      return;
     }
-    if (!invitedBySelf) {
-      set({ ringing: without(s.ringing, userId) });
-      return false;
-    }
-    set({ ringing: without(s.ringing, userId), callNotice: { kind: "declined", userId, name: userName } });
-    return true;
+    set({
+      ringing: without(s.ringing, userId),
+      ...(invitedBySelf ? { callNotice: { kind: "declined" as const, userId, name: userName } } : {}),
+    });
   },
 
   callEnded: (callId) => {

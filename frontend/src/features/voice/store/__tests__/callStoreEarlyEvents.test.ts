@@ -1,6 +1,14 @@
 import { useCallStore } from "../callStore";
 import { callAPI } from "../../api/call";
+import { playNotificationSound } from "../../../../shared/lib/notificationSound";
+import { DECLINED_CHIME } from "../../../../shared/lib/chime";
+import "../../ws/voiceHandlers";
 
+jest.mock("../../../../shared/lib/notificationSound", () => ({ playNotificationSound: jest.fn() }));
+jest.mock("../../../settings/store/notificationSettingsStore", () => {
+  const actual = jest.requireActual("../../../settings/store/notificationSettingsStore");
+  return { ...actual, callSoundAllowed: () => true };
+});
 jest.mock("../../api/call", () => ({
   callAPI: { start: jest.fn(), leave: jest.fn() },
 }));
@@ -39,6 +47,7 @@ it("applies a decline and the call end that arrived before the start response", 
   expect(state.activeCallId).toBeNull();
   expect(state.callNotice).toEqual({ kind: "declined", userId: "peer", name: "Peer" });
   expect(api.leave).toHaveBeenCalledWith("c1");
+  expect(playNotificationSound).toHaveBeenCalledWith(DECLINED_CHIME);
 });
 
 it("ignores early events that belong to another call", async () => {

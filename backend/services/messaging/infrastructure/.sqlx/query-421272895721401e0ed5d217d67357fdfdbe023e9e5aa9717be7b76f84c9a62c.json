@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO dm_clear_marks (user_id, peer_id, cleared_at)\n            SELECT u, CASE WHEN u = $1 THEN $2 ELSE $1 END, $4 FROM unnest($3::uuid[]) AS u\n            ON CONFLICT (user_id, peer_id) DO UPDATE SET cleared_at = EXCLUDED.cleared_at\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "UuidArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "421272895721401e0ed5d217d67357fdfdbe023e9e5aa9717be7b76f84c9a62c"
+}

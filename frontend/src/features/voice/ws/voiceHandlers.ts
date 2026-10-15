@@ -45,6 +45,11 @@ const holdUntilHiddenKnown = (call: HeldCall) => {
   });
 };
 
+useCallStore.subscribe((s, prev) => {
+  if (s.callNotice === prev.callNotice || s.callNotice?.kind !== "declined") return;
+  if (callSoundAllowed()) playNotificationSound(DECLINED_CHIME);
+});
+
 useHiddenDmStore.subscribe((s, prev) => {
   if (s.hidden === prev.hidden) return;
   const incoming = useCallStore.getState().incoming;
@@ -162,9 +167,7 @@ export const voiceHandlers: WsHandlers = {
       const userId = asString(d.userId);
       const inviterId = asString(d.inviterId);
       const invitedBySelf = !inviterId || inviterId === useAuthStore.getState().user?.id;
-      if (callId && userId && useCallStore.getState().participantDeclined(callId, userId, asString(d.userName), invitedBySelf)) {
-        if (callSoundAllowed()) playNotificationSound(DECLINED_CHIME);
-      }
+      if (callId && userId) useCallStore.getState().participantDeclined(callId, userId, asString(d.userName), invitedBySelf);
       return;
   },
   "call.available": (d) => {

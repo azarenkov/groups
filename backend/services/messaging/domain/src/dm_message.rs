@@ -100,7 +100,7 @@ impl DmMessage {
                 .for_call(
                     message.call_status.as_deref().unwrap_or_default(),
                     call_duration_seconds,
-                    CallStatus::read_by_recipient(now, recipient_read_at),
+                    CallStatus::predates(now, recipient_read_at),
                 ),
         ));
         message

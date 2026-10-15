@@ -50,3 +50,10 @@ it("tells only the participant who placed the declined invite", () => {
   voiceHandlers["call.declined"]!({ callId: "c4", userId: "peer", userName: "Peer", inviterId: "me" });
   expect(useCallStore.getState().callNotice?.kind).toBe("declined");
 });
+
+it("ignores a late decline for an earlier call once another call is active", () => {
+  useCallStore.setState({ activeCallId: "new", endedCallId: "old", ringing: ["peer"] });
+  voiceHandlers["call.declined"]!({ callId: "old", userId: "peer", userName: "Peer", inviterId: "me" });
+  expect(useCallStore.getState().ringing).toEqual(["peer"]);
+  expect(useCallStore.getState().callNotice).toBeNull();
+});

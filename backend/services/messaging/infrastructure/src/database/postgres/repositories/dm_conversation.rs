@@ -142,6 +142,24 @@ impl DmConversationRepository for PostgresDmConversationRepository {
             }
         }
         let cleared_at = Utc::now();
+        let cleared_for: Vec<Uuid> = match scope {
+            ClearScope::Me => vec![actor.uuid()],
+            ClearScope::Everyone => vec![actor.uuid(), peer.uuid()],
+        };
+        sqlx::query!(
+            r#"
+            INSERT INTO dm_clear_marks (user_id, peer_id, cleared_at)
+            SELECT u, CASE WHEN u = $1 THEN $2 ELSE $1 END, $4 FROM unnest($3::uuid[]) AS u
+            ON CONFLICT (user_id, peer_id) DO UPDATE SET cleared_at = EXCLUDED.cleared_at
+            "#,
+            actor.uuid(),
+            peer.uuid(),
+            &cleared_for,
+            cleared_at,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
         let record = cleared_event_record(actor, peer, scope, cleared_at);
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;

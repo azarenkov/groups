@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT MAX(cleared_at) FROM dm_clear_marks\n            WHERE (user_id = $1 AND peer_id = $2) OR (user_id = $2 AND peer_id = $1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "max",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "373dd15ae9317523d93b9b0d380f4bea8f74c46d1140584eba8f945dd8b732a9"
+}

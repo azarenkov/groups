@@ -73,6 +73,9 @@ where
             Err(RepositoryError::AlreadyExists) => return Ok(()),
             result => result?,
         };
+        if CallStatus::predates(ended_at, tx.last_cleared_at(&inviter, &invitee).await?) {
+            return Ok(());
+        }
         let recipient_read_at = tx.last_read_at(&invitee, &inviter).await?;
         let mut message = DmMessage::create_call(inviter, invitee, call_id, status, content, ended_at, recipient_read_at);
         let events: Vec<MessagingEvent> = message.pull_events().into_iter().map(MessagingEvent::from).collect();
@@ -99,6 +102,7 @@ mod tests {
         consumed: Mutex<HashSet<(Uuid, UserId, UserId)>>,
         logged: Mutex<Vec<(UserId, UserId, String)>>,
         created: Mutex<Vec<DateTime<Utc>>>,
+        cleared: Mutex<Option<DateTime<Utc>>>,
     }
 
     struct Uow(Arc<Store>);
@@ -136,6 +140,9 @@ mod tests {
         }
         async fn last_read_at(&mut self, _: &UserId, _: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError> {
             Ok(None)
+        }
+        async fn last_cleared_at(&mut self, _: &UserId, _: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+            Ok(*self.store.cleared.lock().unwrap())
         }
         async fn consume_call_log(&mut self, call_id: Uuid, sender: &UserId, recipient: &UserId) -> Result<(), RepositoryError> {
             if self.store.consumed.lock().unwrap().insert((call_id, *sender, *recipient)) {
@@ -208,6 +215,16 @@ mod tests {
 
         let (store, log_call) = usecase(CallOutcome { callee_pending: true, ..ended(false) });
         log_call.execute(Uuid::new_v4(), Utc::now(), &[CallInvitation { inviter: caller, invitee: callee }]).await.unwrap();
+        assert!(store.logged.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_call_that_ended_before_the_conversation_was_cleared_leaves_no_card() {
+        let (store, log_call) = usecase(ended(false));
+        let ended_at = DateTime::from_timestamp(1_800_000_000, 0).unwrap();
+        *store.cleared.lock().unwrap() = Some(ended_at + chrono::Duration::seconds(5));
+        let (caller, callee) = (UserId::new(Uuid::new_v4()), UserId::new(Uuid::new_v4()));
+        log_call.execute(Uuid::new_v4(), ended_at, &[CallInvitation { inviter: caller, invitee: callee }]).await.unwrap();
         assert!(store.logged.lock().unwrap().is_empty());
     }
 }
