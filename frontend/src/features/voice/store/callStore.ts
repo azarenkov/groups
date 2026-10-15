@@ -3,15 +3,8 @@ import { callAPI } from "../api/call";
 import { homeAPI } from "../../home/api/home";
 import i18n from "../../../i18n";
 import { getLiveKitService } from "../lib/livekit";
-import {
-  clearCallLog,
-  dispatchCallLog,
-  finalizeCallLog,
-  markCallLogDeclined,
-  markCallLogPeerJoined,
-  startCallLog,
-  takeCallLog,
-} from "../lib/callLog";
+import { ApiError } from "../../../shared/lib/apiError";
+import { declinedOwnInvite, type DeclineOwner } from "../lib/callCard";
 import {
   awaitVoiceSettingsSyncedFor,
   connectToRoom,
@@ -66,6 +59,17 @@ const enableCameraOrFallback = async (callId: string): Promise<void> => {
   }
 };
 
+export interface EndedCall {
+  callId: string;
+  ringing: string[];
+}
+
+export interface CallNotice {
+  kind: "declined" | "missed";
+  userId: string;
+  name: string | undefined;
+}
+
 interface CallState {
   incoming: IncomingCall | null;
   activeCallId: string | null;
@@ -82,6 +86,8 @@ interface CallState {
   micMutedBeforeDeafen: boolean;
   joinableByPeer: Record<string, string>;
   callError: string | null;
+  callNotice: CallNotice | null;
+  endedCall: EndedCall | null;
 
   setIncoming: (call: IncomingCall) => void;
   clearIncoming: () => void;
@@ -90,12 +96,14 @@ interface CallState {
   setMicMuted: (muted: boolean) => void;
   setDeafened: (deafened: boolean) => void;
   setCallError: (message: string | null) => void;
+  setCallNotice: (notice: CallNotice | null) => void;
   callAvailable: (peerId: string, callId: string) => void;
   clearJoinable: (peerId: string) => void;
   participantJoined: (callId: string, userId: string, userName: string) => void;
   participantRenamed: (userId: string, userName: string) => void;
   participantLeft: (callId: string, userId: string) => void;
-  participantDeclined: (callId: string, userId: string) => void;
+  participantDeclined: (callId: string, userId: string, userName: string | undefined, owner: DeclineOwner) => void;
+  resetNotices: () => void;
   callEnded: (callId: string) => void;
 
   rehydrate: () => Promise<void>;
@@ -105,12 +113,54 @@ interface CallState {
   decline: () => Promise<void>;
   dismissIncoming: () => void;
   leave: (keepRoom?: boolean) => Promise<void>;
+  callFriend: (friendId: string, video?: boolean) => void;
   addParticipants: (recipientIds: string[]) => Promise<void>;
 }
 
 const without = (list: string[], id: string) => list.filter((x) => x !== id);
 
-export const useCallStore = create<CallState>()((set, get) => ({
+interface EarlyCallEvents {
+  declines: { userId: string; userName: string | undefined; owner: DeclineOwner }[];
+  ended: boolean;
+}
+
+const earlyCallEvents = new Map<string, EarlyCallEvents>();
+
+const earlyEventsFor = (callId: string): EarlyCallEvents => {
+  const known = earlyCallEvents.get(callId);
+  if (known) return known;
+  const fresh: EarlyCallEvents = { declines: [], ended: false };
+  earlyCallEvents.set(callId, fresh);
+  return fresh;
+};
+
+export const useCallStore = create<CallState>()((set, get) => {
+  const activate = (
+    callId: string,
+    participants: { userId: string; userName: string }[],
+    ringing: string[],
+    peerId: string | null,
+  ) => {
+    set({
+      activeCallId: callId,
+      endedCall: null,
+      startedAt: Date.now(),
+      attention: false,
+      participants: Object.fromEntries(participants.map((p) => [p.userId, p.userName])),
+      ringing,
+      focused: true,
+      peerId,
+      micMuted: false,
+      deafened: false,
+      micMutedBeforeDeafen: false,
+    });
+    const early = earlyCallEvents.get(callId);
+    earlyCallEvents.clear();
+    for (const decline of early?.declines ?? []) get().participantDeclined(callId, decline.userId, decline.userName, decline.owner);
+    if (early?.ended) get().callEnded(callId);
+  };
+
+  return {
   incoming: null,
   activeCallId: null, startedAt: null, attention: false,
   connecting: false,
@@ -124,6 +174,8 @@ export const useCallStore = create<CallState>()((set, get) => ({
   micMutedBeforeDeafen: false,
   joinableByPeer: {},
   callError: null,
+  callNotice: null,
+  endedCall: null,
 
   setIncoming: (call) =>
     set((s) => (s.activeCallId === call.callId ? s : { incoming: call })),
@@ -157,6 +209,11 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (restoreMic) s.setMicMuted(false);
   },
   setCallError: (callError) => set({ callError }),
+  setCallNotice: (callNotice) => set({ callNotice }),
+  resetNotices: () => {
+    earlyCallEvents.clear();
+    set({ callNotice: null, callError: null, endedCall: null });
+  },
   callAvailable: (peerId, callId) =>
     set((s) => ({ joinableByPeer: { ...s.joinableByPeer, [peerId]: callId } })),
   clearJoinable: (peerId) =>
@@ -170,7 +227,6 @@ export const useCallStore = create<CallState>()((set, get) => ({
   participantJoined: (callId, userId, userName) =>
     set((s) => {
       if (s.activeCallId !== callId) return s;
-      markCallLogPeerJoined(userId);
       return {
         participants: { ...s.participants, [userId]: userName },
         ringing: without(s.ringing, userId),
@@ -201,15 +257,24 @@ export const useCallStore = create<CallState>()((set, get) => ({
         attention: s.focused ? s.attention : true,
       };
     }),
-  participantDeclined: (callId, userId) =>
-    set((s) => {
-      if (s.activeCallId !== callId) return s;
-      markCallLogDeclined(userId);
-      return { ringing: without(s.ringing, userId) };
-    }),
+  participantDeclined: (callId, userId, userName, owner) => {
+    const s = get();
+    const ours = s.activeCallId === callId || (!s.activeCallId && s.endedCall?.callId === callId);
+    if (!ours) {
+      if (s.connecting && !s.activeCallId) earlyEventsFor(callId).declines.push({ userId, userName, owner });
+      return;
+    }
+    const active = s.activeCallId === callId;
+    const ringing = active ? s.ringing : s.endedCall?.ringing ?? [];
+    set({
+      ...(active ? { ringing: without(ringing, userId) } : {}),
+      ...(declinedOwnInvite(owner, userId, ringing) ? { callNotice: { kind: "declined" as const, userId, name: userName } } : {}),
+    });
+  },
 
   callEnded: (callId) => {
     const s = get();
+    if (s.connecting && !s.activeCallId && s.incoming?.callId !== callId) earlyEventsFor(callId).ended = true;
     const joinable = Object.fromEntries(
       Object.entries(s.joinableByPeer).filter(([, cid]) => cid !== callId),
     );
@@ -218,8 +283,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }
     if (s.incoming?.callId === callId) set({ incoming: null });
     if (s.activeCallId === callId) {
-      finalizeCallLog();
-      set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false, deafened: false, micMutedBeforeDeafen: false });
+      set({ endedCall: { callId, ringing: s.ringing }, activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false, deafened: false, micMutedBeforeDeafen: false });
       getLiveKitService()
         .disconnect()
         .catch(() => {});
@@ -271,6 +335,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
           ? { ...participants, ...s.participants }
           : participants,
       ringing: s.activeCallId === active.callId ? s.ringing : [],
+      endedCall: s.activeCallId === active.callId ? s.endedCall : null,
       focused: s.activeCallId === active.callId ? s.focused : true,
       ...(settingsSynced ? {} : { micMuted: true }),
     }));
@@ -325,20 +390,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       const initiator = await getAuthedIdentity();
       const initiatorId = initiator.userId;
       const { token, url, participants } = await callAPI.join(callId);
-      set({
-        activeCallId: callId,
-        startedAt: Date.now(),
-        attention: false,
-        participants: Object.fromEntries(
-          participants.map((p) => [p.userId, p.userName]),
-        ),
-        ringing: [],
-        focused: true,
-        peerId: peerId ?? null,
-        micMuted: false,
-        deafened: false,
-        micMutedBeforeDeafen: false,
-      });
+      activate(callId, participants, [], peerId ?? null);
       const muteSeqBeforeWait = get().micMuteSeq;
       const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
       if (get().activeCallId !== callId) {
@@ -421,6 +473,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       }
       await get().leave();
     }
+    earlyCallEvents.clear();
     set({ connecting: true });
     const initiator = await getAuthedIdentity().catch((e) => {
       set({ connecting: false });
@@ -432,31 +485,15 @@ export const useCallStore = create<CallState>()((set, get) => ({
       throw e;
     });
     const { callId, token, url, participants } = session;
-    startCallLog(callId, recipientIds[0]);
-    set({
-      activeCallId: callId,
-      startedAt: Date.now(),
-      attention: false,
-      participants: Object.fromEntries(
-        participants.map((p) => [p.userId, p.userName]),
-      ),
-      ringing: recipientIds,
-      focused: true,
-      peerId: recipientIds[0] ?? null,
-      micMuted: false,
-      deafened: false,
-      micMutedBeforeDeafen: false,
-    });
+    activate(callId, participants, recipientIds, recipientIds[0] ?? null);
     const muteSeqBeforeWait = get().micMuteSeq;
     const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
     if (get().activeCallId !== callId) {
-      clearCallLog(callId);
       await callAPI.leave(callId).catch(() => {});
       if (get().activeCallId === null) set({ connecting: false });
       return;
     }
     if ((await getAuthedUserId()) !== initiatorId) {
-      clearCallLog();
       set({
         activeCallId: null, startedAt: null, attention: false,
         connecting: false,
@@ -472,7 +509,6 @@ export const useCallStore = create<CallState>()((set, get) => ({
     try {
       await connectToRoom(token, url, callId, !synced);
     } catch (e) {
-      clearCallLog();
       set({
         activeCallId: null, startedAt: null, attention: false,
         connecting: false,
@@ -488,7 +524,6 @@ export const useCallStore = create<CallState>()((set, get) => ({
       get().activeCallId !== callId ||
       (await getAuthedUserId()) !== initiatorId
     ) {
-      clearCallLog(callId);
       const service = getLiveKitService();
       if (service.getActiveRoomName() === callId) {
         await service.disconnect().catch(() => {});
@@ -524,20 +559,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
       const initiator = await getAuthedIdentity();
       const initiatorId = initiator.userId;
       const { token, url, participants } = await callAPI.accept(inc.callId);
-      set({
-        activeCallId: inc.callId,
-        startedAt: Date.now(),
-        attention: false,
-        participants: Object.fromEntries(
-          participants.map((p) => [p.userId, p.userName]),
-        ),
-        ringing: [],
-        focused: true,
-        peerId: inc.callerId,
-        micMuted: false,
-        deafened: false,
-        micMutedBeforeDeafen: false,
-      });
+      activate(inc.callId, participants, [], inc.callerId);
       const muteSeqBeforeWait = get().micMuteSeq;
       const synced = await awaitVoiceSettingsSyncedFor(initiatorId);
       if (get().activeCallId !== inc.callId) {
@@ -632,7 +654,6 @@ export const useCallStore = create<CallState>()((set, get) => ({
 
   leave: async (keepRoom = false) => {
     const callId = get().activeCallId;
-    const log = takeCallLog();
     set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false, deafened: false, micMutedBeforeDeafen: false });
     if (!keepRoom) {
       await getLiveKitService()
@@ -642,7 +663,25 @@ export const useCallStore = create<CallState>()((set, get) => ({
     if (callId) {
       await callAPI.leave(callId).catch(() => {});
     }
-    dispatchCallLog(log);
+  },
+
+  callFriend: (friendId, video = false) => {
+    const cs = get();
+    const inCallWithFriend =
+      !!cs.activeCallId &&
+      (cs.peerId === friendId || friendId in cs.participants || cs.ringing.includes(friendId));
+    if (inCallWithFriend) {
+      cs.setFocused(true);
+      return;
+    }
+    cs.start([friendId], { video }).catch((e) => {
+      const apiErr = e instanceof ApiError ? e : null;
+      get().setCallError(
+        apiErr?.code === "CALL_NOT_ALLOWED"
+          ? i18n.t("callNotAllowed", { ns: "call" })
+          : i18n.t("callFailed", { ns: "call" }),
+      );
+    });
   },
 
   addParticipants: async (recipientIds) => {
@@ -660,4 +699,5 @@ export const useCallStore = create<CallState>()((set, get) => ({
       throw e;
     }
   },
-}));
+  };
+});

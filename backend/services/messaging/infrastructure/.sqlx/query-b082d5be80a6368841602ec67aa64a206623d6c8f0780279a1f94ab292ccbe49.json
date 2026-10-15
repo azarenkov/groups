@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT started_at FROM inbox_feed_start WHERE singleton",
+  "query": "SELECT started_at FROM feed_starts WHERE feed = $1",
   "describe": {
     "columns": [
       {
@@ -10,11 +10,13 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text"
+      ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "e6f1af86e0d5b6b79c53172592fdc20bf2696dfa869f519862150572f859f4bf"
+  "hash": "b082d5be80a6368841602ec67aa64a206623d6c8f0780279a1f94ab292ccbe49"
 }

@@ -1194,6 +1194,13 @@
   z-index: 1200;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
+.call-notice-toast {
+  border: 0;
+  font-family: inherit;
+  background: var(--surface-raised, #2b2d31);
+  color: var(--fg-1, #fff);
+}
+button.call-notice-toast { cursor: pointer; }
 .mic-test { position: relative; height: 14px; border-radius: 7px; background: var(--surface-active); overflow: hidden; }
 .mic-test-fill { position: absolute; top: 0; bottom: 0; left: 0; background: var(--accent); border-radius: 7px; transition: width 60ms linear; }
 .mic-test-fill.live { background: var(--voice-live); }

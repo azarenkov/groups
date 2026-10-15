@@ -255,3 +255,58 @@ it("rereads unread counts when an unread message to me is deleted", async () => 
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(refetchUnread).not.toHaveBeenCalled();
 });
+
+const missedCall = (id: string) => ({
+  id,
+  senderId: "peer",
+  senderName: "Peer",
+  recipientId: "me",
+  content: "call",
+  callStatus: "missed",
+  occurredAt: new Date(Date.now() - 60_000).toISOString(),
+});
+
+it("raises a missed call like an unread message with a call notice", async () => {
+  const { useCallStore } = await import("../../../voice/store/callStore");
+  useCallStore.setState({ callNotice: null });
+  dmHandlers["dm_message.sent"]!(missedCall("call-1"));
+  expect(useUnreadStore.getState().byDm.peer).toBe(1);
+  expect(useCallStore.getState().callNotice).toEqual({ kind: "missed", userId: "peer", name: "Peer" });
+  expect(desktop).toHaveBeenCalledWith("Peer", "Missed call");
+});
+
+it("stays quiet about a missed call the server says was already read", async () => {
+  const { useCallStore } = await import("../../../voice/store/callStore");
+  useCallStore.setState({ callNotice: null });
+  dmHandlers["dm_message.sent"]!({ ...missedCall("call-read"), readByRecipient: true });
+  expect(useUnreadStore.getState().byDm.peer).toBeUndefined();
+  expect(useCallStore.getState().callNotice).toBeNull();
+  expect(sound).not.toHaveBeenCalled();
+  expect(desktop).not.toHaveBeenCalled();
+});
+
+it("keeps answered and declined call cards out of unread and notifications", () => {
+  for (const callStatus of ["completed", "declined"]) {
+    dmHandlers["dm_message.sent"]!({
+      id: `call-${callStatus}`,
+      senderId: "peer",
+      senderName: "Peer",
+      recipientId: "me",
+      content: "call",
+      callStatus,
+      occurredAt: new Date().toISOString(),
+    });
+  }
+  expect(useUnreadStore.getState().byDm.peer).toBeUndefined();
+  expect(sound).not.toHaveBeenCalled();
+  expect(desktop).not.toHaveBeenCalled();
+});
+
+
+it("forgets the previous account's pending bumps when the session resets", async () => {
+  const { forgetDmTracking, lastDmBumpAt } = await import("../../../../shared/ws/context");
+  dmHandlers["dm_message.sent"]!({ id: "m-bump", senderId: "bumper", recipientId: "me", content: "hi", occurredAt: new Date().toISOString() });
+  expect(lastDmBumpAt.bumper).toBeDefined();
+  forgetDmTracking();
+  expect(lastDmBumpAt.bumper).toBeUndefined();
+});

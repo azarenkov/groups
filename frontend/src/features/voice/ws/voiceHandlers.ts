@@ -9,6 +9,9 @@ import { useVoiceSessionStore } from "../store/voiceSessionStore";
 import { asString } from "../../../shared/ws/context";
 import i18n from "../../../i18n";
 import { getLiveKitService } from "../lib/livekit";
+import { callSoundAllowed } from "../../settings/store/notificationSettingsStore";
+import { playNotificationSound } from "../../../shared/lib/notificationSound";
+import { DECLINED_CHIME } from "../../../shared/lib/chime";
 import { hiddenDmsKnown, hiddenDmsSettled, isDmHidden, useHiddenDmStore } from "../../dm/store/hiddenDmStore";
 
 interface HeldCall {
@@ -41,6 +44,11 @@ const holdUntilHiddenKnown = (call: HeldCall) => {
     calls.forEach(offerCall);
   });
 };
+
+useCallStore.subscribe((s, prev) => {
+  if (s.callNotice === prev.callNotice || s.callNotice?.kind !== "declined") return;
+  if (callSoundAllowed()) playNotificationSound(DECLINED_CHIME);
+});
 
 useHiddenDmStore.subscribe((s, prev) => {
   if (s.hidden === prev.hidden) return;
@@ -157,9 +165,8 @@ export const voiceHandlers: WsHandlers = {
   "call.declined": (d) => {
       const callId = asString(d.callId);
       const userId = asString(d.userId);
-      if (callId && userId) {
-        useCallStore.getState().participantDeclined(callId, userId);
-      }
+      const owner = { inviterId: asString(d.inviterId), selfId: useAuthStore.getState().user?.id };
+      if (callId && userId) useCallStore.getState().participantDeclined(callId, userId, asString(d.userName), owner);
       return;
   },
   "call.available": (d) => {

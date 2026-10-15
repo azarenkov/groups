@@ -42,5 +42,9 @@
   "pinToStage": "Pin to stage",
   "unpinFromStage": "Unpin",
   "stageAuto": "Auto",
-  "stageAutoHint": "The person talking is on stage. Click a tile to pin someone"
+  "stageAutoHint": "The person talking is on stage. Click a tile to pin someone",
+  "callBack": "Call back",
+  "declinedBy": "{{name}} declined the call",
+  "declinedByUnknown": "Call declined",
+  "missedFrom": "Missed call from {{name}}"
 }

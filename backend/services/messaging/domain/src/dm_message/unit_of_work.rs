@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use domain::attachment::AttachmentLink;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
@@ -33,6 +34,9 @@ pub trait DmTransaction: Send {
         message: &DmMessage,
         attachments: &[AttachmentLink],
     ) -> Result<(), RepositoryError>;
+    async fn last_read_at(&mut self, reader: &UserId, peer: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError>;
+    async fn last_cleared_at(&mut self, user: &UserId, peer: &UserId) -> Result<Option<DateTime<Utc>>, RepositoryError>;
+    async fn hide_message(&mut self, id: &DmMessageId, users: &[UserId]) -> Result<(), RepositoryError>;
     async fn consume_call_log(
         &mut self,
         call_id: Uuid,

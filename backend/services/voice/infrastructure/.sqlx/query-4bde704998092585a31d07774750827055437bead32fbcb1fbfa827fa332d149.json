@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT MIN(left_at) AS earliest_left\n            FROM call_invite_outcomes\n            WHERE call_id = $1 AND user_id = $2\n              AND ($3::timestamptz IS NULL OR left_at >= $3)\n            ",
+  "query": "\n        SELECT MIN(left_at) AS earliest_left\n        FROM call_invite_outcomes\n        WHERE call_id = $1 AND user_id = $2\n          AND ($3::timestamptz IS NULL OR left_at >= $3)\n        ",
   "describe": {
     "columns": [
       {
@@ -20,5 +20,5 @@
       null
     ]
   },
-  "hash": "6393d160782f2a232bc31d840742c3e38f44c99eeb0a65eabdfb9e723822d29e"
+  "hash": "4bde704998092585a31d07774750827055437bead32fbcb1fbfa827fa332d149"
 }

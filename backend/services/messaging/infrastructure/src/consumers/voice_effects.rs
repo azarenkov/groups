@@ -1,44 +1,61 @@
 use std::sync::Arc;
 
-use contracts::events::{channel::ParticipantDeafenedV1, channel::ParticipantMutedV1, channel::ParticipantUndeafenedV1, channel::ParticipantUnmutedV1, community::CommunityMemberV1, user::UserLifecycleV1};
+use contracts::events::{call::CallEventV1, channel::ParticipantDeafenedV1, channel::ParticipantMutedV1, channel::ParticipantUndeafenedV1, channel::ParticipantUnmutedV1, community::CommunityMemberV1, user::UserLifecycleV1};
 use domain::user::id::UserId;
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use messaging::{
     ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions},
+    ports::call_participation::CallParticipationLookup,
     ports::voice_service::VoiceService,
+    usecases::call::log_call::LogCall,
     usecases::channel::enforce_user_deactivation::EnforceUserDeactivation,
     usecases::channel::enforce_voice_mute::EnforceVoiceMute,
     usecases::community::enforce_departure::EnforceCommunityDeparture,
     usecases::community::resolve_deleted_user_communities::ResolveDeletedUserCommunities,
 };
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, community::id::CommunityId, community::unit_of_work::CommunityUnitOfWork};
+use messaging_domain::{dm_message::unit_of_work::DmUnitOfWork, channel::id::ChannelId, channel::repository::ChannelRepository, community::id::CommunityId, community::unit_of_work::CommunityUnitOfWork};
 use ports::user_profile::UserProfileRepository;
 use tracing::Instrument;
 
-const MAX_DELIVER: u32 = 20;
 const ACK_WAIT: std::time::Duration = std::time::Duration::from_secs(300);
-const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
+
+#[derive(Clone, Copy)]
+struct Delivery {
+    start: StartPosition,
+    max_deliver: u32,
+    retry_delay: std::time::Duration,
+}
+
+const EFFECT_DELIVERY: Delivery = Delivery { start: StartPosition::All, max_deliver: 20, retry_delay: std::time::Duration::from_secs(5) };
+
+fn call_log_delivery(since: chrono::DateTime<chrono::Utc>) -> Delivery {
+    Delivery { start: StartPosition::Since(since), max_deliver: 120, retry_delay: std::time::Duration::from_secs(30) }
+}
 
 pub struct VoiceEffectsSpec {
     pub subject_prefix: String,
     pub channel_stream: String,
     pub community_stream: String,
     pub user_stream: String,
+    pub call_log_since: chrono::DateTime<chrono::Utc>,
 }
 
-pub fn spawn<C, W, V, P>(
+pub fn spawn<C, W, V, P, D, L>(
     jetstream: async_nats::jetstream::Context,
     spec: VoiceEffectsSpec,
     channel_repository: Arc<C>,
     community_unit_of_work: Arc<W>,
     voice_service: Arc<V>,
     profiles: Arc<P>,
+    log_call: Arc<LogCall<D, L>>,
 ) where
     C: ChannelRepository + Send + Sync + 'static,
     W: CommunityUnitOfWork + Send + Sync + 'static,
     V: VoiceService + Send + Sync + 'static,
     P: UserProfileRepository + Send + Sync + 'static,
+    D: DmUnitOfWork + 'static,
+    L: CallParticipationLookup + 'static,
 {
     let prefix = spec.subject_prefix.trim_end_matches('.').to_string();
     let dlq = format!("{prefix}.dlq.messaging.voice_effects");
@@ -65,6 +82,34 @@ pub fn spawn<C, W, V, P>(
 
     {
         let jetstream = jetstream.clone();
+        let subject = format!("{prefix}.user.*.call.ended");
+        let delivery = call_log_delivery(spec.call_log_since);
+        let dlq = dlq.clone();
+        let user_stream = spec.user_stream.clone();
+        tokio::spawn(async move {
+            run(
+                jetstream,
+                user_stream,
+                "messaging-voice-effects-call-log".to_string(),
+                subject,
+                Vec::new(),
+                dlq,
+                delivery,
+                move |_subject, payload| {
+                    let log_call = log_call.clone();
+                    async move {
+                        let evt: CallEventV1 = serde_json::from_slice(&payload)?;
+                        log_call.execute(evt.call_id).await?;
+                        Ok(())
+                    }
+                },
+            )
+            .await;
+        });
+    }
+
+    {
+        let jetstream = jetstream.clone();
         let subject = format!("{prefix}.user.*.disabled");
         let extra = vec![
             format!("{prefix}.user.*.deleted"),
@@ -81,6 +126,7 @@ pub fn spawn<C, W, V, P>(
                 subject,
                 extra,
                 dlq,
+                EFFECT_DELIVERY,
                 move |subject, payload| {
                     let enforce_deactivation = enforce_deactivation.clone();
                     let resolve_communities = resolve_communities.clone();
@@ -126,6 +172,7 @@ pub fn spawn<C, W, V, P>(
                 subject,
                 extra,
                 dlq,
+                EFFECT_DELIVERY,
                 move |subject, payload| {
                     let enforce_mute = enforce_mute.clone();
                     async move {
@@ -164,6 +211,7 @@ pub fn spawn<C, W, V, P>(
                 subject,
                 vec![format!("{prefix}.community.member_left")],
                 dlq,
+                EFFECT_DELIVERY,
                 move |subject, payload| {
                     let enforce_departure = enforce_departure.clone();
                     async move {
@@ -183,6 +231,7 @@ pub fn spawn<C, W, V, P>(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run<F, Fut>(
     jetstream: async_nats::jetstream::Context,
     stream: String,
@@ -190,6 +239,7 @@ async fn run<F, Fut>(
     subject: String,
     extra_subjects: Vec<String>,
     dlq: String,
+    delivery: Delivery,
     handler: F,
 ) where
     F: Fn(String, Vec<u8>) -> Fut,
@@ -200,8 +250,8 @@ async fn run<F, Fut>(
         let opts = SubscribeOptions {
             consumer_name: consumer_name.clone(),
             subject: subject.clone(),
-            start_position: StartPosition::All,
-            max_deliver: Some(MAX_DELIVER),
+            start_position: delivery.start,
+            max_deliver: Some(delivery.max_deliver),
             dlq_subject: Some(dlq.clone()),
             extra_subjects: extra_subjects.clone(),
             ack_wait: Some(ACK_WAIT),
@@ -226,7 +276,7 @@ async fn run<F, Fut>(
                                     }
                                     Err(e) => {
                                         tracing::warn!(error = %e, subject = %m.subject, "Voice effect failed; scheduling retry");
-                                        if let Err(e) = m.retry_after(RETRY_DELAY).await {
+                                        if let Err(e) = m.retry_after(delivery.retry_delay).await {
                                             tracing::warn!(error = %e, "Voice effect nak failed");
                                         }
                                     }

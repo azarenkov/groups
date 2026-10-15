@@ -1,3 +1,4 @@
+use messaging::ports::feed_start::{Feed, FeedStarts};
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
 use messaging::usecases::pin::{conversation_pins::ConversationPins, message_pins::MessagePins};
 use messaging::usecases::dm_conversation::DmConversations;
@@ -190,6 +191,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let community_stream = std::env::var("MESSAGING_COMMUNITY_STREAM")
         .unwrap_or_else(|_| "RIFT_COMMUNITY_EVENTS".to_string());
     let inbox_community_stream = community_stream.clone();
+    let feed_starts = messaging_infrastructure::database::postgres::repositories::feed_start::PostgresFeedStarts::new(postgres_pool.clone());
     messaging_infrastructure::consumers::voice_effects::spawn(
         nats_jetstream.clone(),
         messaging_infrastructure::consumers::voice_effects::VoiceEffectsSpec {
@@ -198,11 +200,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             community_stream,
             user_stream: std::env::var("MESSAGING_USER_STREAM")
                 .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string()),
+            call_log_since: feed_starts.started_at(Feed::CallLog).await?,
         },
         channel_repository.clone(),
         community_unit_of_work.clone(),
         livekit_service.clone(),
         user_repository.clone(),
+        Arc::new(LogCall::new(dm_unit_of_work.clone(), call_participation.clone())),
     );
 
     let user_stream = std::env::var("MESSAGING_USER_STREAM")
@@ -228,7 +232,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         inbox_repository.clone(),
         messaging_domain::inbox::InboxRetention::default(),
     ));
-    let inbox_feed_start = messaging_domain::inbox::InboxRepository::feed_started_at(inbox_repository.as_ref()).await?;
+    let inbox_feed_start = feed_starts.started_at(Feed::Inbox).await?;
     let inbox_prefix = nats_config.subject_prefix.trim_end_matches('.').to_string();
     let inbox_users_subscribed = messaging_infrastructure::consumers::inbox::spawn(
         nats_jetstream.clone(),
@@ -476,10 +480,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             notification_preference_repository.clone(),
             channel_repository.clone(),
             friendship_repository.clone(),
-        ),
-        log_call_usecase: LogCall::new(
-            dm_unit_of_work.clone(),
-            call_participation.clone(),
         ),
         community_repository: community_repository.clone(),
         message_repository: message_repository.clone(),

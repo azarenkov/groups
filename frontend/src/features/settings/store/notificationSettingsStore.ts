@@ -437,6 +437,8 @@ export const callAlertsAllowed = (): boolean =>
   settingsSyncedForCurrentUser() &&
   useNotificationSettingsStore.getState().callsEnabled;
 
+export const callSoundAllowed = (): boolean => callAlertsAllowed() && !isQuietNow();
+
 if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
     const userId = useAuthStore.getState().user?.id ?? null;

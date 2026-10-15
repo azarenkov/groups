@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO call_log_consumed (call_id, sender_id, recipient_id)\n            SELECT $1, LEAST($2::uuid, $3::uuid), GREATEST($2::uuid, $3::uuid)\n            WHERE NOT EXISTS (\n                SELECT 1 FROM call_log_consumed c\n                WHERE c.call_id = $1\n                  AND ((c.sender_id = $2 AND c.recipient_id = $3) OR (c.sender_id = $3 AND c.recipient_id = $2))\n            )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b2cd2a6356deff817b2603c5de37f32a12efab6942f030c0f31f08d3afcbae37"
+}

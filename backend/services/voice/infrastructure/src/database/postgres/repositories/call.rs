@@ -1,11 +1,12 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use voice_domain::{call::repository::AddParticipantsOutcome, call::repository::CallPairOutcome, call::repository::CallRepository, call::repository::JoinOutcome, call::repository::PendingEviction, call::repository::WebhookJoinOutcome, call::CallParticipantStatus};
+use voice_domain::{call::repository::AddParticipantsOutcome, call::repository::CallPairOutcome, call::repository::EndedCall, call::repository::CallInvitation, call::repository::CallRepository, call::repository::JoinOutcome, call::repository::PendingEviction, call::repository::WebhookJoinOutcome, call::CallParticipantStatus, call::CallRoster};
 use domain::user::id::UserId;
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
+use crate::outbox::mapping::encode;
 use crate::database::postgres::{
     error::map_sqlx_error_to_domain_error, repositories::outbox_record::save_outbox_records,
 };
@@ -82,20 +83,6 @@ async fn joinable_others(
         "#,
         call_id,
         exclude,
-    )
-    .fetch_all(&mut **tx)
-    .await
-    .map_err(map_sqlx_error_to_domain_error)?;
-    Ok(rows.into_iter().map(|r| r.user_id).collect())
-}
-
-async fn all_participants(
-    tx: &mut sqlx::Transaction<'_, Postgres>,
-    call_id: Uuid,
-) -> Result<Vec<Uuid>, RepositoryError> {
-    let rows = sqlx::query!(
-        r#"SELECT user_id FROM call_participants WHERE call_id = $1"#,
-        call_id,
     )
     .fetch_all(&mut **tx)
     .await
@@ -185,34 +172,109 @@ async fn notify_withdrawn_invitation(
     save_outbox_records(tx, std::slice::from_ref(&record)).await
 }
 
-async fn end_call_if_empty(
+fn earliest(a: Option<DateTime<Utc>>, b: Option<DateTime<Utc>>) -> Option<DateTime<Utc>> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (a, b) => a.or(b),
+    }
+}
+
+async fn archived_departure(
+    pool: &Pool<Postgres>,
+    call_id: Uuid,
+    user_id: Uuid,
+    after: Option<DateTime<Utc>>,
+) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+    sqlx::query_scalar!(
+        r#"
+        SELECT MIN(left_at) AS earliest_left
+        FROM call_invite_outcomes
+        WHERE call_id = $1 AND user_id = $2
+          AND ($3::timestamptz IS NULL OR left_at >= $3)
+        "#,
+        call_id,
+        user_id,
+        after,
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)
+}
+
+async fn archive_outcome(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    call_id: Uuid,
+    user_id: Uuid,
+    now: DateTime<Utc>,
+) -> Result<(), RepositoryError> {
+    sqlx::query!(
+        r#"
+        INSERT INTO call_invite_outcomes (call_id, user_id, inviter_id, answered_at, declined, left_at, created_at)
+        SELECT call_id, user_id, inviter_id, answered_at, status = 'declined',
+               CASE WHEN status = 'left' THEN updated_at END, $3
+        FROM call_participants
+        WHERE call_id = $1 AND user_id = $2 AND status IN ('declined', 'left')
+        "#,
+        call_id,
+        user_id,
+        now,
+    )
+    .execute(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(())
+}
+
+async fn lock_call(tx: &mut sqlx::Transaction<'_, Postgres>, call_id: Uuid) -> Result<(), RepositoryError> {
+    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
+        .bind(call_id.to_string())
+        .execute(&mut **tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(())
+}
+
+async fn end_call_when(
     tx: &mut sqlx::Transaction<'_, Postgres>,
     call_id: Uuid,
     actor: Uuid,
     request_id: Option<String>,
     now: DateTime<Utc>,
+    is_over: fn(&CallRoster) -> bool,
 ) -> Result<(), RepositoryError> {
-    let joined = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) AS "count!" FROM call_participants WHERE call_id = $1 AND status = 'joined' AND (session_id IS NOT NULL OR updated_at > $2)"#,
+    lock_call(tx, call_id).await?;
+    let roster = sqlx::query!(
+        r#"
+        SELECT
+            COUNT(*) FILTER (WHERE status = 'invited') AS "ringing!",
+            COUNT(*) FILTER (WHERE status = 'joined' AND (session_id IS NOT NULL OR updated_at > $2)) AS "connected!"
+        FROM call_participants
+        WHERE call_id = $1
+        "#,
         call_id,
         now - chrono::Duration::seconds(60),
     )
     .fetch_one(&mut **tx)
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
-
-    if joined > 0 {
+    let roster = CallRoster { ringing: roster.ringing as usize, connected: roster.connected as usize };
+    if !is_over(&roster) {
         return Ok(());
     }
 
-    let recipients = all_participants(tx, call_id).await?;
+    let recipients = sqlx::query_scalar!(
+        r#"SELECT user_id FROM call_participants WHERE call_id = $1"#,
+        call_id,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
 
     sqlx::query!(
         r#"
         UPDATE call_participants
         SET status = 'left', updated_at = $2
-        WHERE call_id = $1
-          AND (status = 'invited' OR (status = 'joined' AND session_id IS NULL))
+        WHERE call_id = $1 AND status IN ('invited', 'joined')
         "#,
         call_id,
         now,
@@ -221,11 +283,11 @@ async fn end_call_if_empty(
     .await
     .map_err(map_sqlx_error_to_domain_error)?;
 
-    if !recipients.is_empty() {
-        let record = call_event(call_id, "call.ended", actor, &recipients, request_id, now);
-        save_outbox_records(tx, std::slice::from_ref(&record)).await?;
+    if recipients.is_empty() {
+        return Ok(());
     }
-    Ok(())
+    let record = call_event(call_id, "call.ended", actor, &recipients, request_id, now);
+    save_outbox_records(tx, std::slice::from_ref(&record)).await
 }
 
 fn call_ring_event(
@@ -336,6 +398,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
 
         let status = if accept {
             CallParticipantStatus::Joined
@@ -363,9 +426,19 @@ impl CallRepository for PostgresCallRepository {
 
         if !accept {
             let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
-            let record =
-                call_event(call_id, "call.declined", user_id.uuid(), &recipients, request_id, now);
+            let inviter = sqlx::query_scalar!(
+                "SELECT inviter_id FROM call_participants WHERE call_id = $1 AND user_id = $2",
+                call_id,
+                user_id.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let mut record =
+                call_event(call_id, "call.declined", user_id.uuid(), &recipients, request_id.clone(), now);
+            record.payload["inviter_id"] = encode(&inviter)?;
             save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
+            end_call_when(&mut tx, call_id, user_id.uuid(), request_id, now, CallRoster::is_over_after_decline).await?;
         }
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
@@ -387,11 +460,10 @@ impl CallRepository for PostgresCallRepository {
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
 
-        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
-            .bind(call_id.to_string())
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
+        if participant_status(&mut tx, call_id, inviter.uuid()).await?.as_deref() != Some(CallParticipantStatus::Joined.as_str()) {
+            return Ok(AddParticipantsOutcome::InviterLeft);
+        }
         let existing: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM call_participants WHERE call_id = $1 AND user_id <> $2 AND status IN ('invited', 'joined')",
         )
@@ -419,21 +491,7 @@ impl CallRepository for PostgresCallRepository {
 
         let mut ringed: Vec<Uuid> = Vec::new();
         for invitee in invitees {
-            sqlx::query!(
-                r#"
-                INSERT INTO call_invite_outcomes (call_id, user_id, inviter_id, answered_at, declined, left_at, created_at)
-                SELECT call_id, user_id, inviter_id, answered_at, status = 'declined',
-                       CASE WHEN status = 'left' THEN updated_at END, $3
-                FROM call_participants
-                WHERE call_id = $1 AND user_id = $2 AND status IN ('declined', 'left')
-                "#,
-                call_id,
-                invitee.uuid(),
-                now,
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+            archive_outcome(&mut tx, call_id, invitee.uuid(), now).await?;
             let inserted = sqlx::query!(
                 r#"
                 INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at)
@@ -478,6 +536,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
 
         let previous = participant_status(&mut tx, call_id, user_id.uuid()).await?;
         let updated = sqlx::query!(
@@ -510,7 +569,7 @@ impl CallRepository for PostgresCallRepository {
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
         notify_withdrawn_invitation(&mut tx, call_id, user_id.uuid(), previous.as_deref(), request_id.clone(), now).await?;
 
-        end_call_if_empty(&mut tx, call_id, user_id.uuid(), request_id, now).await?;
+        end_call_when(&mut tx, call_id, user_id.uuid(), request_id, now, CallRoster::is_abandoned).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
@@ -531,12 +590,13 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
 
         for user_id in user_ids {
             mark_left(&mut tx, call_id, user_id.uuid(), now, request_id.clone()).await?;
         }
 
-        end_call_if_empty(&mut tx, call_id, actor.uuid(), request_id, now).await?;
+        end_call_when(&mut tx, call_id, actor.uuid(), request_id, now, CallRoster::is_abandoned).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
@@ -557,6 +617,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
 
         for user_id in user_ids {
             mark_left(&mut tx, call_id, user_id.uuid(), now, request_id.clone()).await?;
@@ -571,7 +632,7 @@ impl CallRepository for PostgresCallRepository {
             .map_err(map_sqlx_error_to_domain_error)?;
         }
 
-        end_call_if_empty(&mut tx, call_id, actor.uuid(), request_id, now).await?;
+        end_call_when(&mut tx, call_id, actor.uuid(), request_id, now, CallRoster::is_abandoned).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(())
@@ -825,11 +886,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
-            .bind(call_id.to_string())
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
         let current = participant_status(&mut tx, call_id, user_id.uuid()).await?;
         let reactivating = !matches!(current.as_deref(), Some("invited") | Some("joined"));
         if reactivating {
@@ -844,6 +901,7 @@ impl CallRepository for PostgresCallRepository {
             if usize::try_from(active).unwrap_or(usize::MAX) > max_participants {
                 return Ok(JoinOutcome::CapExceeded);
             }
+            archive_outcome(&mut tx, call_id, user_id.uuid(), now).await?;
         }
         let updated = sqlx::query!(
             r#"
@@ -943,29 +1001,20 @@ impl CallRepository for PostgresCallRepository {
                         && r.updated_at > Utc::now() - chrono::Duration::seconds(60))
             })
             .unwrap_or(false);
-        let caller_archive = sqlx::query!(
-            r#"
-            SELECT MIN(left_at) AS earliest_left
-            FROM call_invite_outcomes
-            WHERE call_id = $1 AND user_id = $2
-              AND ($3::timestamptz IS NULL OR left_at >= $3)
-            "#,
-            call_id,
-            caller.uuid(),
-            callee_answered_at,
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        let current_caller_left = rows
-            .iter()
-            .find(|r| r.user_id == caller.uuid() && r.status == "left")
-            .map(|r| r.updated_at)
-            .filter(|ts| callee_answered_at.map(|a| *ts >= a).unwrap_or(true));
-        let caller_left_at = match (current_caller_left, caller_archive.earliest_left) {
-            (Some(c), Some(a)) => Some(c.min(a)),
-            (c, a) => c.or(a),
+        let current_left = |user: Uuid| {
+            rows.iter()
+                .find(|r| r.user_id == user && r.status == "left")
+                .map(|r| r.updated_at)
+                .filter(|ts| callee_answered_at.map(|a| *ts >= a).unwrap_or(true))
         };
+        let caller_left_at = earliest(
+            current_left(caller.uuid()),
+            archived_departure(&self.pool, call_id, caller.uuid(), callee_answered_at).await?,
+        );
+        let callee_left_at = earliest(
+            current_left(callee.uuid()),
+            archived_departure(&self.pool, call_id, callee.uuid(), callee_answered_at).await?,
+        );
         let caller_in_call = rows
             .iter()
             .any(|r| r.user_id == caller.uuid() && r.status == "joined")
@@ -974,11 +1023,51 @@ impl CallRepository for PostgresCallRepository {
             participated: caller_present && callee_row.is_some(),
             caller_in_call,
             caller_left_at,
+            callee_left_at,
             callee_invited_by_caller,
             callee_pending,
             callee_answered_at,
             callee_declined,
         })
+    }
+
+    async fn ended_call(&self, call_id: Uuid) -> Result<Option<EndedCall>, RepositoryError> {
+        let state = sqlx::query!(
+            r#"
+            SELECT
+                COUNT(*) FILTER (WHERE status IN ('invited', 'joined')) AS "active!",
+                MAX(updated_at) AS ended_at
+            FROM call_participants
+            WHERE call_id = $1
+            "#,
+            call_id,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        let Some(ended_at) = state.ended_at.filter(|_| state.active == 0) else {
+            return Ok(None);
+        };
+        let invitations = sqlx::query!(
+            r#"
+            SELECT inviter_id AS "inviter_id!", user_id AS "invitee_id!" FROM call_participants
+            WHERE call_id = $1 AND inviter_id <> user_id
+            UNION
+            SELECT inviter_id, user_id FROM call_invite_outcomes
+            WHERE call_id = $1 AND inviter_id <> user_id
+            "#,
+            call_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(Some(EndedCall {
+            ended_at,
+            invitations: invitations
+                .into_iter()
+                .map(|i| CallInvitation { inviter: UserId::new(i.inviter_id), invitee: UserId::new(i.invitee_id) })
+                .collect(),
+        }))
     }
 
     async fn webhook_joined(
@@ -995,11 +1084,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
-            .bind(call_id.to_string())
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
 
         let current = participant_status(&mut tx, call_id, user_id.uuid()).await?;
         if !matches!(current.as_deref(), Some("invited") | Some("joined")) {
@@ -1025,6 +1110,7 @@ impl CallRepository for PostgresCallRepository {
             if current.is_some() && usize::try_from(active).unwrap_or(usize::MAX) > max_participants {
                 return Ok(WebhookJoinOutcome::CallFull);
             }
+            archive_outcome(&mut tx, call_id, user_id.uuid(), now).await?;
         }
 
         let updated = sqlx::query!(
@@ -1101,6 +1187,7 @@ impl CallRepository for PostgresCallRepository {
             .begin()
             .await
             .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
 
         let updated = sqlx::query!(
             r#"
@@ -1145,7 +1232,7 @@ impl CallRepository for PostgresCallRepository {
         );
         save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
 
-        end_call_if_empty(&mut tx, call_id, user_id.uuid(), request_id, now).await?;
+        end_call_when(&mut tx, call_id, user_id.uuid(), request_id, now, CallRoster::is_abandoned).await?;
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(true)

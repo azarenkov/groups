@@ -1,5 +1,5 @@
 use actix_web::{HttpResponse, Responder, get, web};
-use contracts::internal::calls::CallOutcomeResponseV1;
+use contracts::internal::calls::{CallInvitationV1, CallOutcomeResponseV1, EndedCallResponseV1};
 use domain::user::id::UserId;
 use uuid::Uuid;
 use voice_domain::call::repository::CallRepository;
@@ -21,6 +21,7 @@ async fn call_outcome(
         participated: outcome.participated,
         caller_in_call: outcome.caller_in_call,
         caller_left_at: outcome.caller_left_at,
+        callee_left_at: outcome.callee_left_at,
         callee_invited_by_caller: outcome.callee_invited_by_caller,
         callee_pending: outcome.callee_pending,
         callee_answered_at: outcome.callee_answered_at,
@@ -28,6 +29,19 @@ async fn call_outcome(
     }))
 }
 
+#[get("/calls/{call_id}/ended")]
+async fn ended_call(app_state: web::Data<AppState>, path: web::Path<Uuid>) -> Result<impl Responder, HttpError> {
+    let ended = app_state.call_repository.ended_call(path.into_inner()).await?;
+    Ok(HttpResponse::Ok().json(ended.map(|call| EndedCallResponseV1 {
+        ended_at: call.ended_at,
+        invitations: call
+            .invitations
+            .iter()
+            .map(|i| CallInvitationV1 { inviter_id: i.inviter.uuid(), invitee_id: i.invitee.uuid() })
+            .collect(),
+    })))
+}
+
 pub fn internal_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(web::scope("/internal").service(call_outcome));
+    cfg.service(web::scope("/internal").service(call_outcome).service(ended_call));
 }

@@ -1,4 +1,5 @@
 import React from "react";
+import { mergeWithLive } from "../lib/messageFormat";
 import type {
   Attachment,
   ChannelMessage,
@@ -109,26 +110,23 @@ export function useChatWsMessages(params: {
         sticker?: StickerSnapshot | null;
       }) => {
         setMessages((prev) =>
-          prev.some((x) => x.id === m.id)
-            ? prev
-            : [
-                ...prev,
-                {
-                  id: m.id,
-                  channelId: m.senderId,
-                  authorId: m.senderId,
-                  authorName: m.senderName,
-                  content: m.content,
-                  callStatus: m.callStatus,
-                  callDurationSeconds: m.callDurationSeconds,
-                  attachments: m.attachments,
-                  replyTo: m.replyTo ? { ...m.replyTo, deleted: m.replyTo.deleted ?? false } : undefined,
-                  forwardedFrom: m.forwardedFrom,
-                  sticker: m.sticker ?? null,
-                  createdAt: m.occurredAt,
-                  editedAt: null,
-                },
-              ],
+          mergeWithLive(prev, [
+            {
+              id: m.id,
+              channelId: m.senderId,
+              authorId: m.senderId,
+              authorName: m.senderName,
+              content: m.content,
+              callStatus: m.callStatus,
+              callDurationSeconds: m.callDurationSeconds,
+              attachments: m.attachments,
+              replyTo: m.replyTo ? { ...m.replyTo, deleted: m.replyTo.deleted ?? false } : undefined,
+              forwardedFrom: m.forwardedFrom,
+              sticker: m.sticker ?? null,
+              createdAt: m.occurredAt,
+              editedAt: null,
+            },
+          ]),
         );
       },
       onEdited: (m: {

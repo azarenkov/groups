@@ -15,7 +15,9 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
   void import("../../features/dm/store/dmPreviewStore").then((m) => m.useDmPreviewStore.getState().clear());
   void import("../../features/dm/store/hiddenDmStore").then((m) => m.useHiddenDmStore.getState().clearAll());
   void import("../../features/dm/lib/dmCleared").then((m) => m.forgetDmClears());
+  void import("../ws/context").then((m) => m.forgetDmTracking());
   void import("../../features/voice/ws/voiceHandlers").then((m) => m.dropHeldCalls());
+  void import("../../features/voice/store/callStore").then((m) => m.useCallStore.getState().resetNotices());
   void import("../../features/social/store/friendshipStore").then((m) => m.useFriendshipStore.getState().clearAll());
   void import("../../features/home/store/homeStore").then((m) => m.useHomeStore.getState().clear());
   void import("../../features/settings/store/notificationPrefsStore").then((m) =>

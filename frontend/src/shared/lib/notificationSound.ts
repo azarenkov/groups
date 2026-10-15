@@ -1,4 +1,4 @@
-import { MESSAGE_CHIME, playChime } from "./chime";
+import { MESSAGE_CHIME, playChime, type ChimeNote } from "./chime";
 
 let ctx: AudioContext | null = null;
 let lastPlayedAt = 0;
@@ -22,11 +22,11 @@ function getContext(): AudioContext | null {
   }
 }
 
-export function playNotificationSound(): void {
+export function playNotificationSound(chime: ChimeNote[] = MESSAGE_CHIME): void {
   const now = Date.now();
   if (now - lastPlayedAt < MIN_INTERVAL_MS) return;
   const ac = getContext();
   if (!ac) return;
   lastPlayedAt = now;
-  playChime(ac, MESSAGE_CHIME, 0.12);
+  playChime(ac, chime, 0.12);
 }

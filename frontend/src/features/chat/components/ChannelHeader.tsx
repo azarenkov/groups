@@ -1,6 +1,5 @@
 import React from "react";
 import { useActivityStore } from "../../social/store/activityStore";
-import { ApiError } from "../../../shared/lib/apiError";
 import { useCallStore } from "../../voice/store/callStore";
 
 import i18n from "../../../i18n";
@@ -39,24 +38,7 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 }) => {
   const startDmCall = (video: boolean) => {
     if (!dm?.friendId) return;
-    const cs = useCallStore.getState();
-    const inCallWithFriend =
-      !!cs.activeCallId &&
-      (cs.peerId === dm.friendId ||
-        dm.friendId in cs.participants ||
-        cs.ringing.includes(dm.friendId));
-    if (inCallWithFriend) {
-      cs.setFocused(true);
-      return;
-    }
-    cs.start([dm.friendId], { video }).catch((e) => {
-      const apiErr = e instanceof ApiError ? e : null;
-      cs.setCallError(
-        apiErr?.code === "CALL_NOT_ALLOWED"
-          ? i18n.t("callNotAllowed", { ns: "call" })
-          : i18n.t("callFailed", { ns: "call" }),
-      );
-    });
+    useCallStore.getState().callFriend(dm.friendId, video);
   };
   const dmActivity = useActivityStore((s) => (dm ? s.byUser[dm.friendId] : undefined));
   const [moreOpen, setMoreOpen] = React.useState(false);

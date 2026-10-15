@@ -1,3 +1,4 @@
+pub mod call;
 pub mod events;
 pub mod id;
 pub mod repository;
@@ -5,7 +6,7 @@ pub mod view;
 
 use chrono::{DateTime, Utc};
 
-use crate::{message::forward::ForwardInfo, message::reply::ReplyPreview, dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent};
+use crate::{dm_message::call::CallStatus, message::forward::ForwardInfo, message::reply::ReplyPreview, dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent};
 use domain::{sticker::StickerSnapshot, user::id::UserId};
 use uuid::Uuid;
 
@@ -71,11 +72,13 @@ impl DmMessage {
         sender_id: UserId,
         recipient_id: UserId,
         call_id: Uuid,
-        call_status: String,
-        call_duration_seconds: Option<i32>,
+        status: CallStatus,
         content: MessageContent,
         now: DateTime<Utc>,
+        recipient_read_at: Option<DateTime<Utc>>,
     ) -> Self {
+        let call_status = status.as_str().to_string();
+        let call_duration_seconds = status.duration_seconds();
         let id = DmMessageId::generate();
         let mut message = Self {
             id,
@@ -94,7 +97,11 @@ impl DmMessage {
         };
         message.events.push(DmMessageDomainEvent::Sent(
             DmMessageSent::record(id, sender_id, recipient_id, content, now)
-                .for_call(message.call_status.as_deref().unwrap_or_default(), call_duration_seconds),
+                .for_call(
+                    message.call_status.as_deref().unwrap_or_default(),
+                    call_duration_seconds,
+                    CallStatus::predates(now, recipient_read_at),
+                ),
         ));
         message
     }
@@ -136,6 +143,14 @@ impl DmMessage {
         }
         self.sticker = sticker;
         self
+    }
+
+    pub fn hide_for(&mut self, users: Vec<UserId>) {
+        for event in &mut self.events {
+            if let DmMessageDomainEvent::Sent(sent) = event {
+                sent.hidden_for = users.clone();
+            }
+        }
     }
 
     pub fn set_reply_hidden_for(&mut self, users: Vec<UserId>) {

@@ -3,7 +3,6 @@ use actix_web::web;
 use crate::attachments::attachment_routes;
 use crate::badges::badge_routes;
 use crate::blocks::block_routes;
-use crate::calls::call_log_routes;
 use crate::channel::{
     create_channel, delete_channel, delete_channel_message, edit_channel_message,
     join_text_channel, join_voice_channel, list_channel_messages, list_channel_participants,
@@ -38,7 +37,6 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         .configure(internal_routes)
         .service(
             web::scope("/api")
-                .configure(call_log_routes)
                 .configure(sticker_pack_report_routes)
                 .configure(attachment_routes)
                 .configure(invite_routes)

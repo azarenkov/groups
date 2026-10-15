@@ -87,9 +87,6 @@ mod tests {
         async fn trim(&self, _: i64, _: &[&str], _: i64) -> Result<u64, RepositoryError> {
             unimplemented!()
         }
-        async fn feed_started_at(&self) -> Result<DateTime<Utc>, RepositoryError> {
-            unimplemented!()
-        }
     }
 
     fn item(minute: u32) -> InboxItem {

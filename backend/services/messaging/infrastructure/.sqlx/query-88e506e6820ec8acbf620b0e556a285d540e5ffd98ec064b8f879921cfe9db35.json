@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO hidden_messages (user_id, message_id)\n            SELECT u, $2 FROM unnest($1::uuid[]) AS u\n            ON CONFLICT (user_id, message_id) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "88e506e6820ec8acbf620b0e556a285d540e5ffd98ec064b8f879921cfe9db35"
+}

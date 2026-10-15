@@ -231,7 +231,6 @@ pub trait InboxRepository: Send + Sync {
     async fn mark_read(&self, user_id: &UserId, ids: Option<&[Uuid]>, now: DateTime<Utc>) -> Result<(), RepositoryError>;
     async fn expire(&self, before: DateTime<Utc>, kept_kinds: &[&str], limit: i64) -> Result<u64, RepositoryError>;
     async fn trim(&self, keep_per_user: i64, kept_kinds: &[&str], limit: i64) -> Result<u64, RepositoryError>;
-    async fn feed_started_at(&self) -> Result<DateTime<Utc>, RepositoryError>;
 }
 
 #[cfg(test)]

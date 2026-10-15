@@ -1,7 +1,14 @@
 import i18n from "../../../i18n";
+import { callCardLabel } from "../../voice/lib/callCard";
 import { formatVoiceDuration, videoNoteDurationFromPayload, voiceDurationFromPayload } from "./voice";
 
-export function notificationBody(content: string | undefined, attachments: unknown, sticker?: unknown): string {
+export function notificationBody(
+  content: string | undefined,
+  attachments: unknown,
+  sticker?: unknown,
+  callStatus?: string,
+): string {
+  if (callStatus) return callCardLabel(callStatus, null, false);
   if (content) return content;
   const emoji = (sticker as { emoji?: unknown } | null | undefined)?.emoji;
   if (typeof emoji === "string") {

@@ -24,6 +24,7 @@ pub enum JoinOutcome {
 pub enum AddParticipantsOutcome {
     Added(Vec<UserId>),
     CapExceeded,
+    InviterLeft,
 }
 
 #[derive(Debug, Clone)]
@@ -161,6 +162,8 @@ pub trait CallRepository {
         callee: &UserId,
     ) -> Result<CallPairOutcome, RepositoryError>;
 
+    async fn ended_call(&self, call_id: Uuid) -> Result<Option<EndedCall>, RepositoryError>;
+
     async fn webhook_joined(
         &self,
         call_id: Uuid,
@@ -181,11 +184,24 @@ pub trait CallRepository {
     ) -> Result<bool, RepositoryError>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CallInvitation {
+    pub inviter: UserId,
+    pub invitee: UserId,
+}
+
+#[derive(Debug, Clone)]
+pub struct EndedCall {
+    pub ended_at: DateTime<Utc>,
+    pub invitations: Vec<CallInvitation>,
+}
+
 #[derive(Debug, Clone)]
 pub struct CallPairOutcome {
     pub participated: bool,
     pub caller_in_call: bool,
     pub caller_left_at: Option<DateTime<Utc>>,
+    pub callee_left_at: Option<DateTime<Utc>>,
     pub callee_invited_by_caller: bool,
     pub callee_pending: bool,
     pub callee_answered_at: Option<DateTime<Utc>>,

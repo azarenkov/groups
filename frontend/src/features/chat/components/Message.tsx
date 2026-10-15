@@ -5,7 +5,9 @@ import i18n from "../../../i18n";
 import type { ChannelMessage } from "../../../shared/types/channel";
 import { colorForId } from "../../../shared/lib/avatar";
 import { extractLinks } from "../../../shared/lib/links";
-import { formatCallDuration, formatFileSize } from "../lib/messageFormat";
+import { formatFileSize } from "../lib/messageFormat";
+import { callCardLabel, canCallBack } from "../../voice/lib/callCard";
+import { useCallStore } from "../../voice/store/callStore";
 import { copyTextToClipboard } from "../../../shared/lib/clipboard";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import ProfileLink from "../../social/components/ProfileLink";
@@ -433,14 +435,17 @@ export const Message: React.FC<MessageProps> = ({
                 {i18n.t("voiceCall", { ns: "call" })}
               </div>
               <div className="dm-call-sub">
-                {msg.callStatus === "completed"
-                  ? formatCallDuration(msg.callDurationSeconds ?? 0)
-                  : msg.callStatus === "declined"
-                    ? i18n.t("callDeclined", { ns: "call" })
-                    : isMine
-                      ? i18n.t("callNoAnswer", { ns: "call" })
-                      : i18n.t("callMissed", { ns: "call" })}
+                {callCardLabel(msg.callStatus, msg.callDurationSeconds, isMine)}
               </div>
+              {canCallBack(msg.callStatus) && !isMine && (
+                <button
+                  type="button"
+                  className="link-btn dm-call-back"
+                  onClick={() => useCallStore.getState().callFriend(msg.authorId)}
+                >
+                  {i18n.t("callBack", { ns: "call" })}
+                </button>
+              )}
             </div>
             <time className="dm-call-time" dateTime={msg.createdAt}>
               {time}

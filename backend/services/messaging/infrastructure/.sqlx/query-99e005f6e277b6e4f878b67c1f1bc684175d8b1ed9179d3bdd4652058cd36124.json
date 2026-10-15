@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT last_read_at\n            FROM dm_read_state\n            WHERE user_id = $1 AND friend_id = $2\n            ",
+  "query": "\n        SELECT last_read_at\n        FROM dm_read_state\n        WHERE user_id = $1 AND friend_id = $2\n        ",
   "describe": {
     "columns": [
       {
@@ -19,5 +19,5 @@
       false
     ]
   },
-  "hash": "5ee8e746e9df56556829bee37900f15ad1b3b63e084a2c6be65ec7d449850fbd"
+  "hash": "99e005f6e277b6e4f878b67c1f1bc684175d8b1ed9179d3bdd4652058cd36124"
 }
