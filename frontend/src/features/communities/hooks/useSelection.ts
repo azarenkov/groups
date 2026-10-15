@@ -36,6 +36,8 @@ export function useSelection(params: {
     voice;
 
   const [selectedDm, setSelectedDm] = useState<DirectConversation | null>(null);
+  const [selectionSeq, setSelectionSeq] = useState(0);
+  const noteSelection = () => setSelectionSeq((n) => n + 1);
   const [expandedCommunityIds, setExpandedCommunityIds] = useState<Set<string>>(
     () => new Set<string>(),
   );
@@ -141,6 +143,7 @@ export function useSelection(params: {
   };
 
   const handleSelectCommunity = (communityId: string) => {
+    noteSelection();
     useCallStore.getState().setFocused(false);
     setSelectedCommunity(communityId);
     setSelectedDm(null);
@@ -156,6 +159,7 @@ export function useSelection(params: {
   };
 
   const handleSelectChannel = (community: Community, channel: Channel) => {
+    noteSelection();
     useCallStore.getState().setFocused(false);
     if (channel.kind === "text") {
       setSelectedCommunity(community.id);
@@ -185,6 +189,7 @@ export function useSelection(params: {
   };
 
   const handleSelectDm = (dm: DirectConversation) => {
+    noteSelection();
     const cs = useCallStore.getState();
     const inCallWithDm =
       !!cs.activeCallId && (cs.peerId === dm.id || dm.id in cs.participants);
@@ -198,6 +203,7 @@ export function useSelection(params: {
   };
 
   const handleGoToCommunity = async (communityId: string) => {
+    noteSelection();
     await fetchCommunities();
     expandCommunity(communityId);
     setSelectedCommunity(communityId);
@@ -206,6 +212,7 @@ export function useSelection(params: {
   };
 
   const handleGoHome = () => {
+    noteSelection();
     useCallStore.getState().setFocused(false);
     setSelectedCommunity(null);
     setSelectedChannel(null);
@@ -213,6 +220,7 @@ export function useSelection(params: {
   };
 
   const openCommunity = (communityId: string) => {
+    noteSelection();
     expandCommunity(communityId);
     setSelectedCommunity(communityId);
     setSelectedChannel(null);
@@ -222,6 +230,7 @@ export function useSelection(params: {
   return {
     selectedDm,
     setSelectedDm,
+    selectionSeq,
     expandedCommunityIds,
     expandCommunity,
     collapseCommunity,

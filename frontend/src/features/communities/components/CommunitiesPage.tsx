@@ -588,7 +588,10 @@ const CommunitiesPage: React.FC = () => {
     resolving: pendingMessageLink !== null,
     open: (location) => {
       setUnavailable(null);
-      if (location.kind === "home") selection.handleGoHome();
+      if (location.kind === "home") {
+        setPendingMessageLink(null);
+        selection.handleGoHome();
+      }
       else if (location.kind !== "settings") setPendingMessageLink(location);
     },
   });
@@ -600,7 +603,7 @@ const CommunitiesPage: React.FC = () => {
     if (!unavailableRef.current) return;
     setUnavailable(null);
     if (chatPathRef.current) navigate(chatPathRef.current, { replace: true });
-  }, [selectedDm, selectedChannelId, selectedCommunityId, navigate]);
+  }, [selectedDm, selectedChannelId, selectedCommunityId, selection.selectionSeq, navigate]);
   const goHome = () => {
     setUnavailable(null);
     if (pathLocation?.kind !== "home") navigate(appPath({ kind: "home" }));
