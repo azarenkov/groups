@@ -147,6 +147,8 @@ const CommunitiesPage: React.FC = () => {
   }, [searchParams, setSearchParams]);
   const [pendingMessageLink, setPendingMessageLink] = useState<ChatLocation | null>(null);
   const [unavailable, setUnavailable] = useState<ChatLocation | null>(null);
+  const pendingLinkRef = React.useRef(pendingMessageLink);
+  pendingLinkRef.current = pendingMessageLink;
   const linkRefreshRef = React.useRef<{ link: ChatLocation | null; communities: boolean; channels: boolean }>({
     link: null,
     communities: false,
@@ -154,7 +156,7 @@ const CommunitiesPage: React.FC = () => {
   });
   const [openMessage, setOpenMessage] = useState<{ convId: string; messageId: string } | null>(null);
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const pathLocation = parseAppPath(pathname, user?.id);
   const settingsSection = pathLocation?.kind === "settings" ? pathLocation.section : null;
   const settingsOpen = settingsSection !== null;
@@ -185,8 +187,11 @@ const CommunitiesPage: React.FC = () => {
   const [channelModal, setChannelModal] = useState<{ communityId: string; kind: ChannelKind } | null>(null);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
   const settingsReturn = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (!settingsOpen) settingsReturn.current = null;
+  }, [settingsOpen]);
   const openSettings = (section: SectionId) => {
-    settingsReturn.current = settingsReturn.current ?? `${window.location.pathname}${window.location.search}`;
+    settingsReturn.current = settingsReturn.current ?? `${pathname}${search}`;
     navigate(appPath({ kind: "settings", section }));
   };
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -679,6 +684,7 @@ const CommunitiesPage: React.FC = () => {
       linkRefreshRef.current = { link, communities: false, channels: false };
       void homeAPI.profile(link.peerId).then(
         (profile) => {
+          if (pendingLinkRef.current !== link) return;
           if (profile.active && openDmRef.current(link.peerId, profile.name)) opened(link.peerId);
           else drop();
         },
