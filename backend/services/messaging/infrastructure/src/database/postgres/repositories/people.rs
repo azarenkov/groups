@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use domain::user::id::UserId;
-use messaging_domain::people::{PeopleDirectory, PersonMatch, PersonRelation};
+use messaging_domain::people::{PeopleDirectory, PeopleQuery, PersonMatch, PersonRelation};
 use ports::repository::RepositoryError;
 use sqlx::{Pool, Postgres};
 
@@ -23,7 +23,11 @@ fn prefix_pattern(prefix: &str) -> String {
 
 #[async_trait]
 impl PeopleDirectory for PostgresPeopleDirectory {
-    async fn search(&self, viewer: &UserId, prefix: &str, limit: i64) -> Result<Vec<PersonMatch>, RepositoryError> {
+    async fn search(&self, viewer: &UserId, query: &PeopleQuery, limit: i64) -> Result<Vec<PersonMatch>, RepositoryError> {
+        let (id, prefix) = match query {
+            PeopleQuery::Id(id) => (Some(id.uuid()), None),
+            PeopleQuery::Name(prefix) => (None, Some(prefix.as_str())),
+        };
         let rows = sqlx::query!(
             r#"
             SELECT p.user_id, p.name, f.status::text AS "status?",
@@ -31,7 +35,8 @@ impl PeopleDirectory for PostgresPeopleDirectory {
             FROM messaging_user_profiles p
             LEFT JOIN friendships f ON f.user_id = $1 AND f.friend_id = p.user_id
             LEFT JOIN user_privacy_settings s ON s.user_id = p.user_id
-            WHERE lower(p.name) LIKE $2 ESCAPE '\'
+            WHERE ($5::uuid IS NULL OR p.user_id = $5)
+              AND ($2::text IS NULL OR lower(p.name) LIKE $2 ESCAPE '\')
               AND p.active
               AND p.name <> ''
               AND p.user_id <> $1
@@ -45,9 +50,10 @@ impl PeopleDirectory for PostgresPeopleDirectory {
             LIMIT $4
             "#,
             viewer.uuid(),
-            prefix_pattern(prefix),
+            prefix.map(prefix_pattern),
             prefix,
             limit,
+            id,
         )
         .fetch_all(&self.pool)
         .await
