@@ -203,6 +203,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         community_unit_of_work.clone(),
         livekit_service.clone(),
         user_repository.clone(),
+        Arc::new(LogCall::new(dm_unit_of_work.clone(), call_participation.clone())),
     );
 
     let user_stream = std::env::var("MESSAGING_USER_STREAM")
@@ -476,10 +477,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             notification_preference_repository.clone(),
             channel_repository.clone(),
             friendship_repository.clone(),
-        ),
-        log_call_usecase: LogCall::new(
-            dm_unit_of_work.clone(),
-            call_participation.clone(),
         ),
         community_repository: community_repository.clone(),
         message_repository: message_repository.clone(),

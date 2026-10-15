@@ -255,3 +255,37 @@ it("rereads unread counts when an unread message to me is deleted", async () => 
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(refetchUnread).not.toHaveBeenCalled();
 });
+
+it("raises a missed call like an unread message with a call notice", async () => {
+  const { useCallStore } = await import("../../../voice/store/callStore");
+  useCallStore.setState({ callNotice: null });
+  dmHandlers["dm_message.sent"]!({
+    id: "call-1",
+    senderId: "peer",
+    senderName: "Peer",
+    recipientId: "me",
+    content: "call",
+    callStatus: "missed",
+    occurredAt: new Date().toISOString(),
+  });
+  expect(useUnreadStore.getState().byDm.peer).toBe(1);
+  expect(useCallStore.getState().callNotice).toEqual({ kind: "missed", userId: "peer", name: "Peer" });
+  expect(desktop).toHaveBeenCalledWith("Peer", "Missed call");
+});
+
+it("keeps answered and declined call cards out of unread and notifications", () => {
+  for (const callStatus of ["completed", "declined"]) {
+    dmHandlers["dm_message.sent"]!({
+      id: `call-${callStatus}`,
+      senderId: "peer",
+      senderName: "Peer",
+      recipientId: "me",
+      content: "call",
+      callStatus,
+      occurredAt: new Date().toISOString(),
+    });
+  }
+  expect(useUnreadStore.getState().byDm.peer).toBeUndefined();
+  expect(sound).not.toHaveBeenCalled();
+  expect(desktop).not.toHaveBeenCalled();
+});

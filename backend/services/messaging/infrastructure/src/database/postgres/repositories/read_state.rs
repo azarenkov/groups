@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use messaging_domain::{channel::id::ChannelId, read_state::repository::ChannelUnread, read_state::repository::DmReadReceipt, read_state::repository::DmUnread, read_state::repository::MemberRead, read_state::repository::ReadStateRepository};
+use messaging_domain::{dm_message::call::CallStatus, channel::id::ChannelId, read_state::repository::ChannelUnread, read_state::repository::DmReadReceipt, read_state::repository::DmUnread, read_state::repository::MemberRead, read_state::repository::ReadStateRepository};
 use domain::user::id::UserId;
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -220,6 +220,7 @@ impl ReadStateRepository for PostgresReadStateRepository {
                 ON r.user_id = $1 AND r.friend_id = m.sender_id
             WHERE m.recipient_id = $1
               AND m.created_at > COALESCE(r.last_read_at, '1970-01-01T00:00:00Z'::timestamptz)
+              AND (m.call_status IS NULL OR m.call_status = ANY($2))
               AND NOT EXISTS (
                 SELECT 1 FROM hidden_messages h
                 WHERE h.user_id = $1 AND h.message_id = m.id
@@ -232,6 +233,7 @@ impl ReadStateRepository for PostgresReadStateRepository {
             GROUP BY m.sender_id
             "#,
             user_id.uuid(),
+            CallStatus::UNREAD as &[&str],
         )
         .fetch_all(&self.pool)
         .await

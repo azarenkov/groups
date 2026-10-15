@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            COUNT(*) FILTER (WHERE status = 'invited') AS \"ringing!\",\n            COUNT(*) FILTER (WHERE status = 'joined' AND (session_id IS NOT NULL OR updated_at > $2)) AS \"connected!\"\n        FROM call_participants\n        WHERE call_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ringing!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "connected!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "56d971f089b18d5a0beef11757161da2edb42738135439a2210b42a58d1f1242"
+}

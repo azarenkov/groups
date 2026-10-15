@@ -64,7 +64,7 @@ fn abort_reason(reason: ConnectionAbortReason) -> ConnectionAbortReasonV1 {
     }
 }
 
-fn encode<T: serde::Serialize>(value: &T) -> Result<serde_json::Value, RepositoryError> {
+pub(crate) fn encode<T: serde::Serialize>(value: &T) -> Result<serde_json::Value, RepositoryError> {
     serde_json::to_value(value).map_err(|e| RepositoryError::InvalidData(e.to_string()))
 }
 

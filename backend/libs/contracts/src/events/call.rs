@@ -8,4 +8,12 @@ pub struct CallEventV1 {
     pub recipients: Vec<Uuid>,
     #[serde(default)]
     pub video: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invitations: Vec<CallInvitationV1>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CallInvitationV1 {
+    pub inviter_id: Uuid,
+    pub invitee_id: Uuid,
 }

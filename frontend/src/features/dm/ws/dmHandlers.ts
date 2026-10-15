@@ -12,6 +12,8 @@ import { showDesktopNotification } from "../../../shared/lib/desktopNotification
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
 import { videoNoteDurationFromPayload, voiceDurationFromPayload } from "../../chat/lib/voice";
 import { notificationBody } from "../../chat/lib/notificationBody";
+import { countsAsUnread } from "../../voice/lib/callCard";
+import { useCallStore } from "../../voice/store/callStore";
 import { hiddenDmsKnown, isDmHidden, useHiddenDmStore } from "../store/hiddenDmStore";
 import { clearedBefore, dmClearedFor } from "../lib/dmCleared";
 import type { PinnedMessage } from "../../chat/api/pins";
@@ -47,6 +49,8 @@ export const dmHandlers: WsHandlers = {
       });
       if (!knownPeerName) refetchDmPreviews();
       if (recipientId !== selfId) return;
+      const callStatus = asString(d.callStatus);
+      if (!countsAsUnread(callStatus)) return;
       if (getActiveDmView() === senderId && viewIsForeground()) {
         throttleMarkDmRead(senderId);
         return;
@@ -64,9 +68,10 @@ export const dmHandlers: WsHandlers = {
       );
       useUnreadStore.getState().bumpDm(senderId);
       if (dmLevel === "none" || !hiddenDmsKnown() || isDmHidden(senderId)) return;
+      if (callStatus) useCallStore.getState().setCallNotice({ kind: "missed", userId: senderId, name: peerName });
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
-        showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments, d.sticker));
+        showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments, d.sticker, callStatus));
       }
       return;
   },

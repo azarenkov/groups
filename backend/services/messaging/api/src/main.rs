@@ -4,7 +4,6 @@ mod bootstrap;
 mod attachments;
 mod badges;
 mod blocks;
-mod calls;
 mod channel;
 mod dm;
 mod dm_conversations;

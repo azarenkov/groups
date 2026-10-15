@@ -988,36 +988,23 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         return Ok(());
     }
 
-    if ends_with(subject, ".call.participant.joined") {
-        let evt: CallEventDto = serde_json::from_slice(payload)?;
-        let name = resolver.user_name(evt.actor_id).await?;
-        let envelope = Envelope::new(
-            "call.participant.joined",
-            json!({
-                "callId": evt.call_id,
-                "userId": evt.actor_id,
-                "userName": name,
-            }),
-        );
-        publisher
-            .publish_to_users(unique(evt.recipients), &envelope)
-            .await?;
-        return Ok(());
-    }
-
-    if ends_with(subject, ".call.declined") {
-        let evt: CallEventDto = serde_json::from_slice(payload)?;
-        let envelope = Envelope::new(
-            "call.declined",
-            json!({
-                "callId": evt.call_id,
-                "userId": evt.actor_id,
-            }),
-        );
-        publisher
-            .publish_to_users(unique(evt.recipients), &envelope)
-            .await?;
-        return Ok(());
+    for kind in ["call.participant.joined", "call.declined"] {
+        if ends_with(subject, &format!(".{kind}")) {
+            let evt: CallEventDto = serde_json::from_slice(payload)?;
+            let name = resolver.user_name(evt.actor_id).await?;
+            let envelope = Envelope::new(
+                kind,
+                json!({
+                    "callId": evt.call_id,
+                    "userId": evt.actor_id,
+                    "userName": name,
+                }),
+            );
+            publisher
+                .publish_to_users(unique(evt.recipients), &envelope)
+                .await?;
+            return Ok(());
+        }
     }
 
     if ends_with(subject, ".call.available") {

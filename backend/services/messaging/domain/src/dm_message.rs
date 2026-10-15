@@ -1,3 +1,4 @@
+pub mod call;
 pub mod events;
 pub mod id;
 pub mod repository;
@@ -5,7 +6,7 @@ pub mod view;
 
 use chrono::{DateTime, Utc};
 
-use crate::{message::forward::ForwardInfo, message::reply::ReplyPreview, dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent};
+use crate::{dm_message::call::CallStatus, message::forward::ForwardInfo, message::reply::ReplyPreview, dm_message::events::DmMessageDomainEvent, dm_message::events::lifecycle::DmMessageDeleted, dm_message::events::lifecycle::DmMessageEdited, dm_message::events::lifecycle::DmMessageSent, dm_message::id::DmMessageId, message::content::MessageContent};
 use domain::{sticker::StickerSnapshot, user::id::UserId};
 use uuid::Uuid;
 
@@ -71,11 +72,12 @@ impl DmMessage {
         sender_id: UserId,
         recipient_id: UserId,
         call_id: Uuid,
-        call_status: String,
-        call_duration_seconds: Option<i32>,
+        status: CallStatus,
         content: MessageContent,
         now: DateTime<Utc>,
     ) -> Self {
+        let call_status = status.as_str().to_string();
+        let call_duration_seconds = status.duration_seconds();
         let id = DmMessageId::generate();
         let mut message = Self {
             id,

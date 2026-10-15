@@ -13,7 +13,6 @@ use messaging::usecases::{
     attachment::{
         get_attachment::GetAttachment, list_message_attachments::ListMessageAttachments,
     },
-    call::log_call::LogCall,
     channel::{
         create_channel::CreateChannel, delete_channel::DeleteChannel,
         delete_channel_message::DeleteChannelMessage,
@@ -91,7 +90,6 @@ use messaging_infrastructure::{
         user_profile::PostgresUserProfileRepository,
     },
     media_client::claims::MediaClaimsClient,
-    media_client::voice_calls::VoiceCallsClient,
     media_client::identity_users::IdentityUsersClient,
 };
 
@@ -252,7 +250,6 @@ pub struct AppState {
         PostgresChannelRepository,
         PostgresFriendshipRepository,
     >,
-    pub log_call_usecase: LogCall<PostgresDmUnitOfWork, VoiceCallsClient>,
     pub community_repository: std::sync::Arc<PostgresCommunityRepository>,
     pub message_repository: std::sync::Arc<PostgresMessageRepository>,
     pub dm_repository: std::sync::Arc<PostgresDmMessageRepository>,

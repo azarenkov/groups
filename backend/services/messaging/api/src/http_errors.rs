@@ -112,7 +112,6 @@ use messaging::usecases::dm_conversation::DmConversationError;
 use messaging::usecases::search::global_search::GlobalSearchError;
 use messaging::usecases::shared::list_shared_content::ListSharedContentError;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnailError;
-use messaging::usecases::call::log_call::LogCallError;
 use messaging::usecases::channel::abort_voice_connection::AbortVoiceConnectionError;
 use messaging::usecases::channel::create_channel::CreateChannelError;
 use messaging::usecases::channel::delete_channel::DeleteChannelError;
@@ -795,39 +794,6 @@ impl HttpMapping for JoinVoiceChannelError {
             JoinVoiceChannelError::VoiceService(e) => e.to_error_code(),
             JoinVoiceChannelError::Hash(e) => e.to_error_code(),
             JoinVoiceChannelError::Domain(e) => e.to_error_code(),
-        }
-    }
-}
-
-impl HttpMapping for LogCallError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            LogCallError::Repository(e) => e.to_http_status(),
-            LogCallError::Domain(e) => e.to_http_status(),
-            LogCallError::SelfCall => StatusCode::BAD_REQUEST,
-            LogCallError::CallNotVerified => StatusCode::FORBIDDEN,
-            LogCallError::AlreadyLogged => StatusCode::CONFLICT,
-            LogCallError::Lookup(_) => StatusCode::SERVICE_UNAVAILABLE,
-        }
-    }
-    fn to_user_message(&self) -> String {
-        match self {
-            LogCallError::Repository(e) => e.to_user_message(),
-            LogCallError::Domain(e) => e.to_user_message(),
-            LogCallError::SelfCall => "You cannot log a call with yourself".to_string(),
-            LogCallError::CallNotVerified => "Call could not be verified".to_string(),
-            LogCallError::AlreadyLogged => "This call is already logged".to_string(),
-            LogCallError::Lookup(_) => "Call verification unavailable".to_string(),
-        }
-    }
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            LogCallError::Repository(e) => e.to_error_code(),
-            LogCallError::Domain(e) => e.to_error_code(),
-            LogCallError::SelfCall => "SELF_CALL",
-            LogCallError::CallNotVerified => "CALL_NOT_VERIFIED",
-            LogCallError::AlreadyLogged => "CALL_ALREADY_LOGGED",
-            LogCallError::Lookup(_) => "CALL_LOOKUP_UNAVAILABLE",
         }
     }
 }

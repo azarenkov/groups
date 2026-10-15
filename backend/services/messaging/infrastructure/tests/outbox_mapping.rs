@@ -4,6 +4,7 @@ use contracts::events::{
     message::ChannelMessageSentV1, community::CommunityRolesChangedV1,
 };
 use domain::{attachment::AttachmentSnapshot, user::id::UserId};
+use messaging_domain::dm_message::call::CallStatus;
 use messaging_domain::{channel::events::ChannelEvent, channel::events::lifecycle::ChannelCreated, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::visibility::ChannelVisibility, dm_message::DmMessage, events::MessagingEvent, friendship::pair::FriendshipPair, message::Message, message::content::MessageContent, community::events::CommunityEvent, community::events::lifecycle::CommunityRolesChanged, community::id::CommunityId};
 use messaging_infrastructure::outbox::mapping::to_record;
 use ports::outbox::record::AggregateType;
@@ -63,14 +64,13 @@ fn dm_call_and_invite_facts_are_part_of_the_event() {
         sender,
         recipient,
         uuid::Uuid::new_v4(),
-        "missed".to_string(),
-        Some(42),
+        CallStatus::Completed { duration_seconds: 42 },
         MessageContent::new("call".to_string()).unwrap(),
         Utc::now(),
     );
     let record = to_record(&MessagingEvent::from(call.pull_events().remove(0)), None).unwrap();
     let evt: DmMessageSentV1 = decode(record.payload);
-    assert_eq!(evt.call_status.as_deref(), Some("missed"));
+    assert_eq!(evt.call_status.as_deref(), Some("completed"));
     assert_eq!(evt.call_duration_seconds, Some(42));
 
 }

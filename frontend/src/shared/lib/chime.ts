@@ -96,3 +96,9 @@ export const RING_CHIME: ChimeNote[] = [
 ];
 
 export const RING_INTERVAL_MS = 2800;
+
+export const DECLINED_CHIME: ChimeNote[] = [
+  { freq: 659.25, at: 0, peak: 0.7, decay: 0.45 },
+  { freq: 523.25, at: 0.16, peak: 0.65, decay: 0.45 },
+  { freq: 392, at: 0.32, peak: 0.6, decay: 0.8 },
+];

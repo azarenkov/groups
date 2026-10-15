@@ -31,7 +31,7 @@ import Sidebar from "./Sidebar";
 import ChatView from "../../chat/components/ChatView";
 import VoiceView from "../../voice/components/VoiceView";
 import CallStage from "../../voice/components/CallStage";
-import { CallErrorToast } from "../../voice/components/CallReturnBar";
+import { CallToast } from "../../voice/components/CallReturnBar";
 import VoiceRoomLabel from "../../voice/components/VoiceRoomLabel";
 import VoiceChannelPreview from "../../voice/components/VoiceChannelPreview";
 import type { VoicePreviewParticipant } from "../../voice/components/VoiceChannelPreview";
@@ -664,24 +664,7 @@ const CommunitiesPage: React.FC = () => {
 
   const handleCallFromHome = (friendId: string, video = false) => {
     handleOpenDmFromHome(friendId);
-    const cs = useCallStore.getState();
-    const inCallWithFriend =
-      !!cs.activeCallId &&
-      (cs.peerId === friendId ||
-        friendId in cs.participants ||
-        cs.ringing.includes(friendId));
-    if (inCallWithFriend) {
-      cs.setFocused(true);
-      return;
-    }
-    cs.start([friendId], { video }).catch((e) => {
-      const apiErr = e instanceof ApiError ? e : null;
-      useCallStore.getState().setCallError(
-        apiErr?.code === "CALL_NOT_ALLOWED"
-          ? i18n.t("callNotAllowed", { ns: "call" })
-          : i18n.t("callFailed", { ns: "call" }),
-      );
-    });
+    useCallStore.getState().callFriend(friendId, video);
   };
 
   const connectToPreviewChannel = (community: Community, channel: Channel) => {
@@ -791,7 +774,7 @@ const CommunitiesPage: React.FC = () => {
 
         <main className="main">
           <div className="main-inner">
-            <CallErrorToast />
+            <CallToast onOpenDm={handleOpenDmFromHome} />
             {activeCallId && callFocused && !selectedDm ? (
               <CallStage
                 onMinimize={() => useCallStore.getState().setFocused(false)}

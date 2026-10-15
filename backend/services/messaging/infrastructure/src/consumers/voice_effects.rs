@@ -1,18 +1,20 @@
 use std::sync::Arc;
 
-use contracts::events::{channel::ParticipantDeafenedV1, channel::ParticipantMutedV1, channel::ParticipantUndeafenedV1, channel::ParticipantUnmutedV1, community::CommunityMemberV1, user::UserLifecycleV1};
+use contracts::events::{call::CallEventV1, channel::ParticipantDeafenedV1, channel::ParticipantMutedV1, channel::ParticipantUndeafenedV1, channel::ParticipantUnmutedV1, community::CommunityMemberV1, user::UserLifecycleV1};
 use domain::user::id::UserId;
 use futures::StreamExt;
 use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use messaging::{
     ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions},
+    ports::call_participation::CallParticipationLookup,
     ports::voice_service::VoiceService,
+    usecases::call::log_call::{CallInvitation, LogCall},
     usecases::channel::enforce_user_deactivation::EnforceUserDeactivation,
     usecases::channel::enforce_voice_mute::EnforceVoiceMute,
     usecases::community::enforce_departure::EnforceCommunityDeparture,
     usecases::community::resolve_deleted_user_communities::ResolveDeletedUserCommunities,
 };
-use messaging_domain::{channel::id::ChannelId, channel::repository::ChannelRepository, community::id::CommunityId, community::unit_of_work::CommunityUnitOfWork};
+use messaging_domain::{dm_message::unit_of_work::DmUnitOfWork, channel::id::ChannelId, channel::repository::ChannelRepository, community::id::CommunityId, community::unit_of_work::CommunityUnitOfWork};
 use ports::user_profile::UserProfileRepository;
 use tracing::Instrument;
 
@@ -27,18 +29,21 @@ pub struct VoiceEffectsSpec {
     pub user_stream: String,
 }
 
-pub fn spawn<C, W, V, P>(
+pub fn spawn<C, W, V, P, D, L>(
     jetstream: async_nats::jetstream::Context,
     spec: VoiceEffectsSpec,
     channel_repository: Arc<C>,
     community_unit_of_work: Arc<W>,
     voice_service: Arc<V>,
     profiles: Arc<P>,
+    log_call: Arc<LogCall<D, L>>,
 ) where
     C: ChannelRepository + Send + Sync + 'static,
     W: CommunityUnitOfWork + Send + Sync + 'static,
     V: VoiceService + Send + Sync + 'static,
     P: UserProfileRepository + Send + Sync + 'static,
+    D: DmUnitOfWork + 'static,
+    L: CallParticipationLookup + 'static,
 {
     let prefix = spec.subject_prefix.trim_end_matches('.').to_string();
     let dlq = format!("{prefix}.dlq.messaging.voice_effects");
@@ -62,6 +67,37 @@ pub fn spawn<C, W, V, P>(
         channel_repository,
         voice_service,
     ));
+
+    {
+        let jetstream = jetstream.clone();
+        let subject = format!("{prefix}.user.*.call.ended");
+        let dlq = dlq.clone();
+        let user_stream = spec.user_stream.clone();
+        tokio::spawn(async move {
+            run(
+                jetstream,
+                user_stream,
+                "messaging-voice-effects-call-log".to_string(),
+                subject,
+                Vec::new(),
+                dlq,
+                move |_subject, payload| {
+                    let log_call = log_call.clone();
+                    async move {
+                        let evt: CallEventV1 = serde_json::from_slice(&payload)?;
+                        let invitations: Vec<CallInvitation> = evt
+                            .invitations
+                            .iter()
+                            .map(|i| CallInvitation { inviter: UserId::new(i.inviter_id), invitee: UserId::new(i.invitee_id) })
+                            .collect();
+                        log_call.execute(evt.call_id, &invitations).await?;
+                        Ok(())
+                    }
+                },
+            )
+            .await;
+        });
+    }
 
     {
         let jetstream = jetstream.clone();
