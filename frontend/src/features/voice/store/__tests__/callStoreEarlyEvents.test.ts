@@ -33,7 +33,7 @@ beforeEach(() => {
   session.getAuthedIdentity.mockResolvedValue({ userId: "me", accessToken: "t" });
   session.getAuthedUserId.mockResolvedValue("me");
   session.leaveAsInitiator.mockResolvedValue(undefined);
-  useCallStore.setState({ activeCallId: null, endedCallId: null, connecting: false, callNotice: null, ringing: [] });
+  useCallStore.setState({ activeCallId: null, endedCall: null, connecting: false, callNotice: null, ringing: [] });
   api.leave.mockResolvedValue(undefined);
 });
 
@@ -71,9 +71,9 @@ it("decides who placed a buffered legacy decline once ringing is known", async (
 });
 
 it("clears call notices when the session resets", () => {
-  useCallStore.setState({ callNotice: { kind: "missed", userId: "peer", name: "Peer" }, callError: "x", endedCallId: "c9" });
+  useCallStore.setState({ callNotice: { kind: "missed", userId: "peer", name: "Peer" }, callError: "x", endedCall: { callId: "c9", ringing: [] } });
   useCallStore.getState().resetNotices();
-  expect(useCallStore.getState()).toMatchObject({ callNotice: null, callError: null, endedCallId: null });
+  expect(useCallStore.getState()).toMatchObject({ callNotice: null, callError: null, endedCall: null });
 });
 
 it("applies a call end that arrived while accepting the call", async () => {
@@ -87,8 +87,8 @@ it("applies a call end that arrived while accepting the call", async () => {
 });
 
 it("forgets the previous ended call once another call becomes active", async () => {
-  useCallStore.setState({ endedCallId: "old" });
+  useCallStore.setState({ endedCall: { callId: "old", ringing: ["peer"] } });
   api.start.mockResolvedValue({ callId: "c5", token: "tok", url: "wss://lk", participants: [] } as never);
   await useCallStore.getState().start(["peer"]);
-  expect(useCallStore.getState().endedCallId).toBeNull();
+  expect(useCallStore.getState().endedCall).toBeNull();
 });

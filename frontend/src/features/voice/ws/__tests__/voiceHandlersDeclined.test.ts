@@ -15,7 +15,7 @@ const sound = playNotificationSound as jest.Mock;
 beforeEach(() => {
   sound.mockReset();
   useAuthStore.setState({ user: { id: "me", name: "Me" } } as never);
-  useCallStore.setState({ activeCallId: null, endedCallId: null, ringing: [], callNotice: null });
+  useCallStore.setState({ activeCallId: null, endedCall: null, ringing: [], callNotice: null });
 });
 
 it("tells the caller who declined and plays the refusal sound", () => {
@@ -52,7 +52,7 @@ it("tells only the participant who placed the declined invite", () => {
 });
 
 it("ignores a late decline for an earlier call once another call is active", () => {
-  useCallStore.setState({ activeCallId: "new", endedCallId: "old", ringing: ["peer"] });
+  useCallStore.setState({ activeCallId: "new", endedCall: { callId: "old", ringing: ["peer"] }, ringing: ["peer"] });
   voiceHandlers["call.declined"]!({ callId: "old", userId: "peer", userName: "Peer", inviterId: "me" });
   expect(useCallStore.getState().ringing).toEqual(["peer"]);
   expect(useCallStore.getState().callNotice).toBeNull();
@@ -64,4 +64,11 @@ it("falls back to who this user is ringing when the inviter is unknown", () => {
   expect(useCallStore.getState().callNotice).toBeNull();
   voiceHandlers["call.declined"]!({ callId: "c5", userId: "mine", userName: "Mine" });
   expect(useCallStore.getState().callNotice?.userId).toBe("mine");
+});
+
+it("keeps who was ringing so a legacy decline after the call ended still reaches the caller", () => {
+  useCallStore.setState({ activeCallId: "c6", ringing: ["peer"] });
+  voiceHandlers["call.ended"]!({ callId: "c6" });
+  voiceHandlers["call.declined"]!({ callId: "c6", userId: "peer", userName: "Peer" });
+  expect(useCallStore.getState().callNotice?.kind).toBe("declined");
 });

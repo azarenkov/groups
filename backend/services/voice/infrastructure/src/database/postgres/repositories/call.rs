@@ -202,6 +202,30 @@ async fn archived_departure(
     .map_err(map_sqlx_error_to_domain_error)
 }
 
+async fn archive_outcome(
+    tx: &mut sqlx::Transaction<'_, Postgres>,
+    call_id: Uuid,
+    user_id: Uuid,
+    now: DateTime<Utc>,
+) -> Result<(), RepositoryError> {
+    sqlx::query!(
+        r#"
+        INSERT INTO call_invite_outcomes (call_id, user_id, inviter_id, answered_at, declined, left_at, created_at)
+        SELECT call_id, user_id, inviter_id, answered_at, status = 'declined',
+               CASE WHEN status = 'left' THEN updated_at END, $3
+        FROM call_participants
+        WHERE call_id = $1 AND user_id = $2 AND status IN ('declined', 'left')
+        "#,
+        call_id,
+        user_id,
+        now,
+    )
+    .execute(&mut **tx)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)?;
+    Ok(())
+}
+
 async fn lock_call(tx: &mut sqlx::Transaction<'_, Postgres>, call_id: Uuid) -> Result<(), RepositoryError> {
     sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
         .bind(call_id.to_string())
@@ -487,21 +511,7 @@ impl CallRepository for PostgresCallRepository {
 
         let mut ringed: Vec<Uuid> = Vec::new();
         for invitee in invitees {
-            sqlx::query!(
-                r#"
-                INSERT INTO call_invite_outcomes (call_id, user_id, inviter_id, answered_at, declined, left_at, created_at)
-                SELECT call_id, user_id, inviter_id, answered_at, status = 'declined',
-                       CASE WHEN status = 'left' THEN updated_at END, $3
-                FROM call_participants
-                WHERE call_id = $1 AND user_id = $2 AND status IN ('declined', 'left')
-                "#,
-                call_id,
-                invitee.uuid(),
-                now,
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
+            archive_outcome(&mut tx, call_id, invitee.uuid(), now).await?;
             let inserted = sqlx::query!(
                 r#"
                 INSERT INTO call_participants (call_id, user_id, inviter_id, status, created_at, updated_at)
@@ -911,6 +921,7 @@ impl CallRepository for PostgresCallRepository {
             if usize::try_from(active).unwrap_or(usize::MAX) > max_participants {
                 return Ok(JoinOutcome::CapExceeded);
             }
+            archive_outcome(&mut tx, call_id, user_id.uuid(), now).await?;
         }
         let updated = sqlx::query!(
             r#"

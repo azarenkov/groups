@@ -59,6 +59,11 @@ const enableCameraOrFallback = async (callId: string): Promise<void> => {
   }
 };
 
+export interface EndedCall {
+  callId: string;
+  ringing: string[];
+}
+
 export interface CallNotice {
   kind: "declined" | "missed";
   userId: string;
@@ -82,7 +87,7 @@ interface CallState {
   joinableByPeer: Record<string, string>;
   callError: string | null;
   callNotice: CallNotice | null;
-  endedCallId: string | null;
+  endedCall: EndedCall | null;
 
   setIncoming: (call: IncomingCall) => void;
   clearIncoming: () => void;
@@ -138,7 +143,7 @@ export const useCallStore = create<CallState>()((set, get) => {
   ) => {
     set({
       activeCallId: callId,
-      endedCallId: null,
+      endedCall: null,
       startedAt: Date.now(),
       attention: false,
       participants: Object.fromEntries(participants.map((p) => [p.userId, p.userName])),
@@ -170,7 +175,7 @@ export const useCallStore = create<CallState>()((set, get) => {
   joinableByPeer: {},
   callError: null,
   callNotice: null,
-  endedCallId: null,
+  endedCall: null,
 
   setIncoming: (call) =>
     set((s) => (s.activeCallId === call.callId ? s : { incoming: call })),
@@ -207,7 +212,7 @@ export const useCallStore = create<CallState>()((set, get) => {
   setCallNotice: (callNotice) => set({ callNotice }),
   resetNotices: () => {
     earlyCallEvents.clear();
-    set({ callNotice: null, callError: null, endedCallId: null });
+    set({ callNotice: null, callError: null, endedCall: null });
   },
   callAvailable: (peerId, callId) =>
     set((s) => ({ joinableByPeer: { ...s.joinableByPeer, [peerId]: callId } })),
@@ -254,14 +259,16 @@ export const useCallStore = create<CallState>()((set, get) => {
     }),
   participantDeclined: (callId, userId, userName, owner) => {
     const s = get();
-    const ours = s.activeCallId === callId || (!s.activeCallId && s.endedCallId === callId);
+    const ours = s.activeCallId === callId || (!s.activeCallId && s.endedCall?.callId === callId);
     if (!ours) {
       if (s.connecting && !s.activeCallId) earlyEventsFor(callId).declines.push({ userId, userName, owner });
       return;
     }
+    const active = s.activeCallId === callId;
+    const ringing = active ? s.ringing : s.endedCall?.ringing ?? [];
     set({
-      ringing: without(s.ringing, userId),
-      ...(declinedOwnInvite(owner, userId, s.ringing) ? { callNotice: { kind: "declined" as const, userId, name: userName } } : {}),
+      ...(active ? { ringing: without(ringing, userId) } : {}),
+      ...(declinedOwnInvite(owner, userId, ringing) ? { callNotice: { kind: "declined" as const, userId, name: userName } } : {}),
     });
   },
 
@@ -276,7 +283,7 @@ export const useCallStore = create<CallState>()((set, get) => {
     }
     if (s.incoming?.callId === callId) set({ incoming: null });
     if (s.activeCallId === callId) {
-      set({ endedCallId: callId, activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false, deafened: false, micMutedBeforeDeafen: false });
+      set({ endedCall: { callId, ringing: s.ringing }, activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false, deafened: false, micMutedBeforeDeafen: false });
       getLiveKitService()
         .disconnect()
         .catch(() => {});
@@ -328,7 +335,7 @@ export const useCallStore = create<CallState>()((set, get) => {
           ? { ...participants, ...s.participants }
           : participants,
       ringing: s.activeCallId === active.callId ? s.ringing : [],
-      endedCallId: s.activeCallId === active.callId ? s.endedCallId : null,
+      endedCall: s.activeCallId === active.callId ? s.endedCall : null,
       focused: s.activeCallId === active.callId ? s.focused : true,
       ...(settingsSynced ? {} : { micMuted: true }),
     }));
