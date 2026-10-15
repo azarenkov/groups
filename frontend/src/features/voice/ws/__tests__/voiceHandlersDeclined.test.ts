@@ -2,6 +2,7 @@ import { voiceHandlers } from "../voiceHandlers";
 import { useCallStore } from "../../store/callStore";
 import { playNotificationSound } from "../../../../shared/lib/notificationSound";
 import { DECLINED_CHIME } from "../../../../shared/lib/chime";
+import { useAuthStore } from "../../../auth/store/authStore";
 
 jest.mock("../../../../shared/lib/notificationSound", () => ({ playNotificationSound: jest.fn() }));
 jest.mock("../../../settings/store/notificationSettingsStore", () => {
@@ -13,6 +14,7 @@ const sound = playNotificationSound as jest.Mock;
 
 beforeEach(() => {
   sound.mockReset();
+  useAuthStore.setState({ user: { id: "me", name: "Me" } } as never);
   useCallStore.setState({ activeCallId: null, endedCallId: null, ringing: [], callNotice: null });
 });
 
@@ -37,4 +39,14 @@ it("ignores declines for calls this user is not making", () => {
   voiceHandlers["call.declined"]!({ callId: "other", userId: "peer", userName: "Peer" });
   expect(useCallStore.getState().callNotice).toBeNull();
   expect(sound).not.toHaveBeenCalled();
+});
+
+it("tells only the participant who placed the declined invite", () => {
+  useCallStore.setState({ activeCallId: "c4", ringing: ["peer"] });
+  voiceHandlers["call.declined"]!({ callId: "c4", userId: "peer", userName: "Peer", inviterId: "someone-else" });
+  expect(useCallStore.getState().ringing).toEqual([]);
+  expect(useCallStore.getState().callNotice).toBeNull();
+  expect(sound).not.toHaveBeenCalled();
+  voiceHandlers["call.declined"]!({ callId: "c4", userId: "peer", userName: "Peer", inviterId: "me" });
+  expect(useCallStore.getState().callNotice?.kind).toBe("declined");
 });

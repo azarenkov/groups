@@ -30,7 +30,7 @@ beforeEach(() => {
 
 it("applies a decline and the call end that arrived before the start response", async () => {
   api.start.mockImplementation(async () => {
-    useCallStore.getState().participantDeclined("c1", "peer", "Peer");
+    useCallStore.getState().participantDeclined("c1", "peer", "Peer", true);
     useCallStore.getState().callEnded("c1");
     return { callId: "c1", token: "tok", url: "wss://lk", participants: [] } as never;
   });

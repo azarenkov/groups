@@ -173,6 +173,35 @@ async fn notify_withdrawn_invitation(
     save_outbox_records(tx, std::slice::from_ref(&record)).await
 }
 
+fn earliest(a: Option<DateTime<Utc>>, b: Option<DateTime<Utc>>) -> Option<DateTime<Utc>> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (a, b) => a.or(b),
+    }
+}
+
+async fn archived_departure(
+    pool: &Pool<Postgres>,
+    call_id: Uuid,
+    user_id: Uuid,
+    after: Option<DateTime<Utc>>,
+) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+    sqlx::query_scalar!(
+        r#"
+        SELECT MIN(left_at) AS earliest_left
+        FROM call_invite_outcomes
+        WHERE call_id = $1 AND user_id = $2
+          AND ($3::timestamptz IS NULL OR left_at >= $3)
+        "#,
+        call_id,
+        user_id,
+        after,
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(map_sqlx_error_to_domain_error)
+}
+
 async fn lock_call(tx: &mut sqlx::Transaction<'_, Postgres>, call_id: Uuid) -> Result<(), RepositoryError> {
     sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 44))")
         .bind(call_id.to_string())
@@ -393,8 +422,17 @@ impl CallRepository for PostgresCallRepository {
 
         if !accept {
             let recipients = active_others(&mut tx, call_id, user_id.uuid()).await?;
-            let record =
+            let inviter = sqlx::query_scalar!(
+                "SELECT inviter_id FROM call_participants WHERE call_id = $1 AND user_id = $2",
+                call_id,
+                user_id.uuid(),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            let mut record =
                 call_event(call_id, "call.declined", user_id.uuid(), &recipients, request_id.clone(), now);
+            record.payload["inviter_id"] = encode(&inviter)?;
             save_outbox_records(&mut tx, std::slice::from_ref(&record)).await?;
             end_call_when(&mut tx, call_id, user_id.uuid(), request_id, now, CallRoster::is_over_after_decline).await?;
         }
@@ -972,29 +1010,20 @@ impl CallRepository for PostgresCallRepository {
                         && r.updated_at > Utc::now() - chrono::Duration::seconds(60))
             })
             .unwrap_or(false);
-        let caller_archive = sqlx::query!(
-            r#"
-            SELECT MIN(left_at) AS earliest_left
-            FROM call_invite_outcomes
-            WHERE call_id = $1 AND user_id = $2
-              AND ($3::timestamptz IS NULL OR left_at >= $3)
-            "#,
-            call_id,
-            caller.uuid(),
-            callee_answered_at,
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        let current_caller_left = rows
-            .iter()
-            .find(|r| r.user_id == caller.uuid() && r.status == "left")
-            .map(|r| r.updated_at)
-            .filter(|ts| callee_answered_at.map(|a| *ts >= a).unwrap_or(true));
-        let caller_left_at = match (current_caller_left, caller_archive.earliest_left) {
-            (Some(c), Some(a)) => Some(c.min(a)),
-            (c, a) => c.or(a),
+        let current_left = |user: Uuid| {
+            rows.iter()
+                .find(|r| r.user_id == user && r.status == "left")
+                .map(|r| r.updated_at)
+                .filter(|ts| callee_answered_at.map(|a| *ts >= a).unwrap_or(true))
         };
+        let caller_left_at = earliest(
+            current_left(caller.uuid()),
+            archived_departure(&self.pool, call_id, caller.uuid(), callee_answered_at).await?,
+        );
+        let callee_left_at = earliest(
+            current_left(callee.uuid()),
+            archived_departure(&self.pool, call_id, callee.uuid(), callee_answered_at).await?,
+        );
         let caller_in_call = rows
             .iter()
             .any(|r| r.user_id == caller.uuid() && r.status == "joined")
@@ -1003,6 +1032,7 @@ impl CallRepository for PostgresCallRepository {
             participated: caller_present && callee_row.is_some(),
             caller_in_call,
             caller_left_at,
+            callee_left_at,
             callee_invited_by_caller,
             callee_pending,
             callee_answered_at,

@@ -999,6 +999,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                     "callId": evt.call_id,
                     "userId": evt.actor_id,
                     "userName": name,
+                    "inviterId": evt.inviter_id,
                 }),
             );
             publisher

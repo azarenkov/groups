@@ -28,6 +28,14 @@ impl CallStatus {
         }
     }
 
+    pub fn conversation_end(
+        caller_left_at: Option<DateTime<Utc>>,
+        callee_left_at: Option<DateTime<Utc>>,
+        call_ended_at: DateTime<Utc>,
+    ) -> DateTime<Utc> {
+        [caller_left_at, callee_left_at].into_iter().flatten().fold(call_ended_at, DateTime::min)
+    }
+
     pub fn read_by_recipient(ended_at: DateTime<Utc>, recipient_read_at: Option<DateTime<Utc>>) -> bool {
         recipient_read_at.is_some_and(|read_at| read_at >= ended_at)
     }
@@ -57,6 +65,16 @@ mod tests {
             CallStatus::resolve(Some(answered), answered - Duration::seconds(5), false),
             CallStatus::Completed { duration_seconds: 0 }
         );
+    }
+
+    #[test]
+    fn a_conversation_ends_when_either_side_leaves_or_the_call_ends() {
+        let ended = DateTime::from_timestamp(1_800_000_000, 0).unwrap();
+        let early = ended - Duration::minutes(59);
+        let later = ended - Duration::minutes(10);
+        assert_eq!(CallStatus::conversation_end(Some(later), Some(early), ended), early);
+        assert_eq!(CallStatus::conversation_end(Some(later), None, ended), later);
+        assert_eq!(CallStatus::conversation_end(None, None, ended), ended);
     }
 
     #[test]

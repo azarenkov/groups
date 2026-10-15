@@ -55,6 +55,7 @@ impl CallParticipationLookup for VoiceCallsClient {
             participated: body.participated,
             caller_in_call: body.caller_in_call,
             caller_left_at: body.caller_left_at,
+            callee_left_at: body.callee_left_at,
             callee_invited_by_caller: body.callee_invited_by_caller,
             callee_pending: body.callee_pending,
             callee_answered_at: body.callee_answered_at,

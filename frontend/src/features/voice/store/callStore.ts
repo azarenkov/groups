@@ -96,7 +96,7 @@ interface CallState {
   participantJoined: (callId: string, userId: string, userName: string) => void;
   participantRenamed: (userId: string, userName: string) => void;
   participantLeft: (callId: string, userId: string) => void;
-  participantDeclined: (callId: string, userId: string, userName: string | undefined) => boolean;
+  participantDeclined: (callId: string, userId: string, userName: string | undefined, invitedBySelf: boolean) => boolean;
   callEnded: (callId: string) => void;
 
   rehydrate: () => Promise<void>;
@@ -113,7 +113,7 @@ interface CallState {
 const without = (list: string[], id: string) => list.filter((x) => x !== id);
 
 interface EarlyCallEvents {
-  declines: { userId: string; userName: string | undefined }[];
+  declines: { userId: string; userName: string | undefined; invitedBySelf: boolean }[];
   ended: boolean;
 }
 
@@ -220,10 +220,14 @@ export const useCallStore = create<CallState>()((set, get) => ({
         attention: s.focused ? s.attention : true,
       };
     }),
-  participantDeclined: (callId, userId, userName) => {
+  participantDeclined: (callId, userId, userName, invitedBySelf) => {
     const s = get();
     if (s.activeCallId !== callId && s.endedCallId !== callId) {
-      if (s.connecting && !s.activeCallId) earlyEventsFor(callId).declines.push({ userId, userName });
+      if (s.connecting && !s.activeCallId) earlyEventsFor(callId).declines.push({ userId, userName, invitedBySelf });
+      return false;
+    }
+    if (!invitedBySelf) {
+      set({ ringing: without(s.ringing, userId) });
       return false;
     }
     set({ ringing: without(s.ringing, userId), callNotice: { kind: "declined", userId, name: userName } });
@@ -471,7 +475,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     });
     const early = earlyCallEvents.get(callId);
     earlyCallEvents.clear();
-    for (const decline of early?.declines ?? []) get().participantDeclined(callId, decline.userId, decline.userName);
+    for (const decline of early?.declines ?? []) get().participantDeclined(callId, decline.userId, decline.userName, decline.invitedBySelf);
     if (early?.ended) get().callEnded(callId);
     const muteSeqBeforeWait = get().micMuteSeq;
     const synced = await awaitVoiceSettingsSyncedFor(initiatorId);

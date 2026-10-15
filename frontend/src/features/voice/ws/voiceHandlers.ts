@@ -160,7 +160,9 @@ export const voiceHandlers: WsHandlers = {
   "call.declined": (d) => {
       const callId = asString(d.callId);
       const userId = asString(d.userId);
-      if (callId && userId && useCallStore.getState().participantDeclined(callId, userId, asString(d.userName))) {
+      const inviterId = asString(d.inviterId);
+      const invitedBySelf = !inviterId || inviterId === useAuthStore.getState().user?.id;
+      if (callId && userId && useCallStore.getState().participantDeclined(callId, userId, asString(d.userName), invitedBySelf)) {
         if (callSoundAllowed()) playNotificationSound(DECLINED_CHIME);
       }
       return;

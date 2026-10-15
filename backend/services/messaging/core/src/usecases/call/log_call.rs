@@ -61,7 +61,11 @@ where
         if !outcome.participated || !outcome.callee_invited_by_caller || outcome.caller_in_call || outcome.callee_pending {
             return Ok(());
         }
-        let status = CallStatus::resolve(outcome.callee_answered_at, outcome.caller_left_at.unwrap_or(ended_at), outcome.callee_declined);
+        let status = CallStatus::resolve(
+            outcome.callee_answered_at,
+            CallStatus::conversation_end(outcome.caller_left_at, outcome.callee_left_at, ended_at),
+            outcome.callee_declined,
+        );
         let content = MessageContent::new("call".to_string())?;
         let mut tx = self.unit_of_work.begin().await?;
         tx.lock_pair(&inviter, &invitee).await?;
@@ -169,6 +173,7 @@ mod tests {
             participated: true,
             caller_in_call: false,
             caller_left_at: None,
+            callee_left_at: None,
             callee_invited_by_caller: true,
             callee_pending: false,
             callee_answered_at: None,
