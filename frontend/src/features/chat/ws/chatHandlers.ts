@@ -6,6 +6,7 @@ import { notificationPrefsLoaded, useNotificationPrefsStore } from "../../settin
 import { defaultMentionLevel, desktopNotifAllowed, messageSoundAllowed } from "../../settings/store/notificationSettingsStore";
 import { useReadReceiptStore } from "../store/readReceiptStore";
 import { useUnreadStore } from "../store/unreadStore";
+import { openAppLocation } from "../../navigation/lib/appNavigator";
 import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
 import { mentionsUser } from "../lib/mentions";
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
@@ -60,9 +61,12 @@ export const chatHandlers: WsHandlers = {
       if (level === "none" || asString(d.kind) === "system") return;
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
+        const messageId = asString(d.id);
+        const target = communityId ? { kind: "channel" as const, communityId, channelId, messageId } : null;
         showDesktopNotification(
           channelName ? `#${channelName}` : "Rift",
           notificationBody(asString(d.content), d.attachments, d.sticker),
+          target ? () => openAppLocation(target) : undefined,
         );
       }
       return;

@@ -1,3 +1,6 @@
+import { isAppPath } from "../../features/navigation/lib/appLocation";
+import { extractUuid } from "./ids";
+
 const TOKEN_RE = /^[A-Za-z0-9_-]{22,64}$/;
 
 const linkPath = (raw: string): string => raw.split(/[?#]/)[0];
@@ -30,6 +33,7 @@ export function authRedirectTarget(search: string): string {
     const id = extractProfileId(profile[1]);
     return id ? `/u/${id}` : "/app";
   }
+  if (isAppPath(next)) return next;
   const match = /^\/join\/([^/?#]+)$/.exec(next);
   if (!match) return "/app";
   const token = extractInviteToken(match[1]);
@@ -53,12 +57,7 @@ export function extractResetToken(url: string): string | null {
   return RESET_TOKEN_RE.test(token) ? token : null;
 }
 
-const PROFILE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
-export function extractProfileId(input: string): string | null {
-  const id = input.trim().toLowerCase();
-  return PROFILE_ID_RE.test(id) ? id : null;
-}
+export const extractProfileId = extractUuid;
 
 const PROFILE_PATH_RE = /(?:^|\/)u\/([^/\s]+)\/?$/;
 

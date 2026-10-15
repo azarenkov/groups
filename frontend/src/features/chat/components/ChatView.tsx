@@ -1,4 +1,5 @@
 import React from "react";
+import ErrorToast from "../../../shared/ui/ErrorToast";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { blockGeneration, useBlockStore } from "../../social/store/blockStore";
@@ -26,8 +27,7 @@ import { useMessageComposer } from "../hooks/useMessageComposer";
 import { useMessageEditing } from "../hooks/useMessageEditing";
 import { useMessages } from "../hooks/useMessages";
 import { previewOf } from "../lib/replies";
-import { messageLink } from "../lib/messageLink";
-import type { MessageLinkTarget } from "../lib/messageLink";
+import { messageLinkPath, type MessageLinkTarget } from "../../navigation/lib/appLocation";
 import { copyTextToClipboard } from "../../../shared/lib/clipboard";
 import { publicAppOrigin } from "../../../shared/config/runtime";
 import { useMessageSearch } from "../hooks/useMessageSearch";
@@ -182,10 +182,11 @@ const ChatView: React.FC<ChatViewProps> = ({
   const onOpenHandledRef = React.useRef(onOpenMessageHandled);
   onOpenHandledRef.current = onOpenMessageHandled;
   const { closeSearch } = search;
+  const [missingMessage, setMissingMessage] = React.useState(false);
   React.useEffect(() => {
     if (!openMessageId || showInitialLoader) return;
     closeSearch();
-    void jumpToMessageId(openMessageId);
+    void jumpToMessageId(openMessageId).then((found) => setMissingMessage(!found));
     onOpenHandledRef.current?.();
   }, [openMessageId, showInitialLoader, jumpToMessageId, closeSearch]);
 
@@ -596,7 +597,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                       ? { kind: "channel", communityId, channelId, messageId: message.id }
                       : null;
                 if (!target) return;
-                void copyTextToClipboard(messageLink(publicAppOrigin(), target)).catch(
+                void copyTextToClipboard(`${publicAppOrigin()}${messageLinkPath(target)}`).catch(
                   (e) => console.warn("[ChatView] copy link failed:", e),
                 );
               }}
@@ -610,15 +611,14 @@ const ChatView: React.FC<ChatViewProps> = ({
               onOpenForwardSource={(message) => {
                 const origin = message.forwardedFrom;
                 if (!origin || origin.source.kind !== "channel") return;
-                const link = new URL(
-                  messageLink(window.location.origin, {
+                navigate(
+                  messageLinkPath({
                     kind: "channel",
                     communityId: origin.source.communityId,
                     channelId: origin.source.channelId,
                     messageId: origin.messageId,
                   }),
                 );
-                navigate(link.pathname + link.search);
               }}
               onDelete={editing.setDeleteTarget}
             pinnedIds={pinned.pinnedIds}
@@ -696,6 +696,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             onConfirm={() => void editing.confirmDelete("me")}
           />
         ))}
+      <ErrorToast message={missingMessage ? i18n.t("messageNotFound", { ns: "chat" }) : null} onDismiss={() => setMissingMessage(false)} />
     </>
   );
 };

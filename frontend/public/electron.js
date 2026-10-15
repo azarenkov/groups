@@ -82,7 +82,8 @@ function isInviteDeepLink(value) {
   const url = value.trim();
   return /^rift:\/\/join\/[A-Za-z0-9_-]{22,64}\/?$/.test(url)
     || /^rift:\/\/reset-password\/?\?token=[0-9a-f]{32}\.[0-9a-f]{64}$/.test(url)
-    || /^rift:\/\/u\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/?$/.test(url);
+    || /^rift:\/\/u\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/?$/.test(url)
+    || /^rift:\/\/app\/(home|settings\/[a-z]+|dm\/[0-9a-fA-F~-]{36,73}(\/[0-9a-fA-F-]{36})?|c\/[0-9a-fA-F-]{36}\/[0-9a-fA-F-]{36}(\/[0-9a-fA-F-]{36})?)\/?$/.test(url);
 }
 
 function deepLinkFromArgv(argv) {

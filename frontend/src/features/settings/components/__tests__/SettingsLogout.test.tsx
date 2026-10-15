@@ -7,7 +7,7 @@ import SettingsView from "../SettingsView";
 jest.mock("../sections/AccountSection", () => ({ AccountSection: () => <div>account</div> }));
 
 const renderSettings = (onClose = jest.fn(), onSignOut = jest.fn()) => {
-  render(<SettingsView open onClose={onClose} onSignOut={onSignOut} />);
+  render(<SettingsView open section="account" onSection={jest.fn()} onClose={onClose} onSignOut={onSignOut} />);
   return { onClose, onSignOut };
 };
 

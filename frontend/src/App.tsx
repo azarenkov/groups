@@ -1,7 +1,8 @@
 import React, { useEffect } from "react";
 import { clearPersistentSessionData } from "./shared/lib/persistentSessionData";
 import {
-  BrowserRouter as Router,
+  BrowserRouter,
+  HashRouter,
   Routes,
   Route,
   Navigate,
@@ -10,6 +11,7 @@ import {
   useParams,
 } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
+import { appPathFromDeepLink, isAppPath } from "./features/navigation/lib/appLocation";
 import LoginPage from "./features/auth/components/LoginPage";
 import RegisterPage from "./features/auth/components/RegisterPage";
 import ResetPasswordPage from "./features/auth/components/ResetPasswordPage";
@@ -40,6 +42,14 @@ import {
 import "styles/App.css";
 import LoadingDots from "./shared/ui/LoadingDots";
 import TooltipHost from "./shared/ui/tooltip/TooltipHost";
+
+const Router = typeof window !== "undefined" && window.electron ? HashRouter : BrowserRouter;
+
+const SignInFirst: React.FC<{ unverified: boolean }> = ({ unverified }) => {
+  const { pathname } = useLocation();
+  if (unverified) return <Navigate to="/register" />;
+  return <Navigate to={isAppPath(pathname) ? `/login?next=${encodeURIComponent(pathname)}` : "/login"} />;
+};
 
 const AuthRedirect: React.FC = () => {
   const { search } = useLocation();
@@ -72,6 +82,11 @@ const DeepLinkListener: React.FC = () => {
     const bridge = window.electron;
     if (!bridge?.onDeepLink) return;
     const open = (url: string | null) => {
+      const appTarget = url ? appPathFromDeepLink(url) : null;
+      if (appTarget) {
+        navigate(appTarget);
+        return;
+      }
       const resetToken = url ? extractResetToken(url) : null;
       if (resetToken) {
         navigate(`/reset-password?token=${encodeURIComponent(resetToken)}`);
@@ -302,12 +317,12 @@ const App: React.FC = () => {
             <Route path="/stickers/:slug" element={<StickerPackLink />} />
             <Route path="/u/:id" element={<ProfileLink />} />
             <Route
-              path="/app"
+              path="/app/*"
               element={
                 isAuthenticated && !hasUnverifiedSession ? (
                   <CommunitiesPage />
                 ) : (
-                  <Navigate to={hasUnverifiedSession ? "/register" : "/login"} />
+                  <SignInFirst unverified={hasUnverifiedSession} />
                 )
               }
             />

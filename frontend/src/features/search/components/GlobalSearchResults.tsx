@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import { domainOf } from "../../../shared/lib/links";
 import { formatFileSize } from "../../chat/lib/messageFormat";
-import type { OpenMessageLink } from "../../chat/lib/messageLink";
+import type { ChatLocation } from "../../navigation/lib/appLocation";
 import { formatListTime } from "../../dm/lib/directOrder";
 import { useBlockStore } from "../../social/store/blockStore";
 import { GLOBAL_SEARCH_KINDS, type GlobalSearchHit, type GlobalSearchKind, type GlobalSearchPlace } from "../api/globalSearch";
@@ -14,7 +14,7 @@ import LoadingDots from "../../../shared/ui/LoadingDots";
 interface GlobalSearchResultsProps {
   query: string;
   currentUserId?: string;
-  onOpen: (link: OpenMessageLink, hit: GlobalSearchHit) => void;
+  onOpen: (link: ChatLocation, hit: GlobalSearchHit) => void;
   onVisitLink?: (hit: GlobalSearchHit) => void;
 }
 
@@ -32,12 +32,12 @@ export function highlightTerms(text: string, query: string): React.ReactNode[] {
     .map((part, i) => (i % 2 === 1 ? <mark key={i}>{part}</mark> : <React.Fragment key={i}>{part}</React.Fragment>));
 }
 
-export const placeLink = (place: GlobalSearchPlace, messageId: string): OpenMessageLink =>
+export const placeLink = (place: GlobalSearchPlace, messageId: string): ChatLocation =>
   place.type === "channel"
     ? { kind: "channel", communityId: place.communityId, channelId: place.channelId, messageId }
     : { kind: "dm", peerId: place.peerId, messageId, peerName: place.peerName || undefined };
 
-export const hitLink = (hit: GlobalSearchHit): OpenMessageLink => placeLink(hit.place, hit.messageId);
+export const hitLink = (hit: GlobalSearchHit): ChatLocation => placeLink(hit.place, hit.messageId);
 
 const SearchHitRow: React.FC<{
   hit: GlobalSearchHit;
@@ -45,7 +45,7 @@ const SearchHitRow: React.FC<{
   query: string;
   now: Date;
   mine: boolean;
-  onOpen: (link: OpenMessageLink, hit: GlobalSearchHit) => void;
+  onOpen: (link: ChatLocation, hit: GlobalSearchHit) => void;
   onVisitLink?: (hit: GlobalSearchHit) => void;
 }> = ({ hit, kind, query, now, mine, onOpen, onVisitLink }) => {
   const { t, i18n } = useTranslation(["sidebar", "chat"]);

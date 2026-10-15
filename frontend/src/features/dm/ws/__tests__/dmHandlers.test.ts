@@ -272,7 +272,7 @@ it("raises a missed call like an unread message with a call notice", async () =>
   dmHandlers["dm_message.sent"]!(missedCall("call-1"));
   expect(useUnreadStore.getState().byDm.peer).toBe(1);
   expect(useCallStore.getState().callNotice).toEqual({ kind: "missed", userId: "peer", name: "Peer" });
-  expect(desktop).toHaveBeenCalledWith("Peer", "Missed call");
+  expect(desktop).toHaveBeenCalledWith("Peer", "Missed call", expect.any(Function));
 });
 
 it("stays quiet about a missed call the server says was already read", async () => {
@@ -309,4 +309,21 @@ it("forgets the previous account's pending bumps when the session resets", async
   expect(lastDmBumpAt.bumper).toBeDefined();
   forgetDmTracking();
   expect(lastDmBumpAt.bumper).toBeUndefined();
+});
+
+it("opens the conversation at the message when the notification is clicked", async () => {
+  const { registerAppNavigator } = await import("../../../navigation/lib/appNavigator");
+  const go = jest.fn();
+  registerAppNavigator(go);
+  dmHandlers["dm_message.sent"]!({
+    id: "77777777-7777-7777-7777-777777777777",
+    senderId: "peer",
+    senderName: "Peer",
+    recipientId: "me",
+    content: "hi",
+    occurredAt: new Date().toISOString(),
+  });
+  (desktop.mock.calls[0][2] as () => void)();
+  expect(go).toHaveBeenCalledWith("/app/dm/peer/77777777-7777-7777-7777-777777777777");
+  registerAppNavigator(null);
 });

@@ -198,5 +198,9 @@
     "shared": "Files",
     "channel": "Channel",
     "members": "Members"
-  }
+  },
+  "unavailableTitle": "This chat is unavailable",
+  "unavailableHint": "The link points to a conversation, channel or community you can't access, or it no longer exists.",
+  "unavailableHome": "Go home",
+  "messageNotFound": "Message not found — it may have been deleted"
 }

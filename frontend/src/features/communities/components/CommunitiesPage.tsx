@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { homeAPI } from "../../home/api/home";
 import { useAuthStore } from "../../auth/store/authStore";
 import { communitySession, useCommunityStore } from "../store/communityStore";
 import { channelsFullyLoaded, useChannelStore } from "../store/channelStore";
@@ -66,8 +67,12 @@ import ContextMenuHost from "../../../shared/ui/contextMenu/ContextMenuHost";
 import { purgeCommunityLocally } from "../../../shared/ws/context";
 import InboxMenu from "../../inbox/components/InboxMenu";
 import { useDmOpenerStore } from "../../social/store/dmOpenerStore";
-import { parseMessageLink } from "../../chat/lib/messageLink";
-import type { OpenMessageLink } from "../../chat/lib/messageLink";
+import { appPath, legacyMessageLink, parseAppPath, type AppLocation, type ChatLocation } from "../../navigation/lib/appLocation";
+import { registerAppNavigator } from "../../navigation/lib/appNavigator";
+import { useBrowserHistory } from "../../navigation/hooks/useBrowserHistory";
+import { useLocationSync } from "../../navigation/hooks/useLocationSync";
+import type { SectionId } from "../../settings/components/types";
+import UnavailableView from "../../navigation/components/UnavailableView";
 import { Channel, ChannelKind } from "../../../shared/types/channel";
 import { Community } from "../../../shared/types/community";
 import "../../../styles/rift.css";
@@ -108,7 +113,7 @@ const CommunitiesPage: React.FC = () => {
     clearChannels,
   } = useChannelStore();
 
-  useHotkey("openSettings", () => setSettingsOpen(true));
+  useHotkey("openSettings", () => openSettings("account"));
 
   const [isCommunityModalOpen, setIsCommunityModalOpen] = useState(false);
   const [communityModalView, setCommunityModalView] = useState<
@@ -140,19 +145,27 @@ const CommunitiesPage: React.FC = () => {
     const id = extractProfileId(raw);
     if (id) useProfileModalStore.getState().open(id);
   }, [searchParams, setSearchParams]);
-  const [pendingMessageLink, setPendingMessageLink] = useState<OpenMessageLink | null>(null);
-  const linkRefreshRef = React.useRef<{ link: OpenMessageLink | null; communities: boolean; channels: boolean }>({
+  const [pendingMessageLink, setPendingMessageLink] = useState<ChatLocation | null>(null);
+  const [unavailable, setUnavailable] = useState<ChatLocation | null>(null);
+  const linkRefreshRef = React.useRef<{ link: ChatLocation | null; communities: boolean; channels: boolean }>({
     link: null,
     communities: false,
     channels: false,
   });
   const [openMessage, setOpenMessage] = useState<{ convId: string; messageId: string } | null>(null);
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const pathLocation = parseAppPath(pathname, user?.id);
+  const settingsSection = pathLocation?.kind === "settings" ? pathLocation.section : null;
+  const settingsOpen = settingsSection !== null;
   useEffect(() => {
-    const link = parseMessageLink(searchParams, user?.id);
-    if (!link) return;
-    setSearchParams({}, { replace: true });
-    setPendingMessageLink(link);
-  }, [searchParams, setSearchParams, user?.id]);
+    const link = legacyMessageLink(searchParams, user?.id);
+    if (link) navigate(appPath(link), { replace: true });
+  }, [searchParams, navigate, user?.id]);
+  useEffect(() => {
+    registerAppNavigator((path) => navigate(path));
+    return () => registerAppNavigator(null);
+  }, [navigate]);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalCommunity, setInviteModalCommunity] = useState<Community | null>(null);
   const [communitySettings, setCommunitySettings] = useState<Community | null>(null);
@@ -171,11 +184,11 @@ const CommunitiesPage: React.FC = () => {
   };
   const [channelModal, setChannelModal] = useState<{ communityId: string; kind: ChannelKind } | null>(null);
   const fetchFriends = useFriendshipStore((s) => s.fetchFriends);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsRequest, setSettingsRequest] = useState<{ id: "subscription" | "account"; seq: number } | undefined>();
-  useEffect(() => {
-    if (!settingsOpen) setSettingsRequest(undefined);
-  }, [settingsOpen]);
+  const settingsReturn = React.useRef<string | null>(null);
+  const openSettings = (section: SectionId) => {
+    settingsReturn.current = settingsReturn.current ?? `${window.location.pathname}${window.location.search}`;
+    navigate(appPath({ kind: "settings", section }));
+  };
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "community" | "leave-community" | "channel" | "friend" | "block";
     id: string;
@@ -556,6 +569,39 @@ const CommunitiesPage: React.FC = () => {
   const homeOverview = useHomeStore((s) => s.overview);
   const homeFailed = useHomeStore((s) => s.failed);
   const homeActive = !selectedCommunity && !selectedDm;
+  const chatLocation: AppLocation | null = selectedDm
+    ? { kind: "dm", peerId: selectedDm.id }
+    : selectedCommunityId
+      ? selectedChannelId
+        ? { kind: "channel", communityId: selectedCommunityId, channelId: selectedChannelId }
+        : null
+      : { kind: "home" };
+  useLocationSync({
+    viewerId: user?.id,
+    current: chatLocation,
+    resolving: pendingMessageLink !== null,
+    open: (location) => {
+      setUnavailable(null);
+      if (location.kind === "home") selection.handleGoHome();
+      else if (location.kind !== "settings") setPendingMessageLink(location);
+    },
+  });
+  const unavailableRef = React.useRef(unavailable);
+  unavailableRef.current = unavailable;
+  const chatPathRef = React.useRef(chatLocation ? appPath(chatLocation) : null);
+  chatPathRef.current = chatLocation ? appPath(chatLocation) : null;
+  useEffect(() => {
+    if (!unavailableRef.current) return;
+    setUnavailable(null);
+    if (chatPathRef.current) navigate(chatPathRef.current, { replace: true });
+  }, [selectedDm, selectedChannelId, navigate]);
+  const goHome = () => navigate(appPath({ kind: "home" }));
+  const closeSettings = () => {
+    const back = settingsReturn.current;
+    settingsReturn.current = null;
+    navigate(back ?? appPath(chatLocation ?? { kind: "home" }), { replace: true });
+  };
+  const browserHistory = useBrowserHistory();
   const sidebarNav = useSidebarNavigation({
     selectedChannelId,
     selectedDmId: selectedDm?.id ?? null,
@@ -614,15 +660,34 @@ const CommunitiesPage: React.FC = () => {
   useEffect(() => {
     const link = pendingMessageLink;
     if (!link) return;
-    if (link.kind === "dm") {
-      if (!openDmRef.current(link.peerId, link.peerName)) return;
+    const drop = () =>
+      setPendingMessageLink((current) => {
+        if (current !== link) return current;
+        setUnavailable(link);
+        return null;
+      });
+    const opened = (convId: string) => {
       setPendingMessageLink(null);
-      setOpenMessage({ convId: link.peerId, messageId: link.messageId });
+      if (link.messageId) setOpenMessage({ convId, messageId: link.messageId });
+    };
+    if (link.kind === "dm") {
+      if (openDmRef.current(link.peerId, link.peerName)) {
+        opened(link.peerId);
+        return;
+      }
+      if (linkRefreshRef.current.link === link) return;
+      linkRefreshRef.current = { link, communities: false, channels: false };
+      void homeAPI.profile(link.peerId).then(
+        (profile) => {
+          if (profile.active && openDmRef.current(link.peerId, profile.name)) opened(link.peerId);
+          else drop();
+        },
+        drop,
+      );
       return;
     }
     const refreshed = linkRefreshRef.current.link === link ? linkRefreshRef.current : { link, communities: false, channels: false };
     linkRefreshRef.current = refreshed;
-    const drop = () => setPendingMessageLink((current) => (current === link ? null : current));
     if (!communities.some((c) => c.id === link.communityId)) {
       if (refreshed.communities) return;
       refreshed.communities = true;
@@ -642,13 +707,12 @@ const CommunitiesPage: React.FC = () => {
       });
       return;
     }
-    setPendingMessageLink(null);
     expandCommunityRef.current(link.communityId);
     useCallStore.getState().setFocused(false);
     setSelectedDm(null);
     setSelectedCommunity(link.communityId);
     setSelectedChannel(link.channelId);
-    setOpenMessage({ convId: link.channelId, messageId: link.messageId });
+    opened(link.channelId);
   }, [
     pendingMessageLink,
     communities,
@@ -679,16 +743,16 @@ const CommunitiesPage: React.FC = () => {
     <div className="win">
       <AppTopBar
         inbox={<InboxMenu onOpenCommunity={selection.handleGoToCommunity} onOpenFriendRequests={() => setIsPendingOpen(true)} />}
-        navState={sidebarNav.navState}
-        goHistory={sidebarNav.goHistory}
+        navState={browserHistory.navState}
+        goHistory={browserHistory.goHistory}
         homeActive={homeActive}
-        onGoHome={selection.handleGoHome}
+        onGoHome={goHome}
         query={sidebarQuery}
         onQueryChange={setSidebarQuery}
         currentUserId={user?.id}
         currentUserName={userName}
         currentUserStatus={userStatus}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => openSettings("account")}
         onSetStatus={handleSetStatus}
         onSignOut={() => void handleLogout()}
         renderResults={(done) => (
@@ -709,7 +773,7 @@ const CommunitiesPage: React.FC = () => {
               if (!expandedCommunityIds.has(community.id)) selection.handleToggleCommunity(community.id);
               sidebarNav.setOpenCommunityId(community.id);
             }}
-            onOpenResult={setPendingMessageLink}
+            onOpenResult={(link) => navigate(appPath(link))}
             onMessagePerson={(userId, name, friend) => {
               handleOpenDmFromHome(userId, name, friend);
             }}
@@ -777,6 +841,8 @@ const CommunitiesPage: React.FC = () => {
               <CallStage
                 onMinimize={() => useCallStore.getState().setFocused(false)}
               />
+            ) : unavailable ? (
+              <UnavailableView onGoHome={goHome} />
             ) : !selectedCommunity && !selectedDm ? (
               <HomeView
                 overview={homeOverview}
@@ -954,12 +1020,13 @@ const CommunitiesPage: React.FC = () => {
           )}
         </main>
 
-        {settingsOpen && (
+        {settingsSection && (
           <SettingsView
-            open={settingsOpen}
-            onClose={() => setSettingsOpen(false)}
+            open
+            section={settingsSection}
+            onSection={(section) => navigate(appPath({ kind: "settings", section }), { replace: true })}
+            onClose={closeSettings}
             onSignOut={handleLogout}
-            sectionRequest={settingsRequest}
           />
         )}
 
@@ -1043,8 +1110,7 @@ const CommunitiesPage: React.FC = () => {
         onBlockUser={(id, name) => setDeleteConfirm({ type: "block", id, name })}
         onEditProfile={() => {
           setCommunitySettings(null);
-          setSettingsRequest((prev) => ({ id: "account", seq: (prev?.seq ?? 0) + 1 }));
-          setSettingsOpen(true);
+          openSettings("account");
         }}
         callBar={{
           dockId: settingsOpen
@@ -1053,7 +1119,7 @@ const CommunitiesPage: React.FC = () => {
               ? "community-settings-voice-dock"
               : "voice-dock-slot",
           onOpen: () => {
-            setSettingsOpen(false);
+            if (settingsOpen) closeSettings();
             setCommunitySettings(null);
           },
         }}
@@ -1062,8 +1128,7 @@ const CommunitiesPage: React.FC = () => {
       <TrialEndingNotice
         onOpenSubscription={() => {
           setCommunitySettings(null);
-          setSettingsRequest((prev) => ({ id: "subscription", seq: (prev?.seq ?? 0) + 1 }));
-          setSettingsOpen(true);
+          openSettings("subscription");
         }}
       />
       <ContextMenuHost />

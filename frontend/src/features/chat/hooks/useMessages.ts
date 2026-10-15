@@ -460,19 +460,21 @@ export function useMessages(params: {
   }, [highlightedMessageId, messages]);
 
   const jumpToMessageId = React.useCallback(
-    async (messageId: string) => {
+    async (messageId: string): Promise<boolean> => {
       if (messagesRef.current.some((m) => m.id === messageId)) {
         setHighlightedMessageId(null);
         requestAnimationFrame(() => setHighlightedMessageId(messageId));
-        return;
+        return true;
       }
       const messengerNow = messengerRef.current;
-      if (!messengerNow) return;
+      if (!messengerNow) return false;
       try {
         const target = await messengerNow.getMessage(messageId);
         await jumpToMessage(target);
+        return true;
       } catch (err) {
         console.warn("[ChatView] failed to open the original message:", err);
+        return false;
       }
     },
     [jumpToMessage],
