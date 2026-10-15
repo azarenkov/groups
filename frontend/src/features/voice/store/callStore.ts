@@ -81,7 +81,7 @@ interface CallState {
   joinableByPeer: Record<string, string>;
   callError: string | null;
   callNotice: CallNotice | null;
-  outgoingCallId: string | null;
+  endedCallId: string | null;
 
   setIncoming: (call: IncomingCall) => void;
   clearIncoming: () => void;
@@ -127,7 +127,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
   joinableByPeer: {},
   callError: null,
   callNotice: null,
-  outgoingCallId: null,
+  endedCallId: null,
 
   setIncoming: (call) =>
     set((s) => (s.activeCallId === call.callId ? s : { incoming: call })),
@@ -207,7 +207,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }),
   participantDeclined: (callId, userId, userName) => {
     const s = get();
-    if (s.activeCallId !== callId && s.outgoingCallId !== callId) return false;
+    if (s.activeCallId !== callId && s.endedCallId !== callId) return false;
     set({ ringing: without(s.ringing, userId), callNotice: { kind: "declined", userId, name: userName } });
     return true;
   },
@@ -222,7 +222,7 @@ export const useCallStore = create<CallState>()((set, get) => ({
     }
     if (s.incoming?.callId === callId) set({ incoming: null });
     if (s.activeCallId === callId) {
-      set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false, deafened: false, micMutedBeforeDeafen: false });
+      set({ endedCallId: callId, activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false, deafened: false, micMutedBeforeDeafen: false });
       getLiveKitService()
         .disconnect()
         .catch(() => {});
@@ -437,7 +437,6 @@ export const useCallStore = create<CallState>()((set, get) => ({
     const { callId, token, url, participants } = session;
     set({
       activeCallId: callId,
-      outgoingCallId: callId,
       startedAt: Date.now(),
       attention: false,
       participants: Object.fromEntries(
