@@ -18,9 +18,16 @@ use messaging_domain::{dm_message::unit_of_work::DmUnitOfWork, channel::id::Chan
 use ports::user_profile::UserProfileRepository;
 use tracing::Instrument;
 
-const MAX_DELIVER: u32 = 20;
 const ACK_WAIT: std::time::Duration = std::time::Duration::from_secs(300);
-const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
+
+#[derive(Clone, Copy)]
+struct RetryPolicy {
+    max_deliver: u32,
+    delay: std::time::Duration,
+}
+
+const EFFECT_RETRY: RetryPolicy = RetryPolicy { max_deliver: 20, delay: std::time::Duration::from_secs(5) };
+const CALL_LOG_RETRY: RetryPolicy = RetryPolicy { max_deliver: 120, delay: std::time::Duration::from_secs(30) };
 
 pub struct VoiceEffectsSpec {
     pub subject_prefix: String,
@@ -81,6 +88,7 @@ pub fn spawn<C, W, V, P, D, L>(
                 subject,
                 Vec::new(),
                 dlq,
+                CALL_LOG_RETRY,
                 move |_subject, payload| {
                     let log_call = log_call.clone();
                     async move {
@@ -112,6 +120,7 @@ pub fn spawn<C, W, V, P, D, L>(
                 subject,
                 extra,
                 dlq,
+                EFFECT_RETRY,
                 move |subject, payload| {
                     let enforce_deactivation = enforce_deactivation.clone();
                     let resolve_communities = resolve_communities.clone();
@@ -157,6 +166,7 @@ pub fn spawn<C, W, V, P, D, L>(
                 subject,
                 extra,
                 dlq,
+                EFFECT_RETRY,
                 move |subject, payload| {
                     let enforce_mute = enforce_mute.clone();
                     async move {
@@ -195,6 +205,7 @@ pub fn spawn<C, W, V, P, D, L>(
                 subject,
                 vec![format!("{prefix}.community.member_left")],
                 dlq,
+                EFFECT_RETRY,
                 move |subject, payload| {
                     let enforce_departure = enforce_departure.clone();
                     async move {
@@ -214,6 +225,7 @@ pub fn spawn<C, W, V, P, D, L>(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run<F, Fut>(
     jetstream: async_nats::jetstream::Context,
     stream: String,
@@ -221,6 +233,7 @@ async fn run<F, Fut>(
     subject: String,
     extra_subjects: Vec<String>,
     dlq: String,
+    retry: RetryPolicy,
     handler: F,
 ) where
     F: Fn(String, Vec<u8>) -> Fut,
@@ -232,7 +245,7 @@ async fn run<F, Fut>(
             consumer_name: consumer_name.clone(),
             subject: subject.clone(),
             start_position: StartPosition::All,
-            max_deliver: Some(MAX_DELIVER),
+            max_deliver: Some(retry.max_deliver),
             dlq_subject: Some(dlq.clone()),
             extra_subjects: extra_subjects.clone(),
             ack_wait: Some(ACK_WAIT),
@@ -257,7 +270,7 @@ async fn run<F, Fut>(
                                     }
                                     Err(e) => {
                                         tracing::warn!(error = %e, subject = %m.subject, "Voice effect failed; scheduling retry");
-                                        if let Err(e) = m.retry_after(RETRY_DELAY).await {
+                                        if let Err(e) = m.retry_after(retry.delay).await {
                                             tracing::warn!(error = %e, "Voice effect nak failed");
                                         }
                                     }
