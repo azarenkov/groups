@@ -67,7 +67,7 @@ import ContextMenuHost from "../../../shared/ui/contextMenu/ContextMenuHost";
 import { purgeCommunityLocally } from "../../../shared/ws/context";
 import InboxMenu from "../../inbox/components/InboxMenu";
 import { useDmOpenerStore } from "../../social/store/dmOpenerStore";
-import { appPath, legacyMessagePath, parseAppPath, type AppLocation, type ChatLocation } from "../../navigation/lib/appLocation";
+import { appPath, parseAppPath, type AppLocation, type ChatLocation } from "../../navigation/lib/appLocation";
 import { registerAppNavigator } from "../../navigation/lib/appNavigator";
 import { useBrowserHistory } from "../../navigation/hooks/useBrowserHistory";
 import { useLocationSync } from "../../navigation/hooks/useLocationSync";
@@ -162,10 +162,6 @@ const CommunitiesPage: React.FC = () => {
   const pathLocation = parseAppPath(pathname, user?.id);
   const settingsSection = pathLocation?.kind === "settings" ? pathLocation.section : null;
   const settingsOpen = settingsSection !== null;
-  useEffect(() => {
-    const path = legacyMessagePath(searchParams);
-    if (path) navigate(path, { replace: true });
-  }, [searchParams, navigate]);
   useEffect(() => {
     registerAppNavigator((path) => navigate(path));
     return () => registerAppNavigator(null);

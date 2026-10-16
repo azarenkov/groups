@@ -39,12 +39,20 @@ const renderAt = (path: string, props: React.ComponentProps<typeof Harness>) =>
 
 beforeEach(() => localStorage.clear());
 
-it("opens the last chat for this user from the bare app address and keeps query links", () => {
+it("opens the last chat for this user from the bare app address without the already handled query", () => {
   rememberLocation(me, `/app/dm/${peer}`);
   const open = jest.fn();
   renderAt("/app?profile=x", { current: { kind: "home" }, open });
-  expect(seenPath).toBe(`/app/dm/${peer}?profile=x`);
+  expect(seenPath).toBe(`/app/dm/${peer}`);
   expect(open).toHaveBeenCalledWith({ kind: "dm", peerId: peer });
+});
+
+it("opens a legacy message link from the bare app address instead of the last chat", () => {
+  rememberLocation(me, `/app/dm/${other}`);
+  const open = jest.fn();
+  renderAt(`/app?dm=${me}~${peer}&message=${message}`, { current: { kind: "home" }, open });
+  expect(seenPath).toBe(`/app/dm/${me}~${peer}/${message}`);
+  expect(open).toHaveBeenCalledWith({ kind: "dm", peerId: peer, messageId: message });
 });
 
 it("falls back to home when nothing was opened before", () => {

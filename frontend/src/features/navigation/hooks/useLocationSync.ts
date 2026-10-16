@@ -1,7 +1,7 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { APP_ROOT, appPath, parseAppPath, sameLocation, type AppLocation } from "../lib/appLocation";
+import { APP_ROOT, appPath, legacyMessagePath, parseAppPath, sameLocation, type AppLocation } from "../lib/appLocation";
 import { lastLocationPath, rememberLocation } from "../lib/lastLocation";
 
 const HOME: AppLocation = { kind: "home" };
@@ -40,8 +40,9 @@ export function useLocationSync(params: {
       message: entryChanged ? jump : seen.current.message,
     };
     if (!viewerId) return;
-    if (path === APP_ROOT) {
-      navigate({ pathname: lastLocationPath(viewerId) ?? appPath(HOME), search: location.search }, { replace: true });
+    const legacy = legacyMessagePath(new URLSearchParams(location.search));
+    if (legacy || path === APP_ROOT) {
+      navigate(legacy ?? lastLocationPath(viewerId) ?? appPath(HOME), { replace: true });
       return;
     }
     if (entryChanged) {
