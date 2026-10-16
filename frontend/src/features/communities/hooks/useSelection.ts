@@ -195,8 +195,7 @@ export function useSelection(params: {
     showChannel(joinedChannel.communityId, joinedChannel.channel.id);
   };
 
-  const handleSelectDm = (dm: DirectConversation) => {
-    noteSelection();
+  const showDm = (dm: DirectConversation) => {
     const cs = useCallStore.getState();
     const inCallWithDm =
       !!cs.activeCallId && (cs.peerId === dm.id || dm.id in cs.participants);
@@ -207,6 +206,11 @@ export function useSelection(params: {
     userAPI.markDmRead(dm.id).catch((err) => {
       console.warn("[read-state] mark dm read failed:", err);
     });
+  };
+
+  const handleSelectDm = (dm: DirectConversation) => {
+    noteSelection();
+    showDm(dm);
   };
 
   const handleGoToCommunity = async (communityId: string) => {
@@ -251,6 +255,7 @@ export function useSelection(params: {
     handleSelectCommunity,
     handleSelectChannel,
     handleSelectDm,
+    showDm,
     handleOpenJoinedStage,
     handleGoToCommunity,
     handleGoHome,

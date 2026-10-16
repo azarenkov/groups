@@ -53,6 +53,7 @@ import { useHomeRefresh } from "../../home/hooks/useHomeRefresh";
 import { useActiveChatView } from "../hooks/useActiveChatView";
 import { useAppearOffline } from "../hooks/useAppearOffline";
 import { useDirectConversations } from "../hooks/useDirectConversations";
+import type { DirectConversation } from "../../dm/types";
 import { useSelection } from "../hooks/useSelection";
 import { useSidebarPrefetch } from "../hooks/useSidebarPrefetch";
 import { useVoiceMembers } from "../hooks/useVoiceMembers";
@@ -240,6 +241,7 @@ const CommunitiesPage: React.FC = () => {
     onTextChannelActive,
     handleSelectChannel,
     handleSelectDm,
+    showDm,
     finalizeJoin,
     openCommunity,
   } = selection;
@@ -648,16 +650,12 @@ const CommunitiesPage: React.FC = () => {
       handleSelectChannel(community, channel);
   };
 
-  const handleOpenDmFromHome = (friendId: string, name?: string, knownFriend = false): boolean => {
+  const dmConversationFor = (friendId: string, name?: string, knownFriend = false): DirectConversation | null => {
     const dm = acceptedFriends.find((d) => d.id === friendId);
-    if (dm) {
-      handleSelectDm(dm);
-      return true;
-    }
-    const preview = dmPreviews[friendId];
-    const fallbackName = name ?? nameOverrides[friendId] ?? preview?.peerName;
-    if (!fallbackName) return false;
-    handleSelectDm({
+    if (dm) return dm;
+    const fallbackName = name ?? nameOverrides[friendId] ?? dmPreviews[friendId]?.peerName;
+    if (!fallbackName) return null;
+    return {
       id: friendId,
       name: fallbackName,
       initials: initialFor(fallbackName),
@@ -666,11 +664,22 @@ const CommunitiesPage: React.FC = () => {
       unread: 0,
       isFriend: knownFriend,
       friendship: knownFriend ? "accepted" : "none",
-    });
-    return true;
+    };
+  };
+  const handleOpenDmFromHome = (friendId: string, name?: string, knownFriend = false): boolean => {
+    const dm = dmConversationFor(friendId, name, knownFriend);
+    if (dm) handleSelectDm(dm);
+    return dm !== null;
   };
   const openDmRef = React.useRef(handleOpenDmFromHome);
   openDmRef.current = handleOpenDmFromHome;
+  const showLinkedDm = (friendId: string, name?: string): boolean => {
+    const dm = dmConversationFor(friendId, name);
+    if (dm) showDm(dm);
+    return dm !== null;
+  };
+  const showLinkedDmRef = React.useRef(showLinkedDm);
+  showLinkedDmRef.current = showLinkedDm;
   const expandCommunityRef = React.useRef(selection.expandCommunity);
   expandCommunityRef.current = selection.expandCommunity;
   useEffect(() => {
@@ -693,7 +702,7 @@ const CommunitiesPage: React.FC = () => {
     if (link.kind === "dm") {
       const friendships = useFriendshipStore.getState();
       const confirmedFriend = friendships.loaded && friendships.statusById[link.peerId] === "accepted";
-      if (confirmedFriend && openDmRef.current(link.peerId, link.peerName)) {
+      if (confirmedFriend && showLinkedDmRef.current(link.peerId, link.peerName)) {
         opened(link.peerId);
         return;
       }
@@ -702,7 +711,7 @@ const CommunitiesPage: React.FC = () => {
       void homeAPI.profile(link.peerId).then(
         (profile) => {
           if (pendingLinkRef.current !== link) return;
-          if (profile.active && openDmRef.current(link.peerId, profile.name)) opened(link.peerId);
+          if (profile.active && showLinkedDmRef.current(link.peerId, profile.name)) opened(link.peerId);
           else drop("missing");
         },
         (err) => drop(isNotFoundError(err) ? "missing" : "failed"),
