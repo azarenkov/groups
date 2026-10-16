@@ -173,6 +173,7 @@ fn map_leave_reason(
         | DisconnectReason::StateMismatch
         | DisconnectReason::JoinFailure
         | DisconnectReason::ServerShutdown
+        | DisconnectReason::UnknownReason
         | DisconnectReason::SipTrunkFailure => VoiceWebhookEvent::ParticipantConnectionAborted {
             channel_id,
             user_id,
@@ -180,8 +181,7 @@ fn map_leave_reason(
             reason: abort_reason_from(reason),
         },
 
-        DisconnectReason::UnknownReason
-        | DisconnectReason::ClientInitiated
+        DisconnectReason::ClientInitiated
         | DisconnectReason::DuplicateIdentity
         | DisconnectReason::ParticipantRemoved
         | DisconnectReason::RoomDeleted
@@ -266,6 +266,7 @@ mod tests {
     #[test]
     fn a_server_restart_drops_the_connection_instead_of_leaving() {
         assert_eq!(kind(DisconnectReason::ServerShutdown), "aborted");
+        assert_eq!(kind(DisconnectReason::UnknownReason), "aborted");
         assert_eq!(kind(DisconnectReason::SignalClose), "aborted");
         assert_eq!(kind(DisconnectReason::ClientInitiated), "left");
         assert_eq!(kind(DisconnectReason::DuplicateIdentity), "left");

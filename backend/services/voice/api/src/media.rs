@@ -8,11 +8,19 @@ use voice_domain::media::MediaState;
 use crate::http_errors::HttpError;
 use crate::state::AppState;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct MediaStateDto {
     mic_muted: bool,
     deafened: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SaveMediaStateBody {
+    mic_muted: bool,
+    deafened: bool,
+    issued_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl From<MediaState> for MediaStateDto {
@@ -37,12 +45,12 @@ async fn get_media_state(
 async fn save_media_state(
     auth_token: RateLimitedAuthToken,
     app_state: web::Data<AppState>,
-    body: web::Json<MediaStateDto>,
+    body: web::Json<SaveMediaStateBody>,
 ) -> Result<impl Responder, HttpError> {
     let body = body.into_inner();
     let state = app_state
         .save_media_state_usecase
-        .execute(UserId::new(auth_token.id), body.mic_muted, body.deafened, chrono::Utc::now())
+        .execute(UserId::new(auth_token.id), body.mic_muted, body.deafened, body.issued_at, chrono::Utc::now())
         .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(MediaStateDto::from(state))))
 }

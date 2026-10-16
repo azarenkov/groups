@@ -3,7 +3,7 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
-use voice_domain::media::{MediaState, repository::MediaStateRepository};
+use voice_domain::media::{MediaState, issued_at, repository::MediaStateRepository};
 
 pub struct SaveMediaState<R>
 where
@@ -25,10 +25,11 @@ where
         user_id: UserId,
         mic_muted: bool,
         deafened: bool,
+        claimed_at: Option<DateTime<Utc>>,
         now: DateTime<Utc>,
     ) -> Result<MediaState, RepositoryError> {
         let state = MediaState::new(mic_muted, deafened);
-        self.repository.save(&user_id, state, now).await?;
+        self.repository.save(&user_id, state, issued_at(claimed_at, now)).await?;
         Ok(state)
     }
 }
@@ -66,7 +67,7 @@ mod tests {
         let read = GetMediaState::new(store.clone());
         assert_eq!(read.execute(user).await.unwrap(), MediaState::default());
 
-        let saved = SaveMediaState::new(store.clone()).execute(user, false, true, Utc::now()).await.unwrap();
+        let saved = SaveMediaState::new(store.clone()).execute(user, false, true, None, Utc::now()).await.unwrap();
         assert!(!saved.mic_live());
         assert_eq!(read.execute(user).await.unwrap(), MediaState::new(false, true));
     }

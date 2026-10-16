@@ -5,7 +5,7 @@ const RETRY_DELAY_MS = 5000;
 
 const keyOf = (state: MediaState) => `${state.micMuted}:${state.deafened}`;
 
-let desired: MediaState | null = null;
+let desired: { state: MediaState; issuedAt: string } | null = null;
 let saved: string | null = null;
 let inFlight: string | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -19,17 +19,17 @@ const schedule = (delay: number) => {
 const flush = (keepalive = false) => {
   if (timer) clearTimeout(timer);
   timer = null;
-  const state = desired;
-  if (!state || inFlight || keyOf(state) === saved) return;
-  const key = keyOf(state);
+  const next = desired;
+  if (!next || inFlight || keyOf(next.state) === saved) return;
+  const key = keyOf(next.state);
   const sentIn = generation;
   inFlight = key;
-  mediaAPI.save(state, { keepalive }).then(
+  mediaAPI.save(next.state, next.issuedAt, { keepalive }).then(
     () => {
       if (sentIn !== generation) return;
       inFlight = null;
       saved = key;
-      if (desired && keyOf(desired) !== saved) flush();
+      if (desired && keyOf(desired.state) !== saved) flush();
     },
     (err) => {
       if (sentIn !== generation) return;
@@ -41,7 +41,7 @@ const flush = (keepalive = false) => {
 };
 
 export function syncMediaState(state: MediaState): void {
-  desired = state;
+  desired = { state, issuedAt: new Date().toISOString() };
   schedule(SAVE_DELAY_MS);
 }
 

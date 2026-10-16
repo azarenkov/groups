@@ -17,7 +17,7 @@ import { forgetVoiceSession, rememberVoiceSession } from "../lib/sessionHint";
 
 interface UseLiveKitResult {
   micMutedBeforeDeafen: () => boolean;
-  restoreSelfDeafen: (micMutedBefore: boolean) => void;
+  restoreSelfMedia: (state: { micMuted: boolean; deafened: boolean }) => void;
   participants: ParticipantInfo[];
   videoTiles: VideoTile[];
   isCameraEnabled: boolean;
@@ -685,17 +685,21 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   );
 
   const micMutedBeforeDeafen = useCallback(() => micMutedBeforeDeafenRef.current, []);
-  const restoreSelfDeafen = useCallback(
-    (micMutedBefore: boolean) => {
-      if (!isDeafenedRef.current) toggleDeafen();
-      micMutedBeforeDeafenRef.current = micMutedBefore;
+  const restoreSelfMedia = useCallback(
+    (state: { micMuted: boolean; deafened: boolean }) => {
+      if (state.deafened) {
+        if (!isDeafenedRef.current) toggleDeafen();
+        micMutedBeforeDeafenRef.current = state.micMuted;
+        return;
+      }
+      if (state.micMuted && !isMutedRef.current) toggleMute();
     },
-    [toggleDeafen],
+    [toggleDeafen, toggleMute],
   );
 
   return {
     micMutedBeforeDeafen,
-    restoreSelfDeafen,
+    restoreSelfMedia,
     participants,
     videoTiles,
     isCameraEnabled,

@@ -80,7 +80,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     toggleMute,
     toggleDeafen,
     micMutedBeforeDeafen,
-    restoreSelfDeafen,
+    restoreSelfMedia,
     toggleCamera,
     toggleScreenShare,
   } = useLiveKit({
@@ -95,8 +95,8 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       onLeaveRef.current();
     },
   });
-  const restoreDeafenRef = useRef(restoreSelfDeafen);
-  restoreDeafenRef.current = restoreSelfDeafen;
+  const restoreMediaRef = useRef(restoreSelfMedia);
+  restoreMediaRef.current = restoreSelfMedia;
   const [linkReconnecting, setLinkReconnecting] = useState(false);
   useEffect(() => getLiveKitService().subscribeReconnecting(setLinkReconnecting), []);
   const restoringMediaRef = useRef(reconnecting);
@@ -143,7 +143,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           const media = await restoredMedia;
           if (!current) return;
           restoringMediaRef.current = false;
-          if (media?.deafened) restoreDeafenRef.current(media.micMuted);
+          if (media) restoreMediaRef.current(media);
           reconnectRef.current.onReconnected?.();
         })
         .catch((err) => {

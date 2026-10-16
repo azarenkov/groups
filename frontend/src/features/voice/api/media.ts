@@ -11,10 +11,10 @@ export const mediaAPI = {
     return response.data.data;
   },
 
-  async save(state: MediaState, options: { keepalive?: boolean } = {}): Promise<MediaState> {
+  async save(state: MediaState, issuedAt: string, options: { keepalive?: boolean } = {}): Promise<MediaState> {
     const response = await http.put(
       "/v1/voice/media",
-      state,
+      { ...state, issuedAt },
       options.keepalive ? { adapter: "fetch", fetchOptions: { keepalive: true } } : undefined,
     );
     return response.data.data;

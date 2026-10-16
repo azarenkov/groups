@@ -18,14 +18,14 @@ it("saves only the last change once the toggles settle", () => {
   syncMediaState({ micMuted: false, deafened: true });
   jest.advanceTimersByTime(300);
   expect(save).toHaveBeenCalledTimes(1);
-  expect(save).toHaveBeenCalledWith({ micMuted: false, deafened: true }, { keepalive: false });
+  expect(save).toHaveBeenCalledWith({ micMuted: false, deafened: true }, expect.any(String), { keepalive: false });
 });
 
 it("sends a change that has not been saved yet when the tab goes away", () => {
   installMediaStateFlushOnUnload();
   syncMediaState({ micMuted: true, deafened: true });
   window.dispatchEvent(new Event("pagehide"));
-  expect(save).toHaveBeenCalledWith({ micMuted: true, deafened: true }, { keepalive: true });
+  expect(save).toHaveBeenCalledWith({ micMuted: true, deafened: true }, expect.any(String), { keepalive: true });
   jest.advanceTimersByTime(300);
   expect(save).toHaveBeenCalledTimes(1);
 });
@@ -39,7 +39,7 @@ it("keeps a change that failed to save and tries again", async () => {
   expect(save).toHaveBeenCalledTimes(1);
   jest.advanceTimersByTime(5000);
   expect(save).toHaveBeenCalledTimes(2);
-  expect(save).toHaveBeenLastCalledWith({ micMuted: true, deafened: false }, { keepalive: false });
+  expect(save).toHaveBeenLastCalledWith({ micMuted: true, deafened: false }, expect.any(String), { keepalive: false });
 });
 
 it("never retries an older state over a newer one", async () => {
@@ -55,7 +55,7 @@ it("never retries an older state over a newer one", async () => {
   await Promise.resolve();
   jest.advanceTimersByTime(5000);
   expect(save).toHaveBeenCalledTimes(2);
-  expect(save).toHaveBeenLastCalledWith({ micMuted: true, deafened: false }, { keepalive: false });
+  expect(save).toHaveBeenLastCalledWith({ micMuted: true, deafened: false }, expect.any(String), { keepalive: false });
 });
 
 it("resends a state that is still in flight with keepalive when the tab goes away", () => {
@@ -65,5 +65,13 @@ it("resends a state that is still in flight with keepalive when the tab goes awa
   jest.advanceTimersByTime(300);
   window.dispatchEvent(new Event("pagehide"));
   expect(save).toHaveBeenCalledTimes(2);
-  expect(save).toHaveBeenLastCalledWith({ micMuted: true, deafened: false }, { keepalive: true });
+  expect(save).toHaveBeenLastCalledWith({ micMuted: true, deafened: false }, expect.any(String), { keepalive: true });
+});
+
+it("stamps each change with when the user made it so the server keeps the newest", () => {
+  jest.setSystemTime(new Date("2026-10-16T10:00:00Z"));
+  syncMediaState({ micMuted: true, deafened: false });
+  jest.setSystemTime(new Date("2026-10-16T10:00:05Z"));
+  jest.advanceTimersByTime(300);
+  expect(save).toHaveBeenCalledWith({ micMuted: true, deafened: false }, "2026-10-16T10:00:00.000Z", { keepalive: false });
 });
