@@ -12,15 +12,15 @@ export function useLocationSync(params: {
   selectionSeq: number;
   resolving: boolean;
   open: (location: AppLocation) => void;
-  leaveMessage: () => void;
+  revisit: (leftMessage: boolean) => void;
 }): void {
-  const { viewerId, current, selectionSeq, resolving, open, leaveMessage } = params;
+  const { viewerId, current, selectionSeq, resolving, open, revisit } = params;
   const location = useLocation();
   const navigate = useNavigate();
   const openRef = React.useRef(open);
   openRef.current = open;
-  const leaveMessageRef = React.useRef(leaveMessage);
-  leaveMessageRef.current = leaveMessage;
+  const revisitRef = React.useRef(revisit);
+  revisitRef.current = revisit;
   const currentKey = current ? appPath(current) : null;
   const seen = React.useRef<{ entry: string | null; current: string | null; selection: number; message: boolean }>({
     entry: null,
@@ -57,7 +57,7 @@ export function useLocationSync(params: {
       }
       if (urlLocation.kind === "settings") return;
       if (jump || !sameLocation(urlLocation, current)) openRef.current(urlLocation);
-      else if (leftMessage) leaveMessageRef.current();
+      else revisitRef.current(leftMessage);
       return;
     }
     const stale = !sameLocation(urlLocation, current) || (reselected && jump);

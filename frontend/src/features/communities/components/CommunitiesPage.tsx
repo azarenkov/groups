@@ -68,7 +68,7 @@ import { purgeCommunityLocally } from "../../../shared/ws/context";
 import InboxMenu from "../../inbox/components/InboxMenu";
 import { useDmOpenerStore } from "../../social/store/dmOpenerStore";
 import { appPath, parseAppPath, type AppLocation, type ChatLocation } from "../../navigation/lib/appLocation";
-import { registerAppNavigator } from "../../navigation/lib/appNavigator";
+import { noteAppEntry, registerAppNavigator } from "../../navigation/lib/appNavigator";
 import { useBrowserHistory } from "../../navigation/hooks/useBrowserHistory";
 import { useLocationSync } from "../../navigation/hooks/useLocationSync";
 import type { SectionId } from "../../settings/components/types";
@@ -158,7 +158,7 @@ const CommunitiesPage: React.FC = () => {
   });
   const [openMessage, setOpenMessage] = useState<{ convId: string; messageId: string | null } | null>(null);
   const navigate = useNavigate();
-  const { pathname, state: routeState } = useLocation();
+  const { pathname, state: routeState, key: entryKey } = useLocation();
   const pathLocation = parseAppPath(pathname, user?.id);
   const settingsSection = pathLocation?.kind === "settings" ? pathLocation.section : null;
   const settingsOpen = settingsSection !== null;
@@ -166,6 +166,7 @@ const CommunitiesPage: React.FC = () => {
     registerAppNavigator((path) => navigate(path));
     return () => registerAppNavigator(null);
   }, [navigate]);
+  useEffect(() => noteAppEntry(entryKey), [entryKey]);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalCommunity, setInviteModalCommunity] = useState<Community | null>(null);
   const [communitySettings, setCommunitySettings] = useState<Community | null>(null);
@@ -591,9 +592,10 @@ const CommunitiesPage: React.FC = () => {
       }
       else if (location.kind !== "settings") setPendingMessageLink(location);
     },
-    leaveMessage: () => {
+    revisit: (leftMessage) => {
+      setUnavailable(null);
       const convId = selectedDm?.id ?? selectedChannelId;
-      if (convId) setOpenMessage({ convId, messageId: null });
+      if (leftMessage && convId) setOpenMessage({ convId, messageId: null });
     },
   });
   const unavailableRef = React.useRef(unavailable);

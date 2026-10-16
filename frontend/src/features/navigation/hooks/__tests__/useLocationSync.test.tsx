@@ -21,9 +21,9 @@ const Harness: React.FC<{
   selectionSeq?: number;
   resolving?: boolean;
   open: (location: AppLocation) => void;
-  leaveMessage?: () => void;
-}> = ({ current, selectionSeq = 0, resolving = false, open, leaveMessage = () => {} }) => {
-  useLocationSync({ viewerId: me, current, selectionSeq, resolving, open, leaveMessage });
+  revisit?: (leftMessage: boolean) => void;
+}> = ({ current, selectionSeq = 0, resolving = false, open, revisit = () => {} }) => {
+  useLocationSync({ viewerId: me, current, selectionSeq, resolving, open, revisit });
   history = useBrowserHistory();
   const location = useLocation();
   seenPath = `${location.pathname}${location.search}`;
@@ -112,32 +112,42 @@ it("jumps again when the same message address is opened a second time", () => {
 
 it("returns to the regular chat view when going back from a message address", () => {
   const open = jest.fn();
-  const leaveMessage = jest.fn();
-  renderAt(`/app/dm/${peer}`, { current: { kind: "dm", peerId: peer }, open, leaveMessage });
+  const revisit = jest.fn();
+  renderAt(`/app/dm/${peer}`, { current: { kind: "dm", peerId: peer }, open, revisit });
   act(() => navigateTo(`/app/dm/${peer}/${message}`));
   expect(open).toHaveBeenLastCalledWith({ kind: "dm", peerId: peer, messageId: message });
   act(() => history?.goHistory(-1));
   expect(seenPath).toBe(`/app/dm/${peer}`);
   expect(open).toHaveBeenCalledTimes(1);
-  expect(leaveMessage).toHaveBeenCalledTimes(1);
+  expect(revisit.mock.calls.filter(([left]) => left)).toHaveLength(1);
   act(() => navigateTo(`/app/dm/${peer}`));
-  expect(leaveMessage).toHaveBeenCalledTimes(1);
+  expect(revisit.mock.calls.filter(([left]) => left)).toHaveLength(1);
 });
 
 it("leaves a message address when the open chat is selected again", () => {
   const open = jest.fn();
-  const leaveMessage = jest.fn();
+  const revisit = jest.fn();
   const at = (selectionSeq: number) => (
     <MemoryRouter initialEntries={[`/app/dm/${peer}/${message}`]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <Harness current={{ kind: "dm", peerId: peer }} selectionSeq={selectionSeq} open={open} leaveMessage={leaveMessage} />
+      <Harness current={{ kind: "dm", peerId: peer }} selectionSeq={selectionSeq} open={open} revisit={revisit} />
     </MemoryRouter>
   );
   const view = render(at(0));
   expect(open).toHaveBeenCalledTimes(1);
   view.rerender(at(1));
   expect(seenPath).toBe(`/app/dm/${peer}`);
-  expect(leaveMessage).toHaveBeenCalledTimes(1);
+  expect(revisit.mock.calls.filter(([left]) => left)).toHaveLength(1);
   expect(open).toHaveBeenCalledTimes(1);
+});
+
+it("reports a history return to the chat that is already open", () => {
+  const open = jest.fn();
+  const revisit = jest.fn();
+  renderAt(`/app/dm/${peer}`, { current: { kind: "dm", peerId: peer }, open, revisit });
+  act(() => navigateTo(`/app/dm/${other}`));
+  act(() => history?.goHistory(-1));
+  expect(seenPath).toBe(`/app/dm/${peer}`);
+  expect(revisit).toHaveBeenLastCalledWith(false);
 });
 
 it("does not forget the last chat while settings or a link is open", () => {

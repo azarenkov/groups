@@ -5,7 +5,8 @@ import { notificationPrefsLoaded, useNotificationPrefsStore } from "../../settin
 import { defaultMentionLevel, desktopNotifAllowed, messageSoundAllowed } from "../../settings/store/notificationSettingsStore";
 import { useReadReceiptStore } from "../store/readReceiptStore";
 import { useUnreadStore } from "../store/unreadStore";
-import { openAppLocation } from "../../navigation/lib/appNavigator";
+import { openAppLocationOnceResolved } from "../../navigation/lib/appNavigator";
+import type { AppLocation } from "../../navigation/lib/appLocation";
 import { findLoadedChannel, resolveChannelCommunity } from "../../communities/lib/channelLookup";
 import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
 import { mentionsUser } from "../lib/mentions";
@@ -58,9 +59,11 @@ export const chatHandlers: WsHandlers = {
           channelName ? `#${channelName}` : "Rift",
           notificationBody(asString(d.content), d.attachments, d.sticker),
           () =>
-            void resolveChannelCommunity(channelId).then((resolved) => {
-              if (resolved) openAppLocation({ kind: "channel", communityId: resolved, channelId, messageId });
-            }),
+            void openAppLocationOnceResolved(
+              resolveChannelCommunity(channelId).then((communityId): AppLocation | null =>
+                communityId ? { kind: "channel", communityId, channelId, messageId } : null,
+              ),
+            ),
         );
       }
       return;
