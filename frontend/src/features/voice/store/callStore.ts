@@ -388,7 +388,7 @@ export const useCallStore = create<CallState>()((set, get) => {
         return "unreachable";
       }
       set({ reconnecting: false });
-      reportVoiceCue({ type: "connected", room: callRoom(active.callId), reconnect: !restoring });
+      reportVoiceCue({ type: "connected", room: callRoom(active.callId), reconnect: true });
       if (get().deafened && get().activeCallId === active.callId) service.setDeafened(true);
     }
     if ((useAuthStore.getState().user?.id ?? null) !== userId) {

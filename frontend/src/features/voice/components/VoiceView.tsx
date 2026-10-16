@@ -64,6 +64,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   onLeaveRef.current = onLeave;
   const reconnectRef = useRef({ reconnecting, onReconnect, onReconnected });
   reconnectRef.current = { reconnecting, onReconnect, onReconnected };
+  const retryingRef = useRef(false);
   const {
     participants,
     videoTiles,
@@ -89,6 +90,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       const { reconnecting: retrying, onReconnect: retry } = reconnectRef.current;
       if (retry && !retrying && isRecoverableDisconnect(reason)) {
         console.warn("[VoiceView] connection lost, rejoining:", reason);
+        retryingRef.current = true;
         retry();
         return;
       }
@@ -167,7 +169,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       reportVoiceCue({
         type: "disconnected",
         room: { kind: "channel", id: channelId },
-        reconnecting: reconnectRef.current.reconnecting,
+        reconnecting: reconnectRef.current.reconnecting || retryingRef.current,
       });
       hasJoinedRef.current = false;
       currentChannelRef.current = null;
