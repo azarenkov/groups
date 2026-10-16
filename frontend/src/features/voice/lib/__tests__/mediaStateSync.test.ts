@@ -41,3 +41,19 @@ it("keeps a change that failed to save and tries again", async () => {
   expect(save).toHaveBeenCalledTimes(2);
   expect(save).toHaveBeenLastCalledWith({ micMuted: true, deafened: false }, { keepalive: false });
 });
+
+it("never retries an older state over a newer one", async () => {
+  let failFirst: (reason: Error) => void = () => {};
+  save.mockImplementationOnce(() => new Promise((_, reject) => (failFirst = reject)));
+  syncMediaState({ micMuted: false, deafened: false });
+  jest.advanceTimersByTime(300);
+  syncMediaState({ micMuted: true, deafened: false });
+  jest.advanceTimersByTime(300);
+  expect(save).toHaveBeenCalledTimes(1);
+  failFirst(new Error("offline"));
+  await Promise.resolve();
+  await Promise.resolve();
+  jest.advanceTimersByTime(5000);
+  expect(save).toHaveBeenCalledTimes(2);
+  expect(save).toHaveBeenLastCalledWith({ micMuted: true, deafened: false }, { keepalive: false });
+});

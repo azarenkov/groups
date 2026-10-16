@@ -6,6 +6,9 @@ it("tries to return after a dropped connection or a server restart", () => {
   expect(isRecoverableDisconnect(DisconnectReason.SIGNAL_CLOSE)).toBe(true);
   expect(isRecoverableDisconnect(DisconnectReason.UNKNOWN_REASON)).toBe(true);
   expect(isRecoverableDisconnect(DisconnectReason.SERVER_SHUTDOWN)).toBe(true);
+  expect(isRecoverableDisconnect(DisconnectReason.CONNECTION_TIMEOUT)).toBe(true);
+  expect(isRecoverableDisconnect(DisconnectReason.MEDIA_FAILURE)).toBe(true);
+  expect(isRecoverableDisconnect(DisconnectReason.JOIN_FAILURE)).toBe(true);
 });
 
 it("stays out after leaving, being removed or being replaced by another tab", () => {

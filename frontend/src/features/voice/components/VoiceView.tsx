@@ -129,6 +129,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       (!hasJoinedRef.current || currentChannelRef.current !== channelId) &&
       !isJoiningRef.current;
 
+    let current = true;
     if (shouldJoin) {
       hasJoinedRef.current = true;
       currentChannelRef.current = channelId;
@@ -140,12 +141,14 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           isJoiningRef.current = false;
           if (!restoredMedia) return;
           const media = await restoredMedia;
+          if (!current) return;
           restoringMediaRef.current = false;
           if (media?.deafened) restoreDeafenRef.current(media.micMuted);
           reconnectRef.current.onReconnected?.();
         })
         .catch((err) => {
           console.error("[VoiceView] join failed:", err);
+          if (!current) return;
           hasJoinedRef.current = false;
           isJoiningRef.current = false;
           const message =
@@ -155,6 +158,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     }
 
     return () => {
+      current = false;
       hasJoinedRef.current = false;
       currentChannelRef.current = null;
       isJoiningRef.current = false;
