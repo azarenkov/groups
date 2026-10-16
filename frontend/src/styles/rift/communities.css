@@ -396,8 +396,10 @@
   color: var(--fg-1);
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
+  transition: background var(--dur-fast);
 }
 .sb-add-row.secondary:hover .sb-add-row-ico { color: var(--fg-1); }
+.sb-add-row:not(.sb-footer-back):hover .sb-add-row-ico { background: var(--control-fill); }
 .sb-community-head {
   display: flex; align-items: center; gap: 10px;
   padding: 4px 8px 8px;
@@ -1283,7 +1285,7 @@ textarea.ssv-input:focus-visible {
   cursor: pointer;
   transition: background var(--dur-fast), color var(--dur-fast);
 }
-.sb-rail-btn:hover, .sb-rail-btn.active { color: var(--fg-1); }
+.sb-rail-btn:hover, .sb-rail-btn.active { background: var(--control-fill); color: var(--fg-1); }
 .sb-rail-switch {
   display: flex; flex-direction: column; gap: 3px;
   padding: 3px; margin: 4px 0;
@@ -1298,7 +1300,7 @@ textarea.ssv-input:focus-visible {
   cursor: pointer;
   transition: background var(--dur-fast), color var(--dur-fast);
 }
-.sb-rail-switch-btn:hover { color: var(--fg-1); }
+.sb-rail-switch-btn:hover { background: var(--control-fill); color: var(--fg-1); }
 .sb-rail-switch-btn.active {
   background: var(--control-fill); color: var(--fg-1);
 }
@@ -1355,7 +1357,7 @@ textarea.ssv-input:focus-visible {
   border-radius: 50%;
   background: transparent; color: var(--fg-2);
 }
-.sb-mini-more:hover { background: transparent; color: var(--fg-1); }
+.sb-mini-more:hover { background: var(--control-fill); color: var(--fg-1); }
 .sb-mini-hidden { margin: 0 0 4px; }
 .sb-mini-hidden.open { color: var(--fg-1); }
 .sb-mini-more .sb-mini-badge { top: -2px; right: -2px; }
@@ -1516,9 +1518,9 @@ body.electron .topbar .account-dropdown { -webkit-app-region: no-drag; }
   background: transparent; color: var(--fg-2);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
-  transition: transform var(--dur-fast), color var(--dur-fast);
+  transition: transform var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
 }
-.inbox-trigger:hover, .inbox-trigger.on { color: var(--fg-1); }
+.inbox-trigger:hover, .inbox-trigger.on { background: var(--control-fill); color: var(--fg-1); }
 .inbox-trigger:hover { transform: scale(1.04); }
 .inbox-badge {
   position: absolute; top: 4px; right: 2px;
