@@ -13,14 +13,16 @@ export function useBrowserHistory() {
 
   React.useEffect(() => {
     const key = location.key;
-    if (navigationType === "PUSH") {
-      entries.current = [...entries.current.slice(0, index.current + 1), key];
-      index.current = entries.current.length - 1;
-    } else if (navigationType === "REPLACE") {
-      entries.current[index.current] = key;
-    } else {
-      const found = entries.current.indexOf(key);
-      if (found >= 0) index.current = found;
+    if (entries.current[index.current] !== key) {
+      if (navigationType === "PUSH") {
+        entries.current = [...entries.current.slice(0, index.current + 1), key];
+        index.current = entries.current.length - 1;
+      } else if (navigationType === "REPLACE") {
+        entries.current[index.current] = key;
+      } else {
+        const found = entries.current.indexOf(key);
+        if (found >= 0) index.current = found;
+      }
     }
     setNavState({ back: index.current > 0, forward: index.current < entries.current.length - 1 });
   }, [location.key, navigationType]);

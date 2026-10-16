@@ -1,6 +1,6 @@
 import React from "react";
 import { act, render } from "@testing-library/react";
-import { MemoryRouter, useLocation, useNavigate, type NavigateFunction } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useNavigate, type NavigateFunction } from "react-router-dom";
 
 import { useLocationSync } from "../useLocationSync";
 import { useBrowserHistory } from "../useBrowserHistory";
@@ -159,4 +159,24 @@ it("writes a selection made while a link was resolving once the link is dropped"
   expect(seenPath).toBe(`/app/dm/${other}`);
   view.rerender(routed({ kind: "dm", peerId: peer }, false));
   expect(seenPath).toBe(`/app/dm/${peer}`);
+});
+
+it("does not count the entry the app was opened on twice", () => {
+  const open = jest.fn();
+  let goToApp: NavigateFunction = () => {};
+  const Login: React.FC = () => {
+    goToApp = useNavigate();
+    return null;
+  };
+  render(
+    <MemoryRouter initialEntries={["/login"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/app/*" element={<Harness current={{ kind: "home" }} open={open} />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  act(() => goToApp("/app"));
+  expect(seenPath).toBe("/app/home");
+  expect(history?.navState).toEqual({ back: false, forward: false });
 });

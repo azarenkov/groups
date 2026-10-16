@@ -186,16 +186,19 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [jumpProblem, setJumpProblem] = React.useState<"missing" | "failed" | null>(null);
   React.useEffect(() => setJumpProblem(null), [convId]);
   React.useEffect(() => {
-    if (openMessageId === undefined || showInitialLoader) return;
-    closeSearch();
+    if (openMessageId === undefined) return;
     if (openMessageId === null) {
+      closeSearch();
       setJumpProblem(null);
       showLatest();
-    } else {
-      void jumpToMessageId(openMessageId).then((result) => {
-        if (result !== "stale") setJumpProblem(result === "shown" ? null : result);
-      });
+      onOpenHandledRef.current?.();
+      return;
     }
+    if (showInitialLoader) return;
+    closeSearch();
+    void jumpToMessageId(openMessageId).then((result) => {
+      if (result !== "stale") setJumpProblem(result === "shown" ? null : result);
+    });
     onOpenHandledRef.current?.();
   }, [openMessageId, showInitialLoader, jumpToMessageId, showLatest, closeSearch]);
 

@@ -141,6 +141,7 @@ export function useMessages(params: {
   const convIdRef = React.useRef(convId);
   convIdRef.current = convId;
   const jumpRequestRef = React.useRef(0);
+  const jumpLoaderRef = React.useRef<symbol | null>(null);
   currentChannelIdRef.current = convId;
 
   const isConversation = isText || isDm;
@@ -165,6 +166,7 @@ export function useMessages(params: {
     setAccessError(null);
     restoreScrollRef.current = null;
     tailIdRef.current = null;
+    jumpLoaderRef.current = null;
     if (bodyRef.current) bodyRef.current.style.overflowAnchor = "";
     if (cached && convId) {
       setMessages(cached.messages);
@@ -410,6 +412,8 @@ export function useMessages(params: {
       await pendingRevalidation.done;
       if (convIdRef.current !== targetId) return true;
     }
+    const loader = Symbol("jump");
+    jumpLoaderRef.current = loader;
     setLoadingInitial(true);
     try {
       const [olderRes, newerRes] = await Promise.all([
@@ -436,7 +440,8 @@ export function useMessages(params: {
       console.warn("[ChatView] failed to jump to message:", err);
       return false;
     } finally {
-      if (currentChannelIdRef.current === targetId) {
+      if (currentChannelIdRef.current === targetId && jumpLoaderRef.current === loader) {
+        jumpLoaderRef.current = null;
         setLoadingInitial(false);
       }
     }
@@ -493,6 +498,10 @@ export function useMessages(params: {
 
   const showLatest = React.useCallback(() => {
     ++jumpRequestRef.current;
+    if (jumpLoaderRef.current) {
+      jumpLoaderRef.current = null;
+      setLoadingInitial(false);
+    }
     setHighlightedMessageId(null);
     nearBottomRef.current = true;
     const body = bodyRef.current;
