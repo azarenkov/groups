@@ -1300,7 +1300,7 @@ textarea.ssv-input:focus-visible {
 }
 .sb-rail-switch-btn:hover { color: var(--fg-1); }
 .sb-rail-switch-btn.active {
-  color: var(--fg-1);
+  background: var(--control-fill); color: var(--fg-1);
 }
 .sb-rail-dot {
   position: absolute; top: 8px; right: 9px;
