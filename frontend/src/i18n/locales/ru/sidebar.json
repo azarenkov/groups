@@ -150,6 +150,5 @@
   "clearChatTitle": "Удалить переписку с {{name}}?",
   "clearChatSub": "Сообщения, файлы и закрепы удалятся. Это нельзя отменить.",
   "clearChatMe": "Только у меня",
-  "clearChatEveryone": "Удалить у обоих",
-  "pendingRequests": "Заявки в друзья"
+  "clearChatEveryone": "Удалить у обоих"
 }
