@@ -8,22 +8,26 @@ import { useCallStore } from "./callStore";
 const RETRY_EVERY_MS = 3000;
 
 let installed = false;
+let resuming: Promise<void> | null = null;
 
-async function recoverCall(callId: string): Promise<void> {
-  const deadline = Date.now() + RECONNECT_WINDOW_MS;
-  useCallStore.setState({ reconnecting: true });
-  try {
-    while (useCallStore.getState().activeCallId === callId) {
-      if ((await useCallStore.getState().rehydrate()) !== "unreachable") return;
-      if (Date.now() >= deadline) {
-        await useCallStore.getState().leave();
-        return;
+export function resumeCall(): Promise<void> {
+  if (resuming) return resuming;
+  resuming = (async () => {
+    const deadline = Date.now() + RECONNECT_WINDOW_MS;
+    try {
+      while ((await useCallStore.getState().rehydrate()) === "unreachable") {
+        if (Date.now() >= deadline) {
+          if (useCallStore.getState().activeCallId) await useCallStore.getState().leave();
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, RETRY_EVERY_MS));
       }
-      await new Promise((resolve) => setTimeout(resolve, RETRY_EVERY_MS));
+    } finally {
+      useCallStore.setState({ reconnecting: false });
+      resuming = null;
     }
-  } finally {
-    useCallStore.setState({ reconnecting: false });
-  }
+  })();
+  return resuming;
 }
 
 export function installCallSessionSync(): void {
@@ -54,6 +58,7 @@ export function installCallSessionSync(): void {
   service.subscribeConnectionLost((roomName, reason) => {
     const { activeCallId } = useCallStore.getState();
     if (!activeCallId || roomName !== activeCallId || !isRecoverableDisconnect(reason)) return;
-    void recoverCall(activeCallId);
+    useCallStore.setState({ reconnecting: true });
+    void resumeCall();
   });
 }

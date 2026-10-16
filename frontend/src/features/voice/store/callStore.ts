@@ -379,14 +379,11 @@ export const useCallStore = create<CallState>()((set, get) => {
           active.callId,
           get().micMuted || get().deafened,
         );
-      } catch {
-        if (get().activeCallId === active.callId) {
-          set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null });
-        }
-        return "settled";
-      } finally {
-        set({ reconnecting: false });
+      } catch (e) {
+        console.warn("[call] could not reach the call room yet:", e);
+        return "unreachable";
       }
+      set({ reconnecting: false });
       if (get().deafened && get().activeCallId === active.callId) service.setDeafened(true);
     }
     if ((useAuthStore.getState().user?.id ?? null) !== userId) {

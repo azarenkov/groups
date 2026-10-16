@@ -349,7 +349,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
   if (!mountPoint) return null;
 
-  if (error) {
+  if (error && !reconnecting) {
     return createPortal(
       <div
         className="voice-pill in-dock"
@@ -368,7 +368,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     );
   }
 
-  if (!isConnected) {
+  if (!isConnected || error) {
     return createPortal(
       <div className="voice-pill in-dock connecting">
         <div className="vp-meta-wrap">

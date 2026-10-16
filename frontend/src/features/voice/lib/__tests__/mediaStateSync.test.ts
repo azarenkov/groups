@@ -29,3 +29,15 @@ it("sends a change that has not been saved yet when the tab goes away", () => {
   jest.advanceTimersByTime(300);
   expect(save).toHaveBeenCalledTimes(1);
 });
+
+it("keeps a change that failed to save and tries again", async () => {
+  save.mockRejectedValueOnce(new Error("offline"));
+  syncMediaState({ micMuted: true, deafened: false });
+  jest.advanceTimersByTime(300);
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(save).toHaveBeenCalledTimes(1);
+  jest.advanceTimersByTime(5000);
+  expect(save).toHaveBeenCalledTimes(2);
+  expect(save).toHaveBeenLastCalledWith({ micMuted: true, deafened: false }, { keepalive: false });
+});

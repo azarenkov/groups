@@ -127,3 +127,12 @@ it("keeps the call and the tab's hint when the server cannot be reached", async 
   expect(useCallStore.getState().activeCallId).toBe("c1");
   expect(connectToRoom).not.toHaveBeenCalled();
 });
+
+it("keeps the call to try again when the room cannot be reached yet", async () => {
+  connectToRoom.mockRejectedValueOnce(new Error("livekit restarting"));
+  useCallStore.setState({ activeCallId: "c1", micMuted: false, deafened: false });
+  expect(await useCallStore.getState().rehydrate()).toBe("unreachable");
+  expect(useCallStore.getState().activeCallId).toBe("c1");
+  expect(await useCallStore.getState().rehydrate()).toBe("settled");
+  expect(connectToRoom).toHaveBeenCalledTimes(2);
+});
