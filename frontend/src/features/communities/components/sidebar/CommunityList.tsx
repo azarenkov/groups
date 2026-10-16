@@ -22,6 +22,7 @@ interface CommunityListProps {
   voiceMembersByChannel?: Record<string, SidebarVoiceMember[]>;
   unreadFor: (communityId: string) => number;
   onCreateCommunity: () => void;
+  onJoinCommunity: () => void;
   onPick: (community: Community) => void;
   perms: SidebarPermissions;
   currentUserId?: string;
@@ -38,6 +39,7 @@ const CommunityList: React.FC<CommunityListProps> = ({
   voiceMembersByChannel,
   unreadFor,
   onCreateCommunity,
+  onJoinCommunity,
   onPick,
   perms,
   currentUserId,
@@ -162,6 +164,16 @@ const CommunityList: React.FC<CommunityListProps> = ({
           <Icon name="plus" size={20} />
         </span>
         <span>{t("createCommunity")}</span>
+      </button>
+      <button
+        type="button"
+        className="sb-add-row secondary plain"
+        onClick={onJoinCommunity}
+      >
+        <span className="sb-add-row-ico">
+          <Icon name="logout" size={20} />
+        </span>
+        <span>{t("joinCommunity")}</span>
       </button>
       <div className="sb-vhead">
         <span className="sb-vhead-label">{t("communities")}</span>

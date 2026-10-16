@@ -402,6 +402,7 @@
   color: var(--fg-1);
 }
 .sb-add-row.secondary:hover .sb-add-row-ico { color: var(--fg-1); }
+.sb-add-row.plain .sb-add-row-ico { background: transparent; }
 .sb-community-head {
   display: flex; align-items: center; gap: 10px;
   padding: 4px 8px 8px;
@@ -1360,7 +1361,7 @@ textarea.ssv-input:focus-visible {
 .sb-mini-more {
   width: 44px; height: 44px; margin-top: 2px;
   border-radius: 50%;
-  background: var(--surface-sunken); color: var(--fg-2);
+  background: transparent; color: var(--fg-2);
 }
 .sb-mini-more:hover { background: var(--surface-hover); color: var(--fg-1); }
 .sb-mini-hidden { margin: 0 0 4px; }
