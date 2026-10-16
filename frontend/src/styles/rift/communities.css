@@ -1410,7 +1410,7 @@ body.sb-resizing { cursor: col-resize; user-select: none; }
   flex-shrink: 0;
   width: 48px; height: 48px;
   border: 0; border-radius: 50%;
-  background: transparent; color: var(--fg-2);
+  background: var(--surface-sunken); color: var(--fg-2);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   transition: background var(--dur-fast), color var(--dur-fast), transform var(--dur-fast);
@@ -1522,7 +1522,7 @@ body.electron .topbar .account-dropdown { -webkit-app-region: no-drag; }
   position: relative;
   width: 44px; height: 44px; padding: 0;
   border: 0; border-radius: 50%;
-  background: transparent; color: var(--fg-2);
+  background: var(--surface-sunken); color: var(--fg-2);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   transition: transform var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
