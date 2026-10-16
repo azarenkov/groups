@@ -136,6 +136,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     highlightedMessageId,
     setHighlightedMessageId,
     showInitialLoader,
+    historyLoading,
     bodyRef,
     currentChannelIdRef,
     handleScroll,
@@ -194,13 +195,13 @@ const ChatView: React.FC<ChatViewProps> = ({
       onOpenHandledRef.current?.();
       return;
     }
-    if (showInitialLoader) return;
+    if (historyLoading) return;
     closeSearch();
     void jumpToMessageId(openMessageId).then((result) => {
       if (result !== "stale") setJumpProblem(result === "shown" ? null : result);
     });
     onOpenHandledRef.current?.();
-  }, [openMessageId, showInitialLoader, jumpToMessageId, showLatest, closeSearch]);
+  }, [openMessageId, historyLoading, jumpToMessageId, showLatest, closeSearch]);
 
   const searchActive = search.searchOpen && search.searchInput.trim().length > 0;
 

@@ -40,7 +40,10 @@ const Harness: React.FC = () => {
   return <div ref={latest.bodyRef} />;
 };
 
-beforeEach(() => clearMessageCache());
+beforeEach(() => {
+  clearMessageCache();
+  pending.length = 0;
+});
 
 it("drops an in-flight jump and its loader when the regular view is requested", async () => {
   render(<Harness />);
@@ -121,4 +124,29 @@ it("does not start a jump that was cancelled while the cached chat was revalidat
   expect(await jump).toBe("stale");
   expect(contextRequests).not.toHaveBeenCalled();
   expect(current!.showInitialLoader).toBe(false);
+});
+
+it("lets a newer jump in while an older jump is loading its context", async () => {
+  render(<Harness />);
+  await waitFor(() => expect(latest!.historyLoading).toBe(false));
+  let first: Promise<unknown> | undefined;
+  act(() => {
+    first = latest!.jumpToMessageId("m1");
+  });
+  await waitFor(() => expect(latest!.showInitialLoader).toBe(true));
+  expect(latest!.historyLoading).toBe(false);
+  let second: Promise<unknown> | undefined;
+  act(() => {
+    second = latest!.jumpToMessageId("m1");
+  });
+  await act(async () => {
+    pending.forEach((resolve) => resolve({ messages: [] }));
+    await first;
+    await waitFor(() => expect(pending.length).toBe(4));
+    pending.slice(2).forEach((resolve) => resolve({ messages: [] }));
+    await second;
+  });
+  expect(await first).toBe("stale");
+  expect(await second).toBe("shown");
+  expect(latest!.showInitialLoader).toBe(false);
 });

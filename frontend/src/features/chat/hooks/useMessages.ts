@@ -148,6 +148,7 @@ export function useMessages(params: {
   const conversationNotReady =
     isConversation && loadedChannelIdRef.current !== convId;
   const showInitialLoader = loadingInitial || conversationNotReady;
+  const historyLoading = conversationNotReady || (loadingInitial && jumpLoaderRef.current === null);
 
   const hasMoreRef = React.useRef(hasMore);
   hasMoreRef.current = hasMore;
@@ -520,6 +521,7 @@ export function useMessages(params: {
     highlightedMessageId,
     setHighlightedMessageId,
     showInitialLoader,
+    historyLoading,
     bodyRef,
     currentChannelIdRef,
     handleScroll,

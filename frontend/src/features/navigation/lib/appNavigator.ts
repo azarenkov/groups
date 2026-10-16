@@ -3,14 +3,14 @@ import { appPath, type AppLocation } from "./appLocation";
 type Navigate = (path: string) => void;
 
 let navigate: Navigate | null = null;
-let currentEntry: string | null = null;
+let currentIntent: string | null = null;
 
 export function registerAppNavigator(next: Navigate | null): void {
   navigate = next;
 }
 
-export function noteAppEntry(entry: string): void {
-  currentEntry = entry;
+export function noteAppIntent(intent: string): void {
+  currentIntent = intent;
 }
 
 export function openAppLocation(location: AppLocation): void {
@@ -18,7 +18,7 @@ export function openAppLocation(location: AppLocation): void {
 }
 
 export async function openAppLocationOnceResolved(pending: Promise<AppLocation | null>): Promise<void> {
-  const entry = currentEntry;
+  const intent = currentIntent;
   const location = await pending;
-  if (location && entry === currentEntry) openAppLocation(location);
+  if (location && intent === currentIntent) openAppLocation(location);
 }

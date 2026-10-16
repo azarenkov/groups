@@ -70,7 +70,7 @@ import { purgeCommunityLocally } from "../../../shared/ws/context";
 import InboxMenu from "../../inbox/components/InboxMenu";
 import { useDmOpenerStore } from "../../social/store/dmOpenerStore";
 import { appPath, parseAppPath, type AppLocation, type ChatLocation } from "../../navigation/lib/appLocation";
-import { noteAppEntry, registerAppNavigator } from "../../navigation/lib/appNavigator";
+import { noteAppIntent, registerAppNavigator } from "../../navigation/lib/appNavigator";
 import { useBrowserHistory } from "../../navigation/hooks/useBrowserHistory";
 import { useLocationSync } from "../../navigation/hooks/useLocationSync";
 import type { SectionId } from "../../settings/components/types";
@@ -168,7 +168,6 @@ const CommunitiesPage: React.FC = () => {
     registerAppNavigator((path) => navigate(path));
     return () => registerAppNavigator(null);
   }, [navigate]);
-  useEffect(() => noteAppEntry(entryKey), [entryKey]);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalCommunity, setInviteModalCommunity] = useState<Community | null>(null);
   const [communitySettings, setCommunitySettings] = useState<Community | null>(null);
@@ -613,6 +612,7 @@ const CommunitiesPage: React.FC = () => {
   useEffect(() => {
     setOpenMessage((queued) => (queued && queued.convId !== openConversationId ? null : queued));
   }, [openConversationId]);
+  useEffect(() => noteAppIntent(`${entryKey}:${selection.selectionSeq}`), [entryKey, selection.selectionSeq]);
   const lastSelection = React.useRef(selection.selectionSeq);
   useEffect(() => {
     if (lastSelection.current === selection.selectionSeq) return;
@@ -622,6 +622,7 @@ const CommunitiesPage: React.FC = () => {
   const goHome = () => {
     setUnavailable(null);
     if (pathLocation?.kind !== "home") navigate(appPath({ kind: "home" }));
+    else selection.handleGoHome();
   };
   const closeSettings = () => {
     if (settingsOpenedInApp) navigate(-1);
