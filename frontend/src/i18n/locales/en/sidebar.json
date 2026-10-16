@@ -146,6 +146,5 @@
   "clearChatTitle": "Delete chat history with {{name}}?",
   "clearChatSub": "Messages, files and pins will be removed. This can't be undone.",
   "clearChatMe": "Only for me",
-  "clearChatEveryone": "Delete for both",
-  "pendingRequests": "Friend requests"
+  "clearChatEveryone": "Delete for both"
 }

@@ -8,6 +8,11 @@ import { queryClient } from "../../../../shared/query/queryClient";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { useFriendshipStore } from "../../../social/store/friendshipStore";
 import { refreshInbox } from "../../lib/inbox";
+import { friendshipAPI } from "../../../social/api/friendship";
+
+jest.mock("../../../social/api/friendship", () => ({
+  friendshipAPI: { list: jest.fn() },
+}));
 
 jest.mock("../../api/inbox", () => ({
   inboxAPI: {
@@ -51,6 +56,15 @@ beforeEach(() => {
   api.unread.mockResolvedValue(1);
   api.list.mockResolvedValue({ items: [invitation, friendRequest], nextCursor: null });
   api.markRead.mockResolvedValue();
+  (friendshipAPI.list as jest.Mock).mockImplementation(async ({ status }: { status: string }) => ({
+    friends:
+      status === "pending_incoming"
+        ? [{ friendId: "u2", friendName: "Bob", status }]
+        : status === "pending_outgoing"
+          ? [{ friendId: "u3", friendName: "Carol", status }]
+          : [],
+    nextCursor: null,
+  }));
 });
 
 const openInbox = async () => {
@@ -60,7 +74,7 @@ const openInbox = async () => {
 };
 
 it("shows the unread count and marks the displayed notifications read once opened", async () => {
-  render(<InboxMenu onOpenCommunity={jest.fn()} onOpenFriendRequests={jest.fn()} />);
+  render(<InboxMenu onOpenCommunity={jest.fn()} />);
   expect(await screen.findByText("1")).toBeInTheDocument();
   await openInbox();
   expect(await screen.findByText(/Alice invited you to “Night Owls”/)).toBeInTheDocument();
@@ -71,7 +85,7 @@ it("shows the unread count and marks the displayed notifications read once opene
 it("keeps unread notifications beyond the loaded page unread until read all is pressed", async () => {
   api.unread.mockResolvedValue(3);
   api.list.mockResolvedValue({ items: [invitation, friendRequest], nextCursor: "next" });
-  render(<InboxMenu onOpenCommunity={jest.fn()} onOpenFriendRequests={jest.fn()} />);
+  render(<InboxMenu onOpenCommunity={jest.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: i18n.t("sidebar:inboxUnreadLabel", { count: 3 }) }));
   await waitFor(() => expect(api.markRead).toHaveBeenCalledWith(["n1"]));
   expect(await screen.findByText("2")).toBeInTheDocument();
@@ -83,7 +97,7 @@ it("keeps unread notifications beyond the loaded page unread until read all is p
 it("accepts an invitation from the inbox and opens the community", async () => {
   const onOpenCommunity = jest.fn();
   api.acceptInvitation.mockResolvedValue({ communityId: "c1" });
-  render(<InboxMenu onOpenCommunity={onOpenCommunity} onOpenFriendRequests={jest.fn()} />);
+  render(<InboxMenu onOpenCommunity={onOpenCommunity} />);
   await openInbox();
   await screen.findByText(/Night Owls/);
   const row = screen.getByText(/Night Owls/).closest(".inbox-item") as HTMLElement;
@@ -94,7 +108,7 @@ it("accepts an invitation from the inbox and opens the community", async () => {
 
 it("puts a declined invitation back when the server refuses", async () => {
   api.declineInvitation.mockRejectedValue(new Error("down"));
-  render(<InboxMenu onOpenCommunity={jest.fn()} onOpenFriendRequests={jest.fn()} />);
+  render(<InboxMenu onOpenCommunity={jest.fn()} />);
   await openInbox();
   await screen.findByText(/Night Owls/);
   const row = screen.getByText(/Night Owls/).closest(".inbox-item") as HTMLElement;
@@ -107,7 +121,7 @@ it("puts a declined invitation back when the server refuses", async () => {
 
 it("refetches the inbox after rolling back so newer notifications are not lost", async () => {
   api.declineInvitation.mockRejectedValue(new Error("down"));
-  render(<InboxMenu onOpenCommunity={jest.fn()} onOpenFriendRequests={jest.fn()} />);
+  render(<InboxMenu onOpenCommunity={jest.fn()} />);
   await openInbox();
   await screen.findByText(/Night Owls/);
   const newer: InboxItem = { ...friendRequest, id: "n3", actor: { id: "u3", name: "Carol" }, read: false };
@@ -118,39 +132,34 @@ it("refetches the inbox after rolling back so newer notifications are not lost",
   expect(await screen.findByText(/Carol/)).toBeInTheDocument();
 });
 
-it("offers friend request actions only while the request is still incoming", async () => {
+it("lists pending friend requests with their actions inside the inbox", async () => {
   const accept = jest.fn().mockResolvedValue(undefined);
-  useFriendshipStore.setState({ accept });
-  render(<InboxMenu onOpenCommunity={jest.fn()} onOpenFriendRequests={jest.fn()} />);
+  const remove = jest.fn().mockResolvedValue(undefined);
+  useFriendshipStore.setState({ accept, remove, statusById: { u2: "pending_incoming", u3: "pending_outgoing" } });
+  render(<InboxMenu onOpenCommunity={jest.fn()} />);
   await openInbox();
-  const row = (await screen.findByText(/Bob wants to be your friend/)).closest(".inbox-item") as HTMLElement;
-  fireEvent.click(row.querySelector(".inbox-action.primary") as HTMLElement);
+  const bob = (await screen.findByText("Bob", { selector: ".pf-name" })).closest(".pf-row") as HTMLElement;
+  const carol = (await screen.findByText("Carol", { selector: ".pf-name" })).closest(".pf-row") as HTMLElement;
+  expect(screen.getByText(`${i18n.t("modals:pendingFriends.incoming")} · 1`)).toBeInTheDocument();
+  fireEvent.click(carol.querySelector(`[aria-label="${i18n.t("modals:pendingFriends.cancel")}"]`) as HTMLElement);
+  await waitFor(() => expect(remove).toHaveBeenCalledWith("u3"));
+  fireEvent.click(bob.querySelector(`[aria-label="${i18n.t("modals:pendingFriends.accept")}"]`) as HTMLElement);
   await waitFor(() => expect(accept).toHaveBeenCalledWith("u2"));
-  act(() => useFriendshipStore.setState({ statusById: { u2: "accepted" } }));
-  expect(row.querySelector(".inbox-action")).toBeNull();
+  await waitFor(() => expect(screen.queryByText("Bob", { selector: ".pf-name" })).toBeNull());
+  const notification = screen.getByText(/Bob wants to be your friend/).closest(".inbox-item") as HTMLElement;
+  expect(notification.querySelector(".inbox-action")).toBeNull();
 });
 
 it("refetches when the server reports a change", async () => {
-  render(<InboxMenu onOpenCommunity={jest.fn()} onOpenFriendRequests={jest.fn()} />);
+  render(<InboxMenu onOpenCommunity={jest.fn()} />);
   await screen.findByText("1");
   api.unread.mockResolvedValue(3);
   act(() => refreshInbox());
   expect(await screen.findByText("3")).toBeInTheDocument();
 });
 
-it("opens friend request management from the inbox", async () => {
-  const onOpenFriendRequests = jest.fn();
-  useFriendshipStore.setState({ statusById: { u2: "pending_incoming", u3: "pending_outgoing", u4: "accepted" } });
-  render(<InboxMenu onOpenCommunity={jest.fn()} onOpenFriendRequests={onOpenFriendRequests} />);
-  await openInbox();
-  const entry = await screen.findByRole("button", { name: `${i18n.t("sidebar:pendingRequests")} 2` });
-  fireEvent.click(entry);
-  expect(onOpenFriendRequests).toHaveBeenCalled();
-  expect(screen.queryByRole("dialog", { name: i18n.t("sidebar:inboxTitle") })).toBeNull();
-});
-
 it("drops the unread highlight whichever way the menu closes", async () => {
-  render(<InboxMenu onOpenCommunity={jest.fn()} onOpenFriendRequests={jest.fn()} />);
+  render(<InboxMenu onOpenCommunity={jest.fn()} />);
   const trigger = await openInbox();
   await waitFor(() => expect(api.markRead).toHaveBeenCalledWith(["n1"]));
   const row = () => screen.getByText(/Alice invited you to “Night Owls”/).closest(".inbox-item");
@@ -164,7 +173,7 @@ it("drops the unread highlight whichever way the menu closes", async () => {
 
 it("does not retry marking notifications read after the server refuses while the menu stays open", async () => {
   api.markRead.mockRejectedValue(new Error("down"));
-  render(<InboxMenu onOpenCommunity={jest.fn()} onOpenFriendRequests={jest.fn()} />);
+  render(<InboxMenu onOpenCommunity={jest.fn()} />);
   await openInbox();
   await waitFor(() => expect(api.markRead).toHaveBeenCalledWith(["n1"]));
   await waitFor(() => expect(api.list).toHaveBeenCalledTimes(2));

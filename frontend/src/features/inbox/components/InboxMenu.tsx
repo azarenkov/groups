@@ -6,15 +6,15 @@ import LoadingDots from "../../../shared/ui/LoadingDots";
 import { CommunityLogo, UserAvatar } from "../../../shared/ui/Avatar";
 import { colorForId } from "../../../shared/lib/avatar";
 import { formatListTime } from "../../dm/lib/directOrder";
-import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
+import PendingFriendsList from "../../social/components/PendingFriendsList";
+import { usePendingFriendships } from "../../social/hooks/usePendingFriendships";
 import { inboxAPI, type InboxItem } from "../api/inbox";
 import { useInboxItems, useInboxUnread } from "../hooks/useInbox";
 import { markReadLocally, removeLocally } from "../lib/inbox";
 
 interface InboxMenuProps {
   onOpenCommunity: (communityId: string) => Promise<void> | void;
-  onOpenFriendRequests: () => void;
 }
 
 const MESSAGE_KEY: Record<InboxItem["kind"], string> = {
@@ -24,7 +24,7 @@ const MESSAGE_KEY: Record<InboxItem["kind"], string> = {
   friend_request_accepted: "inboxFriendAccepted",
 };
 
-const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity, onOpenFriendRequests }) => {
+const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity }) => {
   const { t, i18n } = useTranslation("sidebar");
   const [open, setOpen] = React.useState(false);
   const [fresh, setFresh] = React.useState<ReadonlySet<string>>(new Set());
@@ -34,8 +34,7 @@ const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity, onOpenFriendRequ
   const attempted = React.useRef<Set<string>>(new Set());
   const unread = useInboxUnread();
   const inbox = useInboxItems(open);
-  const statusById = useFriendshipStore((s) => s.statusById);
-  const pendingRequests = Object.values(statusById).filter((s) => s === "pending_incoming" || s === "pending_outgoing").length;
+  const pending = usePendingFriendships(open);
   const now = new Date();
 
   React.useEffect(() => {
@@ -78,15 +77,15 @@ const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity, onOpenFriendRequ
 
   const toggle = () => setOpen((value) => !value);
 
-  const run = async (item: InboxItem, action: () => Promise<void>, removeOnSuccess: boolean) => {
+  const run = async (item: InboxItem, action: () => Promise<void>) => {
     if (!inbox.userId) return;
     setBusyId(item.id);
     setFailedId(null);
-    const rollback = removeOnSuccess ? removeLocally(inbox.userId, item.id) : null;
+    const rollback = removeLocally(inbox.userId, item.id);
     try {
       await action();
     } catch {
-      rollback?.();
+      rollback();
       setFailedId(item.id);
     } finally {
       setBusyId(null);
@@ -101,24 +100,13 @@ const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity, onOpenFriendRequ
           label: t("inboxAccept"),
           primary: true,
           run: () =>
-            run(
-              item,
-              async () => {
-                const { communityId } = await inboxAPI.acceptInvitation(invitationId);
-                setOpen(false);
-                await onOpenCommunity(communityId);
-              },
-              true,
-            ),
+            run(item, async () => {
+              const { communityId } = await inboxAPI.acceptInvitation(invitationId);
+              setOpen(false);
+              await onOpenCommunity(communityId);
+            }),
         },
-        { label: t("inboxDecline"), primary: false, run: () => run(item, () => inboxAPI.declineInvitation(invitationId), true) },
-      ];
-    }
-    if (item.kind === "friend_request_received" && statusById[item.actor.id] === "pending_incoming") {
-      const friendship = useFriendshipStore.getState();
-      return [
-        { label: t("inboxAccept"), primary: true, run: () => run(item, () => friendship.accept(item.actor.id), false) },
-        { label: t("inboxDecline"), primary: false, run: () => run(item, () => friendship.remove(item.actor.id), false) },
+        { label: t("inboxDecline"), primary: false, run: () => run(item, () => inboxAPI.declineInvitation(invitationId)) },
       ];
     }
     return [];
@@ -150,19 +138,8 @@ const InboxMenu: React.FC<InboxMenuProps> = ({ onOpenCommunity, onOpenFriendRequ
               </button>
             )}
           </div>
-          <button
-            type="button"
-            className="inbox-requests"
-            onClick={() => {
-              setOpen(false);
-              onOpenFriendRequests();
-            }}
-          >
-            <Icon name="users" size={16} />
-            <span>{t("pendingRequests")}</span>
-            {pendingRequests > 0 && <span className="inbox-requests-count">{pendingRequests}</span>}
-          </button>
           <div className="inbox-list">
+            <PendingFriendsList pending={pending} onOpenProfile={() => setOpen(false)} />
             {inbox.loading ? (
               <div className="inbox-note">
                 <LoadingDots />
