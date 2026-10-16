@@ -2,7 +2,7 @@ import React from "react";
 import { act, render, waitFor } from "@testing-library/react";
 
 import type { ChannelMessage } from "../../../../shared/types/channel";
-import { clearMessageCache } from "../../lib/messageCache";
+import { clearMessageCache, saveConversation } from "../../lib/messageCache";
 import type { Messenger } from "../useMessenger";
 import { useMessages } from "../useMessages";
 
@@ -79,4 +79,46 @@ it("does not restore the highlight of a loaded message after the regular view is
   } finally {
     raf.mockRestore();
   }
+});
+
+it("does not start a jump that was cancelled while the cached chat was revalidating", async () => {
+  const revalidations: Array<(value: unknown) => void> = [];
+  const contextRequests = jest.fn();
+  const revalidating = {
+    listMessages: (query: { before?: string; after?: string }) => {
+      if (query.before || query.after) {
+        contextRequests();
+        return new Promise(() => {});
+      }
+      return new Promise((resolve) => revalidations.push(resolve));
+    },
+    getMessage: async () => target,
+  } as unknown as Messenger;
+  saveConversation("cached", { messages: latestPage, hasMore: false, scroll: { atBottom: true, anchorId: null, offset: 0 } });
+  let current: ReturnType<typeof useMessages> | null = null;
+  const Cached: React.FC = () => {
+    current = useMessages({
+      messenger: revalidating,
+      convId: "cached",
+      isText: true,
+      isDm: false,
+      nameSyncTick: 0,
+      reseedChannelReads: () => undefined,
+      currentUserId: "me",
+    });
+    return <div ref={current.bodyRef} />;
+  };
+  render(<Cached />);
+  let jump: Promise<unknown> | undefined;
+  await act(async () => {
+    jump = current!.jumpToMessageId("m1");
+  });
+  act(() => current!.showLatest());
+  await act(async () => {
+    revalidations.forEach((resolve) => resolve({ messages: latestPage, partition: "messaging:cached", seq: 1 }));
+    await jump;
+  });
+  expect(await jump).toBe("stale");
+  expect(contextRequests).not.toHaveBeenCalled();
+  expect(current!.showInitialLoader).toBe(false);
 });

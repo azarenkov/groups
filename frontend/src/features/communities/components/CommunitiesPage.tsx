@@ -581,6 +581,7 @@ const CommunitiesPage: React.FC = () => {
         ? { kind: "channel", communityId: selectedCommunityId, channelId: selectedChannelId }
         : { kind: "community", communityId: selectedCommunityId }
       : { kind: "home" };
+  const openConversationId = selectedDm?.id ?? selectedChannelId;
   useLocationSync({
     viewerId: user?.id,
     current: chatLocation,
@@ -596,8 +597,7 @@ const CommunitiesPage: React.FC = () => {
     },
     revisit: (leftMessage) => {
       setUnavailable(null);
-      const convId = selectedDm?.id ?? selectedChannelId;
-      if (leftMessage && convId) setOpenMessage({ convId, messageId: null });
+      if (leftMessage && openConversationId) setOpenMessage({ convId: openConversationId, messageId: null });
     },
   });
   const unavailableRef = React.useRef(unavailable);
@@ -609,6 +609,9 @@ const CommunitiesPage: React.FC = () => {
     setUnavailable(null);
     if (chatPathRef.current) navigate(chatPathRef.current, { replace: true });
   }, [selectedDm, selectedChannelId, selectedCommunityId, selection.selectionSeq, navigate]);
+  useEffect(() => {
+    setOpenMessage((queued) => (queued && queued.convId !== openConversationId ? null : queued));
+  }, [openConversationId]);
   const lastSelection = React.useRef(selection.selectionSeq);
   useEffect(() => {
     if (lastSelection.current === selection.selectionSeq) return;

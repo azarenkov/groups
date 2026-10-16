@@ -410,7 +410,7 @@ export function useMessages(params: {
     const pendingRevalidation = revalidationRef.current;
     if (pendingRevalidation) {
       await pendingRevalidation.done;
-      if (convIdRef.current !== targetId) return true;
+      if (convIdRef.current !== targetId || !isCurrent()) return true;
     }
     const loader = Symbol("jump");
     jumpLoaderRef.current = loader;
