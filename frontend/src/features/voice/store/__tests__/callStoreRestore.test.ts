@@ -63,6 +63,7 @@ it("returns to the call the tab was in with the mic and sound kept on the server
 });
 
 it("brings back deafen after rejoining", async () => {
+  mockService.setDeafened.mockClear();
   media.mockResolvedValue({ micMuted: true, deafened: true });
   rememberVoiceSession("me", { kind: "call", callId: "c1" });
   await useCallStore.getState().rehydrate();
@@ -85,4 +86,14 @@ it("forgets the tab's call once the server says it is over", async () => {
   await useCallStore.getState().rehydrate();
   expect(connectToRoom).not.toHaveBeenCalled();
   expect(freshVoiceSession("me")).toBeNull();
+});
+
+it("keeps the mic and sound as they were when the room drops inside the tab", async () => {
+  mockService.setDeafened.mockClear();
+  useCallStore.setState({ activeCallId: "c1", micMuted: true, deafened: true, micMutedBeforeDeafen: false });
+  await useCallStore.getState().rehydrate();
+  expect(media).not.toHaveBeenCalled();
+  expect(connectToRoom).toHaveBeenCalledWith("tok", "wss://lk", "c1", true);
+  expect(mockService.setDeafened).toHaveBeenCalledWith(true);
+  expect(useCallStore.getState().deafened).toBe(true);
 });

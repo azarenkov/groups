@@ -336,6 +336,9 @@ export const useCallStore = create<CallState>()((set, get) => {
     const participants = Object.fromEntries(
       active.participants.map((p) => [p.userId, p.userName]),
     );
+    const intendedMuted = media
+      ? media.micMuted || media.deafened
+      : get().activeCallId === active.callId && (get().micMuted || get().deafened);
     const recovered = active.startedAt ? Date.parse(active.startedAt) : NaN;
     const recoveredStartedAt = Number.isFinite(recovered)
       ? Math.min(recovered, Date.now())
@@ -351,7 +354,7 @@ export const useCallStore = create<CallState>()((set, get) => {
       ringing: s.activeCallId === active.callId ? s.ringing : [],
       endedCall: s.activeCallId === active.callId ? s.endedCall : null,
       focused: s.activeCallId === active.callId ? s.focused : true,
-      ...(media ? { micMuted: media.micMuted || !settingsSynced, deafened: false, micMutedBeforeDeafen: false } : {}),
+      ...(media ? { micMuted: media.micMuted, deafened: media.deafened, micMutedBeforeDeafen: false } : {}),
       ...(settingsSynced ? {} : { micMuted: true }),
     }));
     const muteSeqBeforeConnect = get().micMuteSeq;
@@ -363,7 +366,7 @@ export const useCallStore = create<CallState>()((set, get) => {
           active.token,
           active.url,
           active.callId,
-          !settingsSynced || !!media?.micMuted,
+          get().micMuted || get().deafened,
         );
       } catch {
         if (get().activeCallId === active.callId) {
@@ -373,7 +376,7 @@ export const useCallStore = create<CallState>()((set, get) => {
       } finally {
         set({ reconnecting: false });
       }
-      if (media?.deafened && get().activeCallId === active.callId) get().setDeafened(true);
+      if (get().deafened && get().activeCallId === active.callId) service.setDeafened(true);
     }
     if ((useAuthStore.getState().user?.id ?? null) !== userId) {
       const svc = getLiveKitService();
@@ -385,7 +388,7 @@ export const useCallStore = create<CallState>()((set, get) => {
       }
       return;
     }
-    if (!settingsSynced && userId && !media?.micMuted) {
+    if (!settingsSynced && userId && !intendedMuted) {
       const muteSeqAtFallback = muteSeqBeforeConnect;
       void import("./voiceSettingsStore").then(({ voiceSettingsReadyFor }) =>
         voiceSettingsReadyFor(userId).then(() => {
