@@ -472,14 +472,16 @@ export function useMessages(params: {
   const jumpToMessageId = React.useCallback(
     async (messageId: string): Promise<JumpResult> => {
       const request = ++jumpRequestRef.current;
+      const conversation = convIdRef.current;
+      const superseded = () => convIdRef.current !== conversation || jumpRequestRef.current !== request;
       if (messagesRef.current.some((m) => m.id === messageId)) {
         setHighlightedMessageId(null);
-        requestAnimationFrame(() => setHighlightedMessageId(messageId));
+        requestAnimationFrame(() => {
+          if (!superseded()) setHighlightedMessageId(messageId);
+        });
         return "shown";
       }
       const messengerNow = messengerRef.current;
-      const conversation = convIdRef.current;
-      const superseded = () => convIdRef.current !== conversation || jumpRequestRef.current !== request;
       if (!messengerNow) return "failed";
       try {
         const target = await messengerNow.getMessage(messageId);

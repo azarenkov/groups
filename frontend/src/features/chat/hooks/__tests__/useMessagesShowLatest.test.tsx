@@ -60,3 +60,23 @@ it("drops an in-flight jump and its loader when the regular view is requested", 
   expect(latest!.messages.map((m) => m.id)).toEqual(["m9"]);
   expect(latest!.showInitialLoader).toBe(false);
 });
+
+it("does not restore the highlight of a loaded message after the regular view is requested", async () => {
+  render(<Harness />);
+  await waitFor(() => expect(latest!.messages.map((m) => m.id)).toEqual(["m9"]));
+  const frames: FrameRequestCallback[] = [];
+  const raf = jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+    frames.push(cb);
+    return frames.length;
+  });
+  try {
+    await act(async () => {
+      await latest!.jumpToMessageId("m9");
+    });
+    act(() => latest!.showLatest());
+    act(() => frames.forEach((cb) => cb(0)));
+    expect(latest!.highlightedMessageId).toBeNull();
+  } finally {
+    raf.mockRestore();
+  }
+});
