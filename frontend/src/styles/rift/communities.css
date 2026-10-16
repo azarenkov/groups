@@ -392,14 +392,14 @@
 .sb-add-row-ico {
   width: 48px; height: 48px;
   border-radius: 6px;
-  background: transparent;
+  background: var(--control-fill);
   color: var(--fg-1);
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   transition: background var(--dur-fast);
 }
 .sb-add-row.secondary:hover .sb-add-row-ico { color: var(--fg-1); }
-.sb-add-row:not(.sb-footer-back):hover .sb-add-row-ico { background: var(--control-fill); }
+.sb-add-row:not(.sb-footer-back):hover .sb-add-row-ico { background: var(--control-fill-strong); }
 .sb-community-head {
   display: flex; align-items: center; gap: 10px;
   padding: 4px 8px 8px;
