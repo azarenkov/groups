@@ -10,7 +10,7 @@ import { hydrateSidebar, readSidebarSnapshot, clearSidebarSnapshot, startSidebar
 import { communityAPI } from "../api/community";
 import { extractInviteToken, extractPackSlug, extractProfileId } from "../../../shared/lib/inviteLinks";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
-import { useSearchFocusStore } from "../../search/store/searchFocusStore";
+import { focusInviteSearch, focusPeopleSearch } from "../../search/store/searchFocusStore";
 import StickerPacksModal from "../../stickers/components/StickerPacksModal";
 import ClearDmDialog from "../../dm/components/ClearDmDialog";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
@@ -760,10 +760,12 @@ const CommunitiesPage: React.FC = () => {
               name: channel.name,
             })
           }
+          onAddFriend={focusPeopleSearch}
           onCreateCommunity={() => {
             setCommunityModalView("create");
             setIsCommunityModalOpen(true);
           }}
+          onJoinCommunity={focusInviteSearch}
           currentUserId={user?.id}
           unreadByChannel={unreadByChannel}
           unreadByDm={unreadByDm}
@@ -788,7 +790,7 @@ const CommunitiesPage: React.FC = () => {
                 onJoinRoom={(communityId, channelId) => void handleJoinFromHome(communityId, channelId)}
                 onOpenDm={handleOpenDmFromHome}
                 onCall={handleCallFromHome}
-                onAddFriend={() => useSearchFocusStore.getState().focus("people")}
+                onAddFriend={focusPeopleSearch}
               />
             ) : selectedDm ? (
               <ChatView
@@ -1030,7 +1032,7 @@ const CommunitiesPage: React.FC = () => {
         onSubmitPassword={handlePasswordSubmit}
         isPendingOpen={isPendingOpen}
         onClosePending={() => setIsPendingOpen(false)}
-        onOpenAddFriend={() => useSearchFocusStore.getState().focus("people")}
+        onOpenAddFriend={focusPeopleSearch}
         inviteModalCommunity={inviteModalCommunity}
         acceptedFriends={friends.filter((f) => f.status === "accepted")}
         onCloseInviteModal={() => setInviteModalCommunity(null)}

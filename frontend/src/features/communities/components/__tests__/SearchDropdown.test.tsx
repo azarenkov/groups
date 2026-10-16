@@ -229,6 +229,8 @@ it("focuses the search with a hint when asked from elsewhere", () => {
   act(() => useSearchFocusStore.getState().focus("people"));
   const input = screen.getByRole("textbox", { name: i18n.t("sidebar:searchPlaceholderPeople") });
   expect(document.activeElement).toBe(input);
+  act(() => useSearchFocusStore.getState().focus("invite"));
+  expect(screen.getByRole("textbox", { name: i18n.t("sidebar:searchPlaceholderInvite") })).toBe(document.activeElement);
 });
 
 it("drops the previous query's people as soon as the text changes", async () => {

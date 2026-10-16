@@ -54,7 +54,9 @@ interface SidebarProps {
   onOpenCommunitySettings: (community: Community) => void;
   onAddChannel: (community: Community, kind: ChannelKind) => void;
   onDeleteChannel: (community: Community, channel: Channel) => void;
+  onAddFriend: () => void;
   onCreateCommunity: () => void;
+  onJoinCommunity: () => void;
   currentUserId?: string;
   voiceMembers?: SidebarVoiceMember[];
   voiceMembersByChannel?: Record<string, SidebarVoiceMember[]>;
@@ -90,7 +92,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenCommunitySettings,
   onAddChannel,
   onDeleteChannel,
+  onAddFriend,
   onCreateCommunity,
+  onJoinCommunity,
   currentUserId,
   voiceMembers,
   voiceMembersByChannel,
@@ -307,6 +311,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       unreadByDm={unreadByDm}
       hasMoreDirects={hasMoreDirects}
       onLoadMoreDirects={onLoadMoreDirects}
+      onAddFriend={onAddFriend}
       onPick={pickDm}
       onCall={onCallDm}
     />
@@ -330,6 +335,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         voiceMembersByChannel={voiceMembersByChannel}
         unreadFor={communityUnreadFor}
         onCreateCommunity={onCreateCommunity}
+        onJoinCommunity={onJoinCommunity}
         onPick={pickCommunity}
         perms={perms}
         currentUserId={currentUserId}
@@ -404,10 +410,21 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
         <div className="sb-rail-actions">
-          {tab === "communities" && (
-            <button type="button" className="sb-mini sb-mini-more" title={t("createCommunity")} aria-label={t("createCommunity")} onClick={onCreateCommunity}>
-              <Icon name="plus" size={16} />
-            </button>
+          {tab === "dms" ? (
+            <>
+              <button type="button" className="sb-mini sb-mini-more" title={t("addFriend")} aria-label={t("addFriend")} onClick={onAddFriend}>
+                <Icon name="user-plus" size={17} />
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="sb-mini sb-mini-more" title={t("createCommunity")} aria-label={t("createCommunity")} onClick={onCreateCommunity}>
+                <Icon name="plus" size={16} />
+              </button>
+              <button type="button" className="sb-mini sb-mini-more" title={t("joinCommunity")} aria-label={t("joinCommunity")} onClick={onJoinCommunity}>
+                <Icon name="link" size={16} />
+              </button>
+            </>
           )}
         </div>
         <div className="sb-scroll sb-scroll-mini">
@@ -419,6 +436,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               unreadByDm={unreadByDm}
               hasMoreDirects={hasMoreDirects}
               onLoadMoreDirects={onLoadMoreDirects}
+              onAddFriend={onAddFriend}
               onPick={pickDm}
               onCall={onCallDm}
             />
@@ -431,6 +449,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               voiceMembersByChannel={voiceMembersByChannel}
               unreadFor={communityUnreadFor}
               onCreateCommunity={onCreateCommunity}
+              onJoinCommunity={onJoinCommunity}
               onPick={pickFromRail}
               perms={perms}
               currentUserId={currentUserId}
