@@ -392,7 +392,7 @@
 .sb-add-row-ico {
   width: 48px; height: 48px;
   border-radius: 6px;
-  background: var(--control-fill);
+  background: transparent;
   color: var(--fg-1);
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
@@ -1278,17 +1278,16 @@ textarea.ssv-input:focus-visible {
   position: relative;
   width: 44px; height: 38px;
   border: 0; border-radius: 10px;
-  background: var(--control-fill); color: var(--fg-2);
+  background: transparent; color: var(--fg-2);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   transition: background var(--dur-fast), color var(--dur-fast);
 }
-.sb-rail-btn:hover, .sb-rail-btn.active { background: var(--control-fill-strong); color: var(--fg-1); }
+.sb-rail-btn:hover, .sb-rail-btn.active { color: var(--fg-1); }
 .sb-rail-switch {
   display: flex; flex-direction: column; gap: 3px;
   padding: 3px; margin: 4px 0;
   border-radius: 14px;
-  background: var(--control-fill);
 }
 .sb-rail-switch-btn {
   position: relative;
@@ -1301,7 +1300,7 @@ textarea.ssv-input:focus-visible {
 }
 .sb-rail-switch-btn:hover { color: var(--fg-1); }
 .sb-rail-switch-btn.active {
-  background: var(--control-fill-strong); color: var(--fg-1);
+  color: var(--fg-1);
 }
 .sb-rail-dot {
   position: absolute; top: 8px; right: 9px;
@@ -1354,9 +1353,9 @@ textarea.ssv-input:focus-visible {
 .sb-mini-more {
   width: 44px; height: 44px; margin-top: 2px;
   border-radius: 50%;
-  background: var(--control-fill); color: var(--fg-2);
+  background: transparent; color: var(--fg-2);
 }
-.sb-mini-more:hover { background: var(--control-fill-strong); color: var(--fg-1); }
+.sb-mini-more:hover { background: transparent; color: var(--fg-1); }
 .sb-mini-hidden { margin: 0 0 4px; }
 .sb-mini-hidden.open { color: var(--fg-1); }
 .sb-mini-more .sb-mini-badge { top: -2px; right: -2px; }
@@ -1447,13 +1446,13 @@ body.sb-resizing { cursor: col-resize; user-select: none; }
 .account-avatar {
   width: 44px; height: 44px; padding: 0;
   border: 0; border-radius: 50%;
-  background: var(--surface-sunken);
+  background: var(--control-fill);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   transition: transform var(--dur-fast), background var(--dur-fast);
 }
-.account-avatar:hover { background: var(--surface-hover); transform: scale(1.04); }
-.account-avatar.on { background: var(--surface-hover); }
+.account-avatar:hover { background: var(--control-fill-strong); transform: scale(1.04); }
+.account-avatar.on { background: var(--control-fill-strong); }
 .account-ava {
   position: relative;
   width: 32px; height: 32px; border-radius: 50%;
@@ -1514,12 +1513,12 @@ body.electron .topbar .account-dropdown { -webkit-app-region: no-drag; }
   position: relative;
   width: 44px; height: 44px; padding: 0;
   border: 0; border-radius: 50%;
-  background: var(--control-fill); color: var(--fg-2);
+  background: transparent; color: var(--fg-2);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
-  transition: transform var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
+  transition: transform var(--dur-fast), color var(--dur-fast);
 }
-.inbox-trigger:hover, .inbox-trigger.on { background: var(--control-fill-strong); color: var(--fg-1); }
+.inbox-trigger:hover, .inbox-trigger.on { color: var(--fg-1); }
 .inbox-trigger:hover { transform: scale(1.04); }
 .inbox-badge {
   position: absolute; top: 4px; right: 2px;
