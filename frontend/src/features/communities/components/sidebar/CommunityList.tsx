@@ -167,7 +167,7 @@ const CommunityList: React.FC<CommunityListProps> = ({
       </button>
       <button
         type="button"
-        className="sb-add-row secondary plain"
+        className="sb-add-row secondary"
         onClick={onJoinCommunity}
       >
         <span className="sb-add-row-ico">

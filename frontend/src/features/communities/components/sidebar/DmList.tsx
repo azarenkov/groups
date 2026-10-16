@@ -319,7 +319,7 @@ const DmList: React.FC<DmListProps> = ({
   }
   return (
     <div className="sb-view">
-      <button type="button" className="sb-add-row plain" onClick={onAddFriend}>
+      <button type="button" className="sb-add-row" onClick={onAddFriend}>
         <span className="sb-add-row-ico">
           <Icon name="user-plus" size={20} />
         </span>
