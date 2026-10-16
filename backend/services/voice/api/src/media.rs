@@ -3,7 +3,7 @@ use api_common::dto::responses::ApiResponse;
 use api_common::middleware::auth::RateLimitedAuthToken;
 use domain::user::id::UserId;
 use serde::{Deserialize, Serialize};
-use voice_domain::media::MediaState;
+use voice_domain::media::{MediaRevision, MediaState};
 
 use crate::http_errors::HttpError;
 use crate::state::AppState;
@@ -20,7 +20,14 @@ struct MediaStateDto {
 struct SaveMediaStateBody {
     mic_muted: bool,
     deafened: bool,
-    issued_at: Option<chrono::DateTime<chrono::Utc>>,
+    revision: Option<RevisionDto>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RevisionDto {
+    source: uuid::Uuid,
+    seq: i64,
 }
 
 impl From<MediaState> for MediaStateDto {
@@ -50,7 +57,13 @@ async fn save_media_state(
     let body = body.into_inner();
     let state = app_state
         .save_media_state_usecase
-        .execute(UserId::new(auth_token.id), body.mic_muted, body.deafened, body.issued_at, chrono::Utc::now())
+        .execute(
+            UserId::new(auth_token.id),
+            body.mic_muted,
+            body.deafened,
+            body.revision.map(|r| MediaRevision { source: r.source, seq: r.seq }),
+            chrono::Utc::now(),
+        )
         .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(MediaStateDto::from(state))))
 }

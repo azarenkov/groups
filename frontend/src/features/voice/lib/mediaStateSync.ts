@@ -1,11 +1,12 @@
 import { mediaAPI, type MediaState } from "../api/media";
+import { nextMediaRevision, type MediaRevision } from "./mediaRevision";
 
 const SAVE_DELAY_MS = 300;
 const RETRY_DELAY_MS = 5000;
 
 const keyOf = (state: MediaState) => `${state.micMuted}:${state.deafened}`;
 
-let desired: { state: MediaState; issuedAt: string } | null = null;
+let desired: { state: MediaState; revision: MediaRevision } | null = null;
 let saved: string | null = null;
 let inFlight: string | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -24,7 +25,7 @@ const flush = (keepalive = false) => {
   const key = keyOf(next.state);
   const sentIn = generation;
   inFlight = key;
-  mediaAPI.save(next.state, next.issuedAt, { keepalive }).then(
+  mediaAPI.save(next.state, next.revision, { keepalive }).then(
     () => {
       if (sentIn !== generation) return;
       inFlight = null;
@@ -41,7 +42,7 @@ const flush = (keepalive = false) => {
 };
 
 export function syncMediaState(state: MediaState): void {
-  desired = { state, issuedAt: new Date().toISOString() };
+  desired = { state, revision: nextMediaRevision() };
   schedule(SAVE_DELAY_MS);
 }
 

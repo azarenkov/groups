@@ -3,7 +3,7 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
-use voice_domain::media::{MediaState, issued_at, repository::MediaStateRepository};
+use voice_domain::media::{MediaRevision, MediaState, repository::MediaStateRepository};
 
 pub struct SaveMediaState<R>
 where
@@ -25,11 +25,11 @@ where
         user_id: UserId,
         mic_muted: bool,
         deafened: bool,
-        claimed_at: Option<DateTime<Utc>>,
+        revision: Option<MediaRevision>,
         now: DateTime<Utc>,
     ) -> Result<MediaState, RepositoryError> {
         let state = MediaState::new(mic_muted, deafened);
-        self.repository.save(&user_id, state, issued_at(claimed_at, now)).await?;
+        self.repository.save(&user_id, state, revision, now).await?;
         Ok(state)
     }
 }
@@ -54,7 +54,13 @@ mod tests {
             Ok(self.0.lock().unwrap().get(&user_id.uuid()).copied())
         }
 
-        async fn save(&self, user_id: &UserId, state: MediaState, _: DateTime<Utc>) -> Result<(), RepositoryError> {
+        async fn save(
+            &self,
+            user_id: &UserId,
+            state: MediaState,
+            _: Option<MediaRevision>,
+            _: DateTime<Utc>,
+        ) -> Result<(), RepositoryError> {
             self.0.lock().unwrap().insert(user_id.uuid(), state);
             Ok(())
         }

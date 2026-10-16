@@ -1,9 +1,11 @@
 pub mod repository;
 
-use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
-pub fn issued_at(claimed: Option<DateTime<Utc>>, now: DateTime<Utc>) -> DateTime<Utc> {
-    claimed.map_or(now, |at| at.min(now))
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MediaRevision {
+    pub source: Uuid,
+    pub seq: i64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -40,15 +42,6 @@ mod tests {
         assert!(!state.mic_live());
         assert!(!state.mic_muted());
         assert!(state.deafened());
-    }
-
-    #[test]
-    fn a_change_is_ordered_by_when_the_client_made_it_but_never_from_the_future() {
-        let now = Utc::now();
-        let earlier = now - chrono::Duration::seconds(2);
-        assert_eq!(issued_at(Some(earlier), now), earlier);
-        assert_eq!(issued_at(Some(now + chrono::Duration::hours(1)), now), now);
-        assert_eq!(issued_at(None, now), now);
     }
 
     #[test]

@@ -39,6 +39,7 @@ interface UseLiveKitResult {
     channelId: string,
     communityId: string,
     password?: string,
+    startMuted?: boolean,
   ) => Promise<void>;
   leaveChannel: () => Promise<void>;
   toggleMute: () => void;
@@ -120,7 +121,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   );
 
   const joinChannel = useCallback(
-    async (channelId: string, communityId: string, password?: string) => {
+    async (channelId: string, communityId: string, password?: string, startMuted = false) => {
       const service = serviceRef.current;
       if (!service) return;
       let joinAttempt: { communityId: string; channelId: string } | null = null;
@@ -229,7 +230,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           response.token,
           response.url,
           channelId,
-          !!response.muted || deafenLockedRef.current || !settingsSynced,
+          !!response.muted || deafenLockedRef.current || !settingsSynced || startMuted,
         );
         const postAuth = useAuthStore.getState();
         const postId =
