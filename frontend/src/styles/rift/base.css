@@ -10,6 +10,8 @@
   --surface-hover:    rgba(0,0,0,0.04);
   --surface-active:   rgba(0,0,0,0.08);
   --surface-selected: rgba(0,0,0,0.06);
+  --control-fill: color-mix(in srgb, var(--fg-1) 8%, transparent);
+  --control-fill-strong: color-mix(in srgb, var(--fg-1) 12%, transparent);
 
   --fg-1: #1d1d1f;
   --fg-2: #424245;
