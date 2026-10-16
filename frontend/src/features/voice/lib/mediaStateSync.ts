@@ -51,7 +51,7 @@ export function installMediaStateFlushOnUnload(): void {
   if (unloadFlushInstalled || typeof window === "undefined") return;
   unloadFlushInstalled = true;
   window.addEventListener("pagehide", () => {
-    if (desired && inFlight !== null && inFlight !== keyOf(desired)) inFlight = null;
+    inFlight = null;
     flush(true);
   });
 }

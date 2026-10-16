@@ -57,3 +57,13 @@ it("never retries an older state over a newer one", async () => {
   expect(save).toHaveBeenCalledTimes(2);
   expect(save).toHaveBeenLastCalledWith({ micMuted: true, deafened: false }, { keepalive: false });
 });
+
+it("resends a state that is still in flight with keepalive when the tab goes away", () => {
+  installMediaStateFlushOnUnload();
+  save.mockImplementationOnce(() => new Promise(() => {}));
+  syncMediaState({ micMuted: true, deafened: false });
+  jest.advanceTimersByTime(300);
+  window.dispatchEvent(new Event("pagehide"));
+  expect(save).toHaveBeenCalledTimes(2);
+  expect(save).toHaveBeenLastCalledWith({ micMuted: true, deafened: false }, { keepalive: true });
+});
