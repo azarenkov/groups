@@ -107,3 +107,11 @@ it("keeps the mic off after undeafening when it was off before deafening", async
   expect(useCallStore.getState().deafened).toBe(false);
   expect(useCallStore.getState().micMuted).toBe(true);
 });
+
+it("rejoins with the mic off when the saved mic and sound state cannot be read", async () => {
+  media.mockResolvedValue(null);
+  rememberVoiceSession("me", { kind: "call", callId: "c1" });
+  await useCallStore.getState().rehydrate();
+  expect(connectToRoom).toHaveBeenCalledWith("tok", "wss://lk", "c1", true);
+  expect(useCallStore.getState().micMuted).toBe(true);
+});

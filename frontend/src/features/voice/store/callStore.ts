@@ -336,9 +336,9 @@ export const useCallStore = create<CallState>()((set, get) => {
     const participants = Object.fromEntries(
       active.participants.map((p) => [p.userId, p.userName]),
     );
-    const intendedMuted = media
-      ? media.micMuted || media.deafened
-      : get().activeCallId === active.callId && (get().micMuted || get().deafened);
+    const intendedMuted = restoring
+      ? !media || media.micMuted || media.deafened
+      : get().micMuted || get().deafened;
     const recovered = active.startedAt ? Date.parse(active.startedAt) : NaN;
     const recoveredStartedAt = Number.isFinite(recovered)
       ? Math.min(recovered, Date.now())
@@ -354,8 +354,10 @@ export const useCallStore = create<CallState>()((set, get) => {
       ringing: s.activeCallId === active.callId ? s.ringing : [],
       endedCall: s.activeCallId === active.callId ? s.endedCall : null,
       focused: s.activeCallId === active.callId ? s.focused : true,
-      ...(media
-        ? { micMuted: media.micMuted || media.deafened, deafened: media.deafened, micMutedBeforeDeafen: media.deafened && media.micMuted }
+      ...(restoring
+        ? media
+          ? { micMuted: media.micMuted || media.deafened, deafened: media.deafened, micMutedBeforeDeafen: media.deafened && media.micMuted }
+          : { micMuted: true, deafened: false, micMutedBeforeDeafen: false }
         : {}),
       ...(settingsSynced ? {} : { micMuted: true }),
     }));
