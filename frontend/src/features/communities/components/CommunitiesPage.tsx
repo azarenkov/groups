@@ -597,6 +597,7 @@ const CommunitiesPage: React.FC = () => {
     },
     revisit: (leftMessage) => {
       setUnavailable(null);
+      setPendingMessageLink(null);
       if (leftMessage && openConversationId) setOpenMessage({ convId: openConversationId, messageId: null });
     },
   });
@@ -694,12 +695,13 @@ const CommunitiesPage: React.FC = () => {
   useEffect(() => {
     const link = pendingMessageLink;
     if (!link) return;
-    const drop = (reason: UnavailableReason) =>
-      setPendingMessageLink((current) => {
-        if (current !== link) return current;
-        setUnavailable({ location: link, reason });
-        return null;
-      });
+    const drop = (reason: UnavailableReason) => {
+      if (pendingLinkRef.current !== link) return;
+      pendingLinkRef.current = null;
+      setPendingMessageLink(null);
+      useCallStore.getState().setFocused(false);
+      setUnavailable({ location: link, reason });
+    };
     const opened = (convId: string) => {
       setPendingMessageLink(null);
       if ("messageId" in link && link.messageId) setOpenMessage({ convId, messageId: link.messageId });
