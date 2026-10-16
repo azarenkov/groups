@@ -36,6 +36,8 @@ export function useSelection(params: {
     voice;
 
   const [selectedDm, setSelectedDm] = useState<DirectConversation | null>(null);
+  const [selectionSeq, setSelectionSeq] = useState(0);
+  const noteSelection = () => setSelectionSeq((n) => n + 1);
   const [expandedCommunityIds, setExpandedCommunityIds] = useState<Set<string>>(
     () => new Set<string>(),
   );
@@ -141,6 +143,7 @@ export function useSelection(params: {
   };
 
   const handleSelectCommunity = (communityId: string) => {
+    noteSelection();
     useCallStore.getState().setFocused(false);
     setSelectedCommunity(communityId);
     setSelectedDm(null);
@@ -148,19 +151,22 @@ export function useSelection(params: {
     setSelectedChannel(firstText ? firstText.id : null);
   };
 
-  const finalizeJoin = (community: Community, channel: Channel, password?: string) => {
-    setSelectedCommunity(community.id);
-    setSelectedChannel(channel.id);
+  const showChannel = (communityId: string, channelId: string) => {
+    setSelectedCommunity(communityId);
+    setSelectedChannel(channelId);
     setSelectedDm(null);
+  };
+
+  const finalizeJoin = (community: Community, channel: Channel, password?: string) => {
+    showChannel(community.id, channel.id);
     startVoiceJoin(community, channel, password);
   };
 
   const handleSelectChannel = (community: Community, channel: Channel) => {
+    noteSelection();
     useCallStore.getState().setFocused(false);
     if (channel.kind === "text") {
-      setSelectedCommunity(community.id);
-      setSelectedChannel(channel.id);
-      setSelectedDm(null);
+      showChannel(community.id, channel.id);
       useUnreadStore.getState().resetChannel(channel.id);
       userAPI.markChannelRead(channel.id).catch((err) => {
         console.warn("[read-state] mark channel read failed:", err);
@@ -172,9 +178,7 @@ export function useSelection(params: {
       joinedChannel.channel.id === channel.id &&
       !voiceJoinFailed
     ) {
-      setSelectedCommunity(community.id);
-      setSelectedChannel(channel.id);
-      setSelectedDm(null);
+      showChannel(community.id, channel.id);
       return;
     }
     if (channel.visibility === "private") {
@@ -184,7 +188,14 @@ export function useSelection(params: {
     finalizeJoin(community, channel);
   };
 
-  const handleSelectDm = (dm: DirectConversation) => {
+  const handleOpenJoinedStage = () => {
+    if (!joinedChannel) return;
+    noteSelection();
+    useCallStore.getState().setFocused(false);
+    showChannel(joinedChannel.communityId, joinedChannel.channel.id);
+  };
+
+  const showDm = (dm: DirectConversation) => {
     const cs = useCallStore.getState();
     const inCallWithDm =
       !!cs.activeCallId && (cs.peerId === dm.id || dm.id in cs.participants);
@@ -197,7 +208,13 @@ export function useSelection(params: {
     });
   };
 
+  const handleSelectDm = (dm: DirectConversation) => {
+    noteSelection();
+    showDm(dm);
+  };
+
   const handleGoToCommunity = async (communityId: string) => {
+    noteSelection();
     await fetchCommunities();
     expandCommunity(communityId);
     setSelectedCommunity(communityId);
@@ -206,6 +223,7 @@ export function useSelection(params: {
   };
 
   const handleGoHome = () => {
+    noteSelection();
     useCallStore.getState().setFocused(false);
     setSelectedCommunity(null);
     setSelectedChannel(null);
@@ -213,6 +231,7 @@ export function useSelection(params: {
   };
 
   const openCommunity = (communityId: string) => {
+    noteSelection();
     expandCommunity(communityId);
     setSelectedCommunity(communityId);
     setSelectedChannel(null);
@@ -222,6 +241,7 @@ export function useSelection(params: {
   return {
     selectedDm,
     setSelectedDm,
+    selectionSeq,
     expandedCommunityIds,
     expandCommunity,
     collapseCommunity,
@@ -235,6 +255,8 @@ export function useSelection(params: {
     handleSelectCommunity,
     handleSelectChannel,
     handleSelectDm,
+    showDm,
+    handleOpenJoinedStage,
     handleGoToCommunity,
     handleGoHome,
     finalizeJoin,

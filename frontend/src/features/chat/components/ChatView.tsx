@@ -1,4 +1,5 @@
 import React from "react";
+import ErrorToast from "../../../shared/ui/ErrorToast";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { blockGeneration, useBlockStore } from "../../social/store/blockStore";
@@ -26,8 +27,7 @@ import { useMessageComposer } from "../hooks/useMessageComposer";
 import { useMessageEditing } from "../hooks/useMessageEditing";
 import { useMessages } from "../hooks/useMessages";
 import { previewOf } from "../lib/replies";
-import { messageLink } from "../lib/messageLink";
-import type { MessageLinkTarget } from "../lib/messageLink";
+import { messageLinkPath, type MessageLinkTarget } from "../../navigation/lib/appLocation";
 import { copyTextToClipboard } from "../../../shared/lib/clipboard";
 import { publicAppOrigin } from "../../../shared/config/runtime";
 import { useMessageSearch } from "../hooks/useMessageSearch";
@@ -55,7 +55,7 @@ interface ChatViewProps {
   onGoToCommunity?: (communityId: string) => void | Promise<void>;
   topSlot?: React.ReactNode;
   callMode?: boolean;
-  openMessageId?: string;
+  openMessageId?: string | null;
   onOpenMessageHandled?: () => void;
 }
 
@@ -136,12 +136,14 @@ const ChatView: React.FC<ChatViewProps> = ({
     highlightedMessageId,
     setHighlightedMessageId,
     showInitialLoader,
+    historyLoading,
     bodyRef,
     currentChannelIdRef,
     handleScroll,
     refreshHistory,
     jumpToMessage,
     jumpToMessageId,
+    showLatest,
   } = useMessages({
     messenger,
     convId,
@@ -182,12 +184,24 @@ const ChatView: React.FC<ChatViewProps> = ({
   const onOpenHandledRef = React.useRef(onOpenMessageHandled);
   onOpenHandledRef.current = onOpenMessageHandled;
   const { closeSearch } = search;
+  const [jumpProblem, setJumpProblem] = React.useState<"missing" | "failed" | null>(null);
+  React.useEffect(() => setJumpProblem(null), [convId]);
   React.useEffect(() => {
-    if (!openMessageId || showInitialLoader) return;
+    if (openMessageId === undefined) return;
+    if (openMessageId === null) {
+      closeSearch();
+      setJumpProblem(null);
+      showLatest();
+      onOpenHandledRef.current?.();
+      return;
+    }
+    if (historyLoading) return;
     closeSearch();
-    void jumpToMessageId(openMessageId);
+    void jumpToMessageId(openMessageId).then((result) => {
+      if (result !== "stale") setJumpProblem(result === "shown" ? null : result);
+    });
     onOpenHandledRef.current?.();
-  }, [openMessageId, showInitialLoader, jumpToMessageId, closeSearch]);
+  }, [openMessageId, historyLoading, jumpToMessageId, showLatest, closeSearch]);
 
   const searchActive = search.searchOpen && search.searchInput.trim().length > 0;
 
@@ -596,7 +610,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                       ? { kind: "channel", communityId, channelId, messageId: message.id }
                       : null;
                 if (!target) return;
-                void copyTextToClipboard(messageLink(publicAppOrigin(), target)).catch(
+                void copyTextToClipboard(`${publicAppOrigin()}${messageLinkPath(target)}`).catch(
                   (e) => console.warn("[ChatView] copy link failed:", e),
                 );
               }}
@@ -610,15 +624,14 @@ const ChatView: React.FC<ChatViewProps> = ({
               onOpenForwardSource={(message) => {
                 const origin = message.forwardedFrom;
                 if (!origin || origin.source.kind !== "channel") return;
-                const link = new URL(
-                  messageLink(window.location.origin, {
+                navigate(
+                  messageLinkPath({
                     kind: "channel",
                     communityId: origin.source.communityId,
                     channelId: origin.source.channelId,
                     messageId: origin.messageId,
                   }),
                 );
-                navigate(link.pathname + link.search);
               }}
               onDelete={editing.setDeleteTarget}
             pinnedIds={pinned.pinnedIds}
@@ -696,6 +709,10 @@ const ChatView: React.FC<ChatViewProps> = ({
             onConfirm={() => void editing.confirmDelete("me")}
           />
         ))}
+      <ErrorToast
+        message={jumpProblem ? i18n.t(jumpProblem === "missing" ? "messageNotFound" : "messageOpenFailed", { ns: "chat" }) : null}
+        onDismiss={() => setJumpProblem(null)}
+      />
     </>
   );
 };

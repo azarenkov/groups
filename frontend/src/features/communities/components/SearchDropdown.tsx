@@ -6,7 +6,7 @@ import { colorForId } from "../../../shared/lib/avatar";
 import type { Community } from "../../../shared/types/community";
 import type { Channel } from "../../../shared/types/channel";
 import type { DirectConversation } from "../../dm/types";
-import type { OpenMessageLink } from "../../chat/lib/messageLink";
+import type { ChatLocation } from "../../navigation/lib/appLocation";
 import GlobalSearchResults, { highlightTerms } from "../../search/components/GlobalSearchResults";
 import InviteResult from "../../search/components/InviteResult";
 import PeopleResults from "../../search/components/PeopleResults";
@@ -33,7 +33,7 @@ interface SearchDropdownProps {
   onPickDm: (dm: DirectConversation) => void;
   onPickCommunity: (community: Community) => void;
   onPickChannel: (community: Community, channel: Channel) => void;
-  onOpenResult: (link: OpenMessageLink) => void;
+  onOpenResult: (link: ChatLocation) => void;
   onMessagePerson: (userId: string, name: string, friend: boolean) => void;
   onJoinInvite: (token: string) => Promise<void>;
   onSearch: (text: string) => void;

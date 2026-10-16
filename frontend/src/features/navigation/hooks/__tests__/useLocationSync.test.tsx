@@ -1,0 +1,192 @@
+import React from "react";
+import { act, render } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useLocation, useNavigate, type NavigateFunction } from "react-router-dom";
+
+import { useLocationSync } from "../useLocationSync";
+import { useBrowserHistory } from "../useBrowserHistory";
+import { lastLocationPath, rememberLocation } from "../../lib/lastLocation";
+import type { AppLocation } from "../../lib/appLocation";
+
+const me = "11111111-1111-1111-1111-111111111111";
+const peer = "22222222-2222-2222-2222-222222222222";
+const other = "33333333-3333-3333-3333-333333333333";
+const message = "55555555-5555-5555-5555-555555555555";
+
+let seenPath = "";
+let navigateTo: NavigateFunction = () => {};
+let history: ReturnType<typeof useBrowserHistory> | null = null;
+
+const Harness: React.FC<{
+  current: AppLocation | null;
+  selectionSeq?: number;
+  resolving?: boolean;
+  open: (location: AppLocation) => void;
+  revisit?: (leftMessage: boolean) => void;
+}> = ({ current, selectionSeq = 0, resolving = false, open, revisit = () => {} }) => {
+  useLocationSync({ viewerId: me, current, selectionSeq, resolving, open, revisit });
+  history = useBrowserHistory();
+  const location = useLocation();
+  seenPath = `${location.pathname}${location.search}`;
+  navigateTo = useNavigate();
+  return null;
+};
+
+const renderAt = (path: string, props: React.ComponentProps<typeof Harness>) =>
+  render(
+    <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Harness {...props} />
+    </MemoryRouter>,
+  );
+
+beforeEach(() => localStorage.clear());
+
+it("opens the last chat for this user from the bare app address without the already handled query", () => {
+  rememberLocation(me, `/app/dm/${peer}`);
+  const open = jest.fn();
+  renderAt("/app?profile=x", { current: { kind: "home" }, open });
+  expect(seenPath).toBe(`/app/dm/${peer}`);
+  expect(open).toHaveBeenCalledWith({ kind: "dm", peerId: peer });
+});
+
+it("opens a legacy message link from the bare app address instead of the last chat", () => {
+  rememberLocation(me, `/app/dm/${other}`);
+  const open = jest.fn();
+  renderAt(`/app?dm=${me}~${peer}&message=${message}`, { current: { kind: "home" }, open });
+  expect(seenPath).toBe(`/app/dm/${me}~${peer}/${message}`);
+  expect(open).toHaveBeenCalledWith({ kind: "dm", peerId: peer, messageId: message });
+});
+
+it("falls back to home when nothing was opened before", () => {
+  renderAt("/app", { current: { kind: "home" }, open: jest.fn() });
+  expect(seenPath).toBe("/app/home");
+});
+
+it("opens what the address points to and jumps to a linked message", () => {
+  const open = jest.fn();
+  renderAt(`/app/dm/${peer}/${message}`, { current: { kind: "dm", peerId: peer }, open });
+  expect(open).toHaveBeenCalledWith({ kind: "dm", peerId: peer, messageId: message });
+});
+
+it("sends malformed addresses home", () => {
+  renderAt("/app/dm/nope", { current: { kind: "home" }, open: jest.fn() });
+  expect(seenPath).toBe("/app/home");
+});
+
+it("records each chat the user opens in the address and history", () => {
+  const open = jest.fn();
+  const view = renderAt("/app/home", { current: { kind: "home" }, open });
+  view.rerender(
+    <MemoryRouter initialEntries={["/app/home"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Harness current={{ kind: "dm", peerId: peer }} open={open} />
+    </MemoryRouter>,
+  );
+  expect(seenPath).toBe(`/app/dm/${peer}`);
+  expect(open).not.toHaveBeenCalled();
+});
+
+it("leaves the address alone while a linked chat is still being opened", () => {
+  const open = jest.fn();
+  renderAt(`/app/dm/${other}`, { current: { kind: "dm", peerId: peer }, resolving: true, open });
+  expect(seenPath).toBe(`/app/dm/${other}`);
+});
+
+it("follows browser back and forward through visited chats", () => {
+  const open = jest.fn();
+  renderAt("/app/home", { current: { kind: "home" }, open });
+  expect(history?.navState).toEqual({ back: false, forward: false });
+  act(() => navigateTo(`/app/dm/${peer}`));
+  expect(open).toHaveBeenLastCalledWith({ kind: "dm", peerId: peer });
+  expect(history?.navState.back).toBe(true);
+  act(() => history?.goHistory(-1));
+  expect(seenPath).toBe("/app/home");
+  expect(history?.navState).toEqual({ back: false, forward: true });
+});
+
+it("jumps again when the same message address is opened a second time", () => {
+  const open = jest.fn();
+  renderAt(`/app/dm/${peer}/${message}`, { current: { kind: "dm", peerId: peer }, open });
+  expect(open).toHaveBeenCalledTimes(1);
+  act(() => navigateTo(`/app/dm/${peer}/${message}`));
+  expect(open).toHaveBeenCalledTimes(2);
+});
+
+it("returns to the regular chat view when going back from a message address", () => {
+  const open = jest.fn();
+  const revisit = jest.fn();
+  renderAt(`/app/dm/${peer}`, { current: { kind: "dm", peerId: peer }, open, revisit });
+  act(() => navigateTo(`/app/dm/${peer}/${message}`));
+  expect(open).toHaveBeenLastCalledWith({ kind: "dm", peerId: peer, messageId: message });
+  act(() => history?.goHistory(-1));
+  expect(seenPath).toBe(`/app/dm/${peer}`);
+  expect(open).toHaveBeenCalledTimes(1);
+  expect(revisit.mock.calls.filter(([left]) => left)).toHaveLength(1);
+  act(() => navigateTo(`/app/dm/${peer}`));
+  expect(revisit.mock.calls.filter(([left]) => left)).toHaveLength(1);
+});
+
+it("leaves a message address when the open chat is selected again", () => {
+  const open = jest.fn();
+  const revisit = jest.fn();
+  const at = (selectionSeq: number) => (
+    <MemoryRouter initialEntries={[`/app/dm/${peer}/${message}`]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Harness current={{ kind: "dm", peerId: peer }} selectionSeq={selectionSeq} open={open} revisit={revisit} />
+    </MemoryRouter>
+  );
+  const view = render(at(0));
+  expect(open).toHaveBeenCalledTimes(1);
+  view.rerender(at(1));
+  expect(seenPath).toBe(`/app/dm/${peer}`);
+  expect(revisit.mock.calls.filter(([left]) => left)).toHaveLength(1);
+  expect(open).toHaveBeenCalledTimes(1);
+});
+
+it("reports a history return to the chat that is already open", () => {
+  const open = jest.fn();
+  const revisit = jest.fn();
+  renderAt(`/app/dm/${peer}`, { current: { kind: "dm", peerId: peer }, open, revisit });
+  act(() => navigateTo(`/app/dm/${other}`));
+  act(() => history?.goHistory(-1));
+  expect(seenPath).toBe(`/app/dm/${peer}`);
+  expect(revisit).toHaveBeenLastCalledWith(false);
+});
+
+it("does not forget the last chat while settings or a link is open", () => {
+  rememberLocation(me, `/app/dm/${peer}`);
+  renderAt("/app/settings/privacy", { current: { kind: "home" }, open: jest.fn() });
+  renderAt(`/app/dm/${other}`, { current: { kind: "home" }, resolving: true, open: jest.fn() });
+  expect(lastLocationPath(me)).toBe(`/app/dm/${peer}`);
+});
+
+it("writes a selection made while a link was resolving once the link is dropped", () => {
+  const open = jest.fn();
+  const routed = (current: AppLocation, resolving: boolean) => (
+    <MemoryRouter initialEntries={[`/app/dm/${other}`]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Harness current={current} resolving={resolving} open={open} />
+    </MemoryRouter>
+  );
+  const view = render(routed({ kind: "home" }, true));
+  view.rerender(routed({ kind: "dm", peerId: peer }, true));
+  expect(seenPath).toBe(`/app/dm/${other}`);
+  view.rerender(routed({ kind: "dm", peerId: peer }, false));
+  expect(seenPath).toBe(`/app/dm/${peer}`);
+});
+
+it("does not count the entry the app was opened on twice", () => {
+  const open = jest.fn();
+  let goToApp: NavigateFunction = () => {};
+  const Login: React.FC = () => {
+    goToApp = useNavigate();
+    return null;
+  };
+  render(
+    <MemoryRouter initialEntries={["/login"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/app/*" element={<Harness current={{ kind: "home" }} open={open} />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  act(() => goToApp("/app"));
+  expect(seenPath).toBe("/app/home");
+  expect(history?.navState).toEqual({ back: false, forward: false });
+});

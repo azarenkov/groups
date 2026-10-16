@@ -1,6 +1,6 @@
 import React from "react";
 import i18n from "../../../i18n";
-import { ApiError } from "../../../shared/lib/apiError";
+import { ApiError, isNotFoundError } from "../../../shared/lib/apiError";
 import type { ChannelMessage } from "../../../shared/types/channel";
 import { PAGE_LIMIT } from "../constants";
 import { cursorAfter, mergeWithLive, reconcileSyncedWindow, type MessageCursor } from "../lib/messageFormat";
@@ -91,6 +91,8 @@ const CHANNEL_ACCESS_ERRORS = new Set([
 
 const DM_ACCESS_ERRORS = new Set(["USER_BLOCKED", "USER_NOT_FOUND", "TARGET_USER_NOT_FOUND", "DM_SELF", "SELF_DM"]);
 
+export type JumpResult = "shown" | "missing" | "failed" | "stale";
+
 export function useMessages(params: {
   messenger: Messenger | null;
   convId?: string;
@@ -138,12 +140,15 @@ export function useMessages(params: {
   const currentChannelIdRef = React.useRef<string | undefined>();
   const convIdRef = React.useRef(convId);
   convIdRef.current = convId;
+  const jumpRequestRef = React.useRef(0);
+  const jumpLoaderRef = React.useRef<symbol | null>(null);
   currentChannelIdRef.current = convId;
 
   const isConversation = isText || isDm;
   const conversationNotReady =
     isConversation && loadedChannelIdRef.current !== convId;
   const showInitialLoader = loadingInitial || conversationNotReady;
+  const historyLoading = conversationNotReady || (loadingInitial && jumpLoaderRef.current === null);
 
   const hasMoreRef = React.useRef(hasMore);
   hasMoreRef.current = hasMore;
@@ -162,6 +167,7 @@ export function useMessages(params: {
     setAccessError(null);
     restoreScrollRef.current = null;
     tailIdRef.current = null;
+    jumpLoaderRef.current = null;
     if (bodyRef.current) bodyRef.current.style.overflowAnchor = "";
     if (cached && convId) {
       setMessages(cached.messages);
@@ -398,15 +404,23 @@ export function useMessages(params: {
     }
   }, [reseedChannelReads]);
 
-  const jumpToMessage = React.useCallback(async (target: ChannelMessage) => {
+  const releaseJumpLoader = React.useCallback(() => {
+    if (!jumpLoaderRef.current) return;
+    jumpLoaderRef.current = null;
+    setLoadingInitial(false);
+  }, []);
+
+  const jumpToMessage = React.useCallback(async (target: ChannelMessage, isCurrent: () => boolean = () => true): Promise<boolean> => {
     const messengerNow = messengerRef.current;
     const targetId = convIdRef.current;
-    if (!messengerNow || !targetId) return;
+    if (!messengerNow || !targetId) return false;
     const pendingRevalidation = revalidationRef.current;
     if (pendingRevalidation) {
       await pendingRevalidation.done;
-      if (convIdRef.current !== targetId) return;
+      if (convIdRef.current !== targetId || !isCurrent()) return true;
     }
+    const loader = Symbol("jump");
+    jumpLoaderRef.current = loader;
     setLoadingInitial(true);
     try {
       const [olderRes, newerRes] = await Promise.all([
@@ -419,7 +433,7 @@ export function useMessages(params: {
           limit: JUMP_CONTEXT,
         }),
       ]);
-      if (currentChannelIdRef.current !== targetId) return;
+      if (currentChannelIdRef.current !== targetId || !isCurrent()) return true;
       const older = [...olderRes.messages].reverse();
       const newer = [...newerRes.messages].reverse();
       const combined = [...older, target, ...newer];
@@ -428,10 +442,13 @@ export function useMessages(params: {
       setMessages((prev) => mergeWithLive(combined, prev));
       setHasMore(olderRes.messages.length >= JUMP_CONTEXT);
       setHighlightedMessageId(target.id);
+      return true;
     } catch (err) {
       console.warn("[ChatView] failed to jump to message:", err);
+      return false;
     } finally {
-      if (currentChannelIdRef.current === targetId) {
+      if (currentChannelIdRef.current === targetId && jumpLoaderRef.current === loader) {
+        jumpLoaderRef.current = null;
         setLoadingInitial(false);
       }
     }
@@ -460,23 +477,44 @@ export function useMessages(params: {
   }, [highlightedMessageId, messages]);
 
   const jumpToMessageId = React.useCallback(
-    async (messageId: string) => {
+    async (messageId: string): Promise<JumpResult> => {
+      const request = ++jumpRequestRef.current;
+      const conversation = convIdRef.current;
+      const superseded = () => convIdRef.current !== conversation || jumpRequestRef.current !== request;
       if (messagesRef.current.some((m) => m.id === messageId)) {
+        releaseJumpLoader();
         setHighlightedMessageId(null);
-        requestAnimationFrame(() => setHighlightedMessageId(messageId));
-        return;
+        requestAnimationFrame(() => {
+          if (!superseded()) setHighlightedMessageId(messageId);
+        });
+        return "shown";
       }
       const messengerNow = messengerRef.current;
-      if (!messengerNow) return;
+      if (!messengerNow) return "failed";
       try {
         const target = await messengerNow.getMessage(messageId);
-        await jumpToMessage(target);
+        if (superseded()) return "stale";
+        const shown = await jumpToMessage(target, () => !superseded());
+        if (superseded()) return "stale";
+        return shown ? "shown" : "failed";
       } catch (err) {
+        if (superseded()) return "stale";
+        releaseJumpLoader();
         console.warn("[ChatView] failed to open the original message:", err);
+        return isNotFoundError(err) ? "missing" : "failed";
       }
     },
-    [jumpToMessage],
+    [jumpToMessage, releaseJumpLoader],
   );
+
+  const showLatest = React.useCallback(() => {
+    ++jumpRequestRef.current;
+    releaseJumpLoader();
+    setHighlightedMessageId(null);
+    nearBottomRef.current = true;
+    const body = bodyRef.current;
+    if (body) body.scrollTop = body.scrollHeight;
+  }, [releaseJumpLoader]);
   return {
     messages,
     setMessages,
@@ -488,11 +526,13 @@ export function useMessages(params: {
     highlightedMessageId,
     setHighlightedMessageId,
     showInitialLoader,
+    historyLoading,
     bodyRef,
     currentChannelIdRef,
     handleScroll,
     refreshHistory,
     jumpToMessage,
     jumpToMessageId,
+    showLatest,
   };
 }

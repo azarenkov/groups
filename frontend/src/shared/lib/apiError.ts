@@ -181,3 +181,6 @@ export function toApiError(error: unknown): Error {
     body?.fields,
   );
 }
+
+export const isNotFoundError = (err: unknown): boolean =>
+  err instanceof ApiError && (err.status === 404 || !!err.code?.endsWith("NOT_FOUND"));

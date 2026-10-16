@@ -8,6 +8,7 @@ import { defaultMentionLevel, desktopNotifAllowed, messageSoundAllowed } from ".
 import { useReadReceiptStore } from "../../chat/store/readReceiptStore";
 import { refetchUnread, useUnreadStore } from "../../chat/store/unreadStore";
 import { useUserNamesStore } from "../../social/store/userNamesStore";
+import { openAppLocation } from "../../navigation/lib/appNavigator";
 import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
 import { videoNoteDurationFromPayload, voiceDurationFromPayload } from "../../chat/lib/voice";
@@ -71,7 +72,11 @@ export const dmHandlers: WsHandlers = {
       if (callStatus) useCallStore.getState().setCallNotice({ kind: "missed", userId: senderId, name: peerName });
       if (messageSoundAllowed()) playNotificationSound();
       if (desktopNotifAllowed()) {
-        showDesktopNotification(peerName ?? "Rift", notificationBody(asString(d.content), d.attachments, d.sticker, callStatus));
+        showDesktopNotification(
+          peerName ?? "Rift",
+          notificationBody(asString(d.content), d.attachments, d.sticker, callStatus),
+          () => openAppLocation({ kind: "dm", peerId: senderId, messageId: asString(d.id) }),
+        );
       }
       return;
   },

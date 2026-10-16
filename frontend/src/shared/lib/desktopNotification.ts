@@ -3,7 +3,7 @@ import {
   useNotificationSettingsStore,
 } from "../../features/settings/store/notificationSettingsStore";
 
-export function showDesktopNotification(title: string, body: string): void {
+export function showDesktopNotification(title: string, body: string, onOpen?: () => void): void {
   try {
     if (typeof Notification === "undefined") return;
     if (Notification.permission !== "granted") return;
@@ -13,6 +13,7 @@ export function showDesktopNotification(title: string, body: string): void {
       try {
         window.focus();
       } catch {}
+      onOpen?.();
       n.close();
     };
   } catch {}

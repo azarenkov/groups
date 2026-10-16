@@ -77,3 +77,11 @@ describe("profile links in search", () => {
     );
   });
 });
+
+describe("returning to an app address after signing in", () => {
+  it("keeps chat and message addresses and drops anything else", () => {
+    const path = "/app/c/33333333-3333-3333-3333-333333333333/44444444-4444-4444-4444-444444444444";
+    expect(authRedirectTarget(`?next=${encodeURIComponent(path)}`)).toBe(path);
+    expect(authRedirectTarget("?next=%2Fapp%2Fadmin")).toBe("/app");
+  });
+});
