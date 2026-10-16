@@ -404,6 +404,12 @@ export function useMessages(params: {
     }
   }, [reseedChannelReads]);
 
+  const releaseJumpLoader = React.useCallback(() => {
+    if (!jumpLoaderRef.current) return;
+    jumpLoaderRef.current = null;
+    setLoadingInitial(false);
+  }, []);
+
   const jumpToMessage = React.useCallback(async (target: ChannelMessage, isCurrent: () => boolean = () => true): Promise<boolean> => {
     const messengerNow = messengerRef.current;
     const targetId = convIdRef.current;
@@ -476,6 +482,7 @@ export function useMessages(params: {
       const conversation = convIdRef.current;
       const superseded = () => convIdRef.current !== conversation || jumpRequestRef.current !== request;
       if (messagesRef.current.some((m) => m.id === messageId)) {
+        releaseJumpLoader();
         setHighlightedMessageId(null);
         requestAnimationFrame(() => {
           if (!superseded()) setHighlightedMessageId(messageId);
@@ -496,20 +503,17 @@ export function useMessages(params: {
         return isNotFoundError(err) ? "missing" : "failed";
       }
     },
-    [jumpToMessage],
+    [jumpToMessage, releaseJumpLoader],
   );
 
   const showLatest = React.useCallback(() => {
     ++jumpRequestRef.current;
-    if (jumpLoaderRef.current) {
-      jumpLoaderRef.current = null;
-      setLoadingInitial(false);
-    }
+    releaseJumpLoader();
     setHighlightedMessageId(null);
     nearBottomRef.current = true;
     const body = bodyRef.current;
     if (body) body.scrollTop = body.scrollHeight;
-  }, []);
+  }, [releaseJumpLoader]);
   return {
     messages,
     setMessages,

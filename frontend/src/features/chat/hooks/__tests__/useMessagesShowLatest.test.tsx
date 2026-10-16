@@ -150,3 +150,19 @@ it("lets a newer jump in while an older jump is loading its context", async () =
   expect(await second).toBe("shown");
   expect(latest!.showInitialLoader).toBe(false);
 });
+
+it("releases an older jump's loader when a newer jump targets a loaded message", async () => {
+  render(<Harness />);
+  await waitFor(() => expect(latest!.historyLoading).toBe(false));
+  act(() => {
+    void latest!.jumpToMessageId("m1");
+  });
+  await waitFor(() => expect(latest!.showInitialLoader).toBe(true));
+  let second: Promise<unknown> | undefined;
+  await act(async () => {
+    second = latest!.jumpToMessageId("m9");
+    await second;
+  });
+  expect(await second).toBe("shown");
+  expect(latest!.showInitialLoader).toBe(false);
+});
