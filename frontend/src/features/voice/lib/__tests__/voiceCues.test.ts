@@ -40,3 +40,14 @@ it("ignores a disconnect from a room the user already left", () => {
   expect(other.cue).toBeNull();
   expect(other.state).toBe(state);
 });
+
+it("keeps other people quiet while the media link is being re-established", () => {
+  const state = connect(idleVoiceCues, 1_000).state;
+  const now = 1_000 + SETTLE_MS;
+  const suspended = nextVoiceCue(state, { type: "suspended", roomId: "v1" }, now).state;
+  expect(nextVoiceCue(suspended, { type: "peerJoined", room: channel, userId: "u2", selfId: "me" }, now).cue).toBeNull();
+  const resumed = nextVoiceCue(suspended, { type: "resumed", roomId: "v1" }, now + 100).state;
+  expect(nextVoiceCue(resumed, { type: "peerLeft", room: channel, userId: "u2", selfId: "me" }, now + 200).cue).toBeNull();
+  expect(nextVoiceCue(resumed, { type: "peerLeft", room: channel, userId: "u2", selfId: "me" }, now + 100 + SETTLE_MS).cue).toBe("peerLeft");
+  expect(nextVoiceCue(state, { type: "suspended", roomId: "other" }, now).state).toBe(state);
+});

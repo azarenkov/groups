@@ -4,6 +4,7 @@ import { installMediaStateFlushOnUnload, syncMediaState } from "../lib/mediaStat
 import { isRecoverableDisconnect } from "../lib/reconnect";
 import { RECONNECT_WINDOW_MS, forgetVoiceSession, installVoiceSessionTouch, rememberVoiceSession } from "../lib/sessionHint";
 import { useCallStore } from "./callStore";
+import { reportVoiceCue } from "../lib/voiceCuePlayer";
 
 const RETRY_EVERY_MS = 3000;
 
@@ -51,6 +52,7 @@ export function installCallSessionSync(): void {
   });
   const service = getLiveKitService();
   service.subscribeReconnecting((reconnecting) => {
+    reportVoiceCue({ type: reconnecting ? "suspended" : "resumed", roomId: service.getActiveRoomName() });
     const { activeCallId } = useCallStore.getState();
     const ours = !!activeCallId && service.getActiveRoomName() === activeCallId;
     if (!reconnecting || ours) useCallStore.setState({ reconnecting });
