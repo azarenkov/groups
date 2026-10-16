@@ -692,7 +692,8 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         micMutedBeforeDeafenRef.current = state.micMuted;
         return;
       }
-      if (state.micMuted && !isMutedRef.current) toggleMute();
+      const locked = moderatorLockedRef.current || deafenLockedRef.current || fallbackMutedRef.current;
+      if (state.micMuted !== isMutedRef.current && (state.micMuted || !locked)) toggleMute();
     },
     [toggleDeafen, toggleMute],
   );
