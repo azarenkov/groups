@@ -2,10 +2,29 @@ import { useAuthStore } from "../../auth/store/authStore";
 import { getLiveKitService } from "../lib/livekit";
 import { installMediaStateFlushOnUnload, syncMediaState } from "../lib/mediaStateSync";
 import { isRecoverableDisconnect } from "../lib/reconnect";
-import { forgetVoiceSession, installVoiceSessionTouch, rememberVoiceSession } from "../lib/sessionHint";
+import { RECONNECT_WINDOW_MS, forgetVoiceSession, installVoiceSessionTouch, rememberVoiceSession } from "../lib/sessionHint";
 import { useCallStore } from "./callStore";
 
+const RETRY_EVERY_MS = 3000;
+
 let installed = false;
+
+async function recoverCall(callId: string): Promise<void> {
+  const deadline = Date.now() + RECONNECT_WINDOW_MS;
+  useCallStore.setState({ reconnecting: true });
+  try {
+    while (useCallStore.getState().activeCallId === callId) {
+      if ((await useCallStore.getState().rehydrate()) !== "unreachable") return;
+      if (Date.now() >= deadline) {
+        await useCallStore.getState().leave();
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, RETRY_EVERY_MS));
+    }
+  } finally {
+    useCallStore.setState({ reconnecting: false });
+  }
+}
 
 export function installCallSessionSync(): void {
   if (installed) return;
@@ -33,8 +52,8 @@ export function installCallSessionSync(): void {
     if (!reconnecting || ours) useCallStore.setState({ reconnecting });
   });
   service.subscribeConnectionLost((roomName, reason) => {
-    const call = useCallStore.getState();
-    if (!call.activeCallId || roomName !== call.activeCallId || !isRecoverableDisconnect(reason)) return;
-    void call.rehydrate();
+    const { activeCallId } = useCallStore.getState();
+    if (!activeCallId || roomName !== activeCallId || !isRecoverableDisconnect(reason)) return;
+    void recoverCall(activeCallId);
   });
 }

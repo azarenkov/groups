@@ -115,3 +115,15 @@ it("rejoins with the mic off when the saved mic and sound state cannot be read",
   expect(connectToRoom).toHaveBeenCalledWith("tok", "wss://lk", "c1", true);
   expect(useCallStore.getState().micMuted).toBe(true);
 });
+
+it("keeps the call and the tab's hint when the server cannot be reached", async () => {
+  api.getActive.mockRejectedValue(new Error("offline"));
+  rememberVoiceSession("me", { kind: "call", callId: "c1" });
+  expect(await useCallStore.getState().rehydrate()).toBe("unreachable");
+  expect(freshVoiceSession("me")).toEqual({ kind: "call", callId: "c1" });
+
+  useCallStore.setState({ activeCallId: "c1" });
+  expect(await useCallStore.getState().rehydrate()).toBe("unreachable");
+  expect(useCallStore.getState().activeCallId).toBe("c1");
+  expect(connectToRoom).not.toHaveBeenCalled();
+});

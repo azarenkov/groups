@@ -6,7 +6,6 @@ const RECOVERABLE = new Set<DisconnectReason>([
   DisconnectReason.STATE_MISMATCH,
   DisconnectReason.MIGRATION,
   DisconnectReason.SIGNAL_CLOSE,
-  DisconnectReason.ROOM_CLOSED,
 ]);
 
 export const isRecoverableDisconnect = (reason: DisconnectReason): boolean => RECOVERABLE.has(reason);
