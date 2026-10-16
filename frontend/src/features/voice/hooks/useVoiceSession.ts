@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { communityAPI } from "../../communities/api/community";
 import { getLiveKitService } from "../lib/livekit";
 import { useCallStore } from "../store/callStore";
-import { RECONNECT_WINDOW_MS } from "../lib/sessionHint";
+import { RECONNECT_WINDOW_MS, forgetVoiceSession } from "../lib/sessionHint";
 import type { Channel } from "../../../shared/types/channel";
 import type { Community } from "../../../shared/types/community";
 
@@ -16,6 +16,14 @@ export function useVoiceSession() {
     password?: string;
   } | null>(null);
   const [voiceJoinFailed, setVoiceJoinFailed] = useState(false);
+  const leftChannelRef = useRef(joinedChannel);
+  useEffect(() => {
+    const previous = leftChannelRef.current;
+    leftChannelRef.current = joinedChannel;
+    if (previous && previous.channel.id !== joinedChannel?.channel.id) {
+      forgetVoiceSession({ kind: "channel", communityId: previous.communityId, channelId: previous.channel.id });
+    }
+  }, [joinedChannel]);
   const [voiceJoinAttempt, setVoiceJoinAttempt] = useState(0);
   const [voiceReconnecting, setVoiceReconnecting] = useState(false);
   const reconnectSinceRef = useRef<number | null>(null);

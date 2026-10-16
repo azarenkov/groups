@@ -2,7 +2,7 @@ import React from "react";
 import { act, render } from "@testing-library/react";
 
 import { useVoiceSession } from "../useVoiceSession";
-import { RECONNECT_WINDOW_MS } from "../../lib/sessionHint";
+import { RECONNECT_WINDOW_MS, freshVoiceSession, rememberVoiceSession } from "../../lib/sessionHint";
 import type { Channel } from "../../../../shared/types/channel";
 import type { Community } from "../../../../shared/types/community";
 
@@ -46,4 +46,16 @@ it("reports a failed regular join right away", () => {
   act(() => session!.startVoiceJoin(community, channel));
   act(() => session!.handleVoiceJoinFailed());
   expect(session!.voiceJoinFailed).toBe(true);
+});
+
+it("keeps the channel the tab is returning to until the user really leaves it", () => {
+  jest.useRealTimers();
+  sessionStorage.clear();
+  render(<Harness />);
+  act(() => session!.startVoiceJoin(community, channel, undefined, true));
+  rememberVoiceSession("me", { kind: "channel", communityId: "k1", channelId: "v1" });
+  act(() => session!.reconnectVoice());
+  expect(freshVoiceSession("me")).toEqual({ kind: "channel", communityId: "k1", channelId: "v1" });
+  act(() => session!.handleVoiceLeave());
+  expect(freshVoiceSession("me")).toBeNull();
 });

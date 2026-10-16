@@ -13,7 +13,7 @@ import { useAuthStore } from "../../auth/store/authStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { decodeAccessToken } from "../../../shared/lib/jwt";
 import { useLocalQuality } from "./useLocalQuality";
-import { forgetVoiceSession, rememberVoiceSession } from "../lib/sessionHint";
+import { rememberVoiceSession } from "../lib/sessionHint";
 
 interface UseLiveKitResult {
   micMutedBeforeDeafen: () => boolean;
@@ -299,7 +299,6 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     fallbackReleasePendingRef.current = false;
     try {
       const active = activeChannelRef.current;
-      if (active) forgetVoiceSession({ kind: "channel", communityId: active.communityId, channelId: active.channelId });
       const ownsRoom = !active || service.getActiveRoomName() === active.channelId;
       if (ownsRoom) {
         console.log("[useLiveKit] Leaving channel...");
