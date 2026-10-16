@@ -2,6 +2,7 @@
   "connect": "Connect",
   "disconnect": "Disconnect",
   "connecting": "Connecting…",
+  "reconnecting": "Reconnecting…",
   "disconnected": "Disconnected",
   "connected": "Connected",
   "members": "Members",

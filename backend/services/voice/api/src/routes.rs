@@ -2,6 +2,7 @@ use actix_web::web;
 
 use api_common::health::{livez, readyz};
 use crate::call::call_routes;
+use crate::media::media_routes;
 use crate::webhook::livekit_webhook;
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
@@ -11,6 +12,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         .service(
             web::scope("/api")
                 .configure(call_routes)
+                .configure(media_routes)
                 .service(web::scope("/webhook").service(livekit_webhook)),
         );
 }

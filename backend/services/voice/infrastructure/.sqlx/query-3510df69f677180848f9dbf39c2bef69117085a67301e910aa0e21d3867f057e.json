@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT EXISTS(\n                    SELECT 1 FROM call_participants\n                    WHERE call_id = $1 AND user_id = $2\n                      AND status = 'joined' AND session_id IS NULL AND updated_at <= $3\n                ) AS \"stale!\"\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "stale!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "3510df69f677180848f9dbf39c2bef69117085a67301e910aa0e21d3867f057e"
+}

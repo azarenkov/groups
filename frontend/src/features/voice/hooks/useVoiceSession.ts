@@ -14,6 +14,7 @@ export function useVoiceSession() {
   } | null>(null);
   const [voiceJoinFailed, setVoiceJoinFailed] = useState(false);
   const [voiceJoinAttempt, setVoiceJoinAttempt] = useState(0);
+  const [voiceReconnecting, setVoiceReconnecting] = useState(false);
   const [passwordPrompt, setPasswordPrompt] = useState<{
     community: Community;
     channel: Channel;
@@ -21,6 +22,17 @@ export function useVoiceSession() {
   const handleVoiceLeave = useCallback(() => {
     setJoinedChannel(null);
     setVoiceJoinFailed(false);
+    setVoiceReconnecting(false);
+  }, []);
+
+  const reconnectVoice = useCallback(() => {
+    setVoiceReconnecting(true);
+    setVoiceJoinFailed(false);
+    setVoiceJoinAttempt((n) => n + 1);
+  }, []);
+
+  const handleVoiceReconnected = useCallback(() => {
+    setVoiceReconnecting(false);
   }, []);
 
 
@@ -41,10 +53,11 @@ export function useVoiceSession() {
 
 
   const startVoiceJoin = useCallback(
-    (community: Community, channel: Channel, password?: string) => {
+    (community: Community, channel: Channel, password?: string, reconnecting = false) => {
       void useCallStore.getState().leave(true);
       setJoinedChannel({ channel, communityId: community.id, password });
       setVoiceJoinFailed(false);
+      setVoiceReconnecting(reconnecting);
       setVoiceJoinAttempt((n) => n + 1);
     },
     [],
@@ -99,6 +112,9 @@ export function useVoiceSession() {
     voiceJoinFailed,
     setVoiceJoinFailed,
     voiceJoinAttempt,
+    voiceReconnecting,
+    reconnectVoice,
+    handleVoiceReconnected,
     passwordPrompt,
     setPasswordPrompt,
     handleVoiceLeave,

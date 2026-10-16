@@ -13,6 +13,8 @@ import {
   leaveAsInitiator,
 } from "../lib/callSession";
 import { leaveVoiceChannel } from "./voiceChannelStore";
+import { forgetVoiceSession, freshVoiceSession } from "../lib/sessionHint";
+import { loadMediaState } from "../lib/mediaStateSync";
 
 const armFallbackMuteRelease = (
   userId: string | null,
@@ -74,6 +76,7 @@ interface CallState {
   incoming: IncomingCall | null;
   activeCallId: string | null;
   connecting: boolean;
+  reconnecting: boolean;
   participants: Record<string, string>;
   ringing: string[];
   focused: boolean;
@@ -164,6 +167,7 @@ export const useCallStore = create<CallState>()((set, get) => {
   incoming: null,
   activeCallId: null, startedAt: null, attention: false,
   connecting: false,
+  reconnecting: false,
   participants: {},
   ringing: [],
   focused: false,
@@ -295,6 +299,9 @@ export const useCallStore = create<CallState>()((set, get) => {
     if (get().connecting) return;
     const { useAuthStore } = await import("../../auth/store/authStore");
     const userId = useAuthStore.getState().user?.id ?? null;
+    const restoring = !get().activeCallId;
+    const hint = restoring && userId ? freshVoiceSession(userId) : null;
+    if (restoring && hint?.kind !== "call") return;
     let settingsSynced = true;
     if (userId) {
       const { voiceSettingsReadyFor } = await import("./voiceSettingsStore");
@@ -306,8 +313,15 @@ export const useCallStore = create<CallState>()((set, get) => {
       ]);
     }
     if ((useAuthStore.getState().user?.id ?? null) !== userId) return;
-    const active = await callAPI.getActive().catch(() => null);
+    const [active, media] = await Promise.all([
+      callAPI.getActive().catch(() => null),
+      restoring ? loadMediaState() : Promise.resolve(null),
+    ]);
     if ((useAuthStore.getState().user?.id ?? null) !== userId) return;
+    if (hint && (!active || hint.kind !== "call" || hint.callId !== active.callId)) {
+      forgetVoiceSession(hint);
+      return;
+    }
     if (!active) {
       const service = getLiveKitService();
       if (
@@ -337,24 +351,29 @@ export const useCallStore = create<CallState>()((set, get) => {
       ringing: s.activeCallId === active.callId ? s.ringing : [],
       endedCall: s.activeCallId === active.callId ? s.endedCall : null,
       focused: s.activeCallId === active.callId ? s.focused : true,
+      ...(media ? { micMuted: media.micMuted || !settingsSynced, deafened: false, micMutedBeforeDeafen: false } : {}),
       ...(settingsSynced ? {} : { micMuted: true }),
     }));
     const muteSeqBeforeConnect = get().micMuteSeq;
     const service = getLiveKitService();
     if (!service.isConnected() && !service.isConnectingNow()) {
+      set({ reconnecting: true });
       try {
         await connectToRoom(
           active.token,
           active.url,
           active.callId,
-          !settingsSynced,
+          !settingsSynced || !!media?.micMuted,
         );
       } catch {
         if (get().activeCallId === active.callId) {
           set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null });
         }
         return;
+      } finally {
+        set({ reconnecting: false });
       }
+      if (media?.deafened && get().activeCallId === active.callId) get().setDeafened(true);
     }
     if ((useAuthStore.getState().user?.id ?? null) !== userId) {
       const svc = getLiveKitService();
@@ -366,7 +385,7 @@ export const useCallStore = create<CallState>()((set, get) => {
       }
       return;
     }
-    if (!settingsSynced && userId) {
+    if (!settingsSynced && userId && !media?.micMuted) {
       const muteSeqAtFallback = muteSeqBeforeConnect;
       void import("./voiceSettingsStore").then(({ voiceSettingsReadyFor }) =>
         voiceSettingsReadyFor(userId).then(() => {

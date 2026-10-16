@@ -214,6 +214,34 @@ export class LiveKitService {
   }
 
   private localDeafenListeners: Set<(deafened: boolean) => void> = new Set();
+  private reconnectingListeners = new Set<(reconnecting: boolean) => void>();
+  private connectionLostListeners = new Set<(roomName: string | null, reason: DisconnectReason) => void>();
+  private reconnecting = false;
+
+  subscribeReconnecting(fn: (reconnecting: boolean) => void): () => void {
+    this.reconnectingListeners.add(fn);
+    return () => {
+      this.reconnectingListeners.delete(fn);
+    };
+  }
+
+  subscribeConnectionLost(fn: (roomName: string | null, reason: DisconnectReason) => void): () => void {
+    this.connectionLostListeners.add(fn);
+    return () => {
+      this.connectionLostListeners.delete(fn);
+    };
+  }
+
+  private setReconnecting(reconnecting: boolean): void {
+    if (this.reconnecting === reconnecting) return;
+    this.reconnecting = reconnecting;
+    this.reconnectingListeners.forEach((fn) => fn(reconnecting));
+  }
+
+  private reportConnectionLost(roomName: string | null, reason: DisconnectReason): void {
+    this.onUnexpectedDisconnect?.(reason);
+    this.connectionLostListeners.forEach((fn) => fn(roomName, reason));
+  }
 
   subscribeLocalDeafened(fn: (deafened: boolean) => void): () => void {
     this.localDeafenListeners.add(fn);
@@ -312,6 +340,7 @@ export class LiveKitService {
       this.room = new Room({
         adaptiveStream: true,
         dynacast: true,
+        disconnectOnPageLeave: false,
         audioCaptureDefaults: {
           deviceId: this.preferredMicId ?? undefined,
           echoCancellation: true,
@@ -403,6 +432,7 @@ export class LiveKitService {
 
   async disconnect(): Promise<void> {
     this.clearReconnectAbortTimer();
+    this.setReconnecting(false);
     this.micSwitchSeq += 1;
     await this.tearDownDfn();
     this.teardownMicGain();
@@ -444,9 +474,9 @@ export class LiveKitService {
         `[LiveKitService] Reconnect did not recover within ${this.RECONNECT_GIVE_UP_MS}ms — aborting`,
       );
       this.reconnectAbortTimer = null;
-      const cb = this.onUnexpectedDisconnect;
+      const roomName = this.targetRoomName;
       void this.disconnect().finally(() => {
-        cb?.(DisconnectReason.UNKNOWN_REASON);
+        this.reportConnectionLost(roomName, DisconnectReason.UNKNOWN_REASON);
       });
     }, this.RECONNECT_GIVE_UP_MS);
   }
@@ -1582,8 +1612,12 @@ export class LiveKitService {
         this.updateParticipant(identity, patch),
       onDisconnected: (reason) => this.handleRoomDisconnected(reason),
       onLocalQuality: (quality) => this.emitLocalQuality(quality),
-      onReconnectingStarted: () => this.startReconnectAbortTimer(),
+      onReconnectingStarted: () => {
+        this.setReconnecting(true);
+        this.startReconnectAbortTimer();
+      },
       onReconnectingSettled: () => {
+        this.setReconnecting(false);
         this.clearReconnectAbortTimer();
         void this.flushPendingScreenStop();
       },
@@ -1605,6 +1639,8 @@ export class LiveKitService {
 
   private handleRoomDisconnected(reason?: DisconnectReason): void {
     this.clearReconnectAbortTimer();
+    this.setReconnecting(false);
+    const roomName = this.targetRoomName;
     this.micSwitchSeq += 1;
     this.teardownMicGain();
     void this.tearDownDfn().then(() => this.emitLocalTrack());
@@ -1614,7 +1650,7 @@ export class LiveKitService {
     this.notifyParticipantsChange();
     this.onConnectionStateChange?.(false);
     if (reason !== undefined && reason !== DisconnectReason.CLIENT_INITIATED) {
-      this.onUnexpectedDisconnect?.(reason);
+      this.reportConnectionLost(roomName, reason);
     }
   }
 

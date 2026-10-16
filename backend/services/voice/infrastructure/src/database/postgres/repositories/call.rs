@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use voice_domain::{call::repository::AddParticipantsOutcome, call::repository::CallPairOutcome, call::repository::EndedCall, call::repository::CallInvitation, call::repository::CallRepository, call::repository::JoinOutcome, call::repository::PendingEviction, call::repository::WebhookJoinOutcome, call::CallParticipantStatus, call::CallRoster};
+use voice_domain::{call::repository::AddParticipantsOutcome, call::repository::CallPairOutcome, call::repository::EndedCall, call::repository::CallInvitation, call::repository::CallRepository, call::repository::JoinOutcome, call::repository::PendingEviction, call::repository::WebhookJoinOutcome, call::CallParticipantStatus, call::CallRoster, call::reconnect_cutoff};
 use domain::user::id::UserId;
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -252,7 +252,7 @@ async fn end_call_when(
         WHERE call_id = $1
         "#,
         call_id,
-        now - chrono::Duration::seconds(60),
+        reconnect_cutoff(now),
     )
     .fetch_one(&mut **tx)
     .await
@@ -998,7 +998,7 @@ impl CallRepository for PostgresCallRepository {
                 r.status == "invited"
                     || (r.status == "joined"
                         && r.answered_at.is_none()
-                        && r.updated_at > Utc::now() - chrono::Duration::seconds(60))
+                        && r.updated_at > reconnect_cutoff(Utc::now()))
             })
             .unwrap_or(false);
         let current_left = |user: Uuid| {
@@ -1236,5 +1236,107 @@ impl CallRepository for PostgresCallRepository {
 
         tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         Ok(true)
+    }
+
+    async fn webhook_dropped(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        session_id: &str,
+        now: DateTime<Utc>,
+    ) -> Result<bool, RepositoryError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        lock_call(&mut tx, call_id).await?;
+
+        let is_call = sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM call_participants WHERE call_id = $1) AS "exists!""#,
+            call_id,
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        if !is_call {
+            return Ok(false);
+        }
+
+        sqlx::query!(
+            r#"
+            UPDATE call_participants
+            SET session_id = NULL, updated_at = $4
+            WHERE call_id = $1 AND user_id = $2
+              AND status = 'joined'
+              AND session_id = $3
+            "#,
+            call_id,
+            user_id.uuid(),
+            session_id,
+            now,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        Ok(true)
+    }
+
+    async fn expire_reconnects(
+        &self,
+        now: DateTime<Utc>,
+        limit: i64,
+        request_id: Option<String>,
+    ) -> Result<usize, RepositoryError> {
+        let stale = sqlx::query!(
+            r#"
+            SELECT call_id, user_id
+            FROM call_participants
+            WHERE status = 'joined' AND session_id IS NULL AND updated_at <= $1
+            ORDER BY updated_at
+            LIMIT $2
+            "#,
+            reconnect_cutoff(now),
+            limit,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let mut expired = 0;
+        for row in stale {
+            let mut tx = self
+                .pool
+                .begin()
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            lock_call(&mut tx, row.call_id).await?;
+            let still_stale = sqlx::query_scalar!(
+                r#"
+                SELECT EXISTS(
+                    SELECT 1 FROM call_participants
+                    WHERE call_id = $1 AND user_id = $2
+                      AND status = 'joined' AND session_id IS NULL AND updated_at <= $3
+                ) AS "stale!"
+                "#,
+                row.call_id,
+                row.user_id,
+                reconnect_cutoff(now),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            if !still_stale {
+                continue;
+            }
+            if mark_left(&mut tx, row.call_id, row.user_id, now, request_id.clone()).await? {
+                expired += 1;
+            }
+            end_call_when(&mut tx, row.call_id, row.user_id, request_id.clone(), now, CallRoster::is_abandoned).await?;
+            tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        }
+        Ok(expired)
     }
 }

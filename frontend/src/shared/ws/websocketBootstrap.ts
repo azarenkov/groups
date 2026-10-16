@@ -23,6 +23,7 @@ import { friendshipAPI } from "../../features/social/api/friendship";
 import { peerOfDmPartition } from "../../features/chat/lib/partitions";
 import { useDmPreviewStore } from "../../features/dm/store/dmPreviewStore";
 import { useCallStore } from "../../features/voice/store/callStore";
+import { installCallSessionSync } from "../../features/voice/store/callSessionSync";
 import {
   loadActivitiesFor,
   loadFriendActivities,
@@ -119,6 +120,7 @@ export function installWsBootstrap() {
   installMessageCacheSync();
   installQuerySync();
   installStreamLimitNotice();
+  installCallSessionSync();
   ws.addFilter((env) => admitDmEvent(env, useAuthStore.getState().user?.id));
   ws.onResync((partition) => {
     reconcilePairRelation(partition);

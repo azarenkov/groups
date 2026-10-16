@@ -6,11 +6,13 @@ use voice::usecases::{
         get_active_call_with::GetActiveCallWith, join_call::JoinCall, leave_call::LeaveCall,
         start_call::StartCall,
     },
+    media::{get_media_state::GetMediaState, save_media_state::SaveMediaState},
     webhook::voice::HandleVoiceWebhook,
 };
 use voice_infrastructure::{
     database::postgres::repositories::{
-        call::PostgresCallRepository, user_profile::PostgresUserProfileRepository,
+        call::PostgresCallRepository, media_state::PostgresMediaStateRepository,
+        user_profile::PostgresUserProfileRepository,
     },
     outbox::webhook_outbox::PostgresWebhookOutbox,
     media_client::friendship::MessagingFriendshipClient,
@@ -61,5 +63,7 @@ pub struct AppState {
         MessagingFriendshipClient,
         PostgresPlanDirectory,
     >,
+    pub get_media_state_usecase: GetMediaState<PostgresMediaStateRepository>,
+    pub save_media_state_usecase: SaveMediaState<PostgresMediaStateRepository>,
     pub call_repository: std::sync::Arc<PostgresCallRepository>,
 }

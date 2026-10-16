@@ -13,6 +13,7 @@ import { useAuthStore } from "../../auth/store/authStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { decodeAccessToken } from "../../../shared/lib/jwt";
 import { useLocalQuality } from "./useLocalQuality";
+import { forgetVoiceSession, rememberVoiceSession } from "../lib/sessionHint";
 
 interface UseLiveKitResult {
   participants: ParticipantInfo[];
@@ -268,6 +269,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         }
 
         setIsConnecting(false);
+        if (joiningUserId) rememberVoiceSession(joiningUserId, { kind: "channel", communityId, channelId });
       } catch (err) {
         console.error("[useLiveKit] Failed to join channel:", err);
         if (joinAttempt === null || activeChannelRef.current === joinAttempt) {
@@ -294,6 +296,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     fallbackReleasePendingRef.current = false;
     try {
       const active = activeChannelRef.current;
+      if (active) forgetVoiceSession({ kind: "channel", communityId: active.communityId, channelId: active.channelId });
       const ownsRoom = !active || service.getActiveRoomName() === active.channelId;
       if (ownsRoom) {
         console.log("[useLiveKit] Leaving channel...");

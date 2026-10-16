@@ -49,6 +49,7 @@ import AppTopBar from "./AppTopBar";
 import SearchDropdown from "./SearchDropdown";
 import { useSidebarNavigation } from "./sidebar/useSidebarNavigation";
 import { useVoiceSession } from "../../voice/hooks/useVoiceSession";
+import { useVoiceSessionRestore } from "../../voice/hooks/useVoiceSessionRestore";
 import { useHomeRefresh } from "../../home/hooks/useHomeRefresh";
 import { useActiveChatView } from "../hooks/useActiveChatView";
 import { useAppearOffline } from "../hooks/useAppearOffline";
@@ -208,12 +209,24 @@ const CommunitiesPage: React.FC = () => {
     voiceJoinFailed,
     setVoiceJoinFailed,
     voiceJoinAttempt,
+    voiceReconnecting,
+    reconnectVoice,
+    handleVoiceReconnected,
     passwordPrompt,
     setPasswordPrompt,
     handleVoiceLeave,
     handleVoiceJoinFailed,
+    startVoiceJoin,
     reportStreamWatch,
   } = voice;
+  useVoiceSessionRestore({
+    userId: user?.id,
+    communities,
+    communitiesLoaded,
+    channelsByCommunity,
+    fetchChannels,
+    rejoin: (community, channel) => startVoiceJoin(community, channel, undefined, true),
+  });
 
   const selection = useSelection({
     hasSession,
@@ -1041,6 +1054,9 @@ const CommunitiesPage: React.FC = () => {
                 onOpenStage={selection.handleOpenJoinedStage}
                 onLeave={handleVoiceLeave}
                 onJoinFailed={handleVoiceJoinFailed}
+                reconnecting={voiceReconnecting}
+                onReconnect={reconnectVoice}
+                onReconnected={handleVoiceReconnected}
               />
             )}
           </div>

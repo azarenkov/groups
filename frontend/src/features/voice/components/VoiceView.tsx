@@ -19,6 +19,9 @@ import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { useSpeakingStore } from "../store/speakingStore";
 import { useVoiceChannelStore } from "../store/voiceChannelStore";
 import { colorForId, initialFor } from "../../../shared/lib/avatar";
+import { getLiveKitService } from "../lib/livekit";
+import { loadMediaState, syncMediaState } from "../lib/mediaStateSync";
+import { isRecoverableDisconnect } from "../lib/reconnect";
 
 interface VoiceViewProps {
   channelId: string;
@@ -33,6 +36,9 @@ interface VoiceViewProps {
   onOpenStage?: () => void;
   onLeave: () => void;
   onJoinFailed?: (message: string) => void;
+  reconnecting?: boolean;
+  onReconnect?: () => void;
+  onReconnected?: () => void;
 }
 
 const VoiceView: React.FC<VoiceViewProps> = ({
@@ -48,10 +54,15 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   onOpenStage,
   onLeave,
   onJoinFailed,
+  reconnecting = false,
+  onReconnect,
+  onReconnected,
 }) => {
   const { t } = useTranslation(["voice", "common"]);
   const onLeaveRef = useRef(onLeave);
   onLeaveRef.current = onLeave;
+  const reconnectRef = useRef({ reconnecting, onReconnect, onReconnected });
+  reconnectRef.current = { reconnecting, onReconnect, onReconnected };
   const {
     participants,
     videoTiles,
@@ -72,10 +83,24 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     toggleScreenShare,
   } = useLiveKit({
     onUnexpectedDisconnect: (reason) => {
+      const { reconnecting: retrying, onReconnect: retry } = reconnectRef.current;
+      if (retry && !retrying && isRecoverableDisconnect(reason)) {
+        console.warn("[VoiceView] connection lost, rejoining:", reason);
+        retry();
+        return;
+      }
       console.warn("[VoiceView] unexpected disconnect, leaving:", reason);
       onLeaveRef.current();
     },
   });
+  const deafenRef = useRef({ isDeafened, toggleDeafen });
+  deafenRef.current = { isDeafened, toggleDeafen };
+  const [linkReconnecting, setLinkReconnecting] = useState(false);
+  useEffect(() => getLiveKitService().subscribeReconnecting(setLinkReconnecting), []);
+  const restoringMediaRef = useRef(reconnecting);
+  useEffect(() => {
+    if (isConnected && !restoringMediaRef.current) syncMediaState({ micMuted: isMuted, deafened: isDeafened });
+  }, [isConnected, isMuted, isDeafened]);
 
   const hasJoinedRef = useRef(false);
   const currentChannelRef = useRef<string | null>(null);
@@ -104,9 +129,16 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       hasJoinedRef.current = true;
       currentChannelRef.current = channelId;
       isJoiningRef.current = true;
+      const restoredMedia = reconnectRef.current.reconnecting ? loadMediaState() : null;
+      restoringMediaRef.current = !!restoredMedia;
       joinChannel(channelId, communityId, password)
-        .then(() => {
+        .then(async () => {
           isJoiningRef.current = false;
+          if (!restoredMedia) return;
+          const media = await restoredMedia;
+          restoringMediaRef.current = false;
+          if (media?.deafened && !deafenRef.current.isDeafened) deafenRef.current.toggleDeafen();
+          reconnectRef.current.onReconnected?.();
         })
         .catch((err) => {
           console.error("[VoiceView] join failed:", err);
@@ -337,7 +369,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       <div className="voice-pill in-dock connecting">
         <div className="vp-meta-wrap">
           <div className="vp-title">{channelName}</div>
-          <div className="vp-meta">{t("connecting")}</div>
+          <div className="vp-meta">{t(reconnecting ? "reconnecting" : "connecting")}</div>
         </div>
         <button
           className="vp-btn leave"
@@ -351,7 +383,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     );
   }
 
-  const meta = speakingPerson
+  const meta = linkReconnecting
+    ? t("reconnecting")
+    : speakingPerson
     ? `${speakingPerson.name || speakingPerson.identity} — ${t("speaking")}`
     : `${totalConnected} ${t("connected").toLowerCase()}`;
 
