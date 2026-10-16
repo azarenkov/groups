@@ -52,6 +52,7 @@ import { useVoiceSession } from "../../voice/hooks/useVoiceSession";
 import { useHomeRefresh } from "../../home/hooks/useHomeRefresh";
 import { useActiveChatView } from "../hooks/useActiveChatView";
 import { useAppearOffline } from "../hooks/useAppearOffline";
+import { channelServesLink } from "../lib/channelLink";
 import { useDirectConversations } from "../hooks/useDirectConversations";
 import type { DirectConversation } from "../../dm/types";
 import { useSelection } from "../hooks/useSelection";
@@ -608,7 +609,7 @@ const CommunitiesPage: React.FC = () => {
     if (!unavailableRef.current) return;
     setUnavailable(null);
     if (chatPathRef.current) navigate(chatPathRef.current, { replace: true });
-  }, [selectedDm, selectedChannelId, selectedCommunityId, selection.selectionSeq, navigate]);
+  }, [openConversationId, selectedCommunityId, selection.selectionSeq, navigate]);
   useEffect(() => {
     setOpenMessage((queued) => (queued && queued.convId !== openConversationId ? null : queued));
   }, [openConversationId]);
@@ -748,8 +749,7 @@ const CommunitiesPage: React.FC = () => {
       setSelectedChannel(null);
       return;
     }
-    const channelId = link.channelId;
-    const hasChannel = (list: Record<string, Channel[]>) => !!list[link.communityId]?.some((c) => c.id === channelId);
+    const hasChannel = (list: Record<string, Channel[]>) => !!list[link.communityId]?.some((c) => channelServesLink(c, link));
     if (!channelsFullyLoaded(link.communityId) || !hasChannel(channelsByCommunity)) {
       if (channelsFullyLoaded(link.communityId)) drop("missing");
       else if (!refreshed.channels) {
