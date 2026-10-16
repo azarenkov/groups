@@ -490,6 +490,14 @@ export function useMessages(params: {
     },
     [jumpToMessage],
   );
+
+  const showLatest = React.useCallback(() => {
+    ++jumpRequestRef.current;
+    setHighlightedMessageId(null);
+    nearBottomRef.current = true;
+    const body = bodyRef.current;
+    if (body) body.scrollTop = body.scrollHeight;
+  }, []);
   return {
     messages,
     setMessages,
@@ -507,5 +515,6 @@ export function useMessages(params: {
     refreshHistory,
     jumpToMessage,
     jumpToMessageId,
+    showLatest,
   };
 }

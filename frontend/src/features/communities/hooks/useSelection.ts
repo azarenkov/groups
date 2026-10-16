@@ -151,10 +151,14 @@ export function useSelection(params: {
     setSelectedChannel(firstText ? firstText.id : null);
   };
 
-  const finalizeJoin = (community: Community, channel: Channel, password?: string) => {
-    setSelectedCommunity(community.id);
-    setSelectedChannel(channel.id);
+  const showChannel = (communityId: string, channelId: string) => {
+    setSelectedCommunity(communityId);
+    setSelectedChannel(channelId);
     setSelectedDm(null);
+  };
+
+  const finalizeJoin = (community: Community, channel: Channel, password?: string) => {
+    showChannel(community.id, channel.id);
     startVoiceJoin(community, channel, password);
   };
 
@@ -162,9 +166,7 @@ export function useSelection(params: {
     noteSelection();
     useCallStore.getState().setFocused(false);
     if (channel.kind === "text") {
-      setSelectedCommunity(community.id);
-      setSelectedChannel(channel.id);
-      setSelectedDm(null);
+      showChannel(community.id, channel.id);
       useUnreadStore.getState().resetChannel(channel.id);
       userAPI.markChannelRead(channel.id).catch((err) => {
         console.warn("[read-state] mark channel read failed:", err);
@@ -176,9 +178,7 @@ export function useSelection(params: {
       joinedChannel.channel.id === channel.id &&
       !voiceJoinFailed
     ) {
-      setSelectedCommunity(community.id);
-      setSelectedChannel(channel.id);
-      setSelectedDm(null);
+      showChannel(community.id, channel.id);
       return;
     }
     if (channel.visibility === "private") {
@@ -186,6 +186,13 @@ export function useSelection(params: {
       return;
     }
     finalizeJoin(community, channel);
+  };
+
+  const handleOpenJoinedStage = () => {
+    if (!joinedChannel) return;
+    noteSelection();
+    useCallStore.getState().setFocused(false);
+    showChannel(joinedChannel.communityId, joinedChannel.channel.id);
   };
 
   const handleSelectDm = (dm: DirectConversation) => {
@@ -244,6 +251,7 @@ export function useSelection(params: {
     handleSelectCommunity,
     handleSelectChannel,
     handleSelectDm,
+    handleOpenJoinedStage,
     handleGoToCommunity,
     handleGoHome,
     finalizeJoin,

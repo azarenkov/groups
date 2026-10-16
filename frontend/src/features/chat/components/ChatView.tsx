@@ -55,7 +55,7 @@ interface ChatViewProps {
   onGoToCommunity?: (communityId: string) => void | Promise<void>;
   topSlot?: React.ReactNode;
   callMode?: boolean;
-  openMessageId?: string;
+  openMessageId?: string | null;
   onOpenMessageHandled?: () => void;
 }
 
@@ -142,6 +142,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     refreshHistory,
     jumpToMessage,
     jumpToMessageId,
+    showLatest,
   } = useMessages({
     messenger,
     convId,
@@ -185,13 +186,18 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [jumpProblem, setJumpProblem] = React.useState<"missing" | "failed" | null>(null);
   React.useEffect(() => setJumpProblem(null), [convId]);
   React.useEffect(() => {
-    if (!openMessageId || showInitialLoader) return;
+    if (openMessageId === undefined || showInitialLoader) return;
     closeSearch();
-    void jumpToMessageId(openMessageId).then((result) => {
-      if (result !== "stale") setJumpProblem(result === "shown" ? null : result);
-    });
+    if (openMessageId === null) {
+      setJumpProblem(null);
+      showLatest();
+    } else {
+      void jumpToMessageId(openMessageId).then((result) => {
+        if (result !== "stale") setJumpProblem(result === "shown" ? null : result);
+      });
+    }
     onOpenHandledRef.current?.();
-  }, [openMessageId, showInitialLoader, jumpToMessageId, closeSearch]);
+  }, [openMessageId, showInitialLoader, jumpToMessageId, showLatest, closeSearch]);
 
   const searchActive = search.searchOpen && search.searchInput.trim().length > 0;
 

@@ -156,7 +156,7 @@ const CommunitiesPage: React.FC = () => {
     communities: false,
     channels: false,
   });
-  const [openMessage, setOpenMessage] = useState<{ convId: string; messageId: string } | null>(null);
+  const [openMessage, setOpenMessage] = useState<{ convId: string; messageId: string | null } | null>(null);
   const navigate = useNavigate();
   const { pathname, state: routeState } = useLocation();
   const pathLocation = parseAppPath(pathname, user?.id);
@@ -594,6 +594,10 @@ const CommunitiesPage: React.FC = () => {
       }
       else if (location.kind !== "settings") setPendingMessageLink(location);
     },
+    leaveMessage: () => {
+      const convId = selectedDm?.id ?? selectedChannelId;
+      if (convId) setOpenMessage({ convId, messageId: null });
+    },
   });
   const unavailableRef = React.useRef(unavailable);
   unavailableRef.current = unavailable;
@@ -1029,12 +1033,7 @@ const CommunitiesPage: React.FC = () => {
                   ]
                 }
                 onStreamWatch={reportStreamWatch}
-                onOpenStage={() => {
-                  useCallStore.getState().setFocused(false);
-                  setSelectedDm(null);
-                  setSelectedCommunity(joinedChannel.communityId);
-                  setSelectedChannel(joinedChannel.channel.id);
-                }}
+                onOpenStage={selection.handleOpenJoinedStage}
                 onLeave={handleVoiceLeave}
                 onJoinFailed={handleVoiceJoinFailed}
               />

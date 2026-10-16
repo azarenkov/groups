@@ -16,12 +16,13 @@ let seenPath = "";
 let navigateTo: NavigateFunction = () => {};
 let history: ReturnType<typeof useBrowserHistory> | null = null;
 
-const Harness: React.FC<{ current: AppLocation | null; resolving?: boolean; open: (location: AppLocation) => void }> = ({
-  current,
-  resolving = false,
-  open,
-}) => {
-  useLocationSync({ viewerId: me, current, resolving, open });
+const Harness: React.FC<{
+  current: AppLocation | null;
+  resolving?: boolean;
+  open: (location: AppLocation) => void;
+  leaveMessage?: () => void;
+}> = ({ current, resolving = false, open, leaveMessage = () => {} }) => {
+  useLocationSync({ viewerId: me, current, resolving, open, leaveMessage });
   history = useBrowserHistory();
   const location = useLocation();
   seenPath = `${location.pathname}${location.search}`;
@@ -98,6 +99,20 @@ it("jumps again when the same message address is opened a second time", () => {
   expect(open).toHaveBeenCalledTimes(1);
   act(() => navigateTo(`/app/dm/${peer}/${message}`));
   expect(open).toHaveBeenCalledTimes(2);
+});
+
+it("returns to the regular chat view when going back from a message address", () => {
+  const open = jest.fn();
+  const leaveMessage = jest.fn();
+  renderAt(`/app/dm/${peer}`, { current: { kind: "dm", peerId: peer }, open, leaveMessage });
+  act(() => navigateTo(`/app/dm/${peer}/${message}`));
+  expect(open).toHaveBeenLastCalledWith({ kind: "dm", peerId: peer, messageId: message });
+  act(() => history?.goHistory(-1));
+  expect(seenPath).toBe(`/app/dm/${peer}`);
+  expect(open).toHaveBeenCalledTimes(1);
+  expect(leaveMessage).toHaveBeenCalledTimes(1);
+  act(() => navigateTo(`/app/dm/${peer}`));
+  expect(leaveMessage).toHaveBeenCalledTimes(1);
 });
 
 it("does not forget the last chat while settings or a link is open", () => {
