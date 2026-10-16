@@ -581,6 +581,7 @@ const CommunitiesPage: React.FC = () => {
   useLocationSync({
     viewerId: user?.id,
     current: chatLocation,
+    selectionSeq: selection.selectionSeq,
     resolving: pendingMessageLink !== null,
     open: (location) => {
       setUnavailable(null);

@@ -18,11 +18,12 @@ let history: ReturnType<typeof useBrowserHistory> | null = null;
 
 const Harness: React.FC<{
   current: AppLocation | null;
+  selectionSeq?: number;
   resolving?: boolean;
   open: (location: AppLocation) => void;
   leaveMessage?: () => void;
-}> = ({ current, resolving = false, open, leaveMessage = () => {} }) => {
-  useLocationSync({ viewerId: me, current, resolving, open, leaveMessage });
+}> = ({ current, selectionSeq = 0, resolving = false, open, leaveMessage = () => {} }) => {
+  useLocationSync({ viewerId: me, current, selectionSeq, resolving, open, leaveMessage });
   history = useBrowserHistory();
   const location = useLocation();
   seenPath = `${location.pathname}${location.search}`;
@@ -121,6 +122,22 @@ it("returns to the regular chat view when going back from a message address", ()
   expect(leaveMessage).toHaveBeenCalledTimes(1);
   act(() => navigateTo(`/app/dm/${peer}`));
   expect(leaveMessage).toHaveBeenCalledTimes(1);
+});
+
+it("leaves a message address when the open chat is selected again", () => {
+  const open = jest.fn();
+  const leaveMessage = jest.fn();
+  const at = (selectionSeq: number) => (
+    <MemoryRouter initialEntries={[`/app/dm/${peer}/${message}`]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Harness current={{ kind: "dm", peerId: peer }} selectionSeq={selectionSeq} open={open} leaveMessage={leaveMessage} />
+    </MemoryRouter>
+  );
+  const view = render(at(0));
+  expect(open).toHaveBeenCalledTimes(1);
+  view.rerender(at(1));
+  expect(seenPath).toBe(`/app/dm/${peer}`);
+  expect(leaveMessage).toHaveBeenCalledTimes(1);
+  expect(open).toHaveBeenCalledTimes(1);
 });
 
 it("does not forget the last chat while settings or a link is open", () => {
