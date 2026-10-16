@@ -505,25 +505,16 @@ const CommunitiesPage: React.FC = () => {
   const callFocused = useCallStore((s) => s.focused);
   const callPeerId = useCallStore((s) => s.peerId);
   const callParticipants = useCallStore((s) => s.participants);
+  const selectDmRef = React.useRef(handleSelectDm);
+  selectDmRef.current = handleSelectDm;
   useEffect(() => {
     if (!callFocused || !activeCallId || !callPeerId) return;
     if (selectedDm && (selectedDm.id === callPeerId || selectedDm.id in callParticipants)) return;
     const peer = acceptedFriends.find((d) => d.id === callPeerId);
     if (!peer) return;
-    setSelectedDm(peer);
-    setSelectedChannel(null);
+    selectDmRef.current(peer);
     setJoinedChannel(null);
-  }, [
-    callFocused,
-    activeCallId,
-    callPeerId,
-    callParticipants,
-    selectedDm,
-    acceptedFriends,
-    setSelectedDm,
-    setSelectedChannel,
-    setJoinedChannel,
-  ]);
+  }, [callFocused, activeCallId, callPeerId, callParticipants, selectedDm, acceptedFriends, setJoinedChannel]);
 
   const handleJoinByLink = async (token: string) => {
     const session = communitySession();
