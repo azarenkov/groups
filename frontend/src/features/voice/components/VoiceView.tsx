@@ -22,6 +22,7 @@ import { colorForId, initialFor } from "../../../shared/lib/avatar";
 import { getLiveKitService } from "../lib/livekit";
 import { loadMediaState, syncMediaState } from "../lib/mediaStateSync";
 import { isRecoverableDisconnect } from "../lib/reconnect";
+import { reportVoiceCue } from "../lib/voiceCuePlayer";
 
 interface VoiceViewProps {
   channelId: string;
@@ -134,7 +135,8 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       hasJoinedRef.current = true;
       currentChannelRef.current = channelId;
       isJoiningRef.current = true;
-      const restoredMedia = reconnectRef.current.reconnecting
+      const rejoining = reconnectRef.current.reconnecting;
+      const restoredMedia = rejoining
         ? loadMediaState().then((media) => media ?? { micMuted: true, deafened: false })
         : null;
       restoringMediaRef.current = !!restoredMedia;
@@ -143,6 +145,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
           if (!current) return;
           await joinChannel(channelId, communityId, password, !!media && (media.micMuted || media.deafened));
           isJoiningRef.current = false;
+          if (current) reportVoiceCue({ type: "connected", room: { kind: "channel", id: channelId }, reconnect: rejoining });
           if (!media || !current) return;
           restoringMediaRef.current = false;
           restoreMediaRef.current(media);
@@ -161,6 +164,11 @@ const VoiceView: React.FC<VoiceViewProps> = ({
 
     return () => {
       current = false;
+      reportVoiceCue({
+        type: "disconnected",
+        room: { kind: "channel", id: channelId },
+        reconnecting: reconnectRef.current.reconnecting,
+      });
       hasJoinedRef.current = false;
       currentChannelRef.current = null;
       isJoiningRef.current = false;

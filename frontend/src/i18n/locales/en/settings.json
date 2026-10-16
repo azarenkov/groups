@@ -216,6 +216,8 @@
     "calls": "Calls",
     "callAlerts": "Call alerts",
     "callAlertsHint": "Ringtone and system notification for incoming calls. The in-app incoming call panel is always shown.",
+    "voiceCues": "Join and leave sounds",
+    "voiceCuesHint": "A short cue when you connect or leave, and when someone joins or leaves your call or voice channel.",
     "quietTitle": "Quiet hours",
     "quietEnable": "Enable quiet hours",
     "quietEnableHint": "Silence sounds and popups on a schedule.",

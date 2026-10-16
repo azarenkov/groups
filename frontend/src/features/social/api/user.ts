@@ -52,6 +52,7 @@ export interface NotificationSettings {
   quietStart: string;
   quietEnd: string;
   callsEnabled: boolean;
+  voiceCuesEnabled?: boolean;
 }
 
 export interface Connection {

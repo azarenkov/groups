@@ -796,14 +796,14 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         user_id: &UserId,
     ) -> Result<Option<NotificationSettings>, RepositoryError> {
         self.lock_settings(user_id).await?;
-        let row: Option<(bool, bool, String, bool, String, String, bool)> = sqlx::query_as(
-            "SELECT desktop_enabled, sounds_enabled, mentions, quiet_hours_enabled, quiet_start, quiet_end, calls_enabled FROM notification_settings WHERE user_id = $1",
+        let row: Option<(bool, bool, String, bool, String, String, bool, bool)> = sqlx::query_as(
+            "SELECT desktop_enabled, sounds_enabled, mentions, quiet_hours_enabled, quiet_start, quiet_end, calls_enabled, voice_cues_enabled FROM notification_settings WHERE user_id = $1",
         )
         .bind(user_id.uuid())
         .fetch_optional(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.map(|r| NotificationSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6)))
+        Ok(row.map(|r| NotificationSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6, r.7)))
     }
 
     async fn save_notification_settings(
@@ -813,8 +813,8 @@ impl IdentityTransaction for PostgresIdentityTransaction {
     ) -> Result<(), RepositoryError> {
         sqlx::query(
             r#"
-                INSERT INTO notification_settings (user_id, desktop_enabled, sounds_enabled, mentions, quiet_hours_enabled, quiet_start, quiet_end, calls_enabled, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+                INSERT INTO notification_settings (user_id, desktop_enabled, sounds_enabled, mentions, quiet_hours_enabled, quiet_start, quiet_end, calls_enabled, voice_cues_enabled, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
                 ON CONFLICT (user_id) DO UPDATE
                     SET desktop_enabled = EXCLUDED.desktop_enabled,
                         sounds_enabled = EXCLUDED.sounds_enabled,
@@ -823,6 +823,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
                         quiet_start = EXCLUDED.quiet_start,
                         quiet_end = EXCLUDED.quiet_end,
                         calls_enabled = EXCLUDED.calls_enabled,
+                        voice_cues_enabled = EXCLUDED.voice_cues_enabled,
                         updated_at = now()
             "#,
         )
@@ -834,6 +835,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         .bind(settings.quiet_start().as_str())
         .bind(settings.quiet_end().as_str())
         .bind(settings.calls_enabled())
+        .bind(settings.voice_cues_enabled())
         .execute(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
