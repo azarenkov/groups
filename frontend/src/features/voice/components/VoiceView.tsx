@@ -145,9 +145,9 @@ const VoiceView: React.FC<VoiceViewProps> = ({
       (restoredMedia ?? Promise.resolve(null))
         .then(async (media) => {
           if (!current) return;
-          await joinChannel(channelId, communityId, password, !!media && (media.micMuted || media.deafened));
+          const joined = await joinChannel(channelId, communityId, password, !!media && (media.micMuted || media.deafened));
           isJoiningRef.current = false;
-          if (current) reportVoiceCue({ type: "connected", room: { kind: "channel", id: channelId }, reconnect: rejoining });
+          if (joined && current) reportVoiceCue({ type: "connected", room: { kind: "channel", id: channelId }, reconnect: rejoining });
           if (!media || !current) return;
           restoringMediaRef.current = false;
           restoreMediaRef.current(media);
