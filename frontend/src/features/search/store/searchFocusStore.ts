@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type SearchFocusMode = "people";
+export type SearchFocusMode = "people" | "invite";
 
 interface SearchFocusState {
   request: { mode: SearchFocusMode; seq: number } | null;
@@ -11,3 +11,6 @@ export const useSearchFocusStore = create<SearchFocusState>()((set) => ({
   request: null,
   focus: (mode) => set((s) => ({ request: { mode, seq: (s.request?.seq ?? 0) + 1 } })),
 }));
+
+export const focusPeopleSearch = () => useSearchFocusStore.getState().focus("people");
+export const focusInviteSearch = () => useSearchFocusStore.getState().focus("invite");

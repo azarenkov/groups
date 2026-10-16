@@ -48,19 +48,18 @@
     "noFriends": "You have no friends to invite yet."
   },
   "pendingFriends": {
-    "title": "Friend requests",
     "incoming": "Incoming",
     "outgoing": "Outgoing",
     "accept": "Accept",
     "decline": "Decline",
     "cancel": "Cancel",
-    "empty": "No pending requests.",
-    "emptyTitle": "No requests yet",
-    "emptyHint": "Incoming and outgoing friend requests will show up here.",
-    "emptyCta": "Add friend",
     "loadMore": "Show more",
     "actionFailed": "That did not go through. Try again.",
-    "loadFailed": "Couldn't load requests."
+    "loadFailed": "Couldn't load requests.",
+    "sent": "Sent",
+    "declined": "Declined",
+    "declinedTitle": "Declined",
+    "dismiss": "Dismiss"
   },
   "newDm": {
     "title": "Start a direct message",

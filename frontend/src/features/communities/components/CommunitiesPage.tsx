@@ -11,7 +11,7 @@ import { hydrateSidebar, readSidebarSnapshot, clearSidebarSnapshot, startSidebar
 import { communityAPI } from "../api/community";
 import { extractInviteToken, extractPackSlug, extractProfileId } from "../../../shared/lib/inviteLinks";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
-import { useSearchFocusStore } from "../../search/store/searchFocusStore";
+import { focusInviteSearch, focusPeopleSearch } from "../../search/store/searchFocusStore";
 import StickerPacksModal from "../../stickers/components/StickerPacksModal";
 import ClearDmDialog from "../../dm/components/ClearDmDialog";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
@@ -168,7 +168,6 @@ const CommunitiesPage: React.FC = () => {
     registerAppNavigator((path) => navigate(path));
     return () => registerAppNavigator(null);
   }, [navigate]);
-  const [isPendingOpen, setIsPendingOpen] = useState(false);
   const [inviteModalCommunity, setInviteModalCommunity] = useState<Community | null>(null);
   const [communitySettings, setCommunitySettings] = useState<Community | null>(null);
   const [settingsChannels, setSettingsChannels] = useState<{
@@ -496,8 +495,7 @@ const CommunitiesPage: React.FC = () => {
     !!deleteConfirm ||
     !!channelModal ||
     !!inviteModalCommunity ||
-    isCommunityModalOpen ||
-    isPendingOpen;
+    isCommunityModalOpen;
   useHotkey("nextChannel", () => stepConversation(1), !navigationBlocked);
   useHotkey("prevChannel", () => stepConversation(-1), !navigationBlocked);
 
@@ -794,7 +792,7 @@ const CommunitiesPage: React.FC = () => {
   return (
     <div className="win">
       <AppTopBar
-        inbox={<InboxMenu onOpenCommunity={selection.handleGoToCommunity} onOpenFriendRequests={() => setIsPendingOpen(true)} />}
+        inbox={<InboxMenu onOpenCommunity={selection.handleGoToCommunity} />}
         navState={browserHistory.navState}
         goHistory={browserHistory.goHistory}
         homeActive={homeActive}
@@ -876,10 +874,12 @@ const CommunitiesPage: React.FC = () => {
               name: channel.name,
             })
           }
+          onAddFriend={focusPeopleSearch}
           onCreateCommunity={() => {
             setCommunityModalView("create");
             setIsCommunityModalOpen(true);
           }}
+          onJoinCommunity={focusInviteSearch}
           currentUserId={user?.id}
           unreadByChannel={unreadByChannel}
           unreadByDm={unreadByDm}
@@ -913,7 +913,7 @@ const CommunitiesPage: React.FC = () => {
                 onJoinRoom={(communityId, channelId) => void handleJoinFromHome(communityId, channelId)}
                 onOpenDm={handleOpenDmFromHome}
                 onCall={handleCallFromHome}
-                onAddFriend={() => useSearchFocusStore.getState().focus("people")}
+                onAddFriend={focusPeopleSearch}
               />
             ) : selectedDm ? (
               <ChatView
@@ -1149,9 +1149,6 @@ const CommunitiesPage: React.FC = () => {
         passwordPrompt={passwordPrompt}
         onClosePasswordPrompt={() => setPasswordPrompt(null)}
         onSubmitPassword={handlePasswordSubmit}
-        isPendingOpen={isPendingOpen}
-        onClosePending={() => setIsPendingOpen(false)}
-        onOpenAddFriend={() => useSearchFocusStore.getState().focus("people")}
         inviteModalCommunity={inviteModalCommunity}
         acceptedFriends={friends.filter((f) => f.status === "accepted")}
         onCloseInviteModal={() => setInviteModalCommunity(null)}

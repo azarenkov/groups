@@ -10,6 +10,7 @@
   "noCommunities": "No communities yet. Create one to get started.",
   "noDirects": "No direct messages yet",
   "addDm": "Add direct message",
+  "addFriend": "Add friend",
   "accountMenu": "Account menu",
   "myProfile": "Profile",
   "status": "Status",
@@ -33,6 +34,7 @@
   "createChannelCta": "Create channel",
   "communitySettings": "Community settings",
   "createCommunityHint": "Your own space for voice and chat",
+  "joinCommunity": "Join a community",
   "joinCommunityHint": "Enter with an invite code",
   "previewCall": "Voice call",
   "previewYou": "You:",
@@ -115,6 +117,7 @@
   "recentMessageFrom": "Message from {{author}}",
   "searchChats": "Chats",
   "searchPlaceholderPeople": "Friend's username",
+  "searchPlaceholderInvite": "Invite link",
   "peopleSearching": "Searching people…",
   "peopleFailed": "Couldn't search people",
   "relationFriend": "Friend",
@@ -143,6 +146,5 @@
   "clearChatTitle": "Delete chat history with {{name}}?",
   "clearChatSub": "Messages, files and pins will be removed. This can't be undone.",
   "clearChatMe": "Only for me",
-  "clearChatEveryone": "Delete for both",
-  "pendingRequests": "Friend requests"
+  "clearChatEveryone": "Delete for both"
 }

@@ -10,6 +10,7 @@
   "noCommunities": "Сообществ пока нет. Создайте первый, чтобы начать.",
   "noDirects": "Личных сообщений пока нет",
   "addDm": "Добавить личный чат",
+  "addFriend": "Добавить друга",
   "accountMenu": "Меню аккаунта",
   "myProfile": "Профиль",
   "status": "Статус",
@@ -33,6 +34,7 @@
   "createChannelCta": "Создать канал",
   "communitySettings": "Настройки сообщества",
   "createCommunityHint": "Своё пространство для голоса и чата",
+  "joinCommunity": "Присоединиться",
   "joinCommunityHint": "Войти по коду приглашения",
   "previewCall": "Звонок",
   "previewYou": "Вы:",
@@ -117,6 +119,7 @@
   "recentMessageFrom": "Сообщение от {{author}}",
   "searchChats": "Чаты",
   "searchPlaceholderPeople": "Ник друга",
+  "searchPlaceholderInvite": "Ссылка-приглашение",
   "peopleSearching": "Ищем людей…",
   "peopleFailed": "Не удалось найти людей",
   "relationFriend": "В друзьях",
@@ -147,6 +150,5 @@
   "clearChatTitle": "Удалить переписку с {{name}}?",
   "clearChatSub": "Сообщения, файлы и закрепы удалятся. Это нельзя отменить.",
   "clearChatMe": "Только у меня",
-  "clearChatEveryone": "Удалить у обоих",
-  "pendingRequests": "Заявки в друзья"
+  "clearChatEveryone": "Удалить у обоих"
 }
