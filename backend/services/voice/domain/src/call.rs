@@ -1,5 +1,13 @@
 pub mod repository;
 
+use chrono::{DateTime, Duration, Utc};
+
+pub const RECONNECT_GRACE_SECS: i64 = 60;
+
+pub fn reconnect_cutoff(now: DateTime<Utc>) -> DateTime<Utc> {
+    now - Duration::seconds(RECONNECT_GRACE_SECS)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CallParticipantStatus {
     Invited,
@@ -38,6 +46,15 @@ impl CallRoster {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_dropped_participant_counts_as_connected_for_the_reconnect_grace() {
+        let now = Utc::now();
+        let dropped_at = now - Duration::seconds(RECONNECT_GRACE_SECS - 1);
+        assert!(dropped_at > reconnect_cutoff(now));
+        let expired_at = now - Duration::seconds(RECONNECT_GRACE_SECS + 1);
+        assert!(expired_at <= reconnect_cutoff(now));
+    }
 
     #[test]
     fn a_call_is_abandoned_once_nobody_is_connected() {

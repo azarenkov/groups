@@ -13,6 +13,8 @@ import {
   leaveAsInitiator,
 } from "../lib/callSession";
 import { leaveVoiceChannel } from "./voiceChannelStore";
+import { forgetVoiceSession, freshVoiceSession } from "../lib/sessionHint";
+import { loadMediaState } from "../lib/mediaStateSync";
 
 const armFallbackMuteRelease = (
   userId: string | null,
@@ -30,6 +32,8 @@ const armFallbackMuteRelease = (
     }),
   );
 };
+
+export type RehydrateOutcome = "settled" | "unreachable";
 
 export interface IncomingCall {
   callId: string;
@@ -74,6 +78,7 @@ interface CallState {
   incoming: IncomingCall | null;
   activeCallId: string | null;
   connecting: boolean;
+  reconnecting: boolean;
   participants: Record<string, string>;
   ringing: string[];
   focused: boolean;
@@ -106,7 +111,7 @@ interface CallState {
   resetNotices: () => void;
   callEnded: (callId: string) => void;
 
-  rehydrate: () => Promise<void>;
+  rehydrate: () => Promise<RehydrateOutcome>;
   joinCall: (callId: string, peerId?: string) => Promise<void>;
   start: (recipientIds: string[], options?: StartCallOptions) => Promise<void>;
   accept: (withVideo?: boolean) => Promise<void>;
@@ -164,6 +169,7 @@ export const useCallStore = create<CallState>()((set, get) => {
   incoming: null,
   activeCallId: null, startedAt: null, attention: false,
   connecting: false,
+  reconnecting: false,
   participants: {},
   ringing: [],
   focused: false,
@@ -292,9 +298,12 @@ export const useCallStore = create<CallState>()((set, get) => {
 
 
   rehydrate: async () => {
-    if (get().connecting) return;
+    if (get().connecting) return "settled";
     const { useAuthStore } = await import("../../auth/store/authStore");
     const userId = useAuthStore.getState().user?.id ?? null;
+    const restoring = !get().activeCallId;
+    const hint = restoring && userId ? freshVoiceSession(userId) : null;
+    if (restoring && hint?.kind !== "call") return "settled";
     let settingsSynced = true;
     if (userId) {
       const { voiceSettingsReadyFor } = await import("./voiceSettingsStore");
@@ -305,9 +314,21 @@ export const useCallStore = create<CallState>()((set, get) => {
         ),
       ]);
     }
-    if ((useAuthStore.getState().user?.id ?? null) !== userId) return;
-    const active = await callAPI.getActive().catch(() => null);
-    if ((useAuthStore.getState().user?.id ?? null) !== userId) return;
+    if ((useAuthStore.getState().user?.id ?? null) !== userId) return "settled";
+    const [lookup, media] = await Promise.all([
+      callAPI.getActive().then(
+        (found) => ({ reached: true as const, found }),
+        () => ({ reached: false as const, found: null }),
+      ),
+      restoring ? loadMediaState() : Promise.resolve(null),
+    ]);
+    if ((useAuthStore.getState().user?.id ?? null) !== userId) return "settled";
+    if (!lookup.reached) return "unreachable";
+    const active = lookup.found;
+    if (hint && (!active || hint.kind !== "call" || hint.callId !== active.callId)) {
+      forgetVoiceSession(hint);
+      return "settled";
+    }
     if (!active) {
       const service = getLiveKitService();
       if (
@@ -317,11 +338,14 @@ export const useCallStore = create<CallState>()((set, get) => {
       ) {
         set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [] });
       }
-      return;
+      return "settled";
     }
     const participants = Object.fromEntries(
       active.participants.map((p) => [p.userId, p.userName]),
     );
+    const intendedMuted = restoring
+      ? !media || media.micMuted || media.deafened
+      : get().micMuted || get().deafened;
     const recovered = active.startedAt ? Date.parse(active.startedAt) : NaN;
     const recoveredStartedAt = Number.isFinite(recovered)
       ? Math.min(recovered, Date.now())
@@ -337,24 +361,30 @@ export const useCallStore = create<CallState>()((set, get) => {
       ringing: s.activeCallId === active.callId ? s.ringing : [],
       endedCall: s.activeCallId === active.callId ? s.endedCall : null,
       focused: s.activeCallId === active.callId ? s.focused : true,
+      ...(restoring
+        ? media
+          ? { micMuted: media.micMuted || media.deafened, deafened: media.deafened, micMutedBeforeDeafen: media.deafened && media.micMuted }
+          : { micMuted: true, deafened: false, micMutedBeforeDeafen: false }
+        : {}),
       ...(settingsSynced ? {} : { micMuted: true }),
     }));
     const muteSeqBeforeConnect = get().micMuteSeq;
     const service = getLiveKitService();
     if (!service.isConnected() && !service.isConnectingNow()) {
+      set({ reconnecting: true });
       try {
         await connectToRoom(
           active.token,
           active.url,
           active.callId,
-          !settingsSynced,
+          get().micMuted || get().deafened,
         );
-      } catch {
-        if (get().activeCallId === active.callId) {
-          set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null });
-        }
-        return;
+      } catch (e) {
+        console.warn("[call] could not reach the call room yet:", e);
+        return "unreachable";
       }
+      set({ reconnecting: false });
+      if (get().deafened && get().activeCallId === active.callId) service.setDeafened(true);
     }
     if ((useAuthStore.getState().user?.id ?? null) !== userId) {
       const svc = getLiveKitService();
@@ -364,9 +394,9 @@ export const useCallStore = create<CallState>()((set, get) => {
       if (get().activeCallId === active.callId) {
         set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null });
       }
-      return;
+      return "settled";
     }
-    if (!settingsSynced && userId) {
+    if (!settingsSynced && userId && !intendedMuted) {
       const muteSeqAtFallback = muteSeqBeforeConnect;
       void import("./voiceSettingsStore").then(({ voiceSettingsReadyFor }) =>
         voiceSettingsReadyFor(userId).then(() => {
@@ -377,6 +407,7 @@ export const useCallStore = create<CallState>()((set, get) => {
         }),
       );
     }
+    return "settled";
   },
 
   joinCall: async (callId, peerId) => {

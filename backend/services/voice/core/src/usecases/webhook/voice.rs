@@ -209,13 +209,7 @@ where
             } => {
                 if self
                     .call_repository
-                    .webhook_left(
-                        channel_id,
-                        &UserId::new(user_id),
-                        &session_id,
-                        occurred_at,
-                        ctx.request_id.clone(),
-                    )
+                    .webhook_dropped(channel_id, &UserId::new(user_id), &session_id, occurred_at)
                     .await?
                 {
                     return Ok(());

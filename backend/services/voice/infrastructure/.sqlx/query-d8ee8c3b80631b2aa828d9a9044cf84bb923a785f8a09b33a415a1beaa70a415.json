@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO voice_media_states (user_id, mic_muted, deafened, source, seq, updated_at)\n            VALUES ($1, $2, $3, $4, $5, $6)\n            ON CONFLICT (user_id) DO UPDATE\n            SET mic_muted = EXCLUDED.mic_muted, deafened = EXCLUDED.deafened,\n                source = EXCLUDED.source, seq = EXCLUDED.seq, updated_at = EXCLUDED.updated_at\n            WHERE voice_media_states.source IS DISTINCT FROM EXCLUDED.source\n               OR voice_media_states.seq IS NULL\n               OR EXCLUDED.seq > voice_media_states.seq\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Bool",
+        "Uuid",
+        "Int8",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d8ee8c3b80631b2aa828d9a9044cf84bb923a785f8a09b33a415a1beaa70a415"
+}

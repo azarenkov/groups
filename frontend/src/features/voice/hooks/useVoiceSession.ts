@@ -3,8 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { communityAPI } from "../../communities/api/community";
 import { getLiveKitService } from "../lib/livekit";
 import { useCallStore } from "../store/callStore";
+import { RECONNECT_WINDOW_MS, forgetVoiceSession } from "../lib/sessionHint";
 import type { Channel } from "../../../shared/types/channel";
 import type { Community } from "../../../shared/types/community";
+
+const REJOIN_EVERY_MS = 3000;
 
 export function useVoiceSession() {
   const [joinedChannel, setJoinedChannel] = useState<{
@@ -13,7 +16,25 @@ export function useVoiceSession() {
     password?: string;
   } | null>(null);
   const [voiceJoinFailed, setVoiceJoinFailed] = useState(false);
+  const leftChannelRef = useRef(joinedChannel);
+  useEffect(() => {
+    const previous = leftChannelRef.current;
+    leftChannelRef.current = joinedChannel;
+    if (previous && previous.channel.id !== joinedChannel?.channel.id) {
+      forgetVoiceSession({ kind: "channel", communityId: previous.communityId, channelId: previous.channel.id });
+    }
+  }, [joinedChannel]);
   const [voiceJoinAttempt, setVoiceJoinAttempt] = useState(0);
+  const [voiceReconnecting, setVoiceReconnecting] = useState(false);
+  const reconnectSinceRef = useRef<number | null>(null);
+  const rejoinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopReconnecting = useCallback((reconnecting = false) => {
+    if (rejoinTimerRef.current) clearTimeout(rejoinTimerRef.current);
+    rejoinTimerRef.current = null;
+    reconnectSinceRef.current = reconnecting ? Date.now() : null;
+    setVoiceReconnecting(reconnecting);
+  }, []);
+  useEffect(() => () => stopReconnecting(), [stopReconnecting]);
   const [passwordPrompt, setPasswordPrompt] = useState<{
     community: Community;
     channel: Channel;
@@ -21,12 +42,32 @@ export function useVoiceSession() {
   const handleVoiceLeave = useCallback(() => {
     setJoinedChannel(null);
     setVoiceJoinFailed(false);
-  }, []);
+    stopReconnecting();
+  }, [stopReconnecting]);
+
+  const reconnectVoice = useCallback(() => {
+    if (reconnectSinceRef.current === null) stopReconnecting(true);
+    setVoiceJoinFailed(false);
+    setVoiceJoinAttempt((n) => n + 1);
+  }, [stopReconnecting]);
+
+  const handleVoiceReconnected = useCallback(() => {
+    stopReconnecting();
+  }, [stopReconnecting]);
 
 
   const handleVoiceJoinFailed = useCallback(() => {
+    const since = reconnectSinceRef.current;
+    if (since !== null && Date.now() - since < RECONNECT_WINDOW_MS) {
+      rejoinTimerRef.current = setTimeout(() => {
+        rejoinTimerRef.current = null;
+        setVoiceJoinAttempt((n) => n + 1);
+      }, REJOIN_EVERY_MS);
+      return;
+    }
+    stopReconnecting();
     setVoiceJoinFailed(true);
-  }, []);
+  }, [stopReconnecting]);
 
   const activeCallId = useCallStore((s) => s.activeCallId);
   const prevActiveCallRef = useRef<string | null>(null);
@@ -36,18 +77,20 @@ export function useVoiceSession() {
     if (!prev && activeCallId && joinedChannel) {
       setJoinedChannel(null);
       setVoiceJoinFailed(false);
+      stopReconnecting();
     }
-  }, [activeCallId, joinedChannel]);
+  }, [activeCallId, joinedChannel, stopReconnecting]);
 
 
   const startVoiceJoin = useCallback(
-    (community: Community, channel: Channel, password?: string) => {
+    (community: Community, channel: Channel, password?: string, reconnecting = false) => {
       void useCallStore.getState().leave(true);
       setJoinedChannel({ channel, communityId: community.id, password });
       setVoiceJoinFailed(false);
+      stopReconnecting(reconnecting);
       setVoiceJoinAttempt((n) => n + 1);
     },
-    [],
+    [stopReconnecting],
   );
 
   const watchCommunityId = joinedChannel?.communityId;
@@ -99,6 +142,9 @@ export function useVoiceSession() {
     voiceJoinFailed,
     setVoiceJoinFailed,
     voiceJoinAttempt,
+    voiceReconnecting,
+    reconnectVoice,
+    handleVoiceReconnected,
     passwordPrompt,
     setPasswordPrompt,
     handleVoiceLeave,

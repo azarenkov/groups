@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT call_id, user_id\n            FROM call_participants\n            WHERE status = 'joined' AND session_id IS NULL AND updated_at <= $1\n            ORDER BY updated_at\n            LIMIT $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "call_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "16039e45b4a70d2d892510ef30fce25cac0d5a6362e94d3f89ba1b9c369df2d8"
+}

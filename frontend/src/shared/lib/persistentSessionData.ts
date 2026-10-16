@@ -3,4 +3,6 @@ export function clearPersistentSessionData(): void {
   void import("./blobCache").then((m) => m.clearBlobCache());
   void import("../../features/search/lib/searchHistory").then((m) => m.clearStoredHistory());
   void import("../../features/navigation/lib/lastLocation").then((m) => m.clearLastLocation());
+  void import("../../features/voice/lib/sessionHint").then((m) => m.forgetVoiceSession());
+  void import("../../features/voice/lib/mediaStateSync").then((m) => m.resetMediaStateSync());
 }

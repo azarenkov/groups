@@ -182,6 +182,21 @@ pub trait CallRepository {
         now: DateTime<Utc>,
         request_id: Option<String>,
     ) -> Result<bool, RepositoryError>;
+
+    async fn webhook_dropped(
+        &self,
+        call_id: Uuid,
+        user_id: &UserId,
+        session_id: &str,
+        now: DateTime<Utc>,
+    ) -> Result<bool, RepositoryError>;
+
+    async fn expire_reconnects(
+        &self,
+        now: DateTime<Utc>,
+        limit: i64,
+        request_id: Option<String>,
+    ) -> Result<usize, RepositoryError>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

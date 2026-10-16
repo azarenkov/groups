@@ -47,6 +47,7 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
   const muted = useCallStore((s) => s.micMuted);
   const setMicMuted = useCallStore((s) => s.setMicMuted);
   const deafened = useCallStore((s) => s.deafened);
+  const reconnecting = useCallStore((s) => s.reconnecting);
   const setDeafened = useCallStore((s) => s.setDeafened);
   const videoTiles = useVideoTiles();
   const speakingIds = useSpeakingStore((s) => s.ids);
@@ -96,7 +97,9 @@ const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ dockId = "voice-dock-slot
 
   const count = Math.max(Object.keys(participants).length, 1);
   const speaker = speakingName(participants, speakingIds, selfId);
-  const meta = speaker
+  const meta = reconnecting
+    ? t("voice:reconnecting")
+    : speaker
     ? `${speaker} — ${t("voice:speaking")}`
     : `${formatDuration(startedAt, now)} · ${count} ${t("voice:connected").toLowerCase()}`;
 

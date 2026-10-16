@@ -2,6 +2,7 @@
   "connect": "Подключиться",
   "disconnect": "Отключиться",
   "connecting": "Подключение…",
+  "reconnecting": "Переподключение…",
   "disconnected": "Отключено",
   "connected": "Подключено",
   "members": "Участники",

@@ -21,7 +21,8 @@ use voice_infrastructure::{
         MIGRATOR, SCHEMA,
         connection::{create_postgres_pool, ping_pool},
         repositories::{
-            call::PostgresCallRepository, outbox_writer::PostgresOutboxWriter,
+            call::PostgresCallRepository, media_state::PostgresMediaStateRepository,
+            outbox_writer::PostgresOutboxWriter,
             user_profile::PostgresUserProfileRepository,
         },
     },
@@ -73,6 +74,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
     crate::evictions::spawn(call_repository.clone(), livekit_service.clone());
+    crate::reconnect_sweep::spawn(Arc::new(
+        voice::usecases::call::expire_reconnects::ExpireCallReconnects::new(call_repository.clone()),
+    ));
+    let media_state_repository = Arc::new(PostgresMediaStateRepository::new(postgres_pool.clone()));
     crate::stream_sweep::spawn(Arc::new(voice::usecases::stream::sweep_screen_shares::SweepScreenShares::new(
         plan_directory.clone(),
         livekit_service.clone(),
@@ -154,6 +159,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             livekit_service.clone(),
             friendship_lookup.clone(),
             plan_directory.clone(),
+        ),
+        get_media_state_usecase: voice::usecases::media::get_media_state::GetMediaState::new(
+            media_state_repository.clone(),
+        ),
+        save_media_state_usecase: voice::usecases::media::save_media_state::SaveMediaState::new(
+            media_state_repository,
         ),
         call_repository: call_repository.clone(),
     });

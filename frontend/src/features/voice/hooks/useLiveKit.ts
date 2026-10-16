@@ -13,8 +13,11 @@ import { useAuthStore } from "../../auth/store/authStore";
 import { useVoicePresenceStore } from "../store/voicePresenceStore";
 import { decodeAccessToken } from "../../../shared/lib/jwt";
 import { useLocalQuality } from "./useLocalQuality";
+import { rememberVoiceSession } from "../lib/sessionHint";
 
 interface UseLiveKitResult {
+  micMutedBeforeDeafen: () => boolean;
+  restoreSelfMedia: (state: { micMuted: boolean; deafened: boolean }) => void;
   participants: ParticipantInfo[];
   videoTiles: VideoTile[];
   isCameraEnabled: boolean;
@@ -36,6 +39,7 @@ interface UseLiveKitResult {
     channelId: string,
     communityId: string,
     password?: string,
+    startMuted?: boolean,
   ) => Promise<void>;
   leaveChannel: () => Promise<void>;
   toggleMute: () => void;
@@ -117,7 +121,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   );
 
   const joinChannel = useCallback(
-    async (channelId: string, communityId: string, password?: string) => {
+    async (channelId: string, communityId: string, password?: string, startMuted = false) => {
       const service = serviceRef.current;
       if (!service) return;
       let joinAttempt: { communityId: string; channelId: string } | null = null;
@@ -226,7 +230,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           response.token,
           response.url,
           channelId,
-          !!response.muted || deafenLockedRef.current || !settingsSynced,
+          !!response.muted || deafenLockedRef.current || !settingsSynced || startMuted,
         );
         const postAuth = useAuthStore.getState();
         const postId =
@@ -268,6 +272,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
         }
 
         setIsConnecting(false);
+        if (joiningUserId) rememberVoiceSession(joiningUserId, { kind: "channel", communityId, channelId });
       } catch (err) {
         console.error("[useLiveKit] Failed to join channel:", err);
         if (joinAttempt === null || activeChannelRef.current === joinAttempt) {
@@ -679,7 +684,23 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     [],
   );
 
+  const micMutedBeforeDeafen = useCallback(() => micMutedBeforeDeafenRef.current, []);
+  const restoreSelfMedia = useCallback(
+    (state: { micMuted: boolean; deafened: boolean }) => {
+      if (state.deafened) {
+        if (!isDeafenedRef.current) toggleDeafen();
+        micMutedBeforeDeafenRef.current = state.micMuted;
+        return;
+      }
+      const locked = moderatorLockedRef.current || deafenLockedRef.current || fallbackMutedRef.current;
+      if (state.micMuted !== isMutedRef.current && (state.micMuted || !locked)) toggleMute();
+    },
+    [toggleDeafen, toggleMute],
+  );
+
   return {
+    micMutedBeforeDeafen,
+    restoreSelfMedia,
     participants,
     videoTiles,
     isCameraEnabled,

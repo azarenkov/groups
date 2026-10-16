@@ -172,6 +172,8 @@ fn map_leave_reason(
         | DisconnectReason::ConnectionTimeout
         | DisconnectReason::StateMismatch
         | DisconnectReason::JoinFailure
+        | DisconnectReason::ServerShutdown
+        | DisconnectReason::UnknownReason
         | DisconnectReason::SipTrunkFailure => VoiceWebhookEvent::ParticipantConnectionAborted {
             channel_id,
             user_id,
@@ -179,10 +181,8 @@ fn map_leave_reason(
             reason: abort_reason_from(reason),
         },
 
-        DisconnectReason::UnknownReason
-        | DisconnectReason::ClientInitiated
+        DisconnectReason::ClientInitiated
         | DisconnectReason::DuplicateIdentity
-        | DisconnectReason::ServerShutdown
         | DisconnectReason::ParticipantRemoved
         | DisconnectReason::RoomDeleted
         | DisconnectReason::RoomClosed
@@ -248,5 +248,27 @@ fn map_err(e: livekit_api::webhooks::WebhookError) -> VoiceWebhookVerifierError 
         livekit_api::webhooks::WebhookError::InvalidData(e) => {
             VoiceWebhookVerifierError::InvalidBody(format!("json: {}", e))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn kind(reason: DisconnectReason) -> &'static str {
+        match map_leave_reason(reason, Uuid::nil(), Uuid::nil(), "s".to_string()) {
+            VoiceWebhookEvent::ParticipantConnectionAborted { .. } => "aborted",
+            VoiceWebhookEvent::ParticipantLeft { .. } => "left",
+            _ => "other",
+        }
+    }
+
+    #[test]
+    fn a_server_restart_drops_the_connection_instead_of_leaving() {
+        assert_eq!(kind(DisconnectReason::ServerShutdown), "aborted");
+        assert_eq!(kind(DisconnectReason::UnknownReason), "aborted");
+        assert_eq!(kind(DisconnectReason::SignalClose), "aborted");
+        assert_eq!(kind(DisconnectReason::ClientInitiated), "left");
+        assert_eq!(kind(DisconnectReason::DuplicateIdentity), "left");
     }
 }

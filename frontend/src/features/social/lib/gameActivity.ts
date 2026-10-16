@@ -2,6 +2,7 @@ import { userAPI } from "../api/user";
 import { useAuthStore } from "../../auth/store/authStore";
 import { ApiError } from "../../../shared/lib/apiError";
 import { useActivityStore } from "../store/activityStore";
+import { randomUuid } from "../../../shared/lib/ids";
 
 interface LocalActivity {
   gameId: string;
@@ -13,13 +14,7 @@ const HEARTBEAT_MS = 30_000;
 const LEASE_CLEAR_RETRY_MS = 10_000;
 const LEASE_CLEAR_MAX_ATTEMPTS = 6;
 
-const sessionId = (() => {
-  try {
-    return crypto.randomUUID().replace(/-/g, "");
-  } catch {
-    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-  }
-})();
+const sessionId = randomUuid().replace(/-/g, "");
 
 let current: LocalActivity | null = null;
 let publishedOwner: string | null = null;
