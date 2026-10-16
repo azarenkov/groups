@@ -6,7 +6,8 @@ let lastSaved: string | null = null;
 let pending: MediaState | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 
-const flush = () => {
+const flush = (keepalive = false) => {
+  if (timer) clearTimeout(timer);
   timer = null;
   const state = pending;
   pending = null;
@@ -14,7 +15,7 @@ const flush = () => {
   const key = `${state.micMuted}:${state.deafened}`;
   if (key === lastSaved) return;
   lastSaved = key;
-  mediaAPI.save(state).catch((err) => {
+  mediaAPI.save(state, { keepalive }).catch((err) => {
     if (lastSaved === key) lastSaved = null;
     console.warn("[voice] failed to save mic and sound state:", err);
   });
@@ -23,7 +24,15 @@ const flush = () => {
 export function syncMediaState(state: MediaState): void {
   pending = state;
   if (timer) clearTimeout(timer);
-  timer = setTimeout(flush, SAVE_DELAY_MS);
+  timer = setTimeout(() => flush(), SAVE_DELAY_MS);
+}
+
+let unloadFlushInstalled = false;
+
+export function installMediaStateFlushOnUnload(): void {
+  if (unloadFlushInstalled || typeof window === "undefined") return;
+  unloadFlushInstalled = true;
+  window.addEventListener("pagehide", () => flush(true));
 }
 
 export function loadMediaState(): Promise<MediaState | null> {

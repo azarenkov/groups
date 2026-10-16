@@ -11,8 +11,12 @@ export const mediaAPI = {
     return response.data.data;
   },
 
-  async save(state: MediaState): Promise<MediaState> {
-    const response = await http.put("/v1/voice/media", state);
+  async save(state: MediaState, options: { keepalive?: boolean } = {}): Promise<MediaState> {
+    const response = await http.put(
+      "/v1/voice/media",
+      state,
+      options.keepalive ? { adapter: "fetch", fetchOptions: { keepalive: true } } : undefined,
+    );
     return response.data.data;
   },
 };

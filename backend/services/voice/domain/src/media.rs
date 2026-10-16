@@ -8,7 +8,7 @@ pub struct MediaState {
 
 impl MediaState {
     pub fn new(mic_muted: bool, deafened: bool) -> Self {
-        Self { mic_muted: mic_muted || deafened, deafened }
+        Self { mic_muted, deafened }
     }
 
     pub fn mic_muted(&self) -> bool {
@@ -18,6 +18,10 @@ impl MediaState {
     pub fn deafened(&self) -> bool {
         self.deafened
     }
+
+    pub fn mic_live(&self) -> bool {
+        !self.mic_muted && !self.deafened
+    }
 }
 
 #[cfg(test)]
@@ -25,9 +29,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn deafening_also_mutes_the_microphone() {
+    fn deafening_silences_the_microphone_but_keeps_its_own_toggle() {
         let state = MediaState::new(false, true);
-        assert!(state.mic_muted());
+        assert!(!state.mic_live());
+        assert!(!state.mic_muted());
         assert!(state.deafened());
     }
 

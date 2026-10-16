@@ -97,3 +97,13 @@ it("keeps the mic and sound as they were when the room drops inside the tab", as
   expect(mockService.setDeafened).toHaveBeenCalledWith(true);
   expect(useCallStore.getState().deafened).toBe(true);
 });
+
+it("keeps the mic off after undeafening when it was off before deafening", async () => {
+  media.mockResolvedValue({ micMuted: true, deafened: true });
+  rememberVoiceSession("me", { kind: "call", callId: "c1" });
+  await useCallStore.getState().rehydrate();
+  expect(useCallStore.getState().micMutedBeforeDeafen).toBe(true);
+  useCallStore.getState().setDeafened(false);
+  expect(useCallStore.getState().deafened).toBe(false);
+  expect(useCallStore.getState().micMuted).toBe(true);
+});

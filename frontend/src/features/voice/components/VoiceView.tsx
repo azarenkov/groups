@@ -79,6 +79,7 @@ const VoiceView: React.FC<VoiceViewProps> = ({
     leaveChannel,
     toggleMute,
     toggleDeafen,
+    micMutedBeforeDeafen,
     toggleCamera,
     toggleScreenShare,
   } = useLiveKit({
@@ -99,8 +100,10 @@ const VoiceView: React.FC<VoiceViewProps> = ({
   useEffect(() => getLiveKitService().subscribeReconnecting(setLinkReconnecting), []);
   const restoringMediaRef = useRef(reconnecting);
   useEffect(() => {
-    if (isConnected && !restoringMediaRef.current) syncMediaState({ micMuted: isMuted, deafened: isDeafened });
-  }, [isConnected, isMuted, isDeafened]);
+    if (isConnected && !restoringMediaRef.current) {
+      syncMediaState({ micMuted: isDeafened ? micMutedBeforeDeafen() : isMuted, deafened: isDeafened });
+    }
+  }, [isConnected, isMuted, isDeafened, micMutedBeforeDeafen]);
 
   const hasJoinedRef = useRef(false);
   const currentChannelRef = useRef<string | null>(null);

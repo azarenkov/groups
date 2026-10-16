@@ -354,7 +354,9 @@ export const useCallStore = create<CallState>()((set, get) => {
       ringing: s.activeCallId === active.callId ? s.ringing : [],
       endedCall: s.activeCallId === active.callId ? s.endedCall : null,
       focused: s.activeCallId === active.callId ? s.focused : true,
-      ...(media ? { micMuted: media.micMuted, deafened: media.deafened, micMutedBeforeDeafen: false } : {}),
+      ...(media
+        ? { micMuted: media.micMuted || media.deafened, deafened: media.deafened, micMutedBeforeDeafen: media.deafened && media.micMuted }
+        : {}),
       ...(settingsSynced ? {} : { micMuted: true }),
     }));
     const muteSeqBeforeConnect = get().micMuteSeq;

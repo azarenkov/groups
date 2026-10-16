@@ -67,7 +67,7 @@ mod tests {
         assert_eq!(read.execute(user).await.unwrap(), MediaState::default());
 
         let saved = SaveMediaState::new(store.clone()).execute(user, false, true, Utc::now()).await.unwrap();
-        assert!(saved.mic_muted());
-        assert_eq!(read.execute(user).await.unwrap(), MediaState::new(true, true));
+        assert!(!saved.mic_live());
+        assert_eq!(read.execute(user).await.unwrap(), MediaState::new(false, true));
     }
 }

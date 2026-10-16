@@ -16,6 +16,7 @@ import { useLocalQuality } from "./useLocalQuality";
 import { forgetVoiceSession, rememberVoiceSession } from "../lib/sessionHint";
 
 interface UseLiveKitResult {
+  micMutedBeforeDeafen: () => boolean;
   participants: ParticipantInfo[];
   videoTiles: VideoTile[];
   isCameraEnabled: boolean;
@@ -682,7 +683,10 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
     [],
   );
 
+  const micMutedBeforeDeafen = useCallback(() => micMutedBeforeDeafenRef.current, []);
+
   return {
+    micMutedBeforeDeafen,
     participants,
     videoTiles,
     isCameraEnabled,
