@@ -499,6 +499,7 @@ export function useMessages(params: {
         return shown ? "shown" : "failed";
       } catch (err) {
         if (superseded()) return "stale";
+        releaseJumpLoader();
         console.warn("[ChatView] failed to open the original message:", err);
         return isNotFoundError(err) ? "missing" : "failed";
       }

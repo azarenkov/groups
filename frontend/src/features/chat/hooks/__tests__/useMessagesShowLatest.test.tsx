@@ -23,7 +23,10 @@ const messenger = {
     query.before || query.after
       ? new Promise((resolve) => pending.push(resolve))
       : Promise.resolve({ messages: latestPage, partition: "messaging:latest", seq: 1 }),
-  getMessage: async () => target,
+  getMessage: async (id: string) => {
+    if (id === "gone") throw new Error("gone");
+    return target;
+  },
 } as unknown as Messenger;
 
 let latest: ReturnType<typeof useMessages> | null = null;
@@ -164,5 +167,21 @@ it("releases an older jump's loader when a newer jump targets a loaded message",
     await second;
   });
   expect(await second).toBe("shown");
+  expect(latest!.showInitialLoader).toBe(false);
+});
+
+it("releases an older jump's loader when a newer jump fails to find its message", async () => {
+  render(<Harness />);
+  await waitFor(() => expect(latest!.historyLoading).toBe(false));
+  act(() => {
+    void latest!.jumpToMessageId("m1");
+  });
+  await waitFor(() => expect(latest!.showInitialLoader).toBe(true));
+  let second: Promise<unknown> | undefined;
+  await act(async () => {
+    second = latest!.jumpToMessageId("gone");
+    await second;
+  });
+  expect(await second).toBe("failed");
   expect(latest!.showInitialLoader).toBe(false);
 });
