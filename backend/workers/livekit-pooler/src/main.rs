@@ -12,6 +12,7 @@ use messaging::usecases::channel::{
     track_media_connection::TrackMediaConnection,
 };
 use messaging_infrastructure::{
+    media_client::voice_calls::VoiceCallsClient,
     database::postgres::{
         MIGRATOR, SCHEMA,
         connection::{create_postgres_pool, ping_pool},
@@ -71,9 +72,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .with_request_timeout(Duration::from_secs(pooler_config.livekit_pooler_request_timeout_secs)),
     );
     let inspector = Arc::new(LiveKitRoomInspector::new(livekit.clone()));
+    let voice_calls = Arc::new(VoiceCallsClient::new(&api_common::internal_client::InternalService::Voice.base_url()));
     let reconcile = ReconcileVoicePresence::new(
         channel_repository.clone(),
         inspector,
+        voice_calls,
         ReconcileActions {
             admit: Arc::new(AdmitVoiceParticipant::new(channel_repository, community_repository, livekit)),
             join: Arc::new(JoinVoiceConnection::new(channel_unit_of_work.clone())),

@@ -950,6 +950,20 @@ impl CallRepository for PostgresCallRepository {
         Ok(row.exists)
     }
 
+    async fn call_rooms_among(&self, ids: &[Uuid]) -> Result<Vec<Uuid>, RepositoryError> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query!(
+            r#"SELECT DISTINCT call_id FROM call_participants WHERE call_id = ANY($1)"#,
+            ids,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(|r| r.call_id).collect())
+    }
+
     async fn pair_outcome(
         &self,
         call_id: Uuid,

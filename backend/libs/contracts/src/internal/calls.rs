@@ -33,3 +33,15 @@ pub struct EndedCallResponseV1 {
     pub ended_at: chrono::DateTime<chrono::Utc>,
     pub invitations: Vec<CallInvitationV1>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CallRoomsRequestV1 {
+    pub ids: Vec<uuid::Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CallRoomsResponseV1 {
+    pub call_ids: Vec<uuid::Uuid>,
+}

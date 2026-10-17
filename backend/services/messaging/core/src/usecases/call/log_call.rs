@@ -201,6 +201,9 @@ mod tests {
 
     #[async_trait]
     impl CallParticipationLookup for Outcomes {
+        async fn call_rooms_among(&self, _: &[Uuid]) -> Result<Vec<Uuid>, CallParticipationError> {
+            unimplemented!()
+        }
         async fn call_outcome(&self, _: Uuid, caller: &UserId, callee: &UserId) -> Result<CallOutcome, CallParticipationError> {
             Ok(self.by_direction.lock().unwrap().get(&(*caller, *callee)).cloned().unwrap_or_else(|| self.outcome.clone()))
         }

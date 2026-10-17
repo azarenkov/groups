@@ -154,6 +154,7 @@ pub trait CallRepository {
     ) -> Result<JoinOutcome, RepositoryError>;
 
     async fn is_call_room(&self, call_id: Uuid) -> Result<bool, RepositoryError>;
+    async fn call_rooms_among(&self, ids: &[Uuid]) -> Result<Vec<Uuid>, RepositoryError>;
 
     async fn pair_outcome(
         &self,

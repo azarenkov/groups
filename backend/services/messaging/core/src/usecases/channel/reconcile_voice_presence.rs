@@ -9,6 +9,7 @@ use ports::voice_service::VoiceService;
 use uuid::Uuid;
 
 use crate::{
+    ports::call_participation::CallParticipationLookup,
     dto::{
         context::RequestContext,
         requests::channel::{
@@ -136,30 +137,39 @@ pub struct ReconcileLimits {
     pub max_aborts_per_pass: usize,
 }
 
-pub struct ReconcileVoicePresence<C, S, W, V, I>
+pub struct ReconcileVoicePresence<C, S, W, V, I, L>
 where
     C: ChannelRepository,
     S: CommunityRepository,
     W: ChannelUnitOfWork,
     V: VoiceService,
     I: VoiceRoomInspector,
+    L: CallParticipationLookup,
 {
     channel_repository: Arc<C>,
     inspector: Arc<I>,
+    calls: Arc<L>,
     actions: ReconcileActions<C, S, W, V>,
     limits: ReconcileLimits,
 }
 
-impl<C, S, W, V, I> ReconcileVoicePresence<C, S, W, V, I>
+impl<C, S, W, V, I, L> ReconcileVoicePresence<C, S, W, V, I, L>
 where
     C: ChannelRepository,
     S: CommunityRepository,
     W: ChannelUnitOfWork,
     V: VoiceService,
     I: VoiceRoomInspector,
+    L: CallParticipationLookup,
 {
-    pub fn new(channel_repository: Arc<C>, inspector: Arc<I>, actions: ReconcileActions<C, S, W, V>, limits: ReconcileLimits) -> Self {
-        Self { channel_repository, inspector, actions, limits }
+    pub fn new(
+        channel_repository: Arc<C>,
+        inspector: Arc<I>,
+        calls: Arc<L>,
+        actions: ReconcileActions<C, S, W, V>,
+        limits: ReconcileLimits,
+    ) -> Self {
+        Self { channel_repository, inspector, calls, actions, limits }
     }
 
     pub async fn execute(&self) -> Result<ReconcileSummary, RepositoryError> {
@@ -202,8 +212,8 @@ where
         let mut live: Vec<LiveMember> = Vec::new();
 
         let unknown_rooms: Vec<ChannelId> = live_rooms.iter().filter(|room| !by_channel.contains_key(room)).copied().collect();
-        let voice_rooms = self.channel_repository.voice_channel_ids_among(&unknown_rooms).await?;
-        let channels: HashSet<ChannelId> = by_channel.keys().copied().chain(voice_rooms).collect();
+        let owned_rooms = self.owned_rooms(unknown_rooms).await?;
+        let channels: HashSet<ChannelId> = by_channel.keys().copied().chain(owned_rooms).collect();
         for channel_id in channels {
             if !checkpoint() {
                 break;
@@ -254,6 +264,23 @@ where
         }
 
         Ok(summary)
+    }
+
+    async fn owned_rooms(&self, unknown_rooms: Vec<ChannelId>) -> Result<Vec<ChannelId>, RepositoryError> {
+        let mut owned = self.channel_repository.voice_channel_ids_among(&unknown_rooms).await?;
+        let unresolved: Vec<Uuid> = unknown_rooms.iter().filter(|room| !owned.contains(room)).map(|room| room.uuid()).collect();
+        if unresolved.is_empty() {
+            return Ok(owned);
+        }
+        match self.calls.call_rooms_among(&unresolved).await {
+            Ok(call_rooms) => {
+                owned.extend(unresolved.into_iter().filter(|room| !call_rooms.contains(room)).map(ChannelId::new));
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, rooms = unresolved.len(), "Could not ask voice which live rooms are calls; leaving unknown rooms alone this pass");
+            }
+        }
+        Ok(owned)
     }
 
     async fn abort_stale(&self, session: &Session, summary: &mut ReconcileSummary) {

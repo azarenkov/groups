@@ -1,5 +1,5 @@
-use actix_web::{HttpResponse, Responder, get, web};
-use contracts::internal::calls::{CallInvitationV1, CallOutcomeResponseV1, EndedCallResponseV1};
+use actix_web::{HttpResponse, Responder, get, post, web};
+use contracts::internal::calls::{CallInvitationV1, CallOutcomeResponseV1, CallRoomsRequestV1, CallRoomsResponseV1, EndedCallResponseV1};
 use domain::user::id::UserId;
 use uuid::Uuid;
 use voice_domain::call::repository::CallRepository;
@@ -42,6 +42,12 @@ async fn ended_call(app_state: web::Data<AppState>, path: web::Path<Uuid>) -> Re
     })))
 }
 
+#[post("/calls/rooms")]
+async fn call_rooms(app_state: web::Data<AppState>, body: web::Json<CallRoomsRequestV1>) -> Result<impl Responder, HttpError> {
+    let call_ids = app_state.call_repository.call_rooms_among(&body.ids).await?;
+    Ok(HttpResponse::Ok().json(CallRoomsResponseV1 { call_ids }))
+}
+
 pub fn internal_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(web::scope("/internal").service(call_outcome).service(ended_call));
+    cfg.service(web::scope("/internal").service(call_outcome).service(ended_call).service(call_rooms));
 }
