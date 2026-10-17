@@ -10,7 +10,6 @@ use messaging::{
             track_media_connection::TrackMediaConnectionRequest,
         },
     },
-    ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions},
     usecases::channel::{
         abort_voice_connection::{AbortVoiceConnection, AbortVoiceConnectionError},
         admit_voice_participant::{AdmitVoiceParticipant, Admission},
@@ -22,8 +21,6 @@ use messaging::{
 use messaging_domain::{channel::events::participant::ConnectionAbortReason, channel::events::participant::LeaveReason, channel::events::participant::MediaSource, channel::repository::ChannelRepository};
 use ports::repository::RepositoryError;
 use chrono::Utc;
-use futures::StreamExt;
-use tracing::Instrument;
 
 fn to_domain_media_source(source: MediaSourceV1) -> MediaSource {
     match source {
@@ -31,7 +28,7 @@ fn to_domain_media_source(source: MediaSourceV1) -> MediaSource {
         MediaSourceV1::Screen => MediaSource::Screen,
     }
 }
-use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
+use infrastructure_common::messaging::nats::runner::{ConsumerSpec, Event, Lifecycle, spawn_consumer, subject_prefix as normalize_prefix};
 use contracts::events::webhook::{MediaSourceV1, WebhookEventV1 as WebhookEventDto};
 use domain::channel::webhook_source::WebhookSource;
 
@@ -49,84 +46,48 @@ pub fn spawn<T, W, S, V>(
     S: messaging_domain::community::repository::CommunityRepository + Send + Sync + 'static,
     V: messaging::ports::voice_service::VoiceService + Send + Sync + 'static,
 {
-    tokio::spawn(async move {
-        let prefix = subject_prefix.trim_end_matches('.').to_string();
-        let consumer = NatsEventConsumer::new(jetstream, stream.clone());
-        let admit_uc = AdmitVoiceParticipant::new(
-            channel_repository.clone(),
-            community_repository.clone(),
-            voice_service.clone(),
-        );
-        let join_uc = JoinVoiceConnection::new(channel_unit_of_work.clone());
-        let abort_uc = AbortVoiceConnection::new(channel_unit_of_work.clone());
-        let leave_uc = LeaveVoiceConnection::new(channel_unit_of_work.clone());
-        let track_uc = TrackMediaConnection::new(channel_unit_of_work.clone());
-        loop {
-            let opts = SubscribeOptions {
-                consumer_name: "messaging-voice-webhooks".to_string(),
-                subject: format!("{prefix}.channel.>"),
-                start_position: StartPosition::All,
-                max_deliver: Some(5),
-                dlq_subject: Some(format!("{prefix}.dlq.messaging.webhooks")),
-                extra_subjects: vec![],
-                ack_wait: None,
+    let prefix = normalize_prefix(&subject_prefix);
+    let spec = ConsumerSpec::new(&prefix, stream, "messaging-voice-webhooks", vec![format!("{prefix}.channel.>")]);
+    let usecases = Arc::new(WebhookUsecases {
+        admit: AdmitVoiceParticipant::new(channel_repository, community_repository, voice_service),
+        join: JoinVoiceConnection::new(channel_unit_of_work.clone()),
+        abort: AbortVoiceConnection::new(channel_unit_of_work.clone()),
+        leave: LeaveVoiceConnection::new(channel_unit_of_work.clone()),
+        track: TrackMediaConnection::new(channel_unit_of_work),
+    });
+    spawn_consumer(jetstream, spec, Lifecycle::default(), move |event: Event| {
+        let usecases = usecases.clone();
+        async move {
+            let Some(kind) = webhook_kind(&event.subject) else {
+                return Ok(());
             };
-            match consumer.subscribe(opts).await {
-                Ok(mut messages) => {
-                    tracing::info!(%stream, "Messaging voice webhook consumer subscribed");
-                    while let Some(msg) = messages.next().await {
-                        match msg {
-                            Ok(m) => {
-                                let kind = webhook_kind(&m.subject);
-                                let Some(kind) = kind else {
-                                    let _ = m.ack().await;
-                                    continue;
-                                };
-                                let span = tracing::info_span!(
-                                    "event",
-                                    request_id = ?m.request_id,
-                                    subject = %m.subject,
-                                );
-                                async {
-                                    match apply(
-                                        kind,
-                                        &m.payload,
-                                        m.request_id.clone(),
-                                        &join_uc,
-                                        &abort_uc,
-                                        &leave_uc,
-                                        &track_uc,
-                                        &admit_uc,
-                                    )
-                                    .await
-                                    {
-                                        Ok(()) => {
-                                            if let Err(e) = m.ack().await {
-                                                tracing::warn!(error = %e, "Webhook projection ack failed");
-                                            }
-                                        }
-                                        Err(e) => {
-                                            tracing::warn!(error = %e, subject = %m.subject, "Webhook projection failed; message will be redelivered");
-                                        }
-                                    }
-                                }
-                                .instrument(span)
-                                .await;
-                            }
-                            Err(e) => {
-                                tracing::warn!(error = %e, "Webhook projection stream error");
-                                break;
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "Webhook projection subscribe failed; retrying");
-                }
-            }
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            apply(
+                kind,
+                &event.payload,
+                event.request_id,
+                &usecases.join,
+                &usecases.abort,
+                &usecases.leave,
+                &usecases.track,
+                &usecases.admit,
+            )
+            .await
         }
     });
+}
+
+struct WebhookUsecases<T, W, S, V>
+where
+    T: ChannelRepository + Send + Sync,
+    W: messaging_domain::channel::unit_of_work::ChannelUnitOfWork + Send + Sync,
+    S: messaging_domain::community::repository::CommunityRepository + Send + Sync,
+    V: messaging::ports::voice_service::VoiceService + Send + Sync,
+{
+    admit: AdmitVoiceParticipant<T, S, V>,
+    join: JoinVoiceConnection<W>,
+    abort: AbortVoiceConnection<W>,
+    leave: LeaveVoiceConnection<W>,
+    track: TrackMediaConnection<W>,
 }
 
 #[derive(Clone, Copy)]

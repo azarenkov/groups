@@ -1,69 +1,31 @@
-use std::sync::Arc;
 
 use contracts::events::user::{UserEntitlementsChangedV1, UserProfileChangedV1};
 use domain::user::id::UserId;
-use futures::StreamExt;
-use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
-use messaging::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
+use infrastructure_common::messaging::nats::runner::{ConsumerSpec, Event, Lifecycle, spawn_consumer, subject_prefix as normalize_prefix};
 use messaging_domain::badge::{BadgeEmojiStatus, BadgeRepository};
+use std::sync::Arc;
 
-const MAX_DELIVER: u32 = 20;
-const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
+pub const LEGACY_CONSUMER: &str = "messaging-pro-badges-v3";
 
-pub fn spawn<B>(
-    jetstream: async_nats::jetstream::Context,
-    subject_prefix: String,
-    user_stream: String,
-    badges: Arc<B>,
-) where
+pub fn drain_legacy<B>(jetstream: async_nats::jetstream::Context, subject_prefix: String, user_stream: String, badges: Arc<B>)
+where
     B: BadgeRepository + 'static,
 {
-    let prefix = subject_prefix.trim_end_matches('.').to_string();
-    tokio::spawn(async move {
-        let consumer = NatsEventConsumer::new(jetstream, user_stream.clone());
-        loop {
-            let opts = SubscribeOptions {
-                consumer_name: "messaging-pro-badges-v3".to_string(),
-                subject: format!("{prefix}.user.*.entitlements_changed"),
-                start_position: StartPosition::All,
-                max_deliver: Some(MAX_DELIVER),
-                dlq_subject: Some(format!("{prefix}.dlq.messaging.pro_badges")),
-                extra_subjects: vec![
-                    format!("{prefix}.user.entitlements_changed"),
-                    format!("{prefix}.user.*.profile_changed"),
-                    format!("{prefix}.user.profile_changed"),
-                ],
-                ack_wait: None,
-            };
-            match consumer.subscribe(opts).await {
-                Ok(mut messages) => {
-                    tracing::info!(stream = %user_stream, "Pro badge projection subscribed");
-                    while let Some(msg) = messages.next().await {
-                        let Ok(m) = msg else {
-                            tracing::warn!("Pro badge stream error");
-                            break;
-                        };
-                        match apply(&*badges, &m.subject, &m.payload).await {
-                            Ok(()) => {
-                                let _ = m.ack().await;
-                            }
-                            Err(e) => {
-                                tracing::warn!(error = %e, subject = %m.subject, "Pro badge projection failed; scheduling retry");
-                                let _ = m.retry_after(RETRY_DELAY).await;
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "Pro badge subscribe failed; retrying");
-                }
-            }
-            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-        }
+    let prefix = normalize_prefix(&subject_prefix);
+    let subjects = vec![
+        format!("{prefix}.user.*.entitlements_changed"),
+        format!("{prefix}.user.entitlements_changed"),
+        format!("{prefix}.user.*.profile_changed"),
+        format!("{prefix}.user.profile_changed"),
+    ];
+    let spec = ConsumerSpec::new(&prefix, user_stream, LEGACY_CONSUMER, subjects);
+    spawn_consumer(jetstream, spec, Lifecycle::default(), move |event: Event| {
+        let badges = badges.clone();
+        async move { apply(&*badges, &event.subject, &event.payload).await }
     });
 }
 
-async fn apply<B: BadgeRepository + ?Sized>(
+pub async fn apply<B: BadgeRepository + ?Sized>(
     badges: &B,
     subject: &str,
     payload: &[u8],

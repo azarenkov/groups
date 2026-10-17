@@ -4,15 +4,10 @@ use media::usecases::user::update_avatar::still_avatar_key;
 use media_domain::sticker::StickerRepository;
 use contracts::events::user::UserLifecycleV1 as UserLifecycleDto;
 use domain::user::id::UserId;
-use futures::StreamExt;
-use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
-use media::ports::{
-    event_consumer::{EventConsumer, StartPosition, SubscribeOptions},
-    file_storage::{FileStorage, FileStorageError},
-};
+use media::ports::file_storage::{FileStorage, FileStorageError};
 use media_domain::banner::BannerRepository;
 use media_domain::media::repository::MediaRepository;
-use tracing::Instrument;
+use infrastructure_common::messaging::nats::runner::{ConsumerSpec, Event, Lifecycle, spawn_consumer, subject_prefix as normalize_prefix};
 
 pub fn spawn<M, B, S, FS>(
     jetstream: async_nats::jetstream::Context,
@@ -28,61 +23,16 @@ pub fn spawn<M, B, S, FS>(
     S: StickerRepository + 'static,
     FS: FileStorage + Send + Sync + 'static,
 {
-    actix_web::rt::spawn(async move {
-        let prefix = subject_prefix.trim_end_matches('.').to_string();
-        let consumer = NatsEventConsumer::new(jetstream, stream.clone());
-        loop {
-            let opts = SubscribeOptions {
-                consumer_name: "media-projection-user".to_string(),
-                subject: format!("{prefix}.user.>"),
-                start_position: StartPosition::All,
-                max_deliver: Some(5),
-                dlq_subject: Some(format!("{prefix}.dlq.media.user")),
-                extra_subjects: vec![],
-                ack_wait: None,
-            };
-            match consumer.subscribe(opts).await {
-                Ok(mut messages) => {
-                    tracing::info!(%stream, "Media user projection consumer subscribed");
-                    while let Some(msg) = messages.next().await {
-                        match msg {
-                            Ok(m) => {
-                                if !m.subject.ends_with(".user.deleted") {
-                                    let _ = m.ack().await;
-                                    continue;
-                                }
-                                let span = tracing::info_span!(
-                                    "event",
-                                    request_id = ?m.request_id,
-                                    subject = %m.subject,
-                                );
-                                async {
-                                    match handle_deleted(&m.payload, &*media_repository, &*banners, &*stickers, &*storage).await {
-                                        Ok(()) => {
-                                            if let Err(e) = m.ack().await {
-                                                tracing::warn!(error = %e, "Media user projection ack failed");
-                                            }
-                                        }
-                                        Err(e) => {
-                                            tracing::warn!(error = %e, "Media user projection failed; message will be redelivered");
-                                        }
-                                    }
-                                }
-                                .instrument(span)
-                                .await;
-                            }
-                            Err(e) => {
-                                tracing::warn!(error = %e, "Media user projection stream error");
-                                break;
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "Media user projection subscribe failed; retrying");
-                }
+    let prefix = normalize_prefix(&subject_prefix);
+    let spec = ConsumerSpec::new(&prefix, stream, "media-projection-user", vec![format!("{prefix}.user.>")]);
+    spawn_consumer(jetstream, spec, Lifecycle::default(), move |event: Event| {
+        let (media_repository, banners, stickers, storage) =
+            (media_repository.clone(), banners.clone(), stickers.clone(), storage.clone());
+        async move {
+            if !event.subject.ends_with(".user.deleted") {
+                return Ok(());
             }
-            actix_web::rt::time::sleep(std::time::Duration::from_secs(5)).await;
+            handle_deleted(&event.payload, &*media_repository, &*banners, &*stickers, &*storage).await
         }
     });
 }

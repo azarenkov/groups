@@ -1,7 +1,6 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
 
 use contracts::events::{
     community::{CommunityInvitationIssuedV1, CommunityInvitationResolvedV1, CommunityMemberV1},
@@ -9,22 +8,16 @@ use contracts::events::{
 };
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
-use futures::StreamExt;
-use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
-use messaging::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
+use infrastructure_common::messaging::nats::runner::{ConsumerSpec, Event, Lifecycle, spawn_consumer, subject_prefix as normalize_prefix};
+use messaging::ports::event_consumer::StartPosition;
 use messaging::usecases::inbox::apply_trigger::ApplyInboxTrigger;
 use messaging_domain::community::{id::CommunityId, invitation::InvitationId};
 use messaging_domain::inbox::{InboxRepository, InboxTrigger};
-
-const MAX_DELIVER: u32 = 20;
-const RETRY_DELAY: Duration = Duration::from_secs(5);
-const RESUBSCRIBE_DELAY: Duration = Duration::from_secs(5);
 
 pub struct InboxFeed {
     pub consumer_name: &'static str,
     pub stream: String,
     pub subjects: Vec<String>,
-    pub dlq_suffix: &'static str,
 }
 
 impl InboxFeed {
@@ -33,7 +26,6 @@ impl InboxFeed {
             consumer_name: "messaging-inbox-feed-users",
             stream,
             subjects: vec![format!("{prefix}.user.*.request_sent"), format!("{prefix}.user.*.request_accepted")],
-            dlq_suffix: "messaging.inbox.users",
         }
     }
 
@@ -46,7 +38,6 @@ impl InboxFeed {
                 format!("{prefix}.community.*.invitation_resolved"),
                 format!("{prefix}.community.*.member_left"),
             ],
-            dlq_suffix: "messaging.inbox.communities",
         }
     }
 }
@@ -119,59 +110,25 @@ pub fn spawn<R>(
 where
     R: InboxRepository + 'static,
 {
-    let prefix = subject_prefix.trim_end_matches('.').to_string();
+    let prefix = normalize_prefix(&subject_prefix);
     let subscribed = Arc::new(AtomicBool::new(false));
     let flag = subscribed.clone();
-    tokio::spawn(async move {
-        let consumer = NatsEventConsumer::new(jetstream, feed.stream.clone());
-        let mut subjects = feed.subjects.clone();
-        let subject = subjects.remove(0);
-        loop {
-            let opts = SubscribeOptions {
-                consumer_name: feed.consumer_name.to_string(),
-                subject: subject.clone(),
-                start_position: StartPosition::Since(started_at),
-                max_deliver: Some(MAX_DELIVER),
-                dlq_subject: Some(format!("{prefix}.dlq.{}", feed.dlq_suffix)),
-                extra_subjects: subjects.clone(),
-                ack_wait: None,
-            };
-            match consumer.subscribe(opts).await {
-                Ok(mut messages) => {
-                    flag.store(true, Ordering::Release);
-                    tracing::info!(stream = %feed.stream, consumer = feed.consumer_name, "Inbox feed subscribed");
-                    while let Some(msg) = messages.next().await {
-                        let Ok(m) = msg else {
-                            tracing::warn!(consumer = feed.consumer_name, "Inbox feed stream error");
-                            break;
-                        };
-                        let (trigger, occurred_at) = match trigger_for(&m.subject, &m.payload) {
-                            Ok(Some(occurred)) => occurred,
-                            Ok(None) => {
-                                let _ = m.ack().await;
-                                continue;
-                            }
-                            Err(e) => {
-                                tracing::warn!(error = %e, subject = %m.subject, "Malformed inbox event; dropping");
-                                let _ = m.ack().await;
-                                continue;
-                            }
-                        };
-                        let source = source_event_id(m.event_id.as_deref(), &m.subject, &m.payload);
-                        match usecase.execute(&trigger, occurred_at, &source, Utc::now()).await {
-                            Ok(()) => {
-                                let _ = m.ack().await;
-                            }
-                            Err(e) => {
-                                tracing::warn!(error = %e, subject = %m.subject, "Inbox delivery failed; scheduling retry");
-                                let _ = m.retry_after(RETRY_DELAY).await;
-                            }
-                        }
-                    }
+    let spec = ConsumerSpec::new(&prefix, feed.stream, feed.consumer_name, feed.subjects).starting(StartPosition::Since(started_at));
+    let lifecycle = Lifecycle::default().on_subscribed(move || flag.store(true, Ordering::Release));
+    spawn_consumer(jetstream, spec, lifecycle, move |event: Event| {
+        let usecase = usecase.clone();
+        async move {
+            let (trigger, occurred_at) = match trigger_for(&event.subject, &event.payload) {
+                Ok(Some(occurred)) => occurred,
+                Ok(None) => return Ok(()),
+                Err(e) => {
+                    tracing::warn!(error = %e, subject = %event.subject, "Malformed inbox event; dropping");
+                    return Ok(());
                 }
-                Err(e) => tracing::warn!(error = %e, consumer = feed.consumer_name, "Inbox feed subscribe failed; retrying"),
-            }
-            tokio::time::sleep(RESUBSCRIBE_DELAY).await;
+            };
+            let source = source_event_id(event.event_id.as_deref(), &event.subject, &event.payload);
+            usecase.execute(&trigger, occurred_at, &source, Utc::now()).await?;
+            Ok(())
         }
     });
     subscribed

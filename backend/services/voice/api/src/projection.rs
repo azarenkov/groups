@@ -1,11 +1,7 @@
 use std::sync::Arc;
 
-use voice::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
 use domain::user::id::UserId;
 use ports::user_profile::UserProfileRepository;
-use futures::StreamExt;
-use tracing::Instrument;
-use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::friendship::UserBlockedV1;
 use contracts::events::user::{UserLifecycleV1, UserNameV1 as UserNameDto};
 use voice::usecases::call::enforce_block::EnforceBlock;
@@ -13,6 +9,7 @@ use voice::usecases::call::enforce_user_deactivation::EnforceUserDeactivation;
 use voice_domain::call::repository::CallRepository;
 use voice::ports::friendship_lookup::FriendshipLookup;
 use voice::ports::voice_service::VoiceService;
+use infrastructure_common::messaging::nats::runner::{ConsumerSpec, Event, Lifecycle, spawn_consumer, subject_prefix as normalize_prefix};
 
 pub fn spawn<P, C, V, F>(
     jetstream: async_nats::jetstream::Context,
@@ -27,58 +24,11 @@ pub fn spawn<P, C, V, F>(
     V: VoiceService + Send + Sync + 'static,
     F: FriendshipLookup + Send + Sync + 'static,
 {
-    actix_web::rt::spawn(async move {
-        let prefix = subject_prefix.trim_end_matches('.').to_string();
-        let consumer = NatsEventConsumer::new(jetstream, stream.clone());
-        loop {
-            let opts = SubscribeOptions {
-                consumer_name: "voice-projections".to_string(),
-                subject: format!("{prefix}.user.>"),
-                start_position: StartPosition::All,
-                max_deliver: Some(5),
-                dlq_subject: Some(format!("{prefix}.dlq.voice.projections")),
-                extra_subjects: vec![],
-                ack_wait: None,
-            };
-            match consumer.subscribe(opts).await {
-                Ok(mut messages) => {
-                    tracing::info!(%stream, "Voice projection consumer subscribed");
-                    while let Some(msg) = messages.next().await {
-                        match msg {
-                            Ok(m) => {
-                                let span = tracing::info_span!(
-                                    "event",
-                                    request_id = ?m.request_id,
-                                    subject = %m.subject,
-                                );
-                                async {
-                                    match handle(&m.subject, &m.payload, &*profiles, &deactivation, &block, m.request_id.clone()).await {
-                                        Ok(()) => {
-                                            if let Err(e) = m.ack().await {
-                                                tracing::warn!(error = %e, "Voice projection ack failed");
-                                            }
-                                        }
-                                        Err(e) => {
-                                            tracing::warn!(error = %e, "Voice projection failed; message will be redelivered");
-                                        }
-                                    }
-                                }
-                                .instrument(span)
-                                .await;
-                            }
-                            Err(e) => {
-                                tracing::warn!(error = %e, "Voice projection stream error");
-                                break;
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "Voice projection subscribe failed; retrying");
-                }
-            }
-            actix_web::rt::time::sleep(std::time::Duration::from_secs(5)).await;
-        }
+    let prefix = normalize_prefix(&subject_prefix);
+    let spec = ConsumerSpec::new(&prefix, stream, "voice-projections", vec![format!("{prefix}.user.>")]);
+    spawn_consumer(jetstream, spec, Lifecycle::default(), move |event: Event| {
+        let (profiles, deactivation, block) = (profiles.clone(), deactivation.clone(), block.clone());
+        async move { handle(&event.subject, &event.payload, &*profiles, &deactivation, &block, event.request_id).await }
     });
 }
 

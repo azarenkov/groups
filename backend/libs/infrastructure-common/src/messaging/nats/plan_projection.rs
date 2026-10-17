@@ -1,91 +1,66 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use contracts::events::user::UserEntitlementsChangedV1;
 use domain::{plan::Tier, user::id::UserId};
-use futures::StreamExt;
-use ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
+use futures::FutureExt;
 use ports::plan_directory::{PlanDirectory, PlanListener, PlanListenerError};
 
-use crate::messaging::nats::consumer::NatsEventConsumer;
+use crate::messaging::nats::runner::{ConsumerSpec, Event, Lifecycle, spawn_consumer, subject_prefix};
 
 const BACKLOG_CHECK_EVERY: Duration = Duration::from_secs(5);
 const BUSY_CHECKS_BEFORE_LAGGING: u32 = 2;
-const MAX_DELIVER: u32 = 20;
-const RETRY_DELAY: Duration = Duration::from_secs(5);
-const RESUBSCRIBE_DELAY: Duration = Duration::from_secs(5);
 
 pub struct PlanProjection {
     pub jetstream: async_nats::jetstream::Context,
     pub subject_prefix: String,
     pub stream: String,
     pub consumer_name: &'static str,
-    pub dlq_suffix: &'static str,
     pub plans: Arc<dyn PlanDirectory>,
     pub listener: Arc<dyn PlanListener>,
 }
 
+struct Backlog {
+    projection: PlanProjection,
+    busy_checks: Mutex<u32>,
+}
+
 impl PlanProjection {
     pub fn spawn(self) {
-        tokio::spawn(self.run());
-    }
-
-    async fn run(self) {
-        let prefix = self.subject_prefix.trim_end_matches('.').to_string();
-        let consumer = NatsEventConsumer::new(self.jetstream.clone(), self.stream.clone());
-        loop {
-            let opts = SubscribeOptions {
-                consumer_name: self.consumer_name.to_string(),
-                subject: format!("{prefix}.user.*.entitlements_changed"),
-                start_position: StartPosition::All,
-                max_deliver: Some(MAX_DELIVER),
-                dlq_subject: Some(format!("{prefix}.dlq.{}", self.dlq_suffix)),
-                extra_subjects: vec![format!("{prefix}.user.entitlements_changed")],
-                ack_wait: None,
-            };
-            match consumer.subscribe(opts).await {
-                Ok(mut messages) => {
-                    tracing::info!(stream = %self.stream, consumer = self.consumer_name, "Plan projection subscribed");
-                    let mut busy_checks = 0;
-                    loop {
-                        let msg = match tokio::time::timeout(BACKLOG_CHECK_EVERY, messages.next()).await {
-                            Ok(Some(msg)) => msg,
-                            Ok(None) => break,
-                            Err(_) => {
-                                self.check_backlog(&mut busy_checks).await;
-                                continue;
-                            }
-                        };
-                        let Ok(m) = msg else {
-                            tracing::warn!(consumer = self.consumer_name, "Plan projection stream error");
-                            break;
-                        };
-                        let backlog_drained = m.pending == Some(0);
-                        if !backlog_drained && m.pending.is_some() {
-                            self.plans.set_caught_up(false);
-                        }
-                        match self.apply(&m.payload).await {
-                            Ok(()) => {
-                                let _ = m.ack().await;
-                                if backlog_drained {
-                                    self.check_backlog(&mut busy_checks).await;
-                                }
-                            }
-                            Err(e) => {
-                                tracing::warn!(error = %e, consumer = self.consumer_name, "Plan projection failed; scheduling retry");
-                                self.plans.set_caught_up(false);
-                                let _ = m.retry_after(RETRY_DELAY).await;
-                            }
-                        }
-                    }
+        let prefix = subject_prefix(&self.subject_prefix);
+        let spec = ConsumerSpec::new(
+            &prefix,
+            self.stream.clone(),
+            self.consumer_name,
+            vec![format!("{prefix}.user.*.entitlements_changed"), format!("{prefix}.user.entitlements_changed")],
+        );
+        let jetstream = self.jetstream.clone();
+        let backlog = Arc::new(Backlog { projection: self, busy_checks: Mutex::new(0) });
+        let idle = backlog.clone();
+        let disconnected = backlog.clone();
+        let lifecycle = Lifecycle::default()
+            .when_idle(BACKLOG_CHECK_EVERY, Arc::new(move || {
+                let idle = idle.clone();
+                async move { idle.check_backlog().await }.boxed()
+            }))
+            .on_disconnected(move || disconnected.projection.plans.set_caught_up(false));
+        spawn_consumer(jetstream, spec, lifecycle, move |event: Event| {
+            let backlog = backlog.clone();
+            async move {
+                let drained = event.pending == Some(0);
+                if !drained && event.pending.is_some() {
+                    backlog.projection.plans.set_caught_up(false);
                 }
-                Err(e) => {
-                    tracing::warn!(error = %e, consumer = self.consumer_name, "Plan projection subscribe failed; retrying");
+                if let Err(e) = backlog.projection.apply(&event.payload).await {
+                    backlog.projection.plans.set_caught_up(false);
+                    return Err(e);
                 }
+                if drained {
+                    backlog.check_backlog().await;
+                }
+                Ok(())
             }
-            self.plans.set_caught_up(false);
-            tokio::time::sleep(RESUBSCRIBE_DELAY).await;
-        }
+        });
     }
 
     async fn apply(&self, payload: &[u8]) -> Result<(), PlanListenerError> {
@@ -98,24 +73,6 @@ impl PlanProjection {
             .apply_tier(&user_id, Tier::parse(&evt.tier), evt.valid_until, evt.occurred_at)
             .await?;
         self.listener.plan_applied(&user_id, chrono::Utc::now()).await
-    }
-
-    async fn check_backlog(&self, busy_checks: &mut u32) {
-        match self.backlog().await {
-            Ok(0) => {
-                *busy_checks = 0;
-                self.mark_caught_up().await;
-            }
-            Ok(_) => {
-                *busy_checks += 1;
-                if *busy_checks >= BUSY_CHECKS_BEFORE_LAGGING {
-                    self.plans.set_caught_up(false);
-                }
-            }
-            Err(e) => {
-                tracing::warn!(error = %e, consumer = self.consumer_name, "Failed to read the plan consumer backlog");
-            }
-        }
     }
 
     async fn backlog(&self) -> Result<u64, async_nats::Error> {
@@ -134,5 +91,26 @@ impl PlanProjection {
         }
         self.plans.set_caught_up(true);
         tracing::info!(consumer = self.consumer_name, "Plan projection caught up with the plan history");
+    }
+}
+
+impl Backlog {
+    async fn check_backlog(&self) {
+        match self.projection.backlog().await {
+            Ok(0) => {
+                *self.busy_checks.lock().unwrap() = 0;
+                self.projection.mark_caught_up().await;
+            }
+            Ok(_) => {
+                let mut busy = self.busy_checks.lock().unwrap();
+                *busy += 1;
+                if *busy >= BUSY_CHECKS_BEFORE_LAGGING {
+                    self.projection.plans.set_caught_up(false);
+                }
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, consumer = self.projection.consumer_name, "Failed to read the plan consumer backlog");
+            }
+        }
     }
 }
