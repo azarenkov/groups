@@ -201,7 +201,9 @@ where
         let mut corrections: Vec<TrackCorrection> = Vec::new();
         let mut live: Vec<LiveMember> = Vec::new();
 
-        let channels: HashSet<ChannelId> = by_channel.keys().copied().chain(live_rooms.iter().copied()).collect();
+        let unknown_rooms: Vec<ChannelId> = live_rooms.iter().filter(|room| !by_channel.contains_key(room)).copied().collect();
+        let voice_rooms = self.channel_repository.voice_channel_ids_among(&unknown_rooms).await?;
+        let channels: HashSet<ChannelId> = by_channel.keys().copied().chain(voice_rooms).collect();
         for channel_id in channels {
             if !checkpoint() {
                 break;
