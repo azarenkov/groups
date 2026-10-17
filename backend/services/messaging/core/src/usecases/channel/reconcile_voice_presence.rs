@@ -243,11 +243,12 @@ where
             self.correct_track(correction, &mut summary).await;
         }
 
+        let mut fresh_rooms: HashMap<ChannelId, HashSet<(Uuid, String)>> = HashMap::new();
         for member in &live {
             if !checkpoint() {
                 break;
             }
-            self.enforce_member(member, &mut summary).await;
+            self.enforce_member(member, &mut fresh_rooms, &mut summary).await;
         }
 
         Ok(summary)
@@ -334,7 +335,32 @@ where
         }
     }
 
-    async fn enforce_member(&self, member: &LiveMember, summary: &mut ReconcileSummary) {
+    async fn still_live(&self, session: &Session, fresh_rooms: &mut HashMap<ChannelId, HashSet<(Uuid, String)>>) -> bool {
+        let snapshot = match fresh_rooms.entry(session.channel_id) {
+            std::collections::hash_map::Entry::Occupied(snapshot) => snapshot.into_mut(),
+            std::collections::hash_map::Entry::Vacant(slot) => {
+                let snapshot = match self.inspector.participants(&session.channel_id).await {
+                    Ok(participants) => participants
+                        .into_iter()
+                        .filter_map(|p| Uuid::parse_str(&p.identity).ok().map(|user| (user, p.session_id)))
+                        .collect(),
+                    Err(e) => {
+                        tracing::warn!(error = %e, channel_id = %session.channel_id.uuid(), "Failed to recheck voice room before restoring a participant");
+                        HashSet::new()
+                    }
+                };
+                slot.insert(snapshot)
+            }
+        };
+        snapshot.contains(&(session.user_id, session.session_id.clone()))
+    }
+
+    async fn enforce_member(
+        &self,
+        member: &LiveMember,
+        fresh_rooms: &mut HashMap<ChannelId, HashSet<(Uuid, String)>>,
+        summary: &mut ReconcileSummary,
+    ) {
         let session = &member.session;
         match self.actions.admit.execute(session.channel_id, UserId::new(session.user_id)).await {
             Ok(Admission::Admitted) => summary.access_reapplied += 1,
@@ -349,6 +375,15 @@ where
             }
         }
         if member.recorded {
+            return;
+        }
+        if !self.still_live(session, fresh_rooms).await {
+            tracing::debug!(
+                channel_id = %session.channel_id.uuid(),
+                user_id = %session.user_id,
+                session_id = %session.session_id,
+                "Unrecorded participant left before it could be restored",
+            );
             return;
         }
         let external_id = format!("reconcile-join:{}:{}:{}", session.channel_id.uuid(), session.user_id, session.session_id);
