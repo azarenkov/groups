@@ -203,7 +203,7 @@ where
 
         let channels: HashSet<ChannelId> = by_channel.keys().copied().chain(live_rooms.iter().copied()).collect();
         for channel_id in channels {
-            if !checkpoint() || stale.len() >= self.limits.max_aborts_per_pass {
+            if !checkpoint() {
                 break;
             }
             summary.rooms_checked += 1;

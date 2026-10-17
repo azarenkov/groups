@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use infrastructure_common::health::Heartbeat;
 use infrastructure_common::messaging::nats::runner::{ConsumerSpec, Event, Lifecycle, run_consumer};
-use realtime_core::{ports::{dm_history::DmHistory, projection::RealtimeProjection}, usecases::apply_projection::ApplyProjection};
+use realtime_core::{ports::{blocks::RelationDirectory, projection::RealtimeProjection}, usecases::apply_projection::ApplyProjection};
 
 pub struct CatchupSpec {
     pub stream: String,
@@ -11,7 +11,7 @@ pub struct CatchupSpec {
     pub dlq_subject: String,
 }
 
-pub async fn run_catchup<R: RealtimeProjection + 'static, B: DmHistory + 'static>(
+pub async fn run_catchup<R: RealtimeProjection + 'static, B: RelationDirectory + 'static>(
     jetstream: async_nats::jetstream::Context,
     spec: CatchupSpec,
     apply: Arc<ApplyProjection<R, B>>,

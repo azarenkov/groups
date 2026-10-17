@@ -9,9 +9,10 @@ use api_common::middleware::jwt::claims::{AccessTokenClaims, TokenType};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use realtime_infrastructure::{connections::{Connection, ConnectionManager}, database::postgres::projection::PostgresRealtimeProjection};
+use realtime_core::usecases::block_aware_directory::BlockAwareDirectory;
+use realtime_infrastructure::{connections::{Connection, ConnectionManager}, database::postgres::projection::PostgresRealtimeProjection, media_client::relations::MessagingRelationsClient};
 
-pub type PresenceDirectory = PostgresRealtimeProjection;
+pub type PresenceDirectory = BlockAwareDirectory<PostgresRealtimeProjection, MessagingRelationsClient>;
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(20);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(60);

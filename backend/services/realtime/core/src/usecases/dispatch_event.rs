@@ -45,7 +45,7 @@ use uuid::Uuid;
 use ports::repository::RepositoryError;
 use realtime_domain::envelope::Envelope;
 
-use crate::ports::{directory::RecipientDirectory, dm_history::DmHistory, projection::RealtimeProjection, publisher::{PublishError, RealtimePublisher}};
+use crate::ports::{directory::RecipientDirectory, projection::RealtimeProjection, publisher::{PublishError, RealtimePublisher}};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DispatchError {
@@ -55,8 +55,8 @@ pub enum DispatchError {
     Recipients(#[from] RepositoryError),
     #[error("Publish error: {0}")]
     Publish(#[from] PublishError),
-    #[error("DM history lookup error: {0}")]
-    DmHistory(#[from] crate::ports::dm_history::DmHistoryLookupError),
+    #[error("Block lookup error: {0}")]
+    Blocks(#[from] crate::ports::blocks::RelationLookupError),
 }
 
 fn split_hidden_reply(reply: Option<&serde_json::Value>) -> (Option<serde_json::Value>, Vec<Uuid>) {
@@ -125,22 +125,25 @@ async fn named_reply<D: RecipientDirectory>(
     Ok(Some(reply))
 }
 
-async fn confirm_pending_dm_peers<D: RecipientDirectory + RealtimeProjection, B: DmHistory>(
+async fn confirm_pending_dm_peers<D: RecipientDirectory + RealtimeProjection, B: crate::ports::blocks::RelationDirectory>(
     resolver: &D,
-    history: &B,
+    relations: &B,
     user_id: Uuid,
+    recipients: &mut Vec<Uuid>,
 ) -> Result<(), DispatchError> {
     let pending = resolver.pending_dm_peers(user_id).await?;
     if pending.is_empty() {
         return Ok(());
     }
-    for peer in history.dm_peers(user_id, &pending).await? {
-        resolver.record_dm_pair(user_id, peer).await?;
+    let confirmed = relations.dm_peers(user_id, &pending).await?;
+    for peer in &confirmed {
+        resolver.record_dm_pair(user_id, *peer).await?;
     }
+    recipients.extend(confirmed);
     Ok(())
 }
 
-async fn forget_pair_without_history<D: RecipientDirectory + RealtimeProjection, B: DmHistory>(
+async fn forget_pair_without_history<D: RecipientDirectory + RealtimeProjection, B: crate::ports::blocks::RelationDirectory>(
     resolver: &D,
     relations: &B,
     a: Uuid,
@@ -200,15 +203,15 @@ impl RealtimePublisher for Unpublished {
     }
 }
 
-pub struct DispatchEvent<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: DmHistory> {
+pub struct DispatchEvent<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate::ports::blocks::RelationDirectory> {
     directory: std::sync::Arc<D>,
     publisher: std::sync::Arc<P>,
-    history: std::sync::Arc<B>,
+    blocks: std::sync::Arc<B>,
 }
 
-impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: DmHistory> DispatchEvent<D, P, B> {
-    pub fn new(directory: std::sync::Arc<D>, publisher: std::sync::Arc<P>, history: std::sync::Arc<B>) -> Self {
-        Self { directory, publisher, history }
+impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate::ports::blocks::RelationDirectory> DispatchEvent<D, P, B> {
+    pub fn new(directory: std::sync::Arc<D>, publisher: std::sync::Arc<P>, blocks: std::sync::Arc<B>) -> Self {
+        Self { directory, publisher, blocks }
     }
 
     pub async fn execute(&self, subject: &str, payload: &[u8]) -> Result<(), DispatchError> {
@@ -219,7 +222,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: DmHist
         self.run(subject, payload, &Unpublished).await?;
         if ends_with(subject, ".dm_message.sent") {
             let evt: DmSent = serde_json::from_slice(payload)?;
-            forget_pair_without_history(self.directory.as_ref(), self.history.as_ref(), evt.sender_id, evt.recipient_id).await?;
+            forget_pair_without_history(self.directory.as_ref(), self.blocks.as_ref(), evt.sender_id, evt.recipient_id).await?;
         }
         Ok(())
     }
@@ -283,7 +286,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: DmHist
 
     async fn run<Q: RealtimePublisher>(&self, subject: &str, payload: &[u8], publisher: &Q) -> Result<(), DispatchError> {
     let resolver = self.directory.as_ref();
-    let history = self.history.as_ref();
+    let blocks = self.blocks.as_ref();
     if ends_with(subject, ".dm_message.sent") {
         let evt: DmSent = serde_json::from_slice(payload)?;
         resolver.record_dm_pair(evt.sender_id, evt.recipient_id).await?;
@@ -353,7 +356,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: DmHist
         publisher
             .publish_to_users(unique([evt.sender_id, evt.recipient_id]), &envelope)
             .await?;
-        forget_pair_without_history(resolver, history, evt.sender_id, evt.recipient_id).await?;
+        forget_pair_without_history(resolver, blocks, evt.sender_id, evt.recipient_id).await?;
         return Ok(());
     }
 
@@ -479,7 +482,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: DmHist
         publisher
             .publish_to_users(recipients, &Envelope::new("dm_conversation.cleared", data))
             .await?;
-        forget_pair_without_history(resolver, history, evt.sender_id, evt.recipient_id).await?;
+        forget_pair_without_history(resolver, blocks, evt.sender_id, evt.recipient_id).await?;
         return Ok(());
     }
 
@@ -1090,12 +1093,6 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: DmHist
 
     if ends_with(subject, ".user.blocked") {
         let evt: UserBlockedDto = serde_json::from_slice(payload)?;
-        if !resolver
-            .apply_block(evt.blocker_id, evt.blocked_id, true, evt.occurred_at)
-            .await?
-        {
-            return Ok(());
-        }
         let envelope = Envelope::new(
             "user.blocked",
             json!({
@@ -1112,12 +1109,6 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: DmHist
 
     if ends_with(subject, ".user.unblocked") {
         let evt: UserUnblockedDto = serde_json::from_slice(payload)?;
-        if !resolver
-            .apply_block(evt.blocker_id, evt.blocked_id, false, evt.occurred_at)
-            .await?
-        {
-            return Ok(());
-        }
         let envelope = Envelope::new(
             "user.unblocked",
             json!({
@@ -1166,8 +1157,10 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: DmHist
             })));
         }
         let envelope = Envelope::new("user.profileChanged", payload);
-        confirm_pending_dm_peers(resolver, history, evt.user_id).await?;
         let mut recipients = resolver.profile_recipients(evt.user_id).await?;
+        confirm_pending_dm_peers(resolver, blocks, evt.user_id, &mut recipients).await?;
+        let relations = blocks.block_relations(evt.user_id, &recipients).await?;
+        recipients.retain(|r| !relations.blocking.contains(r));
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
@@ -1186,8 +1179,10 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: DmHist
                 "occurredAt": evt.occurred_at,
             }),
         );
-        confirm_pending_dm_peers(resolver, history, evt.user_id).await?;
         let mut recipients = resolver.profile_recipients(evt.user_id).await?;
+        confirm_pending_dm_peers(resolver, blocks, evt.user_id, &mut recipients).await?;
+        let relations = blocks.block_relations(evt.user_id, &recipients).await?;
+        recipients.retain(|r| !relations.blocking.contains(r));
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
@@ -1224,6 +1219,8 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: DmHist
             return Ok(());
         }
         let mut recipients = resolver.interested_in(evt.user_id).await?;
+        let relations = blocks.block_relations(evt.user_id, &recipients).await?;
+        recipients.retain(|r| !relations.blocking.contains(r) && !relations.blocked_by.contains(r));
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
@@ -1240,8 +1237,8 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: DmHist
                 "occurredAt": evt.occurred_at,
             }),
         );
-        confirm_pending_dm_peers(resolver, history, evt.user_id).await?;
         let mut recipients = resolver.rename_recipients(evt.user_id).await?;
+        confirm_pending_dm_peers(resolver, blocks, evt.user_id, &mut recipients).await?;
         recipients.push(evt.user_id);
         publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
@@ -1365,13 +1362,12 @@ mod tests {
         use chrono::{DateTime, Utc};
 
         use super::*;
-        use crate::ports::dm_history::{DmHistory, DmHistoryLookupError};
+        use crate::ports::blocks::{BlockSets, RelationDirectory, RelationLookupError};
 
         #[derive(Default)]
         struct Directory {
             removed: Mutex<Vec<(Uuid, Uuid)>>,
-            pending: Vec<Uuid>,
-            pairs: Mutex<Vec<Uuid>>,
+            interested: Vec<Uuid>,
         }
 
         #[async_trait]
@@ -1380,9 +1376,9 @@ mod tests {
             async fn user_name(&self, _: Uuid) -> Result<Option<String>, RepositoryError> { Ok(None) }
             async fn user_name_versioned(&self, _: Uuid) -> Result<Option<(String, DateTime<Utc>)>, RepositoryError> { Ok(None) }
             async fn rename_recipients(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
-            async fn profile_recipients(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(self.pairs.lock().unwrap().clone()) }
-            async fn interested_in(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
-            async fn pending_dm_peers(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(self.pending.clone()) }
+            async fn profile_recipients(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
+            async fn interested_in(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(self.interested.clone()) }
+            async fn pending_dm_peers(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
         }
 
         #[async_trait]
@@ -1391,11 +1387,7 @@ mod tests {
             async fn add_friend_edge(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
             async fn add_pending_friend_edge(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
             async fn remove_friend_edge(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
-            async fn apply_block(&self, _: Uuid, _: Uuid, _: bool, _: DateTime<Utc>) -> Result<bool, RepositoryError> { Ok(true) }
-            async fn record_dm_pair(&self, _: Uuid, peer: Uuid) -> Result<(), RepositoryError> {
-                self.pairs.lock().unwrap().push(peer);
-                Ok(())
-            }
+            async fn record_dm_pair(&self, _: Uuid, _: Uuid) -> Result<(), RepositoryError> { Ok(()) }
             async fn remove_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), RepositoryError> {
                 self.removed.lock().unwrap().push((a, b));
                 Ok(())
@@ -1409,11 +1401,24 @@ mod tests {
 
         struct Relations {
             peers: Vec<Uuid>,
+            blocking: Vec<Uuid>,
+        }
+
+        impl Relations {
+            fn peers(peers: Vec<Uuid>) -> Self {
+                Self { peers, blocking: vec![] }
+            }
         }
 
         #[async_trait]
-        impl DmHistory for Relations {
-            async fn dm_peers(&self, _: Uuid, candidates: &[Uuid]) -> Result<Vec<Uuid>, DmHistoryLookupError> {
+        impl RelationDirectory for Relations {
+            async fn block_relations(&self, _: Uuid, candidates: &[Uuid]) -> Result<BlockSets, RelationLookupError> {
+                Ok(BlockSets {
+                    blocking: candidates.iter().copied().filter(|c| self.blocking.contains(c)).collect(),
+                    blocked_by: vec![],
+                })
+            }
+            async fn dm_peers(&self, _: Uuid, candidates: &[Uuid]) -> Result<Vec<Uuid>, RelationLookupError> {
                 Ok(candidates.iter().copied().filter(|c| self.peers.contains(c)).collect())
             }
         }
@@ -1439,7 +1444,7 @@ mod tests {
             let dispatch = DispatchEvent::new(
                 std::sync::Arc::new(Directory::default()),
                 publisher.clone(),
-                std::sync::Arc::new(Relations { peers: vec![] }),
+                std::sync::Arc::new(Relations::peers(vec![])),
             );
             let (listener, author, other) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
             let payload = serde_json::to_vec(&json!({
@@ -1472,7 +1477,7 @@ mod tests {
             let dispatch = DispatchEvent::new(
                 std::sync::Arc::new(Directory::default()),
                 publisher.clone(),
-                std::sync::Arc::new(Relations { peers: vec![] }),
+                std::sync::Arc::new(Relations::peers(vec![])),
             );
             let (hider, other) = (Uuid::new_v4(), Uuid::new_v4());
             let payload = serde_json::to_vec(&json!({
@@ -1506,7 +1511,7 @@ mod tests {
             let dispatch = DispatchEvent::new(
                 std::sync::Arc::new(Directory::default()),
                 publisher.clone(),
-                std::sync::Arc::new(Relations { peers: vec![] }),
+                std::sync::Arc::new(Relations::peers(vec![])),
             );
             let (reader, hider) = (Uuid::new_v4(), Uuid::new_v4());
             let payload = serde_json::to_vec(&json!({
@@ -1541,7 +1546,7 @@ mod tests {
             let dispatch = DispatchEvent::new(
                 std::sync::Arc::new(Directory::default()),
                 publisher.clone(),
-                std::sync::Arc::new(Relations { peers: vec![] }),
+                std::sync::Arc::new(Relations::peers(vec![])),
             );
             let (user, peer) = (Uuid::new_v4(), Uuid::new_v4());
             let payload = serde_json::to_vec(&json!({
@@ -1575,7 +1580,7 @@ mod tests {
             let dispatch = DispatchEvent::new(
                 std::sync::Arc::new(Directory::default()),
                 publisher.clone(),
-                std::sync::Arc::new(Relations { peers: vec![] }),
+                std::sync::Arc::new(Relations::peers(vec![])),
             );
             let (user, notification) = (Uuid::new_v4(), Uuid::new_v4());
             let created = serde_json::to_vec(&json!({ "user_id": user, "notification_id": notification })).unwrap();
@@ -1599,7 +1604,7 @@ mod tests {
             let dispatch = DispatchEvent::new(
                 std::sync::Arc::new(Directory::default()),
                 publisher.clone(),
-                std::sync::Arc::new(Relations { peers: vec![] }),
+                std::sync::Arc::new(Relations::peers(vec![])),
             );
             let user = Uuid::new_v4();
             let payload = serde_json::to_vec(&json!({ "user_id": user })).unwrap();
@@ -1620,7 +1625,7 @@ mod tests {
             let dispatch = DispatchEvent::new(
                 std::sync::Arc::new(Directory::default()),
                 publisher.clone(),
-                std::sync::Arc::new(Relations { peers: vec![] }),
+                std::sync::Arc::new(Relations::peers(vec![])),
             );
             let partition = "messaging:p".to_string();
             let payload = serde_json::to_vec(&json!({
@@ -1650,7 +1655,7 @@ mod tests {
             let dispatch = DispatchEvent::new(
                 std::sync::Arc::new(Directory::default()),
                 publisher.clone(),
-                std::sync::Arc::new(Relations { peers: vec![] }),
+                std::sync::Arc::new(Relations::peers(vec![])),
             );
             let (hider, other) = (Uuid::new_v4(), Uuid::new_v4());
             let payload = serde_json::to_vec(&json!({
@@ -1683,7 +1688,7 @@ mod tests {
             let dispatch = DispatchEvent::new(
                 std::sync::Arc::new(Directory::default()),
                 publisher.clone(),
-                std::sync::Arc::new(Relations { peers: vec![] }),
+                std::sync::Arc::new(Relations::peers(vec![])),
             );
             let (user, room) = (Uuid::new_v4(), Uuid::new_v4());
             let payload = serde_json::to_vec(&json!({
@@ -1714,7 +1719,7 @@ mod tests {
             let dispatch = DispatchEvent::new(
                 directory.clone(),
                 publisher.clone(),
-                std::sync::Arc::new(Relations { peers: vec![] }),
+                std::sync::Arc::new(Relations::peers(vec![])),
             );
             let payload = serde_json::to_vec(&json!({
                 "message_id": Uuid::new_v4(),
@@ -1730,35 +1735,32 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn confirms_pending_dm_peers_before_resolving_profile_recipients() {
-            let (user, peer) = (Uuid::new_v4(), Uuid::new_v4());
-            let directory = std::sync::Arc::new(Directory { pending: vec![peer], ..Directory::default() });
+        async fn activity_reaches_only_those_messaging_still_relates() {
+            let (user, friend, blocked) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
+            let directory = std::sync::Arc::new(Directory { interested: vec![friend, blocked], ..Directory::default() });
             let publisher = std::sync::Arc::new(Captured::default());
             let dispatch = DispatchEvent::new(
-                directory.clone(),
+                directory,
                 publisher.clone(),
-                std::sync::Arc::new(Relations { peers: vec![peer] }),
+                std::sync::Arc::new(Relations { peers: vec![], blocking: vec![blocked] }),
             );
             let payload = serde_json::to_vec(&json!({
                 "user_id": user,
-                "bio": "hi",
-                "show_activity": true,
-                "show_game_activity": true,
-                "badge_style": "none",
-                "emoji_status_included": false,
+                "game_id": Uuid::new_v4(),
+                "name": "game",
+                "started_at": Utc::now(),
                 "occurred_at": Utc::now(),
             }))
             .unwrap();
-            dispatch.execute("rift.events.user.p1.user.profile_changed", &payload).await.unwrap();
-            assert_eq!(*directory.pairs.lock().unwrap(), vec![peer]);
-            assert_eq!(publisher.to.lock().unwrap()[0], vec![peer, user]);
+            dispatch.execute("rift.events.user.p1.user.activity_changed", &payload).await.unwrap();
+            assert_eq!(publisher.to.lock().unwrap()[0], vec![friend, user]);
         }
 
         #[tokio::test]
         async fn forgets_a_pair_left_without_history() {
             let (a, b) = (Uuid::new_v4(), Uuid::new_v4());
             let directory = Directory::default();
-            forget_pair_without_history(&directory, &Relations { peers: vec![] }, a, b).await.unwrap();
+            forget_pair_without_history(&directory, &Relations::peers(vec![]), a, b).await.unwrap();
             assert_eq!(*directory.removed.lock().unwrap(), vec![(a, b)]);
         }
 
@@ -1766,7 +1768,7 @@ mod tests {
         async fn keeps_a_pair_that_still_has_a_relation() {
             let (a, b) = (Uuid::new_v4(), Uuid::new_v4());
             let directory = Directory::default();
-            forget_pair_without_history(&directory, &Relations { peers: vec![b] }, a, b).await.unwrap();
+            forget_pair_without_history(&directory, &Relations::peers(vec![b]), a, b).await.unwrap();
             assert!(directory.removed.lock().unwrap().is_empty());
         }
     }

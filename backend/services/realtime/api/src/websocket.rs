@@ -12,7 +12,8 @@ use api_common::shutdown::{ShutdownConfig, ShutdownSignal, drain};
 
 use std::sync::Arc;
 
-use realtime_infrastructure::{connections::ConnectionManager, database::postgres::projection::PostgresRealtimeProjection};
+use realtime_core::usecases::block_aware_directory::BlockAwareDirectory;
+use realtime_infrastructure::{connections::ConnectionManager, database::postgres::projection::PostgresRealtimeProjection, media_client::relations::MessagingRelationsClient};
 
 use crate::{
     config::WebsocketConfig,
@@ -26,7 +27,11 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
 
     let jetstream = create_jetstream(&nats_cfg).await?;
     let pg_pool = create_postgres_pool(pg_cfg, SCHEMA, Some(&MIGRATOR)).await?;
-    let presence_resolver = Arc::new(PostgresRealtimeProjection::new(pg_pool.clone()));
+    let messaging_internal_url = api_common::internal_client::InternalService::Messaging.base_url();
+    let presence_resolver = Arc::new(BlockAwareDirectory::new(
+        Arc::new(PostgresRealtimeProjection::new(pg_pool.clone())),
+        Arc::new(MessagingRelationsClient::new(&messaging_internal_url)),
+    ));
 
     let core = jetstream.client().clone();
     let prefix = nats_cfg.subject_prefix.trim_end_matches('.');
