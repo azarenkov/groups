@@ -30,6 +30,7 @@ export function useAppearOffline(params: {
   const [attempt, setAttempt] = useState(0);
   const [pending, setPending] = useState<boolean | null>(null);
   const retry = useRef<number | null>(null);
+  const inFlight = useRef(false);
   const [appearOffline, setAppearOffline] = useState<boolean>(readCached);
 
   useEffect(() => {
@@ -39,29 +40,33 @@ export function useAppearOffline(params: {
   }, [serverAppearOffline, pending]);
 
   useEffect(() => {
-    if (!hasSession || pending === null) return;
-    let cancelled = false;
+    if (!hasSession || pending === null || inFlight.current) return;
     if (retry.current !== null) {
       window.clearTimeout(retry.current);
       retry.current = null;
     }
     const target = pending;
+    let failed = false;
+    inFlight.current = true;
     userAPI
       .setAppearOffline(target)
       .then(() => {
-        if (cancelled) return;
         const auth = useAuthStore.getState();
         if (auth.user) auth.setUser({ ...auth.user, appearOffline: target });
         setPending((current) => (current === target ? null : current));
       })
       .catch((err) => {
         console.warn("[presence] setAppearOffline failed:", err);
-        if (cancelled) return;
-        retry.current = window.setTimeout(() => setAttempt((n) => n + 1), RETRY_MS);
+        failed = true;
+      })
+      .finally(() => {
+        inFlight.current = false;
+        if (failed) {
+          retry.current = window.setTimeout(() => setAttempt((n) => n + 1), RETRY_MS);
+        } else {
+          setAttempt((n) => n + 1);
+        }
       });
-    return () => {
-      cancelled = true;
-    };
   }, [pending, hasSession, attempt]);
 
   useEffect(() => {

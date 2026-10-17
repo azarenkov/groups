@@ -158,6 +158,9 @@ mod tests {
         async fn is_call_room(&self, _: Uuid) -> Result<bool, RepositoryError> {
             unimplemented!()
         }
+        async fn call_rooms_among(&self, _: &[Uuid]) -> Result<Vec<Uuid>, RepositoryError> {
+            unimplemented!()
+        }
         async fn pair_outcome(&self, _: Uuid, _: &UserId, _: &UserId) -> Result<CallPairOutcome, RepositoryError> {
             unimplemented!()
         }

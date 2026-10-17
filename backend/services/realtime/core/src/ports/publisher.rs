@@ -6,6 +6,8 @@ use uuid::Uuid;
 pub enum PublishError {
     #[error("serialize envelope: {0}")]
     Serialize(serde_json::Error),
+    #[error("publish failed: {0}")]
+    Transport(String),
 }
 
 #[async_trait]

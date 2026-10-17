@@ -57,9 +57,10 @@ impl RealtimePublisher for NatsRealtimePublisher {
 
     async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool) -> Result<(), PublishError> {
         let payload = serde_json::to_vec(&PresencePreferenceV1 { user_id, appear_offline }).map_err(PublishError::Serialize)?;
-        if let Err(e) = self.core.publish(self.presence_preference_subject.clone(), payload.into()).await {
-            tracing::warn!(error = %e, %user_id, "Failed to announce presence preference to websocket replicas");
-        }
-        Ok(())
+        self.core
+            .publish(self.presence_preference_subject.clone(), payload.into())
+            .await
+            .map_err(|e| PublishError::Transport(e.to_string()))?;
+        self.core.flush().await.map_err(|e| PublishError::Transport(e.to_string()))
     }
 }
