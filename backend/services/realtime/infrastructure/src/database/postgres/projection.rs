@@ -96,32 +96,6 @@ impl PostgresRealtimeProjection {
         self.upsert_friend_edge(a, b, true, false, occurred_at).await
     }
 
-    async fn apply_block(
-        &self,
-        blocker_id: Uuid,
-        blocked_id: Uuid,
-        active: bool,
-        occurred_at: DateTime<Utc>,
-    ) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query(
-            r#"
-            INSERT INTO realtime_user_blocks (blocker_id, blocked_id, active, updated_at)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (blocker_id, blocked_id) DO UPDATE
-                SET active = EXCLUDED.active,
-                    updated_at = EXCLUDED.updated_at
-                WHERE realtime_user_blocks.updated_at <= EXCLUDED.updated_at
-            "#,
-        )
-        .bind(blocker_id)
-        .bind(blocked_id)
-        .bind(active)
-        .bind(occurred_at)
-        .execute(&self.pool)
-        .await?;
-        Ok(result.rows_affected() > 0)
-    }
-
     async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
         let rows = sqlx::query(
             r#"
@@ -197,19 +171,7 @@ impl PostgresRealtimeProjection {
         Ok(())
     }
 
-    async fn rename_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
-        self.related_recipients(user_id, false).await
-    }
-
-    async fn profile_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
-        self.related_recipients(user_id, true).await
-    }
-
-    async fn related_recipients(
-        &self,
-        user_id: Uuid,
-        hide_from_blocked: bool,
-    ) -> Result<Vec<Uuid>, sqlx::Error> {
+    async fn related_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
         let rows = sqlx::query(
             r#"
             SELECT r.user_id
@@ -232,16 +194,9 @@ impl PostgresRealtimeProjection {
                     ON sm2.community_id = sm1.community_id AND NOT sm2.removed
                 WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
             ) r
-            WHERE NOT (
-                $2 AND EXISTS (
-                    SELECT 1 FROM realtime_user_blocks b
-                    WHERE b.active AND b.blocker_id = $1 AND b.blocked_id = r.user_id
-                )
-            )
             "#,
         )
         .bind(user_id)
-        .bind(hide_from_blocked)
         .fetch_all(&self.pool)
         .await?;
         Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
@@ -376,14 +331,6 @@ impl PostgresRealtimeProjection {
                     ON sm2.community_id = sm1.community_id AND NOT sm2.removed
                 WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
             ) AS interested
-            WHERE NOT EXISTS (
-                SELECT 1 FROM realtime_user_blocks b
-                WHERE b.active
-                  AND (
-                    (b.blocker_id = $1 AND b.blocked_id = interested.user_id)
-                    OR (b.blocker_id = interested.user_id AND b.blocked_id = $1)
-                  )
-            )
             "#,
         )
         .bind(user_id)
@@ -406,9 +353,6 @@ impl RealtimeProjection for PostgresRealtimeProjection {
     }
     async fn remove_friend_edge(&self, a: Uuid, b: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
         PostgresRealtimeProjection::remove_friend_edge(self, a, b, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
-    }
-    async fn apply_block(&self, blocker_id: Uuid, blocked_id: Uuid, active: bool, occurred_at: DateTime<Utc>) -> Result<bool, RepositoryError> {
-        PostgresRealtimeProjection::apply_block(self, blocker_id, blocked_id, active, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
     }
     async fn record_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), RepositoryError> {
         PostgresRealtimeProjection::record_dm_pair(self, a, b).await.map_err(map_sqlx_error_to_domain_error)
@@ -445,10 +389,10 @@ impl RecipientDirectory for PostgresRealtimeProjection {
         PostgresRealtimeProjection::user_name_versioned(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
     }
     async fn rename_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
-        PostgresRealtimeProjection::rename_recipients(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
+        PostgresRealtimeProjection::related_recipients(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
     }
     async fn profile_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
-        PostgresRealtimeProjection::profile_recipients(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
+        PostgresRealtimeProjection::related_recipients(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
     }
     async fn interested_in(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
         self.interested_in_query(user_id).await.map_err(map_sqlx_error_to_domain_error)

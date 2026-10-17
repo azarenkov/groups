@@ -1,12 +1,17 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT owner_id FROM communities WHERE id = $1",
+  "query": "SELECT owner_id, updated_at FROM communities WHERE id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
         "name": "owner_id",
         "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -15,8 +20,9 @@
       ]
     },
     "nullable": [
+      false,
       false
     ]
   },
-  "hash": "6fdef1e5b0331cb444c741f004efe8e8a9907eaa896057fdcf563551c2e20ecd"
+  "hash": "642dfd579016e3314b8a03e5e58535106966de925150223ced4bea6748beb4ff"
 }

@@ -4,8 +4,7 @@ use contracts::events::{
     },
     friendship::{
         FriendRequestAcceptedV1 as FriendAcceptedDto, FriendRequestSentV1 as FriendRequestSentDto,
-        FriendshipRemovedV1 as FriendRemovedDto, UserBlockedV1 as UserBlockedDto,
-        UserUnblockedV1 as UserUnblockedDto,
+        FriendshipRemovedV1 as FriendRemovedDto,
     },
     community::{CommunityCreatedV1 as CommunityCreatedDto, CommunityDeletedV1 as CommunityIdDto,
         CommunityMemberV1 as CommunityMemberDto},
@@ -69,22 +68,6 @@ impl<R: RealtimeProjection, B: RelationDirectory> ApplyProjection<R, B> {
         if let Ok(evt) = serde_json::from_slice::<FriendRemovedDto>(payload) {
             resolver
                 .remove_friend_edge(evt.user_id, evt.other_id, evt.occurred_at)
-                .await?;
-        }
-        return Ok(());
-    }
-    if subject.ends_with(".user.blocked") {
-        if let Ok(evt) = serde_json::from_slice::<UserBlockedDto>(payload) {
-            resolver
-                .apply_block(evt.blocker_id, evt.blocked_id, true, evt.occurred_at)
-                .await?;
-        }
-        return Ok(());
-    }
-    if subject.ends_with(".user.unblocked") {
-        if let Ok(evt) = serde_json::from_slice::<UserUnblockedDto>(payload) {
-            resolver
-                .apply_block(evt.blocker_id, evt.blocked_id, false, evt.occurred_at)
                 .await?;
         }
         return Ok(());
@@ -163,7 +146,6 @@ mod tests {
         async fn add_friend_edge(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
         async fn add_pending_friend_edge(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
         async fn remove_friend_edge(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
-        async fn apply_block(&self, _: Uuid, _: Uuid, _: bool, _: DateTime<Utc>) -> Result<bool, RepositoryError> { Ok(true) }
         async fn record_dm_pair(&self, _: Uuid, _: Uuid) -> Result<(), RepositoryError> { Ok(()) }
         async fn remove_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), RepositoryError> {
             self.removed.lock().unwrap().push((a, b));

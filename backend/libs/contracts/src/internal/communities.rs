@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -5,6 +6,8 @@ use uuid::Uuid;
 #[serde(rename_all = "camelCase")]
 pub struct OwnerResponseV1 {
     pub owner_id: Uuid,
+    #[serde(default)]
+    pub as_of: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

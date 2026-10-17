@@ -18,7 +18,7 @@ impl<S: CommunityRepository, R: CommunityRoleRepository> CanManageCommunity<S, R
     }
 
     pub async fn execute(&self, community_id: CommunityId, user_id: UserId) -> Result<bool, RepositoryError> {
-        let owner = self.community_repository.find_community_owner(&community_id).await?;
+        let owner = self.community_repository.find_community_ownership(&community_id).await?.map(|o| o.owner_id);
         if owner.as_ref() == Some(&user_id) {
             return Ok(true);
         }

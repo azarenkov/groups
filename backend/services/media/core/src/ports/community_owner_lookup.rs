@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use domain::{community::id::CommunityId, user::id::UserId};
 
 #[derive(Debug, thiserror::Error)]
@@ -7,12 +8,18 @@ pub enum CommunityOwnerLookupError {
     Unavailable(String),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CommunityOwner {
+    pub user_id: UserId,
+    pub as_of: DateTime<Utc>,
+}
+
 #[async_trait]
 pub trait CommunityOwnerLookup {
     async fn find_owner(
         &self,
         community_id: &CommunityId,
-    ) -> Result<Option<UserId>, CommunityOwnerLookupError>;
+    ) -> Result<Option<CommunityOwner>, CommunityOwnerLookupError>;
 
     async fn can_manage(
         &self,
