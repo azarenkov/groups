@@ -1,18 +1,13 @@
 use std::sync::Arc;
 
-use media::ports::{
-    event_consumer::{EventConsumer, StartPosition, SubscribeOptions},
-    file_storage::{FileStorage, FileStorageError},
-};
+use media::ports::file_storage::{FileStorage, FileStorageError};
 use media_domain::media::repository::MediaRepository;
 use domain::{community::id::CommunityId, user::id::UserId};
-use futures::StreamExt;
-use tracing::Instrument;
-use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
 use contracts::events::community::{
     CommunityCreatedV1 as CommunityOwnerDto, CommunityDeletedV1 as CommunityDeletedDto,
     CommunityOwnerChangedV1 as CommunityOwnerChangedDto,
 };
+use infrastructure_common::messaging::nats::runner::{ConsumerSpec, Event, Lifecycle, spawn_consumer, subject_prefix as normalize_prefix};
 
 pub fn spawn<M, FS>(
     jetstream: async_nats::jetstream::Context,
@@ -24,60 +19,11 @@ pub fn spawn<M, FS>(
     M: MediaRepository + Send + Sync + 'static,
     FS: FileStorage + Send + Sync + 'static,
 {
-    actix_web::rt::spawn(async move {
-        let prefix = subject_prefix.trim_end_matches('.').to_string();
-        let consumer = NatsEventConsumer::new(jetstream, stream.clone());
-        loop {
-            let opts = SubscribeOptions {
-                consumer_name: "media-projection-community".to_string(),
-                subject: format!("{prefix}.community.>"),
-                start_position: StartPosition::All,
-                max_deliver: Some(5),
-                dlq_subject: Some(format!("{prefix}.dlq.media.community")),
-                extra_subjects: vec![],
-                ack_wait: None,
-            };
-            match consumer.subscribe(opts).await {
-                Ok(mut messages) => {
-                    tracing::info!(%stream, "Media projection consumer subscribed");
-                    while let Some(msg) = messages.next().await {
-                        match msg {
-                            Ok(m) => {
-                                let span = tracing::info_span!(
-                                    "event",
-                                    request_id = ?m.request_id,
-                                    subject = %m.subject,
-                                );
-                                async {
-                                    match handle(&m.subject, &m.payload, &*media_repository, &*storage)
-                                        .await
-                                    {
-                                        Ok(()) => {
-                                            if let Err(e) = m.ack().await {
-                                                tracing::warn!(error = %e, "Media projection ack failed");
-                                            }
-                                        }
-                                        Err(e) => {
-                                            tracing::warn!(error = %e, "Media projection handler failed; message will be redelivered");
-                                        }
-                                    }
-                                }
-                                .instrument(span)
-                                .await;
-                            }
-                            Err(e) => {
-                                tracing::warn!(error = %e, "Media projection stream error");
-                                break;
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "Media projection subscribe failed; retrying");
-                }
-            }
-            actix_web::rt::time::sleep(std::time::Duration::from_secs(5)).await;
-        }
+    let prefix = normalize_prefix(&subject_prefix);
+    let spec = ConsumerSpec::new(&prefix, stream, "media-projection-community", vec![format!("{prefix}.community.>")]);
+    spawn_consumer(jetstream, spec, Lifecycle::default(), move |event: Event| {
+        let (media_repository, storage) = (media_repository.clone(), storage.clone());
+        async move { handle(&event.subject, &event.payload, &*media_repository, &*storage).await }
     });
 }
 

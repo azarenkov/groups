@@ -152,7 +152,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         subject_prefix: nats_config.subject_prefix.clone(),
         stream: user_stream.clone(),
         consumer_name: "media-projection-tiers",
-        dlq_suffix: "media.tiers",
         plans: plan_directory.clone(),
         listener: Arc::new(ports::plan_directory::NoPlanListener),
     }

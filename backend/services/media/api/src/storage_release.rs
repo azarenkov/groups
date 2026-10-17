@@ -1,11 +1,8 @@
 use std::sync::Arc;
 
 use contracts::events::storage::{STORAGE_KEYS_RELEASED, StorageKeysReleasedV1};
-use futures::StreamExt;
-use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
-use media::ports::event_consumer::{EventConsumer, StartPosition, SubscribeOptions};
 use media_domain::attachment::repository::AttachmentRepository;
-use tracing::Instrument;
+use infrastructure_common::messaging::nats::runner::{ConsumerSpec, Event, Lifecycle, spawn_consumer, subject_prefix as normalize_prefix};
 
 pub fn spawn<A>(
     jetstream: async_nats::jetstream::Context,
@@ -15,62 +12,17 @@ pub fn spawn<A>(
 ) where
     A: AttachmentRepository + Send + Sync + 'static,
 {
-    actix_web::rt::spawn(async move {
-        let prefix = subject_prefix.trim_end_matches('.').to_string();
-        let consumer = NatsEventConsumer::new(jetstream, stream.clone());
-        let released_suffix = format!(".{STORAGE_KEYS_RELEASED}");
-        loop {
-            let opts = SubscribeOptions {
-                consumer_name: "media-storage-release".to_string(),
-                subject: format!("{prefix}.storage.>"),
-                start_position: StartPosition::All,
-                max_deliver: None,
-                dlq_subject: None,
-                extra_subjects: vec![],
-                ack_wait: None,
-            };
-            match consumer.subscribe(opts).await {
-                Ok(mut messages) => {
-                    tracing::info!(%stream, "Media storage release consumer subscribed");
-                    while let Some(msg) = messages.next().await {
-                        match msg {
-                            Ok(m) => {
-                                if !m.subject.ends_with(&released_suffix) {
-                                    let _ = m.ack().await;
-                                    continue;
-                                }
-                                let span = tracing::info_span!(
-                                    "event",
-                                    request_id = ?m.request_id,
-                                    subject = %m.subject,
-                                );
-                                async {
-                                    match handle_released(&m.payload, &*attachment_repository).await {
-                                        Ok(()) => {
-                                            if let Err(e) = m.ack().await {
-                                                tracing::warn!(error = %e, "Media storage release ack failed");
-                                            }
-                                        }
-                                        Err(e) => {
-                                            tracing::warn!(error = %e, "Media storage release failed; message will be redelivered");
-                                        }
-                                    }
-                                }
-                                .instrument(span)
-                                .await;
-                            }
-                            Err(e) => {
-                                tracing::warn!(error = %e, "Media storage release stream error");
-                                break;
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "Media storage release subscribe failed; retrying");
-                }
+    let prefix = normalize_prefix(&subject_prefix);
+    let spec = ConsumerSpec::new(&prefix, stream, "media-storage-release", vec![format!("{prefix}.storage.>")]);
+    let released_suffix = format!(".{STORAGE_KEYS_RELEASED}");
+    spawn_consumer(jetstream, spec, Lifecycle::default(), move |event: Event| {
+        let attachment_repository = attachment_repository.clone();
+        let released = event.subject.ends_with(&released_suffix);
+        async move {
+            if !released {
+                return Ok(());
             }
-            actix_web::rt::time::sleep(std::time::Duration::from_secs(5)).await;
+            handle_released(&event.payload, &*attachment_repository).await
         }
     });
 }

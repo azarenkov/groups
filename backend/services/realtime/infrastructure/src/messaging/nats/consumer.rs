@@ -1,19 +1,15 @@
-use realtime_core::ports::blocks::RelationDirectory;
-use std::time::Duration;
-
-use infrastructure_common::health::Heartbeat;
-use ports::event_consumer::{
-    EventConsumer, StartPosition, SubscribeOptions,
-};
-use futures::StreamExt;
-use tracing::Instrument;
-use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
-
 use std::sync::Arc;
 
-use super::sequence_gate::SequenceGate;
+use infrastructure_common::health::Heartbeat;
+use infrastructure_common::messaging::nats::runner::{ConsumerSpec as RunnerSpec, Delivery, Event, Lifecycle, run_consumer as run};
+use ports::event_consumer::StartPosition;
+use realtime_core::ports::blocks::RelationDirectory;
+use realtime_core::{
+    ports::directory::RecipientDirectory, ports::projection::RealtimeProjection, ports::publisher::RealtimePublisher,
+    usecases::dispatch_event::{DispatchEvent, EventSequence},
+};
 
-use realtime_core::{ports::directory::RecipientDirectory, ports::projection::RealtimeProjection, ports::publisher::RealtimePublisher, usecases::dispatch_event::{DispatchEvent, EventSequence}};
+use super::sequence_gate::SequenceGate;
 
 #[derive(Clone)]
 pub struct ConsumerSpec {
@@ -25,113 +21,60 @@ pub struct ConsumerSpec {
     pub start_position: StartPosition,
 }
 
+impl ConsumerSpec {
+    fn runner_spec(&self) -> RunnerSpec {
+        RunnerSpec {
+            stream: self.stream.clone(),
+            consumer_name: self.consumer_name.clone(),
+            subjects: vec![self.filter_subject.clone()],
+            dlq_subject: self.dlq_subject.clone(),
+            start_position: self.start_position,
+            delivery: Delivery { max_deliver: self.max_deliver, ..Delivery::DEFAULT },
+        }
+    }
+}
+
 pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: RelationDirectory + 'static>(
     jetstream: async_nats::jetstream::Context,
     spec: ConsumerSpec,
     dispatch: Arc<DispatchEvent<D, P, B>>,
-    mut shutdown: tokio::sync::watch::Receiver<bool>,
+    shutdown: tokio::sync::watch::Receiver<bool>,
     heartbeat: Heartbeat,
     gate: Option<Arc<SequenceGate>>,
 ) {
-    let event_consumer =
-        NatsEventConsumer::new(jetstream.clone(), spec.stream.clone());
-    let mut pulse = tokio::time::interval(heartbeat.pulse_interval());
-    pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-
-    loop {
-        heartbeat.beat();
-        if *shutdown.borrow() {
-            return;
-        }
-
-        let opts = SubscribeOptions {
-            consumer_name: spec.consumer_name.clone(),
-            subject: spec.filter_subject.clone(),
-            start_position: spec.start_position,
-            max_deliver: Some(spec.max_deliver),
-            dlq_subject: Some(spec.dlq_subject.clone()),
-            extra_subjects: vec![],
-            ack_wait: None,
-        };
-
-        match event_consumer.subscribe(opts).await {
-            Ok(mut messages) => {
-                tracing::info!(
-                    stream = %spec.stream,
-                    consumer = %spec.consumer_name,
-                    subject = %spec.filter_subject,
-                    dlq = %spec.dlq_subject,
-                    max_deliver = spec.max_deliver,
-                    "Consumer subscribed",
-                );
-                loop {
-                    heartbeat.beat();
-                    tokio::select! {
-                        _ = shutdown.changed() => return,
-                        _ = pulse.tick() => {}
-                        msg = messages.next() => {
-                            match msg {
-                                Some(Ok(m)) => {
-                                    let subject = m.subject.clone();
-                                    let span = tracing::info_span!(
-                                        "event",
-                                        request_id = ?m.request_id,
-                                        subject = %subject,
-                                    );
-                                    async {
-                                        let sequence = m.sequence.clone().map(|s| EventSequence { partition: s.partition, seq: s.seq, members: s.members });
-                                        let gated = gate.as_ref().zip(sequence.clone());
-                                        let mut in_order = true;
-                                        if let Some((gate, s)) = &gated {
-                                            in_order = gate.wait_turn(&s.partition, s.seq).await;
-                                        }
-                                        let dispatched = if in_order {
-                                            dispatch.execute_event(&subject, &m.payload, sequence, m.event_id.as_deref()).await
-                                        } else {
-                                            tracing::debug!(%subject, "Event arrived after a later one of its partition; applying it without publishing");
-                                            dispatch.execute_unpublished(&subject, &m.payload).await
-                                        };
-                                        match dispatched {
-                                            Ok(_) => {
-                                                if let Some((gate, s)) = &gated {
-                                                    gate.done(&s.partition, s.seq);
-                                                }
-                                                if let Err(e) = m.ack().await {
-                                                    tracing::warn!(error = %e, %subject, "Failed to ack message");
-                                                }
-                                            }
-                                            Err(e) => {
-                                                if let Some((gate, s)) = &gated {
-                                                    gate.release(&s.partition, s.seq);
-                                                }
-                                                tracing::warn!(error = %e, %subject, "Dispatch failed; not acking, JetStream will redeliver");
-                                            }
-                                        }
-                                    }
-                                    .instrument(span)
-                                    .await;
-                                }
-                                Some(Err(e)) => {
-                                    tracing::error!(error = %e, stream = %spec.stream, "Consumer stream error");
-                                    break;
-                                }
-                                None => {
-                                    tracing::warn!(stream = %spec.stream, "Consumer stream ended");
-                                    break;
-                                }
-                            }
-                        }
+    let lifecycle = Lifecycle::default().with_shutdown(shutdown, heartbeat);
+    run(jetstream, spec.runner_spec(), lifecycle, move |event: Event| {
+        let (dispatch, gate) = (dispatch.clone(), gate.clone());
+        async move {
+            let sequence = event
+                .sequence
+                .map(|s| EventSequence { partition: s.partition, seq: s.seq, members: s.members });
+            let gated = gate.as_ref().zip(sequence.clone());
+            let mut in_order = true;
+            if let Some((gate, s)) = &gated {
+                in_order = gate.wait_turn(&s.partition, s.seq).await;
+            }
+            let dispatched = if in_order {
+                dispatch.execute_event(&event.subject, &event.payload, sequence, event.event_id.as_deref()).await
+            } else {
+                tracing::debug!(subject = %event.subject, "Event arrived after a later one of its partition; applying it without publishing");
+                dispatch.execute_unpublished(&event.subject, &event.payload).await
+            };
+            match dispatched {
+                Ok(_) => {
+                    if let Some((gate, s)) = &gated {
+                        gate.done(&s.partition, s.seq);
                     }
+                    Ok(())
+                }
+                Err(e) => {
+                    if let Some((gate, s)) = &gated {
+                        gate.release(&s.partition, s.seq);
+                    }
+                    Err(e.into())
                 }
             }
-            Err(e) => {
-                tracing::error!(error = %e, stream = %spec.stream, "Subscribe failed");
-            }
         }
-
-        tokio::select! {
-            _ = shutdown.changed() => return,
-            _ = heartbeat.keep_alive_for(Duration::from_secs(3)) => {}
-        }
-    }
+    })
+    .await;
 }

@@ -4,13 +4,11 @@ use api_common::health::Heartbeat;
 use api_common::middleware::request_id::REQUEST_ID;
 use contracts::events::user::VerificationIssuedV1;
 use domain::user::{email::Email, locale::Locale};
-use futures::StreamExt;
-use infrastructure_common::messaging::nats::consumer::NatsEventConsumer;
+use infrastructure_common::messaging::nats::runner::{ConsumerSpec, Delivery, Event, Lifecycle, run_consumer, subject_prefix as normalize_prefix};
 use notification_core::usecases::send_verification_email::{SendVerificationEmail, VerificationIssued};
-use ports::{event_consumer::EventConsumer, event_consumer::StartPosition, event_consumer::SubscribeOptions, mailer::Mailer};
+use ports::{event_consumer::StartPosition, mailer::Mailer};
 
 use crate::inbox::{CLAIM_RENEW_EVERY, Claim, HandledEvents};
-use tracing::Instrument;
 
 #[derive(Clone)]
 pub struct VerificationConsumerSpec {
@@ -87,7 +85,7 @@ pub async fn consume<H, Fut>(
     event: &str,
     start_position: StartPosition,
     handled: Arc<dyn HandledEvents>,
-    mut shutdown: tokio::sync::watch::Receiver<bool>,
+    shutdown: tokio::sync::watch::Receiver<bool>,
     heartbeat: Heartbeat,
     handler: H,
 ) -> Result<(), Box<dyn std::error::Error>>
@@ -95,67 +93,28 @@ where
     H: Fn(Vec<u8>) -> Fut,
     Fut: std::future::Future<Output = bool>,
 {
-    let filter_subject = format!("{}.user.{event}", spec.subject_prefix);
-    let partitioned_filter_subject = format!("{}.user.*.{event}", spec.subject_prefix);
-    let dlq_subject = format!("{}.dlq.user.{event}", spec.subject_prefix);
-
-    let consumer = NatsEventConsumer::new(jetstream, spec.stream.clone());
-    let mut messages = consumer
-        .subscribe(SubscribeOptions {
-            consumer_name: spec.consumer_name.clone(),
-            subject: filter_subject.clone(),
-            start_position,
-            max_deliver: Some(spec.max_deliver),
-            dlq_subject: Some(dlq_subject.clone()),
-            extra_subjects: vec![partitioned_filter_subject],
-            ack_wait: None,
-        })
-        .await?;
-
-    tracing::info!(
-        stream = %spec.stream,
-        consumer = %spec.consumer_name,
-        subject = %filter_subject,
-        dlq = %dlq_subject,
-        max_deliver = spec.max_deliver,
-        "Mail consumer subscribed",
-    );
-
-    let mut pulse = tokio::time::interval(heartbeat.pulse_interval());
-    pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    loop {
-        heartbeat.beat();
-        tokio::select! {
-            _ = shutdown.changed() => return Ok(()),
-            _ = pulse.tick() => {}
-            msg = messages.next() => {
-                match msg {
-                    Some(Ok(msg)) => {
-                        let request_id = msg.request_id.clone();
-                        let span = tracing::info_span!("nats_message", request_id = ?request_id);
-                        let event_id = msg.event_id.clone();
-                        let payload = msg.payload.clone();
-                        let fut = handle_once(handled.as_ref(), &spec.consumer_name, event_id.as_deref(), payload, &handler)
-                            .instrument(span);
-                        let ack = match request_id {
-                            Some(id) => REQUEST_ID.scope(id, fut).await,
-                            None => fut.await,
-                        };
-                        if ack && let Err(e) = msg.ack().await {
-                            tracing::error!(error = %e, "Failed to ack message");
-                        }
-                    }
-                    Some(Err(e)) => {
-                        tracing::error!(error = %e, "Consumer stream error");
-                    }
-                    None => {
-                        tracing::warn!("Message stream ended unexpectedly");
-                        return Ok(());
-                    }
-                }
-            }
+    let prefix = normalize_prefix(&spec.subject_prefix);
+    let subjects = vec![format!("{prefix}.user.{event}"), format!("{prefix}.user.*.{event}")];
+    let runner_spec = ConsumerSpec::new(&prefix, spec.stream.clone(), spec.consumer_name.clone(), subjects)
+        .starting(start_position)
+        .delivered(Delivery { max_deliver: spec.max_deliver, ..Delivery::DEFAULT });
+    let lifecycle = Lifecycle::default().with_shutdown(shutdown, heartbeat);
+    let consumer_name = spec.consumer_name.clone();
+    run_consumer(jetstream, runner_spec, lifecycle, |message: Event| {
+        let handled = handled.clone();
+        let consumer_name = consumer_name.clone();
+        let handler = &handler;
+        async move {
+            let once = handle_once(handled.as_ref(), &consumer_name, message.event_id.as_deref(), message.payload, handler);
+            let acked = match message.request_id {
+                Some(id) => REQUEST_ID.scope(id, once).await,
+                None => once.await,
+            };
+            if acked { Ok(()) } else { Err("left for redelivery".into()) }
         }
-    }
+    })
+    .await;
+    Ok(())
 }
 
 async fn handle<M: Mailer>(usecase: &SendVerificationEmail<M>, payload: &[u8]) -> bool {

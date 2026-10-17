@@ -87,7 +87,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         subject_prefix: nats_config.subject_prefix.clone(),
         stream: user_stream.clone(),
         consumer_name: "voice-projection-tiers",
-        dlq_suffix: "voice.tiers",
         plans: plan_directory.clone(),
         listener: Arc::new(voice::usecases::stream::refresh_stream_ceilings::RefreshStreamCeilings::new(
             plan_directory.clone(),

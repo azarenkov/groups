@@ -205,19 +205,25 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         Arc::new(LogCall::new(dm_unit_of_work.clone(), call_participation.clone())),
     );
 
-    api_common::user_projection::spawn(
-        nats_jetstream.clone(),
-        nats_config.subject_prefix.clone(),
-        user_stream.clone(),
-        "messaging-user-profiles",
-        user_repository.clone(),
-    );
+    {
+        let badges = badge_repository.clone();
+        api_common::user_projection::spawn_with(
+            nats_jetstream.clone(),
+            nats_config.subject_prefix.clone(),
+            user_stream.clone(),
+            "messaging-user-profiles",
+            user_repository.clone(),
+            move |subject, payload| {
+                let badges = badges.clone();
+                async move { messaging_infrastructure::consumers::pro_badges::apply(&*badges, &subject, &payload).await }
+            },
+        );
+    }
     infrastructure_common::messaging::nats::plan_projection::PlanProjection {
         jetstream: nats_jetstream.clone(),
         subject_prefix: nats_config.subject_prefix.clone(),
         stream: user_stream.clone(),
         consumer_name: "messaging-projection-tiers",
-        dlq_suffix: "messaging.tiers",
         plans: plan_directory.clone(),
         listener: Arc::new(ports::plan_directory::NoPlanListener),
     }
@@ -261,15 +267,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     infrastructure_common::messaging::nats::consumer::remove_consumers(
         &nats_jetstream,
         &user_stream,
-        &["messaging-pro-badges", "messaging-pro-badges-v2"],
+        &["messaging-pro-badges", "messaging-pro-badges-v2", "messaging-pro-badges-v3"],
     )
     .await;
-    messaging_infrastructure::consumers::pro_badges::spawn(
-        nats_jetstream.clone(),
-        nats_config.subject_prefix.clone(),
-        user_stream,
-        badge_repository.clone(),
-    );
 
     let nats_core = nats_jetstream.client().clone();
     let presence_preference_subject = format!(
