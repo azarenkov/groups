@@ -1,7 +1,29 @@
 
 use contracts::events::user::{UserEntitlementsChangedV1, UserProfileChangedV1};
 use domain::user::id::UserId;
+use infrastructure_common::messaging::nats::runner::{ConsumerSpec, Event, Lifecycle, spawn_consumer, subject_prefix as normalize_prefix};
 use messaging_domain::badge::{BadgeEmojiStatus, BadgeRepository};
+use std::sync::Arc;
+
+pub const LEGACY_CONSUMER: &str = "messaging-pro-badges-v3";
+
+pub fn drain_legacy<B>(jetstream: async_nats::jetstream::Context, subject_prefix: String, user_stream: String, badges: Arc<B>)
+where
+    B: BadgeRepository + 'static,
+{
+    let prefix = normalize_prefix(&subject_prefix);
+    let subjects = vec![
+        format!("{prefix}.user.*.entitlements_changed"),
+        format!("{prefix}.user.entitlements_changed"),
+        format!("{prefix}.user.*.profile_changed"),
+        format!("{prefix}.user.profile_changed"),
+    ];
+    let spec = ConsumerSpec::new(&prefix, user_stream, LEGACY_CONSUMER, subjects);
+    spawn_consumer(jetstream, spec, Lifecycle::default(), move |event: Event| {
+        let badges = badges.clone();
+        async move { apply(&*badges, &event.subject, &event.payload).await }
+    });
+}
 
 pub async fn apply<B: BadgeRepository + ?Sized>(
     badges: &B,

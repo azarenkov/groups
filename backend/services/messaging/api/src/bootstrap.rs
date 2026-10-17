@@ -267,9 +267,15 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     infrastructure_common::messaging::nats::consumer::remove_consumers(
         &nats_jetstream,
         &user_stream,
-        &["messaging-pro-badges", "messaging-pro-badges-v2", "messaging-pro-badges-v3"],
+        &["messaging-pro-badges", "messaging-pro-badges-v2"],
     )
     .await;
+    messaging_infrastructure::consumers::pro_badges::drain_legacy(
+        nats_jetstream.clone(),
+        nats_config.subject_prefix.clone(),
+        user_stream,
+        badge_repository.clone(),
+    );
 
     let nats_core = nats_jetstream.client().clone();
     let presence_preference_subject = format!(

@@ -163,9 +163,35 @@ impl Lifecycle {
 
 enum Next {
     Message(Result<ConsumedMessage, ports::event_consumer::EventConsumerError>),
+    Pulse,
     Idle,
     Ended,
     Stop,
+}
+
+async fn shutdown_requested(shutdown: &mut Option<tokio::sync::watch::Receiver<bool>>) {
+    match shutdown {
+        Some(shutdown) => {
+            let _ = shutdown.changed().await;
+        }
+        None => std::future::pending().await,
+    }
+}
+
+async fn pulse_tick(pulse: &mut Option<tokio::time::Interval>) {
+    match pulse {
+        Some(pulse) => {
+            pulse.tick().await;
+        }
+        None => std::future::pending().await,
+    }
+}
+
+async fn idle_reached(idle_at: Option<tokio::time::Instant>) {
+    match idle_at {
+        Some(at) => tokio::time::sleep_until(at).await,
+        None => std::future::pending().await,
+    }
 }
 
 pub async fn run_consumer<H, Fut>(jetstream: Context, spec: ConsumerSpec, lifecycle: Lifecycle, handler: H)
@@ -174,6 +200,15 @@ where
     Fut: Future<Output = Result<(), HandlerError>>,
 {
     let consumer = NatsEventConsumer::new(jetstream, spec.stream.clone());
+    run_with(&consumer, spec, lifecycle, handler).await;
+}
+
+pub async fn run_with<C, H, Fut>(consumer: &C, spec: ConsumerSpec, lifecycle: Lifecycle, handler: H)
+where
+    C: EventConsumer + ?Sized,
+    H: Fn(Event) -> Fut,
+    Fut: Future<Output = Result<(), HandlerError>>,
+{
     let mut shutdown = lifecycle.shutdown.clone();
     loop {
         lifecycle.beat();
@@ -192,25 +227,23 @@ where
                 if let Some(hook) = &lifecycle.on_subscribed {
                     hook();
                 }
+                let mut pulse = lifecycle.heartbeat.as_ref().map(|heartbeat| tokio::time::interval(heartbeat.pulse_interval()));
+                let mut idle_at = lifecycle.idle.as_ref().map(|(after, _)| tokio::time::Instant::now() + *after);
                 loop {
                     lifecycle.beat();
-                    let next = match (&mut shutdown, &lifecycle.idle) {
-                        (Some(shutdown), _) => tokio::select! {
-                            _ = shutdown.changed() => Next::Stop,
-                            msg = messages.next() => msg.map_or(Next::Ended, Next::Message),
-                        },
-                        (None, Some((after, _))) => match tokio::time::timeout(*after, messages.next()).await {
-                            Ok(Some(msg)) => Next::Message(msg),
-                            Ok(None) => Next::Ended,
-                            Err(_) => Next::Idle,
-                        },
-                        (None, None) => messages.next().await.map_or(Next::Ended, Next::Message),
+                    let next = tokio::select! {
+                        _ = shutdown_requested(&mut shutdown) => Next::Stop,
+                        _ = pulse_tick(&mut pulse) => Next::Pulse,
+                        _ = idle_reached(idle_at) => Next::Idle,
+                        msg = messages.next() => msg.map_or(Next::Ended, Next::Message),
                     };
                     match next {
                         Next::Stop => return,
+                        Next::Pulse => {}
                         Next::Idle => {
-                            if let Some((_, hook)) = &lifecycle.idle {
+                            if let Some((after, hook)) = &lifecycle.idle {
                                 hook().await;
+                                idle_at = Some(tokio::time::Instant::now() + *after);
                             }
                         }
                         Next::Ended => {
@@ -222,6 +255,7 @@ where
                             break;
                         }
                         Next::Message(Ok(message)) => {
+                            idle_at = lifecycle.idle.as_ref().map(|(after, _)| tokio::time::Instant::now() + *after);
                             let event = Event::from_message(&message);
                             let span = tracing::info_span!("event", request_id = ?event.request_id, subject = %event.subject);
                             let outcome = handler(event).instrument(span.clone()).await;
@@ -253,12 +287,14 @@ where
         if let Some(hook) = &lifecycle.on_disconnected {
             hook();
         }
-        match (&mut shutdown, &lifecycle.heartbeat) {
-            (Some(shutdown), Some(heartbeat)) => tokio::select! {
-                _ = shutdown.changed() => return,
-                _ = heartbeat.keep_alive_for(RESUBSCRIBE_DELAY) => {}
-            },
-            _ => tokio::time::sleep(RESUBSCRIBE_DELAY).await,
+        tokio::select! {
+            _ = shutdown_requested(&mut shutdown) => return,
+            _ = async {
+                match &lifecycle.heartbeat {
+                    Some(heartbeat) => heartbeat.keep_alive_for(RESUBSCRIBE_DELAY).await,
+                    None => tokio::time::sleep(RESUBSCRIBE_DELAY).await,
+                }
+            } => {}
         }
     }
 }
@@ -273,7 +309,93 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+
+    use futures::future::BoxFuture;
+    use ports::event_consumer::{Disposition, EventConsumerError};
+
     use super::*;
+
+    struct Scripted {
+        messages: Mutex<Vec<ConsumedMessage>>,
+        dispositions: Arc<Mutex<Vec<Disposition>>>,
+    }
+
+    impl Scripted {
+        fn new(payloads: &[(&str, &str)]) -> Self {
+            let dispositions = Arc::new(Mutex::new(Vec::new()));
+            let messages = payloads
+                .iter()
+                .map(|(subject, payload)| {
+                    let seen = dispositions.clone();
+                    let ack_fn: ports::event_consumer::DispositionFn = Box::new(move |disposition| {
+                        seen.lock().unwrap().push(disposition);
+                        Box::pin(async { Ok(()) }) as BoxFuture<'static, Result<(), EventConsumerError>>
+                    });
+                    ConsumedMessage::new(payload.as_bytes().to_vec(), None, subject.to_string(), None, ack_fn)
+                })
+                .collect();
+            Self { messages: Mutex::new(messages), dispositions }
+        }
+    }
+
+    impl EventConsumer for Scripted {
+        fn subscribe(
+            &self,
+            _: SubscribeOptions,
+        ) -> BoxFuture<'_, Result<futures::stream::BoxStream<'static, Result<ConsumedMessage, EventConsumerError>>, EventConsumerError>> {
+            let scripted: Vec<_> = std::mem::take(&mut *self.messages.lock().unwrap()).into_iter().map(Ok).collect();
+            Box::pin(async move {
+                let stream = futures::stream::iter(scripted).chain(futures::stream::pending());
+                Ok(Box::pin(stream) as futures::stream::BoxStream<'static, _>)
+            })
+        }
+    }
+
+    fn spec() -> ConsumerSpec {
+        ConsumerSpec::new("rift", "S", "c", vec!["rift.a".into()])
+    }
+
+    #[tokio::test]
+    async fn keeps_the_heartbeat_fresh_while_the_stream_is_quiet() {
+        let heartbeat = Heartbeat::new(Duration::from_millis(80));
+        let (stop, shutdown) = tokio::sync::watch::channel(false);
+        let lifecycle = Lifecycle::default().with_shutdown(shutdown, heartbeat.clone());
+        let consumer = Scripted::new(&[]);
+        let running = run_with(&consumer, spec(), lifecycle, |_: Event| async { Ok(()) });
+        tokio::pin!(running);
+        tokio::select! {
+            _ = &mut running => panic!("runner stopped on its own"),
+            _ = tokio::time::sleep(Duration::from_millis(300)) => {}
+        }
+        assert!(heartbeat.is_fresh());
+        stop.send(true).unwrap();
+        tokio::time::timeout(Duration::from_secs(1), running).await.expect("runner stops on shutdown");
+    }
+
+    #[tokio::test]
+    async fn acks_handled_events_and_schedules_a_retry_for_failed_ones() {
+        let consumer = Scripted::new(&[("rift.a", "ok"), ("rift.a", "boom")]);
+        let seen = consumer.dispositions.clone();
+        let (stop, shutdown) = tokio::sync::watch::channel(false);
+        let heartbeat = Heartbeat::new(Duration::from_secs(1));
+        let lifecycle = Lifecycle::default().with_shutdown(shutdown, heartbeat);
+        let running = run_with(&consumer, spec().delivered(Delivery::new(3, Duration::from_millis(7))), lifecycle, |event: Event| async move {
+            if event.payload == b"boom" { Err("boom".into()) } else { Ok(()) }
+        });
+        tokio::pin!(running);
+        tokio::select! {
+            _ = &mut running => panic!("runner stopped on its own"),
+            _ = tokio::time::sleep(Duration::from_millis(100)) => {}
+        }
+        stop.send(true).unwrap();
+        running.await;
+        let seen = seen.lock().unwrap();
+        assert!(matches!(seen[0], Disposition::Ack));
+        assert!(matches!(seen[1], Disposition::Retry(Some(d)) if d == Duration::from_millis(7)));
+        assert_eq!(seen.len(), 2);
+    }
+
 
     #[test]
     fn a_spec_names_its_dead_letter_subject_after_the_consumer() {
