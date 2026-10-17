@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { userAPI } from "../../social/api/user";
+import { useAuthStore } from "../../auth/store/authStore";
 import { usePresenceStore } from "../../social/store/presenceStore";
 import { setActivityHiddenByPresence } from "../../social/lib/gameActivity";
 
@@ -49,6 +50,8 @@ export function useAppearOffline(params: {
       .setAppearOffline(target)
       .then(() => {
         if (cancelled) return;
+        const auth = useAuthStore.getState();
+        if (auth.user) auth.setUser({ ...auth.user, appearOffline: target });
         setPending((current) => (current === target ? null : current));
       })
       .catch((err) => {
