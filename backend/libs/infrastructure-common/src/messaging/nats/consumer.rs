@@ -205,6 +205,17 @@ async fn create_durable_consumer(
     Ok(consumer)
 }
 
+pub async fn remove_consumers(jetstream: &Context, stream_name: &str, consumer_names: &[&str]) {
+    let Ok(stream) = jetstream.get_stream(stream_name).await else {
+        return;
+    };
+    for consumer_name in consumer_names {
+        if stream.delete_consumer(consumer_name).await.is_ok() {
+            tracing::info!(%stream_name, %consumer_name, "Removed legacy consumer");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

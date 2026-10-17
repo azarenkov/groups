@@ -4,6 +4,7 @@ use api_common::health::{self, Heartbeat, Liveness, Readiness};
 use api_common::shutdown::wait_for_signal;
 use tokio::sync::watch;
 use infrastructure_common::config::{livekit::LiveKitConfig, postgres::PostgresConfig};
+use infrastructure_common::voice::livekit_service::LiveKitService;
 use messaging::usecases::channel::{
     abort_voice_connection::AbortVoiceConnection, reconcile_voice_presence::ReconcileVoicePresence,
     track_media_connection::TrackMediaConnection,
@@ -60,8 +61,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let channel_repository = Arc::new(PostgresChannelRepository::new(pool.clone()));
     let channel_unit_of_work = Arc::new(PostgresChannelUnitOfWork::new(pool));
     let inspector = Arc::new(LiveKitRoomInspector::new(
-        &livekit_config,
-        Duration::from_secs(pooler_config.livekit_pooler_request_timeout_secs),
+        LiveKitService::new(livekit_config)
+            .with_request_timeout(Duration::from_secs(pooler_config.livekit_pooler_request_timeout_secs)),
     ));
     let reconcile = ReconcileVoicePresence::new(
         channel_repository.clone(),

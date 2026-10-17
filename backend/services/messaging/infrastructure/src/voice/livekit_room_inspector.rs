@@ -1,58 +1,33 @@
-use std::{collections::HashSet, time::Duration};
+use std::collections::HashSet;
 
 use async_trait::async_trait;
-use infrastructure_common::config::livekit::LiveKitConfig;
-use livekit_api::services::room::RoomClient;
+use infrastructure_common::voice::livekit_service::LiveKitService;
 use messaging::ports::voice_room_inspector::{LiveParticipant, VoiceRoomInspector, VoiceRoomInspectorError};
 use messaging_domain::channel::id::ChannelId;
-use tokio::time::timeout;
-use uuid::Uuid;
-
-const LK_SOURCE_CAMERA: i32 = 1;
-const LK_SOURCE_SCREEN: i32 = 3;
+use ports::voice_service::VoiceService;
 
 pub struct LiveKitRoomInspector {
-    client: RoomClient,
-    request_timeout: Duration,
+    service: LiveKitService,
 }
 
 impl LiveKitRoomInspector {
-    pub fn new(config: &LiveKitConfig, request_timeout: Duration) -> Self {
-        Self {
-            client: RoomClient::with_api_key(config.url(), config.api_key(), config.api_secret()),
-            request_timeout,
-        }
+    pub fn new(service: LiveKitService) -> Self {
+        Self { service }
     }
 }
 
 #[async_trait]
 impl VoiceRoomInspector for LiveKitRoomInspector {
     async fn live_rooms(&self) -> Result<HashSet<ChannelId>, VoiceRoomInspectorError> {
-        match timeout(self.request_timeout, self.client.list_rooms(Vec::new())).await {
-            Ok(Ok(rooms)) => Ok(rooms
-                .into_iter()
-                .filter_map(|r| Uuid::parse_str(&r.name).ok())
-                .map(ChannelId::new)
-                .collect()),
-            Ok(Err(e)) => Err(VoiceRoomInspectorError::Backend(e.to_string())),
-            Err(_) => Err(VoiceRoomInspectorError::Timeout),
-        }
+        let rooms = self.service.active_rooms().await.map_err(|e| VoiceRoomInspectorError::Backend(e.to_string()))?;
+        Ok(rooms.into_iter().collect())
     }
 
     async fn participants(&self, channel_id: &ChannelId) -> Result<Vec<LiveParticipant>, VoiceRoomInspectorError> {
-        let room = channel_id.uuid().to_string();
-        match timeout(self.request_timeout, self.client.list_participants(&room)).await {
-            Ok(Ok(participants)) => Ok(participants
-                .into_iter()
-                .map(|p| LiveParticipant {
-                    camera_on: p.tracks.iter().any(|t| t.source == LK_SOURCE_CAMERA),
-                    screen_on: p.tracks.iter().any(|t| t.source == LK_SOURCE_SCREEN),
-                    identity: p.identity,
-                    session_id: p.sid,
-                })
-                .collect()),
-            Ok(Err(e)) => Err(VoiceRoomInspectorError::Backend(e.to_string())),
-            Err(_) => Err(VoiceRoomInspectorError::Timeout),
-        }
+        let members = self.service.room_members(channel_id).await.map_err(|e| VoiceRoomInspectorError::Backend(e.to_string()))?;
+        Ok(members
+            .into_iter()
+            .map(|m| LiveParticipant { identity: m.identity, session_id: m.session_id, camera_on: m.camera_on, screen_on: m.screen_on })
+            .collect())
     }
 }

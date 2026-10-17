@@ -1,4 +1,6 @@
 pub mod event_consumer;
+#[cfg(feature = "test-fakes")]
+pub mod fakes;
 pub mod file_storage;
 pub mod hasher;
 pub mod mailer;

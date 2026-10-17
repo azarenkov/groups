@@ -15,8 +15,6 @@ pub struct LiveParticipant {
 pub enum VoiceRoomInspectorError {
     #[error("Voice backend error: {0}")]
     Backend(String),
-    #[error("Voice backend timed out")]
-    Timeout,
 }
 
 #[async_trait]

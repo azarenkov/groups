@@ -110,6 +110,7 @@ use api_common::{
 use api_common::config::ServerConfig;
 
 use crate::{routes, state::AppState};
+use infrastructure_common::messaging::nats::connection::{stream_name, streams};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
     infrastructure_common::observability::init("messaging-service");
@@ -150,8 +151,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         PostgresNotificationPreferenceRepository::new(postgres_pool.clone()),
     );
     let dm_repository = Arc::new(PostgresDmMessageRepository::new(postgres_pool.clone()));
-    let media_internal_url = std::env::var("MEDIA_INTERNAL_URL")
-        .unwrap_or_else(|_| "http://media-service:8080".to_string());
+    let media_internal_url = api_common::internal_client::InternalService::Media.base_url();
     let attachment_claims = Arc::new(MediaClaimsClient::new(&media_internal_url));
     let privacy_repository = Arc::new(PostgresPrivacyRepository::new(postgres_pool.clone()));
     let badge_repository = Arc::new(PostgresBadgeRepository::new(postgres_pool.clone()));
@@ -163,11 +163,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
     );
     let report_repository = Arc::new(PostgresReportRepository::new(postgres_pool.clone()));
-    let identity_internal_url = std::env::var("IDENTITY_INTERNAL_URL")
-        .unwrap_or_else(|_| "http://identity-service:8080".to_string());
-    let mention_resolver = Arc::new(IdentityUsersClient::new(&identity_internal_url));
-    let voice_internal_url = std::env::var("VOICE_INTERNAL_URL")
-        .unwrap_or_else(|_| "http://voice-service:8080".to_string());
+    let identity_internal_url = api_common::internal_client::InternalService::Identity.base_url();
+    let identity_users = Arc::new(IdentityUsersClient::new(&identity_internal_url));
+    let voice_internal_url = api_common::internal_client::InternalService::Voice.base_url();
     let call_participation = Arc::new(VoiceCallsClient::new(&voice_internal_url));
 
     let minio_storage = Arc::new(
@@ -177,8 +175,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let hasher = Arc::new(BcryptHasher::default());
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
 
-    let channel_stream = std::env::var("MESSAGING_CHANNEL_STREAM")
-        .unwrap_or_else(|_| "RIFT_CHANNEL_EVENTS".to_string());
+    let channel_stream = stream_name("MESSAGING_CHANNEL_STREAM", streams::CHANNEL_EVENTS);
     messaging_infrastructure::consumers::voice_webhooks::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
@@ -188,18 +185,17 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         community_repository.clone(),
         livekit_service.clone(),
     );
-    let community_stream = std::env::var("MESSAGING_COMMUNITY_STREAM")
-        .unwrap_or_else(|_| "RIFT_COMMUNITY_EVENTS".to_string());
+    let community_stream = stream_name("MESSAGING_COMMUNITY_STREAM", streams::COMMUNITY_EVENTS);
     let inbox_community_stream = community_stream.clone();
     let feed_starts = messaging_infrastructure::database::postgres::repositories::feed_start::PostgresFeedStarts::new(postgres_pool.clone());
+    let user_stream = stream_name("MESSAGING_USER_STREAM", streams::USER_EVENTS);
     messaging_infrastructure::consumers::voice_effects::spawn(
         nats_jetstream.clone(),
         messaging_infrastructure::consumers::voice_effects::VoiceEffectsSpec {
             subject_prefix: nats_config.subject_prefix.clone(),
             channel_stream,
             community_stream,
-            user_stream: std::env::var("MESSAGING_USER_STREAM")
-                .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string()),
+            user_stream: user_stream.clone(),
             call_log_since: feed_starts.started_at(Feed::CallLog).await?,
         },
         channel_repository.clone(),
@@ -209,8 +205,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         Arc::new(LogCall::new(dm_unit_of_work.clone(), call_participation.clone())),
     );
 
-    let user_stream = std::env::var("MESSAGING_USER_STREAM")
-        .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
     api_common::user_projection::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
@@ -258,7 +252,18 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
                 postgres_pool.clone(),
             ),
         ))),
+        Arc::new(messaging::usecases::call::prune_call_log::PruneCallLog::new(Arc::new(
+            messaging_infrastructure::database::postgres::repositories::call_log_retention::PostgresCallLogRetention::new(
+                postgres_pool.clone(),
+            ),
+        ))),
     );
+    infrastructure_common::messaging::nats::consumer::remove_consumers(
+        &nats_jetstream,
+        &user_stream,
+        &["messaging-pro-badges", "messaging-pro-badges-v2"],
+    )
+    .await;
     messaging_infrastructure::consumers::pro_badges::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
@@ -341,7 +346,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             community_repository.clone(),
             message_unit_of_work.clone(),
             attachment_claims.clone(),
-            mention_resolver.clone(),
             plan_directory.clone(),
         ),
         edit_channel_message_usecase: EditChannelMessage::new(
@@ -350,7 +354,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             community_repository.clone(),
             message_unit_of_work.clone(),
             attachment_claims.clone(),
-            mention_resolver.clone(),
             plan_directory.clone(),
         ),
         delete_channel_message_usecase: DeleteChannelMessage::new(
@@ -489,7 +492,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         badge_repository: badge_repository.clone(),
         nats_core,
         presence_preference_subject,
-        identity_users: mention_resolver.clone(),
+        identity_users: identity_users.clone(),
         send_dm_message_usecase: SendDmMessage::new(
             dm_repository.clone(),
             dm_unit_of_work.clone(),

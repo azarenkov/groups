@@ -240,7 +240,6 @@ impl UserRepository for Fake {
     async fn save_user(&self, _: &User) -> Result<(), RepositoryError> { unimplemented!() }
     async fn find_by_id(&self, _: &UserId) -> Result<Option<User>, RepositoryError> { unimplemented!() }
     async fn find_by_name(&self, _: &UserName) -> Result<Option<User>, RepositoryError> { unimplemented!() }
-    async fn ids_by_names(&self, _: &[String]) -> Result<Vec<(UserId, UserName)>, RepositoryError> { unimplemented!() }
     async fn search_by_name_prefix(&self, _: &str, _: i64, _: &UserId) -> Result<Vec<(UserId, UserName)>, RepositoryError> { unimplemented!() }
     async fn get_password_hash_by_email(&self, _: &Email) -> Result<PasswordHash, RepositoryError> { unimplemented!() }
     async fn get_username_by_id(&self, _: &UserId) -> Result<UserName, RepositoryError> { unimplemented!() }

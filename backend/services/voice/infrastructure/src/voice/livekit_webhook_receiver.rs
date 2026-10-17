@@ -5,10 +5,11 @@ use voice::ports::voice_webhook_verifier::{
 };
 use chrono::{DateTime, Utc};
 use livekit_api::{access_token::TokenVerifier, webhooks::WebhookReceiver};
-use livekit_protocol::{DisconnectReason, ParticipantInfo, Room, TrackInfo, TrackSource};
+use livekit_protocol::{DisconnectReason, ParticipantInfo, Room, TrackInfo};
 use uuid::Uuid;
 
 use infrastructure_common::config::livekit::LiveKitConfig;
+use infrastructure_common::voice::livekit_service::{TrackMedia, track_media};
 
 const EVENT_PARTICIPANT_CONNECTION_ABORTED: &str = "participant_connection_aborted";
 const EVENT_PARTICIPANT_LEFT: &str = "participant_left";
@@ -197,10 +198,9 @@ fn map_leave_reason(
 }
 
 fn media_source_from(track: &TrackInfo) -> Option<MediaSource> {
-    match TrackSource::try_from(track.source).ok()? {
-        TrackSource::Camera => Some(MediaSource::Camera),
-        TrackSource::ScreenShare => Some(MediaSource::Screen),
-        _ => None,
+    match track_media(track)? {
+        TrackMedia::Camera => Some(MediaSource::Camera),
+        TrackMedia::Screen => Some(MediaSource::Screen),
     }
 }
 

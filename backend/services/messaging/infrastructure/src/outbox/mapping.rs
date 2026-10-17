@@ -12,9 +12,9 @@ use contracts::events::{
 use domain::user::id::UserId;
 use messaging_domain::{channel::events::ChannelEvent, dm_message::events::DmMessageDomainEvent, events::MessagingEvent, friendship::events::FriendshipDomainEvent, message::events::MessageDomainEvent, community::events::CommunityEvent};
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
-use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
+use infrastructure_common::outbox::encoding::{encode, snake_case};
 
 pub fn to_records(events: &[MessagingEvent], request_id: Option<&str>) -> Result<Vec<OutboxRecord>, RepositoryError> {
     events.iter().map(|e| to_record(e, request_id)).collect()
@@ -38,9 +38,9 @@ fn channel_record(event: &ChannelEvent) -> Result<OutboxRecord, RepositoryError>
             channel_id: e.channel_id.uuid(),
             community_id: e.community_id.uuid(),
             owner_id: e.owner_id.uuid(),
-            name: value(&e.name)?,
-            kind: value(&e.kind)?,
-            visibility: value(&e.visibility)?,
+            name: encode(&e.name)?,
+            kind: encode(&e.kind)?,
+            visibility: encode(&e.visibility)?,
             occurred_at: e.occurred_at,
             recipient_ids: uuids(&e.recipient_ids),
             is_default: e.is_default,
@@ -48,8 +48,8 @@ fn channel_record(event: &ChannelEvent) -> Result<OutboxRecord, RepositoryError>
         ChannelEvent::Renamed(e) => encode(&ChannelRenamedV1 {
             channel_id: e.channel_id.uuid(),
             community_id: e.community_id.uuid(),
-            old_name: value(&e.old_name)?,
-            new_name: value(&e.new_name)?,
+            old_name: encode(&e.old_name)?,
+            new_name: encode(&e.new_name)?,
             occurred_at: e.occurred_at,
         })?,
         ChannelEvent::Deleted(e) => encode(&ChannelDeletedV1 {
@@ -69,7 +69,7 @@ fn channel_record(event: &ChannelEvent) -> Result<OutboxRecord, RepositoryError>
             channel_id: e.channel_id.uuid(),
             community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
-            reason: value(&e.reason)?,
+            reason: encode(&e.reason)?,
             occurred_at: e.occurred_at,
         })?,
         ChannelEvent::ParticipantMuted(e) => encode(&ParticipantMutedV1 {
@@ -104,7 +104,7 @@ fn channel_record(event: &ChannelEvent) -> Result<OutboxRecord, RepositoryError>
             channel_id: e.channel_id.uuid(),
             community_id: e.community_id.uuid(),
             user_id: e.user_id.uuid(),
-            reason: value(&e.reason)?,
+            reason: encode(&e.reason)?,
             occurred_at: e.occurred_at,
         })?,
         ChannelEvent::ParticipantMediaChanged(e) => encode(&ParticipantMediaV1 {
@@ -138,14 +138,14 @@ fn community_record(event: &CommunityEvent) -> Result<OutboxRecord, RepositoryEr
         CommunityEvent::Created(e) => encode(&CommunityCreatedV1 {
             community_id: e.community_id.uuid(),
             owner_id: e.owner_id.uuid(),
-            name: value(&e.name)?,
-            description: e.description.as_ref().map(value).transpose()?,
+            name: encode(&e.name)?,
+            description: e.description.as_ref().map(encode).transpose()?,
             occurred_at: e.occurred_at,
         })?,
         CommunityEvent::Updated(e) => encode(&CommunityUpdatedV1 {
             community_id: e.community_id.uuid(),
-            name: value(&e.name)?,
-            description: e.description.as_ref().map(value).transpose()?,
+            name: encode(&e.name)?,
+            description: e.description.as_ref().map(encode).transpose()?,
             member_ids: uuids(&e.member_ids),
             occurred_at: e.occurred_at,
         })?,
@@ -209,10 +209,10 @@ fn message_record(event: &MessageDomainEvent) -> Result<OutboxRecord, Repository
             message_id: e.message_id.uuid(),
             channel_id: e.channel_id.uuid(),
             author_id: e.author_id.uuid(),
-            content: value(&e.content)?,
+            content: encode(&e.content)?,
             occurred_at: e.occurred_at,
             recipient_ids: uuids(&e.recipient_ids),
-            attachments: Some(value(&e.attachments)?),
+            attachments: Some(encode(&e.attachments)?),
             mentions: Some(uuids(&e.mentions)),
             system: e.system.as_ref().map(|s| s.to_json()),
             reply_to: e.reply.as_ref().map(reply_json),
@@ -222,11 +222,11 @@ fn message_record(event: &MessageDomainEvent) -> Result<OutboxRecord, Repository
         MessageDomainEvent::Edited(e) => encode(&ChannelMessageEditedV1 {
             message_id: e.message_id.uuid(),
             channel_id: e.channel_id.uuid(),
-            new_content: value(&e.new_content)?,
+            new_content: encode(&e.new_content)?,
             occurred_at: e.occurred_at,
             recipient_ids: uuids(&e.recipient_ids),
             skipped_ids: uuids(&e.skipped_ids),
-            attachments: Some(value(&e.attachments)?),
+            attachments: Some(encode(&e.attachments)?),
         })?,
         MessageDomainEvent::Deleted(e) => encode(&ChannelMessageDeletedV1 {
             message_id: e.message_id.uuid(),
@@ -252,13 +252,13 @@ fn dm_record(event: &DmMessageDomainEvent) -> Result<OutboxRecord, RepositoryErr
             message_id: e.message_id.uuid(),
             sender_id: e.sender_id.uuid(),
             recipient_id: e.recipient_id.uuid(),
-            content: value(&e.content)?,
+            content: encode(&e.content)?,
             occurred_at: e.occurred_at,
             call_status: e.call_status.clone(),
             call_duration_seconds: e.call_duration_seconds,
             read_by_recipient: e.read_by_recipient,
             hidden_for: uuids(&e.hidden_for),
-            attachments: Some(value(&e.attachments)?),
+            attachments: Some(encode(&e.attachments)?),
             reply_to: e.reply.as_ref().map(reply_json),
             forwarded_from: e.forward.as_ref().map(|f| f.to_json()),
             sticker: e.sticker.as_ref().map(|s| s.to_json()),
@@ -266,10 +266,10 @@ fn dm_record(event: &DmMessageDomainEvent) -> Result<OutboxRecord, RepositoryErr
         DmMessageDomainEvent::Edited(e) => encode(&DmMessageEditedV1 {
             message_id: e.message_id.uuid(),
             sender_id: e.sender_id.uuid(),
-            new_content: value(&e.new_content)?,
+            new_content: encode(&e.new_content)?,
             occurred_at: e.occurred_at,
             recipient_id: Some(e.recipient_id.uuid()),
-            attachments: Some(value(&e.attachments)?),
+            attachments: Some(encode(&e.attachments)?),
             hidden_for: uuids(&e.hidden_for),
         })?,
         DmMessageDomainEvent::Deleted(e) => encode(&DmMessageDeletedV1 {
@@ -356,20 +356,6 @@ fn uuids(ids: &[UserId]) -> Vec<Uuid> {
     ids.iter().map(|u| u.uuid()).collect()
 }
 
-fn value<T: Serialize>(v: &T) -> Result<Value, RepositoryError> {
-    serde_json::to_value(v).map_err(|e| RepositoryError::InvalidData(e.to_string()))
-}
-
-fn snake_case<T: Serialize>(v: &T) -> Result<String, RepositoryError> {
-    value(v)?
-        .as_str()
-        .map(str::to_string)
-        .ok_or_else(|| RepositoryError::InvalidData("expected string enum".to_string()))
-}
-
-fn encode<T: Serialize>(v: &T) -> Result<Value, RepositoryError> {
-    value(v)
-}
 
 fn reply_json(reply: &messaging_domain::message::reply::ReplyPreview) -> Value {
     serde_json::json!({

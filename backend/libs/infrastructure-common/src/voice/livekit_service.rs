@@ -17,23 +17,90 @@ use crate::config::livekit::LiveKitConfig;
 
 pub struct LiveKitService {
     config: LiveKitConfig,
+    client: RoomClient,
+    request_timeout: Duration,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrackMedia {
+    Camera,
+    Screen,
+}
+
+pub fn track_media(track: &livekit_protocol::TrackInfo) -> Option<TrackMedia> {
+    match livekit_protocol::TrackSource::try_from(track.source).ok()? {
+        livekit_protocol::TrackSource::Camera => Some(TrackMedia::Camera),
+        livekit_protocol::TrackSource::ScreenShare => Some(TrackMedia::Screen),
+        _ => None,
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RoomMember {
+    pub identity: String,
+    pub session_id: String,
+    pub camera_on: bool,
+    pub screen_on: bool,
+}
+
+fn is_not_found(error: &ServiceError) -> bool {
+    matches!(error, ServiceError::Twirp(TwirpError::Twirp(code)) if code.code == TwirpErrorCode::NOT_FOUND)
 }
 
 impl LiveKitService {
     pub fn new(config: LiveKitConfig) -> Self {
-        Self { config }
+        let client = RoomClient::with_api_key(config.url(), config.api_key(), config.api_secret());
+        Self { config, client, request_timeout: LIVEKIT_REQUEST_TIMEOUT }
+    }
+
+    pub fn with_request_timeout(mut self, request_timeout: Duration) -> Self {
+        self.request_timeout = request_timeout;
+        self
+    }
+
+    async fn call<T, F>(&self, request: F, failure: fn(String) -> VoiceServiceError) -> Result<T, VoiceServiceError>
+    where
+        F: std::future::Future<Output = Result<T, ServiceError>>,
+    {
+        match timeout(self.request_timeout, request).await {
+            Ok(Ok(value)) => Ok(value),
+            Ok(Err(e)) => Err(failure(e.to_string())),
+            Err(_) => Err(failure("LiveKit request timed out".into())),
+        }
+    }
+
+    async fn request<T, F>(&self, request: F, failure: fn(String) -> VoiceServiceError) -> Result<Option<T>, VoiceServiceError>
+    where
+        F: std::future::Future<Output = Result<T, ServiceError>>,
+    {
+        match timeout(self.request_timeout, request).await {
+            Ok(Ok(value)) => Ok(Some(value)),
+            Ok(Err(e)) if is_not_found(&e) => Ok(None),
+            Ok(Err(e)) => Err(failure(e.to_string())),
+            Err(_) => Err(failure("LiveKit request timed out".into())),
+        }
     }
 
     async fn list_participants(&self, channel_id: &ChannelId) -> Result<Vec<livekit_protocol::ParticipantInfo>, VoiceServiceError> {
-        let livekit_room = RoomClient::new(self.config.url())
-            .map_err(|e| VoiceServiceError::ParticipantUpdate(e.to_string()))?;
         let room = channel_id.uuid().to_string();
-        match timeout(LIVEKIT_REQUEST_TIMEOUT, livekit_room.list_participants(&room)).await {
-            Ok(Ok(participants)) => Ok(participants),
-            Ok(Err(ServiceError::Twirp(TwirpError::Twirp(code)))) if code.code == TwirpErrorCode::NOT_FOUND => Ok(Vec::new()),
-            Ok(Err(e)) => Err(VoiceServiceError::ParticipantUpdate(e.to_string())),
-            Err(_) => Err(VoiceServiceError::ParticipantUpdate("LiveKit request timed out".into())),
-        }
+        Ok(self
+            .request(self.client.list_participants(&room), VoiceServiceError::ParticipantUpdate)
+            .await?
+            .unwrap_or_default())
+    }
+
+    pub async fn room_members(&self, channel_id: &ChannelId) -> Result<Vec<RoomMember>, VoiceServiceError> {
+        Ok(self
+            .list_participants(channel_id)
+            .await?
+            .into_iter()
+            .map(|p| RoomMember {
+                camera_on: p.tracks.iter().any(|t| track_media(t) == Some(TrackMedia::Camera)),
+                screen_on: p.tracks.iter().any(|t| track_media(t) == Some(TrackMedia::Screen)),
+                identity: p.identity,
+                session_id: p.sid,
+            })
+            .collect())
     }
 }
 
@@ -100,39 +167,22 @@ impl VoiceService for LiveKitService {
         channel_id: &ChannelId,
         community_id: &CommunityId,
     ) -> Result<(), VoiceServiceError> {
-        let livekit_room = RoomClient::new(self.config.url())
-            .map_err(|e| VoiceServiceError::VoiceChannelCreation(e.to_string()))?;
-
-        livekit_room
-            .create_room(
-                &channel_id.uuid().to_string(),
-                CreateRoomOptions {
-                    metadata: community_id.uuid().to_string(),
-                    ..Default::default()
-                },
-            )
-            .await
-            .map_err(|e| VoiceServiceError::VoiceChannelCreation(e.to_string()))?;
-
+        let room = channel_id.uuid().to_string();
+        let request = self.client.create_room(
+            &room,
+            CreateRoomOptions {
+                metadata: community_id.uuid().to_string(),
+                ..Default::default()
+            },
+        );
+        self.request(request, VoiceServiceError::VoiceChannelCreation).await?;
         Ok(())
     }
 
     async fn delete_voice_channel(&self, channel_id: &ChannelId) -> Result<(), VoiceServiceError> {
-        let livekit_room = RoomClient::new(self.config.url())
-            .map_err(|e| VoiceServiceError::VoiceChannelDeletion(e.to_string()))?;
-
-        match livekit_room
-            .delete_room(&channel_id.uuid().to_string())
-            .await
-        {
-            Ok(_) => Ok(()),
-            Err(ServiceError::Twirp(TwirpError::Twirp(code)))
-                if code.code == TwirpErrorCode::NOT_FOUND =>
-            {
-                Ok(())
-            }
-            Err(e) => Err(VoiceServiceError::VoiceChannelDeletion(e.to_string())),
-        }
+        let room = channel_id.uuid().to_string();
+        self.request(self.client.delete_room(&room), VoiceServiceError::VoiceChannelDeletion).await?;
+        Ok(())
     }
 
     async fn remove_participant(
@@ -140,24 +190,10 @@ impl VoiceService for LiveKitService {
         channel_id: &ChannelId,
         user_id: &UserId,
     ) -> Result<(), VoiceServiceError> {
-        let livekit_room = RoomClient::new(self.config.url())
-            .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
-
-        match livekit_room
-            .remove_participant(
-                &channel_id.uuid().to_string(),
-                &user_id.uuid().to_string(),
-            )
-            .await
-        {
-            Ok(_) => Ok(()),
-            Err(ServiceError::Twirp(TwirpError::Twirp(code)))
-                if code.code == TwirpErrorCode::NOT_FOUND =>
-            {
-                Ok(())
-            }
-            Err(e) => Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
-        }
+        let (room, identity) = (channel_id.uuid().to_string(), user_id.uuid().to_string());
+        let request = self.client.remove_participant(&room, &identity);
+        self.request(request, VoiceServiceError::ParticipantRemoval).await?;
+        Ok(())
     }
 
     async fn apply_participant_access(
@@ -166,8 +202,6 @@ impl VoiceService for LiveKitService {
         user_id: &UserId,
         access: ParticipantAccess,
     ) -> Result<(), VoiceServiceError> {
-        let livekit_room = RoomClient::new(self.config.url())
-            .map_err(|e| VoiceServiceError::ParticipantRemoval(e.to_string()))?;
         let room = channel_id.uuid().to_string();
         let identity = user_id.uuid().to_string();
         let can_publish_sources = if access.can_publish_microphone {
@@ -187,24 +221,16 @@ impl VoiceService for LiveKitService {
             can_update_metadata: true,
             ..Default::default()
         };
-        let participant = match livekit_room
-            .update_participant(
-                &room,
-                &identity,
-                livekit_api::services::room::UpdateParticipantOptions {
-                    permission: Some(permission),
-                    ..Default::default()
-                },
-            )
-            .await
-        {
-            Ok(p) => p,
-            Err(ServiceError::Twirp(TwirpError::Twirp(code)))
-                if code.code == TwirpErrorCode::NOT_FOUND =>
-            {
-                return Ok(());
-            }
-            Err(e) => return Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
+        let request = self.client.update_participant(
+            &room,
+            &identity,
+            livekit_api::services::room::UpdateParticipantOptions {
+                permission: Some(permission),
+                ..Default::default()
+            },
+        );
+        let Some(participant) = self.request(request, VoiceServiceError::ParticipantRemoval).await? else {
+            return Ok(());
         };
         if access.can_publish_microphone {
             return Ok(());
@@ -215,15 +241,8 @@ impl VoiceService for LiveKitService {
             if !is_live_microphone {
                 continue;
             }
-            match livekit_room
-                .mute_published_track(&room, &identity, &track.sid, true)
-                .await
-            {
-                Ok(_) => {}
-                Err(ServiceError::Twirp(TwirpError::Twirp(code)))
-                    if code.code == TwirpErrorCode::NOT_FOUND => {}
-                Err(e) => return Err(VoiceServiceError::ParticipantRemoval(e.to_string())),
-            }
+            let request = self.client.mute_published_track(&room, &identity, &track.sid, true);
+            self.request(request, VoiceServiceError::ParticipantRemoval).await?;
         }
         Ok(())
     }
@@ -234,21 +253,15 @@ impl VoiceService for LiveKitService {
         user_id: &UserId,
         ceiling: StreamCeiling,
     ) -> Result<(), VoiceServiceError> {
-        let livekit_room = RoomClient::new(self.config.url())
-            .map_err(|e| VoiceServiceError::ParticipantUpdate(e.to_string()))?;
         let attributes = std::collections::HashMap::from([(STREAM_CEILING_ATTRIBUTE.to_string(), ceiling.to_attribute())]);
         let (room, identity) = (channel_id.uuid().to_string(), user_id.uuid().to_string());
-        let request = livekit_room.update_participant(
+        let request = self.client.update_participant(
             &room,
             &identity,
             livekit_api::services::room::UpdateParticipantOptions { attributes, ..Default::default() },
         );
-        match timeout(LIVEKIT_REQUEST_TIMEOUT, request).await {
-            Ok(Ok(_)) => Ok(()),
-            Ok(Err(ServiceError::Twirp(TwirpError::Twirp(code)))) if code.code == TwirpErrorCode::NOT_FOUND => Ok(()),
-            Ok(Err(e)) => Err(VoiceServiceError::ParticipantUpdate(e.to_string())),
-            Err(_) => Err(VoiceServiceError::ParticipantUpdate("LiveKit request timed out".into())),
-        }
+        self.request(request, VoiceServiceError::ParticipantUpdate).await?;
+        Ok(())
     }
 
     async fn mute_track(
@@ -257,31 +270,14 @@ impl VoiceService for LiveKitService {
         user_id: &UserId,
         track_sid: &str,
     ) -> Result<(), VoiceServiceError> {
-        let livekit_room = RoomClient::new(self.config.url())
-            .map_err(|e| VoiceServiceError::ParticipantUpdate(e.to_string()))?;
         let (room, identity) = (channel_id.uuid().to_string(), user_id.uuid().to_string());
-        let request = livekit_room.mute_published_track(
-            &room,
-            &identity,
-            track_sid,
-            true,
-        );
-        match timeout(LIVEKIT_REQUEST_TIMEOUT, request).await {
-            Ok(Ok(_)) => Ok(()),
-            Ok(Err(ServiceError::Twirp(TwirpError::Twirp(code)))) if code.code == TwirpErrorCode::NOT_FOUND => Ok(()),
-            Ok(Err(e)) => Err(VoiceServiceError::ParticipantUpdate(e.to_string())),
-            Err(_) => Err(VoiceServiceError::ParticipantUpdate("LiveKit request timed out".into())),
-        }
+        let request = self.client.mute_published_track(&room, &identity, track_sid, true);
+        self.request(request, VoiceServiceError::ParticipantUpdate).await?;
+        Ok(())
     }
 
     async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError> {
-        let livekit_room = RoomClient::new(self.config.url())
-            .map_err(|e| VoiceServiceError::ParticipantUpdate(e.to_string()))?;
-        let rooms = match timeout(LIVEKIT_REQUEST_TIMEOUT, livekit_room.list_rooms(Vec::new())).await {
-            Ok(Ok(rooms)) => rooms,
-            Ok(Err(e)) => return Err(VoiceServiceError::ParticipantUpdate(e.to_string())),
-            Err(_) => return Err(VoiceServiceError::ParticipantUpdate("LiveKit request timed out".into())),
-        };
+        let rooms = self.call(self.client.list_rooms(Vec::new()), VoiceServiceError::ParticipantUpdate).await?;
         Ok(rooms
             .into_iter()
             .filter(|room| room.num_participants > 0)

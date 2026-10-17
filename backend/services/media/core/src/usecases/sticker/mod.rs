@@ -1,3 +1,4 @@
+pub mod recount_installs;
 use std::sync::Arc;
 
 use chrono::Utc;

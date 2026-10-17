@@ -80,6 +80,7 @@ mod tests {
     use chrono::DateTime;
     use domain::community::id::CommunityId;
     use futures::StreamExt;
+    use ports::fakes::FakePlanDirectory;
     use std::collections::HashSet;
 
     struct Avatars(Option<&'static str>);
@@ -112,22 +113,6 @@ mod tests {
         }
     }
 
-    struct Paid(bool);
-
-    #[async_trait]
-    impl PlanDirectory for Paid {
-        async fn apply_tier(&self, _: &UserId, _: domain::plan::Tier, _: Option<DateTime<Utc>>, _: DateTime<Utc>) -> Result<(), RepositoryError> {
-            unimplemented!()
-        }
-        async fn tier_of(&self, _: &UserId, _: DateTime<Utc>) -> Result<domain::plan::Tier, RepositoryError> {
-            Ok(if self.0 { domain::plan::Tier::Pro } else { domain::plan::Tier::Free })
-        }
-        fn is_caught_up(&self) -> bool {
-            true
-        }
-        fn set_caught_up(&self, _: bool) {}
-    }
-
     struct Objects(HashSet<&'static str>);
 
     #[async_trait]
@@ -153,7 +138,7 @@ mod tests {
     async fn serve(key: &'static str, paid: bool, objects: &[&'static str]) -> (String, &'static str) {
         let usecase = GetUserAvatar::new(
             Arc::new(Avatars(Some(key))),
-            Arc::new(Paid(paid)),
+            Arc::new(FakePlanDirectory::everyone(if paid { domain::plan::Tier::Pro } else { domain::plan::Tier::Free })),
             Arc::new(Objects(objects.iter().copied().collect())),
         );
         let (mut stream, content_type) = usecase.execute(UserId::new(uuid::Uuid::nil())).await.unwrap();

@@ -2,6 +2,7 @@ use contracts::events::webhook::{ConnectionAbortReasonV1, LeaveReasonV1, MediaSo
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use uuid::Uuid;
 use voice_domain::webhook::{ConnectionAbortReason, LeaveReason, MediaSource, WebhookEvent, WebhookKind};
+pub(crate) use infrastructure_common::outbox::encoding::encode;
 
 pub fn to_record(event: &WebhookEvent, request_id: Option<&str>) -> Result<OutboxRecord, RepositoryError> {
     let (reason, media_source, published) = match event.kind {
@@ -64,9 +65,6 @@ fn abort_reason(reason: ConnectionAbortReason) -> ConnectionAbortReasonV1 {
     }
 }
 
-pub(crate) fn encode<T: serde::Serialize>(value: &T) -> Result<serde_json::Value, RepositoryError> {
-    serde_json::to_value(value).map_err(|e| RepositoryError::InvalidData(e.to_string()))
-}
 
 pub fn stream_limited_record(event: &voice_domain::stream::StreamLimited) -> ports::outbox::record::OutboxRecord {
     ports::outbox::record::OutboxRecord {

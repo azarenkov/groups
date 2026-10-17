@@ -120,12 +120,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let access_revocations_data = web::Data::new(access_revocations.clone());
     let access_revoker = Arc::new(RedisAccessRevoker::new(access_revocations));
     let activity_store = Arc::new(RedisActivityStore::from_env());
-    let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
-        .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
+    let messaging_internal_url = api_common::internal_client::InternalService::Messaging.base_url();
     let activity_audience = Arc::new(MessagingAudienceClient::new(&messaging_internal_url));
     let block_lookup = Arc::new(MessagingBlockClient::new(&messaging_internal_url));
-    let media_internal_url = std::env::var("MEDIA_INTERNAL_URL")
-        .unwrap_or_else(|_| "http://media-service:8080".to_string());
+    let media_internal_url = api_common::internal_client::InternalService::Media.base_url();
     let sticker_lookup = Arc::new(MediaStickerClient::new(&media_internal_url));
     if unverified_cleanup_config.enabled() {
         let purge_unverified = Arc::new(PurgeUnverifiedAccounts::new(

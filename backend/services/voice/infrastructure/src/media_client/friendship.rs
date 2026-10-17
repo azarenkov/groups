@@ -1,77 +1,35 @@
+use api_common::internal_client::{InternalClient, block_relation, expect_json};
 use async_trait::async_trait;
-use voice::ports::friendship_lookup::{BlockRelation, FriendshipLookup, FriendshipLookupError};
+use contracts::internal::calls::CallPermitResponseV1;
 use domain::user::id::UserId;
-use contracts::internal::{calls::CallPermitResponseV1, friendships::BlockRelationResponseV1};
+use voice::ports::friendship_lookup::{BlockRelation, FriendshipLookup, FriendshipLookupError};
 
 pub struct MessagingFriendshipClient {
-    client: reqwest::Client,
-    base_url: String,
+    messaging: InternalClient,
 }
 
 impl MessagingFriendshipClient {
     pub fn new(base_url: &str) -> Self {
-        Self {
-            client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(10))
-                .build()
-                .unwrap_or_default(),
-            base_url: base_url.trim_end_matches('/').to_string(),
-        }
+        Self { messaging: InternalClient::new(base_url) }
     }
 }
 
 #[async_trait]
 impl FriendshipLookup for MessagingFriendshipClient {
     async fn can_call(&self, caller: &UserId, callee: &UserId) -> Result<bool, FriendshipLookupError> {
-        let response = super::with_request_id(
-            self.client
-            .get(format!(
-                "{}/internal/calls/permit/{}/{}",
-                self.base_url,
-                caller.uuid(),
-                callee.uuid()
-            )))
-            .send()
-            .await
-            .map_err(|e| FriendshipLookupError::Unavailable(e.to_string()))?;
-        if !response.status().is_success() {
-            return Err(FriendshipLookupError::Unavailable(format!(
-                "call permit endpoint returned status {}",
-                response.status()
-            )));
-        }
-        let body: CallPermitResponseV1 = response
-            .json()
+        let request = self
+            .messaging
+            .get(&format!("/internal/calls/permit/{}/{}", caller.uuid(), callee.uuid()));
+        let body: CallPermitResponseV1 = expect_json(request, "call permit")
             .await
             .map_err(|e| FriendshipLookupError::Unavailable(e.to_string()))?;
         Ok(body.allowed)
     }
 
     async fn block_relation(&self, a: &UserId, b: &UserId) -> Result<BlockRelation, FriendshipLookupError> {
-        let response = super::with_request_id(
-            self.client
-            .get(format!(
-                "{}/internal/blocks/{}/{}",
-                self.base_url,
-                a.uuid(),
-                b.uuid()
-            )))
-            .send()
+        let body = block_relation(&self.messaging, a, b)
             .await
             .map_err(|e| FriendshipLookupError::Unavailable(e.to_string()))?;
-        if !response.status().is_success() {
-            return Err(FriendshipLookupError::Unavailable(format!(
-                "block lookup endpoint returned status {}",
-                response.status()
-            )));
-        }
-        let body: BlockRelationResponseV1 = response
-            .json()
-            .await
-            .map_err(|e| FriendshipLookupError::Unavailable(e.to_string()))?;
-        Ok(BlockRelation {
-            blocking: body.blocking,
-            blocked_by: body.blocked_by,
-        })
+        Ok(BlockRelation { blocking: body.blocking, blocked_by: body.blocked_by })
     }
 }

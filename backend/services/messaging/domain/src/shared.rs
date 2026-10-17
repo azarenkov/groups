@@ -109,6 +109,10 @@ pub fn clamp_limit(limit: Option<i64>) -> i64 {
     limit.unwrap_or(SHARED_PAGE_DEFAULT).clamp(1, SHARED_PAGE_MAX)
 }
 
+pub fn page_limit(requested: i64, default: i64, max: i64) -> i64 {
+    if requested <= 0 { default } else { requested.min(max) }
+}
+
 #[derive(Debug, Clone)]
 pub enum SharedScope {
     Channel(ChannelId),

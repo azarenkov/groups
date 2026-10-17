@@ -70,6 +70,7 @@ pub enum AddStickerOutcome {
 
 #[async_trait]
 pub trait StickerRepository: Send + Sync {
+    async fn recount_installs(&self) -> Result<u64, RepositoryError>;
     async fn count_owned_packs(&self, owner_id: &UserId) -> Result<i64, RepositoryError>;
     async fn create_pack(&self, id: Uuid, owner_id: &UserId, name: &str, slug: &str, max_owned: i64) -> Result<Option<bool>, RepositoryError>;
     async fn find_pack(&self, id_or_slug: &str) -> Result<Option<StickerPack>, RepositoryError>;

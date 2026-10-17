@@ -5,6 +5,8 @@ pub mod context;
 pub mod cors;
 pub mod dto;
 pub mod health;
+pub mod http_error;
+pub mod internal_client;
 pub mod shutdown;
 pub mod middleware;
 pub mod pagination;

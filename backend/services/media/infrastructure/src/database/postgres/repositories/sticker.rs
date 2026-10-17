@@ -107,6 +107,42 @@ struct PackRow {
 
 #[async_trait]
 impl StickerRepository for PostgresStickerRepository {
+    async fn recount_installs(&self) -> Result<u64, RepositoryError> {
+        let packs: Vec<Uuid> = sqlx::query_scalar("SELECT id FROM media_sticker_packs WHERE deleted_at IS NULL")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        let mut fixed = 0;
+        for pack_id in packs {
+            let mut tx = self.pool.begin().await.map_err(map_sqlx_error_to_domain_error)?;
+            let locked: Option<i32> =
+                sqlx::query_scalar("SELECT install_count FROM media_sticker_packs WHERE id = $1 AND deleted_at IS NULL FOR UPDATE")
+                    .bind(pack_id)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(map_sqlx_error_to_domain_error)?;
+            let Some(recorded) = locked else {
+                continue;
+            };
+            let installs: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM media_sticker_installs WHERE pack_id = $1")
+                .bind(pack_id)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            if i64::from(recorded) != installs {
+                sqlx::query("UPDATE media_sticker_packs SET install_count = $2 WHERE id = $1")
+                    .bind(pack_id)
+                    .bind(i32::try_from(installs).unwrap_or(i32::MAX))
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(map_sqlx_error_to_domain_error)?;
+                fixed += 1;
+            }
+            tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        }
+        Ok(fixed)
+    }
+
     async fn count_owned_packs(&self, owner_id: &UserId) -> Result<i64, RepositoryError> {
         sqlx::query_scalar!(
             r#"SELECT COUNT(*) AS "count!" FROM media_sticker_packs WHERE owner_id = $1 AND deleted_at IS NULL"#,

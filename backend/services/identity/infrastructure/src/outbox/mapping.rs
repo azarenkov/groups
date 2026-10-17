@@ -1,8 +1,8 @@
 use contracts::events::user::{UserActivityChangedV1, UserEntitlementsChangedV1, UserTrialEndingV1, UserLifecycleV1, UserProfileChangedV1, UserRenamedV1, VerificationIssuedV1};
 use identity_domain::{events::IdentityEvent, user::events::UserEvent, verification::events::VerificationEvent};
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
-use serde::Serialize;
 use uuid::Uuid;
+use infrastructure_common::outbox::encoding::{encode, snake_case};
 
 pub fn to_record(event: &IdentityEvent, request_id: Option<&str>) -> Result<OutboxRecord, RepositoryError> {
     let (aggregate_id, event_type, occurred_at, payload) = match event {
@@ -142,14 +142,3 @@ fn verification_payload(event: &VerificationEvent) -> Result<serde_json::Value, 
     }
 }
 
-fn snake_case<T: Serialize>(value: &T) -> Result<String, RepositoryError> {
-    let value = serde_json::to_value(value).map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
-    value
-        .as_str()
-        .map(str::to_string)
-        .ok_or_else(|| RepositoryError::InvalidData("expected string enum".to_string()))
-}
-
-fn encode<T: Serialize>(value: &T) -> Result<serde_json::Value, RepositoryError> {
-    serde_json::to_value(value).map_err(|e| RepositoryError::InvalidData(e.to_string()))
-}
