@@ -37,6 +37,7 @@ use api_common::{
 use api_common::config::ServerConfig;
 
 use crate::{routes, state::AppState};
+use infrastructure_common::messaging::nats::connection::{stream_name, streams};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
     infrastructure_common::observability::init("media-service");
@@ -94,8 +95,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         });
     }
 
-    let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
-        .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
+    let messaging_internal_url = api_common::internal_client::InternalService::Messaging.base_url();
     let links_lookup = Arc::new(MessagingLinksClient::new(&messaging_internal_url));
     let orphan_cleanup = Arc::new(CleanupOrphanAttachments::new(
         attachment_repository.clone(),
@@ -113,12 +113,25 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             }
         });
     }
+    {
+        let recount = media::usecases::sticker::recount_installs::RecountStickerInstalls::new(sticker_repository.clone());
+        actix_web::rt::spawn(async move {
+            let mut interval = actix_web::rt::time::interval(std::time::Duration::from_secs(3600));
+            loop {
+                interval.tick().await;
+                match recount.execute().await {
+                    Ok(fixed) if fixed > 0 => tracing::info!(fixed, "Corrected sticker pack install counts"),
+                    Ok(_) => {}
+                    Err(e) => tracing::warn!(error = %e, "Sticker install recount failed"),
+                }
+            }
+        });
+    }
 
     let nats_config = infrastructure_common::config::nats::NatsConfig::from_env()?;
     let nats_jetstream =
         infrastructure_common::messaging::nats::connection::create_jetstream(&nats_config).await?;
-    let community_stream = std::env::var("MEDIA_COMMUNITY_STREAM")
-        .unwrap_or_else(|_| "RIFT_COMMUNITY_EVENTS".to_string());
+    let community_stream = stream_name("MEDIA_COMMUNITY_STREAM", streams::COMMUNITY_EVENTS);
     crate::projection::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
@@ -126,16 +139,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         media_repository.clone(),
         minio_storage.clone(),
     );
-    let storage_stream = std::env::var("MEDIA_STORAGE_STREAM")
-        .unwrap_or_else(|_| "RIFT_STORAGE_EVENTS".to_string());
+    let storage_stream = stream_name("MEDIA_STORAGE_STREAM", streams::STORAGE_EVENTS);
     crate::storage_release::spawn(
         nats_jetstream.clone(),
         nats_config.subject_prefix.clone(),
         storage_stream,
         attachment_repository.clone(),
     );
-    let user_stream = std::env::var("MEDIA_USER_STREAM")
-        .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
+    let user_stream = stream_name("MEDIA_USER_STREAM", streams::USER_EVENTS);
     infrastructure_common::messaging::nats::plan_projection::PlanProjection {
         jetstream: nats_jetstream.clone(),
         subject_prefix: nats_config.subject_prefix.clone(),

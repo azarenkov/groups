@@ -38,32 +38,29 @@ pub enum SendChannelMessageError {
     InvalidReply,
 }
 
-pub struct SendChannelMessage<M, C, S, W, A, R>
+pub struct SendChannelMessage<M, C, S, W, A>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: CommunityRepository,
     W: MessageUnitOfWork,
     A: crate::ports::attachment_claims::AttachmentClaims,
-    R: crate::ports::mention_resolver::MentionResolver,
 {
     message_repository: Arc<M>,
     channel_repository: Arc<C>,
     community_repository: Arc<S>,
     unit_of_work: Arc<W>,
     attachment_claims: Arc<A>,
-    mention_resolver: Arc<R>,
     plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
 }
 
-impl<M, C, S, W, A, R> SendChannelMessage<M, C, S, W, A, R>
+impl<M, C, S, W, A> SendChannelMessage<M, C, S, W, A>
 where
     M: MessageRepository,
     C: ChannelRepository,
     S: CommunityRepository,
     W: MessageUnitOfWork,
     A: crate::ports::attachment_claims::AttachmentClaims,
-    R: crate::ports::mention_resolver::MentionResolver,
 {
     pub fn new(
         message_repository: Arc<M>,
@@ -71,7 +68,6 @@ where
         community_repository: Arc<S>,
         unit_of_work: Arc<W>,
         attachment_claims: Arc<A>,
-        mention_resolver: Arc<R>,
         plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
     ) -> Self {
         Self {
@@ -80,7 +76,6 @@ where
             community_repository,
             unit_of_work,
             attachment_claims,
-            mention_resolver,
             plans,
         }
     }
@@ -201,10 +196,8 @@ where
             crate::usecases::channel::mentions::resolve_mentions(
                 message.content().as_str(),
                 &channel_id,
-                &recipient_ids,
                 author_id.uuid(),
                 self.channel_repository.as_ref(),
-                self.mention_resolver.as_ref(),
             )
             .await?
         };

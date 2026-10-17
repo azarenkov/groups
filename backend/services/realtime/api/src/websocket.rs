@@ -27,8 +27,7 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
 
     let jetstream = create_jetstream(&nats_cfg).await?;
     let pg_pool = create_postgres_pool(pg_cfg, SCHEMA, Some(&MIGRATOR)).await?;
-    let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
-        .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
+    let messaging_internal_url = api_common::internal_client::InternalService::Messaging.base_url();
     let presence_resolver = Arc::new(BlockAwareDirectory::new(
         Arc::new(PostgresRealtimeProjection::new(pg_pool.clone())),
         Arc::new(MessagingRelationsClient::new(&messaging_internal_url)),

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use chrono::{DateTime, Utc};
-use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::Tier, user::tier::TrialHistory, user::tier::trial_email_key, verification::throttle::IssuedCodes, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::TrialHistory, user::tier::trial_email_key, verification::throttle::IssuedCodes, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 use sqlx::{Pool, Postgres, Transaction};
 use std::collections::BTreeMap;
 use identity_domain::user::settings::{
@@ -489,22 +489,7 @@ impl IdentityTransaction for PostgresIdentityTransaction {
     }
 
     async fn load_entitlements(&mut self, user_id: &UserId) -> Result<Entitlements, RepositoryError> {
-        let row = sqlx::query!(
-            r#"SELECT tier, valid_until, member_number, source, trial_used_at FROM user_entitlements WHERE user_id = $1"#,
-            user_id.uuid(),
-        )
-        .fetch_optional(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row
-            .map(|r| Entitlements {
-                tier: Tier::parse(&r.tier).unwrap_or_default(),
-                valid_until: r.valid_until,
-                member_number: r.member_number,
-                trial: r.source == "trial",
-                trial_used_at: r.trial_used_at,
-            })
-            .unwrap_or_default())
+        crate::database::postgres::repositories::entitlements::load_entitlements(&mut *self.tx, user_id).await
     }
 
     async fn save_entitlements(

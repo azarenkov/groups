@@ -45,8 +45,7 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     );
     let publisher = Arc::new(NatsRealtimePublisher::new(core, user_subject_prefix));
     let projection = Arc::new(PostgresRealtimeProjection::new(pool.clone()));
-    let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
-        .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
+    let messaging_internal_url = api_common::internal_client::InternalService::Messaging.base_url();
     let blocks = Arc::new(MessagingRelationsClient::new(&messaging_internal_url));
     let presence_projection = projection.clone();
     let presence_directory = projection.clone();
@@ -263,11 +262,7 @@ async fn remove_legacy_consumers(
     cfg: &DispatcherConfig,
 ) {
     for (stream_name, consumer_name) in legacy_consumers(cfg) {
-        if let Ok(stream) = jetstream.get_stream(&stream_name).await
-            && stream.delete_consumer(&consumer_name).await.is_ok()
-        {
-            tracing::info!(%stream_name, %consumer_name, "Removed legacy dispatcher consumer");
-        }
+        infrastructure_common::messaging::nats::consumer::remove_consumers(jetstream, &stream_name, &[&consumer_name]).await;
     }
 }
 

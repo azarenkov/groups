@@ -1,3 +1,4 @@
+use api_common::internal_client::{InternalClient, expect_json};
 use async_trait::async_trait;
 use contracts::internal::calls::{CallOutcomeResponseV1, EndedCallResponseV1};
 use domain::user::id::UserId;
@@ -7,48 +8,22 @@ use messaging::ports::call_participation::{
 use uuid::Uuid;
 
 pub struct VoiceCallsClient {
-    client: reqwest::Client,
-    base_url: String,
+    voice: InternalClient,
 }
 
 impl VoiceCallsClient {
     pub fn new(base_url: &str) -> Self {
-        Self {
-            client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(10))
-                .build()
-                .unwrap_or_default(),
-            base_url: base_url.trim_end_matches('/').to_string(),
-        }
+        Self { voice: InternalClient::new(base_url) }
     }
 }
 
 #[async_trait]
 impl CallParticipationLookup for VoiceCallsClient {
-    async fn call_outcome(
-        &self,
-        call_id: Uuid,
-        caller: &UserId,
-        callee: &UserId,
-    ) -> Result<CallOutcome, CallParticipationError> {
-        let response = super::with_request_id(self.client.get(format!(
-            "{}/internal/calls/{}/outcome/{}/{}",
-            self.base_url,
-            call_id,
-            caller.uuid(),
-            callee.uuid()
-        )))
-        .send()
-        .await
-        .map_err(|e| CallParticipationError::Unavailable(e.to_string()))?;
-        if !response.status().is_success() {
-            return Err(CallParticipationError::Unavailable(format!(
-                "call outcome endpoint returned status {}",
-                response.status()
-            )));
-        }
-        let body: CallOutcomeResponseV1 = response
-            .json()
+    async fn call_outcome(&self, call_id: Uuid, caller: &UserId, callee: &UserId) -> Result<CallOutcome, CallParticipationError> {
+        let request = self
+            .voice
+            .get(&format!("/internal/calls/{}/outcome/{}/{}", call_id, caller.uuid(), callee.uuid()));
+        let body: CallOutcomeResponseV1 = expect_json(request, "call outcome")
             .await
             .map_err(|e| CallParticipationError::Unavailable(e.to_string()))?;
         Ok(CallOutcome {
@@ -64,20 +39,8 @@ impl CallParticipationLookup for VoiceCallsClient {
     }
 
     async fn ended_call(&self, call_id: Uuid) -> Result<Option<EndedCall>, CallParticipationError> {
-        let response = super::with_request_id(
-            self.client.get(format!("{}/internal/calls/{}/ended", self.base_url, call_id)),
-        )
-        .send()
-        .await
-        .map_err(|e| CallParticipationError::Unavailable(e.to_string()))?;
-        if !response.status().is_success() {
-            return Err(CallParticipationError::Unavailable(format!(
-                "ended call endpoint returned status {}",
-                response.status()
-            )));
-        }
-        let body: Option<EndedCallResponseV1> = response
-            .json()
+        let request = self.voice.get(&format!("/internal/calls/{call_id}/ended"));
+        let body: Option<EndedCallResponseV1> = expect_json(request, "ended call")
             .await
             .map_err(|e| CallParticipationError::Unavailable(e.to_string()))?;
         Ok(body.map(|call| EndedCall {

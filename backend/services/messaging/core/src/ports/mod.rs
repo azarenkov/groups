@@ -1,7 +1,7 @@
 pub mod attachment_claims;
 pub mod call_participation;
 pub mod feed_start;
-pub mod mention_resolver;
+pub mod call_log_retention;
 pub mod sticker_packs;
 pub mod storage_releases;
 pub mod thumbnailer;

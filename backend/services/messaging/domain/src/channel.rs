@@ -87,7 +87,6 @@ pub struct Channel {
     password_hash: Option<PasswordHash>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
-    last_join: DateTime<Utc>,
     is_default: bool,
     muted_participants: Option<HashMap<UserId, ParticipantMute>>,
     deafened_participants: Option<HashMap<UserId, ParticipantDeafen>>,
@@ -150,7 +149,6 @@ impl Channel {
             password_hash,
             created_at: now,
             updated_at: now,
-            last_join: now,
             is_default: false,
             muted_participants,
             deafened_participants,
@@ -187,7 +185,6 @@ impl Channel {
         camera_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
         screen_participants: Option<HashMap<UserId, HashSet<SessionId>>>,
         text_participants: Option<HashSet<UserId>>,
-        last_join: DateTime<Utc>,
     ) -> Self {
         Self {
             id,
@@ -199,7 +196,6 @@ impl Channel {
             password_hash,
             created_at,
             updated_at,
-            last_join,
             is_default: false,
             muted_participants,
             deafened_participants,
@@ -306,7 +302,6 @@ impl Channel {
             return Ok(());
         }
 
-        self.last_join = now;
         self.voice_changes.push(VoiceChange::Added {
             user_id,
             session_id,
@@ -769,10 +764,6 @@ impl Channel {
 
     pub fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at
-    }
-
-    pub fn last_join(&self) -> DateTime<Utc> {
-        self.last_join
     }
 
     pub fn muted_participants(&self) -> &Option<HashMap<UserId, ParticipantMute>> {

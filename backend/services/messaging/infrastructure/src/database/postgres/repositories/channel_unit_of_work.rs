@@ -90,18 +90,6 @@ impl ChannelTransaction for PostgresChannelTransaction {
         let channel_uuid = channel.id().uuid();
         let tx = &mut self.tx;
 
-        sqlx::query!(
-            r#"
-            UPDATE channels
-            SET last_join = GREATEST(last_join, $2)
-            WHERE id = $1
-            "#,
-            channel_uuid,
-            channel.last_join(),
-        )
-        .execute(&mut **tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
 
         let removed_sessions: Vec<(uuid::Uuid, String)> = voice_changes
             .iter()

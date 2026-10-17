@@ -148,7 +148,6 @@ pub struct AppState {
         PostgresCommunityRepository,
         PostgresMessageUnitOfWork,
         MediaClaimsClient,
-        IdentityUsersClient,
     >,
     pub edit_channel_message_usecase: EditChannelMessage<
         PostgresMessageRepository,
@@ -156,7 +155,6 @@ pub struct AppState {
         PostgresCommunityRepository,
         PostgresMessageUnitOfWork,
         MediaClaimsClient,
-        IdentityUsersClient,
     >,
     pub delete_channel_message_usecase: DeleteChannelMessage<
         PostgresMessageRepository,

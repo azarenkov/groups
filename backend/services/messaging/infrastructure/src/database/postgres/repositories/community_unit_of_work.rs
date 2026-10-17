@@ -601,9 +601,9 @@ impl CommunityTransaction for PostgresCommunityTransaction {
             r#"
             INSERT INTO channels (
                 id, community_id, owner_id, name,
-                kind, visibility, password_hash, created_at, updated_at, last_join, is_default
+                kind, visibility, password_hash, created_at, updated_at, is_default
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             "#,
             channel.id().uuid(),
             channel.community_id().uuid(),
@@ -614,7 +614,6 @@ impl CommunityTransaction for PostgresCommunityTransaction {
             channel.password_hash().map(|ph| ph.as_str()),
             channel.created_at(),
             channel.updated_at(),
-            channel.last_join(),
             channel.is_default(),
         )
         .execute(&mut *self.tx)

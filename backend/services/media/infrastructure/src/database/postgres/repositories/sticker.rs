@@ -107,6 +107,27 @@ struct PackRow {
 
 #[async_trait]
 impl StickerRepository for PostgresStickerRepository {
+    async fn recount_installs(&self) -> Result<u64, RepositoryError> {
+        let result = sqlx::query(
+            r#"
+            UPDATE media_sticker_packs p
+            SET install_count = counted.installs
+            FROM (
+                SELECT pk.id, COUNT(i.user_id)::int AS installs
+                FROM media_sticker_packs pk
+                LEFT JOIN media_sticker_installs i ON i.pack_id = pk.id
+                WHERE pk.deleted_at IS NULL
+                GROUP BY pk.id
+            ) counted
+            WHERE p.id = counted.id AND p.install_count <> counted.installs
+            "#,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(result.rows_affected())
+    }
+
     async fn count_owned_packs(&self, owner_id: &UserId) -> Result<i64, RepositoryError> {
         sqlx::query_scalar!(
             r#"SELECT COUNT(*) AS "count!" FROM media_sticker_packs WHERE owner_id = $1 AND deleted_at IS NULL"#,

@@ -24,6 +24,20 @@ enum StreamDurability {
     UntilConsumed,
 }
 
+pub mod streams {
+    pub const USER_EVENTS: &str = "RIFT_USER_EVENTS";
+    pub const CHANNEL_EVENTS: &str = "RIFT_CHANNEL_EVENTS";
+    pub const MESSAGE_EVENTS: &str = "RIFT_MESSAGE_EVENTS";
+    pub const DM_MESSAGE_EVENTS: &str = "RIFT_DM_MESSAGE_EVENTS";
+    pub const COMMUNITY_EVENTS: &str = "RIFT_COMMUNITY_EVENTS";
+    pub const STORAGE_EVENTS: &str = "RIFT_STORAGE_EVENTS";
+    pub const DLQ: &str = "RIFT_DLQ";
+}
+
+pub fn stream_name(env_var: &str, default: &str) -> String {
+    std::env::var(env_var).unwrap_or_else(|_| default.to_string())
+}
+
 struct StreamDef {
     name: &'static str,
     subject_suffix: &'static str,
@@ -34,49 +48,49 @@ struct StreamDef {
 
 const STREAMS: &[StreamDef] = &[
     StreamDef {
-        name: "RIFT_USER_EVENTS",
+        name: streams::USER_EVENTS,
         subject_suffix: "user.>",
         max_age_secs: 60 * 60 * 24 * 365,
         tier: StreamTier::Hot,
         durability: StreamDurability::Expiring,
     },
     StreamDef {
-        name: "RIFT_CHANNEL_EVENTS",
+        name: streams::CHANNEL_EVENTS,
         subject_suffix: "channel.>",
         max_age_secs: 60 * 60 * 24 * 30,
         tier: StreamTier::Hot,
         durability: StreamDurability::Expiring,
     },
     StreamDef {
-        name: "RIFT_MESSAGE_EVENTS",
+        name: streams::MESSAGE_EVENTS,
         subject_suffix: "message.>",
         max_age_secs: 60 * 60 * 24 * 30,
         tier: StreamTier::Hot,
         durability: StreamDurability::Expiring,
     },
     StreamDef {
-        name: "RIFT_DM_MESSAGE_EVENTS",
+        name: streams::DM_MESSAGE_EVENTS,
         subject_suffix: "dm_message.>",
         max_age_secs: 60 * 60 * 24 * 30,
         tier: StreamTier::Hot,
         durability: StreamDurability::Expiring,
     },
     StreamDef {
-        name: "RIFT_COMMUNITY_EVENTS",
+        name: streams::COMMUNITY_EVENTS,
         subject_suffix: "community.>",
         max_age_secs: 60 * 60 * 24 * 180,
         tier: StreamTier::Cold,
         durability: StreamDurability::Expiring,
     },
     StreamDef {
-        name: "RIFT_STORAGE_EVENTS",
+        name: streams::STORAGE_EVENTS,
         subject_suffix: "storage.>",
         max_age_secs: 0,
         tier: StreamTier::Hot,
         durability: StreamDurability::UntilConsumed,
     },
     StreamDef {
-        name: "RIFT_DLQ",
+        name: streams::DLQ,
         subject_suffix: "dlq.>",
         max_age_secs: 60 * 60 * 24 * 90,
         tier: StreamTier::Cold,

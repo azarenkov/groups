@@ -209,7 +209,7 @@ impl CommunityRepository for PostgresCommunityRepository {
                 id, community_id, owner_id, name,
                 kind as "kind: ChannelKindDto",
                 visibility as "visibility: ChannelVisibilityDto",
-                password_hash, created_at, updated_at, last_join, is_default
+                password_hash, created_at, updated_at, is_default
             FROM channels
             WHERE community_id = $1
             ORDER BY created_at DESC
@@ -370,7 +370,6 @@ impl CommunityRepository for PostgresCommunityRepository {
                     camera,
                     screen,
                     text,
-                    dto.last_join,
                 )
                 .with_default(dto.is_default)
             })

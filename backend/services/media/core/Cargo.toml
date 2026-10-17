@@ -20,4 +20,5 @@ symphonia = { workspace = true }
 jpeg-decoder = { workspace = true }
 
 [dev-dependencies]
+ports = { workspace = true, features = ["test-fakes"] }
 tokio = { workspace = true, features = ["macros", "rt", "sync"] }

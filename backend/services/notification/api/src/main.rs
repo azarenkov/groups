@@ -60,8 +60,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mailer = Arc::new(SmtpMailer::from_config(mailer_config)?);
     let send_verification_email = Arc::new(SendVerificationEmail::new(mailer.clone()));
-    let identity_internal_url = std::env::var("IDENTITY_INTERNAL_URL")
-        .unwrap_or_else(|_| "http://identity-service:8080".to_string());
+    let identity_internal_url = api_common::internal_client::InternalService::Identity.base_url();
     let send_trial_ending_email = Arc::new(SendTrialEndingEmail::new(
         mailer,
         Arc::new(IdentityTrialClient::new(&identity_internal_url)),

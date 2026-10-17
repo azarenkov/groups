@@ -112,136 +112,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use async_trait::async_trait;
-    use domain::{
-        channel::{id::ChannelId, token::ChannelToken},
-        community::id::CommunityId,
-        plan::Tier,
-        user::{id::UserId, name::UserName},
-    };
-    use ports::voice_service::{ParticipantAccess, PublishedVideo};
+    use domain::{channel::id::ChannelId, plan::Tier, user::id::UserId};
+    use ports::fakes::{FakePlanDirectory, FakeVoiceService};
+    use ports::voice_service::PublishedVideo;
     use voice_domain::webhook::WebhookEvent;
 
     use super::*;
-
-    struct Plans(HashMap<Uuid, Tier>);
-
-    #[async_trait]
-    impl PlanDirectory for Plans {
-        async fn apply_tier(&self, _: &UserId, _: Tier, _: Option<DateTime<Utc>>, _: DateTime<Utc>) -> Result<(), RepositoryError> {
-            unimplemented!()
-        }
-        async fn tier_of(&self, user_id: &UserId, _: DateTime<Utc>) -> Result<Tier, RepositoryError> {
-            Ok(self.0.get(&user_id.uuid()).copied().unwrap_or(Tier::Free))
-        }
-        fn is_caught_up(&self) -> bool {
-            true
-        }
-        fn set_caught_up(&self, _: bool) {}
-    }
-
-    struct Rooms {
-        room: ChannelId,
-        shares: Vec<(UserId, PublishedVideo)>,
-        muted: Mutex<Vec<String>>,
-    }
-
-    #[async_trait]
-    impl VoiceService for Rooms {
-        async fn create_token(&self, _: &UserId, _: &UserName, _: &ChannelId) -> Result<ChannelToken, VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn create_voice_channel(&self, _: &ChannelId, _: &CommunityId) -> Result<(), VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn delete_voice_channel(&self, _: &ChannelId) -> Result<(), VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn remove_participant(&self, _: &ChannelId, _: &UserId) -> Result<(), VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn create_token_with_access(
-            &self,
-            _: &UserId,
-            _: &UserName,
-            _: &ChannelId,
-            _: ParticipantAccess,
-        ) -> Result<ChannelToken, VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn apply_participant_access(&self, _: &ChannelId, _: &UserId, _: ParticipantAccess) -> Result<(), VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn set_stream_ceiling(&self, _: &ChannelId, _: &UserId, _: StreamCeiling) -> Result<(), VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn mute_track(&self, _: &ChannelId, _: &UserId, track_sid: &str) -> Result<(), VoiceServiceError> {
-            self.muted.lock().unwrap().push(track_sid.to_string());
-            Ok(())
-        }
-        async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError> {
-            Ok(vec![self.room])
-        }
-        async fn room_participants(&self, _: &ChannelId) -> Result<Vec<UserId>, VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn room_videos(&self, _: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
-            Ok(self.shares.clone())
-        }
-        fn client_url(&self) -> String {
-            String::new()
-        }
-    }
-
-    struct Unreachable;
-
-    #[async_trait]
-    impl VoiceService for Unreachable {
-        async fn create_token(&self, _: &UserId, _: &UserName, _: &ChannelId) -> Result<ChannelToken, VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn create_voice_channel(&self, _: &ChannelId, _: &CommunityId) -> Result<(), VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn delete_voice_channel(&self, _: &ChannelId) -> Result<(), VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn remove_participant(&self, _: &ChannelId, _: &UserId) -> Result<(), VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn create_token_with_access(
-            &self,
-            _: &UserId,
-            _: &UserName,
-            _: &ChannelId,
-            _: ParticipantAccess,
-        ) -> Result<ChannelToken, VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn apply_participant_access(&self, _: &ChannelId, _: &UserId, _: ParticipantAccess) -> Result<(), VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn set_stream_ceiling(&self, _: &ChannelId, _: &UserId, _: StreamCeiling) -> Result<(), VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn mute_track(&self, _: &ChannelId, _: &UserId, _: &str) -> Result<(), VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError> {
-            Err(VoiceServiceError::ParticipantUpdate("down".into()))
-        }
-        async fn room_participants(&self, _: &ChannelId) -> Result<Vec<UserId>, VoiceServiceError> {
-            unimplemented!()
-        }
-        async fn room_videos(&self, _: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError> {
-            unimplemented!()
-        }
-        fn client_url(&self) -> String {
-            String::new()
-        }
-    }
 
     #[derive(Default)]
     struct Limits(Mutex<Vec<StreamLimited>>);
@@ -265,15 +142,11 @@ mod tests {
     async fn keeps_strikes_when_the_rooms_cannot_be_listed() {
         let free = Uuid::new_v4();
         let room = ChannelId::new(Uuid::new_v4());
-        let voice = Arc::new(Rooms {
-            room,
-            shares: vec![(UserId::new(free), video("big", 3840, 2160))],
-            muted: Mutex::new(Vec::new()),
-        });
-        let sweep = SweepScreenShares::new(Arc::new(Plans(HashMap::new())), voice.clone(), Arc::new(Limits::default()));
+        let voice = Arc::new(FakeVoiceService::default().room(room, Vec::new()).videos(room, vec![(UserId::new(free), video("big", 3840, 2160))]));
+        let sweep = SweepScreenShares::new(Arc::new(FakePlanDirectory::new([])), voice.clone(), Arc::new(Limits::default()));
         sweep.execute(Utc::now()).await.unwrap();
-        let broken = Arc::new(Unreachable);
-        let failing = SweepScreenShares::new(Arc::new(Plans(HashMap::new())), broken, Arc::new(Limits::default()));
+        let broken = Arc::new(FakeVoiceService::unreachable());
+        let failing = SweepScreenShares::new(Arc::new(FakePlanDirectory::new([])), broken, Arc::new(Limits::default()));
         *failing.suspects.lock().unwrap() = sweep.suspects.lock().unwrap().clone();
         assert!(failing.execute(Utc::now()).await.is_err());
         assert!(failing.suspects.lock().unwrap().contains(&(room.uuid(), free)));
@@ -284,20 +157,12 @@ mod tests {
         let free = Uuid::new_v4();
         let room = ChannelId::new(Uuid::new_v4());
         let limits = Arc::new(Limits::default());
-        let plans = Arc::new(Plans(HashMap::new()));
-        let first = Arc::new(Rooms {
-            room,
-            shares: vec![(UserId::new(free), video("first", 3840, 2160))],
-            muted: Mutex::new(Vec::new()),
-        });
+        let plans = Arc::new(FakePlanDirectory::new([]));
+        let first = Arc::new(FakeVoiceService::default().room(room, Vec::new()).videos(room, vec![(UserId::new(free), video("first", 3840, 2160))]));
         let sweep = SweepScreenShares::new(plans.clone(), first.clone(), limits.clone());
         assert_eq!(sweep.execute(Utc::now()).await.unwrap(), 0);
         let suspects = std::mem::take(&mut *sweep.suspects.lock().unwrap());
-        let republished = Arc::new(Rooms {
-            room,
-            shares: vec![(UserId::new(free), video("second", 3840, 2160))],
-            muted: Mutex::new(Vec::new()),
-        });
+        let republished = Arc::new(FakeVoiceService::default().room(room, Vec::new()).videos(room, vec![(UserId::new(free), video("second", 3840, 2160))]));
         let sweep = SweepScreenShares::new(plans, republished.clone(), limits.clone());
         *sweep.suspects.lock().unwrap() = suspects;
         assert_eq!(sweep.execute(Utc::now()).await.unwrap(), 1);
@@ -309,18 +174,15 @@ mod tests {
     #[tokio::test]
     async fn mutes_a_share_that_stays_above_the_plan_for_two_sweeps() {
         let (free, premium) = (Uuid::new_v4(), Uuid::new_v4());
-        let voice = Arc::new(Rooms {
-            room: ChannelId::new(Uuid::new_v4()),
-            shares: vec![
+        let room = ChannelId::new(Uuid::new_v4());
+        let voice = Arc::new(FakeVoiceService::default().room(room, Vec::new()).videos(room, vec![
                 (UserId::new(free), video("free-4k", 3840, 2160)),
                 (UserId::new(free), video("free-720", 1280, 720)),
                 (UserId::new(premium), video("premium-4k", 3840, 2160)),
-            ],
-            muted: Mutex::new(Vec::new()),
-        });
+            ]));
         let limits = Arc::new(Limits::default());
         let sweep = SweepScreenShares::new(
-            Arc::new(Plans(HashMap::from([(premium, Tier::Premium)]))),
+            Arc::new(FakePlanDirectory::new([(premium, Tier::Premium)])),
             voice.clone(),
             limits.clone(),
         );

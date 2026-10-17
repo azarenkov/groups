@@ -112,11 +112,6 @@ where
     if subject.ends_with(".user.registered") || subject.ends_with(".user.renamed") {
         match serde_json::from_slice::<UserNameDto>(payload) {
             Ok(evt) => {
-                if subject.ends_with(".user.registered") {
-                    profiles
-                        .set_registered_at(&UserId::new(evt.user_id), evt.occurred_at)
-                        .await?;
-                }
                 profiles
                     .upsert_name(&UserId::new(evt.user_id), &evt.name, evt.occurred_at)
                     .await?;
@@ -131,14 +126,7 @@ where
         match serde_json::from_slice::<contracts::events::user::UserProfileChangedV1>(payload) {
             Ok(evt) => {
                 profiles
-                    .update_profile(
-                        &UserId::new(evt.user_id),
-                        &evt.bio,
-                        evt.show_activity,
-                        evt.active,
-                        &evt.timezone,
-                        evt.occurred_at,
-                    )
+                    .set_active(&UserId::new(evt.user_id), evt.active, evt.occurred_at)
                     .await?;
             }
             Err(e) => {
@@ -160,11 +148,6 @@ where
                 let applied = profiles
                     .set_active(&UserId::new(evt.user_id), active, evt.occurred_at)
                     .await?;
-                if subject.ends_with(".user.deleted") {
-                    profiles
-                        .update_profile(&UserId::new(evt.user_id), "", false, false, "", evt.occurred_at)
-                        .await?;
-                }
                 if !active && applied {
                     deactivation.execute(UserId::new(evt.user_id), request_id).await?;
                 }

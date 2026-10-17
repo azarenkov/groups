@@ -131,30 +131,6 @@ impl UserRepository for PostgresUserRepository {
         Ok(dtos.into_iter().next().map(User::from))
     }
 
-    async fn ids_by_names(
-        &self,
-        lowercase_names: &[String],
-    ) -> Result<Vec<(UserId, UserName)>, RepositoryError> {
-        if lowercase_names.is_empty() {
-            return Ok(Vec::new());
-        }
-        let rows = sqlx::query!(
-            r#"
-            SELECT id, name
-            FROM users
-            WHERE LOWER(name COLLATE "C") = ANY($1)
-            "#,
-            lowercase_names,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-
-        Ok(rows
-            .into_iter()
-            .map(|r| (UserId::new(r.id), UserName::new(r.name)))
-            .collect())
-    }
 
     async fn search_by_name_prefix(
         &self,

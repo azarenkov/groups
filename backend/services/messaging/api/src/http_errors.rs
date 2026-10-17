@@ -1,109 +1,10 @@
-use actix_web::{HttpResponse, ResponseError};
+use api_common::api_error::{StatusCode, ToHttpStatus};
+
+api_common::http_error_boilerplate!();
 use messaging_domain::{
     channel::ChannelError, dm_message::DmMessageError, friendship::FriendshipError,
     message::MessageError,
 };
-use api_common::api_error::{ApiError, StatusCode, ToHttpStatus};
-
-pub trait HttpMapping {
-    fn to_http_status(&self) -> StatusCode;
-    fn to_user_message(&self) -> String;
-    fn to_error_code(&self) -> &'static str;
-}
-
-#[derive(Debug)]
-pub struct HttpError(pub ApiError);
-
-impl std::fmt::Display for HttpError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl ResponseError for HttpError {
-    fn status_code(&self) -> StatusCode {
-        self.0.status_code()
-    }
-
-    fn error_response(&self) -> HttpResponse {
-        self.0.error_response()
-    }
-}
-
-#[allow(dead_code)]
-impl HttpError {
-    pub fn new(message: String, status: StatusCode, code: &'static str) -> Self {
-        Self(ApiError::new(message, status, code))
-    }
-
-    pub fn bad_request(message: String) -> Self {
-        Self(ApiError::bad_request(message))
-    }
-
-    pub fn payload_too_large() -> Self {
-        Self(ApiError::payload_too_large())
-    }
-
-    pub fn from_error<E: ToHttpStatus + std::fmt::Debug>(error: E) -> Self {
-        Self(ApiError::from_error(error))
-    }
-}
-
-impl From<ApiError> for HttpError {
-    fn from(error: ApiError) -> Self {
-        Self(error)
-    }
-}
-
-impl From<validator::ValidationErrors> for HttpError {
-    fn from(error: validator::ValidationErrors) -> Self {
-        Self(ApiError::from(error))
-    }
-}
-
-impl From<ports::repository::RepositoryError> for HttpError {
-    fn from(error: ports::repository::RepositoryError) -> Self {
-        Self(ApiError::from(error))
-    }
-}
-
-impl From<api_common::pagination::PaginationError> for HttpError {
-    fn from(error: api_common::pagination::PaginationError) -> Self {
-        Self(ApiError::from(error))
-    }
-}
-
-impl<E: HttpMapping + std::fmt::Debug> From<E> for HttpError {
-    fn from(error: E) -> Self {
-        tracing::error!("API Error: {:?}", error);
-        Self(ApiError::new(
-            error.to_user_message(),
-            error.to_http_status(),
-            error.to_error_code(),
-        ))
-    }
-}
-
-macro_rules! impl_http_mapping_delegate {
-    ($err:ident, $variant:ident) => {
-        impl HttpMapping for $err {
-            fn to_http_status(&self) -> StatusCode {
-                let $err::$variant(e) = self;
-                e.to_http_status()
-            }
-
-            fn to_user_message(&self) -> String {
-                let $err::$variant(e) = self;
-                e.to_user_message()
-            }
-
-            fn to_error_code(&self) -> &'static str {
-                let $err::$variant(e) = self;
-                e.to_error_code()
-            }
-        }
-    };
-}
 
 use messaging::usecases::attachment::get_attachment::GetAttachmentError;
 use messaging::usecases::attachment::list_message_attachments::ListMessageAttachmentsError;
@@ -798,9 +699,9 @@ impl HttpMapping for JoinVoiceChannelError {
     }
 }
 
-impl_http_mapping_delegate!(ListCommunitiesByUserError, Repository);
-impl_http_mapping_delegate!(GetHomeOverviewError, Repository);
-impl_http_mapping_delegate!(GetPrivacyError, Repository);
+api_common::impl_http_mapping_delegate!(ListCommunitiesByUserError, Repository);
+api_common::impl_http_mapping_delegate!(GetHomeOverviewError, Repository);
+api_common::impl_http_mapping_delegate!(GetPrivacyError, Repository);
 
 impl HttpMapping for ListCommunityMembersError {
     fn to_http_status(&self) -> StatusCode {
@@ -2248,7 +2149,7 @@ impl HttpMapping for SetNotificationPreferenceError {
     }
 }
 
-impl_http_mapping_delegate!(ListNotificationPreferencesError, Repository);
+api_common::impl_http_mapping_delegate!(ListNotificationPreferencesError, Repository);
 
 
 impl HttpMapping for ChannelError {
@@ -2402,79 +2303,6 @@ impl HttpMapping for DmMessageError {
             DmMessageError::ContentUnchanged => "DM_CONTENT_UNCHANGED",
             DmMessageError::Forwarded => "MESSAGE_FORWARDED",
             DmMessageError::Sticker => "MESSAGE_STICKER",
-        }
-    }
-}
-
-impl HttpMapping for ports::voice_service::VoiceServiceError {
-    fn to_http_status(&self) -> StatusCode {
-        StatusCode::INTERNAL_SERVER_ERROR
-    }
-
-    fn to_user_message(&self) -> String {
-        "Voice service error".to_string()
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            ports::voice_service::VoiceServiceError::TokenCreation(_) => "VOICE_TOKEN_CREATION_FAILED",
-            ports::voice_service::VoiceServiceError::VoiceChannelCreation(_) => "VOICE_CHANNEL_CREATION_FAILED",
-            ports::voice_service::VoiceServiceError::VoiceChannelDeletion(_) => "VOICE_CHANNEL_DELETION_FAILED",
-            ports::voice_service::VoiceServiceError::ParticipantRemoval(_) => "VOICE_PARTICIPANT_REMOVAL_FAILED",
-            ports::voice_service::VoiceServiceError::ParticipantUpdate(_) => "VOICE_PARTICIPANT_UPDATE_FAILED",
-        }
-    }
-}
-
-impl HttpMapping for ports::hasher::HashError {
-    fn to_http_status(&self) -> StatusCode {
-        StatusCode::INTERNAL_SERVER_ERROR
-    }
-
-    fn to_user_message(&self) -> String {
-        "Authentication error".to_string()
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        "INTERNAL_ERROR"
-    }
-}
-
-impl HttpMapping for ports::mailer::MailerError {
-    fn to_http_status(&self) -> StatusCode {
-        StatusCode::BAD_GATEWAY
-    }
-
-    fn to_user_message(&self) -> String {
-        "Could not send email. Please try again in a moment.".to_string()
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        "MAILER_UNAVAILABLE"
-    }
-}
-
-impl HttpMapping for ports::file_storage::FileStorageError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            ports::file_storage::FileStorageError::NotFound => StatusCode::NOT_FOUND,
-            ports::file_storage::FileStorageError::Internal(_) => StatusCode::BAD_GATEWAY,
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        match self {
-            ports::file_storage::FileStorageError::NotFound => "File not found.".to_string(),
-            ports::file_storage::FileStorageError::Internal(_) => {
-                "File storage is temporarily unavailable.".to_string()
-            }
-        }
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            ports::file_storage::FileStorageError::NotFound => "ATTACHMENT_NOT_FOUND",
-            ports::file_storage::FileStorageError::Internal(_) => "STORAGE_UNAVAILABLE",
         }
     }
 }

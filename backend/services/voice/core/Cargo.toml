@@ -18,4 +18,5 @@ futures = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
+ports = { workspace = true, features = ["test-fakes"] }
 tokio = { workspace = true, features = ["macros", "rt"] }

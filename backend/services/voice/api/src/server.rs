@@ -40,6 +40,7 @@ use api_common::{
 use api_common::config::ServerConfig;
 
 use crate::{routes, state::AppState};
+use infrastructure_common::messaging::nats::connection::{stream_name, streams};
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
     infrastructure_common::observability::init("voice-service");
@@ -62,15 +63,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             postgres_pool.clone(),
         ),
     );
-    let messaging_internal_url = std::env::var("MESSAGING_INTERNAL_URL")
-        .unwrap_or_else(|_| "http://messaging-service:8080".to_string());
+    let messaging_internal_url = api_common::internal_client::InternalService::Messaging.base_url();
     let friendship_lookup = Arc::new(MessagingFriendshipClient::new(&messaging_internal_url));
 
     let nats_config = infrastructure_common::config::nats::NatsConfig::from_env()?;
     let nats_jetstream =
         infrastructure_common::messaging::nats::connection::create_jetstream(&nats_config).await?;
-    let user_stream = std::env::var("VOICE_USER_STREAM")
-        .unwrap_or_else(|_| "RIFT_USER_EVENTS".to_string());
+    let user_stream = stream_name("VOICE_USER_STREAM", streams::USER_EVENTS);
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
     crate::evictions::spawn(call_repository.clone(), livekit_service.clone());

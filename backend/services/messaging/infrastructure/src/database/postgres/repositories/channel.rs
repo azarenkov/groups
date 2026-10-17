@@ -671,7 +671,7 @@ impl ChannelRepository for PostgresChannelRepository {
             SELECT id, community_id, owner_id, name,
                    kind AS "kind: ChannelKindDto",
                    visibility AS "visibility: ChannelVisibilityDto",
-                   password_hash, created_at, updated_at, last_join, is_default
+                   password_hash, created_at, updated_at, is_default
             FROM channels
             WHERE id = $1
             "#,
@@ -762,7 +762,6 @@ impl ChannelRepository for PostgresChannelRepository {
             camera_participants,
             screen_participants,
             text_participants,
-            dto.last_join,
         )
         .with_default(dto.is_default);
 
@@ -1076,7 +1075,7 @@ pub(crate) async fn load_channel_for_update(
         SELECT id, community_id, owner_id, name,
                kind AS "kind: ChannelKindDto",
                visibility AS "visibility: ChannelVisibilityDto",
-               password_hash, created_at, updated_at, last_join, is_default
+               password_hash, created_at, updated_at, is_default
         FROM channels
         WHERE id = $1
         FOR UPDATE
@@ -1169,7 +1168,6 @@ pub(crate) async fn load_channel_for_update(
         camera_participants,
         screen_participants,
         text_participants,
-        dto.last_join,
     )
     .with_default(dto.is_default))
 }

@@ -26,7 +26,7 @@ impl NotificationConfig {
 }
 
 fn default_user_stream() -> String {
-    "RIFT_USER_EVENTS".to_string()
+    infrastructure_common::messaging::nats::connection::streams::USER_EVENTS.to_string()
 }
 
 fn default_verification_consumer() -> String {

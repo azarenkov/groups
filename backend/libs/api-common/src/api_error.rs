@@ -53,7 +53,7 @@ impl ToHttpStatus for RepositoryError {
             RepositoryError::AlreadyExists => "Resource already exists".to_string(),
             RepositoryError::ConnectionError(_) => "Service temporarily unavailable".to_string(),
             RepositoryError::InvalidData(_) => "Invalid data provided".to_string(),
-            RepositoryError::Internal(_) => "Internal community error".to_string(),
+            RepositoryError::Internal(_) => "Internal server error".to_string(),
         }
     }
 

@@ -1,41 +1,21 @@
-pub async fn resolve_mentions<C, R>(
+pub async fn resolve_mentions<C>(
     content: &str,
     channel_id: &messaging_domain::channel::id::ChannelId,
-    members: &[domain::user::id::UserId],
     author_id: uuid::Uuid,
     channel_repo: &C,
-    resolver: &R,
 ) -> Result<Vec<uuid::Uuid>, ports::repository::RepositoryError>
 where
     C: messaging_domain::channel::repository::ChannelRepository + ?Sized,
-    R: crate::ports::mention_resolver::MentionResolver + ?Sized,
 {
     let names = mention_names(content);
     if names.is_empty() {
         return Ok(Vec::new());
     }
-    let member_set: std::collections::HashSet<uuid::Uuid> =
-        members.iter().map(|id| id.uuid()).collect();
     let mut mentions: Vec<uuid::Uuid> = Vec::new();
-    match resolver.resolve_names(&names).await {
-        Ok(resolved) => {
-            for (id, _) in resolved {
-                if id != author_id && member_set.contains(&id) && !mentions.contains(&id) {
-                    mentions.push(id);
-                }
-            }
-        }
-        Err(e) => {
-            tracing::warn!(error = %e, "Authoritative mention resolution failed; falling back to projection");
-            for (id, _) in channel_repo
-                .text_members_by_names(channel_id, &names)
-                .await?
-            {
-                let uid = id.uuid();
-                if uid != author_id && !mentions.contains(&uid) {
-                    mentions.push(uid);
-                }
-            }
+    for (id, _) in channel_repo.text_members_by_names(channel_id, &names).await? {
+        let uid = id.uuid();
+        if uid != author_id && !mentions.contains(&uid) {
+            mentions.push(uid);
         }
     }
     Ok(mentions)

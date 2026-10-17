@@ -34,23 +34,23 @@ fn default_health_port() -> u16 {
 }
 
 fn default_user_stream() -> String {
-    "RIFT_USER_EVENTS".to_string()
+    infrastructure_common::messaging::nats::connection::streams::USER_EVENTS.to_string()
 }
 
 fn default_channel_stream() -> String {
-    "RIFT_CHANNEL_EVENTS".to_string()
+    infrastructure_common::messaging::nats::connection::streams::CHANNEL_EVENTS.to_string()
 }
 
 fn default_message_stream() -> String {
-    "RIFT_MESSAGE_EVENTS".to_string()
+    infrastructure_common::messaging::nats::connection::streams::MESSAGE_EVENTS.to_string()
 }
 
 fn default_dm_message_stream() -> String {
-    "RIFT_DM_MESSAGE_EVENTS".to_string()
+    infrastructure_common::messaging::nats::connection::streams::DM_MESSAGE_EVENTS.to_string()
 }
 
 fn default_community_stream() -> String {
-    "RIFT_COMMUNITY_EVENTS".to_string()
+    infrastructure_common::messaging::nats::connection::streams::COMMUNITY_EVENTS.to_string()
 }
 
 fn default_consumer_prefix() -> String {

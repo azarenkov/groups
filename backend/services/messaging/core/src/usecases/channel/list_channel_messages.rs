@@ -178,11 +178,5 @@ where
 }
 
 fn clamp_limit(value: i64) -> i64 {
-    if value <= 0 {
-        DEFAULT_LIMIT
-    } else if value > MAX_LIMIT {
-        MAX_LIMIT
-    } else {
-        value
-    }
+    messaging_domain::shared::page_limit(value, DEFAULT_LIMIT, MAX_LIMIT)
 }
