@@ -3,11 +3,13 @@ import { callAPI } from "../../api/call";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { RECONNECT_WINDOW_MS, freshVoiceSession, rememberVoiceSession } from "../../lib/sessionHint";
 import { loadMediaState } from "../../lib/mediaStateSync";
+import { reportVoiceCue } from "../../lib/voiceCuePlayer";
 
 jest.mock("../../api/call", () => ({
   callAPI: { getActive: jest.fn(), leave: jest.fn() },
 }));
 jest.mock("../../lib/mediaStateSync", () => ({ loadMediaState: jest.fn() }));
+jest.mock("../../lib/voiceCuePlayer", () => ({ reportVoiceCue: jest.fn() }));
 jest.mock("../voiceSettingsStore", () => ({ voiceSettingsReadyFor: () => Promise.resolve() }));
 jest.mock("../../lib/callSession", () => ({
   awaitVoiceSettingsSyncedFor: jest.fn(),
@@ -135,4 +137,10 @@ it("keeps the call to try again when the room cannot be reached yet", async () =
   expect(useCallStore.getState().activeCallId).toBe("c1");
   expect(await useCallStore.getState().rehydrate()).toBe("settled");
   expect(connectToRoom).toHaveBeenCalledTimes(2);
+});
+
+it("treats a restored call as a reconnect so no join sound plays", async () => {
+  rememberVoiceSession("me", { kind: "call", callId: "c1" });
+  await useCallStore.getState().rehydrate();
+  expect(reportVoiceCue).toHaveBeenCalledWith({ type: "connected", room: { kind: "call", id: "c1" }, reconnect: true });
 });

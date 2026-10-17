@@ -21,6 +21,7 @@ struct NotificationSettingsResponse {
     quiet_start: String,
     quiet_end: String,
     calls_enabled: bool,
+    voice_cues_enabled: bool,
 }
 
 impl From<NotificationSettings> for NotificationSettingsResponse {
@@ -33,6 +34,7 @@ impl From<NotificationSettings> for NotificationSettingsResponse {
             quiet_start: settings.quiet_start().as_str().to_string(),
             quiet_end: settings.quiet_end().as_str().to_string(),
             calls_enabled: settings.calls_enabled(),
+            voice_cues_enabled: settings.voice_cues_enabled(),
         }
     }
 }
@@ -47,6 +49,7 @@ struct NotificationSettingsBody {
     quiet_start: Option<String>,
     quiet_end: Option<String>,
     calls_enabled: Option<bool>,
+    voice_cues_enabled: Option<bool>,
 }
 
 #[get("/me/notifications")]
@@ -89,6 +92,7 @@ pub async fn update_me_notification_settings(
                 quiet_start: body.quiet_start,
                 quiet_end: body.quiet_end,
                 calls_enabled: body.calls_enabled,
+                voice_cues_enabled: body.voice_cues_enabled,
             },
         )
         .await?;

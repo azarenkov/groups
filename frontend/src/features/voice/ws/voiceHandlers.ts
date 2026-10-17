@@ -13,6 +13,10 @@ import { callSoundAllowed } from "../../settings/store/notificationSettingsStore
 import { playNotificationSound } from "../../../shared/lib/notificationSound";
 import { DECLINED_CHIME } from "../../../shared/lib/chime";
 import { hiddenDmsKnown, hiddenDmsSettled, isDmHidden, useHiddenDmStore } from "../../dm/store/hiddenDmStore";
+import { reportVoiceCue } from "../lib/voiceCuePlayer";
+
+const peerCue = (type: "peerJoined" | "peerLeft", kind: "call" | "channel", id: string, userId: string) =>
+  reportVoiceCue({ type, room: { kind, id }, userId, selfId: useAuthStore.getState().user?.id ?? null });
 
 interface HeldCall {
   callId: string;
@@ -104,6 +108,7 @@ export const voiceHandlers: WsHandlers = {
         cameraOn: false,
         screenOn: false,
       });
+      peerCue("peerJoined", "channel", channelId, userId);
       return;
   },
   "channel.participant.left": (d) => {
@@ -112,6 +117,7 @@ export const voiceHandlers: WsHandlers = {
       if (!channelId || !userId) return;
       useVoicePresenceStore.getState().removeMember(channelId, userId);
       endSessionIfEmpty(channelId);
+      peerCue("peerLeft", "channel", channelId, userId);
       return;
   },
   "channel.participant.connectionAborted": (d) => {
@@ -120,6 +126,7 @@ export const voiceHandlers: WsHandlers = {
       if (!channelId || !userId) return;
       useVoicePresenceStore.getState().removeMember(channelId, userId);
       endSessionIfEmpty(channelId);
+      peerCue("peerLeft", "channel", channelId, userId);
       return;
   },
   "channel.text.joined": (d) => {
@@ -153,6 +160,7 @@ export const voiceHandlers: WsHandlers = {
       if (!callId || !userId) return;
       const userName = asString(d.userName) ?? userId;
       useCallStore.getState().participantJoined(callId, userId, userName);
+      peerCue("peerJoined", "call", callId, userId);
       return;
   },
   "call.participant.left": (d) => {
@@ -160,6 +168,7 @@ export const voiceHandlers: WsHandlers = {
       const userId = asString(d.userId);
       if (!callId || !userId) return;
       useCallStore.getState().participantLeft(callId, userId);
+      peerCue("peerLeft", "call", callId, userId);
       return;
   },
   "call.declined": (d) => {

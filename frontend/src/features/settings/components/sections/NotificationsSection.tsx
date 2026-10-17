@@ -13,6 +13,7 @@ export function NotificationsSection() {
   const quietStart = useNotificationSettingsStore((s) => s.quietStart);
   const quietEnd = useNotificationSettingsStore((s) => s.quietEnd);
   const callsEnabled = useNotificationSettingsStore((s) => s.callsEnabled);
+  const voiceCuesEnabled = useNotificationSettingsStore((s) => s.voiceCuesEnabled);
   const update = useNotificationSettingsStore((s) => s.update);
 
   const toggleDesktop = () => {
@@ -51,6 +52,9 @@ export function NotificationsSection() {
         <h2>{t("notifications.calls")}</h2>
         <SettingsRow label={t("notifications.callAlerts")} hint={t("notifications.callAlertsHint")}>
           <Switch on={callsEnabled} onClick={() => update({ callsEnabled: !callsEnabled })}/>
+        </SettingsRow>
+        <SettingsRow label={t("notifications.voiceCues")} hint={t("notifications.voiceCuesHint")}>
+          <Switch on={voiceCuesEnabled} onClick={() => update({ voiceCuesEnabled: !voiceCuesEnabled })}/>
         </SettingsRow>
       </div>
 

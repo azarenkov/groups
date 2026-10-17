@@ -15,6 +15,9 @@ import {
 import { leaveVoiceChannel } from "./voiceChannelStore";
 import { forgetVoiceSession, freshVoiceSession } from "../lib/sessionHint";
 import { loadMediaState } from "../lib/mediaStateSync";
+import { reportVoiceCue } from "../lib/voiceCuePlayer";
+
+const callRoom = (callId: string) => ({ kind: "call" as const, id: callId });
 
 const armFallbackMuteRelease = (
   userId: string | null,
@@ -289,6 +292,7 @@ export const useCallStore = create<CallState>()((set, get) => {
     }
     if (s.incoming?.callId === callId) set({ incoming: null });
     if (s.activeCallId === callId) {
+      reportVoiceCue({ type: "disconnected", room: callRoom(callId), reconnecting: false });
       set({ endedCall: { callId, ringing: s.ringing }, activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false, deafened: false, micMutedBeforeDeafen: false });
       getLiveKitService()
         .disconnect()
@@ -384,6 +388,7 @@ export const useCallStore = create<CallState>()((set, get) => {
         return "unreachable";
       }
       set({ reconnecting: false });
+      reportVoiceCue({ type: "connected", room: callRoom(active.callId), reconnect: true });
       if (get().deafened && get().activeCallId === active.callId) service.setDeafened(true);
     }
     if ((useAuthStore.getState().user?.id ?? null) !== userId) {
@@ -481,6 +486,7 @@ export const useCallStore = create<CallState>()((set, get) => {
         return;
       }
       set({ connecting: false });
+      reportVoiceCue({ type: "connected", room: callRoom(callId), reconnect: false });
       if (!synced) armFallbackMuteRelease(initiatorId, callId, muteSeqBeforeWait);
     } catch (e) {
       set({ connecting: false });
@@ -575,6 +581,7 @@ export const useCallStore = create<CallState>()((set, get) => {
       return;
     }
     set({ connecting: false });
+    reportVoiceCue({ type: "connected", room: callRoom(callId), reconnect: false });
     if (!synced) armFallbackMuteRelease(initiatorId, callId, muteSeqBeforeWait);
     if (options?.video) await enableCameraOrFallback(callId);
   },
@@ -650,6 +657,7 @@ export const useCallStore = create<CallState>()((set, get) => {
         return;
       }
       set({ connecting: false });
+      reportVoiceCue({ type: "connected", room: callRoom(inc.callId), reconnect: false });
       if (!synced) armFallbackMuteRelease(initiatorId, inc.callId, muteSeqBeforeWait);
       if (withVideo) await enableCameraOrFallback(inc.callId);
     } catch (e) {
@@ -685,6 +693,7 @@ export const useCallStore = create<CallState>()((set, get) => {
 
   leave: async (keepRoom = false) => {
     const callId = get().activeCallId;
+    if (callId) reportVoiceCue({ type: "disconnected", room: callRoom(callId), reconnecting: false });
     set({ activeCallId: null, startedAt: null, attention: false, participants: {}, ringing: [], focused: false, peerId: null, micMuted: false, deafened: false, micMutedBeforeDeafen: false });
     if (!keepRoom) {
       await getLiveKitService()

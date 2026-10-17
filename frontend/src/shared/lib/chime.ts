@@ -102,3 +102,23 @@ export const DECLINED_CHIME: ChimeNote[] = [
   { freq: 523.25, at: 0.16, peak: 0.65, decay: 0.45 },
   { freq: 392, at: 0.32, peak: 0.6, decay: 0.8 },
 ];
+
+export const CONNECTED_CHIME: ChimeNote[] = [
+  { freq: 659.25, at: 0, peak: 0.6, decay: 0.4 },
+  { freq: 987.77, at: 0.09, peak: 0.65, decay: 0.7 },
+];
+
+export const DISCONNECTED_CHIME: ChimeNote[] = [
+  { freq: 987.77, at: 0, peak: 0.6, decay: 0.4 },
+  { freq: 659.25, at: 0.09, peak: 0.55, decay: 0.7 },
+];
+
+export const PEER_JOINED_CHIME: ChimeNote[] = [
+  { freq: 783.99, at: 0, peak: 0.5, decay: 0.35 },
+  { freq: 1046.5, at: 0.07, peak: 0.5, decay: 0.55 },
+];
+
+export const PEER_LEFT_CHIME: ChimeNote[] = [
+  { freq: 1046.5, at: 0, peak: 0.5, decay: 0.35 },
+  { freq: 783.99, at: 0.07, peak: 0.45, decay: 0.55 },
+];

@@ -72,6 +72,7 @@ pub struct NotificationSettingsPatch {
     pub quiet_start: Option<String>,
     pub quiet_end: Option<String>,
     pub calls_enabled: Option<bool>,
+    pub voice_cues_enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,6 +84,7 @@ pub struct NotificationSettings {
     quiet_start: TimeOfDay,
     quiet_end: TimeOfDay,
     calls_enabled: bool,
+    voice_cues_enabled: bool,
 }
 
 impl Default for NotificationSettings {
@@ -95,6 +97,7 @@ impl Default for NotificationSettings {
             quiet_start: TimeOfDay("22:00".to_string()),
             quiet_end: TimeOfDay("08:00".to_string()),
             calls_enabled: true,
+            voice_cues_enabled: true,
         }
     }
 }
@@ -109,6 +112,7 @@ impl NotificationSettings {
         quiet_start: String,
         quiet_end: String,
         calls_enabled: bool,
+        voice_cues_enabled: bool,
     ) -> Self {
         Self {
             desktop_enabled,
@@ -118,6 +122,7 @@ impl NotificationSettings {
             quiet_start: TimeOfDay::restore(quiet_start),
             quiet_end: TimeOfDay::restore(quiet_end),
             calls_enabled,
+            voice_cues_enabled,
         }
     }
 
@@ -148,6 +153,9 @@ impl NotificationSettings {
         if let Some(enabled) = patch.calls_enabled {
             next.calls_enabled = enabled;
         }
+        if let Some(enabled) = patch.voice_cues_enabled {
+            next.voice_cues_enabled = enabled;
+        }
         Ok(next)
     }
 
@@ -177,5 +185,26 @@ impl NotificationSettings {
 
     pub fn calls_enabled(&self) -> bool {
         self.calls_enabled
+    }
+
+    pub fn voice_cues_enabled(&self) -> bool {
+        self.voice_cues_enabled
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn voice_cues_are_on_by_default_and_follow_the_patch() {
+        let settings = NotificationSettings::default();
+        assert!(settings.voice_cues_enabled());
+        let patch = NotificationSettingsPatch { voice_cues_enabled: Some(false), ..Default::default() };
+        let next = settings.apply(&patch).unwrap();
+        assert!(!next.voice_cues_enabled());
+        assert!(next.sounds_enabled());
+        let restored = NotificationSettings::restore(true, true, "all", false, "22:00".into(), "08:00".into(), true, false);
+        assert!(!restored.voice_cues_enabled());
     }
 }

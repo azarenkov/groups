@@ -40,7 +40,7 @@ interface UseLiveKitResult {
     communityId: string,
     password?: string,
     startMuted?: boolean,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   leaveChannel: () => Promise<void>;
   toggleMute: () => void;
   toggleDeafen: () => void;
@@ -123,12 +123,12 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
   const joinChannel = useCallback(
     async (channelId: string, communityId: string, password?: string, startMuted = false) => {
       const service = serviceRef.current;
-      if (!service) return;
+      if (!service) return false;
       let joinAttempt: { communityId: string; channelId: string } | null = null;
       try {
         if (service.isConnectingNow()) {
           console.log("[useLiveKit] Already connecting, skipping join request");
-          return;
+          return false;
         }
 
         if (service.isConnected()) {
@@ -173,7 +173,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
           } else if (activeChannelRef.current === null) {
             setIsConnecting(false);
           }
-          return;
+          return false;
         }
 
         console.log(`[useLiveKit] Connecting to LiveKit at ${response.url}`);
@@ -220,7 +220,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
             activeChannelRef.current = null;
             setIsConnecting(false);
           }
-          return;
+          return false;
         }
         if (!response.muted && !settingsSynced) {
           fallbackMutedRef.current = true;
@@ -248,7 +248,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
             activeChannelRef.current = null;
             setIsConnecting(false);
           }
-          return;
+          return false;
         }
         if (deafenLockedRef.current || isDeafenedRef.current) {
           service.setDeafened(true);
@@ -273,6 +273,7 @@ export function useLiveKit(options?: UseLiveKitOptions): UseLiveKitResult {
 
         setIsConnecting(false);
         if (joiningUserId) rememberVoiceSession(joiningUserId, { kind: "channel", communityId, channelId });
+        return true;
       } catch (err) {
         console.error("[useLiveKit] Failed to join channel:", err);
         if (joinAttempt === null || activeChannelRef.current === joinAttempt) {

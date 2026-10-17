@@ -410,14 +410,14 @@ impl UserRepository for PostgresUserRepository {
         &self,
         user_id: &UserId,
     ) -> Result<Option<NotificationSettings>, RepositoryError> {
-        let row: Option<(bool, bool, String, bool, String, String, bool)> = sqlx::query_as(
-            "SELECT desktop_enabled, sounds_enabled, mentions, quiet_hours_enabled, quiet_start, quiet_end, calls_enabled FROM notification_settings WHERE user_id = $1",
+        let row: Option<(bool, bool, String, bool, String, String, bool, bool)> = sqlx::query_as(
+            "SELECT desktop_enabled, sounds_enabled, mentions, quiet_hours_enabled, quiet_start, quiet_end, calls_enabled, voice_cues_enabled FROM notification_settings WHERE user_id = $1",
         )
         .bind(user_id.uuid())
         .fetch_optional(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.map(|r| NotificationSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6)))
+        Ok(row.map(|r| NotificationSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6, r.7)))
     }
 
     async fn get_hotkey_settings(

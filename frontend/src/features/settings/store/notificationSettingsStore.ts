@@ -14,6 +14,7 @@ export interface NotificationSyncedSettings {
   quietStart: string;
   quietEnd: string;
   callsEnabled: boolean;
+  voiceCuesEnabled: boolean;
 }
 
 interface NotificationSettingsState extends NotificationSyncedSettings {
@@ -31,6 +32,7 @@ const SETTING_KEYS = [
   "quietStart",
   "quietEnd",
   "callsEnabled",
+  "voiceCuesEnabled",
 ] as const;
 
 const DEFAULT_SETTINGS: NotificationSyncedSettings = {
@@ -41,6 +43,7 @@ const DEFAULT_SETTINGS: NotificationSyncedSettings = {
   quietStart: "22:00",
   quietEnd: "08:00",
   callsEnabled: true,
+  voiceCuesEnabled: true,
 };
 
 const isMentionLevel = (v: unknown): v is MentionLevel =>
@@ -154,6 +157,7 @@ const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
   quietStart: 0,
   quietEnd: 0,
   callsEnabled: 0,
+  voiceCuesEnabled: 0,
 };
 
 const cancelPendingSaves = () => {
@@ -335,6 +339,7 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
                     quietStart: get().quietStart,
                     quietEnd: get().quietEnd,
                     callsEnabled: get().callsEnabled,
+                    voiceCuesEnabled: get().voiceCuesEnabled,
                   },
             );
             set({ ...local, ownerId: userId, syncedOwner: userId });
@@ -351,6 +356,7 @@ export const useNotificationSettingsStore = create<NotificationSettingsState>()(
             quietStart: isTime(saved.quietStart) ? saved.quietStart : "22:00",
             quietEnd: isTime(saved.quietEnd) ? saved.quietEnd : "08:00",
             callsEnabled: saved.callsEnabled,
+            voiceCuesEnabled: saved.voiceCuesEnabled ?? true,
           });
           const prevMentions = get().mentions;
           set({ ...next, ownerId: userId, syncedOwner: userId });
@@ -438,6 +444,9 @@ export const callAlertsAllowed = (): boolean =>
   useNotificationSettingsStore.getState().callsEnabled;
 
 export const callSoundAllowed = (): boolean => callAlertsAllowed() && !isQuietNow();
+
+export const voiceCueAllowed = (): boolean =>
+  messageSoundAllowed() && useNotificationSettingsStore.getState().voiceCuesEnabled;
 
 if (typeof window !== "undefined") {
   window.addEventListener("online", () => {

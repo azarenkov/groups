@@ -1,9 +1,11 @@
 import { MESSAGE_CHIME, playChime, type ChimeNote } from "./chime";
 
-let ctx: AudioContext | null = null;
-let lastPlayedAt = 0;
+const NOTIFICATION_VOLUME = 0.12;
+const NOTIFICATION_INTERVAL_MS = 1500;
+const VOICE_CUE_INTERVAL_MS = 120;
 
-const MIN_INTERVAL_MS = 1500;
+let ctx: AudioContext | null = null;
+const lastPlayedAt: Record<string, number> = {};
 
 function getContext(): AudioContext | null {
   try {
@@ -22,11 +24,19 @@ function getContext(): AudioContext | null {
   }
 }
 
-export function playNotificationSound(chime: ChimeNote[] = MESSAGE_CHIME): void {
+function play(lane: string, chime: ChimeNote[], minIntervalMs: number): void {
   const now = Date.now();
-  if (now - lastPlayedAt < MIN_INTERVAL_MS) return;
+  if (now - (lastPlayedAt[lane] ?? 0) < minIntervalMs) return;
   const ac = getContext();
   if (!ac) return;
-  lastPlayedAt = now;
-  playChime(ac, chime, 0.12);
+  lastPlayedAt[lane] = now;
+  playChime(ac, chime, NOTIFICATION_VOLUME);
+}
+
+export function playNotificationSound(chime: ChimeNote[] = MESSAGE_CHIME): void {
+  play("notification", chime, NOTIFICATION_INTERVAL_MS);
+}
+
+export function playVoiceCue(chime: ChimeNote[]): void {
+  play("voice", chime, VOICE_CUE_INTERVAL_MS);
 }
