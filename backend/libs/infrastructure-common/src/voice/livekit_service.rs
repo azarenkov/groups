@@ -58,6 +58,17 @@ impl LiveKitService {
         self
     }
 
+    async fn call<T, F>(&self, request: F, failure: fn(String) -> VoiceServiceError) -> Result<T, VoiceServiceError>
+    where
+        F: std::future::Future<Output = Result<T, ServiceError>>,
+    {
+        match timeout(self.request_timeout, request).await {
+            Ok(Ok(value)) => Ok(value),
+            Ok(Err(e)) => Err(failure(e.to_string())),
+            Err(_) => Err(failure("LiveKit request timed out".into())),
+        }
+    }
+
     async fn request<T, F>(&self, request: F, failure: fn(String) -> VoiceServiceError) -> Result<Option<T>, VoiceServiceError>
     where
         F: std::future::Future<Output = Result<T, ServiceError>>,
@@ -266,10 +277,7 @@ impl VoiceService for LiveKitService {
     }
 
     async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError> {
-        let rooms = self
-            .request(self.client.list_rooms(Vec::new()), VoiceServiceError::ParticipantUpdate)
-            .await?
-            .unwrap_or_default();
+        let rooms = self.call(self.client.list_rooms(Vec::new()), VoiceServiceError::ParticipantUpdate).await?;
         Ok(rooms
             .into_iter()
             .filter(|room| room.num_participants > 0)

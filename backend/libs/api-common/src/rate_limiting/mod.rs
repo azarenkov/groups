@@ -125,17 +125,17 @@ impl RedisRateLimiter {
     }
 
     async fn connection(&self) -> Option<redis::aio::ConnectionManager> {
-        let reconnect = {
-            let link = self.link.lock().unwrap();
-            match &link.connection {
-                Some(connection) => return Some(connection.clone()),
-                None => Instant::now() >= link.next_attempt,
+        {
+            let mut link = self.link.lock().unwrap();
+            if let Some(connection) = &link.connection {
+                return Some(connection.clone());
             }
-        };
-        if !reconnect {
-            return None;
+            let now = Instant::now();
+            if now < link.next_attempt {
+                return None;
+            }
+            link.next_attempt = now + RECONNECT_EVERY;
         }
-        self.link.lock().unwrap().next_attempt = Instant::now() + RECONNECT_EVERY;
         match self.client.get_connection_manager().await {
             Ok(connection) => {
                 STATS.reconnects.fetch_add(1, Ordering::Relaxed);
