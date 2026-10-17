@@ -33,7 +33,7 @@ use contracts::events::{
         UserActivityChangedV1 as UserActivityChangedDto, UserLifecycleV1 as UserLifecycleDto,
         UserEntitlementsChangedV1 as UserEntitlementsChangedDto,
         UserTrialEndingV1 as UserTrialEndingDto,
-        UserProfileChangedV1 as UserProfileChangedDto,
+        UserPresencePreferenceChangedV1 as UserPresencePreferenceChangedDto, UserProfileChangedV1 as UserProfileChangedDto,
         UserRenamedV1 as UserRenamedDto,
     },
 };
@@ -180,6 +180,10 @@ impl<P: RealtimePublisher> RealtimePublisher for Sequenced<'_, P> {
             .publish_to_users(recipients, &envelope.sequenced(&self.partition, self.seq))
             .await
     }
+
+    async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool) -> Result<(), PublishError> {
+        self.inner.announce_presence_preference(user_id, appear_offline).await
+    }
 }
 
 struct Identified<'a, P: RealtimePublisher> {
@@ -192,6 +196,10 @@ impl<P: RealtimePublisher> RealtimePublisher for Identified<'_, P> {
     async fn publish_to_users(&self, recipients: Vec<Uuid>, envelope: &Envelope<'_>) -> Result<(), PublishError> {
         self.inner.publish_to_users(recipients, &envelope.identified(&self.event_id)).await
     }
+
+    async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool) -> Result<(), PublishError> {
+        self.inner.announce_presence_preference(user_id, appear_offline).await
+    }
 }
 
 struct Unpublished;
@@ -199,6 +207,10 @@ struct Unpublished;
 #[async_trait::async_trait]
 impl RealtimePublisher for Unpublished {
     async fn publish_to_users(&self, _: Vec<Uuid>, _: &Envelope<'_>) -> Result<(), PublishError> {
+        Ok(())
+    }
+
+    async fn announce_presence_preference(&self, _: Uuid, _: bool) -> Result<(), PublishError> {
         Ok(())
     }
 }
@@ -1202,6 +1214,32 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         return Ok(());
     }
 
+    if ends_with(subject, ".user.presence_preference_changed") {
+        let evt: UserPresencePreferenceChangedDto = serde_json::from_slice(payload)?;
+        if !resolver.set_appear_offline(evt.user_id, evt.appear_offline, evt.occurred_at).await? {
+            return Ok(());
+        }
+        publisher.announce_presence_preference(evt.user_id, evt.appear_offline).await?;
+        if !evt.appear_offline {
+            return Ok(());
+        }
+        let envelope = Envelope::new(
+            "user.activityChanged",
+            json!({
+                "userId": evt.user_id,
+                "gameId": serde_json::Value::Null,
+                "name": serde_json::Value::Null,
+                "startedAt": serde_json::Value::Null,
+                "occurredAt": evt.occurred_at,
+            }),
+        );
+        let mut recipients = resolver.interested_in(evt.user_id).await?;
+        let relations = blocks.block_relations(evt.user_id, &recipients).await?;
+        recipients.retain(|r| !relations.blocking.contains(r) && !relations.blocked_by.contains(r));
+        publisher.publish_to_users(unique(recipients), &envelope).await?;
+        return Ok(());
+    }
+
     if ends_with(subject, ".user.activity_changed") {
         let evt: UserActivityChangedDto = serde_json::from_slice(payload)?;
         let envelope = Envelope::new(
@@ -1379,6 +1417,7 @@ mod tests {
             async fn profile_recipients(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
             async fn interested_in(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(self.interested.clone()) }
             async fn pending_dm_peers(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
+            async fn appear_offline(&self, _: Uuid) -> Result<bool, RepositoryError> { Ok(false) }
         }
 
         #[async_trait]
@@ -1395,8 +1434,7 @@ mod tests {
             async fn add_community_member(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
             async fn remove_community_member(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
             async fn remove_community(&self, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
-            async fn set_appear_offline(&self, _: Uuid, _: bool) -> Result<(), RepositoryError> { Ok(()) }
-            async fn appear_offline(&self, _: Uuid) -> Result<bool, RepositoryError> { Ok(false) }
+            async fn set_appear_offline(&self, _: Uuid, _: bool, _: DateTime<Utc>) -> Result<bool, RepositoryError> { Ok(true) }
         }
 
         struct Relations {
@@ -1427,6 +1465,7 @@ mod tests {
         struct Captured {
             sent: Mutex<Vec<serde_json::Value>>,
             to: Mutex<Vec<Vec<Uuid>>>,
+            preferences: Mutex<Vec<(Uuid, bool)>>,
         }
 
         #[async_trait]
@@ -1434,6 +1473,10 @@ mod tests {
             async fn publish_to_users(&self, recipients: Vec<Uuid>, envelope: &Envelope<'_>) -> Result<(), PublishError> {
                 self.sent.lock().unwrap().push(serde_json::to_value(envelope).unwrap());
                 self.to.lock().unwrap().push(recipients);
+                Ok(())
+            }
+            async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool) -> Result<(), PublishError> {
+                self.preferences.lock().unwrap().push((user_id, appear_offline));
                 Ok(())
             }
         }

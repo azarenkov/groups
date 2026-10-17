@@ -162,35 +162,6 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
             .unwrap_or(false)
     }
 
-    pub async fn set_appear_offline(&self, user_id: Uuid, appear_offline: bool) {
-        let was_offline = self.appear_offline.contains_key(&user_id);
-        if appear_offline {
-            self.appear_offline.insert(user_id, ());
-        } else {
-            self.appear_offline.remove(&user_id);
-        }
-        let state_changed = was_offline != appear_offline;
-        if !state_changed {
-            return;
-        }
-        if !self.has_active_conns(user_id) {
-            return;
-        }
-        let online_now = !appear_offline;
-        let payload = serde_json::to_string(&PresencePayload {
-            user_id,
-            online: online_now,
-        })
-        .unwrap_or_default();
-        if let Err(e) = self
-            .core
-            .publish(self.presence_subject.clone(), payload.into())
-            .await
-        {
-            tracing::warn!(error = %e, %user_id, "Failed to publish presence preference change");
-        }
-    }
-
     pub async fn start_presence_subscription(&self) -> Result<(), async_nats::SubscribeError> {
         let mut sub = self.core.subscribe(self.presence_subject.clone()).await?;
         let by_user = self.by_user.clone();
@@ -329,6 +300,20 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
             }
         };
 
+        if was_first_for_user {
+            match self.presence_resolver.appear_offline(user_id).await {
+                Ok(true) => {
+                    self.appear_offline.insert(user_id, ());
+                }
+                Ok(false) => {
+                    self.appear_offline.remove(&user_id);
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, %user_id, "Failed to load the presence preference; keeping the cached value");
+                }
+            }
+        }
+
         match self.presence_resolver.interested_in(user_id).await {
             Ok(interested) => {
                 send_online_snapshot(&self.online_snapshot, &interested, &snapshot_conn).await;
@@ -376,7 +361,7 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                 false
             }
         };
-        if removed_last && !self.appear_offline.contains_key(&user_id) {
+        if removed_last && self.appear_offline.remove(&user_id).is_none() {
             let payload = serde_json::to_string(&PresencePayload {
                 user_id,
                 online: false,

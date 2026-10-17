@@ -13,6 +13,7 @@ interface User {
   showActivity?: boolean;
   showGameActivity?: boolean;
   timezone?: string;
+  appearOffline?: boolean;
 }
 
 export interface TokenPair {
@@ -98,6 +99,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         showActivity: stale && current?.id === me.id ? current.showActivity : me.showActivity,
         showGameActivity: stale && current?.id === me.id ? current.showGameActivity : me.showGameActivity,
         timezone: me.timezone,
+        appearOffline: me.appearOffline,
       },
     });
     const localZone = (() => {

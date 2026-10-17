@@ -3,8 +3,8 @@ use identity::usecases::entitlements::{
     set_badge_style::SetBadgeStyle, set_emoji_status::SetEmojiStatus,
 };
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
+use identity::usecases::user::presence::SetPresencePreference;
 use identity_infrastructure::database::postgres::repositories::entitlements::PostgresEntitlementsRepository;
-use std::sync::Arc;
 use identity::usecases::auth::captcha::CaptchaGate;
 use identity::usecases::entitlements::start_trial::StartTrial;
 use identity_infrastructure::auth::{altcha::AltchaVerifier, redis_captcha_store::RedisCaptchaStore};
@@ -81,7 +81,6 @@ pub struct AppState {
     pub get_link_preview_usecase: GetLinkPreview<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresIdentityUnitOfWork>,
-    pub activity_store: Arc<RedisActivityStore>,
     pub update_profile_usecase: UpdateProfile<PostgresIdentityUnitOfWork, RedisActivityStore, NsfwDetector>,
     pub rename_user_usecase: RenameUser<PostgresUserRepository, PostgresIdentityUnitOfWork, NsfwDetector>,
     pub change_password_usecase: ChangePassword<
@@ -120,7 +119,8 @@ pub struct AppState {
     pub update_appearance_usecase: UpdateAppearance<PostgresIdentityUnitOfWork>,
     pub set_activity_usecase: SetActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
     pub clear_activity_usecase: ClearActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
-    pub get_activities_usecase: GetActivities<RedisActivityStore, MessagingAudienceClient>,
+    pub get_activities_usecase: GetActivities<RedisActivityStore, MessagingAudienceClient, PostgresUserRepository>,
+    pub set_presence_preference_usecase: SetPresencePreference<PostgresIdentityUnitOfWork>,
     pub get_voice_settings_usecase: GetVoiceSettings<PostgresUserRepository, PostgresEntitlementsRepository>,
     pub update_voice_settings_usecase: UpdateVoiceSettings<PostgresIdentityUnitOfWork>,
     pub get_notification_settings_usecase: GetNotificationSettings<PostgresUserRepository>,

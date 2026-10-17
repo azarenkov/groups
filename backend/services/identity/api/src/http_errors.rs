@@ -1098,3 +1098,28 @@ impl HttpMapping for ActivityError {
         }
     }
 }
+
+use identity::usecases::user::presence::PresencePreferenceError;
+
+impl HttpMapping for PresencePreferenceError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            PresencePreferenceError::Repository(e) => e.to_http_status(),
+            PresencePreferenceError::UserNotFound => StatusCode::NOT_FOUND,
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            PresencePreferenceError::Repository(e) => e.to_user_message(),
+            PresencePreferenceError::UserNotFound => "User not found".to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            PresencePreferenceError::Repository(e) => e.to_error_code(),
+            PresencePreferenceError::UserNotFound => "USER_NOT_FOUND",
+        }
+    }
+}

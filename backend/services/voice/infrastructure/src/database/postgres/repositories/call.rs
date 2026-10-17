@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use voice_domain::{call::repository::AddParticipantsOutcome, call::repository::CallPairOutcome, call::repository::EndedCall, call::repository::CallInvitation, call::repository::CallRepository, call::repository::JoinOutcome, call::repository::PendingEviction, call::repository::WebhookJoinOutcome, call::CallParticipantStatus, call::CallRoster, call::reconnect_cutoff};
+use voice_domain::{call::repository::AddParticipantsOutcome, call::repository::CallPairOutcome, call::repository::EndedCall, call::repository::CallInvitation, call::repository::CallRepository, call::repository::JoinOutcome, call::repository::ConnectedSession, call::repository::PendingEviction, call::repository::WebhookJoinOutcome, call::CallParticipantStatus, call::CallRoster, call::invite_cutoff, call::reconnect_cutoff};
 use domain::user::id::UserId;
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use sqlx::{Pool, Postgres};
@@ -1349,6 +1349,81 @@ impl CallRepository for PostgresCallRepository {
                 expired += 1;
             }
             end_call_when(&mut tx, row.call_id, row.user_id, request_id.clone(), now, CallRoster::is_abandoned).await?;
+            tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
+        }
+        Ok(expired)
+    }
+
+    async fn list_connected_sessions(&self, before: DateTime<Utc>) -> Result<Vec<ConnectedSession>, RepositoryError> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT call_id, user_id, session_id AS "session_id!"
+            FROM call_participants
+            WHERE status = 'joined' AND session_id IS NOT NULL AND updated_at <= $1
+            ORDER BY call_id
+            "#,
+            before,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| ConnectedSession { call_id: r.call_id, user_id: UserId::new(r.user_id), session_id: r.session_id })
+            .collect())
+    }
+
+    async fn expire_invitations(
+        &self,
+        now: DateTime<Utc>,
+        limit: i64,
+        request_id: Option<String>,
+    ) -> Result<usize, RepositoryError> {
+        let stale = sqlx::query!(
+            r#"
+            SELECT call_id, user_id
+            FROM call_participants
+            WHERE status = 'invited' AND updated_at <= $1
+            ORDER BY updated_at
+            LIMIT $2
+            "#,
+            invite_cutoff(now),
+            limit,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        let mut expired = 0;
+        for row in stale {
+            let mut tx = self
+                .pool
+                .begin()
+                .await
+                .map_err(map_sqlx_error_to_domain_error)?;
+            lock_call(&mut tx, row.call_id).await?;
+            let still_ringing = sqlx::query_scalar!(
+                r#"
+                SELECT EXISTS(
+                    SELECT 1 FROM call_participants
+                    WHERE call_id = $1 AND user_id = $2
+                      AND status = 'invited' AND updated_at <= $3
+                ) AS "ringing!"
+                "#,
+                row.call_id,
+                row.user_id,
+                invite_cutoff(now),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+            if !still_ringing {
+                continue;
+            }
+            if mark_left(&mut tx, row.call_id, row.user_id, now, request_id.clone()).await? {
+                expired += 1;
+            }
+            end_call_when(&mut tx, row.call_id, row.user_id, request_id.clone(), now, CallRoster::is_over_after_decline).await?;
             tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
         }
         Ok(expired)

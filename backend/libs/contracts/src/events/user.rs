@@ -75,6 +75,13 @@ fn default_true() -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserPresencePreferenceChangedV1 {
+    pub user_id: Uuid,
+    pub appear_offline: bool,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserActivityChangedV1 {
     pub user_id: Uuid,
     #[serde(default)]

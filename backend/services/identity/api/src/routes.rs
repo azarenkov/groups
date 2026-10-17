@@ -9,7 +9,6 @@ use crate::appearance::{get_me_appearance, update_me_appearance};
 use crate::connections::{
     connection_callback, list_connections, remove_connection, start_connection, user_connections,
 };
-use crate::internal::internal_routes;
 use crate::link_preview::user_link_preview;
 use crate::hotkey_settings::{get_me_hotkey_settings, update_me_hotkey_settings};
 use crate::notification_settings::{
@@ -18,7 +17,7 @@ use crate::notification_settings::{
 use crate::voice_settings::{get_me_voice_settings, update_me_voice_settings};
 use crate::user::{
     change_me_email, confirm_me_email, delete_me, disable_me, get_me, search_users,
-    update_me_locale, update_me_name, update_me_password, update_me_profile,
+    update_me_locale, update_me_name, update_me_password, update_me_presence, update_me_profile,
 };
 use crate::entitlements::{entitlement_routes, internal_entitlement_routes};
 use api_common::health::{livez, readyz};
@@ -26,7 +25,6 @@ use api_common::health::{livez, readyz};
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(web::resource("/livez").to(livez))
         .service(web::resource("/readyz").to(readyz))
-        .configure(internal_routes)
         .configure(internal_entitlement_routes)
         .service(
             web::scope("/api")
@@ -54,6 +52,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                         .service(disable_me)
                         .service(delete_me)
                         .service(update_me_profile)
+                        .service(update_me_presence)
                         .configure(entitlement_routes)
                         .service(get_me_appearance)
                         .service(update_me_appearance)

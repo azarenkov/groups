@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::{user::events::lifecycle::UserActivityChanged, user::events::lifecycle::UserEntitlementsChanged, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserLoggedIn, user::events::lifecycle::UserLoggedOut, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::events::lifecycle::UserTrialEnding, user::id::UserId};
+use crate::{user::events::lifecycle::UserActivityChanged, user::events::lifecycle::UserEntitlementsChanged, user::events::lifecycle::UserDeleted, user::events::lifecycle::UserDisabled, user::events::lifecycle::UserEmailChanged, user::events::lifecycle::UserEmailVerified, user::events::lifecycle::UserPasswordChanged, user::events::lifecycle::UserProfileChanged, user::events::lifecycle::UserReactivated, user::events::lifecycle::UserLoggedIn, user::events::lifecycle::UserLoggedOut, user::events::lifecycle::UserPhoneVerified, user::events::lifecycle::UserPresencePreferenceChanged, user::events::lifecycle::UserRegistered, user::events::lifecycle::UserRenamed, user::events::lifecycle::UserTrialEnding, user::id::UserId};
 
 pub mod lifecycle;
 
@@ -19,6 +19,7 @@ pub enum UserEvent {
     Deleted(UserDeleted),
     ProfileChanged(UserProfileChanged),
     ActivityChanged(UserActivityChanged),
+    PresencePreferenceChanged(UserPresencePreferenceChanged),
     EntitlementsChanged(UserEntitlementsChanged),
     TrialEnding(UserTrialEnding),
 }
@@ -39,6 +40,7 @@ impl UserEvent {
             Self::Deleted(e) => &e.user_id,
             Self::ProfileChanged(e) => &e.user_id,
             Self::ActivityChanged(e) => &e.user_id,
+            Self::PresencePreferenceChanged(e) => &e.user_id,
             Self::EntitlementsChanged(e) => &e.user_id,
             Self::TrialEnding(e) => &e.user_id,
         }
@@ -59,6 +61,7 @@ impl UserEvent {
             Self::Deleted(e) => e.occurred_at,
             Self::ProfileChanged(e) => e.occurred_at,
             Self::ActivityChanged(e) => e.occurred_at,
+            Self::PresencePreferenceChanged(e) => e.occurred_at,
             Self::EntitlementsChanged(e) => e.occurred_at,
             Self::TrialEnding(e) => e.occurred_at,
         }
@@ -79,6 +82,7 @@ impl UserEvent {
             Self::Deleted(_) => "deleted",
             Self::ProfileChanged(_) => "profile_changed",
             Self::ActivityChanged(_) => "activity_changed",
+            Self::PresencePreferenceChanged(_) => "presence_preference_changed",
             Self::EntitlementsChanged(_) => "entitlements_changed",
             Self::TrialEnding(_) => "trial_ending",
         }

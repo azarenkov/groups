@@ -4,34 +4,52 @@ import { usePresenceStore } from "../../social/store/presenceStore";
 import { setActivityHiddenByPresence } from "../../social/lib/gameActivity";
 
 const RETRY_MS = 5000;
+const CACHE_KEY = "rift:appearOffline";
+
+function readCached(): boolean {
+  try {
+    return localStorage.getItem(CACHE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeCached(value: boolean) {
+  try {
+    localStorage.setItem(CACHE_KEY, value ? "1" : "0");
+  } catch {}
+}
 
 export function useAppearOffline(params: {
   hasSession: boolean;
   currentUserId?: string;
+  serverAppearOffline?: boolean;
 }) {
-  const { hasSession, currentUserId } = params;
+  const { hasSession, currentUserId, serverAppearOffline } = params;
   const [attempt, setAttempt] = useState(0);
+  const [pending, setPending] = useState<boolean | null>(null);
   const retry = useRef<number | null>(null);
-  const [appearOffline, setAppearOffline] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("rift:appearOffline") === "1";
-    } catch {
-      return false;
-    }
-  });
+  const [appearOffline, setAppearOffline] = useState<boolean>(readCached);
 
   useEffect(() => {
-    if (!hasSession) return;
+    if (serverAppearOffline === undefined || pending !== null) return;
+    setAppearOffline(serverAppearOffline);
+    writeCached(serverAppearOffline);
+  }, [serverAppearOffline, pending]);
+
+  useEffect(() => {
+    if (!hasSession || pending === null) return;
     let cancelled = false;
     if (retry.current !== null) {
       window.clearTimeout(retry.current);
       retry.current = null;
     }
-    if (appearOffline) setActivityHiddenByPresence(true);
+    const target = pending;
     userAPI
-      .setAppearOffline(appearOffline)
+      .setAppearOffline(target)
       .then(() => {
-        if (!cancelled && !appearOffline) setActivityHiddenByPresence(false);
+        if (cancelled) return;
+        setPending((current) => (current === target ? null : current));
       })
       .catch((err) => {
         console.warn("[presence] setAppearOffline failed:", err);
@@ -41,20 +59,22 @@ export function useAppearOffline(params: {
     return () => {
       cancelled = true;
     };
-  }, [appearOffline, hasSession, attempt]);
+  }, [pending, hasSession, attempt]);
+
+  useEffect(() => {
+    setActivityHiddenByPresence(appearOffline);
+  }, [appearOffline]);
 
   useEffect(() => {
     if (!currentUserId) return;
     usePresenceStore.getState().setSelf(currentUserId, !appearOffline);
   }, [currentUserId, appearOffline]);
 
-
   const setStatus = useCallback((status: "online" | "offline") => {
     const next = status === "offline";
     setAppearOffline(next);
-    try {
-      localStorage.setItem("rift:appearOffline", next ? "1" : "0");
-    } catch {}
+    writeCached(next);
+    setPending(next);
   }, []);
 
   return { userStatus: appearOffline ? "offline" : "online", setStatus };

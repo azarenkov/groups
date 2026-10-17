@@ -3,9 +3,14 @@ pub mod repository;
 use chrono::{DateTime, Duration, Utc};
 
 pub const RECONNECT_GRACE_SECS: i64 = 60;
+pub const INVITE_RING_SECS: i64 = 90;
 
 pub fn reconnect_cutoff(now: DateTime<Utc>) -> DateTime<Utc> {
     now - Duration::seconds(RECONNECT_GRACE_SECS)
+}
+
+pub fn invite_cutoff(now: DateTime<Utc>) -> DateTime<Utc> {
+    now - Duration::seconds(INVITE_RING_SECS)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

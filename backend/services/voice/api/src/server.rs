@@ -73,9 +73,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let livekit_webhook_receiver = Arc::new(LiveKitWebhookReceiver::new(&livekit_config));
     let livekit_service = Arc::new(LiveKitService::new(livekit_config));
     crate::evictions::spawn(call_repository.clone(), livekit_service.clone());
-    crate::reconnect_sweep::spawn(Arc::new(
-        voice::usecases::call::expire_reconnects::ExpireCallReconnects::new(call_repository.clone()),
-    ));
+    crate::call_sweep::spawn(call_repository.clone(), livekit_service.clone());
     let media_state_repository = Arc::new(PostgresMediaStateRepository::new(postgres_pool.clone()));
     crate::stream_sweep::spawn(Arc::new(voice::usecases::stream::sweep_screen_shares::SweepScreenShares::new(
         plan_directory.clone(),

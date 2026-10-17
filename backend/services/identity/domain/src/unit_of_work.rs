@@ -3,7 +3,7 @@ use ports::repository::RepositoryError;
 
 use chrono::{DateTime, Utc};
 
-use crate::{events::IdentityEvent, user::tier::Entitlements, user::tier::TrialHistory, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, user::User, verification::code::VerificationCode, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
+use crate::{events::IdentityEvent, user::presence::PresencePreference, user::tier::Entitlements, user::tier::TrialHistory, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, user::User, verification::code::VerificationCode, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 use crate::verification::throttle::IssuedCodes;
 use crate::user::settings::{
     appearance::AppearanceSettings, hotkeys::HotkeyBindings,
@@ -51,5 +51,7 @@ pub trait IdentityTransaction: Send {
     async fn save_notification_settings(&mut self, user_id: &UserId, settings: &NotificationSettings) -> Result<(), RepositoryError>;
     async fn load_hotkey_settings_for_update(&mut self, user_id: &UserId) -> Result<Option<HotkeyBindings>, RepositoryError>;
     async fn save_hotkey_settings(&mut self, user_id: &UserId, settings: &HotkeyBindings) -> Result<(), RepositoryError>;
+    async fn load_presence_preference_for_update(&mut self, user_id: &UserId) -> Result<Option<PresencePreference>, RepositoryError>;
+    async fn save_presence_preference(&mut self, preference: &PresencePreference) -> Result<(), RepositoryError>;
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError>;
 }

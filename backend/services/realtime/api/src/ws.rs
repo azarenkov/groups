@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use actix_web::{HttpRequest, HttpResponse, get, http::header, post, web};
+use actix_web::{HttpRequest, HttpResponse, get, http::header, web};
 use actix_ws::AggregatedMessage;
 use futures::StreamExt;
 use jsonwebtoken::{DecodingKey, Validation, decode};
@@ -42,12 +42,6 @@ fn extract_bearer_token(req: &HttpRequest) -> Option<(String, String)> {
         }
     }
     None
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PresencePreferenceBody {
-    pub appear_offline: bool,
 }
 
 fn extract_bearer_token_from_auth_header(req: &HttpRequest) -> Option<String> {
@@ -122,22 +116,6 @@ pub async fn presence_snapshot(
             Ok(HttpResponse::ServiceUnavailable().body("presence lookup unavailable"))
         }
     }
-}
-
-#[post("/presence")]
-pub async fn presence_preference(
-    req: HttpRequest,
-    state: web::Data<WsState>,
-    body: web::Json<PresencePreferenceBody>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let Some(user_id) = authenticate_request(&req, &state).await else {
-        return Ok(HttpResponse::Unauthorized().body("invalid token"));
-    };
-    state
-        .manager
-        .set_appear_offline(user_id, body.appear_offline)
-        .await;
-    Ok(HttpResponse::NoContent().finish())
 }
 
 #[get("/ws")]

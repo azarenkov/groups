@@ -99,7 +99,6 @@ use messaging_infrastructure::{
     },
     media_client::claims::MediaClaimsClient,
     media_client::voice_calls::VoiceCallsClient,
-    media_client::identity_users::IdentityUsersClient,
 };
 use api_common::{
     health::Readiness,
@@ -163,8 +162,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
     );
     let report_repository = Arc::new(PostgresReportRepository::new(postgres_pool.clone()));
-    let identity_internal_url = api_common::internal_client::InternalService::Identity.base_url();
-    let identity_users = Arc::new(IdentityUsersClient::new(&identity_internal_url));
     let voice_internal_url = api_common::internal_client::InternalService::Voice.base_url();
     let call_participation = Arc::new(VoiceCallsClient::new(&voice_internal_url));
 
@@ -275,12 +272,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         nats_config.subject_prefix.clone(),
         user_stream,
         badge_repository.clone(),
-    );
-
-    let nats_core = nats_jetstream.client().clone();
-    let presence_preference_subject = format!(
-        "{}.realtime.presence.preference",
-        nats_config.subject_prefix.trim_end_matches('.'),
     );
 
     let public_app_url = std::env::var("PUBLIC_APP_URL")
@@ -496,9 +487,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         friendship_repository: friendship_repository.clone(),
         privacy_repository: privacy_repository.clone(),
         badge_repository: badge_repository.clone(),
-        nats_core,
-        presence_preference_subject,
-        identity_users: identity_users.clone(),
         send_dm_message_usecase: SendDmMessage::new(
             dm_repository.clone(),
             dm_unit_of_work.clone(),

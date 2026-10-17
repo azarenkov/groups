@@ -17,7 +17,7 @@ use realtime_infrastructure::{connections::ConnectionManager, database::postgres
 
 use crate::{
     config::WebsocketConfig,
-    ws::{WsState, presence_preference, presence_snapshot, ws_handler},
+    ws::{WsState, presence_snapshot, ws_handler},
 };
 
 pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
@@ -96,7 +96,6 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
         App::new()
             .wrap(cors)
             .app_data(ws_state.clone())
-            .service(presence_preference)
             .service(presence_snapshot)
             .service(ws_handler)
     })

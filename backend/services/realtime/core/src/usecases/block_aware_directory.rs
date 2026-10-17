@@ -58,6 +58,10 @@ impl<D: RecipientDirectory, B: RelationDirectory> RecipientDirectory for BlockAw
         self.inner.pending_dm_peers(user_id).await
     }
 
+    async fn appear_offline(&self, user_id: Uuid) -> Result<bool, RepositoryError> {
+        self.inner.appear_offline(user_id).await
+    }
+
     async fn interested_in(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
         let mut recipients = self.inner.interested_in(user_id).await?;
         let relations = self

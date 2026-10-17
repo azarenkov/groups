@@ -3,6 +3,7 @@ use identity::usecases::entitlements::{
     set_badge_style::SetBadgeStyle, set_emoji_status::SetEmojiStatus,
 };
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
+use identity::usecases::user::presence::SetPresencePreference;
 use identity_infrastructure::database::postgres::repositories::entitlements::PostgresEntitlementsRepository;
 use api_common::shutdown::{self, ShutdownConfig};
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
@@ -278,8 +279,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         update_appearance_usecase: UpdateAppearance::new(unit_of_work.clone()),
         set_activity_usecase: SetActivity::new(activity_store.clone(), unit_of_work.clone()),
         clear_activity_usecase: ClearActivity::new(activity_store.clone(), unit_of_work.clone()),
-        activity_store: activity_store.clone(),
-        get_activities_usecase: GetActivities::new(activity_store.clone(), activity_audience.clone()),
+        get_activities_usecase: GetActivities::new(activity_store.clone(), activity_audience.clone(), user_repository.clone()),
+        set_presence_preference_usecase: SetPresencePreference::new(unit_of_work.clone()),
         get_voice_settings_usecase: GetVoiceSettings::new(user_repository.clone(), entitlements_repository.clone()),
         update_voice_settings_usecase: UpdateVoiceSettings::new(unit_of_work.clone()),
         get_notification_settings_usecase: GetNotificationSettings::new(user_repository.clone()),

@@ -255,20 +255,23 @@ impl PostgresRealtimeProjection {
         &self,
         user_id: Uuid,
         appear_offline: bool,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
+        occurred_at: DateTime<Utc>,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
             r#"
             INSERT INTO realtime_presence_preferences (user_id, appear_offline, updated_at)
-            VALUES ($1, $2, now())
+            VALUES ($1, $2, $3)
             ON CONFLICT (user_id) DO UPDATE
             SET appear_offline = EXCLUDED.appear_offline, updated_at = EXCLUDED.updated_at
+            WHERE realtime_presence_preferences.updated_at <= EXCLUDED.updated_at
             "#,
         )
         .bind(user_id)
         .bind(appear_offline)
+        .bind(occurred_at)
         .execute(&self.pool)
         .await?;
-        Ok(())
+        Ok(result.rows_affected() > 0)
     }
 
     async fn appear_offline(&self, user_id: Uuid) -> Result<bool, sqlx::Error> {
@@ -369,11 +372,8 @@ impl RealtimeProjection for PostgresRealtimeProjection {
     async fn remove_community(&self, community_id: Uuid, occurred_at: DateTime<Utc>) -> Result<(), RepositoryError> {
         PostgresRealtimeProjection::remove_community(self, community_id, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
     }
-    async fn set_appear_offline(&self, user_id: Uuid, appear_offline: bool) -> Result<(), RepositoryError> {
-        PostgresRealtimeProjection::set_appear_offline(self, user_id, appear_offline).await.map_err(map_sqlx_error_to_domain_error)
-    }
-    async fn appear_offline(&self, user_id: Uuid) -> Result<bool, RepositoryError> {
-        PostgresRealtimeProjection::appear_offline(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
+    async fn set_appear_offline(&self, user_id: Uuid, appear_offline: bool, occurred_at: DateTime<Utc>) -> Result<bool, RepositoryError> {
+        PostgresRealtimeProjection::set_appear_offline(self, user_id, appear_offline, occurred_at).await.map_err(map_sqlx_error_to_domain_error)
     }
 }
 
@@ -399,5 +399,8 @@ impl RecipientDirectory for PostgresRealtimeProjection {
     }
     async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
         PostgresRealtimeProjection::pending_dm_peers(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
+    }
+    async fn appear_offline(&self, user_id: Uuid) -> Result<bool, RepositoryError> {
+        PostgresRealtimeProjection::appear_offline(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
     }
 }
