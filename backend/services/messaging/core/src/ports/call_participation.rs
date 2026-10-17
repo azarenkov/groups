@@ -43,4 +43,6 @@ pub trait CallParticipationLookup: Send + Sync {
     ) -> Result<CallOutcome, CallParticipationError>;
 
     async fn ended_call(&self, call_id: Uuid) -> Result<Option<EndedCall>, CallParticipationError>;
+
+    async fn call_rooms_among(&self, ids: &[Uuid]) -> Result<Vec<Uuid>, CallParticipationError>;
 }

@@ -50,6 +50,26 @@ impl ChannelRepository for PostgresChannelRepository {
         Ok(rows.into_iter().map(|r| ChannelId::new(r.id)).collect())
     }
 
+    async fn voice_channel_ids_among(&self, ids: &[ChannelId]) -> Result<Vec<ChannelId>, RepositoryError> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let ids: Vec<uuid::Uuid> = ids.iter().map(|id| id.uuid()).collect();
+        let rows = sqlx::query!(
+            r#"
+            SELECT id
+            FROM channels
+            WHERE id = ANY($1) AND kind = 'voice'::kind
+            "#,
+            &ids,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+
+        Ok(rows.into_iter().map(|r| ChannelId::new(r.id)).collect())
+    }
+
     async fn find_visible_voice_room(
         &self,
         target: &UserId,

@@ -1,6 +1,6 @@
 use api_common::internal_client::{InternalClient, expect_json};
 use async_trait::async_trait;
-use contracts::internal::calls::{CallOutcomeResponseV1, EndedCallResponseV1};
+use contracts::internal::calls::{CallOutcomeResponseV1, CallRoomsRequestV1, CallRoomsResponseV1, EndedCallResponseV1};
 use domain::user::id::UserId;
 use messaging::ports::call_participation::{
     CallInvitation, CallOutcome, CallParticipationError, CallParticipationLookup, EndedCall,
@@ -51,5 +51,16 @@ impl CallParticipationLookup for VoiceCallsClient {
                 .map(|i| CallInvitation { inviter: UserId::new(i.inviter_id), invitee: UserId::new(i.invitee_id) })
                 .collect(),
         }))
+    }
+
+    async fn call_rooms_among(&self, ids: &[Uuid]) -> Result<Vec<Uuid>, CallParticipationError> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let request = self.voice.post("/internal/calls/rooms").json(&CallRoomsRequestV1 { ids: ids.to_vec() });
+        let body: CallRoomsResponseV1 = expect_json(request, "call rooms")
+            .await
+            .map_err(|e| CallParticipationError::Unavailable(e.to_string()))?;
+        Ok(body.call_ids)
     }
 }

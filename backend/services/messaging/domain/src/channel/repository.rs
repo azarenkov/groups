@@ -15,6 +15,7 @@ pub trait ChannelRepository {
         &self,
         community_id: &crate::community::id::CommunityId,
     ) -> Result<Vec<ChannelId>, RepositoryError>;
+    async fn voice_channel_ids_among(&self, ids: &[ChannelId]) -> Result<Vec<ChannelId>, RepositoryError>;
     async fn find_visible_voice_room(
         &self,
         target: &UserId,
