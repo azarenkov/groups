@@ -13,21 +13,21 @@ use contracts::events::{
 };
 use ports::repository::RepositoryError;
 
-use crate::ports::{blocks::RelationDirectory, projection::RealtimeProjection};
+use crate::ports::{dm_history::DmHistory, projection::RealtimeProjection};
 
-pub struct ApplyProjection<R: RealtimeProjection, B: RelationDirectory> {
+pub struct ApplyProjection<R: RealtimeProjection, B: DmHistory> {
     projection: std::sync::Arc<R>,
-    relations: std::sync::Arc<B>,
+    history: std::sync::Arc<B>,
 }
 
-impl<R: RealtimeProjection, B: RelationDirectory> ApplyProjection<R, B> {
-    pub fn new(projection: std::sync::Arc<R>, relations: std::sync::Arc<B>) -> Self {
-        Self { projection, relations }
+impl<R: RealtimeProjection, B: DmHistory> ApplyProjection<R, B> {
+    pub fn new(projection: std::sync::Arc<R>, history: std::sync::Arc<B>) -> Self {
+        Self { projection, history }
     }
 
     async fn forget_pair_without_history(&self, a: uuid::Uuid, b: uuid::Uuid) -> Result<(), RepositoryError> {
         let remaining = self
-            .relations
+            .history
             .dm_peers(a, &[b])
             .await
             .map_err(|e| RepositoryError::ConnectionError(e.to_string()))?;
@@ -150,7 +150,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::ports::blocks::{BlockSets, RelationLookupError};
+    use crate::ports::dm_history::DmHistoryLookupError;
 
     #[derive(Default)]
     struct FakeProjection {
@@ -181,11 +181,8 @@ mod tests {
     }
 
     #[async_trait]
-    impl RelationDirectory for FakeRelations {
-        async fn block_relations(&self, _: Uuid, _: &[Uuid]) -> Result<BlockSets, RelationLookupError> {
-            Ok(BlockSets::default())
-        }
-        async fn dm_peers(&self, _: Uuid, candidates: &[Uuid]) -> Result<Vec<Uuid>, RelationLookupError> {
+    impl DmHistory for FakeRelations {
+        async fn dm_peers(&self, _: Uuid, candidates: &[Uuid]) -> Result<Vec<Uuid>, DmHistoryLookupError> {
             Ok(candidates.iter().copied().filter(|c| self.peers.contains(c)).collect())
         }
     }

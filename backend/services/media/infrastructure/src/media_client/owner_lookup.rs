@@ -2,7 +2,8 @@ use api_common::internal_client::{InternalCallError, InternalClient, expect_json
 use async_trait::async_trait;
 use contracts::internal::communities::{CanManageResponseV1, OwnerResponseV1};
 use domain::{community::id::CommunityId, user::id::UserId};
-use media::ports::community_owner_lookup::{CommunityOwnerLookup, CommunityOwnerLookupError};
+use chrono::{DateTime, Utc};
+use media::ports::community_owner_lookup::{CommunityOwner, CommunityOwnerLookup, CommunityOwnerLookupError};
 
 pub struct MessagingOwnerClient {
     messaging: InternalClient,
@@ -20,13 +21,13 @@ fn unavailable(error: InternalCallError) -> CommunityOwnerLookupError {
 
 #[async_trait]
 impl CommunityOwnerLookup for MessagingOwnerClient {
-    async fn find_owner(&self, community_id: &CommunityId) -> Result<Option<UserId>, CommunityOwnerLookupError> {
+    async fn find_owner(&self, community_id: &CommunityId) -> Result<Option<CommunityOwner>, CommunityOwnerLookupError> {
         let request = self.messaging.get(&format!("/internal/communities/{}/owner", community_id.uuid()));
         let response = send(request).await.map_err(unavailable)?;
         match response.status().as_u16() {
             200 => {
                 let dto: OwnerResponseV1 = read_json(response).await.map_err(unavailable)?;
-                Ok(Some(UserId::new(dto.owner_id)))
+                Ok(Some(CommunityOwner { user_id: UserId::new(dto.owner_id), as_of: dto.as_of.unwrap_or(DateTime::<Utc>::UNIX_EPOCH) }))
             }
             404 => Ok(None),
             status => Err(unavailable(InternalCallError::Status { endpoint: "owner", status })),

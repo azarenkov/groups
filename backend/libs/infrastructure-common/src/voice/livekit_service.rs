@@ -41,6 +41,7 @@ pub struct RoomMember {
     pub session_id: String,
     pub camera_on: bool,
     pub screen_on: bool,
+    pub joined_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 fn is_not_found(error: &ServiceError) -> bool {
@@ -97,6 +98,7 @@ impl LiveKitService {
             .map(|p| RoomMember {
                 camera_on: p.tracks.iter().any(|t| track_media(t) == Some(TrackMedia::Camera)),
                 screen_on: p.tracks.iter().any(|t| track_media(t) == Some(TrackMedia::Screen)),
+                joined_at: (p.joined_at > 0).then(|| chrono::DateTime::from_timestamp(p.joined_at, 0)).flatten(),
                 identity: p.identity,
                 session_id: p.sid,
             })

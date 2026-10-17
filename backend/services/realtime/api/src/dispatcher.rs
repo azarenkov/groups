@@ -20,7 +20,7 @@ use std::{sync::Arc, time::Duration};
 use realtime_core::usecases::{apply_projection::ApplyProjection, dispatch_event::DispatchEvent};
 use realtime_infrastructure::{
     database::postgres::projection::PostgresRealtimeProjection,
-    media_client::relations::MessagingRelationsClient,
+    media_client::dm_history::MessagingDmHistoryClient,
     messaging::nats::{
         partitions::{DispatcherSettings, run_partitioned},
         projection_catchup::{CatchupSpec, run_catchup},
@@ -46,12 +46,12 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
     let publisher = Arc::new(NatsRealtimePublisher::new(core, user_subject_prefix));
     let projection = Arc::new(PostgresRealtimeProjection::new(pool.clone()));
     let messaging_internal_url = api_common::internal_client::InternalService::Messaging.base_url();
-    let blocks = Arc::new(MessagingRelationsClient::new(&messaging_internal_url));
+    let history = Arc::new(MessagingDmHistoryClient::new(&messaging_internal_url));
     let presence_projection = projection.clone();
     let presence_directory = projection.clone();
     let presence_publisher = publisher.clone();
-    let dispatch = Arc::new(DispatchEvent::new(projection.clone(), publisher, blocks.clone()));
-    let apply = Arc::new(ApplyProjection::new(projection, blocks));
+    let dispatch = Arc::new(DispatchEvent::new(projection.clone(), publisher, history.clone()));
+    let apply = Arc::new(ApplyProjection::new(projection, history));
     let settings = DispatcherSettings {
         user_stream: cfg.dispatcher_user_stream.clone(),
         channel_stream: cfg.dispatcher_channel_stream.clone(),

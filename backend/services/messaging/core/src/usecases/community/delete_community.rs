@@ -64,9 +64,10 @@ where
 
         let actual_owner = self
             .community_repository
-            .find_community_owner(&community_id)
+            .find_community_ownership(&community_id)
             .await?
-            .ok_or(DeleteCommunityError::CommunityNotFound)?;
+            .ok_or(DeleteCommunityError::CommunityNotFound)?
+            .owner_id;
 
         if actual_owner.uuid() != owner_id.uuid() {
             return Err(DeleteCommunityError::NotOwner);

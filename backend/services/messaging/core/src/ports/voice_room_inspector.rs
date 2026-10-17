@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use messaging_domain::channel::id::ChannelId;
 
 #[derive(Debug, Clone)]
@@ -9,6 +10,7 @@ pub struct LiveParticipant {
     pub session_id: String,
     pub camera_on: bool,
     pub screen_on: bool,
+    pub joined_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, thiserror::Error)]

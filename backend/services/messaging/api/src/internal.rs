@@ -35,12 +35,13 @@ async fn community_owner(
     let community_id = CommunityId::new(path.into_inner());
     match app_state
         .community_repository
-        .find_community_owner(&community_id)
+        .find_community_ownership(&community_id)
         .await
         .map_err(HttpError::from)?
     {
-        Some(owner) => Ok(HttpResponse::Ok().json(OwnerResponseV1 {
-            owner_id: owner.uuid(),
+        Some(ownership) => Ok(HttpResponse::Ok().json(OwnerResponseV1 {
+            owner_id: ownership.owner_id.uuid(),
+            as_of: Some(ownership.since),
         })),
         None => Ok(HttpResponse::NotFound().finish()),
     }

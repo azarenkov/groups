@@ -1,4 +1,4 @@
-use realtime_core::ports::blocks::RelationDirectory;
+use realtime_core::ports::dm_history::DmHistory;
 use std::collections::HashMap;
 use infrastructure_common::health::Liveness;
 use std::time::Duration;
@@ -43,7 +43,7 @@ struct OwnedPartition {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: RelationDirectory + 'static>(
+pub async fn run_partitioned<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: DmHistory + 'static>(
     jetstream: Context,
     cfg: DispatcherSettings,
     subject_prefix: String,
@@ -140,7 +140,7 @@ async fn ensure_bucket(
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn tick<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: RelationDirectory + 'static>(
+async fn tick<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: DmHistory + 'static>(
     jetstream: &Context,
     store: &kv::Store,
     cfg: &DispatcherSettings,
@@ -240,7 +240,7 @@ async fn list_members(store: &kv::Store) -> Result<Vec<String>, async_nats::Erro
 }
 
 #[allow(clippy::too_many_arguments)]
-fn start_partition<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: RelationDirectory + 'static>(
+fn start_partition<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: DmHistory + 'static>(
     jetstream: &Context,
     cfg: &DispatcherSettings,
     subject_prefix: &str,

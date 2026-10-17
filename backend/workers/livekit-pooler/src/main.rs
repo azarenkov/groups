@@ -6,14 +6,19 @@ use tokio::sync::watch;
 use infrastructure_common::config::{livekit::LiveKitConfig, postgres::PostgresConfig};
 use infrastructure_common::voice::livekit_service::LiveKitService;
 use messaging::usecases::channel::{
-    abort_voice_connection::AbortVoiceConnection, reconcile_voice_presence::ReconcileVoicePresence,
+    abort_voice_connection::AbortVoiceConnection, admit_voice_participant::AdmitVoiceParticipant,
+    join_voice_connection::JoinVoiceConnection,
+    reconcile_voice_presence::{ReconcileActions, ReconcileLimits, ReconcileVoicePresence},
     track_media_connection::TrackMediaConnection,
 };
 use messaging_infrastructure::{
     database::postgres::{
         MIGRATOR, SCHEMA,
         connection::{create_postgres_pool, ping_pool},
-        repositories::{channel::PostgresChannelRepository, channel_unit_of_work::PostgresChannelUnitOfWork},
+        repositories::{
+            channel::PostgresChannelRepository, channel_unit_of_work::PostgresChannelUnitOfWork,
+            community::PostgresCommunityRepository,
+        },
     },
     voice::livekit_room_inspector::LiveKitRoomInspector,
 };
@@ -59,18 +64,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(pool.clone()));
+    let community_repository = Arc::new(PostgresCommunityRepository::new(pool.clone()));
     let channel_unit_of_work = Arc::new(PostgresChannelUnitOfWork::new(pool));
-    let inspector = Arc::new(LiveKitRoomInspector::new(
+    let livekit = Arc::new(
         LiveKitService::new(livekit_config)
             .with_request_timeout(Duration::from_secs(pooler_config.livekit_pooler_request_timeout_secs)),
-    ));
+    );
+    let inspector = Arc::new(LiveKitRoomInspector::new(livekit.clone()));
     let reconcile = ReconcileVoicePresence::new(
         channel_repository.clone(),
         inspector,
-        Arc::new(AbortVoiceConnection::new(channel_unit_of_work.clone())),
-        Arc::new(TrackMediaConnection::new(channel_unit_of_work)),
-        Duration::from_secs(pooler_config.livekit_pooler_grace_secs),
-        pooler_config.livekit_pooler_max_aborts_per_pass,
+        ReconcileActions {
+            admit: Arc::new(AdmitVoiceParticipant::new(channel_repository, community_repository, livekit)),
+            join: Arc::new(JoinVoiceConnection::new(channel_unit_of_work.clone())),
+            abort: Arc::new(AbortVoiceConnection::new(channel_unit_of_work.clone())),
+            track: Arc::new(TrackMediaConnection::new(channel_unit_of_work)),
+        },
+        ReconcileLimits {
+            grace: Duration::from_secs(pooler_config.livekit_pooler_grace_secs),
+            max_aborts_per_pass: pooler_config.livekit_pooler_max_aborts_per_pass,
+        },
     );
 
     let interval = Duration::from_secs(pooler_config.livekit_pooler_interval_secs);
@@ -107,10 +120,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         };
         match reconcile.execute_with_checkpoint(&checkpoint).await {
             Ok(summary) => {
-                if summary.db_entries_checked > 0
-                    || summary.aborted > 0
-                    || summary.tracks_reconciled > 0
-                {
+                if summary.rooms_checked > 0 {
                     tracing::info!(
                         rooms_checked = summary.rooms_checked,
                         rooms_missing = summary.rooms_missing,
@@ -121,6 +131,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         abort_skipped = summary.abort_skipped,
                         abort_failed = summary.abort_failed,
                         tracks_reconciled = summary.tracks_reconciled,
+                        access_reapplied = summary.access_reapplied,
+                        access_failed = summary.access_failed,
+                        rejected = summary.rejected,
+                        joins_restored = summary.joins_restored,
                         "LiveKit pooler pass completed",
                     );
                 }

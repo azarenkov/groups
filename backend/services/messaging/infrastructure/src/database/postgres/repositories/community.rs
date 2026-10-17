@@ -6,7 +6,7 @@ use async_trait::async_trait;
 
 use domain::{pagination::PaginatedResult, pagination::Pagination, password_hash::PasswordHash, user::id::UserId, user::name::UserName};
 use ports::repository::RepositoryError;
-use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, community::Community, community::id::CommunityId, community::invite_link::InviteLink, community::invite_link::InviteToken, community::repository::CommunityRepository, community::repository::MutualCommunity};
+use messaging_domain::{channel::Channel, channel::id::ChannelId, channel::kind::ChannelKind, channel::name::ChannelName, channel::participant_deafen::ParticipantDeafen, channel::participant_mute::ParticipantMute, channel::session_id::SessionId, community::Community, community::id::CommunityId, community::invite_link::InviteLink, community::invite_link::InviteToken, community::repository::CommunityOwnership, community::repository::CommunityRepository, community::repository::MutualCommunity};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
@@ -378,19 +378,19 @@ impl CommunityRepository for PostgresCommunityRepository {
         Ok(PaginatedResult::new(items, total, pagination))
     }
 
-    async fn find_community_owner(
+    async fn find_community_ownership(
         &self,
         community_id: &CommunityId,
-    ) -> Result<Option<UserId>, RepositoryError> {
+    ) -> Result<Option<CommunityOwnership>, RepositoryError> {
         let row = sqlx::query!(
-            r#"SELECT owner_id FROM communities WHERE id = $1"#,
+            r#"SELECT owner_id, updated_at FROM communities WHERE id = $1"#,
             community_id.uuid(),
         )
         .fetch_optional(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
 
-        Ok(row.map(|r| UserId::new(r.owner_id)))
+        Ok(row.map(|r| CommunityOwnership { owner_id: UserId::new(r.owner_id), since: r.updated_at }))
     }
 
     async fn find_mutual_communities(

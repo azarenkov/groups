@@ -5,6 +5,12 @@ use crate::{channel::Channel, community::Community, community::id::CommunityId, 
 use domain::{pagination::PaginatedResult, pagination::Pagination, user::id::UserId, user::name::UserName};
 use ports::repository::RepositoryError;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CommunityOwnership {
+    pub owner_id: UserId,
+    pub since: chrono::DateTime<chrono::Utc>,
+}
+
 #[derive(Debug, Clone)]
 pub struct MutualCommunity {
     pub community_id: CommunityId,
@@ -34,10 +40,10 @@ pub trait CommunityRepository {
         community_id: &CommunityId,
         pagination: Pagination,
     ) -> Result<PaginatedResult<Channel>, RepositoryError>;
-    async fn find_community_owner(
+    async fn find_community_ownership(
         &self,
         community_id: &CommunityId,
-    ) -> Result<Option<UserId>, RepositoryError>;
+    ) -> Result<Option<CommunityOwnership>, RepositoryError>;
     async fn find_mutual_communities(
         &self,
         user_a: &UserId,

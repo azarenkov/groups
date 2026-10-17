@@ -3,7 +3,7 @@ use std::sync::Arc;
 use infrastructure_common::health::Heartbeat;
 use infrastructure_common::messaging::nats::runner::{ConsumerSpec as RunnerSpec, Delivery, Event, Lifecycle, run_consumer as run};
 use ports::event_consumer::StartPosition;
-use realtime_core::ports::blocks::RelationDirectory;
+use realtime_core::ports::dm_history::DmHistory;
 use realtime_core::{
     ports::directory::RecipientDirectory, ports::projection::RealtimeProjection, ports::publisher::RealtimePublisher,
     usecases::dispatch_event::{DispatchEvent, EventSequence},
@@ -34,7 +34,7 @@ impl ConsumerSpec {
     }
 }
 
-pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: RelationDirectory + 'static>(
+pub async fn run_consumer<D: RecipientDirectory + RealtimeProjection + 'static, P: RealtimePublisher + 'static, B: DmHistory + 'static>(
     jetstream: async_nats::jetstream::Context,
     spec: ConsumerSpec,
     dispatch: Arc<DispatchEvent<D, P, B>>,
