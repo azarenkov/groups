@@ -44,6 +44,12 @@ pub async fn create_postgres_pool(
     Ok(pool)
 }
 
+pub const KNOWN_SCHEMAS: &[&str] = &["identity", "media", "messaging", "voice", "realtime"];
+
+pub fn is_known_schema(schema: &str) -> bool {
+    KNOWN_SCHEMAS.contains(&schema)
+}
+
 struct SchemaStatements {
     create_schema: &'static str,
     search_path: &'static str,
@@ -90,7 +96,19 @@ pub async fn ping_pool(pool: &Pool<Postgres>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::is_valid_schema;
+    use super::{SchemaStatements, is_known_schema, is_valid_schema, KNOWN_SCHEMAS};
+
+    #[test]
+    fn only_known_schemas_get_literal_statements() {
+        for name in KNOWN_SCHEMAS {
+            assert!(is_known_schema(name), "{name}");
+            let statements = SchemaStatements::for_schema(name).expect(name);
+            assert!(statements.create_schema.ends_with(name));
+            assert!(statements.search_path.ends_with(name));
+        }
+        assert!(!is_known_schema("_svc2"));
+        assert!(SchemaStatements::for_schema("_svc2").is_none());
+    }
 
     #[test]
     fn accepts_service_schema_names() {
