@@ -2,22 +2,24 @@ use chrono::{DateTime, Utc};
 use domain::event::EventId;
 use domain::user::id::UserId;
 use identity_domain::{
-    events::IdentityEvent, unit_of_work::IdentityTransaction, user::User,
+    events::IdentityEvent, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User,
+    user::access_revocation::AccessRevocation,
     user::events::UserEvent, user::events::lifecycle::UserActivityChanged,
 };
 use ports::repository::RepositoryError;
 
-use crate::ports::{
-    access_revoker::{AccessRevoker, AccessRevokerError},
-    activity_store::{ActivityStore, ActivityStoreError},
+use crate::{
+    ports::{
+        access_revoker::AccessRevoker,
+        activity_store::{ActivityStore, ActivityStoreError},
+    },
+    usecases::auth::reactivation::revoke_access_after_commit,
 };
 
 #[derive(Debug, thiserror::Error)]
 pub enum AccountDeletionError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Access revocation error: {0}")]
-    AccessRevoker(#[from] AccessRevokerError),
     #[error("Activity store error: {0}")]
     ActivityStore(#[from] ActivityStoreError),
     #[error("Account is already deleted")]
@@ -48,23 +50,25 @@ pub async fn apply_account_deletion(
     tx.save_user(user).await?;
     tx.delete_oauth_identities(&user_id).await?;
     tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
+    tx.record_access_revocation(&AccessRevocation::new(user_id, now)).await?;
     tx.save_events(&events, request_id).await?;
     Ok(())
 }
 
-pub async fn clear_deleted_user_caches<S, R>(
+pub async fn clear_deleted_user_caches<W, S, R>(
+    unit_of_work: &W,
     activity_store: &S,
     access_revoker: &R,
     user_id: &UserId,
     now: DateTime<Utc>,
 ) -> Result<(), AccountDeletionError>
 where
+    W: IdentityUnitOfWork + ?Sized,
     S: ActivityStore + ?Sized,
     R: AccessRevoker + ?Sized,
 {
     let activity = activity_store.clear(user_id).await;
-    let access = access_revoker.revoke_access_issued_before(user_id, now).await;
-    access?;
+    revoke_access_after_commit(unit_of_work, access_revoker, &AccessRevocation::new(*user_id, now)).await;
     activity?;
     Ok(())
 }

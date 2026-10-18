@@ -102,10 +102,11 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             .await?
             .ok_or(ActivityError::UserNotFound)?;
         if user.is_disabled() || user.is_deleted() || !user.show_game_activity() {
+            let observed = self.store.get(&user_id).await?;
             tx.save_events(&[activity_event(user_id, None, Utc::now())], None)
                 .await?;
             tx.commit().await?;
-            self.store.clear(&user_id).await?;
+            clear_observed_activity(&*self.store, &user_id, observed.as_ref()).await?;
             return Err(ActivityError::Hidden);
         }
         let previous = self.store.get(&user_id).await?;

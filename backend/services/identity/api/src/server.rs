@@ -42,12 +42,13 @@ use identity::usecases::{
 use domain::user::name::ReservedNames;
 use infrastructure_common::{
     config::{
-        nsfw::NsfwConfig, postgres::PostgresConfig,
+        access_revocation_retry::AccessRevocationRetryConfig, nsfw::NsfwConfig, postgres::PostgresConfig,
         trial::TrialConfig, unverified_cleanup::UnverifiedCleanupConfig, username::UsernameConfig,
     },
     hasher::bcrypt_hasher::BcryptHasher,
 };
 use identity::usecases::auth::captcha::CaptchaGate;
+use identity::usecases::auth::reapply_access_revocations::ReapplyAccessRevocations;
 use identity::usecases::entitlements::{expire_entitlements::ExpireEntitlements, remind_trial_ending::RemindTrialEnding, start_trial::StartTrial};
 use identity_infrastructure::auth::{altcha::{AltchaConfig, AltchaVerifier}, redis_captcha_store::RedisCaptchaStore};
 use identity_infrastructure::{
@@ -85,6 +86,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let username_config = UsernameConfig::from_env()?;
     let unverified_cleanup_config = UnverifiedCleanupConfig::from_env()?;
     let trial_config = TrialConfig::from_env()?;
+    let access_revocation_retry_config = AccessRevocationRetryConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
 
@@ -122,6 +124,23 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let access_revocations = api_common::middleware::revocation::AccessRevocations::from_env().await;
     let access_revocations_data = web::Data::new(access_revocations.clone());
     let access_revoker = Arc::new(RedisAccessRevoker::new(access_revocations));
+    let reapply_access_revocations = Arc::new(ReapplyAccessRevocations::new(
+        unit_of_work.clone(),
+        access_revoker.clone(),
+        access_revocation_retry_config.batch_size(),
+    ));
+    let revocation_retry_interval = access_revocation_retry_config.interval();
+    actix_web::rt::spawn(async move {
+        let mut ticker = actix_web::rt::time::interval(revocation_retry_interval);
+        loop {
+            ticker.tick().await;
+            match reapply_access_revocations.run_once().await {
+                Ok(0) => {}
+                Ok(applied) => tracing::info!(applied, "Reapplied pending access revocations"),
+                Err(e) => tracing::warn!(error = %e, "Access revocation retry failed"),
+            }
+        }
+    });
     let activity_store = Arc::new(RedisActivityStore::from_env());
     let legacy_presence_import = ImportLegacyPresencePreferences::new(activity_store.clone(), unit_of_work.clone());
     let messaging_internal_url = api_common::internal_client::InternalService::Messaging.base_url();

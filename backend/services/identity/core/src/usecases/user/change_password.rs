@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::{password_hash::PasswordHash, user::id::UserId};
-use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::repository::UserRepository, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::access_revocation::AccessRevocation, user::repository::UserRepository, verification::purpose::VerificationPurpose};
 use ports::repository::RepositoryError;
 
 use crate::{
@@ -124,9 +124,11 @@ where
         tx.save_user(&user).await?;
         tx.consume_pending_verifications(&user_id, VerificationPurpose::PasswordReset, now).await?;
         tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
+        let revocation = AccessRevocation::new(user_id, cutoff);
+        tx.record_access_revocation(&revocation).await?;
         tx.save_events(&events, request.request_id.as_deref()).await?;
         tx.commit().await?;
-        revoke_access_after_commit(&*self.access_revoker, &user_id, cutoff).await;
+        revoke_access_after_commit(&*self.unit_of_work, &*self.access_revoker, &revocation).await;
         issue_session_after_cutoff(
             &*self.unit_of_work,
             &*self.token_issuer,

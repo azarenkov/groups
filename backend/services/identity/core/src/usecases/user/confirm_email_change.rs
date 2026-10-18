@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::user::id::UserId;
-use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError, user::access_revocation::AccessRevocation, verification::purpose::VerificationPurpose};
 use ports::repository::RepositoryError;
 
 use crate::{
@@ -129,9 +129,11 @@ where
                 let cutoff = Utc::now();
                 tx.consume_pending_verifications(&user_id, VerificationPurpose::PasswordReset, cutoff).await?;
                 tx.revoke_refresh_tokens_for_user(&user_id, None, cutoff).await?;
+                let revocation = AccessRevocation::new(user_id, cutoff);
+                tx.record_access_revocation(&revocation).await?;
                 tx.save_events(&events, request.request_id.as_deref()).await?;
                 tx.commit().await?;
-                revoke_access_after_commit(&*self.access_revoker, &user_id, cutoff).await;
+                revoke_access_after_commit(&*self.unit_of_work, &*self.access_revoker, &revocation).await;
                 let tokens = issue_session_after_cutoff::<_, _, ConfirmEmailChangeError>(
                     &*self.unit_of_work,
                     &*self.token_issuer,

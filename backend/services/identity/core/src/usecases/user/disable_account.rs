@@ -4,7 +4,7 @@ use chrono::Utc;
 use domain::user::id::UserId;
 use domain::event::EventId;
 use identity_domain::{
-    events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::events::UserEvent,
+    events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::access_revocation::AccessRevocation, user::events::UserEvent,
     user::events::lifecycle::UserActivityChanged, user::repository::UserRepository,
 };
 use ports::repository::RepositoryError;
@@ -110,13 +110,15 @@ where
         })));
         tx.save_user(&user).await?;
         tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
+        let revocation = AccessRevocation::new(user_id, now);
+        tx.record_access_revocation(&revocation).await?;
         tx.save_events(&events, request_id).await?;
         let observed = self.activity_store.get(&user_id).await?;
         tx.commit().await?;
         if let Err(e) = clear_observed_activity(&*self.activity_store, &user_id, observed.as_ref()).await {
             tracing::warn!(error = %e, user_id = %user_id.uuid(), "Failed to clear the activity cache after disabling the account");
         }
-        revoke_access_after_commit(&*self.access_revoker, &user_id, now).await;
+        revoke_access_after_commit(&*self.unit_of_work, &*self.access_revoker, &revocation).await;
         Ok(())
     }
 }

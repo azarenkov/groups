@@ -1,6 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
 use domain::user::id::UserId;
-use identity_domain::{refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork};
+use identity_domain::{refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::access_revocation::AccessRevocation};
 use ports::repository::RepositoryError;
 
 use crate::ports::{access_revoker::AccessRevoker, token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError}};
@@ -69,13 +69,28 @@ where
     Ok(tokens)
 }
 
-pub async fn revoke_access_after_commit<R>(revoker: &R, user_id: &UserId, cutoff: DateTime<Utc>)
+pub async fn revoke_access_after_commit<W, R>(unit_of_work: &W, revoker: &R, revocation: &AccessRevocation)
 where
+    W: IdentityUnitOfWork + ?Sized,
     R: AccessRevoker + ?Sized,
 {
-    if let Err(e) = revoker.revoke_access_issued_before(user_id, cutoff).await {
-        tracing::error!(error = %e, user_id = %user_id.uuid(), "Failed to revoke access tokens after the credential change was committed; they expire with their own TTL");
+    let user_id = revocation.user_id();
+    if let Err(e) = revoker.revoke_access_issued_before(user_id, revocation.cutoff()).await {
+        tracing::warn!(error = %e, user_id = %user_id.uuid(), "Failed to revoke access tokens after the credential change was committed; the revocation stays recorded for retry");
+        return;
     }
+    if let Err(e) = clear_recorded_revocation(unit_of_work, revocation).await {
+        tracing::warn!(error = %e, user_id = %user_id.uuid(), "Access revocation applied but its record could not be cleared; the retry sweep reapplies it");
+    }
+}
+
+async fn clear_recorded_revocation<W: IdentityUnitOfWork + ?Sized>(
+    unit_of_work: &W,
+    revocation: &AccessRevocation,
+) -> Result<(), RepositoryError> {
+    let mut tx = unit_of_work.begin().await?;
+    tx.clear_access_revocation(revocation).await?;
+    tx.commit().await
 }
 
 #[cfg(test)]

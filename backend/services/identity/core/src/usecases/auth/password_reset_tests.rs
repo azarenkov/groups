@@ -7,7 +7,7 @@ use identity_domain::{
     events::IdentityEvent,
     refresh_token::{RefreshToken, id::RefreshTokenId},
     unit_of_work::{IdentityTransaction, IdentityUnitOfWork},
-    user::{User, repository::UserRepository, tier::{Entitlements, TrialHistory}},
+    user::{User, access_revocation::AccessRevocation, repository::UserRepository, tier::{Entitlements, TrialHistory}},
     user::settings::{appearance::AppearanceSettings, hotkeys::HotkeyBindings, notification::NotificationSettings, voice::VoiceSettings},
     verification::{channel::VerificationChannel, code::VerificationCode, code_hash::CodeHash, id::VerificationCodeId, purpose::VerificationPurpose, throttle::IssuedCodes},
 };
@@ -36,6 +36,8 @@ struct State {
     access_revoked_before: Option<DateTime<Utc>>,
     log: Vec<&'static str>,
     supersede_after_commit: bool,
+    pending_revocations: Vec<AccessRevocation>,
+    fail_revocation: bool,
 }
 
 #[derive(Clone, Default)]
@@ -141,6 +143,22 @@ impl IdentityTransaction for Fake {
     }
     async fn revoke_refresh_tokens_for_user(&mut self, _user_id: &UserId, _keep: Option<&RefreshTokenId>, now: DateTime<Utc>) -> Result<(), RepositoryError> {
         self.0.lock().unwrap().refresh_revoked_at = Some(now);
+        Ok(())
+    }
+    async fn record_access_revocation(&mut self, revocation: &AccessRevocation) -> Result<(), RepositoryError> {
+        let mut state = self.0.lock().unwrap();
+        state.pending_revocations.retain(|r| r.user_id() != revocation.user_id());
+        state.pending_revocations.push(revocation.clone());
+        state.log.push("record");
+        Ok(())
+    }
+    async fn load_pending_access_revocations_for_update(&mut self, limit: i64) -> Result<Vec<AccessRevocation>, RepositoryError> {
+        Ok(self.0.lock().unwrap().pending_revocations.iter().take(limit as usize).cloned().collect())
+    }
+    async fn clear_access_revocation(&mut self, revocation: &AccessRevocation) -> Result<(), RepositoryError> {
+        let mut state = self.0.lock().unwrap();
+        state.pending_revocations.retain(|r| r.user_id() != revocation.user_id() || r.cutoff() > revocation.cutoff());
+        state.log.push("clear");
         Ok(())
     }
     async fn save_user(&mut self, user: &User) -> Result<(), RepositoryError> {
@@ -286,8 +304,11 @@ impl Hasher for PlainHasher {
 impl AccessRevoker for Fake {
     async fn revoke_access_issued_before(&self, _user_id: &UserId, cutoff: DateTime<Utc>) -> Result<(), AccessRevokerError> {
         let mut state = self.0.lock().unwrap();
-        state.access_revoked_before = Some(cutoff);
         state.log.push("revoke");
+        if state.fail_revocation {
+            return Err(AccessRevokerError::Store("redis is down".into()));
+        }
+        state.access_revoked_before = Some(cutoff);
         Ok(())
     }
 }
@@ -491,8 +512,58 @@ async fn a_password_change_revokes_access_and_issues_the_session_only_after_comm
         )
         .await
         .unwrap();
-    assert_eq!(fake.0.lock().unwrap().log, vec!["commit", "revoke", "refresh", "commit"]);
+    assert_eq!(fake.0.lock().unwrap().log, vec!["record", "commit", "revoke", "clear", "commit", "refresh", "commit"]);
     assert_eq!(fake.password(), "h:new-pass");
+    assert!(fake.0.lock().unwrap().pending_revocations.is_empty());
+}
+
+#[tokio::test]
+async fn a_failed_access_revocation_stays_recorded_until_the_retry_sweep_applies_it() {
+    let (fake, user_id) = Fake::with_user();
+    fake.0.lock().unwrap().fail_revocation = true;
+    let fake = Arc::new(fake);
+    let hasher = Arc::new(PlainHasher);
+    let change = crate::usecases::user::change_password::ChangePassword::new(
+        fake.clone(),
+        fake.clone(),
+        hasher.clone(),
+        Arc::new(FixedTokens),
+        Arc::new(crate::usecases::user::reauth::Reauthenticator::new(hasher)),
+        fake.clone(),
+    );
+    change
+        .execute(
+            user_id,
+            crate::usecases::user::change_password::ChangePasswordRequest {
+                reauth: crate::usecases::user::reauth::Reauth { password: "old".into() },
+                new_password: "new-pass".into(),
+                ip: None,
+                user_agent: None,
+                request_id: None,
+            },
+        )
+        .await
+        .unwrap();
+    let cutoff = {
+        let state = fake.0.lock().unwrap();
+        assert_eq!(state.log, vec!["record", "commit", "revoke", "refresh", "commit"]);
+        assert_eq!(state.pending_revocations.len(), 1);
+        assert_eq!(state.pending_revocations[0].user_id(), &user_id);
+        assert!(state.access_revoked_before.is_none());
+        state.pending_revocations[0].cutoff()
+    };
+    let retry = crate::usecases::auth::reapply_access_revocations::ReapplyAccessRevocations::new(fake.clone(), fake.clone(), 10);
+    assert!(matches!(
+        retry.run_once().await,
+        Err(crate::usecases::auth::reapply_access_revocations::ReapplyAccessRevocationsError::AccessRevoker(_))
+    ));
+    assert_eq!(fake.0.lock().unwrap().pending_revocations.len(), 1);
+    fake.0.lock().unwrap().fail_revocation = false;
+    assert_eq!(retry.run_once().await.unwrap(), 1);
+    let state = fake.0.lock().unwrap();
+    assert!(state.pending_revocations.is_empty());
+    assert_eq!(state.access_revoked_before, Some(cutoff));
+    assert_eq!(state.log[5..], ["revoke", "commit", "revoke", "clear", "commit"]);
 }
 
 #[tokio::test]
@@ -527,5 +598,5 @@ async fn a_password_change_does_not_issue_a_session_when_the_user_changed_concur
             crate::usecases::auth::reactivation::SessionRotationError::Superseded
         ))
     ));
-    assert_eq!(fake.0.lock().unwrap().log, vec!["commit", "revoke"]);
+    assert_eq!(fake.0.lock().unwrap().log, vec!["record", "commit", "revoke", "clear", "commit"]);
 }

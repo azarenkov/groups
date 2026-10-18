@@ -81,6 +81,7 @@ where
     async fn clear_caches(&self, purged: &[UserId], now: chrono::DateTime<Utc>) {
         for (index, user_id) in purged.iter().enumerate() {
             if let Err(e) = clear_deleted_user_caches(
+                &*self.unit_of_work,
                 &*self.activity_store,
                 &*self.access_revoker,
                 user_id,
