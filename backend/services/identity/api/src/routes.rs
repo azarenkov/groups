@@ -20,12 +20,14 @@ use crate::user::{
     update_me_locale, update_me_name, update_me_password, update_me_presence, update_me_profile,
 };
 use crate::entitlements::{entitlement_routes, internal_entitlement_routes};
+use crate::internal::internal_routes;
 use api_common::health::{livez, readyz};
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(web::resource("/livez").to(livez))
         .service(web::resource("/readyz").to(readyz))
         .configure(internal_entitlement_routes)
+        .configure(internal_routes)
         .service(
             web::scope("/api")
                 .service(

@@ -756,7 +756,10 @@ async fn fanout_loop<D: RecipientDirectory + 'static>(
                         // we ARE that task; aborting would cancel us before
                         // the offline publish below completes.
                         let _ = by_user.remove(&user_id);
-                        if !hidden_by_preference(&appear_offline, user_id) {
+                        let hidden_and_announced = appear_offline
+                            .remove(&user_id)
+                            .is_some_and(|(_, state)| state.hidden && state.unannounced.is_none());
+                        if !hidden_and_announced {
                             let payload = serde_json::to_string(&PresencePayload {
                                 user_id,
                                 online: false,
