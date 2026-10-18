@@ -152,7 +152,8 @@ impl IdentityTransaction for Fake {
         state.log.push("record");
         Ok(())
     }
-    async fn load_pending_access_revocations_for_update(&mut self, limit: i64) -> Result<Vec<AccessRevocation>, RepositoryError> {
+    async fn next_activity_version(&mut self) -> Result<i64, RepositoryError> { unimplemented!() }
+    async fn load_pending_access_revocations(&mut self, limit: i64) -> Result<Vec<AccessRevocation>, RepositoryError> {
         Ok(self.0.lock().unwrap().pending_revocations.iter().take(limit as usize).cloned().collect())
     }
     async fn clear_access_revocation(&mut self, revocation: &AccessRevocation) -> Result<(), RepositoryError> {
@@ -563,7 +564,7 @@ async fn a_failed_access_revocation_stays_recorded_until_the_retry_sweep_applies
     let state = fake.0.lock().unwrap();
     assert!(state.pending_revocations.is_empty());
     assert_eq!(state.access_revoked_before, Some(cutoff));
-    assert_eq!(state.log[5..], ["revoke", "commit", "revoke", "clear", "commit"]);
+    assert_eq!(state.log[5..], ["commit", "revoke", "commit", "revoke", "clear", "commit"]);
 }
 
 #[tokio::test]

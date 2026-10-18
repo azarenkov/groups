@@ -13,6 +13,7 @@ pub struct StoredActivity {
     pub source: String,
     pub refreshed_at: DateTime<Utc>,
     pub changed_at: DateTime<Utc>,
+    pub version: i64,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -30,7 +31,7 @@ pub trait ActivityStore: Send + Sync {
         activity: &StoredActivity,
         ttl: Duration,
     ) -> Result<bool, ActivityStoreError>;
-    async fn clear_if_not_newer(&self, user_id: &UserId, as_of: DateTime<Utc>) -> Result<bool, ActivityStoreError>;
+    async fn clear_if_not_newer(&self, user_id: &UserId, version: i64) -> Result<bool, ActivityStoreError>;
     async fn get_many(
         &self,
         user_ids: &[UserId],

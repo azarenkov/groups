@@ -105,9 +105,9 @@ where
             self.reauthenticator.verify(&user, reauth).await?;
         }
         let now = Utc::now();
-        apply_account_deletion(&mut *tx, &mut user, now, request_id).await?;
+        let cleanup = apply_account_deletion(&mut *tx, &mut user, now, request_id).await?;
         tx.commit().await?;
-        if let Err(e) = clear_deleted_user_caches(&*self.unit_of_work, &*self.activity_store, &*self.access_revoker, &user_id, now).await {
+        if let Err(e) = clear_deleted_user_caches(&*self.unit_of_work, &*self.activity_store, &*self.access_revoker, &cleanup).await {
             tracing::warn!(error = %e, user_id = %user_id.uuid(), "Failed to clear caches after deleting the account");
         }
         Ok(())

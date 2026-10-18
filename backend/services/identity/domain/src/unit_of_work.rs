@@ -23,7 +23,8 @@ pub trait IdentityTransaction: Send {
     async fn delete_oauth_identities(&mut self, user_id: &UserId) -> Result<(), RepositoryError>;
     async fn revoke_refresh_tokens_for_user(&mut self, user_id: &UserId, keep: Option<&RefreshTokenId>, now: DateTime<Utc>) -> Result<(), RepositoryError>;
     async fn record_access_revocation(&mut self, revocation: &AccessRevocation) -> Result<(), RepositoryError>;
-    async fn load_pending_access_revocations_for_update(&mut self, limit: i64) -> Result<Vec<AccessRevocation>, RepositoryError>;
+    async fn load_pending_access_revocations(&mut self, limit: i64) -> Result<Vec<AccessRevocation>, RepositoryError>;
+    async fn next_activity_version(&mut self) -> Result<i64, RepositoryError>;
     async fn clear_access_revocation(&mut self, revocation: &AccessRevocation) -> Result<(), RepositoryError>;
     async fn load_refresh_token_for_update(&mut self, id: &RefreshTokenId) -> Result<Option<RefreshToken>, RepositoryError>;
     async fn insert_user(&mut self, user: &User) -> Result<(), RepositoryError>;

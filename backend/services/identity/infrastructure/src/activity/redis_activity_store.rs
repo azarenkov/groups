@@ -25,7 +25,7 @@ struct ActivityRecord {
     #[serde(default = "Utc::now")]
     changed_at: DateTime<Utc>,
     #[serde(default)]
-    as_of: i64,
+    version: i64,
 }
 
 fn default_true() -> bool {
@@ -36,8 +36,8 @@ fn default_true() -> bool {
 const SET_IF_NEWER: &str = r#"
 local current = redis.call('GET', KEYS[1])
 if current then
-  local as_of = cjson.decode(current)['as_of']
-  if as_of and tonumber(as_of) > tonumber(ARGV[2]) then
+  local version = cjson.decode(current)['version']
+  if version and tonumber(version) > tonumber(ARGV[2]) then
     return 0
   end
 end
@@ -50,8 +50,8 @@ local current = redis.call('GET', KEYS[1])
 if not current then
   return 0
 end
-local as_of = cjson.decode(current)['as_of']
-if as_of and tonumber(as_of) > tonumber(ARGV[1]) then
+local version = cjson.decode(current)['version']
+if version and tonumber(version) > tonumber(ARGV[1]) then
   return 0
 end
 return redis.call('DEL', KEYS[1])
@@ -92,7 +92,7 @@ impl RedisActivityStore {
             source: activity.source.clone(),
             refreshed_at: activity.refreshed_at,
             changed_at: activity.changed_at,
-            as_of: Self::version(activity.refreshed_at),
+            version: activity.version,
         })
         .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))
     }
@@ -113,10 +113,6 @@ impl RedisActivityStore {
         Ok(connection)
     }
 
-    fn version(at: DateTime<Utc>) -> i64 {
-        at.timestamp_micros()
-    }
-
     fn key(user_id: &UserId) -> String {
         format!("activity:{}", user_id.uuid())
     }
@@ -132,6 +128,7 @@ impl RedisActivityStore {
             source: record.source,
             refreshed_at: record.refreshed_at,
             changed_at: record.changed_at,
+            version: record.version,
         })
     }
 }
@@ -157,7 +154,7 @@ impl ActivityStore for RedisActivityStore {
         let stored: i64 = redis::Script::new(SET_IF_NEWER)
             .key(Self::key(user_id))
             .arg(Self::encode(activity)?)
-            .arg(Self::version(activity.refreshed_at))
+            .arg(activity.version)
             .arg(ttl.as_secs().max(1))
             .invoke_async(&mut connection)
             .await
@@ -165,11 +162,11 @@ impl ActivityStore for RedisActivityStore {
         Ok(stored == 1)
     }
 
-    async fn clear_if_not_newer(&self, user_id: &UserId, as_of: DateTime<Utc>) -> Result<bool, ActivityStoreError> {
+    async fn clear_if_not_newer(&self, user_id: &UserId, version: i64) -> Result<bool, ActivityStoreError> {
         let mut connection = self.connection().await?;
         let removed: i64 = redis::Script::new(CLEAR_IF_NOT_NEWER)
             .key(Self::key(user_id))
-            .arg(Self::version(as_of))
+            .arg(version)
             .invoke_async(&mut connection)
             .await
             .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;

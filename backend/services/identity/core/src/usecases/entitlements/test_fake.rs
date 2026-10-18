@@ -144,7 +144,8 @@ impl IdentityTransaction for Fake {
     async fn start_trial(&mut self, _: &UserId, _: &Email, _: Option<&str>, _: DateTime<Utc>, _: DateTime<Utc>) -> Result<(), RepositoryError> { unimplemented!() }
     async fn load_trials_ending_for_update(&mut self, _: DateTime<Utc>, _: i64) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
     async fn record_access_revocation(&mut self, _: &identity_domain::user::access_revocation::AccessRevocation) -> Result<(), RepositoryError> { unimplemented!() }
-    async fn load_pending_access_revocations_for_update(&mut self, _: i64) -> Result<Vec<identity_domain::user::access_revocation::AccessRevocation>, RepositoryError> { unimplemented!() }
+    async fn next_activity_version(&mut self) -> Result<i64, RepositoryError> { unimplemented!() }
+    async fn load_pending_access_revocations(&mut self, _: i64) -> Result<Vec<identity_domain::user::access_revocation::AccessRevocation>, RepositoryError> { unimplemented!() }
     async fn clear_access_revocation(&mut self, _: &identity_domain::user::access_revocation::AccessRevocation) -> Result<(), RepositoryError> { unimplemented!() }
     async fn mark_trial_reminded(&mut self, _: &UserId, _: DateTime<Utc>) -> Result<(), RepositoryError> { unimplemented!() }
     async fn load_appearance_for_update(&mut self, _: &UserId) -> Result<Option<AppearanceSettings>, RepositoryError> { unimplemented!() }

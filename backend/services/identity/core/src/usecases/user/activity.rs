@@ -99,12 +99,12 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             .load_user_for_update(&user_id)
             .await?
             .ok_or(ActivityError::UserNotFound)?;
+        let version = tx.next_activity_version().await?;
         if user.is_disabled() || user.is_deleted() || !user.show_game_activity() {
-            let hidden_at = Utc::now();
-            tx.save_events(&[activity_event(user_id, None, hidden_at)], None)
+            tx.save_events(&[activity_event(user_id, None, Utc::now())], None)
                 .await?;
             tx.commit().await?;
-            self.store.clear_if_not_newer(&user_id, hidden_at).await?;
+            self.store.clear_if_not_newer(&user_id, version).await?;
             return Err(ActivityError::Hidden);
         }
         let previous = self.store.get(&user_id).await?;
@@ -122,6 +122,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
                 let adopted = StoredActivity {
                     source: input.source.clone(),
                     refreshed_at: Utc::now(),
+                    version,
                     ..prev.clone()
                 };
                 tx.commit().await?;
@@ -141,6 +142,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             published: true,
             source: input.source,
             refreshed_at: now,
+            version,
             changed_at: if needs_publish {
                 now
             } else {
@@ -179,6 +181,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
         if tx.load_user_for_update(&user_id).await?.is_none() {
             return Err(ActivityError::UserNotFound);
         }
+        let version = tx.next_activity_version().await?;
         let previous = self.store.get(&user_id).await?;
         if let Some(prev) = previous.as_ref()
             && !source.is_empty()
@@ -196,7 +199,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
         tx.save_events(&[activity_event(user_id, None, occurred_at)], None)
             .await?;
         tx.commit().await?;
-        self.store.clear_if_not_newer(&user_id, occurred_at).await?;
+        self.store.clear_if_not_newer(&user_id, version).await?;
         Ok(occurred_at)
     }
 }

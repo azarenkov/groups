@@ -84,7 +84,7 @@ where
     }
 }
 
-async fn clear_recorded_revocation<W: IdentityUnitOfWork + ?Sized>(
+pub(crate) async fn clear_recorded_revocation<W: IdentityUnitOfWork + ?Sized>(
     unit_of_work: &W,
     revocation: &AccessRevocation,
 ) -> Result<(), RepositoryError> {

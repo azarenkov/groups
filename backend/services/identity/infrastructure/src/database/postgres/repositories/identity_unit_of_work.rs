@@ -87,13 +87,12 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         Ok(())
     }
 
-    async fn load_pending_access_revocations_for_update(&mut self, limit: i64) -> Result<Vec<AccessRevocation>, RepositoryError> {
+    async fn load_pending_access_revocations(&mut self, limit: i64) -> Result<Vec<AccessRevocation>, RepositoryError> {
         let rows: Vec<(uuid::Uuid, DateTime<Utc>)> = sqlx::query_as(
             r#"
                 SELECT user_id, cutoff FROM access_revocations
                 ORDER BY recorded_at
                 LIMIT $1
-                FOR UPDATE SKIP LOCKED
             "#,
         )
         .bind(limit)
@@ -104,6 +103,14 @@ impl IdentityTransaction for PostgresIdentityTransaction {
             .into_iter()
             .map(|(user_id, cutoff)| AccessRevocation::new(UserId::new(user_id), cutoff))
             .collect())
+    }
+
+    async fn next_activity_version(&mut self) -> Result<i64, RepositoryError> {
+        let version: i64 = sqlx::query_scalar(r#"SELECT nextval('activity_versions')"#)
+            .fetch_one(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(version)
     }
 
     async fn clear_access_revocation(&mut self, revocation: &AccessRevocation) -> Result<(), RepositoryError> {
