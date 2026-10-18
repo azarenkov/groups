@@ -102,10 +102,10 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             .await?
             .ok_or(ActivityError::UserNotFound)?;
         if user.is_disabled() || user.is_deleted() || !user.show_game_activity() {
-            self.store.clear(&user_id).await?;
             tx.save_events(&[activity_event(user_id, None, Utc::now())], None)
                 .await?;
             tx.commit().await?;
+            self.store.clear(&user_id).await?;
             return Err(ActivityError::Hidden);
         }
         let previous = self.store.get(&user_id).await?;
@@ -125,8 +125,8 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
                     refreshed_at: Utc::now(),
                     ..prev.clone()
                 };
-                self.store.set(&user_id, &adopted, ACTIVITY_TTL).await?;
                 tx.commit().await?;
+                self.store.set(&user_id, &adopted, ACTIVITY_TTL).await?;
                 return Ok(adopted);
             }
         }
@@ -148,12 +148,12 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
                 previous.as_ref().map(|p| p.changed_at).unwrap_or(now)
             },
         };
-        self.store.set(&user_id, &activity, ACTIVITY_TTL).await?;
         if needs_publish {
             tx.save_events(&[activity_event(user_id, Some(&activity), now)], None)
                 .await?;
         }
         tx.commit().await?;
+        self.store.set(&user_id, &activity, ACTIVITY_TTL).await?;
         if needs_publish {
             let provisional = activity.clone();
             activity.published = true;
@@ -213,11 +213,11 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
                 return Err(ActivityError::Leased);
             }
         }
-        self.store.clear(&user_id).await?;
         let occurred_at = Utc::now();
         tx.save_events(&[activity_event(user_id, None, occurred_at)], None)
             .await?;
         tx.commit().await?;
+        self.store.clear(&user_id).await?;
         Ok(occurred_at)
     }
 }

@@ -34,6 +34,7 @@ struct State {
     codes: Vec<StoredCode>,
     refresh_revoked_at: Option<DateTime<Utc>>,
     access_revoked_before: Option<DateTime<Utc>>,
+    log: Vec<&'static str>,
 }
 
 #[derive(Clone, Default)]
@@ -201,15 +202,18 @@ impl IdentityTransaction for Fake {
         })
     }
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError> {
+        self.0.lock().unwrap().log.push("commit");
         Ok(())
     }
 
     async fn load_stale_unverified_users_for_update(&mut self, _: DateTime<Utc>, _: i64) -> Result<Vec<User>, RepositoryError> { unimplemented!() }
-    async fn load_pending_verification_for_update(&mut self, _: &UserId) -> Result<Option<VerificationCode>, RepositoryError> { unimplemented!() }
     async fn delete_oauth_identities(&mut self, _: &UserId) -> Result<(), RepositoryError> { unimplemented!() }
     async fn load_refresh_token_for_update(&mut self, _: &RefreshTokenId) -> Result<Option<RefreshToken>, RepositoryError> { unimplemented!() }
     async fn insert_user(&mut self, _: &User) -> Result<(), RepositoryError> { unimplemented!() }
-    async fn insert_refresh_token(&mut self, _: &RefreshToken) -> Result<(), RepositoryError> { Ok(()) }
+    async fn insert_refresh_token(&mut self, _: &RefreshToken) -> Result<(), RepositoryError> {
+        self.0.lock().unwrap().log.push("refresh");
+        Ok(())
+    }
     async fn save_refresh_token(&mut self, _: &RefreshToken) -> Result<(), RepositoryError> { unimplemented!() }
     async fn lock_user(&mut self, _: &UserId) -> Result<bool, RepositoryError> { unimplemented!() }
     async fn load_entitlements(&mut self, _: &UserId) -> Result<Entitlements, RepositoryError> { unimplemented!() }
@@ -241,7 +245,9 @@ impl UserRepository for Fake {
         Ok(self.0.lock().unwrap().user.as_ref().filter(|u| u.email().as_str().eq_ignore_ascii_case(email.as_str())).map(copy_user))
     }
     async fn save_user(&self, _: &User) -> Result<(), RepositoryError> { unimplemented!() }
-    async fn find_by_id(&self, _: &UserId) -> Result<Option<User>, RepositoryError> { unimplemented!() }
+    async fn find_by_id(&self, user_id: &UserId) -> Result<Option<User>, RepositoryError> {
+        Ok(self.0.lock().unwrap().user.as_ref().filter(|u| u.id() == user_id).map(copy_user))
+    }
     async fn find_by_name(&self, _: &UserName) -> Result<Option<User>, RepositoryError> { unimplemented!() }
     async fn search_by_name_prefix(&self, _: &str, _: i64, _: &UserId) -> Result<Vec<(UserId, UserName)>, RepositoryError> { unimplemented!() }
     async fn get_password_hash_by_email(&self, _: &Email) -> Result<PasswordHash, RepositoryError> { unimplemented!() }
@@ -272,7 +278,9 @@ impl Hasher for PlainHasher {
 #[async_trait]
 impl AccessRevoker for Fake {
     async fn revoke_access_issued_before(&self, _user_id: &UserId, cutoff: DateTime<Utc>) -> Result<(), AccessRevokerError> {
-        self.0.lock().unwrap().access_revoked_before = Some(cutoff);
+        let mut state = self.0.lock().unwrap();
+        state.access_revoked_before = Some(cutoff);
+        state.log.push("revoke");
         Ok(())
     }
 }
@@ -448,4 +456,34 @@ async fn a_password_change_after_the_email_retires_the_link() {
     }
     assert!(matches!(apply.execute(reset(&token, "new-pass")).await, Err(ResetPasswordError::InvalidToken)));
     assert_eq!(fake.password(), "h:changed");
+}
+
+#[tokio::test]
+async fn a_password_change_revokes_access_and_issues_the_session_only_after_commit() {
+    let (fake, user_id) = Fake::with_user();
+    let fake = Arc::new(fake);
+    let hasher = Arc::new(PlainHasher);
+    let change = crate::usecases::user::change_password::ChangePassword::new(
+        fake.clone(),
+        fake.clone(),
+        hasher.clone(),
+        Arc::new(FixedTokens),
+        Arc::new(crate::usecases::user::reauth::Reauthenticator::new(hasher)),
+        fake.clone(),
+    );
+    change
+        .execute(
+            user_id,
+            crate::usecases::user::change_password::ChangePasswordRequest {
+                reauth: crate::usecases::user::reauth::Reauth { password: "old".into() },
+                new_password: "new-pass".into(),
+                ip: None,
+                user_agent: None,
+                request_id: None,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(fake.0.lock().unwrap().log, vec!["commit", "revoke", "refresh", "commit"]);
+    assert_eq!(fake.password(), "h:new-pass");
 }

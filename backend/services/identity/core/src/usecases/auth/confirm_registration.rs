@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::user::id::UserId;
-use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError};
+use identity_domain::{verification::purpose::VerificationPurpose, events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError};
 use ports::repository::RepositoryError;
 
 use crate::{
@@ -83,7 +83,7 @@ where
             return Err(ConfirmRegistrationError::UserAlreadyVerified);
         }
         let mut code = tx
-            .load_pending_verification_for_update(&user_id)
+            .load_pending_verification_for_purpose_for_update(&user_id, VerificationPurpose::Registration)
             .await?
             .ok_or(RepositoryError::NotFound)?;
 

@@ -5,6 +5,7 @@ use domain::{password_hash::PasswordHash, user::email::Email};
 use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError, user::repository::UserRepository, verification::code::VerificationCode, verification::id::VerificationCodeId, verification::code_hash::CodeHash, verification::purpose::VerificationPurpose, verification::throttle::IssuedCodes};
 use ports::repository::RepositoryError;
 
+use crate::usecases::auth::reactivation::revoke_access_after_commit;
 use crate::ports::{
     access_revoker::{AccessRevoker, AccessRevokerError},
     hasher::{HashError, Hasher},
@@ -177,8 +178,8 @@ where
         tx.save_user(&user).await?;
         tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
         tx.save_events(&events, request.request_id.as_deref()).await?;
-        self.access_revoker.revoke_access_issued_before(&user_id, now).await?;
         tx.commit().await?;
+        revoke_access_after_commit(&*self.access_revoker, &user_id, now).await;
         Ok(())
     }
 }

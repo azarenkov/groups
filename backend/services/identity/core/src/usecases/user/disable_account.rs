@@ -15,6 +15,7 @@ use crate::{
         activity_store::{ActivityStore, ActivityStoreError},
         hasher::{HashError, Hasher},
     },
+    usecases::auth::reactivation::revoke_access_after_commit,
     usecases::user::reauth::{Reauth, ReauthError, Reauthenticator},
 };
 
@@ -98,7 +99,6 @@ where
         let now = Utc::now();
         user.disable(now).map_err(|_| DisableAccountError::UserNotFound)?;
         let mut events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
-        self.activity_store.clear(&user_id).await?;
         events.push(IdentityEvent::from(UserEvent::ActivityChanged(UserActivityChanged {
             id: EventId::generate(),
             user_id,
@@ -110,8 +110,11 @@ where
         tx.save_user(&user).await?;
         tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
         tx.save_events(&events, request_id).await?;
-        self.access_revoker.revoke_access_issued_before(&user_id, now).await?;
         tx.commit().await?;
+        if let Err(e) = self.activity_store.clear(&user_id).await {
+            tracing::warn!(error = %e, user_id = %user_id.uuid(), "Failed to clear the activity cache after disabling the account");
+        }
+        revoke_access_after_commit(&*self.access_revoker, &user_id, now).await;
         Ok(())
     }
 }

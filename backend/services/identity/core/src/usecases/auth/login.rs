@@ -84,6 +84,12 @@ where
         }
 
         let user_id = user.id_ownned();
+        if let Some(disabled_at) = user.disabled_at() {
+            wait_past_cutoff(disabled_at).await;
+        }
+        if let Some(changed_at) = user.password_changed_at() {
+            wait_past_cutoff(changed_at).await;
+        }
 
         let mut tx = self.unit_of_work.begin().await?;
         let mut events = Vec::new();
@@ -101,14 +107,13 @@ where
         {
             return Err(LoginError::InvalidCredentials);
         }
-        if let Some(disabled_at) = locked.disabled_at() {
+        if locked.disabled_at() != user.disabled_at() || locked.password_changed_at() != user.password_changed_at() {
+            return Err(LoginError::InvalidCredentials);
+        }
+        if locked.disabled_at().is_some() {
             locked.reactivate(Utc::now());
             events.extend(locked.pull_events().into_iter().map(IdentityEvent::from));
             tx.save_user(&locked).await?;
-            wait_past_cutoff(disabled_at).await;
-        }
-        if let Some(changed_at) = locked.password_changed_at() {
-            wait_past_cutoff(changed_at).await;
         }
         let is_verified = locked.is_verified();
         let requires_verification = !is_verified;

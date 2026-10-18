@@ -134,7 +134,6 @@ impl IdentityTransaction for Fake {
     async fn consume_pending_verifications(&mut self, _: &UserId, _: VerificationPurpose, _: DateTime<Utc>) -> Result<(), RepositoryError> { unimplemented!() }
     async fn issued_verification_codes(&mut self, _: &UserId, _: VerificationPurpose, _: DateTime<Utc>) -> Result<IssuedCodes, RepositoryError> { unimplemented!() }
     async fn load_stale_unverified_users_for_update(&mut self, _: DateTime<Utc>, _: i64) -> Result<Vec<User>, RepositoryError> { unimplemented!() }
-    async fn load_pending_verification_for_update(&mut self, _: &UserId) -> Result<Option<VerificationCode>, RepositoryError> { unimplemented!() }
     async fn delete_oauth_identities(&mut self, _: &UserId) -> Result<(), RepositoryError> { unimplemented!() }
     async fn load_refresh_token_for_update(&mut self, _: &RefreshTokenId) -> Result<Option<RefreshToken>, RepositoryError> { unimplemented!() }
     async fn insert_user(&mut self, _: &User) -> Result<(), RepositoryError> { unimplemented!() }
