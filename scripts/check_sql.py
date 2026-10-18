@@ -10,6 +10,11 @@ CRATE_ALIAS = re.compile(r"\buse\s+sqlx\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*;")
 SINGLE_IMPORT = re.compile(rf"\buse\s+sqlx::({QUERY_FN})(?:\s+as\s+([A-Za-z_][A-Za-z0-9_]*))?\s*;")
 GROUP_IMPORT = re.compile(r"\buse\s+sqlx::\{([^}]*)\}\s*;", re.S)
 OPEN = re.compile(r"\s*!?\s*\(")
+EXECUTOR = re.compile(r"\.(?:execute|execute_many|fetch|fetch_many|fetch_all|fetch_one|fetch_optional|prepare|prepare_with|describe)\s*\(")
+DYNAMIC_SQL = re.compile(
+    r"^\s*&?\s*(?:format!|concat!)|\.as_str\(\)\s*$|^\s*&?\s*(?:mut\s+)?[A-Za-z_]*(?:sql|query|statement|stmt)[A-Za-z0-9_]*\s*$",
+    re.I,
+)
 
 
 def call_matcher(text: str) -> re.Pattern:
@@ -81,6 +86,14 @@ SELF_TEST = [
     ('sqlx::query(r#"SELECT \'a\' FROM t WHERE x = \'"\'"#)', 0),
     ('sqlx::query(&sql) // sqlx::query("x")', 1),
     ("let c = '\"'; sqlx::query(&sql)", 1),
+    ('pool.execute("CREATE TABLE t (id int)").await?', 0),
+    ('sqlx::query("SELECT 1").fetch_all(&pool).await?', 0),
+    ('query.execute(&mut *tx).await?', 0),
+    ('rows.fetch_one(&mut conn).await?', 0),
+    ('pool.execute(&format!("CREATE TABLE {}", name)).await?', 1),
+    ('conn.fetch_all(sql.as_str()).await?', 1),
+    ('conn.execute(&statement).await?', 1),
+    ('tx.execute(query_text).await?', 1),
 ]
 
 
@@ -134,12 +147,39 @@ def mask_non_code(text: str) -> str:
     return "".join(out)
 
 
+def first_argument(text: str, start: int) -> str:
+    depth, i = 0, start
+    while i < len(text):
+        c = text[i]
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            if depth == 0:
+                return text[start:i]
+            depth -= 1
+        elif c == "," and depth == 0:
+            return text[start:i]
+        i += 1
+    return text[start:]
+
+
+def executor_violations(masked: str):
+    for call in EXECUTOR.finditer(masked):
+        argument = first_argument(masked, call.end())
+        if DYNAMIC_SQL.search(argument):
+            yield call.start()
+
+
 def violations_in(text: str):
     masked = mask_non_code(text)
+    found = []
     for start, end in calls(masked):
         tail = masked[end:end + 200]
-        if LITERAL.match(tail):
-            continue
+        if not LITERAL.match(tail):
+            found.append((start, end))
+    for start in executor_violations(masked):
+        found.append((start, start + 1))
+    for start, end in sorted(found):
         line = text.count("\n", 0, start) + 1
         yield line, text[start:end + 60].split("\n")[0]
 
