@@ -75,12 +75,69 @@ SELF_TEST = [
     ('use sqlx as db;\ndb::query("SELECT 1")', 0),
     ('use sqlx::Row;\nlet query = build();\nquery(&sql)', 0),
     ('self.query(&sql)', 0),
+    ('/// Avoid `sqlx::query(statement)` here\nfn f() {}', 0),
+    ('let doc = "sqlx::query(statement)";', 0),
+    ('/* sqlx::query(&sql) */ let x = 1;', 0),
+    ('sqlx::query(r#"SELECT \'a\' FROM t WHERE x = \'"\'"#)', 0),
+    ('sqlx::query(&sql) // sqlx::query("x")', 1),
+    ("let c = '\"'; sqlx::query(&sql)", 1),
 ]
 
 
+def mask_non_code(text: str) -> str:
+    out = list(text)
+    i, n = 0, len(text)
+
+    def blank(start: int, stop: int) -> None:
+        for k in range(start, stop):
+            if out[k] != "\n":
+                out[k] = " "
+
+    while i < n:
+        c = text[i]
+        if text.startswith("//", i):
+            stop = text.find("\n", i)
+            stop = n if stop == -1 else stop
+            blank(i, stop)
+            i = stop
+        elif text.startswith("/*", i):
+            depth, j = 1, i + 2
+            while j < n and depth:
+                if text.startswith("/*", j):
+                    depth, j = depth + 1, j + 2
+                elif text.startswith("*/", j):
+                    depth, j = depth - 1, j + 2
+                else:
+                    j += 1
+            blank(i, j)
+            i = j
+        elif c == "r" and re.match(r'r#*"', text[i:i + 8]):
+            hashes = len(text[i + 1:i + 8].split('"')[0])
+            close = '"' + "#" * hashes
+            body = i + 1 + hashes + 1
+            stop = text.find(close, body)
+            stop = n if stop == -1 else stop
+            blank(body, stop)
+            i = stop + len(close)
+        elif c == '"' and not (i > 0 and text[i - 1].isalnum()):
+            j = i + 1
+            while j < n and text[j] != '"':
+                j += 2 if text[j] == "\\" else 1
+            blank(i + 1, j)
+            i = j + 1
+        elif c == "'" and i + 2 < n and (text[i + 2] == "'" or (text[i + 1] == "\\" and text.find("'", i + 2) != -1 and text.find("'", i + 2) - i <= 8)):
+            stop = text.find("'", i + 2) if text[i + 1] == "\\" else i + 2
+            blank(i + 1, stop)
+            i = stop + 1
+        else:
+            i += 1
+    return "".join(out)
+
+
 def violations_in(text: str):
-    for start, end in calls(text):
-        tail = text[end:end + 200]
+    masked = mask_non_code(text)
+    for start, end in calls(masked):
+        tail = masked[end:end + 200]
         if LITERAL.match(tail):
             continue
         line = text.count("\n", 0, start) + 1
