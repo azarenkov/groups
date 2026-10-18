@@ -379,8 +379,11 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                 false
             }
         };
+        if !removed_last {
+            return;
+        }
         let was_hidden = self.appear_offline.remove(&user_id).is_some_and(|(_, state)| state.hidden);
-        if removed_last && !was_hidden {
+        if !was_hidden {
             let payload = serde_json::to_string(&PresencePayload {
                 user_id,
                 online: false,
