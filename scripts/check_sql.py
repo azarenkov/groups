@@ -4,8 +4,31 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent / "backend"
-CALL = re.compile(r"sqlx::(?:query(?:_as|_scalar|_file|_file_as|_file_scalar)?(?:_with)?|raw_sql)(?:::<[^>]*>)?\s*!?\s*\(")
-LITERAL = re.compile(r'\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*,\s*)?(?:r#*)?"')
+NAME = re.compile(r"sqlx::(?:query(?:_as|_scalar|_file|_file_as|_file_scalar)?(?:_with)?|raw_sql)")
+OPEN = re.compile(r"\s*!?\s*\(")
+LITERAL = re.compile(r'\s*(?:[A-Za-z_][A-Za-z0-9_:]*(?:<[^"()]*>)?\s*,\s*)?(?:r#*)?"')
+
+
+def skip_turbofish(text: str, at: int) -> int:
+    if not text.startswith("::<", at):
+        return at
+    depth = 0
+    for index in range(at + 2, len(text)):
+        if text[index] == "<":
+            depth += 1
+        elif text[index] == ">":
+            depth -= 1
+            if depth == 0:
+                return index + 1
+    return at
+
+
+def calls(text: str):
+    for name in NAME.finditer(text):
+        after = skip_turbofish(text, name.end())
+        opening = OPEN.match(text, after)
+        if opening:
+            yield name.start(), opening.end()
 
 SELF_TEST = [
     ('sqlx::query("SELECT 1").fetch_one(pool)', 0),
@@ -19,16 +42,21 @@ SELF_TEST = [
     ('sqlx::query_as_with::<_, Row, _>(&sql, args)', 1),
     ('sqlx::query_scalar_with(statement, args)', 1),
     ('sqlx::raw_sql(&script)', 1),
+    ('sqlx::query_scalar::<_, Option<i64>>(statement)', 1),
+    ('sqlx::query_scalar::<_, Option<i64>>("SELECT 1")', 0),
+    ('sqlx::query_as::<_, Vec<Option<i64>>>(&sql)', 1),
+    ('sqlx::query_as!(models::Row, "SELECT 1")', 0),
+    ('sqlx::query_as!(crate::dto::Row<Inner>,\n    "SELECT 1",\n    id)', 0),
 ]
 
 
 def violations_in(text: str):
-    for match in CALL.finditer(text):
-        tail = text[match.end():match.end() + 200]
+    for start, end in calls(text):
+        tail = text[end:end + 200]
         if LITERAL.match(tail):
             continue
-        line = text.count("\n", 0, match.start()) + 1
-        yield line, text[match.start():match.end() + 60].split("\n")[0]
+        line = text.count("\n", 0, start) + 1
+        yield line, text[start:end + 60].split("\n")[0]
 
 
 def self_test() -> int:
