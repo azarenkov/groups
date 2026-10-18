@@ -206,8 +206,8 @@ async fn retry_presence_preference<D: RecipientDirectory>(sync: PreferenceSync<D
         }
         match sync.refresh(&[user_id]).await {
             Ok(()) => {
-                if sync.known_visible(user_id) && sync.has_local(user_id) {
-                    sync.announce(user_id, true).await;
+                if sync.known_visible(user_id) && sync.has_local(user_id) && !sync.announce(user_id, true).await {
+                    sync.mark_unannounced(user_id, Some(true));
                 }
                 return;
             }
@@ -260,8 +260,14 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                 if !sync.has_local(body.user_id) {
                     continue;
                 }
-                let as_of = body.occurred_at.unwrap_or_else(chrono::Utc::now);
-                sync.observe(body.user_id, body.appear_offline, as_of).await;
+                match body.occurred_at {
+                    Some(as_of) => sync.observe(body.user_id, body.appear_offline, as_of).await,
+                    None => {
+                        if let Err(e) = sync.reconcile(&[body.user_id]).await {
+                            tracing::warn!(error = %e, user_id = %body.user_id, "Unversioned presence preference received; projection refresh failed, waiting for reconciliation");
+                        }
+                    }
+                }
             }
         });
         Ok(())
@@ -503,7 +509,10 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                 .publish(self.presence_subject.clone(), payload.into())
                 .await
             {
-                tracing::warn!(error = %e, %user_id, "Failed to publish presence online");
+                tracing::warn!(error = %e, %user_id, "Failed to publish presence online; will retry on reconciliation");
+                if let Some(mut state) = self.appear_offline.get_mut(&user_id) {
+                    state.unannounced = Some(true);
+                }
             }
         }
 
