@@ -285,7 +285,6 @@ impl PostgresRealtimeProjection {
         community_id: Uuid,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
-        let mut tx = self.pool.begin().await?;
         sqlx::query!(
             r#"
             INSERT INTO realtime_deleted_communities (community_id, deleted_at)
@@ -295,7 +294,7 @@ impl PostgresRealtimeProjection {
             community_id,
             occurred_at,
         )
-        .execute(&mut *tx)
+        .execute(&self.pool)
         .await?;
         sqlx::query!(
             r#"
@@ -306,9 +305,8 @@ impl PostgresRealtimeProjection {
             community_id,
             occurred_at,
         )
-        .execute(&mut *tx)
+        .execute(&self.pool)
         .await?;
-        tx.commit().await?;
         Ok(())
     }
     async fn interested_in_query(
