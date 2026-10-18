@@ -70,7 +70,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ImportLegacyPresencePreferences<S,
         let mut imported = 0;
         for user_id in self.store.legacy_hidden_users().await? {
             let mut tx = self.unit_of_work.begin().await?;
-            if tx.lock_user(&user_id).await? {
+            if tx.lock_user(&user_id).await? && self.store.legacy_hidden(&user_id).await? {
                 let now = Utc::now();
                 let mut preference = tx
                     .load_presence_preference_for_update(&user_id)

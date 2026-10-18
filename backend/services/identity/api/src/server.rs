@@ -72,6 +72,8 @@ use api_common::config::ServerConfig;
 
 use crate::{routes, state::AppState};
 
+const LEGACY_PRESENCE_IMPORT_EVERY: std::time::Duration = std::time::Duration::from_secs(60);
+
 pub async fn run() -> Result<(), Box<dyn Error>> {
     infrastructure_common::observability::init("identity-service");
 
@@ -330,16 +332,23 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         let readiness = readiness.clone();
         actix_web::rt::spawn(async move {
             let mut attempt = 0u32;
+            let mut ready = false;
             loop {
                 match legacy_presence_import.execute().await {
                     Ok(imported) => {
-                        tracing::info!(imported, "Imported legacy appear-offline preferences");
-                        readiness.mark_ready();
-                        return;
+                        if imported > 0 || !ready {
+                            tracing::info!(imported, "Imported legacy appear-offline preferences");
+                        }
+                        if !ready {
+                            readiness.mark_ready();
+                            ready = true;
+                        }
+                        attempt = 0;
+                        actix_web::rt::time::sleep(LEGACY_PRESENCE_IMPORT_EVERY).await;
                     }
                     Err(e) => {
                         let delay = std::time::Duration::from_secs((2u64 << attempt.min(5)).min(60));
-                        tracing::warn!(error = %e, attempt, delay_secs = delay.as_secs(), "Failed to import legacy appear-offline preferences; retrying before readiness");
+                        tracing::warn!(error = %e, attempt, delay_secs = delay.as_secs(), ready, "Failed to import legacy appear-offline preferences; retrying");
                         attempt = attempt.saturating_add(1);
                         actix_web::rt::time::sleep(delay).await;
                     }

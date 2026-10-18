@@ -233,6 +233,14 @@ impl ActivityStore for RedisActivityStore {
         }
     }
 
+    async fn legacy_hidden(&self, user_id: &UserId) -> Result<bool, ActivityStoreError> {
+        let mut connection = self.connection().await?;
+        connection
+            .exists(format!("{LEGACY_HIDDEN_PREFIX}{}", user_id.uuid()))
+            .await
+            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))
+    }
+
     async fn forget_legacy_hidden(&self, user_id: &UserId) -> Result<(), ActivityStoreError> {
         let mut connection = self.connection().await?;
         let _: () = connection

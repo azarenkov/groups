@@ -72,6 +72,7 @@ use contracts::realtime::PresencePreferenceV1 as PresencePreferenceMessage;
 pub struct PreferenceState {
     hidden: bool,
     as_of: chrono::DateTime<chrono::Utc>,
+    unannounced: Option<bool>,
 }
 
 fn hidden_by_preference(cache: &DashMap<Uuid, PreferenceState>, user_id: Uuid) -> bool {
@@ -85,11 +86,11 @@ fn remember_preference(cache: &DashMap<Uuid, PreferenceState>, user_id: Uuid, hi
                 return None;
             }
             let was_hidden = entry.get().hidden;
-            *entry.get_mut() = PreferenceState { hidden, as_of };
+            *entry.get_mut() = PreferenceState { hidden, as_of, unannounced: None };
             Some(Some(was_hidden))
         }
         Entry::Vacant(slot) => {
-            slot.insert(PreferenceState { hidden, as_of });
+            slot.insert(PreferenceState { hidden, as_of, unannounced: None });
             Some(None)
         }
     }
@@ -127,10 +128,20 @@ impl<D: RecipientDirectory> PreferenceSync<D> {
         self.cache.get(&user_id).is_some_and(|state| !state.hidden)
     }
 
-    async fn announce(&self, user_id: Uuid, online: bool) {
+    async fn announce(&self, user_id: Uuid, online: bool) -> bool {
         let payload = serde_json::to_string(&PresencePayload { user_id, online }).unwrap_or_default();
-        if let Err(e) = self.core.publish(self.presence_subject.clone(), payload.into()).await {
-            tracing::warn!(error = %e, %user_id, online, "Failed to publish presence after preference change");
+        match self.core.publish(self.presence_subject.clone(), payload.into()).await {
+            Ok(()) => true,
+            Err(e) => {
+                tracing::warn!(error = %e, %user_id, online, "Failed to publish presence after preference change; will retry on reconciliation");
+                false
+            }
+        }
+    }
+
+    fn mark_unannounced(&self, user_id: Uuid, pending: Option<bool>) {
+        if let Some(mut state) = self.cache.get_mut(&user_id) {
+            state.unannounced = pending;
         }
     }
 
@@ -141,7 +152,21 @@ impl<D: RecipientDirectory> PreferenceSync<D> {
         if let Some(online) = presence_after_preference(previously, hidden)
             && self.has_local(user_id)
         {
-            self.announce(user_id, online).await;
+            let delivered = self.announce(user_id, online).await;
+            self.mark_unannounced(user_id, (!delivered).then_some(online));
+        }
+    }
+
+    async fn retry_unannounced(&self) {
+        let pending: Vec<(Uuid, bool)> = self
+            .cache
+            .iter()
+            .filter_map(|entry| entry.value().unannounced.map(|online| (*entry.key(), online)))
+            .collect();
+        for (user_id, online) in pending {
+            if !self.has_local(user_id) || self.announce(user_id, online).await {
+                self.mark_unannounced(user_id, None);
+            }
         }
     }
 
@@ -168,6 +193,7 @@ impl<D: RecipientDirectory> PreferenceSync<D> {
         for (user_id, hidden, as_of) in self.load(user_ids).await? {
             self.observe(user_id, hidden, as_of).await;
         }
+        self.retry_unannounced().await;
         Ok(())
     }
 }
@@ -231,6 +257,9 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                             continue;
                         }
                     };
+                if !sync.has_local(body.user_id) {
+                    continue;
+                }
                 let as_of = body.occurred_at.unwrap_or_else(chrono::Utc::now);
                 sync.observe(body.user_id, body.appear_offline, as_of).await;
             }
@@ -498,8 +527,11 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
         if !removed_last {
             return;
         }
-        let was_hidden = self.appear_offline.remove(&user_id).is_some_and(|(_, state)| state.hidden);
-        if !was_hidden {
+        let hidden_and_announced = self
+            .appear_offline
+            .remove(&user_id)
+            .is_some_and(|(_, state)| state.hidden && state.unannounced.is_none());
+        if !hidden_and_announced {
             let payload = serde_json::to_string(&PresencePayload {
                 user_id,
                 online: false,
