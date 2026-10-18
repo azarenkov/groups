@@ -31,6 +31,13 @@ fn default_true() -> bool {
 }
 
 
+const CLEAR_IF_CURRENT: &str = r#"
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+"#;
+
 const SET_IF_CURRENT: &str = r#"
 if redis.call('GET', KEYS[1]) == ARGV[1] then
   redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])
@@ -161,6 +168,36 @@ impl ActivityStore for RedisActivityStore {
             .await
             .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
         Ok(replaced == 1)
+    }
+
+    async fn set_if_absent(
+        &self,
+        user_id: &UserId,
+        activity: &StoredActivity,
+        ttl: Duration,
+    ) -> Result<bool, ActivityStoreError> {
+        let mut connection = self.connection().await?;
+        let stored: Option<String> = redis::cmd("SET")
+            .arg(Self::key(user_id))
+            .arg(Self::encode(activity)?)
+            .arg("NX")
+            .arg("EX")
+            .arg(ttl.as_secs().max(1))
+            .query_async(&mut connection)
+            .await
+            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        Ok(stored.is_some())
+    }
+
+    async fn clear_if_current(&self, user_id: &UserId, expected: &StoredActivity) -> Result<bool, ActivityStoreError> {
+        let mut connection = self.connection().await?;
+        let removed: i64 = redis::Script::new(CLEAR_IF_CURRENT)
+            .key(Self::key(user_id))
+            .arg(Self::encode(expected)?)
+            .invoke_async(&mut connection)
+            .await
+            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        Ok(removed == 1)
     }
 
     async fn clear(&self, user_id: &UserId) -> Result<Option<StoredActivity>, ActivityStoreError> {

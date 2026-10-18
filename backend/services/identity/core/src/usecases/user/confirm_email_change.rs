@@ -11,7 +11,7 @@ use crate::{
         hasher::{HashError, Hasher},
         token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
     },
-    usecases::auth::reactivation::{SessionClient, issue_session_after_cutoff, revoke_access_after_commit},
+    usecases::auth::reactivation::{SessionClient, SessionRotationError, issue_session_after_cutoff, revoke_access_after_commit},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -32,6 +32,8 @@ pub enum ConfirmEmailChangeError {
     BadCode,
     #[error("User not found")]
     UserNotFound,
+    #[error("{0}")]
+    Session(#[from] SessionRotationError),
     #[error("Token issuer error: {0}")]
     TokenIssuer(#[from] TokenIssuerError),
     #[error("Access revocation error: {0}")]
@@ -134,7 +136,7 @@ where
                     &*self.unit_of_work,
                     &*self.token_issuer,
                     user_id,
-                    user.is_verified(),
+                    user.updated_at(),
                     cutoff,
                     SessionClient { ip: request.ip, user_agent: request.user_agent },
                 )

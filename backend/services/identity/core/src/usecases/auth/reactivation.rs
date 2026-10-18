@@ -20,21 +20,33 @@ pub struct SessionClient {
     pub user_agent: Option<String>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum SessionRotationError {
+    #[error("Credentials changed concurrently; sign in again")]
+    Superseded,
+}
+
 pub async fn issue_session_after_cutoff<W, I, E>(
     unit_of_work: &W,
     token_issuer: &I,
     user_id: UserId,
-    verified: bool,
+    expected_updated_at: DateTime<Utc>,
     cutoff: DateTime<Utc>,
     client: SessionClient,
 ) -> Result<IssuedTokens, E>
 where
     W: IdentityUnitOfWork,
     I: TokenIssuer,
-    E: From<RepositoryError> + From<TokenIssuerError>,
+    E: From<RepositoryError> + From<TokenIssuerError> + From<SessionRotationError>,
 {
     wait_past_cutoff(cutoff).await;
-    let tokens = token_issuer.issue(&user_id, verified).await?;
+    let mut tx = unit_of_work.begin().await?;
+    let user = tx.load_user_for_update(&user_id).await?;
+    let current = match user {
+        Some(user) if !user.is_disabled() && !user.is_deleted() && user.updated_at() == expected_updated_at => user,
+        _ => return Err(SessionRotationError::Superseded.into()),
+    };
+    let tokens = token_issuer.issue(&user_id, current.is_verified()).await?;
     let refresh_token = RefreshToken::issue(
         tokens.refresh_token_id,
         user_id,
@@ -42,7 +54,6 @@ where
         client.ip,
         client.user_agent,
     );
-    let mut tx = unit_of_work.begin().await?;
     tx.insert_refresh_token(&refresh_token).await?;
     tx.commit().await?;
     Ok(tokens)

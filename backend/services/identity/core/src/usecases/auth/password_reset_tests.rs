@@ -35,6 +35,7 @@ struct State {
     refresh_revoked_at: Option<DateTime<Utc>>,
     access_revoked_before: Option<DateTime<Utc>>,
     log: Vec<&'static str>,
+    supersede_after_commit: bool,
 }
 
 #[derive(Clone, Default)]
@@ -202,7 +203,12 @@ impl IdentityTransaction for Fake {
         })
     }
     async fn commit(self: Box<Self>) -> Result<(), RepositoryError> {
-        self.0.lock().unwrap().log.push("commit");
+        let mut state = self.0.lock().unwrap();
+        state.log.push("commit");
+        if state.supersede_after_commit && state.log.iter().filter(|e| **e == "commit").count() == 1 {
+            let user = state.user.as_mut().unwrap();
+            user.change_password(PasswordHash::new("h:concurrent".into()), Utc::now() + chrono::Duration::seconds(1));
+        }
         Ok(())
     }
 
@@ -238,6 +244,7 @@ impl IdentityTransaction for Fake {
 #[async_trait]
 impl UserRepository for Fake {
     async fn appear_offline_among(&self, _: &[UserId]) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
+    async fn activity_hidden_among(&self, _: &[UserId]) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepositoryError> {
         Ok(self.0.lock().unwrap().user.as_ref().filter(|u| u.email().as_str() == email.as_str()).map(copy_user))
     }
@@ -486,4 +493,39 @@ async fn a_password_change_revokes_access_and_issues_the_session_only_after_comm
         .unwrap();
     assert_eq!(fake.0.lock().unwrap().log, vec!["commit", "revoke", "refresh", "commit"]);
     assert_eq!(fake.password(), "h:new-pass");
+}
+
+#[tokio::test]
+async fn a_password_change_does_not_issue_a_session_when_the_user_changed_concurrently() {
+    let (fake, user_id) = Fake::with_user();
+    fake.0.lock().unwrap().supersede_after_commit = true;
+    let fake = Arc::new(fake);
+    let hasher = Arc::new(PlainHasher);
+    let change = crate::usecases::user::change_password::ChangePassword::new(
+        fake.clone(),
+        fake.clone(),
+        hasher.clone(),
+        Arc::new(FixedTokens),
+        Arc::new(crate::usecases::user::reauth::Reauthenticator::new(hasher)),
+        fake.clone(),
+    );
+    let result = change
+        .execute(
+            user_id,
+            crate::usecases::user::change_password::ChangePasswordRequest {
+                reauth: crate::usecases::user::reauth::Reauth { password: "old".into() },
+                new_password: "new-pass".into(),
+                ip: None,
+                user_agent: None,
+                request_id: None,
+            },
+        )
+        .await;
+    assert!(matches!(
+        result,
+        Err(crate::usecases::user::change_password::ChangePasswordError::Session(
+            crate::usecases::auth::reactivation::SessionRotationError::Superseded
+        ))
+    ));
+    assert_eq!(fake.0.lock().unwrap().log, vec!["commit", "revoke"]);
 }

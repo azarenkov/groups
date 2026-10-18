@@ -11,7 +11,7 @@ use crate::{
         hasher::{HashError, Hasher},
         token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
     },
-    usecases::auth::reactivation::{SessionClient, issue_session_after_cutoff, revoke_access_after_commit},
+    usecases::auth::reactivation::{SessionClient, SessionRotationError, issue_session_after_cutoff, revoke_access_after_commit},
     usecases::user::reauth::{Reauth, ReauthError, Reauthenticator},
 };
 
@@ -29,6 +29,8 @@ pub enum ChangePasswordError {
     Reauth(#[from] ReauthError),
     #[error("New password must differ from the current one")]
     SamePassword,
+    #[error("{0}")]
+    Session(#[from] SessionRotationError),
     #[error("User not found")]
     UserNotFound,
 }
@@ -129,7 +131,7 @@ where
             &*self.unit_of_work,
             &*self.token_issuer,
             user_id,
-            user.is_verified(),
+            user.updated_at(),
             cutoff,
             SessionClient { ip: request.ip, user_agent: request.user_agent },
         )

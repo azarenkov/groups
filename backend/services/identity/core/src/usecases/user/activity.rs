@@ -126,7 +126,9 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
                     ..prev.clone()
                 };
                 tx.commit().await?;
-                self.store.set(&user_id, &adopted, ACTIVITY_TTL).await?;
+                if !self.store.set_if_current(&user_id, prev, &adopted, ACTIVITY_TTL).await? {
+                    return Err(ActivityError::Superseded);
+                }
                 return Ok(adopted);
             }
         }
@@ -153,7 +155,13 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
                 .await?;
         }
         tx.commit().await?;
-        self.store.set(&user_id, &activity, ACTIVITY_TTL).await?;
+        let stored = match previous.as_ref() {
+            Some(prev) => self.store.set_if_current(&user_id, prev, &activity, ACTIVITY_TTL).await?,
+            None => self.store.set_if_absent(&user_id, &activity, ACTIVITY_TTL).await?,
+        };
+        if !stored {
+            return Err(ActivityError::Superseded);
+        }
         if needs_publish {
             let provisional = activity.clone();
             activity.published = true;
@@ -201,7 +209,8 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
         if tx.load_user_for_update(&user_id).await?.is_none() {
             return Err(ActivityError::UserNotFound);
         }
-        if let Some(prev) = self.store.get(&user_id).await?
+        let previous = self.store.get(&user_id).await?;
+        if let Some(prev) = previous.as_ref()
             && !source.is_empty()
             && !prev.source.is_empty()
             && prev.source != source
@@ -217,7 +226,9 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
         tx.save_events(&[activity_event(user_id, None, occurred_at)], None)
             .await?;
         tx.commit().await?;
-        self.store.clear(&user_id).await?;
+        if let Some(prev) = previous.as_ref() {
+            self.store.clear_if_current(&user_id, prev).await?;
+        }
         Ok(occurred_at)
     }
 }
@@ -250,7 +261,7 @@ impl<S: ActivityStore, A: ActivityAudience, U: UserRepository> GetActivities<S, 
             });
         }
         let others: Vec<UserId> = visible.iter().copied().filter(|id| id != &viewer).collect();
-        let hidden = self.users.appear_offline_among(&others).await?;
+        let hidden = self.users.activity_hidden_among(&others).await?;
         let activities = self
             .store
             .get_many(&visible)

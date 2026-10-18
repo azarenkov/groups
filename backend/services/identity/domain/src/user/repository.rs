@@ -68,6 +68,7 @@ pub trait UserRepository {
         user_id: &UserId,
     ) -> Result<Option<NotificationSettings>, RepositoryError>;
     async fn appear_offline_among(&self, user_ids: &[UserId]) -> Result<Vec<UserId>, RepositoryError>;
+    async fn activity_hidden_among(&self, user_ids: &[UserId]) -> Result<Vec<UserId>, RepositoryError>;
     async fn get_hotkey_settings(
         &self,
         user_id: &UserId,

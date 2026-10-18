@@ -62,7 +62,9 @@ where
     S: ActivityStore + ?Sized,
     R: AccessRevoker + ?Sized,
 {
-    activity_store.clear(user_id).await?;
-    access_revoker.revoke_access_issued_before(user_id, now).await?;
+    let activity = activity_store.clear(user_id).await;
+    let access = access_revoker.revoke_access_issued_before(user_id, now).await;
+    access?;
+    activity?;
     Ok(())
 }
