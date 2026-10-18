@@ -11,8 +11,8 @@ SINGLE_IMPORT = re.compile(rf"\buse\s+sqlx::({QUERY_FN})(?:\s+as\s+([A-Za-z_][A-
 GROUP_IMPORT = re.compile(r"\buse\s+sqlx::\{([^}]*)\}\s*;", re.S)
 OPEN = re.compile(r"\s*!?\s*\(")
 EXECUTOR = re.compile(r"\.(?:execute|execute_many|fetch|fetch_many|fetch_all|fetch_one|fetch_optional|prepare|prepare_with|describe)\s*\(")
-DYNAMIC_SQL = re.compile(
-    r"^\s*&?\s*(?:format!|concat!)|\.as_str\(\)\s*$|^\s*&?\s*(?:mut\s+)?[A-Za-z_]*(?:sql|query|statement|stmt)[A-Za-z0-9_]*\s*$",
+EXECUTOR_ARG = re.compile(
+    r"^\s*&\s*mut\b|^\s*&?\s*\*?\s*(?:self\.)?[A-Za-z_]*(?:pool|conn|tx|executor|db)[A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*\s*$",
     re.I,
 )
 
@@ -94,6 +94,18 @@ SELF_TEST = [
     ('conn.fetch_all(sql.as_str()).await?', 1),
     ('conn.execute(&statement).await?', 1),
     ('tx.execute(query_text).await?', 1),
+    ('pool.execute(command).await?', 1),
+    ('conn.execute(&*search_path).await?', 1),
+    ('self.pool.execute("SELECT 1").await?', 0),
+    ('query.fetch_all(&self.pool).await?', 0),
+    ('sqlx::query!("SELECT 1").execute(&mut *tx).await?', 0),
+    ('usecase.execute(request).await?', 0),
+    ('self.abort.execute(AbortRequest { .. }).await', 0),
+    ('self.pool.execute(statement).await?', 1),
+    ('db.fetch_all(&*text).await?', 1),
+    ('list_connections_usecase.execute(user_id).await?', 0),
+    ('reconnects.execute(now).await?', 0),
+    ('admin_conn.execute(&script).await?', 1),
 ]
 
 
@@ -163,11 +175,23 @@ def first_argument(text: str, start: int) -> str:
     return text[start:]
 
 
+RECEIVER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*\s*$")
+EXECUTOR_NAME = re.compile(r"(?:^|_)(?:pool|conn|connection|tx|transaction|executor|db)$", re.I)
+
+
+def receiver_is_executor(masked: str, dot: int) -> bool:
+    receiver = RECEIVER.search(masked[max(0, dot - 120):dot])
+    return bool(receiver) and bool(EXECUTOR_NAME.search(receiver.group(0).split(".")[-1].strip()))
+
+
 def executor_violations(masked: str):
     for call in EXECUTOR.finditer(masked):
+        if not receiver_is_executor(masked, call.start()):
+            continue
         argument = first_argument(masked, call.end())
-        if DYNAMIC_SQL.search(argument):
-            yield call.start()
+        if LITERAL.match(argument) or EXECUTOR_ARG.match(argument):
+            continue
+        yield call.start()
 
 
 def violations_in(text: str):

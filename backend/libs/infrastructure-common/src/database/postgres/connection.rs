@@ -1,4 +1,4 @@
-use std::{error::Error, sync::Arc, time::Duration};
+use std::{error::Error, time::Duration};
 
 use sqlx::{Executor, Pool, Postgres, migrate::Migrator, postgres::PgPoolOptions};
 
@@ -9,10 +9,9 @@ pub async fn create_postgres_pool(
     schema: &str,
     migrator: Option<&Migrator>,
 ) -> Result<Pool<Postgres>, Box<dyn Error>> {
-    let Some(statements) = SchemaStatements::for_schema(schema) else {
+    let Some(known) = KnownSchema::parse(schema) else {
         return Err(format!("unknown postgres schema: {schema:?}").into());
     };
-    let search_path: Arc<str> = Arc::from(statements.search_path);
     let pool = PgPoolOptions::new()
         .max_connections(config.max_connections())
         .min_connections(config.min_connections())
@@ -20,9 +19,8 @@ pub async fn create_postgres_pool(
         .idle_timeout(Duration::from_secs(config.idle_timeout_seconds()))
         .max_lifetime(Duration::from_secs(config.max_lifetime_seconds()))
         .after_connect(move |conn, _meta| {
-            let search_path = search_path.clone();
             Box::pin(async move {
-                conn.execute(&*search_path).await?;
+                known.set_search_path(conn).await?;
                 Ok(())
             })
         })
@@ -35,9 +33,7 @@ pub async fn create_postgres_pool(
     if let Some(migrator) = migrator
         && config.run_migrations()
     {
-        pool.execute(statements.create_schema)
-            .await
-            .map_err(Box::<dyn Error>::from)?;
+        known.create(&pool).await.map_err(Box::<dyn Error>::from)?;
         migrator.run(&pool).await.map_err(Box::<dyn Error>::from)?;
     }
 
@@ -47,25 +43,60 @@ pub async fn create_postgres_pool(
 pub const KNOWN_SCHEMAS: &[&str] = &["identity", "media", "messaging", "voice", "realtime"];
 
 pub fn is_known_schema(schema: &str) -> bool {
-    KNOWN_SCHEMAS.contains(&schema)
+    KnownSchema::parse(schema).is_some()
 }
 
-struct SchemaStatements {
-    create_schema: &'static str,
-    search_path: &'static str,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KnownSchema {
+    Identity,
+    Media,
+    Messaging,
+    Voice,
+    Realtime,
 }
 
-impl SchemaStatements {
-    fn for_schema(schema: &str) -> Option<Self> {
-        let (create_schema, search_path) = match schema {
-            "identity" => ("CREATE SCHEMA IF NOT EXISTS identity", "SET search_path TO identity"),
-            "media" => ("CREATE SCHEMA IF NOT EXISTS media", "SET search_path TO media"),
-            "messaging" => ("CREATE SCHEMA IF NOT EXISTS messaging", "SET search_path TO messaging"),
-            "voice" => ("CREATE SCHEMA IF NOT EXISTS voice", "SET search_path TO voice"),
-            "realtime" => ("CREATE SCHEMA IF NOT EXISTS realtime", "SET search_path TO realtime"),
+impl KnownSchema {
+    pub fn parse(schema: &str) -> Option<Self> {
+        Some(match schema {
+            "identity" => Self::Identity,
+            "media" => Self::Media,
+            "messaging" => Self::Messaging,
+            "voice" => Self::Voice,
+            "realtime" => Self::Realtime,
             _ => return None,
+        })
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Identity => "identity",
+            Self::Media => "media",
+            Self::Messaging => "messaging",
+            Self::Voice => "voice",
+            Self::Realtime => "realtime",
+        }
+    }
+
+    async fn set_search_path(self, conn: &mut sqlx::PgConnection) -> Result<(), sqlx::Error> {
+        match self {
+            Self::Identity => conn.execute("SET search_path TO identity").await?,
+            Self::Media => conn.execute("SET search_path TO media").await?,
+            Self::Messaging => conn.execute("SET search_path TO messaging").await?,
+            Self::Voice => conn.execute("SET search_path TO voice").await?,
+            Self::Realtime => conn.execute("SET search_path TO realtime").await?,
         };
-        Some(Self { create_schema, search_path })
+        Ok(())
+    }
+
+    async fn create(self, pool: &Pool<Postgres>) -> Result<(), sqlx::Error> {
+        match self {
+            Self::Identity => pool.execute("CREATE SCHEMA IF NOT EXISTS identity").await?,
+            Self::Media => pool.execute("CREATE SCHEMA IF NOT EXISTS media").await?,
+            Self::Messaging => pool.execute("CREATE SCHEMA IF NOT EXISTS messaging").await?,
+            Self::Voice => pool.execute("CREATE SCHEMA IF NOT EXISTS voice").await?,
+            Self::Realtime => pool.execute("CREATE SCHEMA IF NOT EXISTS realtime").await?,
+        };
+        Ok(())
     }
 }
 
@@ -96,18 +127,16 @@ pub async fn ping_pool(pool: &Pool<Postgres>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{SchemaStatements, is_known_schema, is_valid_schema, KNOWN_SCHEMAS};
+    use super::{KnownSchema, is_known_schema, is_valid_schema, KNOWN_SCHEMAS};
 
     #[test]
-    fn only_known_schemas_get_literal_statements() {
+    fn only_known_schemas_are_accepted() {
         for name in KNOWN_SCHEMAS {
             assert!(is_known_schema(name), "{name}");
-            let statements = SchemaStatements::for_schema(name).expect(name);
-            assert!(statements.create_schema.ends_with(name));
-            assert!(statements.search_path.ends_with(name));
+            assert_eq!(KnownSchema::parse(name).map(KnownSchema::name), Some(*name));
         }
         assert!(!is_known_schema("_svc2"));
-        assert!(SchemaStatements::for_schema("_svc2").is_none());
+        assert!(KnownSchema::parse("_svc2").is_none());
     }
 
     #[test]
