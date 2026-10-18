@@ -33,27 +33,25 @@ fn default_true() -> bool {
 }
 
 
+const VERSION_PREFIX: &str = "activity:version:";
+const VERSION_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+
 const SET_IF_NEWER: &str = r#"
-local current = redis.call('GET', KEYS[1])
-if current then
-  local version = cjson.decode(current)['version']
-  if version and tonumber(version) > tonumber(ARGV[2]) then
-    return 0
-  end
+local applied = redis.call('GET', KEYS[2])
+if applied and tonumber(applied) > tonumber(ARGV[2]) then
+  return 0
 end
 redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[3])
+redis.call('SET', KEYS[2], ARGV[2], 'EX', ARGV[4])
 return 1
 "#;
 
 const CLEAR_IF_NOT_NEWER: &str = r#"
-local current = redis.call('GET', KEYS[1])
-if not current then
+local applied = redis.call('GET', KEYS[2])
+if applied and tonumber(applied) > tonumber(ARGV[1]) then
   return 0
 end
-local version = cjson.decode(current)['version']
-if version and tonumber(version) > tonumber(ARGV[1]) then
-  return 0
-end
+redis.call('SET', KEYS[2], ARGV[1], 'EX', ARGV[2])
 return redis.call('DEL', KEYS[1])
 "#;
 
@@ -117,6 +115,10 @@ impl RedisActivityStore {
         format!("activity:{}", user_id.uuid())
     }
 
+    fn version_key(user_id: &UserId) -> String {
+        format!("{VERSION_PREFIX}{}", user_id.uuid())
+    }
+
     fn decode(raw: Option<String>) -> Option<StoredActivity> {
         let raw = raw?;
         let record: ActivityRecord = serde_json::from_str(&raw).ok()?;
@@ -153,9 +155,11 @@ impl ActivityStore for RedisActivityStore {
         let mut connection = self.connection().await?;
         let stored: i64 = redis::Script::new(SET_IF_NEWER)
             .key(Self::key(user_id))
+            .key(Self::version_key(user_id))
             .arg(Self::encode(activity)?)
             .arg(activity.version)
             .arg(ttl.as_secs().max(1))
+            .arg(VERSION_TTL.as_secs())
             .invoke_async(&mut connection)
             .await
             .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
@@ -166,7 +170,9 @@ impl ActivityStore for RedisActivityStore {
         let mut connection = self.connection().await?;
         let removed: i64 = redis::Script::new(CLEAR_IF_NOT_NEWER)
             .key(Self::key(user_id))
+            .key(Self::version_key(user_id))
             .arg(version)
+            .arg(VERSION_TTL.as_secs())
             .invoke_async(&mut connection)
             .await
             .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
