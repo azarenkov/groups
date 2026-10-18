@@ -1253,7 +1253,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "occurredAt": evt.occurred_at,
             }),
         );
-        if resolver.presence_preference(evt.user_id).await?.is_some_and(|p| p.appear_offline) {
+        if resolver.presence_preferences(&[evt.user_id]).await?.iter().any(|(_, p)| p.appear_offline) {
             publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
             return Ok(());
         }
@@ -1419,7 +1419,7 @@ mod tests {
             async fn profile_recipients(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
             async fn interested_in(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(self.interested.clone()) }
             async fn pending_dm_peers(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
-            async fn presence_preference(&self, _: Uuid) -> Result<Option<PresencePreference>, RepositoryError> { Ok(None) }
+            async fn presence_preferences(&self, _: &[Uuid]) -> Result<Vec<(Uuid, PresencePreference)>, RepositoryError> { Ok(vec![]) }
         }
 
         #[async_trait]

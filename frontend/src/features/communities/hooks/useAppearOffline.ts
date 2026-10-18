@@ -72,8 +72,8 @@ export function useAppearOffline(params: {
   }, [pending, hasSession, attempt, currentUserId]);
 
   useEffect(() => {
-    setActivityHiddenByPresence(appearOffline);
-  }, [appearOffline]);
+    setActivityHiddenByPresence(appearOffline || pending !== null);
+  }, [appearOffline, pending]);
 
   useEffect(() => {
     if (!currentUserId) return;

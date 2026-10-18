@@ -57,6 +57,7 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
             tracing::error!(error = %e, "Failed to subscribe to presence preference subject");
             Box::<dyn Error>::from(format!("presence preference subscribe failed: {e}"))
         })?;
+    manager.start_preference_reconciliation();
 
     let readiness = {
         let jetstream = jetstream.clone();

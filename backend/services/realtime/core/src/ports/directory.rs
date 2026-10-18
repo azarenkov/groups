@@ -18,5 +18,5 @@ pub trait RecipientDirectory: Send + Sync {
     async fn profile_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError>;
     async fn interested_in(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError>;
     async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError>;
-    async fn presence_preference(&self, user_id: Uuid) -> Result<Option<PresencePreference>, RepositoryError>;
+    async fn presence_preferences(&self, user_ids: &[Uuid]) -> Result<Vec<(Uuid, PresencePreference)>, RepositoryError>;
 }

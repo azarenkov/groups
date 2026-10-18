@@ -58,8 +58,8 @@ impl<D: RecipientDirectory, B: RelationDirectory> RecipientDirectory for BlockAw
         self.inner.pending_dm_peers(user_id).await
     }
 
-    async fn presence_preference(&self, user_id: Uuid) -> Result<Option<PresencePreference>, RepositoryError> {
-        self.inner.presence_preference(user_id).await
+    async fn presence_preferences(&self, user_ids: &[Uuid]) -> Result<Vec<(Uuid, PresencePreference)>, RepositoryError> {
+        self.inner.presence_preferences(user_ids).await
     }
 
     async fn interested_in(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {

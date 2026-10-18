@@ -274,18 +274,24 @@ impl PostgresRealtimeProjection {
         Ok(result.rows_affected() > 0)
     }
 
-    async fn presence_preference(&self, user_id: Uuid) -> Result<Option<PresencePreference>, sqlx::Error> {
-        let row: Option<(bool, DateTime<Utc>)> = sqlx::query_as(
+    async fn presence_preferences(&self, user_ids: &[Uuid]) -> Result<Vec<(Uuid, PresencePreference)>, sqlx::Error> {
+        if user_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows: Vec<(Uuid, bool, DateTime<Utc>)> = sqlx::query_as(
             r#"
-            SELECT appear_offline, updated_at
+            SELECT user_id, appear_offline, updated_at
             FROM realtime_presence_preferences
-            WHERE user_id = $1
+            WHERE user_id = ANY($1)
             "#,
         )
-        .bind(user_id)
-        .fetch_optional(&self.pool)
+        .bind(user_ids)
+        .fetch_all(&self.pool)
         .await?;
-        Ok(row.map(|(appear_offline, as_of)| PresencePreference { appear_offline, as_of }))
+        Ok(rows
+            .into_iter()
+            .map(|(user_id, appear_offline, as_of)| (user_id, PresencePreference { appear_offline, as_of }))
+            .collect())
     }
 
     async fn remove_community(
@@ -400,7 +406,7 @@ impl RecipientDirectory for PostgresRealtimeProjection {
     async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
         PostgresRealtimeProjection::pending_dm_peers(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
     }
-    async fn presence_preference(&self, user_id: Uuid) -> Result<Option<PresencePreference>, RepositoryError> {
-        PostgresRealtimeProjection::presence_preference(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
+    async fn presence_preferences(&self, user_ids: &[Uuid]) -> Result<Vec<(Uuid, PresencePreference)>, RepositoryError> {
+        PostgresRealtimeProjection::presence_preferences(self, user_ids).await.map_err(map_sqlx_error_to_domain_error)
     }
 }
