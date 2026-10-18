@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO realtime_dm_pairs (user_a, user_b)\n            VALUES (LEAST($1::uuid, $2::uuid), GREATEST($1::uuid, $2::uuid))\n            ON CONFLICT DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f7296b0c1a6bfa6dc1abb93965b3d604fa62c16546411b006bbb226bcb5e9ff0"
+}

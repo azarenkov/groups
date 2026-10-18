@@ -3,9 +3,7 @@ use domain::{community::id::CommunityId, user::id::UserId};
 use messaging_domain::community::invite_link::{InviteLink, InviteToken};
 use uuid::Uuid;
 
-pub const INVITE_LINK_COLUMNS: &str = "l.token, l.community_id, l.created_by, u.name AS creator_name, l.name, l.is_primary, l.max_uses, l.uses, l.expires_at, l.created_at, l.revoked_at";
-
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Debug)]
 pub struct InviteLinkRow {
     pub token: String,
     pub community_id: Uuid,

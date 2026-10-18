@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO realtime_presence_preferences (user_id, appear_offline, updated_at)\n            VALUES ($1, $2, $3)\n            ON CONFLICT (user_id) DO UPDATE\n            SET appear_offline = EXCLUDED.appear_offline, updated_at = EXCLUDED.updated_at\n            WHERE realtime_presence_preferences.updated_at <= EXCLUDED.updated_at\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "da206f2121adff092c5b0ad80b8036b152c1faf860683d7992e3a352bdacd290"
+}

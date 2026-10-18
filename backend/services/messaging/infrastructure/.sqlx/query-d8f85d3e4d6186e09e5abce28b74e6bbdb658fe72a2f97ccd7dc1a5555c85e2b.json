@@ -1,0 +1,85 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT l.token, l.community_id, l.created_by, u.name AS creator_name, l.name, l.is_primary, l.max_uses, l.uses, l.expires_at, l.created_at, l.revoked_at FROM community_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.community_id = $1 AND NOT l.is_primary AND l.revoked_at IS NULL AND (l.expires_at IS NULL OR l.expires_at > now()) AND (l.max_uses IS NULL OR l.uses < l.max_uses) AND ($2::timestamptz IS NULL OR (l.created_at, l.token) < ($2, $3::text)) ORDER BY l.created_at DESC, l.token DESC LIMIT $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "token",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "community_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "creator_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_primary",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "max_uses",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "uses",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "expires_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "revoked_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "d8f85d3e4d6186e09e5abce28b74e6bbdb658fe72a2f97ccd7dc1a5555c85e2b"
+}

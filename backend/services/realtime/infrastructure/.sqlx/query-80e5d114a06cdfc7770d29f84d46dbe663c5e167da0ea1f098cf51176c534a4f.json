@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO realtime_user_names (user_id, name, updated_at)\n            VALUES ($1, $2, $3)\n            ON CONFLICT (user_id) DO UPDATE\n                SET name = EXCLUDED.name, updated_at = EXCLUDED.updated_at\n                WHERE realtime_user_names.updated_at <= EXCLUDED.updated_at\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "80e5d114a06cdfc7770d29f84d46dbe663c5e167da0ea1f098cf51176c534a4f"
+}

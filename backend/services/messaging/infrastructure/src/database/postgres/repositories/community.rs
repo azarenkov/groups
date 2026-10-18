@@ -16,7 +16,7 @@ use crate::database::postgres::{
         community::CommunityDto, visibility::ChannelVisibilityDto,
     },
     error::map_sqlx_error_to_domain_error,
-    repositories::{invite_link::INVITE_LINK_COLUMNS, invite_link::InviteLinkRow},
+    repositories::invite_link::InviteLinkRow,
 };
 
 pub struct PostgresCommunityRepository {
@@ -471,13 +471,14 @@ impl CommunityRepository for PostgresCommunityRepository {
         cursor: Option<&KeysetCursor>,
         limit: i64,
     ) -> Result<Vec<InviteLink>, RepositoryError> {
-        let rows: Vec<InviteLinkRow> = sqlx::query_as(&format!(
-            "SELECT {INVITE_LINK_COLUMNS} FROM community_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.community_id = $1 AND NOT l.is_primary AND l.revoked_at IS NULL AND (l.expires_at IS NULL OR l.expires_at > now()) AND (l.max_uses IS NULL OR l.uses < l.max_uses) AND ($2::timestamptz IS NULL OR (l.created_at, l.token) < ($2, $3::text)) ORDER BY l.created_at DESC, l.token DESC LIMIT $4"
-        ))
-        .bind(community_id.uuid())
-        .bind(cursor.map(|c| c.at))
-        .bind(cursor.map(|c| c.key.clone()))
-        .bind(limit + 1)
+        let rows: Vec<InviteLinkRow> = sqlx::query_as!(
+            InviteLinkRow,
+            "SELECT l.token, l.community_id, l.created_by, u.name AS creator_name, l.name, l.is_primary, l.max_uses, l.uses, l.expires_at, l.created_at, l.revoked_at FROM community_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.community_id = $1 AND NOT l.is_primary AND l.revoked_at IS NULL AND (l.expires_at IS NULL OR l.expires_at > now()) AND (l.max_uses IS NULL OR l.uses < l.max_uses) AND ($2::timestamptz IS NULL OR (l.created_at, l.token) < ($2, $3::text)) ORDER BY l.created_at DESC, l.token DESC LIMIT $4",
+            community_id.uuid(),
+            cursor.map(|c| c.at),
+            cursor.map(|c| c.key.clone()),
+            limit + 1,
+        )
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
@@ -488,10 +489,11 @@ impl CommunityRepository for PostgresCommunityRepository {
         &self,
         token: &InviteToken,
     ) -> Result<Option<InviteLink>, RepositoryError> {
-        let row: Option<InviteLinkRow> = sqlx::query_as(&format!(
-            "SELECT {INVITE_LINK_COLUMNS} FROM community_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.token = $1"
-        ))
-        .bind(token.as_str())
+        let row: Option<InviteLinkRow> = sqlx::query_as!(
+            InviteLinkRow,
+            "SELECT l.token, l.community_id, l.created_by, u.name AS creator_name, l.name, l.is_primary, l.max_uses, l.uses, l.expires_at, l.created_at, l.revoked_at FROM community_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.token = $1",
+            token.as_str(),
+        )
         .fetch_optional(&self.pool)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;

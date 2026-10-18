@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use infrastructure_common::database::postgres::error::map_sqlx_error_to_domain_error;
 use ports::repository::RepositoryError;
 use realtime_core::ports::{directory::{PresencePreference, RecipientDirectory}, projection::RealtimeProjection};
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -17,33 +17,25 @@ impl PostgresRealtimeProjection {
     }
 
     async fn community_members(&self, community_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
-        let rows =
-            sqlx::query("SELECT user_id FROM realtime_community_members WHERE community_id = $1 AND NOT removed")
-                .bind(community_id)
-                .fetch_all(&self.pool)
-                .await?;
-        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
+        sqlx::query_scalar!("SELECT user_id FROM realtime_community_members WHERE community_id = $1 AND NOT removed", community_id)
+            .fetch_all(&self.pool)
+            .await
     }
 
     async fn user_name_versioned(
         &self,
         user_id: Uuid,
     ) -> Result<Option<(String, DateTime<Utc>)>, sqlx::Error> {
-        let row = sqlx::query(
-            "SELECT name, updated_at FROM realtime_user_names WHERE user_id = $1",
-        )
-        .bind(user_id)
-        .fetch_optional(&self.pool)
-        .await?;
-        Ok(row.map(|r| (r.get::<String, _>(0), r.get::<DateTime<Utc>, _>(1))))
+        let row = sqlx::query!("SELECT name, updated_at FROM realtime_user_names WHERE user_id = $1", user_id)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(row.map(|r| (r.name, r.updated_at)))
     }
 
     async fn user_name(&self, user_id: Uuid) -> Result<Option<String>, sqlx::Error> {
-        let row = sqlx::query("SELECT name FROM realtime_user_names WHERE user_id = $1")
-            .bind(user_id)
+        sqlx::query_scalar!("SELECT name FROM realtime_user_names WHERE user_id = $1", user_id)
             .fetch_optional(&self.pool)
-            .await?;
-        Ok(row.map(|r| r.get::<String, _>(0)))
+            .await
     }
 
     async fn upsert_user_name(
@@ -52,7 +44,7 @@ impl PostgresRealtimeProjection {
         name: &str,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query(
+        sqlx::query!(
             r#"
             INSERT INTO realtime_user_names (user_id, name, updated_at)
             VALUES ($1, $2, $3)
@@ -60,10 +52,10 @@ impl PostgresRealtimeProjection {
                 SET name = EXCLUDED.name, updated_at = EXCLUDED.updated_at
                 WHERE realtime_user_names.updated_at <= EXCLUDED.updated_at
             "#,
+            user_id,
+            name,
+            occurred_at,
         )
-        .bind(user_id)
-        .bind(name)
-        .bind(occurred_at)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -97,7 +89,7 @@ impl PostgresRealtimeProjection {
     }
 
     async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
-        let rows = sqlx::query(
+        sqlx::query_scalar!(
             r#"
             SELECT e.friend_id
             FROM realtime_friend_edges e
@@ -109,35 +101,30 @@ impl PostgresRealtimeProjection {
                     AND p.user_b = GREATEST($1, e.friend_id)
               )
             "#,
+            user_id,
         )
-        .bind(user_id)
         .fetch_all(&self.pool)
-        .await?;
-        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
+        .await
     }
 
     async fn record_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), sqlx::Error> {
-        sqlx::query(
+        sqlx::query!(
             r#"
             INSERT INTO realtime_dm_pairs (user_a, user_b)
-            VALUES (LEAST($1, $2), GREATEST($1, $2))
+            VALUES (LEAST($1::uuid, $2::uuid), GREATEST($1::uuid, $2::uuid))
             ON CONFLICT DO NOTHING
             "#,
+            a,
+            b,
         )
-        .bind(a)
-        .bind(b)
         .execute(&self.pool)
         .await?;
         Ok(())
     }
 
     async fn remove_dm_pair(&self, a: Uuid, b: Uuid) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            "DELETE FROM realtime_dm_pairs WHERE user_a = LEAST($1, $2) AND user_b = GREATEST($1, $2)",
-        )
-        .bind(a)
-        .bind(b)
-        .execute(&self.pool)
+        sqlx::query!("DELETE FROM realtime_dm_pairs WHERE user_a = LEAST($1::uuid, $2::uuid) AND user_b = GREATEST($1::uuid, $2::uuid)", a, b)
+            .execute(&self.pool)
         .await?;
         Ok(())
     }
@@ -150,7 +137,7 @@ impl PostgresRealtimeProjection {
         pending: bool,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query(
+        sqlx::query!(
             r#"
             INSERT INTO realtime_friend_edges (user_id, friend_id, removed, pending, updated_at)
             VALUES ($1, $2, $3, $4, $5), ($2, $1, $3, $4, $5)
@@ -160,21 +147,21 @@ impl PostgresRealtimeProjection {
                     updated_at = EXCLUDED.updated_at
                 WHERE realtime_friend_edges.updated_at <= EXCLUDED.updated_at
             "#,
+            a,
+            b,
+            removed,
+            pending,
+            occurred_at,
         )
-        .bind(a)
-        .bind(b)
-        .bind(removed)
-        .bind(pending)
-        .bind(occurred_at)
         .execute(&self.pool)
         .await?;
         Ok(())
     }
 
     async fn related_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
-        let rows = sqlx::query(
+        sqlx::query_scalar!(
             r#"
-            SELECT r.user_id
+            SELECT r.user_id AS "user_id!"
             FROM (
                 SELECT e.friend_id AS user_id
                 FROM realtime_friend_edges e
@@ -195,11 +182,10 @@ impl PostgresRealtimeProjection {
                 WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
             ) r
             "#,
+            user_id,
         )
-        .bind(user_id)
         .fetch_all(&self.pool)
-        .await?;
-        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
+        .await
     }
 
     async fn add_community_member(
@@ -208,7 +194,7 @@ impl PostgresRealtimeProjection {
         user_id: Uuid,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query(
+        sqlx::query!(
             r#"
             INSERT INTO realtime_community_members (community_id, user_id, removed, updated_at)
             SELECT $1, $2, FALSE, $3
@@ -219,10 +205,10 @@ impl PostgresRealtimeProjection {
                 SET removed = EXCLUDED.removed, updated_at = EXCLUDED.updated_at
                 WHERE realtime_community_members.updated_at <= EXCLUDED.updated_at
             "#,
+            community_id,
+            user_id,
+            occurred_at,
         )
-        .bind(community_id)
-        .bind(user_id)
-        .bind(occurred_at)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -234,7 +220,7 @@ impl PostgresRealtimeProjection {
         user_id: Uuid,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query(
+        sqlx::query!(
             r#"
             INSERT INTO realtime_community_members (community_id, user_id, removed, updated_at)
             VALUES ($1, $2, TRUE, $3)
@@ -242,10 +228,10 @@ impl PostgresRealtimeProjection {
                 SET removed = EXCLUDED.removed, updated_at = EXCLUDED.updated_at
                 WHERE realtime_community_members.updated_at <= EXCLUDED.updated_at
             "#,
+            community_id,
+            user_id,
+            occurred_at,
         )
-        .bind(community_id)
-        .bind(user_id)
-        .bind(occurred_at)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -257,7 +243,7 @@ impl PostgresRealtimeProjection {
         appear_offline: bool,
         occurred_at: DateTime<Utc>,
     ) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query(
+        let result = sqlx::query!(
             r#"
             INSERT INTO realtime_presence_preferences (user_id, appear_offline, updated_at)
             VALUES ($1, $2, $3)
@@ -265,10 +251,10 @@ impl PostgresRealtimeProjection {
             SET appear_offline = EXCLUDED.appear_offline, updated_at = EXCLUDED.updated_at
             WHERE realtime_presence_preferences.updated_at <= EXCLUDED.updated_at
             "#,
+            user_id,
+            appear_offline,
+            occurred_at,
         )
-        .bind(user_id)
-        .bind(appear_offline)
-        .bind(occurred_at)
         .execute(&self.pool)
         .await?;
         Ok(result.rows_affected() > 0)
@@ -278,19 +264,19 @@ impl PostgresRealtimeProjection {
         if user_ids.is_empty() {
             return Ok(Vec::new());
         }
-        let rows: Vec<(Uuid, bool, DateTime<Utc>)> = sqlx::query_as(
+        let rows = sqlx::query!(
             r#"
             SELECT user_id, appear_offline, updated_at
             FROM realtime_presence_preferences
             WHERE user_id = ANY($1)
             "#,
+            user_ids,
         )
-        .bind(user_ids)
         .fetch_all(&self.pool)
         .await?;
         Ok(rows
             .into_iter()
-            .map(|(user_id, appear_offline, as_of)| (user_id, PresencePreference { appear_offline, as_of }))
+            .map(|r| (r.user_id, PresencePreference { appear_offline: r.appear_offline, as_of: r.updated_at }))
             .collect())
     }
 
@@ -299,26 +285,26 @@ impl PostgresRealtimeProjection {
         community_id: Uuid,
         occurred_at: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query(
+        sqlx::query!(
             r#"
             INSERT INTO realtime_deleted_communities (community_id, deleted_at)
             VALUES ($1, $2)
             ON CONFLICT DO NOTHING
             "#,
+            community_id,
+            occurred_at,
         )
-        .bind(community_id)
-        .bind(occurred_at)
         .execute(&self.pool)
         .await?;
-        sqlx::query(
+        sqlx::query!(
             r#"
             UPDATE realtime_community_members
             SET removed = TRUE, updated_at = $2
             WHERE community_id = $1 AND updated_at <= $2
             "#,
+            community_id,
+            occurred_at,
         )
-        .bind(community_id)
-        .bind(occurred_at)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -327,9 +313,9 @@ impl PostgresRealtimeProjection {
         &self,
         user_id: Uuid,
     ) -> Result<Vec<Uuid>, sqlx::Error> {
-        let rows = sqlx::query(
+        sqlx::query_scalar!(
             r#"
-            SELECT user_id FROM (
+            SELECT user_id AS "user_id!" FROM (
                 SELECT friend_id AS user_id
                 FROM realtime_friend_edges
                 WHERE user_id = $1 AND NOT removed AND NOT pending
@@ -341,11 +327,10 @@ impl PostgresRealtimeProjection {
                 WHERE sm1.user_id = $1 AND NOT sm1.removed AND sm2.user_id <> $1
             ) AS interested
             "#,
+            user_id,
         )
-        .bind(user_id)
         .fetch_all(&self.pool)
-        .await?;
-        Ok(rows.into_iter().map(|r| r.get::<Uuid, _>(0)).collect())
+        .await
     }
 }
 

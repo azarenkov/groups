@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO realtime_partition_progress (partition, seq)\n            SELECT * FROM UNNEST($1::text[], $2::bigint[])\n            ON CONFLICT (partition) DO UPDATE\n            SET seq = GREATEST(realtime_partition_progress.seq, EXCLUDED.seq),\n                updated_at = now()\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1fae0c604ccc04638e5eb52f522f0b814188c7d52aaad40d3d8ea9ad10fad9c0"
+}

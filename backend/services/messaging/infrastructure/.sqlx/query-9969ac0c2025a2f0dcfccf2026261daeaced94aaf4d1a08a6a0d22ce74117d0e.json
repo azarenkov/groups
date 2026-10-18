@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO messaging_user_profiles (user_id, name, active, updated_at, active_updated_at)\n            VALUES ($1, '', $2, to_timestamp(0), $3)\n            ON CONFLICT (user_id) DO UPDATE\n                SET active = EXCLUDED.active, active_updated_at = EXCLUDED.active_updated_at\n                WHERE messaging_user_profiles.active_updated_at <= EXCLUDED.active_updated_at\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9969ac0c2025a2f0dcfccf2026261daeaced94aaf4d1a08a6a0d22ce74117d0e"
+}

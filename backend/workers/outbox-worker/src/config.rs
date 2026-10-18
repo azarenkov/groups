@@ -42,8 +42,11 @@ impl WorkerConfig {
 pub fn parse_sources(raw: &str) -> Result<Vec<String>, String> {
     let mut sources: Vec<String> = Vec::new();
     for source in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
-        if !infrastructure_common::database::postgres::connection::is_valid_schema(source) {
-            return Err(format!("invalid outbox source {source:?}"));
+        if !infrastructure_common::database::postgres::connection::is_known_schema(source) {
+            return Err(format!(
+                "unknown outbox source {source:?}; expected one of {}",
+                infrastructure_common::database::postgres::connection::KNOWN_SCHEMAS.join(", ")
+            ));
         }
         if !sources.iter().any(|s| s == source) {
             sources.push(source.to_string());
@@ -119,5 +122,6 @@ mod tests {
     fn rejects_empty_or_unsafe_sources() {
         assert!(parse_sources(" , ").is_err());
         assert!(parse_sources("identity,public;drop").is_err());
+        assert!(parse_sources("identity,_svc2").is_err());
     }
 }

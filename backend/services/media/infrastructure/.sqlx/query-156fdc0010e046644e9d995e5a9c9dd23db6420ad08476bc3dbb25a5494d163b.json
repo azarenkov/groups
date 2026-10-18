@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT tier FROM media_user_tiers WHERE user_id = $1 AND (valid_until IS NULL OR valid_until > $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tier",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "156fdc0010e046644e9d995e5a9c9dd23db6420ad08476bc3dbb25a5494d163b"
+}

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO voice_user_profiles (user_id, name, active, updated_at, active_updated_at)\n            VALUES ($1, '', $2, to_timestamp(0), $3)\n            ON CONFLICT (user_id) DO UPDATE\n                SET active = EXCLUDED.active, active_updated_at = EXCLUDED.active_updated_at\n                WHERE voice_user_profiles.active_updated_at <= EXCLUDED.active_updated_at\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0b0d6ff91c846ab26bf03f30f1cd4a7e29626cdff536e9148dbbd09e6d68a077"
+}
