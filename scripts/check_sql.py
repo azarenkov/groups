@@ -4,8 +4,28 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent / "backend"
-NAME = re.compile(r"sqlx::(?:query(?:_as|_scalar|_file|_file_as|_file_scalar)?(?:_with)?|raw_sql)")
+QUERY_FN = r"query(?:_as|_scalar|_file|_file_as|_file_scalar)?(?:_with)?|raw_sql"
+QUERY_NAME = re.compile(rf"^(?:{QUERY_FN})$")
+CRATE_ALIAS = re.compile(r"\buse\s+sqlx\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*;")
+SINGLE_IMPORT = re.compile(rf"\buse\s+sqlx::({QUERY_FN})(?:\s+as\s+([A-Za-z_][A-Za-z0-9_]*))?\s*;")
+GROUP_IMPORT = re.compile(r"\buse\s+sqlx::\{([^}]*)\}\s*;", re.S)
 OPEN = re.compile(r"\s*!?\s*\(")
+
+
+def call_matcher(text: str) -> re.Pattern:
+    crates = {"sqlx"} | set(CRATE_ALIAS.findall(text))
+    bare = {alias or name for name, alias in SINGLE_IMPORT.findall(text)}
+    for group in GROUP_IMPORT.findall(text):
+        for item in group.split(","):
+            parts = item.split()
+            if not parts or not QUERY_NAME.match(parts[0]):
+                continue
+            bare.add(parts[2] if len(parts) == 3 and parts[1] == "as" else parts[0])
+    qualified = rf"(?:{'|'.join(sorted(map(re.escape, crates)))})::(?:{QUERY_FN})"
+    if bare:
+        unqualified = rf"(?<![A-Za-z0-9_:.])(?:{'|'.join(sorted(map(re.escape, bare)))})(?![A-Za-z0-9_])"
+        return re.compile(rf"(?:{qualified}|{unqualified})")
+    return re.compile(qualified)
 LITERAL = re.compile(r'\s*(?:[A-Za-z_][A-Za-z0-9_:]*(?:<[^"()]*>)?\s*,\s*)?(?:r#*)?"')
 
 
@@ -24,7 +44,7 @@ def skip_turbofish(text: str, at: int) -> int:
 
 
 def calls(text: str):
-    for name in NAME.finditer(text):
+    for name in call_matcher(text).finditer(text):
         after = skip_turbofish(text, name.end())
         opening = OPEN.match(text, after)
         if opening:
@@ -47,6 +67,14 @@ SELF_TEST = [
     ('sqlx::query_as::<_, Vec<Option<i64>>>(&sql)', 1),
     ('sqlx::query_as!(models::Row, "SELECT 1")', 0),
     ('sqlx::query_as!(crate::dto::Row<Inner>,\n    "SELECT 1",\n    id)', 0),
+    ('use sqlx::query;\nquery(&sql)', 1),
+    ('use sqlx::query;\nquery!("SELECT 1")', 0),
+    ('use sqlx::{query_as as rows, Row};\nrows::<_, R>(&sql)', 1),
+    ('use sqlx::{\n    Pool,\n    query_scalar,\n};\nquery_scalar("SELECT 1")', 0),
+    ('use sqlx as db;\ndb::query(sql)', 1),
+    ('use sqlx as db;\ndb::query("SELECT 1")', 0),
+    ('use sqlx::Row;\nlet query = build();\nquery(&sql)', 0),
+    ('self.query(&sql)', 0),
 ]
 
 

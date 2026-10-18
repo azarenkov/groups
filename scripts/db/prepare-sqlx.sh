@@ -30,11 +30,11 @@ prepare() {
 }
 
 prepare backend/libs/infrastructure-common messaging
-for service in identity media messaging voice; do
+for service in "${SERVICES[@]}"; do
     prepare "backend/services/${service}/infrastructure" "$service"
 done
 
-for service in identity media messaging voice; do
+for service in "${SERVICES[@]}"; do
     for shared in "$ROOT"/backend/libs/infrastructure-common/.sqlx/*.json; do
         rm -f "$ROOT/backend/services/${service}/infrastructure/.sqlx/$(basename "$shared")"
     done
