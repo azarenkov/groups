@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Duration};
 use chrono::{DateTime, Utc};
 use domain::{event::EventId, user::id::UserId};
 use identity_domain::{
+    user::repository::UserRepository,
     events::IdentityEvent, unit_of_work::IdentityUnitOfWork,
     user::events::UserEvent, user::events::lifecycle::UserActivityChanged,
 };
@@ -221,14 +222,15 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
     }
 }
 
-pub struct GetActivities<S: ActivityStore, A: ActivityAudience> {
+pub struct GetActivities<S: ActivityStore, A: ActivityAudience, U: UserRepository> {
     store: Arc<S>,
     audience: Arc<A>,
+    users: Arc<U>,
 }
 
-impl<S: ActivityStore, A: ActivityAudience> GetActivities<S, A> {
-    pub fn new(store: Arc<S>, audience: Arc<A>) -> Self {
-        Self { store, audience }
+impl<S: ActivityStore, A: ActivityAudience, U: UserRepository> GetActivities<S, A, U> {
+    pub fn new(store: Arc<S>, audience: Arc<A>, users: Arc<U>) -> Self {
+        Self { store, audience, users }
     }
 
     pub async fn execute(
@@ -248,7 +250,7 @@ impl<S: ActivityStore, A: ActivityAudience> GetActivities<S, A> {
             });
         }
         let others: Vec<UserId> = visible.iter().copied().filter(|id| id != &viewer).collect();
-        let hidden = self.store.hidden_among(&others).await?;
+        let hidden = self.users.appear_offline_among(&others).await?;
         let activities = self
             .store
             .get_many(&visible)

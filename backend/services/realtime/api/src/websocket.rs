@@ -17,7 +17,7 @@ use realtime_infrastructure::{connections::ConnectionManager, database::postgres
 
 use crate::{
     config::WebsocketConfig,
-    ws::{WsState, presence_preference, presence_snapshot, ws_handler},
+    ws::{WsState, presence_snapshot, ws_handler},
 };
 
 pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
@@ -57,6 +57,7 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
             tracing::error!(error = %e, "Failed to subscribe to presence preference subject");
             Box::<dyn Error>::from(format!("presence preference subscribe failed: {e}"))
         })?;
+    manager.start_preference_reconciliation();
 
     let readiness = {
         let jetstream = jetstream.clone();
@@ -96,7 +97,6 @@ pub async fn run(mut shutdown: ShutdownSignal) -> Result<(), Box<dyn Error>> {
         App::new()
             .wrap(cors)
             .app_data(ws_state.clone())
-            .service(presence_preference)
             .service(presence_snapshot)
             .service(ws_handler)
     })

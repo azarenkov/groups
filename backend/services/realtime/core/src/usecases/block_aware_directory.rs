@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::ports::{
     blocks::{RelationDirectory, RelationLookupError},
-    directory::RecipientDirectory,
+    directory::{PresencePreference, RecipientDirectory},
 };
 
 pub struct BlockAwareDirectory<D: RecipientDirectory, B: RelationDirectory> {
@@ -56,6 +56,10 @@ impl<D: RecipientDirectory, B: RelationDirectory> RecipientDirectory for BlockAw
 
     async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
         self.inner.pending_dm_peers(user_id).await
+    }
+
+    async fn presence_preferences(&self, user_ids: &[Uuid]) -> Result<Vec<(Uuid, PresencePreference)>, RepositoryError> {
+        self.inner.presence_preferences(user_ids).await
     }
 
     async fn interested_in(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {

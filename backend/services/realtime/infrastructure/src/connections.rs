@@ -8,7 +8,8 @@ use tokio::{sync::mpsc, task::JoinHandle};
 use uuid::Uuid;
 use ports::repository::RepositoryError;
 
-use realtime_core::ports::directory::RecipientDirectory;
+use realtime_core::ports::directory::{PresencePreference, RecipientDirectory};
+use realtime_domain::presence::presence_after_preference;
 use realtime_domain::presence::PresenceUpdate;
 
 #[derive(Clone)]
@@ -44,7 +45,7 @@ pub struct ConnectionManager<D: RecipientDirectory> {
     presence_subject: String,
     presence_preference_subject: String,
     online_snapshot: Arc<DashMap<Uuid, ()>>,
-    appear_offline: Arc<DashMap<Uuid, ()>>,
+    appear_offline: Arc<DashMap<Uuid, PreferenceState>>,
     presence_resolver: Arc<D>,
 }
 
@@ -66,6 +67,157 @@ impl<D: RecipientDirectory> Clone for ConnectionManager<D> {
 type PresencePayload = PresenceUpdate;
 
 use contracts::realtime::PresencePreferenceV1 as PresencePreferenceMessage;
+
+#[derive(Debug, Clone, Copy)]
+pub struct PreferenceState {
+    hidden: bool,
+    as_of: chrono::DateTime<chrono::Utc>,
+    unannounced: Option<bool>,
+}
+
+fn hidden_by_preference(cache: &DashMap<Uuid, PreferenceState>, user_id: Uuid) -> bool {
+    cache.get(&user_id).is_some_and(|state| state.hidden)
+}
+
+fn remember_preference(cache: &DashMap<Uuid, PreferenceState>, user_id: Uuid, hidden: bool, as_of: chrono::DateTime<chrono::Utc>) -> Option<Option<bool>> {
+    match cache.entry(user_id) {
+        Entry::Occupied(mut entry) => {
+            if entry.get().as_of > as_of {
+                return None;
+            }
+            let was_hidden = entry.get().hidden;
+            *entry.get_mut() = PreferenceState { hidden, as_of, unannounced: None };
+            Some(Some(was_hidden))
+        }
+        Entry::Vacant(slot) => {
+            slot.insert(PreferenceState { hidden, as_of, unannounced: None });
+            Some(None)
+        }
+    }
+}
+
+const PREFERENCE_RECONCILE_EVERY: std::time::Duration = std::time::Duration::from_secs(30);
+const PREFERENCE_RECONCILE_BATCH: usize = 500;
+
+struct PreferenceSync<D: RecipientDirectory> {
+    resolver: Arc<D>,
+    cache: Arc<DashMap<Uuid, PreferenceState>>,
+    by_user: Arc<DashMap<Uuid, UserSlot>>,
+    core: async_nats::Client,
+    presence_subject: String,
+}
+
+impl<D: RecipientDirectory> Clone for PreferenceSync<D> {
+    fn clone(&self) -> Self {
+        Self {
+            resolver: self.resolver.clone(),
+            cache: self.cache.clone(),
+            by_user: self.by_user.clone(),
+            core: self.core.clone(),
+            presence_subject: self.presence_subject.clone(),
+        }
+    }
+}
+
+impl<D: RecipientDirectory> PreferenceSync<D> {
+    fn has_local(&self, user_id: Uuid) -> bool {
+        self.by_user.get(&user_id).map(|slot| !slot.conns.is_empty()).unwrap_or(false)
+    }
+
+    fn known_visible(&self, user_id: Uuid) -> bool {
+        self.cache.get(&user_id).is_some_and(|state| !state.hidden)
+    }
+
+    async fn announce(&self, user_id: Uuid, online: bool) -> bool {
+        let payload = serde_json::to_string(&PresencePayload { user_id, online }).unwrap_or_default();
+        match self.core.publish(self.presence_subject.clone(), payload.into()).await {
+            Ok(()) => true,
+            Err(e) => {
+                tracing::warn!(error = %e, %user_id, online, "Failed to publish presence after preference change; will retry on reconciliation");
+                false
+            }
+        }
+    }
+
+    fn mark_unannounced(&self, user_id: Uuid, pending: Option<bool>) {
+        if let Some(mut state) = self.cache.get_mut(&user_id) {
+            state.unannounced = pending;
+        }
+    }
+
+    async fn observe(&self, user_id: Uuid, hidden: bool, as_of: chrono::DateTime<chrono::Utc>) {
+        let Some(previously) = remember_preference(&self.cache, user_id, hidden, as_of) else {
+            return;
+        };
+        if let Some(online) = presence_after_preference(previously, hidden)
+            && self.has_local(user_id)
+        {
+            let delivered = self.announce(user_id, online).await;
+            self.mark_unannounced(user_id, (!delivered).then_some(online));
+        }
+    }
+
+    async fn retry_unannounced(&self) {
+        let pending: Vec<(Uuid, bool)> = self
+            .cache
+            .iter()
+            .filter_map(|entry| entry.value().unannounced.map(|online| (*entry.key(), online)))
+            .collect();
+        for (user_id, online) in pending {
+            if !self.has_local(user_id) || self.announce(user_id, online).await {
+                self.mark_unannounced(user_id, None);
+            }
+        }
+    }
+
+    async fn load(&self, user_ids: &[Uuid]) -> Result<Vec<(Uuid, bool, chrono::DateTime<chrono::Utc>)>, RepositoryError> {
+        let found: std::collections::HashMap<Uuid, PresencePreference> =
+            self.resolver.presence_preferences(user_ids).await?.into_iter().collect();
+        Ok(user_ids
+            .iter()
+            .map(|user_id| match found.get(user_id) {
+                Some(preference) => (*user_id, preference.appear_offline, preference.as_of),
+                None => (*user_id, false, chrono::DateTime::<chrono::Utc>::UNIX_EPOCH),
+            })
+            .collect())
+    }
+
+    async fn refresh(&self, user_ids: &[Uuid]) -> Result<(), RepositoryError> {
+        for (user_id, hidden, as_of) in self.load(user_ids).await? {
+            remember_preference(&self.cache, user_id, hidden, as_of);
+        }
+        Ok(())
+    }
+
+    async fn reconcile(&self, user_ids: &[Uuid]) -> Result<(), RepositoryError> {
+        for (user_id, hidden, as_of) in self.load(user_ids).await? {
+            self.observe(user_id, hidden, as_of).await;
+        }
+        self.retry_unannounced().await;
+        Ok(())
+    }
+}
+
+async fn retry_presence_preference<D: RecipientDirectory>(sync: PreferenceSync<D>, user_id: Uuid) {
+    for attempt in 0..PRESENCE_RETRY_ATTEMPTS {
+        tokio::time::sleep(presence_retry_delay(attempt)).await;
+        if !sync.has_local(user_id) {
+            return;
+        }
+        match sync.refresh(&[user_id]).await {
+            Ok(()) => {
+                if sync.known_visible(user_id) && sync.has_local(user_id) && !sync.announce(user_id, true).await {
+                    sync.mark_unannounced(user_id, Some(true));
+                }
+                return;
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, %user_id, attempt, "Presence preference retry failed");
+            }
+        }
+    }
+    tracing::error!(%user_id, "Gave up loading the presence preference; the user stays unannounced until the next reconciliation");
+}
 
 impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
     pub fn new(
@@ -94,10 +246,7 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
             .core
             .subscribe(self.presence_preference_subject.clone())
             .await?;
-        let appear_offline = self.appear_offline.clone();
-        let by_user = self.by_user.clone();
-        let core = self.core.clone();
-        let presence_subject = self.presence_subject.clone();
+        let sync = self.preference_sync();
         tokio::spawn(async move {
             while let Some(msg) = sub.next().await {
                 let body: PresencePreferenceMessage =
@@ -108,35 +257,45 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                             continue;
                         }
                     };
-                let was_offline = appear_offline.contains_key(&body.user_id);
-                if body.appear_offline {
-                    appear_offline.insert(body.user_id, ());
-                } else {
-                    appear_offline.remove(&body.user_id);
-                }
-                if was_offline == body.appear_offline {
+                if !sync.has_local(body.user_id) {
                     continue;
                 }
-                let has_active = by_user
-                    .get(&body.user_id)
-                    .map(|s| !s.conns.is_empty())
-                    .unwrap_or(false);
-                if !has_active {
-                    continue;
-                }
-                let payload = serde_json::to_string(&PresencePayload {
-                    user_id: body.user_id,
-                    online: !body.appear_offline,
-                })
-                .unwrap_or_default();
-                if let Err(e) =
-                    core.publish(presence_subject.clone(), payload.into()).await
-                {
-                    tracing::warn!(error = %e, user_id = %body.user_id, "Failed to publish presence after preference change");
+                match body.occurred_at {
+                    Some(as_of) => sync.observe(body.user_id, body.appear_offline, as_of).await,
+                    None => {
+                        if let Err(e) = sync.reconcile(&[body.user_id]).await {
+                            tracing::warn!(error = %e, user_id = %body.user_id, "Unversioned presence preference received; projection refresh failed, waiting for reconciliation");
+                        }
+                    }
                 }
             }
         });
         Ok(())
+    }
+
+    pub fn start_preference_reconciliation(&self) {
+        let sync = self.preference_sync();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(PREFERENCE_RECONCILE_EVERY).await;
+                let users: Vec<Uuid> = sync.by_user.iter().map(|slot| *slot.key()).collect();
+                for batch in users.chunks(PREFERENCE_RECONCILE_BATCH) {
+                    if let Err(e) = sync.reconcile(batch).await {
+                        tracing::warn!(error = %e, users = batch.len(), "Presence preference reconciliation failed");
+                    }
+                }
+            }
+        });
+    }
+
+    fn preference_sync(&self) -> PreferenceSync<D> {
+        PreferenceSync {
+            resolver: self.presence_resolver.clone(),
+            cache: self.appear_offline.clone(),
+            by_user: self.by_user.clone(),
+            core: self.core.clone(),
+            presence_subject: self.presence_subject.clone(),
+        }
     }
 
     pub async fn visible_online(&self, viewer: Uuid, ids: &[Uuid]) -> Result<Vec<Uuid>, RepositoryError> {
@@ -162,35 +321,6 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
             .unwrap_or(false)
     }
 
-    pub async fn set_appear_offline(&self, user_id: Uuid, appear_offline: bool) {
-        let was_offline = self.appear_offline.contains_key(&user_id);
-        if appear_offline {
-            self.appear_offline.insert(user_id, ());
-        } else {
-            self.appear_offline.remove(&user_id);
-        }
-        let state_changed = was_offline != appear_offline;
-        if !state_changed {
-            return;
-        }
-        if !self.has_active_conns(user_id) {
-            return;
-        }
-        let online_now = !appear_offline;
-        let payload = serde_json::to_string(&PresencePayload {
-            user_id,
-            online: online_now,
-        })
-        .unwrap_or_default();
-        if let Err(e) = self
-            .core
-            .publish(self.presence_subject.clone(), payload.into())
-            .await
-        {
-            tracing::warn!(error = %e, %user_id, "Failed to publish presence preference change");
-        }
-    }
-
     pub async fn start_presence_subscription(&self) -> Result<(), async_nats::SubscribeError> {
         let mut sub = self.core.subscribe(self.presence_subject.clone()).await?;
         let by_user = self.by_user.clone();
@@ -199,6 +329,7 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
         let core = self.core.clone();
         let presence_subject = self.presence_subject.clone();
         let resolver = self.presence_resolver.clone();
+        let sync = self.preference_sync();
         tokio::spawn(async move {
             while let Some(msg) = sub.next().await {
                 let payload: PresencePayload = match serde_json::from_slice(&msg.payload) {
@@ -216,7 +347,18 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                     .get(&payload.user_id)
                     .map(|s| !s.conns.is_empty())
                     .unwrap_or(false);
-                if payload.is_stale_offline(has_local, appear_offline.contains_key(&payload.user_id)) {
+                let preference_verified = if payload.online || !has_local {
+                    true
+                } else {
+                    match sync.refresh(&[payload.user_id]).await {
+                        Ok(()) => true,
+                        Err(e) => {
+                            tracing::warn!(error = %e, user_id = %payload.user_id, "Could not verify the presence preference; leaving the offline update uncountered");
+                            false
+                        }
+                    }
+                };
+                if preference_verified && payload.is_stale_offline(has_local, hidden_by_preference(&appear_offline, payload.user_id)) {
                     let counter = serde_json::to_string(&PresencePayload {
                         user_id: payload.user_id,
                         online: true,
@@ -329,6 +471,18 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
             }
         };
 
+        let mut preference_known = true;
+        if was_first_for_user {
+            let sync = self.preference_sync();
+            if let Err(e) = sync.refresh(&[user_id]).await {
+                preference_known = self.appear_offline.contains_key(&user_id);
+                tracing::warn!(error = %e, %user_id, "Failed to load the presence preference; deferring the online announcement");
+                if !preference_known {
+                    tokio::spawn(retry_presence_preference(sync, user_id));
+                }
+            }
+        }
+
         match self.presence_resolver.interested_in(user_id).await {
             Ok(interested) => {
                 send_online_snapshot(&self.online_snapshot, &interested, &snapshot_conn).await;
@@ -344,7 +498,7 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
             }
         }
 
-        if was_first_for_user && !self.appear_offline.contains_key(&user_id) {
+        if was_first_for_user && preference_known && !hidden_by_preference(&self.appear_offline, user_id) {
             let payload = serde_json::to_string(&PresencePayload {
                 user_id,
                 online: true,
@@ -355,7 +509,10 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                 .publish(self.presence_subject.clone(), payload.into())
                 .await
             {
-                tracing::warn!(error = %e, %user_id, "Failed to publish presence online");
+                tracing::warn!(error = %e, %user_id, "Failed to publish presence online; will retry on reconciliation");
+                if let Some(mut state) = self.appear_offline.get_mut(&user_id) {
+                    state.unannounced = Some(true);
+                }
             }
         }
 
@@ -376,7 +533,14 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                 false
             }
         };
-        if removed_last && !self.appear_offline.contains_key(&user_id) {
+        if !removed_last {
+            return;
+        }
+        let hidden_and_announced = self
+            .appear_offline
+            .remove(&user_id)
+            .is_some_and(|(_, state)| state.hidden && state.unannounced.is_none());
+        if !hidden_and_announced {
             let payload = serde_json::to_string(&PresencePayload {
                 user_id,
                 online: false,
@@ -549,7 +713,7 @@ async fn block_presence_update<D: RecipientDirectory + 'static>(
 struct FanoutContext<D: RecipientDirectory> {
     by_user: Arc<DashMap<Uuid, UserSlot>>,
     core: async_nats::Client,
-    appear_offline: Arc<DashMap<Uuid, ()>>,
+    appear_offline: Arc<DashMap<Uuid, PreferenceState>>,
     presence_subject: String,
     online_snapshot: Arc<DashMap<Uuid, ()>>,
     resolver: Arc<D>,
@@ -601,7 +765,10 @@ async fn fanout_loop<D: RecipientDirectory + 'static>(
                         // we ARE that task; aborting would cancel us before
                         // the offline publish below completes.
                         let _ = by_user.remove(&user_id);
-                        if !appear_offline.contains_key(&user_id) {
+                        let hidden_and_announced = appear_offline
+                            .remove(&user_id)
+                            .is_some_and(|(_, state)| state.hidden && state.unannounced.is_none());
+                        if !hidden_and_announced {
                             let payload = serde_json::to_string(&PresencePayload {
                                 user_id,
                                 online: false,

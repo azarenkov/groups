@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use chrono::{DateTime, Utc};
-use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::TrialHistory, user::tier::trial_email_key, verification::throttle::IssuedCodes, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::TrialHistory, user::tier::trial_email_key, verification::throttle::IssuedCodes, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, user::presence::PresencePreference, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 use sqlx::{Pool, Postgres, Transaction};
 use std::collections::BTreeMap;
 use identity_domain::user::settings::{
@@ -58,6 +58,37 @@ impl IdentityUnitOfWork for PostgresIdentityUnitOfWork {
 
 #[async_trait]
 impl IdentityTransaction for PostgresIdentityTransaction {
+    async fn load_presence_preference_for_update(&mut self, user_id: &UserId) -> Result<Option<PresencePreference>, RepositoryError> {
+        self.lock_settings(user_id).await?;
+        let row: Option<(bool, DateTime<Utc>)> = sqlx::query_as(
+            "SELECT appear_offline, updated_at FROM user_presence_preferences WHERE user_id = $1",
+        )
+        .bind(user_id.uuid())
+        .fetch_optional(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(row.map(|(appear_offline, updated_at)| PresencePreference::restore(*user_id, appear_offline, updated_at)))
+    }
+
+    async fn save_presence_preference(&mut self, preference: &PresencePreference) -> Result<(), RepositoryError> {
+        sqlx::query(
+            r#"
+                INSERT INTO user_presence_preferences (user_id, appear_offline, updated_at)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (user_id) DO UPDATE
+                    SET appear_offline = EXCLUDED.appear_offline, updated_at = EXCLUDED.updated_at
+            "#,
+        )
+        .bind(preference.user_id().uuid())
+        .bind(preference.appear_offline())
+        .bind(preference.updated_at())
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+
     async fn insert_user(&mut self, user: &User) -> Result<(), RepositoryError> {
         sqlx::query!(
             r#"

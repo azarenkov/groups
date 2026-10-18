@@ -15,7 +15,6 @@ mod inbox;
 mod internal;
 mod invites;
 mod notifications;
-mod presence;
 mod pins;
 mod privacy;
 mod read_state;

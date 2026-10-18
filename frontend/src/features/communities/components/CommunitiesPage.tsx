@@ -281,6 +281,7 @@ const CommunitiesPage: React.FC = () => {
   const { userStatus, setStatus: handleSetStatus } = useAppearOffline({
     hasSession,
     currentUserId: user?.id,
+    serverAppearOffline: user?.appearOffline,
   });
 
   const sessionUserId = user?.id;

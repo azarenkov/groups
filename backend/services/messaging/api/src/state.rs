@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use messaging::usecases::block::{block_user::BlockUser, list_blocked_users::ListBlockedUsers, unblock_user::UnblockUser};
 use messaging::usecases::pin::{conversation_pins::ConversationPins, message_pins::MessagePins};
 use messaging::usecases::dm_conversation::DmConversations;
@@ -90,7 +89,6 @@ use messaging_infrastructure::{
         user_profile::PostgresUserProfileRepository,
     },
     media_client::claims::MediaClaimsClient,
-    media_client::identity_users::IdentityUsersClient,
 };
 
 pub struct AppState {
@@ -254,9 +252,6 @@ pub struct AppState {
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,
     pub privacy_repository: std::sync::Arc<PostgresPrivacyRepository>,
     pub badge_repository: std::sync::Arc<PostgresBadgeRepository>,
-    pub nats_core: async_nats::Client,
-    pub presence_preference_subject: String,
-    pub identity_users: Arc<IdentityUsersClient>,
     pub send_dm_message_usecase: SendDmMessage<
         PostgresDmMessageRepository,
         PostgresDmUnitOfWork,

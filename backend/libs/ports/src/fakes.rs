@@ -131,6 +131,9 @@ impl VoiceService for FakeVoiceService {
     }
 
     async fn room_participants(&self, room: &ChannelId) -> Result<Vec<UserId>, VoiceServiceError> {
+        if self.unreachable {
+            return Err(VoiceServiceError::ParticipantUpdate("down".into()));
+        }
         Ok(self.rooms.iter().find(|(id, _)| id == room).map(|(_, users)| users.clone()).unwrap_or_default())
     }
 

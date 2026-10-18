@@ -1,4 +1,4 @@
-use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, delete, get, patch, post, put, web};
 use api_common::context::request_context;
 use identity::usecases::user::update_profile::ProfilePatch;
 use identity::usecases::user::{
@@ -49,6 +49,7 @@ pub struct MeResponse {
     pub show_game_activity: bool,
     pub timezone: String,
     pub profile_updated_at: chrono::DateTime<chrono::Utc>,
+    pub appear_offline: bool,
 }
 
 #[get("/me")]
@@ -70,6 +71,7 @@ async fn get_me(
         show_game_activity: profile.show_game_activity,
         timezone: profile.timezone,
         profile_updated_at: profile.profile_updated_at,
+        appear_offline: profile.appear_offline,
     };
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }
@@ -379,4 +381,31 @@ async fn update_me_profile(
         )
         .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(UpdateProfileResponse { bio, show_activity, show_game_activity, profile_updated_at })))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresencePreferenceBody {
+    pub appear_offline: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresencePreferenceResponse {
+    pub appear_offline: bool,
+}
+
+#[put("/me/presence")]
+async fn update_me_presence(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    body: web::Json<PresencePreferenceBody>,
+) -> Result<impl Responder, HttpError> {
+    let ctx = request_context(&req);
+    let appear_offline = app_state
+        .set_presence_preference_usecase
+        .execute(UserId::new(auth_token.id), body.appear_offline, ctx.request_id.as_deref())
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(PresencePreferenceResponse { appear_offline })))
 }

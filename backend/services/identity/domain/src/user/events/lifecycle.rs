@@ -268,6 +268,20 @@ impl UserProfileChanged {
 }
 
 #[derive(Debug)]
+pub struct UserPresencePreferenceChanged {
+    pub id: EventId,
+    pub user_id: UserId,
+    pub appear_offline: bool,
+    pub occurred_at: DateTime<Utc>,
+}
+
+impl UserPresencePreferenceChanged {
+    pub fn record(user_id: UserId, appear_offline: bool, now: DateTime<Utc>) -> Self {
+        Self { id: EventId::generate(), user_id, appear_offline, occurred_at: now }
+    }
+}
+
+#[derive(Debug)]
 pub struct UserActivityChanged {
     pub id: EventId,
     pub user_id: UserId,

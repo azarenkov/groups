@@ -8,6 +8,9 @@ use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
+const LEGACY_HIDDEN_PREFIX: &str = "activity:hidden:";
+const LEGACY_HIDDEN_PATTERN: &str = "activity:hidden:*";
+
 #[derive(Serialize, Deserialize)]
 struct ActivityRecord {
     game_id: String,
@@ -89,10 +92,6 @@ impl RedisActivityStore {
             .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
         *guard = Some(connection.clone());
         Ok(connection)
-    }
-
-    fn hidden_key(user_id: &UserId) -> String {
-        format!("activity:hidden:{}", user_id.uuid())
     }
 
     fn key(user_id: &UserId) -> String {
@@ -206,52 +205,48 @@ impl ActivityStore for RedisActivityStore {
             .collect())
     }
 
-    async fn set_hidden(
-        &self,
-        user_id: &UserId,
-        hidden: bool,
-    ) -> Result<(), ActivityStoreError> {
+
+    async fn legacy_hidden_users(&self) -> Result<Vec<UserId>, ActivityStoreError> {
         let mut connection = self.connection().await?;
-        let key = Self::hidden_key(user_id);
-        if hidden {
-            let _: () = connection
-                .set(&key, "1")
+        let mut users = Vec::new();
+        let mut cursor: u64 = 0;
+        loop {
+            let (next, keys): (u64, Vec<String>) = redis::cmd("SCAN")
+                .arg(cursor)
+                .arg("MATCH")
+                .arg(LEGACY_HIDDEN_PATTERN)
+                .arg("COUNT")
+                .arg(500)
+                .query_async(&mut connection)
                 .await
                 .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
-        } else {
-            let _: () = connection
-                .del(&key)
-                .await
-                .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+            users.extend(
+                keys.iter()
+                    .filter_map(|key| key.strip_prefix(LEGACY_HIDDEN_PREFIX))
+                    .filter_map(|raw| uuid::Uuid::parse_str(raw).ok())
+                    .map(UserId::new),
+            );
+            if next == 0 {
+                return Ok(users);
+            }
+            cursor = next;
         }
-        Ok(())
     }
 
-    async fn hidden_among(
-        &self,
-        user_ids: &[UserId],
-    ) -> Result<Vec<UserId>, ActivityStoreError> {
-        if user_ids.is_empty() {
-            return Ok(Vec::new());
-        }
+    async fn legacy_hidden(&self, user_id: &UserId) -> Result<bool, ActivityStoreError> {
         let mut connection = self.connection().await?;
-        let keys: Vec<String> = user_ids.iter().map(Self::hidden_key).collect();
-        let values: Vec<Option<String>> = if keys.len() == 1 {
-            let single: Option<String> = connection
-                .get(&keys[0])
-                .await
-                .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
-            vec![single]
-        } else {
-            connection
-                .mget(&keys)
-                .await
-                .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?
-        };
-        Ok(user_ids
-            .iter()
-            .zip(values)
-            .filter_map(|(id, raw)| raw.map(|_| *id))
-            .collect())
+        connection
+            .exists(format!("{LEGACY_HIDDEN_PREFIX}{}", user_id.uuid()))
+            .await
+            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))
+    }
+
+    async fn forget_legacy_hidden(&self, user_id: &UserId) -> Result<(), ActivityStoreError> {
+        let mut connection = self.connection().await?;
+        let _: () = connection
+            .del(format!("{LEGACY_HIDDEN_PREFIX}{}", user_id.uuid()))
+            .await
+            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
+        Ok(())
     }
 }

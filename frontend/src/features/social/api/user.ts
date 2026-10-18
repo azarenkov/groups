@@ -72,6 +72,7 @@ export interface MeProfile {
   showActivity: boolean;
   showGameActivity: boolean;
   timezone: string;
+  appearOffline?: boolean;
   profileUpdatedAt: string;
 }
 
@@ -353,7 +354,7 @@ class UserAPI {
   }
 
   async setAppearOffline(appearOffline: boolean): Promise<void> {
-    await this.client.post("/v1/me/presence", { appearOffline });
+    await this.client.put("/v1/users/me/presence", { appearOffline });
   }
 
   async presenceSnapshot(ids: string[]): Promise<{ online: string[] }> {

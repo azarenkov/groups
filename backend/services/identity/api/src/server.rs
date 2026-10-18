@@ -3,6 +3,7 @@ use identity::usecases::entitlements::{
     set_badge_style::SetBadgeStyle, set_emoji_status::SetEmojiStatus,
 };
 use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
+use identity::usecases::user::presence::{ImportLegacyPresencePreferences, SetPresencePreference};
 use identity_infrastructure::database::postgres::repositories::entitlements::PostgresEntitlementsRepository;
 use api_common::shutdown::{self, ShutdownConfig};
 use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
@@ -71,6 +72,8 @@ use api_common::config::ServerConfig;
 
 use crate::{routes, state::AppState};
 
+const LEGACY_PRESENCE_IMPORT_EVERY: std::time::Duration = std::time::Duration::from_secs(60);
+
 pub async fn run() -> Result<(), Box<dyn Error>> {
     infrastructure_common::observability::init("identity-service");
 
@@ -120,6 +123,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let access_revocations_data = web::Data::new(access_revocations.clone());
     let access_revoker = Arc::new(RedisAccessRevoker::new(access_revocations));
     let activity_store = Arc::new(RedisActivityStore::from_env());
+    let legacy_presence_import = ImportLegacyPresencePreferences::new(activity_store.clone(), unit_of_work.clone());
     let messaging_internal_url = api_common::internal_client::InternalService::Messaging.base_url();
     let activity_audience = Arc::new(MessagingAudienceClient::new(&messaging_internal_url));
     let block_lookup = Arc::new(MessagingBlockClient::new(&messaging_internal_url));
@@ -278,8 +282,8 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         update_appearance_usecase: UpdateAppearance::new(unit_of_work.clone()),
         set_activity_usecase: SetActivity::new(activity_store.clone(), unit_of_work.clone()),
         clear_activity_usecase: ClearActivity::new(activity_store.clone(), unit_of_work.clone()),
-        activity_store: activity_store.clone(),
-        get_activities_usecase: GetActivities::new(activity_store.clone(), activity_audience.clone()),
+        get_activities_usecase: GetActivities::new(activity_store.clone(), activity_audience.clone(), user_repository.clone()),
+        set_presence_preference_usecase: SetPresencePreference::new(unit_of_work.clone()),
         get_voice_settings_usecase: GetVoiceSettings::new(user_repository.clone(), entitlements_repository.clone()),
         update_voice_settings_usecase: UpdateVoiceSettings::new(unit_of_work.clone()),
         get_notification_settings_usecase: GetNotificationSettings::new(user_repository.clone()),
@@ -324,7 +328,34 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             }
         })
         .build();
-    readiness.mark_ready();
+    {
+        let readiness = readiness.clone();
+        actix_web::rt::spawn(async move {
+            let mut attempt = 0u32;
+            let mut ready = false;
+            loop {
+                match legacy_presence_import.execute().await {
+                    Ok(imported) => {
+                        if imported > 0 || !ready {
+                            tracing::info!(imported, "Imported legacy appear-offline preferences");
+                        }
+                        if !ready {
+                            readiness.mark_ready();
+                            ready = true;
+                        }
+                        attempt = 0;
+                        actix_web::rt::time::sleep(LEGACY_PRESENCE_IMPORT_EVERY).await;
+                    }
+                    Err(e) => {
+                        let delay = std::time::Duration::from_secs((2u64 << attempt.min(5)).min(60));
+                        tracing::warn!(error = %e, attempt, delay_secs = delay.as_secs(), ready, "Failed to import legacy appear-offline preferences; retrying");
+                        attempt = attempt.saturating_add(1);
+                        actix_web::rt::time::sleep(delay).await;
+                    }
+                }
+            }
+        });
+    }
     let readiness_data = web::Data::new(readiness.clone());
     let shutdown_config = ShutdownConfig::from_env();
 

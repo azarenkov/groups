@@ -42,13 +42,7 @@ pub trait ActivityStore: Send + Sync {
         &self,
         user_ids: &[UserId],
     ) -> Result<Vec<(UserId, StoredActivity)>, ActivityStoreError>;
-    async fn set_hidden(
-        &self,
-        user_id: &UserId,
-        hidden: bool,
-    ) -> Result<(), ActivityStoreError>;
-    async fn hidden_among(
-        &self,
-        user_ids: &[UserId],
-    ) -> Result<Vec<UserId>, ActivityStoreError>;
+    async fn legacy_hidden_users(&self) -> Result<Vec<UserId>, ActivityStoreError>;
+    async fn legacy_hidden(&self, user_id: &UserId) -> Result<bool, ActivityStoreError>;
+    async fn forget_legacy_hidden(&self, user_id: &UserId) -> Result<(), ActivityStoreError>;
 }

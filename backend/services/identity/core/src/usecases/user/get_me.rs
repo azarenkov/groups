@@ -26,6 +26,7 @@ pub struct MeProfile {
     pub show_game_activity: bool,
     pub timezone: String,
     pub profile_updated_at: chrono::DateTime<chrono::Utc>,
+    pub appear_offline: bool,
 }
 
 pub struct GetMe<U>
@@ -49,6 +50,7 @@ where
             .find_by_id(&user_id)
             .await?
             .ok_or(GetMeError::NotFound)?;
+        let appear_offline = !self.user_repository.appear_offline_among(std::slice::from_ref(&user_id)).await?.is_empty();
 
         Ok(MeProfile {
             id: user.id().uuid(),
@@ -62,6 +64,7 @@ where
             show_game_activity: user.show_game_activity(),
             timezone: user.timezone().to_string(),
             profile_updated_at: user.updated_at(),
+            appear_offline,
         })
     }
 }

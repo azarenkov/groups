@@ -227,10 +227,13 @@ impl IdentityTransaction for Fake {
     async fn save_notification_settings(&mut self, _: &UserId, _: &NotificationSettings) -> Result<(), RepositoryError> { unimplemented!() }
     async fn load_hotkey_settings_for_update(&mut self, _: &UserId) -> Result<Option<HotkeyBindings>, RepositoryError> { unimplemented!() }
     async fn save_hotkey_settings(&mut self, _: &UserId, _: &HotkeyBindings) -> Result<(), RepositoryError> { unimplemented!() }
+    async fn load_presence_preference_for_update(&mut self, _: &UserId) -> Result<Option<identity_domain::user::presence::PresencePreference>, RepositoryError> { unimplemented!() }
+    async fn save_presence_preference(&mut self, _: &identity_domain::user::presence::PresencePreference) -> Result<(), RepositoryError> { unimplemented!() }
 }
 
 #[async_trait]
 impl UserRepository for Fake {
+    async fn appear_offline_among(&self, _: &[UserId]) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepositoryError> {
         Ok(self.0.lock().unwrap().user.as_ref().filter(|u| u.email().as_str() == email.as_str()).map(copy_user))
     }

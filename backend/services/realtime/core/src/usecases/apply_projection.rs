@@ -8,7 +8,7 @@ use contracts::events::{
     },
     community::{CommunityCreatedV1 as CommunityCreatedDto, CommunityDeletedV1 as CommunityIdDto,
         CommunityMemberV1 as CommunityMemberDto},
-    user::UserLifecycleV1 as UserNameDto,
+    user::{UserLifecycleV1 as UserNameDto, UserPresencePreferenceChangedV1 as PresencePreferenceDto},
 };
 use ports::repository::RepositoryError;
 
@@ -69,6 +69,12 @@ impl<R: RealtimeProjection, B: RelationDirectory> ApplyProjection<R, B> {
             resolver
                 .remove_friend_edge(evt.user_id, evt.other_id, evt.occurred_at)
                 .await?;
+        }
+        return Ok(());
+    }
+    if subject.ends_with(".user.presence_preference_changed") {
+        if let Ok(evt) = serde_json::from_slice::<PresencePreferenceDto>(payload) {
+            resolver.set_appear_offline(evt.user_id, evt.appear_offline, evt.occurred_at).await?;
         }
         return Ok(());
     }
@@ -154,8 +160,7 @@ mod tests {
         async fn add_community_member(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
         async fn remove_community_member(&self, _: Uuid, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
         async fn remove_community(&self, _: Uuid, _: DateTime<Utc>) -> Result<(), RepositoryError> { Ok(()) }
-        async fn set_appear_offline(&self, _: Uuid, _: bool) -> Result<(), RepositoryError> { Ok(()) }
-        async fn appear_offline(&self, _: Uuid) -> Result<bool, RepositoryError> { Ok(false) }
+        async fn set_appear_offline(&self, _: Uuid, _: bool, _: DateTime<Utc>) -> Result<bool, RepositoryError> { Ok(true) }
     }
 
     struct FakeRelations {

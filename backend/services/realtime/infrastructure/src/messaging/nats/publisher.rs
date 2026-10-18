@@ -1,5 +1,6 @@
 use async_nats::Client;
 use async_trait::async_trait;
+use contracts::realtime::PresencePreferenceV1;
 use realtime_core::ports::publisher::{PublishError, RealtimePublisher};
 use realtime_domain::envelope::Envelope;
 use uuid::Uuid;
@@ -8,16 +9,17 @@ use uuid::Uuid;
 pub struct NatsRealtimePublisher {
     core: Client,
     user_subject_prefix: String,
+    presence_preference_subject: String,
 }
 
 impl NatsRealtimePublisher {
-    pub fn new(core: Client, user_subject_prefix: String) -> Self {
+    pub fn new(core: Client, user_subject_prefix: String, presence_preference_subject: String) -> Self {
         Self {
             core,
             user_subject_prefix,
+            presence_preference_subject,
         }
     }
-
 }
 
 #[async_trait]
@@ -51,5 +53,14 @@ impl RealtimePublisher for NatsRealtimePublisher {
             );
         }
         Ok(())
+    }
+
+    async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool, occurred_at: chrono::DateTime<chrono::Utc>) -> Result<(), PublishError> {
+        let payload = serde_json::to_vec(&PresencePreferenceV1 { user_id, appear_offline, occurred_at: Some(occurred_at) }).map_err(PublishError::Serialize)?;
+        self.core
+            .publish(self.presence_preference_subject.clone(), payload.into())
+            .await
+            .map_err(|e| PublishError::Transport(e.to_string()))?;
+        self.core.flush().await.map_err(|e| PublishError::Transport(e.to_string()))
     }
 }

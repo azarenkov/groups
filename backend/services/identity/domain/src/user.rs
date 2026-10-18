@@ -3,6 +3,7 @@ pub use domain::user::{email, id, locale, name};
 pub mod tier;
 pub mod emoji_status;
 pub mod events;
+pub mod presence;
 pub mod repository;
 pub mod settings;
 

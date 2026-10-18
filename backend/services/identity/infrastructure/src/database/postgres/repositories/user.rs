@@ -396,6 +396,21 @@ impl UserRepository for PostgresUserRepository {
         Ok(row.map(|r| NotificationSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6, r.7)))
     }
 
+    async fn appear_offline_among(&self, user_ids: &[UserId]) -> Result<Vec<UserId>, RepositoryError> {
+        if user_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let ids: Vec<uuid::Uuid> = user_ids.iter().map(|id| id.uuid()).collect();
+        let rows: Vec<(uuid::Uuid,)> = sqlx::query_as(
+            "SELECT user_id FROM user_presence_preferences WHERE user_id = ANY($1) AND appear_offline",
+        )
+        .bind(&ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(|(id,)| UserId::new(id)).collect())
+    }
+
     async fn get_hotkey_settings(
         &self,
         user_id: &UserId,

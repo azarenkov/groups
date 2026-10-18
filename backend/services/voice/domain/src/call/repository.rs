@@ -27,6 +27,13 @@ pub enum AddParticipantsOutcome {
     InviterLeft,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConnectedSession {
+    pub call_id: Uuid,
+    pub user_id: UserId,
+    pub session_id: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct PendingEviction {
     pub call_id: Uuid,
@@ -193,6 +200,15 @@ pub trait CallRepository {
     ) -> Result<bool, RepositoryError>;
 
     async fn expire_reconnects(
+        &self,
+        now: DateTime<Utc>,
+        limit: i64,
+        request_id: Option<String>,
+    ) -> Result<usize, RepositoryError>;
+
+    async fn list_connected_sessions(&self, before: DateTime<Utc>) -> Result<Vec<ConnectedSession>, RepositoryError>;
+
+    async fn expire_invitations(
         &self,
         now: DateTime<Utc>,
         limit: i64,

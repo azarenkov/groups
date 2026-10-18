@@ -34,3 +34,29 @@ impl PresenceUpdate {
 pub fn visible_presence(has_connections: bool, appear_offline: bool) -> bool {
     has_connections && !appear_offline
 }
+
+pub fn presence_after_preference(previously_hidden: Option<bool>, hidden: bool) -> Option<bool> {
+    match previously_hidden {
+        None => (!hidden).then_some(true),
+        Some(previous) => (previous != hidden).then_some(!hidden),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_newly_known_preference_only_announces_visible_users() {
+        assert_eq!(presence_after_preference(None, false), Some(true));
+        assert_eq!(presence_after_preference(None, true), None);
+    }
+
+    #[test]
+    fn a_changed_preference_announces_the_new_visibility() {
+        assert_eq!(presence_after_preference(Some(true), false), Some(true));
+        assert_eq!(presence_after_preference(Some(false), true), Some(false));
+        assert_eq!(presence_after_preference(Some(false), false), None);
+        assert_eq!(presence_after_preference(Some(true), true), None);
+    }
+}
