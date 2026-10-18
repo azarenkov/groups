@@ -9,10 +9,10 @@ pub async fn create_postgres_pool(
     schema: &str,
     migrator: Option<&Migrator>,
 ) -> Result<Pool<Postgres>, Box<dyn Error>> {
-    if !is_valid_schema(schema) {
-        return Err(format!("invalid postgres schema name: {schema:?}").into());
-    }
-    let search_path: Arc<str> = Arc::from(format!("SET search_path TO {schema}"));
+    let Some(statements) = SchemaStatements::for_schema(schema) else {
+        return Err(format!("unknown postgres schema: {schema:?}").into());
+    };
+    let search_path: Arc<str> = Arc::from(statements.search_path);
     let pool = PgPoolOptions::new()
         .max_connections(config.max_connections())
         .min_connections(config.min_connections())
@@ -35,13 +35,32 @@ pub async fn create_postgres_pool(
     if let Some(migrator) = migrator
         && config.run_migrations()
     {
-        pool.execute(format!("CREATE SCHEMA IF NOT EXISTS {schema}").as_str())
+        pool.execute(statements.create_schema)
             .await
             .map_err(Box::<dyn Error>::from)?;
         migrator.run(&pool).await.map_err(Box::<dyn Error>::from)?;
     }
 
     Ok(pool)
+}
+
+struct SchemaStatements {
+    create_schema: &'static str,
+    search_path: &'static str,
+}
+
+impl SchemaStatements {
+    fn for_schema(schema: &str) -> Option<Self> {
+        let (create_schema, search_path) = match schema {
+            "identity" => ("CREATE SCHEMA IF NOT EXISTS identity", "SET search_path TO identity"),
+            "media" => ("CREATE SCHEMA IF NOT EXISTS media", "SET search_path TO media"),
+            "messaging" => ("CREATE SCHEMA IF NOT EXISTS messaging", "SET search_path TO messaging"),
+            "voice" => ("CREATE SCHEMA IF NOT EXISTS voice", "SET search_path TO voice"),
+            "realtime" => ("CREATE SCHEMA IF NOT EXISTS realtime", "SET search_path TO realtime"),
+            _ => return None,
+        };
+        Some(Self { create_schema, search_path })
+    }
 }
 
 pub fn is_valid_schema(schema: &str) -> bool {

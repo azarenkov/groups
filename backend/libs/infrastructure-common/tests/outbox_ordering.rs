@@ -9,9 +9,9 @@ use infrastructure_common::database::postgres::repositories::outbox_record::save
 use infrastructure_common::outbox::dispatcher::OutboxDispatcher;
 use ports::outbox::record::{AggregateType, OutboxRecord, PartitionSequence};
 use ports::outbox_publisher::{OutboxPublisher, OutboxPublisherError};
-use sqlx::migrate::Migrator;
+use sqlx::migrate::{MigrateDatabase, Migrator};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
-use sqlx::{Connection, Executor, PgConnection, Pool, Postgres};
+use sqlx::{ConnectOptions, Executor, Pool, Postgres};
 use uuid::Uuid;
 
 const ADMIN_URL: &str = "RIFT_TEST_DATABASE_URL";
@@ -27,10 +27,8 @@ impl TestDb {
         let url = std::env::var(ADMIN_URL).expect("RIFT_TEST_DATABASE_URL must point at a Postgres admin database");
         let admin = PgConnectOptions::from_str(&url).unwrap();
         let name = format!("outbox_test_{}", Uuid::new_v4().simple());
-        let mut conn = PgConnection::connect_with(&admin).await.unwrap();
-        conn.execute(format!("CREATE DATABASE {name}").as_str()).await.unwrap();
-        conn.close().await.unwrap();
         let options = admin.clone().database(&name).options([("search_path", "messaging")]);
+        Postgres::create_database(options.to_url_lossy().as_str()).await.unwrap();
         let pool = PgPoolOptions::new().max_connections(16).connect_with(options).await.unwrap();
         pool.execute("CREATE SCHEMA messaging").await.unwrap();
         let migrations = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../services/messaging/migrations");
@@ -40,9 +38,7 @@ impl TestDb {
 
     async fn drop(self) {
         self.pool.close().await;
-        let mut conn = PgConnection::connect_with(&self.admin).await.unwrap();
-        conn.execute(format!("DROP DATABASE {} WITH (FORCE)", self.name).as_str()).await.unwrap();
-        conn.close().await.unwrap();
+        Postgres::force_drop_database(self.admin.clone().database(&self.name).to_url_lossy().as_str()).await.unwrap();
     }
 }
 
