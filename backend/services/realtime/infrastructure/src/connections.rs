@@ -294,6 +294,7 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
         let core = self.core.clone();
         let presence_subject = self.presence_subject.clone();
         let resolver = self.presence_resolver.clone();
+        let sync = self.preference_sync();
         tokio::spawn(async move {
             while let Some(msg) = sub.next().await {
                 let payload: PresencePayload = match serde_json::from_slice(&msg.payload) {
@@ -311,7 +312,18 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                     .get(&payload.user_id)
                     .map(|s| !s.conns.is_empty())
                     .unwrap_or(false);
-                if payload.is_stale_offline(has_local, hidden_by_preference(&appear_offline, payload.user_id)) {
+                let preference_verified = if payload.online || !has_local {
+                    true
+                } else {
+                    match sync.refresh(&[payload.user_id]).await {
+                        Ok(()) => true,
+                        Err(e) => {
+                            tracing::warn!(error = %e, user_id = %payload.user_id, "Could not verify the presence preference; leaving the offline update uncountered");
+                            false
+                        }
+                    }
+                };
+                if preference_verified && payload.is_stale_offline(has_local, hidden_by_preference(&appear_offline, payload.user_id)) {
                     let counter = serde_json::to_string(&PresencePayload {
                         user_id: payload.user_id,
                         online: true,

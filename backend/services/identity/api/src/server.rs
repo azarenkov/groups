@@ -121,15 +121,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let access_revocations_data = web::Data::new(access_revocations.clone());
     let access_revoker = Arc::new(RedisAccessRevoker::new(access_revocations));
     let activity_store = Arc::new(RedisActivityStore::from_env());
-    {
-        let import = ImportLegacyPresencePreferences::new(activity_store.clone(), unit_of_work.clone());
-        actix_web::rt::spawn(async move {
-            match import.execute().await {
-                Ok(imported) => tracing::info!(imported, "Imported legacy appear-offline preferences"),
-                Err(e) => tracing::warn!(error = %e, "Failed to import legacy appear-offline preferences; will retry on next start"),
-            }
-        });
-    }
+    let legacy_presence_import = ImportLegacyPresencePreferences::new(activity_store.clone(), unit_of_work.clone());
     let messaging_internal_url = api_common::internal_client::InternalService::Messaging.base_url();
     let activity_audience = Arc::new(MessagingAudienceClient::new(&messaging_internal_url));
     let block_lookup = Arc::new(MessagingBlockClient::new(&messaging_internal_url));
@@ -334,7 +326,27 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             }
         })
         .build();
-    readiness.mark_ready();
+    {
+        let readiness = readiness.clone();
+        actix_web::rt::spawn(async move {
+            let mut attempt = 0u32;
+            loop {
+                match legacy_presence_import.execute().await {
+                    Ok(imported) => {
+                        tracing::info!(imported, "Imported legacy appear-offline preferences");
+                        readiness.mark_ready();
+                        return;
+                    }
+                    Err(e) => {
+                        let delay = std::time::Duration::from_secs((2u64 << attempt.min(5)).min(60));
+                        tracing::warn!(error = %e, attempt, delay_secs = delay.as_secs(), "Failed to import legacy appear-offline preferences; retrying before readiness");
+                        attempt = attempt.saturating_add(1);
+                        actix_web::rt::time::sleep(delay).await;
+                    }
+                }
+            }
+        });
+    }
     let readiness_data = web::Data::new(readiness.clone());
     let shutdown_config = ShutdownConfig::from_env();
 
