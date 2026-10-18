@@ -1,4 +1,4 @@
-use infrastructure_common::database::postgres::repositories::plan_directory::PostgresPlanDirectory;
+use voice_infrastructure::database::postgres::repositories::plan_directory::PostgresPlanDirectory;
 use voice::usecases::{
     call::{
         accept_call::AcceptCall, add_participants::AddCallParticipants,

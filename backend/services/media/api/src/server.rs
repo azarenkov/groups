@@ -64,7 +64,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let attachment_repository =
         Arc::new(PostgresAttachmentRepository::new(postgres_pool.clone()));
     let plan_directory = Arc::new(
-        infrastructure_common::database::postgres::repositories::plan_directory::PostgresPlanDirectory::media(
+        media_infrastructure::database::postgres::repositories::plan_directory::PostgresPlanDirectory::new(
             postgres_pool.clone(),
         ),
     );

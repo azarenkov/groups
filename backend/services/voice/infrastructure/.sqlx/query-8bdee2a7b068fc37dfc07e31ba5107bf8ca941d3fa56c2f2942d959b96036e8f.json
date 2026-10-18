@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO voice_user_profiles (user_id, name, bio, show_activity, active, updated_at, profile_updated_at, active_updated_at, timezone)\n            VALUES ($1, '', $2, $3, $5, to_timestamp(0), $4, $4, $6)\n            ON CONFLICT (user_id) DO UPDATE\n                SET bio = CASE WHEN voice_user_profiles.profile_updated_at IS NULL OR voice_user_profiles.profile_updated_at <= EXCLUDED.profile_updated_at THEN EXCLUDED.bio ELSE voice_user_profiles.bio END,\n                    show_activity = CASE WHEN voice_user_profiles.profile_updated_at IS NULL OR voice_user_profiles.profile_updated_at <= EXCLUDED.profile_updated_at THEN EXCLUDED.show_activity ELSE voice_user_profiles.show_activity END,\n                    timezone = CASE WHEN voice_user_profiles.profile_updated_at IS NULL OR voice_user_profiles.profile_updated_at <= EXCLUDED.profile_updated_at THEN EXCLUDED.timezone ELSE voice_user_profiles.timezone END,\n                    profile_updated_at = GREATEST(voice_user_profiles.profile_updated_at, EXCLUDED.profile_updated_at),\n                    active = CASE WHEN voice_user_profiles.active_updated_at <= EXCLUDED.active_updated_at THEN EXCLUDED.active ELSE voice_user_profiles.active END,\n                    active_updated_at = GREATEST(voice_user_profiles.active_updated_at, EXCLUDED.active_updated_at)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Bool",
+        "Timestamptz",
+        "Bool",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8bdee2a7b068fc37dfc07e31ba5107bf8ca941d3fa56c2f2942d959b96036e8f"
+}

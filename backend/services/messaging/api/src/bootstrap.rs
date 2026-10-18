@@ -132,7 +132,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let channel_repository = Arc::new(PostgresChannelRepository::new(postgres_pool.clone()));
     let message_repository = Arc::new(PostgresMessageRepository::new(postgres_pool.clone()));
-    let user_repository = Arc::new(PostgresUserProfileRepository::messaging(postgres_pool.clone()));
+    let user_repository = Arc::new(PostgresUserProfileRepository::new(postgres_pool.clone()));
     let community_repository = Arc::new(PostgresCommunityRepository::new(postgres_pool.clone()));
     let friendship_repository =
         Arc::new(PostgresFriendshipRepository::new(postgres_pool.clone()));
@@ -157,7 +157,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let invitation_repository = Arc::new(messaging_infrastructure::database::postgres::repositories::invitation::PostgresInvitationRepository::new(postgres_pool.clone()));
     let inbox_repository = Arc::new(messaging_infrastructure::database::postgres::repositories::inbox::PostgresInboxRepository::new(postgres_pool.clone()));
     let plan_directory = Arc::new(
-        infrastructure_common::database::postgres::repositories::plan_directory::PostgresPlanDirectory::messaging(
+        messaging_infrastructure::database::postgres::repositories::plan_directory::PostgresPlanDirectory::new(
             postgres_pool.clone(),
         ),
     );

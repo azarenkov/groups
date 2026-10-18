@@ -16,8 +16,7 @@ impl PostgresSequenceProgress {
 #[async_trait]
 impl SequenceProgress for PostgresSequenceProgress {
     async fn load(&self, partition: &str) -> Result<Option<i64>, String> {
-        sqlx::query_scalar("SELECT seq FROM realtime_partition_progress WHERE partition = $1")
-            .bind(partition)
+        sqlx::query_scalar!("SELECT seq FROM realtime_partition_progress WHERE partition = $1", partition)
             .fetch_optional(&self.pool)
             .await
             .map_err(|e| e.to_string())
@@ -28,7 +27,7 @@ impl SequenceProgress for PostgresSequenceProgress {
             return Ok(());
         }
         let (partitions, seqs): (Vec<String>, Vec<i64>) = progress.iter().cloned().unzip();
-        sqlx::query(
+        sqlx::query!(
             r#"
             INSERT INTO realtime_partition_progress (partition, seq)
             SELECT * FROM UNNEST($1::text[], $2::bigint[])
@@ -36,9 +35,9 @@ impl SequenceProgress for PostgresSequenceProgress {
             SET seq = GREATEST(realtime_partition_progress.seq, EXCLUDED.seq),
                 updated_at = now()
             "#,
+            &partitions,
+            &seqs,
         )
-        .bind(partitions)
-        .bind(seqs)
         .execute(&self.pool)
         .await
         .map_err(|e| e.to_string())?;

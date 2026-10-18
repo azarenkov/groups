@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO voice_user_profiles (user_id, name, updated_at, registered_at)\n            VALUES ($1, '', to_timestamp(0), $2)\n            ON CONFLICT (user_id) DO UPDATE\n                SET registered_at = COALESCE(voice_user_profiles.registered_at, EXCLUDED.registered_at)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "abab0da14fbd8d8ed31b0d8a21f47a60e77a9c203aefc73ddca26e51ba1754e1"
+}

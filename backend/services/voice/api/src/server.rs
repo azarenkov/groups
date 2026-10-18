@@ -57,9 +57,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let webhook_outbox = Arc::new(PostgresWebhookOutbox::new(PostgresOutboxWriter::new(
         postgres_pool.clone(),
     )));
-    let user_repository = Arc::new(PostgresUserProfileRepository::voice(postgres_pool.clone()));
+    let user_repository = Arc::new(PostgresUserProfileRepository::new(postgres_pool.clone()));
     let plan_directory = Arc::new(
-        infrastructure_common::database::postgres::repositories::plan_directory::PostgresPlanDirectory::voice(
+        voice_infrastructure::database::postgres::repositories::plan_directory::PostgresPlanDirectory::new(
             postgres_pool.clone(),
         ),
     );

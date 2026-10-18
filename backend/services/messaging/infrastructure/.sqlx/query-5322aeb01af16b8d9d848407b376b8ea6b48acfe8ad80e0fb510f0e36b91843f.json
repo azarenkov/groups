@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO messaging_user_profiles (user_id, name, updated_at, registered_at)\n            VALUES ($1, '', to_timestamp(0), $2)\n            ON CONFLICT (user_id) DO UPDATE\n                SET registered_at = COALESCE(messaging_user_profiles.registered_at, EXCLUDED.registered_at)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5322aeb01af16b8d9d848407b376b8ea6b48acfe8ad80e0fb510f0e36b91843f"
+}

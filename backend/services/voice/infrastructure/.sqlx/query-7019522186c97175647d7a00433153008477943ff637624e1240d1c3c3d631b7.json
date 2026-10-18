@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                CASE WHEN active THEN name ELSE '' END AS \"name!\",\n                CASE WHEN active THEN bio ELSE '' END AS \"bio!\",\n                CASE WHEN active THEN profile_updated_at ELSE GREATEST(profile_updated_at, active_updated_at) END AS profile_updated_at,\n                active,\n                CASE WHEN active THEN timezone ELSE '' END AS \"timezone!\",\n                registered_at\n            FROM voice_user_profiles\n            WHERE user_id = $1 AND name <> ''\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "bio!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "profile_updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "active",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "timezone!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "registered_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      false,
+      null,
+      true
+    ]
+  },
+  "hash": "7019522186c97175647d7a00433153008477943ff637624e1240d1c3c3d631b7"
+}

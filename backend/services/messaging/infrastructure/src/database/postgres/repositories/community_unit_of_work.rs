@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use crate::database::postgres::repositories::invite_link::{INVITE_LINK_COLUMNS, InviteLinkRow};
+use crate::database::postgres::repositories::invite_link::InviteLinkRow;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -843,11 +843,12 @@ impl CommunityTransaction for PostgresCommunityTransaction {
         token: &InviteToken,
         user_id: &UserId,
     ) -> Result<InviteJoinOutcome, RepositoryError> {
-        let row: Option<InviteLinkRow> = sqlx::query_as(&format!(
-            "SELECT {INVITE_LINK_COLUMNS} FROM community_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.token = $1 AND l.community_id = $2 FOR UPDATE OF l"
-        ))
-        .bind(token.as_str())
-        .bind(self.community_id.uuid())
+        let row: Option<InviteLinkRow> = sqlx::query_as!(
+            InviteLinkRow,
+            "SELECT l.token, l.community_id, l.created_by, u.name AS creator_name, l.name, l.is_primary, l.max_uses, l.uses, l.expires_at, l.created_at, l.revoked_at FROM community_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.token = $1 AND l.community_id = $2 FOR UPDATE OF l",
+            token.as_str(),
+            self.community_id.uuid(),
+        )
         .fetch_optional(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
@@ -905,10 +906,11 @@ impl CommunityTransaction for PostgresCommunityTransaction {
     }
 
     async fn find_primary_invite_link(&mut self) -> Result<Option<InviteLink>, RepositoryError> {
-        let row: Option<InviteLinkRow> = sqlx::query_as(&format!(
-            "SELECT {INVITE_LINK_COLUMNS} FROM community_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.community_id = $1 AND l.is_primary AND l.revoked_at IS NULL"
-        ))
-        .bind(self.community_id.uuid())
+        let row: Option<InviteLinkRow> = sqlx::query_as!(
+            InviteLinkRow,
+            "SELECT l.token, l.community_id, l.created_by, u.name AS creator_name, l.name, l.is_primary, l.max_uses, l.uses, l.expires_at, l.created_at, l.revoked_at FROM community_invite_links l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by WHERE l.community_id = $1 AND l.is_primary AND l.revoked_at IS NULL",
+            self.community_id.uuid(),
+        )
         .fetch_optional(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
@@ -921,13 +923,14 @@ impl CommunityTransaction for PostgresCommunityTransaction {
         requester: &UserId,
         any_creator: bool,
     ) -> Result<Option<InviteLink>, RepositoryError> {
-        let row: Option<InviteLinkRow> = sqlx::query_as(&format!(
-            "WITH revoked AS (UPDATE community_invite_links SET revoked_at = now() WHERE token = $1 AND community_id = $2 AND revoked_at IS NULL AND (created_by = $3 OR $4) RETURNING *) SELECT {INVITE_LINK_COLUMNS} FROM revoked l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by"
-        ))
-        .bind(token.as_str())
-        .bind(self.community_id.uuid())
-        .bind(requester.uuid())
-        .bind(any_creator)
+        let row: Option<InviteLinkRow> = sqlx::query_as!(
+            InviteLinkRow,
+            "WITH revoked AS (UPDATE community_invite_links SET revoked_at = now() WHERE token = $1 AND community_id = $2 AND revoked_at IS NULL AND (created_by = $3 OR $4) RETURNING *) SELECT l.token, l.community_id, l.created_by, u.name AS creator_name, l.name, l.is_primary, l.max_uses, l.uses, l.expires_at, l.created_at, l.revoked_at FROM revoked l LEFT JOIN messaging_user_profiles u ON u.user_id = l.created_by",
+            token.as_str(),
+            self.community_id.uuid(),
+            requester.uuid(),
+            any_creator,
+        )
         .fetch_optional(&mut *self.tx)
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
