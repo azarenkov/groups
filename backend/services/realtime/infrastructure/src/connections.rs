@@ -44,7 +44,7 @@ pub struct ConnectionManager<D: RecipientDirectory> {
     presence_subject: String,
     presence_preference_subject: String,
     online_snapshot: Arc<DashMap<Uuid, ()>>,
-    appear_offline: Arc<DashMap<Uuid, ()>>,
+    appear_offline: Arc<DashMap<Uuid, PreferenceState>>,
     presence_resolver: Arc<D>,
 }
 
@@ -66,6 +66,26 @@ impl<D: RecipientDirectory> Clone for ConnectionManager<D> {
 type PresencePayload = PresenceUpdate;
 
 use contracts::realtime::PresencePreferenceV1 as PresencePreferenceMessage;
+
+#[derive(Debug, Clone, Copy)]
+pub struct PreferenceState {
+    hidden: bool,
+    as_of: chrono::DateTime<chrono::Utc>,
+}
+
+fn hidden_by_preference(cache: &DashMap<Uuid, PreferenceState>, user_id: Uuid) -> bool {
+    cache.get(&user_id).is_some_and(|state| state.hidden)
+}
+
+fn remember_preference(cache: &DashMap<Uuid, PreferenceState>, user_id: Uuid, hidden: bool, as_of: chrono::DateTime<chrono::Utc>) -> Option<bool> {
+    let mut entry = cache.entry(user_id).or_insert(PreferenceState { hidden: false, as_of: chrono::DateTime::<chrono::Utc>::UNIX_EPOCH });
+    if entry.as_of > as_of {
+        return None;
+    }
+    let was_hidden = entry.hidden;
+    *entry = PreferenceState { hidden, as_of };
+    Some(was_hidden)
+}
 
 impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
     pub fn new(
@@ -108,12 +128,10 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                             continue;
                         }
                     };
-                let was_offline = appear_offline.contains_key(&body.user_id);
-                if body.appear_offline {
-                    appear_offline.insert(body.user_id, ());
-                } else {
-                    appear_offline.remove(&body.user_id);
-                }
+                let as_of = body.occurred_at.unwrap_or_else(chrono::Utc::now);
+                let Some(was_offline) = remember_preference(&appear_offline, body.user_id, body.appear_offline, as_of) else {
+                    continue;
+                };
                 if was_offline == body.appear_offline {
                     continue;
                 }
@@ -187,7 +205,7 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                     .get(&payload.user_id)
                     .map(|s| !s.conns.is_empty())
                     .unwrap_or(false);
-                if payload.is_stale_offline(has_local, appear_offline.contains_key(&payload.user_id)) {
+                if payload.is_stale_offline(has_local, hidden_by_preference(&appear_offline, payload.user_id)) {
                     let counter = serde_json::to_string(&PresencePayload {
                         user_id: payload.user_id,
                         online: true,
@@ -301,12 +319,12 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
         };
 
         if was_first_for_user {
-            match self.presence_resolver.appear_offline(user_id).await {
-                Ok(true) => {
-                    self.appear_offline.insert(user_id, ());
+            match self.presence_resolver.presence_preference(user_id).await {
+                Ok(Some(preference)) => {
+                    remember_preference(&self.appear_offline, user_id, preference.appear_offline, preference.as_of);
                 }
-                Ok(false) => {
-                    self.appear_offline.remove(&user_id);
+                Ok(None) => {
+                    remember_preference(&self.appear_offline, user_id, false, chrono::DateTime::<chrono::Utc>::UNIX_EPOCH);
                 }
                 Err(e) => {
                     tracing::warn!(error = %e, %user_id, "Failed to load the presence preference; keeping the cached value");
@@ -329,7 +347,7 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
             }
         }
 
-        if was_first_for_user && !self.appear_offline.contains_key(&user_id) {
+        if was_first_for_user && !hidden_by_preference(&self.appear_offline, user_id) {
             let payload = serde_json::to_string(&PresencePayload {
                 user_id,
                 online: true,
@@ -361,7 +379,8 @@ impl<D: RecipientDirectory + 'static> ConnectionManager<D> {
                 false
             }
         };
-        if removed_last && self.appear_offline.remove(&user_id).is_none() {
+        let was_hidden = self.appear_offline.remove(&user_id).is_some_and(|(_, state)| state.hidden);
+        if removed_last && !was_hidden {
             let payload = serde_json::to_string(&PresencePayload {
                 user_id,
                 online: false,
@@ -534,7 +553,7 @@ async fn block_presence_update<D: RecipientDirectory + 'static>(
 struct FanoutContext<D: RecipientDirectory> {
     by_user: Arc<DashMap<Uuid, UserSlot>>,
     core: async_nats::Client,
-    appear_offline: Arc<DashMap<Uuid, ()>>,
+    appear_offline: Arc<DashMap<Uuid, PreferenceState>>,
     presence_subject: String,
     online_snapshot: Arc<DashMap<Uuid, ()>>,
     resolver: Arc<D>,
@@ -586,7 +605,7 @@ async fn fanout_loop<D: RecipientDirectory + 'static>(
                         // we ARE that task; aborting would cancel us before
                         // the offline publish below completes.
                         let _ = by_user.remove(&user_id);
-                        if !appear_offline.contains_key(&user_id) {
+                        if !hidden_by_preference(&appear_offline, user_id) {
                             let payload = serde_json::to_string(&PresencePayload {
                                 user_id,
                                 online: false,

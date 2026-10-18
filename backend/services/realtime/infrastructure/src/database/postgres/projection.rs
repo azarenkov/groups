@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use infrastructure_common::database::postgres::error::map_sqlx_error_to_domain_error;
 use ports::repository::RepositoryError;
-use realtime_core::ports::{directory::RecipientDirectory, projection::RealtimeProjection};
+use realtime_core::ports::{directory::{PresencePreference, RecipientDirectory}, projection::RealtimeProjection};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
@@ -274,10 +274,10 @@ impl PostgresRealtimeProjection {
         Ok(result.rows_affected() > 0)
     }
 
-    async fn appear_offline(&self, user_id: Uuid) -> Result<bool, sqlx::Error> {
-        let row: Option<(bool,)> = sqlx::query_as(
+    async fn presence_preference(&self, user_id: Uuid) -> Result<Option<PresencePreference>, sqlx::Error> {
+        let row: Option<(bool, DateTime<Utc>)> = sqlx::query_as(
             r#"
-            SELECT appear_offline
+            SELECT appear_offline, updated_at
             FROM realtime_presence_preferences
             WHERE user_id = $1
             "#,
@@ -285,7 +285,7 @@ impl PostgresRealtimeProjection {
         .bind(user_id)
         .fetch_optional(&self.pool)
         .await?;
-        Ok(row.map(|r| r.0).unwrap_or(false))
+        Ok(row.map(|(appear_offline, as_of)| PresencePreference { appear_offline, as_of }))
     }
 
     async fn remove_community(
@@ -400,7 +400,7 @@ impl RecipientDirectory for PostgresRealtimeProjection {
     async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError> {
         PostgresRealtimeProjection::pending_dm_peers(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
     }
-    async fn appear_offline(&self, user_id: Uuid) -> Result<bool, RepositoryError> {
-        PostgresRealtimeProjection::appear_offline(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
+    async fn presence_preference(&self, user_id: Uuid) -> Result<Option<PresencePreference>, RepositoryError> {
+        PostgresRealtimeProjection::presence_preference(self, user_id).await.map_err(map_sqlx_error_to_domain_error)
     }
 }

@@ -55,8 +55,8 @@ impl RealtimePublisher for NatsRealtimePublisher {
         Ok(())
     }
 
-    async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool) -> Result<(), PublishError> {
-        let payload = serde_json::to_vec(&PresencePreferenceV1 { user_id, appear_offline }).map_err(PublishError::Serialize)?;
+    async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool, occurred_at: chrono::DateTime<chrono::Utc>) -> Result<(), PublishError> {
+        let payload = serde_json::to_vec(&PresencePreferenceV1 { user_id, appear_offline, occurred_at: Some(occurred_at) }).map_err(PublishError::Serialize)?;
         self.core
             .publish(self.presence_preference_subject.clone(), payload.into())
             .await

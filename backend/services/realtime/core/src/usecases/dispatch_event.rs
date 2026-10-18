@@ -46,6 +46,7 @@ use ports::repository::RepositoryError;
 use realtime_domain::envelope::Envelope;
 
 use crate::ports::{directory::RecipientDirectory, projection::RealtimeProjection, publisher::{PublishError, RealtimePublisher}};
+use chrono::{DateTime, Utc};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DispatchError {
@@ -181,8 +182,8 @@ impl<P: RealtimePublisher> RealtimePublisher for Sequenced<'_, P> {
             .await
     }
 
-    async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool) -> Result<(), PublishError> {
-        self.inner.announce_presence_preference(user_id, appear_offline).await
+    async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool, occurred_at: DateTime<Utc>) -> Result<(), PublishError> {
+        self.inner.announce_presence_preference(user_id, appear_offline, occurred_at).await
     }
 }
 
@@ -197,8 +198,8 @@ impl<P: RealtimePublisher> RealtimePublisher for Identified<'_, P> {
         self.inner.publish_to_users(recipients, &envelope.identified(&self.event_id)).await
     }
 
-    async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool) -> Result<(), PublishError> {
-        self.inner.announce_presence_preference(user_id, appear_offline).await
+    async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool, occurred_at: DateTime<Utc>) -> Result<(), PublishError> {
+        self.inner.announce_presence_preference(user_id, appear_offline, occurred_at).await
     }
 }
 
@@ -210,7 +211,7 @@ impl RealtimePublisher for Unpublished {
         Ok(())
     }
 
-    async fn announce_presence_preference(&self, _: Uuid, _: bool) -> Result<(), PublishError> {
+    async fn announce_presence_preference(&self, _: Uuid, _: bool, _: DateTime<Utc>) -> Result<(), PublishError> {
         Ok(())
     }
 }
@@ -1219,7 +1220,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         if !resolver.set_appear_offline(evt.user_id, evt.appear_offline, evt.occurred_at).await? {
             return Ok(());
         }
-        publisher.announce_presence_preference(evt.user_id, evt.appear_offline).await?;
+        publisher.announce_presence_preference(evt.user_id, evt.appear_offline, evt.occurred_at).await?;
         if !evt.appear_offline {
             return Ok(());
         }
@@ -1252,7 +1253,7 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "occurredAt": evt.occurred_at,
             }),
         );
-        if resolver.appear_offline(evt.user_id).await? {
+        if resolver.presence_preference(evt.user_id).await?.is_some_and(|p| p.appear_offline) {
             publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
             return Ok(());
         }
@@ -1401,6 +1402,7 @@ mod tests {
 
         use super::*;
         use crate::ports::blocks::{BlockSets, RelationDirectory, RelationLookupError};
+        use crate::ports::directory::PresencePreference;
 
         #[derive(Default)]
         struct Directory {
@@ -1417,7 +1419,7 @@ mod tests {
             async fn profile_recipients(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
             async fn interested_in(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(self.interested.clone()) }
             async fn pending_dm_peers(&self, _: Uuid) -> Result<Vec<Uuid>, RepositoryError> { Ok(vec![]) }
-            async fn appear_offline(&self, _: Uuid) -> Result<bool, RepositoryError> { Ok(false) }
+            async fn presence_preference(&self, _: Uuid) -> Result<Option<PresencePreference>, RepositoryError> { Ok(None) }
         }
 
         #[async_trait]
@@ -1475,7 +1477,7 @@ mod tests {
                 self.to.lock().unwrap().push(recipients);
                 Ok(())
             }
-            async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool) -> Result<(), PublishError> {
+            async fn announce_presence_preference(&self, user_id: Uuid, appear_offline: bool, _: DateTime<Utc>) -> Result<(), PublishError> {
                 self.preferences.lock().unwrap().push((user_id, appear_offline));
                 Ok(())
             }

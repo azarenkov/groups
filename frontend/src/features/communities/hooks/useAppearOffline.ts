@@ -46,13 +46,15 @@ export function useAppearOffline(params: {
       retry.current = null;
     }
     const target = pending;
+    const forUser = currentUserId;
     let failed = false;
     inFlight.current = true;
     userAPI
       .setAppearOffline(target)
       .then(() => {
         const auth = useAuthStore.getState();
-        if (auth.user) auth.setUser({ ...auth.user, appearOffline: target });
+        if (!auth.user || auth.user.id !== forUser) return;
+        auth.setUser({ ...auth.user, appearOffline: target });
         setPending((current) => (current === target ? null : current));
       })
       .catch((err) => {
@@ -67,7 +69,7 @@ export function useAppearOffline(params: {
           setAttempt((n) => n + 1);
         }
       });
-  }, [pending, hasSession, attempt]);
+  }, [pending, hasSession, attempt, currentUserId]);
 
   useEffect(() => {
     setActivityHiddenByPresence(appearOffline);

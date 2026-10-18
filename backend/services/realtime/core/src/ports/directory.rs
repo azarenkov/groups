@@ -3,6 +3,12 @@ use chrono::{DateTime, Utc};
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PresencePreference {
+    pub appear_offline: bool,
+    pub as_of: DateTime<Utc>,
+}
+
 #[async_trait]
 pub trait RecipientDirectory: Send + Sync {
     async fn community_members(&self, community_id: Uuid) -> Result<Vec<Uuid>, RepositoryError>;
@@ -12,5 +18,5 @@ pub trait RecipientDirectory: Send + Sync {
     async fn profile_recipients(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError>;
     async fn interested_in(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError>;
     async fn pending_dm_peers(&self, user_id: Uuid) -> Result<Vec<Uuid>, RepositoryError>;
-    async fn appear_offline(&self, user_id: Uuid) -> Result<bool, RepositoryError>;
+    async fn presence_preference(&self, user_id: Uuid) -> Result<Option<PresencePreference>, RepositoryError>;
 }
