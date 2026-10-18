@@ -9,6 +9,7 @@ use identity_domain::{
 use ports::repository::RepositoryError;
 
 use crate::ports::activity_store::{ActivityStore, ActivityStoreError};
+use crate::usecases::user::activity::clear_observed_activity;
 use crate::ports::text_moderation::{TextModeration, TextModerationError};
 
 #[derive(Debug, thiserror::Error)]
@@ -89,10 +90,9 @@ impl<W: IdentityUnitOfWork, S: ActivityStore, TM: TextModeration> UpdateProfile<
             tx.save_user(&user).await?;
             tx.save_events(&events, patch.request_id.as_deref()).await?;
         }
+        let observed = if hid_game_activity { self.activity_store.get(&user_id).await? } else { None };
         tx.commit().await?;
-        if hid_game_activity
-            && let Err(e) = self.activity_store.clear(&user_id).await
-        {
+        if let Err(e) = clear_observed_activity(&*self.activity_store, &user_id, observed.as_ref()).await {
             tracing::warn!(error = %e, user_id = %user_id.uuid(), "Failed to clear the activity cache after hiding game activity");
         }
         Ok((user.bio().to_string(), user.show_activity(), user.show_game_activity(), user.updated_at()))

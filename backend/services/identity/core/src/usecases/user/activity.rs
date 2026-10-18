@@ -226,11 +226,20 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
         tx.save_events(&[activity_event(user_id, None, occurred_at)], None)
             .await?;
         tx.commit().await?;
-        if let Some(prev) = previous.as_ref() {
-            self.store.clear_if_current(&user_id, prev).await?;
-        }
+        clear_observed_activity(&*self.store, &user_id, previous.as_ref()).await?;
         Ok(occurred_at)
     }
+}
+
+pub async fn clear_observed_activity<S: ActivityStore + ?Sized>(
+    store: &S,
+    user_id: &UserId,
+    observed: Option<&StoredActivity>,
+) -> Result<(), ActivityStoreError> {
+    if let Some(prev) = observed {
+        store.clear_if_current(user_id, prev).await?;
+    }
+    Ok(())
 }
 
 pub struct GetActivities<S: ActivityStore, A: ActivityAudience, U: UserRepository> {

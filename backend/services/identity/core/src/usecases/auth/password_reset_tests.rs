@@ -48,7 +48,7 @@ fn copy_user(user: &User) -> User {
         user.email().clone(),
         PasswordHash::new(user.password_hash().as_str().to_string()),
         user.created_at(),
-        user.updated_at(),
+        DateTime::from_timestamp_micros(user.updated_at().timestamp_micros()).unwrap(),
         user.email_verified_at(),
         user.phone_verified_at(),
         user.locale(),

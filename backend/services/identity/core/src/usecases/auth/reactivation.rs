@@ -26,6 +26,10 @@ pub enum SessionRotationError {
     Superseded,
 }
 
+fn same_stored_instant(a: DateTime<Utc>, b: DateTime<Utc>) -> bool {
+    a.timestamp_micros() == b.timestamp_micros()
+}
+
 pub async fn issue_session_after_cutoff<W, I, E>(
     unit_of_work: &W,
     token_issuer: &I,
@@ -43,7 +47,13 @@ where
     let mut tx = unit_of_work.begin().await?;
     let user = tx.load_user_for_update(&user_id).await?;
     let current = match user {
-        Some(user) if !user.is_disabled() && !user.is_deleted() && user.updated_at() == expected_updated_at => user,
+        Some(user)
+            if !user.is_disabled()
+                && !user.is_deleted()
+                && same_stored_instant(user.updated_at(), expected_updated_at) =>
+        {
+            user
+        }
         _ => return Err(SessionRotationError::Superseded.into()),
     };
     let tokens = token_issuer.issue(&user_id, current.is_verified()).await?;
@@ -65,5 +75,20 @@ where
 {
     if let Err(e) = revoker.revoke_access_issued_before(user_id, cutoff).await {
         tracing::error!(error = %e, user_id = %user_id.uuid(), "Failed to revoke access tokens after the credential change was committed; they expire with their own TTL");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::same_stored_instant;
+    use chrono::{DateTime, Utc};
+
+    #[test]
+    fn a_stored_timestamp_matches_its_nanosecond_original() {
+        let original = DateTime::<Utc>::from_timestamp(1_700_000_000, 123_456_789).unwrap();
+        let stored = DateTime::<Utc>::from_timestamp_micros(original.timestamp_micros()).unwrap();
+        assert_ne!(original, stored);
+        assert!(same_stored_instant(original, stored));
+        assert!(!same_stored_instant(original, stored + chrono::Duration::microseconds(1)));
     }
 }
