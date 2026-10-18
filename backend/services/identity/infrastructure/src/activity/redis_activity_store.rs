@@ -24,6 +24,8 @@ struct ActivityRecord {
     refreshed_at: DateTime<Utc>,
     #[serde(default = "Utc::now")]
     changed_at: DateTime<Utc>,
+    #[serde(default)]
+    as_of: i64,
 }
 
 fn default_true() -> bool {
@@ -31,19 +33,28 @@ fn default_true() -> bool {
 }
 
 
-const CLEAR_IF_CURRENT: &str = r#"
-if redis.call('GET', KEYS[1]) == ARGV[1] then
-  return redis.call('DEL', KEYS[1])
+const SET_IF_NEWER: &str = r#"
+local current = redis.call('GET', KEYS[1])
+if current then
+  local as_of = cjson.decode(current)['as_of']
+  if as_of and tonumber(as_of) > tonumber(ARGV[2]) then
+    return 0
+  end
 end
-return 0
+redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[3])
+return 1
 "#;
 
-const SET_IF_CURRENT: &str = r#"
-if redis.call('GET', KEYS[1]) == ARGV[1] then
-  redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])
-  return 1
+const CLEAR_IF_NOT_NEWER: &str = r#"
+local current = redis.call('GET', KEYS[1])
+if not current then
+  return 0
 end
-return 0
+local as_of = cjson.decode(current)['as_of']
+if as_of and tonumber(as_of) > tonumber(ARGV[1]) then
+  return 0
+end
+return redis.call('DEL', KEYS[1])
 "#;
 
 pub struct RedisActivityStore {
@@ -81,6 +92,7 @@ impl RedisActivityStore {
             source: activity.source.clone(),
             refreshed_at: activity.refreshed_at,
             changed_at: activity.changed_at,
+            as_of: Self::version(activity.refreshed_at),
         })
         .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))
     }
@@ -99,6 +111,10 @@ impl RedisActivityStore {
             .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
         *guard = Some(connection.clone());
         Ok(connection)
+    }
+
+    fn version(at: DateTime<Utc>) -> i64 {
+        at.timestamp_micros()
     }
 
     fn key(user_id: &UserId) -> String {
@@ -131,87 +147,33 @@ impl ActivityStore for RedisActivityStore {
         Ok(Self::decode(raw))
     }
 
-    async fn set(
+    async fn set_if_newer(
         &self,
         user_id: &UserId,
-        activity: &StoredActivity,
-        ttl: Duration,
-    ) -> Result<Option<StoredActivity>, ActivityStoreError> {
-        let mut connection = self.connection().await?;
-        let key = Self::key(user_id);
-        let previous: Option<String> = connection
-            .get(&key)
-            .await
-            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
-        let payload = Self::encode(activity)?;
-        let _: () = connection
-            .set_ex(&key, payload, ttl.as_secs().max(1))
-            .await
-            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
-        Ok(Self::decode(previous))
-    }
-
-    async fn set_if_current(
-        &self,
-        user_id: &UserId,
-        expected: &StoredActivity,
         activity: &StoredActivity,
         ttl: Duration,
     ) -> Result<bool, ActivityStoreError> {
         let mut connection = self.connection().await?;
-        let replaced: i64 = redis::Script::new(SET_IF_CURRENT)
+        let stored: i64 = redis::Script::new(SET_IF_NEWER)
             .key(Self::key(user_id))
-            .arg(Self::encode(expected)?)
             .arg(Self::encode(activity)?)
+            .arg(Self::version(activity.refreshed_at))
             .arg(ttl.as_secs().max(1))
             .invoke_async(&mut connection)
             .await
             .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
-        Ok(replaced == 1)
+        Ok(stored == 1)
     }
 
-    async fn set_if_absent(
-        &self,
-        user_id: &UserId,
-        activity: &StoredActivity,
-        ttl: Duration,
-    ) -> Result<bool, ActivityStoreError> {
+    async fn clear_if_not_newer(&self, user_id: &UserId, as_of: DateTime<Utc>) -> Result<bool, ActivityStoreError> {
         let mut connection = self.connection().await?;
-        let stored: Option<String> = redis::cmd("SET")
-            .arg(Self::key(user_id))
-            .arg(Self::encode(activity)?)
-            .arg("NX")
-            .arg("EX")
-            .arg(ttl.as_secs().max(1))
-            .query_async(&mut connection)
-            .await
-            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
-        Ok(stored.is_some())
-    }
-
-    async fn clear_if_current(&self, user_id: &UserId, expected: &StoredActivity) -> Result<bool, ActivityStoreError> {
-        let mut connection = self.connection().await?;
-        let removed: i64 = redis::Script::new(CLEAR_IF_CURRENT)
+        let removed: i64 = redis::Script::new(CLEAR_IF_NOT_NEWER)
             .key(Self::key(user_id))
-            .arg(Self::encode(expected)?)
+            .arg(Self::version(as_of))
             .invoke_async(&mut connection)
             .await
             .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
         Ok(removed == 1)
-    }
-
-    async fn clear(&self, user_id: &UserId) -> Result<Option<StoredActivity>, ActivityStoreError> {
-        let mut connection = self.connection().await?;
-        let key = Self::key(user_id);
-        let previous: Option<String> = connection
-            .get(&key)
-            .await
-            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
-        let _: () = connection
-            .del(&key)
-            .await
-            .map_err(|e| ActivityStoreError::Unavailable(e.to_string()))?;
-        Ok(Self::decode(previous))
     }
 
     async fn get_many(

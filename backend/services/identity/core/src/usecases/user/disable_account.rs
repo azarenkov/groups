@@ -16,7 +16,6 @@ use crate::{
         hasher::{HashError, Hasher},
     },
     usecases::auth::reactivation::revoke_access_after_commit,
-    usecases::user::activity::clear_observed_activity,
     usecases::user::reauth::{Reauth, ReauthError, Reauthenticator},
 };
 
@@ -113,9 +112,8 @@ where
         let revocation = AccessRevocation::new(user_id, now);
         tx.record_access_revocation(&revocation).await?;
         tx.save_events(&events, request_id).await?;
-        let observed = self.activity_store.get(&user_id).await?;
         tx.commit().await?;
-        if let Err(e) = clear_observed_activity(&*self.activity_store, &user_id, observed.as_ref()).await {
+        if let Err(e) = self.activity_store.clear_if_not_newer(&user_id, now).await {
             tracing::warn!(error = %e, user_id = %user_id.uuid(), "Failed to clear the activity cache after disabling the account");
         }
         revoke_access_after_commit(&*self.unit_of_work, &*self.access_revoker, &revocation).await;

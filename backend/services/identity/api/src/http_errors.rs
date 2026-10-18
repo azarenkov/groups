@@ -1073,7 +1073,6 @@ impl HttpMapping for ActivityError {
             ActivityError::Invalid => StatusCode::BAD_REQUEST,
             ActivityError::Hidden => StatusCode::FORBIDDEN,
             ActivityError::Leased => StatusCode::CONFLICT,
-            ActivityError::Superseded => StatusCode::CONFLICT,
             ActivityError::UserNotFound => StatusCode::NOT_FOUND,
         }
     }
@@ -1086,7 +1085,6 @@ impl HttpMapping for ActivityError {
             ActivityError::Invalid => "Invalid activity".to_string(),
             ActivityError::Hidden => "Activity is hidden by privacy settings".to_string(),
             ActivityError::Leased => "Activity is published by another session".to_string(),
-            ActivityError::Superseded => "Activity changed concurrently".to_string(),
             ActivityError::UserNotFound => "User not found".to_string(),
         }
     }
@@ -1099,7 +1097,6 @@ impl HttpMapping for ActivityError {
             ActivityError::Invalid => "INVALID_ACTIVITY",
             ActivityError::Hidden => "ACTIVITY_HIDDEN",
             ActivityError::Leased => "ACTIVITY_LEASED",
-            ActivityError::Superseded => "ACTIVITY_SUPERSEDED",
             ActivityError::UserNotFound => "USER_NOT_FOUND",
         }
     }

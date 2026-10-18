@@ -31,8 +31,6 @@ pub enum ActivityError {
     Hidden,
     #[error("Activity is published by another session")]
     Leased,
-    #[error("Activity changed concurrently")]
-    Superseded,
     #[error("User not found")]
     UserNotFound,
 }
@@ -102,11 +100,11 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             .await?
             .ok_or(ActivityError::UserNotFound)?;
         if user.is_disabled() || user.is_deleted() || !user.show_game_activity() {
-            let observed = self.store.get(&user_id).await?;
-            tx.save_events(&[activity_event(user_id, None, Utc::now())], None)
+            let hidden_at = Utc::now();
+            tx.save_events(&[activity_event(user_id, None, hidden_at)], None)
                 .await?;
             tx.commit().await?;
-            clear_observed_activity(&*self.store, &user_id, observed.as_ref()).await?;
+            self.store.clear_if_not_newer(&user_id, hidden_at).await?;
             return Err(ActivityError::Hidden);
         }
         let previous = self.store.get(&user_id).await?;
@@ -127,9 +125,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
                     ..prev.clone()
                 };
                 tx.commit().await?;
-                if !self.store.set_if_current(&user_id, prev, &adopted, ACTIVITY_TTL).await? {
-                    return Err(ActivityError::Superseded);
-                }
+                self.store.set_if_newer(&user_id, &adopted, ACTIVITY_TTL).await?;
                 return Ok(adopted);
             }
         }
@@ -138,11 +134,11 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             .map(|p| p.game_id != input.game_id || !p.published)
             .unwrap_or(true);
         let now = Utc::now();
-        let mut activity = StoredActivity {
+        let activity = StoredActivity {
             game_id: input.game_id,
             name: name.to_string(),
             started_at: input.started_at,
-            published: !needs_publish,
+            published: true,
             source: input.source,
             refreshed_at: now,
             changed_at: if needs_publish {
@@ -156,34 +152,7 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
                 .await?;
         }
         tx.commit().await?;
-        let stored = match previous.as_ref() {
-            Some(prev) => self.store.set_if_current(&user_id, prev, &activity, ACTIVITY_TTL).await?,
-            None => self.store.set_if_absent(&user_id, &activity, ACTIVITY_TTL).await?,
-        };
-        if !stored {
-            return Err(ActivityError::Superseded);
-        }
-        if needs_publish {
-            let provisional = activity.clone();
-            activity.published = true;
-            let finalized = self
-                .store
-                .set_if_current(&user_id, &provisional, &activity, ACTIVITY_TTL)
-                .await?;
-            if !finalized {
-                return match self.store.get(&user_id).await? {
-                    Some(current) if current.source == activity.source && current.published => {
-                        Ok(current)
-                    }
-                    Some(current)
-                        if !current.source.is_empty() && current.source != activity.source =>
-                    {
-                        Err(ActivityError::Leased)
-                    }
-                    _ => Err(ActivityError::Superseded),
-                };
-            }
-        }
+        self.store.set_if_newer(&user_id, &activity, ACTIVITY_TTL).await?;
         Ok(activity)
     }
 }
@@ -227,20 +196,9 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
         tx.save_events(&[activity_event(user_id, None, occurred_at)], None)
             .await?;
         tx.commit().await?;
-        clear_observed_activity(&*self.store, &user_id, previous.as_ref()).await?;
+        self.store.clear_if_not_newer(&user_id, occurred_at).await?;
         Ok(occurred_at)
     }
-}
-
-pub async fn clear_observed_activity<S: ActivityStore + ?Sized>(
-    store: &S,
-    user_id: &UserId,
-    observed: Option<&StoredActivity>,
-) -> Result<(), ActivityStoreError> {
-    if let Some(prev) = observed {
-        store.clear_if_current(user_id, prev).await?;
-    }
-    Ok(())
 }
 
 pub struct GetActivities<S: ActivityStore, A: ActivityAudience, U: UserRepository> {

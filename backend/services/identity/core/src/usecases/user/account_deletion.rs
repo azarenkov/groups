@@ -67,7 +67,7 @@ where
     S: ActivityStore + ?Sized,
     R: AccessRevoker + ?Sized,
 {
-    let activity = activity_store.clear(user_id).await;
+    let activity = activity_store.clear_if_not_newer(user_id, now).await;
     revoke_access_after_commit(unit_of_work, access_revoker, &AccessRevocation::new(*user_id, now)).await;
     activity?;
     Ok(())

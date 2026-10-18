@@ -24,27 +24,13 @@ pub enum ActivityStoreError {
 #[async_trait]
 pub trait ActivityStore: Send + Sync {
     async fn get(&self, user_id: &UserId) -> Result<Option<StoredActivity>, ActivityStoreError>;
-    async fn set(
-        &self,
-        user_id: &UserId,
-        activity: &StoredActivity,
-        ttl: Duration,
-    ) -> Result<Option<StoredActivity>, ActivityStoreError>;
-    async fn set_if_current(
-        &self,
-        user_id: &UserId,
-        expected: &StoredActivity,
-        activity: &StoredActivity,
-        ttl: Duration,
-    ) -> Result<bool, ActivityStoreError>;
-    async fn set_if_absent(
+    async fn set_if_newer(
         &self,
         user_id: &UserId,
         activity: &StoredActivity,
         ttl: Duration,
     ) -> Result<bool, ActivityStoreError>;
-    async fn clear(&self, user_id: &UserId) -> Result<Option<StoredActivity>, ActivityStoreError>;
-    async fn clear_if_current(&self, user_id: &UserId, expected: &StoredActivity) -> Result<bool, ActivityStoreError>;
+    async fn clear_if_not_newer(&self, user_id: &UserId, as_of: DateTime<Utc>) -> Result<bool, ActivityStoreError>;
     async fn get_many(
         &self,
         user_ids: &[UserId],
