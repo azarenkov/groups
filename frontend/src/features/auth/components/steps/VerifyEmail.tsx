@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/authStore";
 import { authAPI } from "../../api/auth";
@@ -119,10 +119,15 @@ export const VerifyEmail: React.FC<{
     [isSubmitting, onVerified, t, pendingAvatar, avatarWarning, pendingNewEmail],
   );
 
+  const autoSubmitted = useRef<string | null>(null);
   useEffect(() => {
-    if (code.length === 6 && !avatarWarning) {
-      submitCode(code);
+    if (code.length !== 6) {
+      autoSubmitted.current = null;
+      return;
     }
+    if (avatarWarning || autoSubmitted.current === code) return;
+    autoSubmitted.current = code;
+    submitCode(code);
   }, [code, submitCode, avatarWarning]);
 
   return (
