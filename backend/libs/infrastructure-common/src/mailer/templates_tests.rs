@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use chrono::TimeZone;
-
 use super::*;
 
 const APP: Option<&str> = Some("https://rift.example.com/");
@@ -22,19 +20,13 @@ fn check_snapshot(name: &str, email: &RenderedEmail) {
     }
 }
 
-fn trial_end() -> DateTime<Utc> {
-    Utc.with_ymd_and_hms(2026, 10, 6, 9, 5, 0).unwrap()
-}
-
 #[test]
 fn every_email_matches_its_snapshot() {
     for (locale, tag) in [(Locale::Ru, "ru"), (Locale::En, "en")] {
         check_snapshot(&format!("registration_code.{tag}"), &verification_code("482913", CodePurpose::Registration, locale, APP));
         check_snapshot(&format!("email_change_code.{tag}"), &verification_code("482913", CodePurpose::EmailChange, locale, APP));
         check_snapshot(&format!("password_reset.{tag}"), &password_reset(LINK, locale, APP));
-        check_snapshot(&format!("trial_ending.{tag}"), &trial_ending(trial_end(), locale, APP));
     }
-    check_snapshot("trial_ending_without_app_url.ru", &trial_ending(trial_end(), Locale::Ru, None));
 }
 
 #[test]
@@ -43,7 +35,6 @@ fn every_email_has_the_layout_and_a_text_version() {
         verification_code("482913", CodePurpose::Registration, Locale::Ru, APP),
         verification_code("482913", CodePurpose::EmailChange, Locale::En, APP),
         password_reset(LINK, Locale::Ru, APP),
-        trial_ending(trial_end(), Locale::En, APP),
     ];
     for email in &emails {
         assert!(email.html.starts_with("<!DOCTYPE html>"));
@@ -78,10 +69,4 @@ fn unsafe_links_are_dropped() {
     assert!(!reset.html.contains("javascript:"));
     assert!(!reset.text.contains("javascript:"));
     assert!(reset.html.contains("src=\"cid:rift-logo\""));
-}
-
-#[test]
-fn trial_end_date_reads_naturally_in_both_languages() {
-    assert_eq!(trial_end_date(trial_end(), Locale::Ru), "6 октября в 09:05 UTC");
-    assert_eq!(trial_end_date(trial_end(), Locale::En), "October 6 at 09:05 UTC");
 }

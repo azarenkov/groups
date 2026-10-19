@@ -42,24 +42,9 @@ pub trait VoiceService {
         user_id: &UserId,
         ceiling: StreamCeiling,
     ) -> Result<(), VoiceServiceError>;
-    async fn mute_track(
-        &self,
-        channel_id: &ChannelId,
-        user_id: &UserId,
-        track_sid: &str,
-    ) -> Result<(), VoiceServiceError>;
     async fn active_rooms(&self) -> Result<Vec<ChannelId>, VoiceServiceError>;
     async fn room_participants(&self, channel_id: &ChannelId) -> Result<Vec<UserId>, VoiceServiceError>;
-    async fn room_videos(&self, channel_id: &ChannelId) -> Result<Vec<(UserId, PublishedVideo)>, VoiceServiceError>;
     fn client_url(&self) -> String;
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PublishedVideo {
-    pub sid: String,
-    pub width: u32,
-    pub height: u32,
-    pub bitrate: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

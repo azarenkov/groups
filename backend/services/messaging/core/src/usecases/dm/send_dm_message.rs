@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use messaging_domain::badge::attachments_per_message;
+use messaging_domain::message::MAX_ATTACHMENTS_PER_MESSAGE;
 
 use chrono::Utc;
 use messaging_domain::{privacy::ContactPolicy, privacy::PrivacyRepository, events::MessagingEvent, dm_message::DmMessage, dm_message::repository::DmMessageRepository, dm_message::unit_of_work::DmUnitOfWork, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::MessageError, message::content::MessageContent, message::reply::ReplyPreview, dm_message::id::DmMessageId};
@@ -57,7 +57,6 @@ where
     attachment_claims: Arc<A>,
     privacy_repository: Arc<P>,
     user_profile_repository: Arc<U>,
-    plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
 }
 
 impl<M, W, F, A, P, U> SendDmMessage<M, W, F, A, P, U>
@@ -76,8 +75,7 @@ where
         attachment_claims: Arc<A>,
         privacy_repository: Arc<P>,
         user_profile_repository: Arc<U>,
-        plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
-    ) -> Self {
+        ) -> Self {
         Self {
             dm_repository,
             unit_of_work,
@@ -85,7 +83,6 @@ where
             attachment_claims,
             privacy_repository,
             user_profile_repository,
-            plans,
         }
     }
 
@@ -122,8 +119,7 @@ where
             _ => {}
         }
 
-        let tier = self.plans.tier_of(&sender_id, Utc::now()).await?;
-        if request.attachment_ids.len() > attachments_per_message(tier) {
+        if request.attachment_ids.len() > MAX_ATTACHMENTS_PER_MESSAGE {
             return Err(SendDmMessageError::InvalidAttachments);
         }
         let forward = request.forward.clone();

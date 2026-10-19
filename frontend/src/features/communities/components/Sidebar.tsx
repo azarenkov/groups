@@ -66,6 +66,7 @@ interface SidebarProps {
   onLeaveCommunity?: (community: Community) => void;
   onCallDm?: (dm: DirectConversation) => void;
   nav: SidebarNav;
+  canCreateGroups?: boolean;
 }
 
 export interface SidebarNav {
@@ -104,10 +105,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLeaveCommunity,
   onCallDm,
   nav,
+  canCreateGroups = true,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   const { tab, openCommunityId, setTab, setOpenCommunityId } = nav;
-  const openCommunity = communities.find((s) => s.id === openCommunityId) ?? null;
   const perms = useSidebarPermissions(currentUserId, openCommunityId);
   const collapsed = useSidebarLayoutStore((s) => s.collapsed);
   const width = useSidebarLayoutStore((s) => s.width);
@@ -256,7 +257,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const pickCommunity = (community: Community) => {
-    if (!expandedCommunityIds.has(community.id)) onToggleCommunity(community.id);
+    onToggleCommunity(community.id);
     setOpenCommunityId(community.id);
   };
 
@@ -311,39 +312,29 @@ const Sidebar: React.FC<SidebarProps> = ({
       unreadByDm={unreadByDm}
       hasMoreDirects={hasMoreDirects}
       onLoadMoreDirects={onLoadMoreDirects}
-      onAddFriend={onAddFriend}
       onPick={pickDm}
       onCall={onCallDm}
     />
   );
 
-  const communityView =
-    openCommunity ? (
-      <CommunityPage
-        community={openCommunity}
-        channels={channelsOf(openCommunity.id)}
-        perms={perms}
-        onInviteCommunity={onInviteCommunity}
-        onOpenCommunitySettings={onOpenCommunitySettings}
-        onAddChannel={onAddChannel}
-        renderChannel={renderChannel}
-      />
-    ) : (
-      <CommunityList
-        communities={orderedCommunities}
-        channelsByCommunity={channelsByCommunity}
-        voiceMembersByChannel={voiceMembersByChannel}
-        unreadFor={communityUnreadFor}
-        onCreateCommunity={onCreateCommunity}
-        onJoinCommunity={onJoinCommunity}
-        onPick={pickCommunity}
-        perms={perms}
-        currentUserId={currentUserId}
-        onInviteCommunity={onInviteCommunity}
-        onOpenCommunitySettings={onOpenCommunitySettings}
-        onLeaveCommunity={onLeaveCommunity}
-      />
-    );
+  const communityView = (
+    <CommunityList
+      communities={orderedCommunities}
+      channelsByCommunity={channelsByCommunity}
+      voiceMembersByChannel={voiceMembersByChannel}
+      unreadFor={communityUnreadFor}
+      onPick={pickCommunity}
+      perms={perms}
+      currentUserId={currentUserId}
+      onInviteCommunity={onInviteCommunity}
+      onOpenCommunitySettings={onOpenCommunitySettings}
+      onLeaveCommunity={onLeaveCommunity}
+      activeCommunityId={openCommunityId}
+      expandedCommunityIds={expandedCommunityIds}
+      renderChannel={renderChannel}
+      onAddChannel={onAddChannel}
+    />
+  );
 
   const flyoutCommunity = showRail ? (communities.find((c) => c.id === flyoutId) ?? null) : null;
 
@@ -418,9 +409,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             </>
           ) : (
             <>
-              <button type="button" className="sb-mini sb-mini-more" title={t("createCommunity")} aria-label={t("createCommunity")} onClick={onCreateCommunity}>
-                <Icon name="plus" size={16} />
-              </button>
+              {canCreateGroups && (
+                <button type="button" className="sb-mini sb-mini-more" title={t("createCommunity")} aria-label={t("createCommunity")} onClick={onCreateCommunity}>
+                  <Icon name="plus" size={16} />
+                </button>
+              )}
               <button type="button" className="sb-mini sb-mini-more" title={t("joinCommunity")} aria-label={t("joinCommunity")} onClick={onJoinCommunity}>
                 <Icon name="link" size={16} />
               </button>
@@ -436,7 +429,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               unreadByDm={unreadByDm}
               hasMoreDirects={hasMoreDirects}
               onLoadMoreDirects={onLoadMoreDirects}
-              onAddFriend={onAddFriend}
               onPick={pickDm}
               onCall={onCallDm}
             />
@@ -448,8 +440,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               channelsByCommunity={channelsByCommunity}
               voiceMembersByChannel={voiceMembersByChannel}
               unreadFor={communityUnreadFor}
-              onCreateCommunity={onCreateCommunity}
-              onJoinCommunity={onJoinCommunity}
               onPick={pickFromRail}
               perms={perms}
               currentUserId={currentUserId}
@@ -481,12 +471,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div className={"sb" + animClass} style={animStyle}>
       <SidebarHeader
         tab={tab}
-        onSetTab={setTab}
-        openCommunityId={openCommunityId}
-        onCloseCommunity={() => setOpenCommunityId(null)}
-        dmDotVisible={totalDmUnread > 0}
-        communityDotVisible={totalCommunityUnread > 0}
+        onAddFriend={onAddFriend}
+        onCreateCommunity={onCreateCommunity}
+        onJoinCommunity={onJoinCommunity}
         onCollapse={collapse}
+        canCreateGroups={canCreateGroups}
       />
 
       <div className="sb-scroll">
@@ -497,18 +486,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      {openCommunityId && (
-        <button
-          type="button"
-          className="sb-add-row secondary sb-footer-back"
-          onClick={() => setOpenCommunityId(null)}
-        >
-          <span className="sb-add-row-ico">
-            <Icon name="chev-left" size={18} />
-          </span>
-          <span>{t("backToCommunities")}</span>
-        </button>
-      )}
       {resizer}
     </div>
   );

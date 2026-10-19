@@ -13,12 +13,11 @@
   "statusOnline": "Online",
   "emptyActive": "None of your friends are in voice right now.",
   "emptyOnline": "No friends online. Add someone to get started.",
-  "emptyRooms": "Voice rooms from your communities will appear here.",
+  "emptyRooms": "Voice rooms from your groups will appear here.",
   "emptyActiveTitle": "Quiet for now",
   "emptyOnlineTitle": "Nobody online",
   "addFriend": "Add friend",
   "statusInVoice": "In voice",
-  "playingFor": "Playing {{game}} · {{duration}}",
   "loadFailed": "Couldn't load your home page.",
   "retry": "Retry"
 }

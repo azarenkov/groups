@@ -1,4 +1,4 @@
-pub mod badge;
+pub mod emoji_status;
 pub mod channel;
 pub mod channel_unit_of_work;
 pub mod dm_conversation;
@@ -21,7 +21,6 @@ pub mod report;
 pub mod community;
 pub mod community_role;
 pub mod community_unit_of_work;
-pub mod plan_directory;
 pub mod user_profile;
 pub use infrastructure_common::database::postgres::repositories::outbox_record;
 pub use infrastructure_common::database::postgres::repositories::outbox_writer;

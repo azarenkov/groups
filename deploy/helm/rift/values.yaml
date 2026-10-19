@@ -29,7 +29,6 @@ config:
   NSFW_DETECTOR_URL: http://nsfw-detector:8000
   NSFW_THRESHOLD: "0.8"
   TEXT_TOXICITY_THRESHOLD: "0.8"
-  PUBLIC_API_URL: https://rift.example.com
   PUBLIC_APP_URL: https://app.rift.example.com
   CORS_ALLOWED_ORIGINS: "https://app.rift.example.com,file://,null"
   MESSAGING_INTERNAL_URL: http://messaging-service:8080
@@ -56,16 +55,12 @@ secrets:
   existingSecret: ""
   JWT_SECRET: ""
   ALTCHA_HMAC_KEY: ""
-  TRIAL_HASH_KEY: ""
   INTERNAL_API_TOKEN: ""
   LIVEKIT_API_SECRET: ""
   MINIO_ROOT_USER: ""
   MINIO_ROOT_PASSWORD: ""
   MAILER_USERNAME: ""
   MAILER_PASSWORD: ""
-  GITHUB_CLIENT_ID: ""
-  GITHUB_CLIENT_SECRET: ""
-  STEAM_API_KEY: ""
 
 databases:
   existingSecret: ""

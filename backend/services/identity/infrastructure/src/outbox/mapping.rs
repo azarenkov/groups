@@ -1,4 +1,4 @@
-use contracts::events::user::{UserActivityChangedV1, UserEntitlementsChangedV1, UserPresencePreferenceChangedV1, UserTrialEndingV1, UserLifecycleV1, UserProfileChangedV1, UserRenamedV1, VerificationIssuedV1};
+use contracts::events::user::{UserPresencePreferenceChangedV1, UserLifecycleV1, UserProfileChangedV1, UserRenamedV1, VerificationIssuedV1};
 use identity_domain::{events::IdentityEvent, user::events::UserEvent, verification::events::VerificationEvent};
 use ports::{outbox::record::AggregateType, outbox::record::OutboxRecord, repository::RepositoryError};
 use uuid::Uuid;
@@ -90,11 +90,9 @@ fn user_payload(event: &UserEvent) -> Result<serde_json::Value, RepositoryError>
             name: None,
         }),
         UserEvent::ProfileChanged(e) => encode(&UserProfileChangedV1 {
-            badge_style: e.badge_style.clone(),
             user_id: e.user_id.uuid(),
             bio: e.bio.clone(),
             show_activity: e.show_activity,
-            show_game_activity: e.show_game_activity,
             active: e.active,
             timezone: e.timezone.clone(),
             emoji_status_sticker_id: e.emoji_status.map(|status| status.sticker_id()),
@@ -102,31 +100,9 @@ fn user_payload(event: &UserEvent) -> Result<serde_json::Value, RepositoryError>
             emoji_status_included: true,
             occurred_at: e.occurred_at,
         }),
-        UserEvent::ActivityChanged(e) => encode(&UserActivityChangedV1 {
-            user_id: e.user_id.uuid(),
-            game_id: e.game_id.clone(),
-            name: e.name.clone(),
-            started_at: e.started_at,
-            occurred_at: e.occurred_at,
-        }),
         UserEvent::PresencePreferenceChanged(e) => encode(&UserPresencePreferenceChangedV1 {
             user_id: e.user_id.uuid(),
             appear_offline: e.appear_offline,
-            occurred_at: e.occurred_at,
-        }),
-        UserEvent::EntitlementsChanged(e) => encode(&UserEntitlementsChangedV1 {
-            user_id: e.user_id.uuid(),
-            tier: e.tier.clone(),
-            valid_until: e.valid_until,
-            member_number: e.member_number,
-            trial: e.trial,
-            occurred_at: e.occurred_at,
-        }),
-        UserEvent::TrialEnding(e) => encode(&UserTrialEndingV1 {
-            user_id: e.user_id.uuid(),
-            email: e.email.as_str().to_string(),
-            locale: Some(e.locale.clone()),
-            ends_at: e.ends_at,
             occurred_at: e.occurred_at,
         }),
     }

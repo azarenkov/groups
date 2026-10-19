@@ -56,7 +56,7 @@ where
         }
         _ => return Err(SessionRotationError::Superseded.into()),
     };
-    let tokens = token_issuer.issue(&user_id, current.is_verified()).await?;
+    let tokens = token_issuer.issue(&user_id, current.is_verified(), current.role()).await?;
     let refresh_token = RefreshToken::issue(
         tokens.refresh_token_id,
         user_id,

@@ -30,9 +30,7 @@ use contracts::events::{
     },
     user::{
         NotificationPreferenceUpdatedV1 as NotificationPrefUpdated,
-        UserActivityChangedV1 as UserActivityChangedDto, UserLifecycleV1 as UserLifecycleDto,
-        UserEntitlementsChangedV1 as UserEntitlementsChangedDto,
-        UserTrialEndingV1 as UserTrialEndingDto,
+        UserLifecycleV1 as UserLifecycleDto,
         UserPresencePreferenceChangedV1 as UserPresencePreferenceChangedDto, UserProfileChangedV1 as UserProfileChangedDto,
         UserRenamedV1 as UserRenamedDto,
     },
@@ -507,23 +505,6 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
                 "peerId": evt.peer_id,
                 "hidden": evt.hidden,
                 "at": evt.occurred_at,
-            }),
-        );
-        publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
-        return Ok(());
-    }
-
-    if ends_with(subject, ".stream_limited") {
-        let evt: contracts::events::user::StreamLimitedV1 = serde_json::from_slice(payload)?;
-        let envelope = Envelope::new(
-            "voice.stream_limited",
-            json!({
-                "roomId": evt.room_id,
-                "trackSid": evt.track_sid,
-                "width": evt.width,
-                "height": evt.height,
-                "frameRate": evt.frame_rate,
-                "maxBitrate": evt.max_bitrate,
             }),
         );
         publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
@@ -1159,8 +1140,6 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
             "userId": evt.user_id,
             "bio": evt.bio,
             "showActivity": evt.show_activity,
-            "showGameActivity": evt.show_game_activity,
-            "badgeStyle": evt.badge_style,
             "occurredAt": evt.occurred_at,
         });
         if evt.emoji_status_included {
@@ -1179,89 +1158,12 @@ impl<D: RecipientDirectory + RealtimeProjection, P: RealtimePublisher, B: crate:
         return Ok(());
     }
 
-    if ends_with(subject, ".user.entitlements_changed") {
-        let evt: UserEntitlementsChangedDto = serde_json::from_slice(payload)?;
-        let envelope = Envelope::new(
-            "user.entitlementsChanged",
-            json!({
-                "userId": evt.user_id,
-                "tier": evt.tier,
-                "validUntil": evt.valid_until,
-                "memberNumber": evt.member_number,
-                "trial": evt.trial,
-                "occurredAt": evt.occurred_at,
-            }),
-        );
-        let mut recipients = resolver.profile_recipients(evt.user_id).await?;
-        confirm_pending_dm_peers(resolver, blocks, evt.user_id, &mut recipients).await?;
-        let relations = blocks.block_relations(evt.user_id, &recipients).await?;
-        recipients.retain(|r| !relations.blocking.contains(r));
-        recipients.push(evt.user_id);
-        publisher.publish_to_users(unique(recipients), &envelope).await?;
-        return Ok(());
-    }
-
-    if ends_with(subject, ".user.trial_ending") {
-        let evt: UserTrialEndingDto = serde_json::from_slice(payload)?;
-        let envelope = Envelope::new(
-            "user.trialEnding",
-            json!({
-                "userId": evt.user_id,
-                "endsAt": evt.ends_at,
-                "occurredAt": evt.occurred_at,
-            }),
-        );
-        publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
-        return Ok(());
-    }
-
     if ends_with(subject, ".user.presence_preference_changed") {
         let evt: UserPresencePreferenceChangedDto = serde_json::from_slice(payload)?;
         if !resolver.set_appear_offline(evt.user_id, evt.appear_offline, evt.occurred_at).await? {
             return Ok(());
         }
         publisher.announce_presence_preference(evt.user_id, evt.appear_offline, evt.occurred_at).await?;
-        if !evt.appear_offline {
-            return Ok(());
-        }
-        let envelope = Envelope::new(
-            "user.activityChanged",
-            json!({
-                "userId": evt.user_id,
-                "gameId": serde_json::Value::Null,
-                "name": serde_json::Value::Null,
-                "startedAt": serde_json::Value::Null,
-                "occurredAt": evt.occurred_at,
-            }),
-        );
-        let mut recipients = resolver.interested_in(evt.user_id).await?;
-        let relations = blocks.block_relations(evt.user_id, &recipients).await?;
-        recipients.retain(|r| !relations.blocking.contains(r) && !relations.blocked_by.contains(r));
-        publisher.publish_to_users(unique(recipients), &envelope).await?;
-        return Ok(());
-    }
-
-    if ends_with(subject, ".user.activity_changed") {
-        let evt: UserActivityChangedDto = serde_json::from_slice(payload)?;
-        let envelope = Envelope::new(
-            "user.activityChanged",
-            json!({
-                "userId": evt.user_id,
-                "gameId": evt.game_id,
-                "name": evt.name,
-                "startedAt": evt.started_at,
-                "occurredAt": evt.occurred_at,
-            }),
-        );
-        if resolver.presence_preferences(&[evt.user_id]).await?.iter().any(|(_, p)| p.appear_offline) {
-            publisher.publish_to_users(vec![evt.user_id], &envelope).await?;
-            return Ok(());
-        }
-        let mut recipients = resolver.interested_in(evt.user_id).await?;
-        let relations = blocks.block_relations(evt.user_id, &recipients).await?;
-        recipients.retain(|r| !relations.blocking.contains(r) && !relations.blocked_by.contains(r));
-        recipients.push(evt.user_id);
-        publisher.publish_to_users(unique(recipients), &envelope).await?;
         return Ok(());
     }
 
@@ -1728,35 +1630,6 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn tells_the_streamer_that_their_share_was_limited() {
-            let publisher = std::sync::Arc::new(Captured::default());
-            let dispatch = DispatchEvent::new(
-                std::sync::Arc::new(Directory::default()),
-                publisher.clone(),
-                std::sync::Arc::new(Relations::peers(vec![])),
-            );
-            let (user, room) = (Uuid::new_v4(), Uuid::new_v4());
-            let payload = serde_json::to_vec(&json!({
-                "user_id": user,
-                "room_id": room,
-                "track_sid": "TR_1",
-                "width": 1280,
-                "height": 720,
-                "frame_rate": 60,
-                "max_bitrate": 4_000_000,
-                "occurred_at": Utc::now(),
-            }))
-            .unwrap();
-            dispatch.execute("rift.events.user.p2.stream_limited", &payload).await.unwrap();
-            let sent = publisher.sent.lock().unwrap();
-            let to = publisher.to.lock().unwrap();
-            assert_eq!(sent[0]["type"], json!("voice.stream_limited"));
-            assert_eq!(sent[0]["data"]["height"], json!(720));
-            assert_eq!(sent[0]["data"]["trackSid"], json!("TR_1"));
-            assert_eq!(to[0], vec![user]);
-        }
-
-        #[tokio::test]
         async fn rechecks_the_pair_after_applying_a_late_send() {
             let (sender, recipient) = (Uuid::new_v4(), Uuid::new_v4());
             let directory = std::sync::Arc::new(Directory::default());
@@ -1777,28 +1650,6 @@ mod tests {
             dispatch.execute_unpublished("rift.events.dm_message.p1.dm_message.sent", &payload).await.unwrap();
             assert!(publisher.sent.lock().unwrap().is_empty());
             assert_eq!(*directory.removed.lock().unwrap(), vec![(sender, recipient)]);
-        }
-
-        #[tokio::test]
-        async fn activity_reaches_only_those_messaging_still_relates() {
-            let (user, friend, blocked) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
-            let directory = std::sync::Arc::new(Directory { interested: vec![friend, blocked], ..Directory::default() });
-            let publisher = std::sync::Arc::new(Captured::default());
-            let dispatch = DispatchEvent::new(
-                directory,
-                publisher.clone(),
-                std::sync::Arc::new(Relations { peers: vec![], blocking: vec![blocked] }),
-            );
-            let payload = serde_json::to_vec(&json!({
-                "user_id": user,
-                "game_id": Uuid::new_v4(),
-                "name": "game",
-                "started_at": Utc::now(),
-                "occurred_at": Utc::now(),
-            }))
-            .unwrap();
-            dispatch.execute("rift.events.user.p1.user.activity_changed", &payload).await.unwrap();
-            assert_eq!(publisher.to.lock().unwrap()[0], vec![friend, user]);
         }
 
         #[tokio::test]

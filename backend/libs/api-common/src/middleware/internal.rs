@@ -93,6 +93,6 @@ mod tests {
 
     #[test]
     fn an_unconfigured_token_keeps_internal_routes_open() {
-        assert!(internal_request_allowed("/internal/entitlements", None, None));
+        assert!(internal_request_allowed("/internal/users/resolve", None, None));
     }
 }

@@ -118,7 +118,7 @@ where
         let is_verified = locked.is_verified();
         let requires_verification = !is_verified;
 
-        let tokens = self.token_issuer.issue(&user_id, is_verified).await?;
+        let tokens = self.token_issuer.issue(&user_id, is_verified, locked.role()).await?;
         let refresh_token = RefreshToken::issue(
             tokens.refresh_token_id,
             user_id,

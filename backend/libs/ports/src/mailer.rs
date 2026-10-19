@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use domain::{user::email::Email, user::locale::Locale};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,12 +20,6 @@ pub trait Mailer {
         email: &Email,
         verification_code: &str,
         purpose: CodePurpose,
-        locale: Locale,
-    ) -> Result<(), MailerError>;
-    async fn send_trial_ending(
-        &self,
-        email: &Email,
-        ends_at: DateTime<Utc>,
         locale: Locale,
     ) -> Result<(), MailerError>;
 }

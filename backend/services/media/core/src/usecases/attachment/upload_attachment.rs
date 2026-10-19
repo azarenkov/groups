@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain::{attachment::Attachment, attachment::VideoNoteMeta, attachment::VoiceMeta, plan::Tier, user::id::UserId};
+use domain::{attachment::Attachment, attachment::VideoNoteMeta, attachment::VoiceMeta, user::id::UserId};
 use ports::repository::RepositoryError;
 use media_domain::attachment::repository::AttachmentRepository;
 use uuid::Uuid;
@@ -12,13 +12,11 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use futures::StreamExt;
 
 use crate::ports::file_storage::{ByteStream, FileStorage, FileStorageError};
-use crate::ports::plan_directory::PlanDirectory;
 use super::voice_probe::VoiceSpool;
 
 const MEGABYTE: u64 = 1024 * 1024;
 pub const MAX_UNLINKED_COUNT: i64 = 50;
 pub const MAX_ATTACHMENTS_PER_MESSAGE: usize = 20;
-const MIN_UNLINKED_BYTES: u64 = 200 * MEGABYTE;
 const MULTIPART_OVERHEAD_BYTES: u64 = 64 * 1024;
 
 const MINUTE_MS: i32 = 60 * 1000;
@@ -88,20 +86,12 @@ pub struct UploadLimits {
 }
 
 impl UploadLimits {
-    pub fn for_tier(tier: Tier) -> Self {
-        let (max_file_bytes, per_message) = match tier {
-            Tier::Premium => (500 * MEGABYTE, MAX_ATTACHMENTS_PER_MESSAGE as u64),
-            Tier::Pro => (100 * MEGABYTE, 10),
-            Tier::Free => (15 * MEGABYTE, 5),
-        };
-        let (max_voice_ms, max_video_note_size) = if tier.is_paid() { (30 * MINUTE_MS, 640) } else { (5 * MINUTE_MS, 384) };
-        Self {
-            max_file_bytes,
-            max_unlinked_bytes: MIN_UNLINKED_BYTES.max(max_file_bytes * per_message),
-            max_voice_ms,
-            max_video_note_size,
-        }
-    }
+    pub const MAX: Self = Self {
+        max_file_bytes: 500 * MEGABYTE,
+        max_unlinked_bytes: 500 * MEGABYTE * MAX_ATTACHMENTS_PER_MESSAGE as u64,
+        max_voice_ms: 30 * MINUTE_MS,
+        max_video_note_size: 640,
+    };
 
     pub fn max_request_bytes(&self) -> u64 {
         self.max_file_bytes + MULTIPART_OVERHEAD_BYTES
@@ -286,21 +276,11 @@ pub enum UploadAttachmentError {
 pub struct UploadAttachment<R: AttachmentRepository, S: FileStorage> {
     repository: Arc<R>,
     storage: Arc<S>,
-    plans: Arc<dyn PlanDirectory>,
 }
 
 impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
-    pub fn new(repository: Arc<R>, storage: Arc<S>, plans: Arc<dyn PlanDirectory>) -> Self {
-        Self {
-            repository,
-            storage,
-            plans,
-        }
-    }
-
-    pub async fn limits_for(&self, owner_id: &UserId) -> Result<UploadLimits, UploadAttachmentError> {
-        let tier = self.plans.tier_of(owner_id, Utc::now()).await?;
-        Ok(UploadLimits::for_tier(tier))
+    pub fn new(repository: Arc<R>, storage: Arc<S>) -> Self {
+        Self { repository, storage }
     }
 
     async fn verify_media_length(
@@ -522,7 +502,6 @@ impl<R: AttachmentRepository, S: FileStorage> UploadAttachment<R, S> {
 #[cfg(test)]
 mod tests {
     use super::{
-        Tier,
         UploadAttachmentError, UploadLimits, validate_video_note, validate_voice,
         voice_length_matches, voice_signature_matches, voice_size_plausible,
     };
@@ -547,30 +526,25 @@ mod tests {
     #[test]
     fn a_safari_poster_is_accepted() {
         let poster = include_bytes!("fixtures/poster-safari.jpg");
-        assert!(validate_video_note("video/mp4", &note(4_000, 640, poster), &UploadLimits::for_tier(Tier::parse("pro"))).is_ok());
+        assert!(validate_video_note("video/mp4", &note(4_000, 640, poster), &UploadLimits::MAX).is_ok());
     }
 
     #[test]
     fn a_video_note_is_short_square_and_has_a_jpeg_poster() {
-        let free = UploadLimits::for_tier(Tier::parse("free"));
-        let pro = UploadLimits::for_tier(Tier::parse("pro"));
+        let limits = UploadLimits::MAX;
         let jpeg: Vec<u8> = include_bytes!("fixtures/poster-160.jpg").to_vec();
-        assert!(validate_video_note("video/webm;codecs=vp9,opus", &note(60_000, 384, &jpeg), &free).is_ok());
+        assert!(validate_video_note("video/webm;codecs=vp9,opus", &note(60_000, 384, &jpeg), &limits).is_ok());
         assert!(matches!(
-            validate_video_note("video/webm", &note(60_001, 384, &jpeg), &free),
+            validate_video_note("video/webm", &note(60_001, 384, &jpeg), &limits),
             Err(UploadAttachmentError::VideoNoteTooLong)
         ));
+        assert!(validate_video_note("video/mp4", &note(5_000, 640, &jpeg), &limits).is_ok());
         assert!(matches!(
-            validate_video_note("video/mp4", &note(5_000, 640, &jpeg), &free),
-            Err(UploadAttachmentError::InvalidVideoNote)
-        ));
-        assert!(validate_video_note("video/mp4", &note(5_000, 640, &jpeg), &pro).is_ok());
-        assert!(matches!(
-            validate_video_note("video/mp4", &note(5_000, 500, &jpeg), &pro),
+            validate_video_note("video/mp4", &note(5_000, 500, &jpeg), &limits),
             Err(UploadAttachmentError::InvalidVideoNote)
         ));
         assert!(matches!(
-            validate_video_note("video/mp4", &note(5_000, 384, b"<svg>"), &free),
+            validate_video_note("video/mp4", &note(5_000, 384, b"<svg>"), &limits),
             Err(UploadAttachmentError::InvalidVideoNote)
         ));
         let mut scrambled = jpeg.clone();
@@ -579,11 +553,11 @@ mod tests {
             *b = 0xFF;
         }
         assert!(matches!(
-            validate_video_note("video/mp4", &note(5_000, 384, &scrambled), &free),
+            validate_video_note("video/mp4", &note(5_000, 384, &scrambled), &limits),
             Err(UploadAttachmentError::InvalidVideoNote)
         ));
         assert!(matches!(
-            validate_video_note("video/quicktime", &note(5_000, 384, &jpeg), &free),
+            validate_video_note("video/quicktime", &note(5_000, 384, &jpeg), &limits),
             Err(UploadAttachmentError::InvalidVideoNote)
         ));
     }
@@ -593,34 +567,32 @@ mod tests {
     }
 
     #[test]
-    fn a_voice_note_fits_the_plan_length() {
-        let free = UploadLimits::for_tier(Tier::parse("free"));
-        let pro = UploadLimits::for_tier(Tier::parse("pro"));
-        assert!(validate_voice("audio/webm;codecs=opus", &voice(5 * 60 * 1000, 64), &free).is_ok());
+    fn a_voice_note_fits_the_length_limit() {
+        let limits = UploadLimits::MAX;
+        assert!(validate_voice("audio/webm;codecs=opus", &voice(30 * 60 * 1000, 64), &limits).is_ok());
         assert!(matches!(
-            validate_voice("audio/webm", &voice(5 * 60 * 1000 + 1, 64), &free),
+            validate_voice("audio/webm", &voice(30 * 60 * 1000 + 1, 64), &limits),
             Err(UploadAttachmentError::VoiceTooLong)
         ));
-        assert!(validate_voice("audio/mp4", &voice(30 * 60 * 1000, 64), &pro).is_ok());
         assert!(matches!(
-            validate_voice("audio/ogg", &voice(0, 64), &pro),
+            validate_voice("audio/ogg", &voice(0, 64), &limits),
             Err(UploadAttachmentError::VoiceTooLong)
         ));
     }
 
     #[test]
     fn a_voice_note_needs_an_audio_container_and_a_sane_waveform() {
-        let free = UploadLimits::for_tier(Tier::parse("free"));
+        let limits = UploadLimits::MAX;
         assert!(matches!(
-            validate_voice("audio/mpeg", &voice(1000, 64), &free),
+            validate_voice("audio/mpeg", &voice(1000, 64), &limits),
             Err(UploadAttachmentError::InvalidVoice)
         ));
         assert!(matches!(
-            validate_voice("audio/webm", &voice(1000, 8), &free),
+            validate_voice("audio/webm", &voice(1000, 8), &limits),
             Err(UploadAttachmentError::InvalidVoice)
         ));
         assert!(matches!(
-            validate_voice("audio/webm", &voice(1000, 500), &free),
+            validate_voice("audio/webm", &voice(1000, 500), &limits),
             Err(UploadAttachmentError::InvalidVoice)
         ));
     }
@@ -639,17 +611,17 @@ mod tests {
 
     #[test]
     fn the_declared_length_must_match_the_audio() {
-        let free = UploadLimits::for_tier(Tier::parse("free"));
-        assert!(voice_length_matches(4000, 3900, &free).is_ok());
+        let limits = UploadLimits::MAX;
+        assert!(voice_length_matches(4000, 3900, &limits).is_ok());
         assert!(matches!(
-            voice_length_matches(4000, 60_000, &free),
+            voice_length_matches(4000, 60_000, &limits),
             Err(UploadAttachmentError::InvalidVoice)
         ));
         assert!(matches!(
-            voice_length_matches(299_000, 20 * 60 * 1000, &free),
+            voice_length_matches(1_799_000, 40 * 60 * 1000, &limits),
             Err(UploadAttachmentError::VoiceTooLong)
         ));
-        assert!(voice_length_matches(299_000, 300_500, &free).is_ok());
+        assert!(voice_length_matches(1_799_000, 1_800_500, &limits).is_ok());
     }
 
     #[test]
@@ -661,23 +633,16 @@ mod tests {
     const MEGABYTE: u64 = 1024 * 1024;
 
     #[test]
-    fn a_plan_sets_the_largest_file() {
-        assert_eq!(UploadLimits::for_tier(Tier::parse("free")).max_file_bytes, 15 * MEGABYTE);
-        assert_eq!(UploadLimits::for_tier(Tier::parse("pro")).max_file_bytes, 100 * MEGABYTE);
-        assert_eq!(UploadLimits::for_tier(Tier::parse("premium")).max_file_bytes, 500 * MEGABYTE);
-        assert_eq!(UploadLimits::for_tier(Tier::parse("gold")).max_file_bytes, 15 * MEGABYTE);
-    }
-
-    #[test]
-    fn pending_uploads_leave_room_for_a_full_message() {
-        assert_eq!(UploadLimits::for_tier(Tier::parse("free")).max_unlinked_bytes, 200 * MEGABYTE);
-        assert_eq!(UploadLimits::for_tier(Tier::parse("pro")).max_unlinked_bytes, 1000 * MEGABYTE);
-        assert_eq!(UploadLimits::for_tier(Tier::parse("premium")).max_unlinked_bytes, 10_000 * MEGABYTE);
+    fn everyone_gets_the_largest_file_and_room_for_a_full_message() {
+        assert_eq!(UploadLimits::MAX.max_file_bytes, 500 * MEGABYTE);
+        assert_eq!(UploadLimits::MAX.max_unlinked_bytes, 10_000 * MEGABYTE);
+        assert_eq!(UploadLimits::MAX.max_voice_ms, 30 * 60 * 1000);
+        assert_eq!(UploadLimits::MAX.max_video_note_size, 640);
     }
 
     #[test]
     fn a_request_may_carry_a_little_more_than_the_file() {
-        let limits = UploadLimits::for_tier(Tier::parse("free"));
+        let limits = UploadLimits::MAX;
         assert!(limits.max_request_bytes() > limits.max_file_bytes);
         assert!(limits.max_request_bytes() < limits.max_file_bytes + MEGABYTE);
     }

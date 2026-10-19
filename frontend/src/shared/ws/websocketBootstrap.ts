@@ -1,10 +1,9 @@
 import { ws, WsEnvelope } from "./websocket";
-import { useEntitlementsStore } from "../../features/subscription/store/entitlementsStore";
 import { chatHandlers } from "../../features/chat/ws/chatHandlers";
 import { dmHandlers } from "../../features/dm/ws/dmHandlers";
 import { communityHandlers } from "../../features/communities/ws/communityHandlers";
 import { socialHandlers } from "../../features/social/ws/socialHandlers";
-import { dropHeldCalls, installStreamLimitNotice, voiceHandlers } from "../../features/voice/ws/voiceHandlers";
+import { dropHeldCalls, voiceHandlers } from "../../features/voice/ws/voiceHandlers";
 import type { WsHandlers } from "./types";
 import {
   forgetReadThrottle,
@@ -17,18 +16,12 @@ import {
   viewIsForeground,
 } from "./context";
 
-import { acceptedFriendIds, useFriendshipStore } from "../../features/social/store/friendshipStore";
+import { useFriendshipStore } from "../../features/social/store/friendshipStore";
 import { blockGeneration, useBlockStore } from "../../features/social/store/blockStore";
 import { friendshipAPI } from "../../features/social/api/friendship";
 import { peerOfDmPartition } from "../../features/chat/lib/partitions";
 import { useDmPreviewStore } from "../../features/dm/store/dmPreviewStore";
 import { installCallSessionSync, resumeCall } from "../../features/voice/store/callSessionSync";
-import {
-  loadActivitiesFor,
-  loadFriendActivities,
-  trackedActivityIds,
-  useActivityStore,
-} from "../../features/social/store/activityStore";
 import { useAuthStore } from "../../features/auth/store/authStore";
 import { useUserNamesStore } from "../../features/social/store/userNamesStore";
 import { markNotificationPrefsStale, useNotificationPrefsStore } from "../../features/settings/store/notificationPrefsStore";
@@ -118,7 +111,6 @@ export function installWsBootstrap() {
   installed = true;
   installMessageCacheSync();
   installQuerySync();
-  installStreamLimitNotice();
   installCallSessionSync();
   ws.addFilter((env) => admitDmEvent(env, useAuthStore.getState().user?.id));
   ws.onResync((partition) => {
@@ -150,7 +142,6 @@ export function installWsBootstrap() {
     const reconnectUserId = useAuthStore.getState().user?.id;
     if (reconnectUserId) {
       void useNotificationSettingsStore.getState().syncFromServer(reconnectUserId);
-      void useEntitlementsStore.getState().fetch();
     }
     void (async () => {
       let delayMs = 1000;
@@ -189,20 +180,11 @@ export function installWsBootstrap() {
     dropHeldCalls();
     void resumeCall();
     useUserNamesStore.getState().bumpSyncTick();
-    void loadActivitiesFor(trackedActivityIds());
-    const friendsBefore = acceptedFriendIds();
     void useFriendshipStore
       .getState()
       .fetchFriends()
       .then(() => {
-        if (useFriendshipStore.getState().error === null) {
-          useUserNamesStore.getState().clear();
-          const after = new Set(acceptedFriendIds());
-          const gone = friendsBefore.filter((id) => !after.has(id));
-          for (const id of gone) useActivityStore.getState().apply(id, null);
-          if (gone.length > 0) void loadActivitiesFor(gone);
-          void loadFriendActivities();
-        }
+        if (useFriendshipStore.getState().error === null) useUserNamesStore.getState().clear();
       });
   });
 }

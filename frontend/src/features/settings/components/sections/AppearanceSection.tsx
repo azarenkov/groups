@@ -2,13 +2,12 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { useAppearanceStore } from "../../store/appearanceStore";
 
-import { ACCENT_OPTIONS, SettingsRow, Switch } from "../controls";
-import ProfileStyleSettings from "../../../subscription/components/ProfileStyleSettings";
+import { SettingsRow, Switch } from "../controls";
+import ProfileStyleSettings from "./ProfileStyleSettings";
 
 export function AppearanceSection() {
   const { t } = useTranslation("settings");
   const mode = useAppearanceStore((s) => s.mode);
-  const accent = useAppearanceStore((s) => s.accent);
   const chatFontSize = useAppearanceStore((s) => s.chatFontSize);
   const reduceMotion = useAppearanceStore((s) => s.reduceMotion);
   const update = useAppearanceStore((s) => s.update);
@@ -33,21 +32,6 @@ export function AppearanceSection() {
             {t("appearance.system")}
           </button>
         </div>
-      </div>
-
-      <div className="s-section">
-        <h2>{t("appearance.accent")}</h2>
-        <SettingsRow label={t("appearance.accent")} hint="">
-          <div className="accent-row">
-            {ACCENT_OPTIONS.map(a => (
-              <button key={a.value}
-                className={'accent-swatch' + (accent === a.value ? ' on' : '')}
-                style={{ background: a.value }}
-                onClick={() => update({ accent: a.value })}
-                title={a.name}/>
-            ))}
-          </div>
-        </SettingsRow>
       </div>
 
       <ProfileStyleSettings />

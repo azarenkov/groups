@@ -1,23 +1,9 @@
-use identity::usecases::entitlements::{
-    get_entitlements::GetEntitlements, grant_entitlements::GrantEntitlements,
-    set_badge_style::SetBadgeStyle, set_emoji_status::SetEmojiStatus,
-};
-use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
+use identity::usecases::user::emoji_status::SetEmojiStatus;
 use identity::usecases::user::presence::SetPresencePreference;
-use identity_infrastructure::database::postgres::repositories::entitlements::PostgresEntitlementsRepository;
 use identity::usecases::auth::captcha::CaptchaGate;
-use identity::usecases::entitlements::start_trial::StartTrial;
 use identity_infrastructure::auth::{altcha::AltchaVerifier, redis_captcha_store::RedisCaptchaStore};
-use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
-use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
-use identity_infrastructure::media_client::block_lookup::MessagingBlockClient;
 use identity_infrastructure::media_client::sticker_lookup::MediaStickerClient;
 use identity::usecases::{
-    connections::{
-        complete_connection::CompleteConnection, list_connections::ListConnections,
-        list_user_connections::ListUserConnections,
-        remove_connection::RemoveConnection, start_connection::StartConnection,
-    },
     auth::{
         confirm_registration::ConfirmRegistration,
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
@@ -39,7 +25,7 @@ use infrastructure_common::{
     hasher::bcrypt_hasher::BcryptHasher,
 };
 use identity_infrastructure::{
-    auth::{github_connector::GithubOAuthConnector, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker, steam_connector::SteamOpenIdConnector},
+    auth::{jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker},
     database::postgres::repositories::{
         identity_unit_of_work::PostgresIdentityUnitOfWork,
         user::PostgresUserRepository,
@@ -81,7 +67,7 @@ pub struct AppState {
     pub get_link_preview_usecase: GetLinkPreview<PostgresUserRepository>,
     pub get_me_usecase: GetMe<PostgresUserRepository>,
     pub update_user_locale_usecase: UpdateUserLocale<PostgresIdentityUnitOfWork>,
-    pub update_profile_usecase: UpdateProfile<PostgresIdentityUnitOfWork, RedisActivityStore, NsfwDetector>,
+    pub update_profile_usecase: UpdateProfile<PostgresIdentityUnitOfWork, NsfwDetector>,
     pub rename_user_usecase: RenameUser<PostgresUserRepository, PostgresIdentityUnitOfWork, NsfwDetector>,
     pub change_password_usecase: ChangePassword<
         PostgresUserRepository,
@@ -101,41 +87,23 @@ pub struct AppState {
         PostgresIdentityUnitOfWork,
         BcryptHasher,
         RedisAccessRevoker,
-        RedisActivityStore,
     >,
     pub delete_account_usecase: DeleteAccount<
         PostgresUserRepository,
         PostgresIdentityUnitOfWork,
         BcryptHasher,
         RedisAccessRevoker,
-        RedisActivityStore,
     >,
-    pub get_entitlements_usecase: GetEntitlements<PostgresEntitlementsRepository>,
-    pub grant_entitlements_usecase: GrantEntitlements<PostgresIdentityUnitOfWork>,
-    pub start_trial_usecase: StartTrial<PostgresIdentityUnitOfWork>,
-    pub set_badge_style_usecase: SetBadgeStyle<PostgresIdentityUnitOfWork>,
     pub set_emoji_status_usecase: SetEmojiStatus<PostgresIdentityUnitOfWork, MediaStickerClient>,
     pub get_appearance_usecase: GetAppearance<PostgresUserRepository>,
     pub update_appearance_usecase: UpdateAppearance<PostgresIdentityUnitOfWork>,
-    pub set_activity_usecase: SetActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
-    pub clear_activity_usecase: ClearActivity<RedisActivityStore, PostgresIdentityUnitOfWork>,
-    pub get_activities_usecase: GetActivities<RedisActivityStore, MessagingAudienceClient, PostgresUserRepository>,
     pub set_presence_preference_usecase: SetPresencePreference<PostgresIdentityUnitOfWork>,
-    pub get_voice_settings_usecase: GetVoiceSettings<PostgresUserRepository, PostgresEntitlementsRepository>,
+    pub get_voice_settings_usecase: GetVoiceSettings<PostgresUserRepository>,
     pub update_voice_settings_usecase: UpdateVoiceSettings<PostgresIdentityUnitOfWork>,
     pub get_notification_settings_usecase: GetNotificationSettings<PostgresUserRepository>,
     pub update_notification_settings_usecase: UpdateNotificationSettings<PostgresIdentityUnitOfWork>,
     pub get_hotkey_settings_usecase: GetHotkeySettings<PostgresUserRepository>,
     pub update_hotkey_settings_usecase: UpdateHotkeySettings<PostgresIdentityUnitOfWork>,
-    pub start_connection_usecase:
-        StartConnection<PostgresUserRepository, GithubOAuthConnector, SteamOpenIdConnector>,
-    pub complete_connection_usecase:
-        CompleteConnection<PostgresUserRepository, GithubOAuthConnector, SteamOpenIdConnector>,
-    pub list_connections_usecase: ListConnections<PostgresUserRepository>,
-    pub list_user_connections_usecase:
-        ListUserConnections<PostgresUserRepository, MessagingBlockClient>,
-    pub remove_connection_usecase: RemoveConnection<PostgresUserRepository>,
     pub public_app_url: String,
-    pub user_repository: std::sync::Arc<PostgresUserRepository>,
     pub trust_forwarded_headers: bool,
 }

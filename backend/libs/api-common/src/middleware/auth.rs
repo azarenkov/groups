@@ -8,6 +8,7 @@ use actix_web::{
     },
     http, web,
 };
+use domain::user::role::UserRole;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -23,11 +24,13 @@ static JWT_SECRET: LazyLock<String> =
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthToken {
     pub id: Uuid,
+    pub role: UserRole,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RateLimitedAuthToken {
     pub id: Uuid,
+    pub role: UserRole,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -67,7 +70,7 @@ impl FromRequest for AuthToken {
         Box::pin(async move {
             let access = auth_result?;
             ensure_not_revoked(revocations.as_ref().map(|d| d.get_ref()), &access).await?;
-            Ok(AuthToken { id: access.user_id })
+            Ok(AuthToken { id: access.user_id, role: access.role })
         })
     }
 }
@@ -100,14 +103,14 @@ impl FromRequest for RateLimitedAuthToken {
         Box::pin(async move {
             let access = auth_result?;
             ensure_not_revoked(revocations.as_ref().map(|d| d.get_ref()), &access).await?;
-            let ValidatedAccess { user_id: id, verified, .. } = access;
+            let ValidatedAccess { user_id: id, verified, role, .. } = access;
             if !verified {
                 return Err(ErrorForbidden("Email not verified"));
             }
             let limiter = limiter
                 .ok_or_else(|| ErrorInternalServerError("Rate limiter not configured"))?;
             if limiter.check_key(&id).await {
-                Ok(RateLimitedAuthToken { id })
+                Ok(RateLimitedAuthToken { id, role })
             } else {
                 Err(ErrorTooManyRequests("Too Many Requests"))
             }

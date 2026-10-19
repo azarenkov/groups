@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use identity_domain::refresh_token::id::RefreshTokenId;
 use domain::user::id::UserId;
+use domain::user::role::UserRole;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use api_common::middleware::jwt::claims::{AccessTokenClaims, RefreshTokenClaims, TokenType};
 use uuid::Uuid;
@@ -34,9 +35,10 @@ impl JwtTokenIssuer {
         user_id: Uuid,
         now: DateTime<Utc>,
         verified: bool,
+        role: UserRole,
     ) -> Result<String, TokenIssuerError> {
         let exp = (now + Duration::minutes(ACCESS_TOKEN_EXPIRATION_MINUTES)).timestamp();
-        let claims = AccessTokenClaims::new(user_id, exp, now.timestamp(), verified);
+        let claims = AccessTokenClaims::new(user_id, exp, now.timestamp(), verified, role);
 
         encode(&Header::default(), &claims, &self.encoding_key())
             .map_err(|e| TokenIssuerError::Encoding(e.to_string()))
@@ -63,12 +65,13 @@ impl TokenIssuer for JwtTokenIssuer {
         &self,
         user_id: &UserId,
         verified: bool,
+        role: UserRole,
     ) -> Result<IssuedTokens, TokenIssuerError> {
         let now = Utc::now();
         let refresh_expires_at = now + Duration::days(REFRESH_TOKEN_EXPIRATION_DAYS);
         let refresh_id = RefreshTokenId::generate();
 
-        let access_token = self.encode_access(user_id.uuid(), now, verified)?;
+        let access_token = self.encode_access(user_id.uuid(), now, verified, role)?;
         let refresh_token =
             self.encode_refresh(user_id.uuid(), refresh_id.uuid(), now, refresh_expires_at)?;
 

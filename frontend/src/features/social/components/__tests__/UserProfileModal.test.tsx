@@ -13,15 +13,6 @@ jest.mock("../../../home/api/home", () => ({
   homeAPI: { profile: () => new Promise(() => undefined) },
 }));
 
-jest.mock("../../api/user", () => ({
-  userAPI: { userConnections: () => Promise.resolve([]) },
-}));
-
-jest.mock("../../store/activityStore", () => {
-  const actual = jest.requireActual("../../store/activityStore");
-  return { ...actual, loadActivitiesFor: () => Promise.resolve() };
-});
-
 describe("UserProfileModal avatar viewer", () => {
   beforeAll(async () => {
     await i18n.changeLanguage("en");

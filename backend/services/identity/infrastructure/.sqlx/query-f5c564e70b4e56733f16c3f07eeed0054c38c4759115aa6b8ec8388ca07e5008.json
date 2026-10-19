@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE users\n                SET name = $2,\n                    locale = $3,\n                    email_verified_at = $4,\n                    phone_verified_at = $5,\n                    updated_at = $6,\n                    email = $7,\n                    password_hash = $8,\n                    pending_email = $9,\n                    password_changed_at = $10,\n                    disabled_at = $11,\n                    deleted_at = $12,\n                    bio = $13,\n                    show_activity = $14,\n                    timezone = $15,\n                    emoji_status_sticker_id = $16,\n                    emoji_status_until = $17\n                WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Timestamptz",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Timestamptz",
+        "Timestamptz",
+        "Timestamptz",
+        "Varchar",
+        "Bool",
+        "Varchar",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f5c564e70b4e56733f16c3f07eeed0054c38c4759115aa6b8ec8388ca07e5008"
+}

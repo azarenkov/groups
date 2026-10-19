@@ -34,7 +34,6 @@
   "removeFriend": "Remove friend",
   "addFriend": "Add friend",
   "activeNow": "Active now",
-  "playing": "Playing {{game}}",
   "offline": "Offline",
   "noResults": "No results",
   "noResultsBody": "Nothing matched \"{{query}}\".",
@@ -67,8 +66,8 @@
     "dmNothingHint": "Direct messages are muted"
   },
   "system": {
-    "memberJoined": "<0>{{name}}</0> joined the community",
-    "memberLeft": "<0>{{name}}</0> left the community"
+    "memberJoined": "<0>{{name}}</0> joined the group",
+    "memberLeft": "<0>{{name}}</0> left the group"
   },
   "attachFile": "Attach a file",
   "attachmentsUploading": "Files are still uploading…",
@@ -125,7 +124,7 @@
   "voiceLocked": "Recording locked",
   "voiceNoMic": "No access to the microphone. Allow it in your browser or system settings.",
   "voiceUnsupported": "This browser can't record voice messages.",
-  "voiceTooLong": "This voice message is too long for your plan.",
+  "voiceTooLong": "This voice message is too long.",
   "voiceInvalid": "Couldn't send the voice message.",
   "voiceTooShort": "The recording is too short.",
   "voiceSpeed": "Playback speed",
@@ -200,7 +199,7 @@
     "members": "Members"
   },
   "unavailableTitle": "This chat is unavailable",
-  "unavailableHint": "The link points to a conversation, channel or community you can't access, or it no longer exists.",
+  "unavailableHint": "The link points to a conversation, channel or group you can't access, or it no longer exists.",
   "unavailableHome": "Go home",
   "messageNotFound": "Message not found — it may have been deleted",
   "messageOpenFailed": "Couldn't open the message — try again",

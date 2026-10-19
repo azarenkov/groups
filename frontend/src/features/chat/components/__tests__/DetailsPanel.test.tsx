@@ -13,7 +13,6 @@ jest.mock("../../../social/hooks/useUserProfileDetails", () => ({
   useUserProfileDetails: () => ({
     profile: null,
     failed: false,
-    connections: [],
     blockedByMe: false,
     blockedMe: false,
     friendshipStatus: "accepted",

@@ -1,6 +1,7 @@
 use messaging::dto::{
     RequestContext, requests::community::create_community::CreateCommunityRequest,
 };
+use domain::user::role::UserRole;
 use serde::Deserialize;
 use validator::Validate;
 
@@ -16,11 +17,12 @@ pub struct CreateCommunityRequestBody {
 }
 
 impl CreateCommunityRequestBody {
-    pub fn into_request(self, ctx: RequestContext) -> CreateCommunityRequest {
+    pub fn into_request(self, ctx: RequestContext, creator_role: UserRole) -> CreateCommunityRequest {
         CreateCommunityRequest {
             name: self.name,
             description: self.description,
             accent_color: self.accent_color,
+            creator_role,
             ctx,
         }
     }

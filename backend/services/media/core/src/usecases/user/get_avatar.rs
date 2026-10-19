@@ -1,13 +1,10 @@
 use std::sync::Arc;
 
-use chrono::Utc;
 use domain::user::id::UserId;
 use media_domain::media::repository::MediaRepository;
 use ports::repository::RepositoryError;
 
 use crate::ports::file_storage::{ByteStream, FileStorage, FileStorageError};
-use crate::ports::plan_directory::PlanDirectory;
-use crate::usecases::user::update_avatar::still_avatar_key;
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetUserAvatarError {
@@ -25,7 +22,6 @@ where
     FS: FileStorage,
 {
     media_repository: Arc<M>,
-    plans: Arc<dyn PlanDirectory>,
     storage: Arc<FS>,
 }
 
@@ -34,12 +30,8 @@ where
     M: MediaRepository,
     FS: FileStorage,
 {
-    pub fn new(media_repository: Arc<M>, plans: Arc<dyn PlanDirectory>, storage: Arc<FS>) -> Self {
-        Self {
-            media_repository,
-            plans,
-            storage,
-        }
+    pub fn new(media_repository: Arc<M>, storage: Arc<FS>) -> Self {
+        Self { media_repository, storage }
     }
 
     pub async fn execute(
@@ -51,15 +43,6 @@ where
             .get_user_avatar_key(&user_id)
             .await?
             .ok_or(GetUserAvatarError::NotFound)?;
-        if let Some(still_key) = still_avatar_key(&key)
-            && !self.plans.tier_of(&user_id, Utc::now()).await?.is_paid()
-        {
-            match self.storage.get_stream(&still_key).await {
-                Ok(stream) => return Ok((stream, "image/png")),
-                Err(FileStorageError::NotFound) => {}
-                Err(other) => return Err(GetUserAvatarError::Storage(other)),
-            }
-        }
         let content_type = if key.ends_with(".gif") {
             "image/gif"
         } else {
@@ -77,10 +60,9 @@ where
 mod tests {
     use super::*;
     use async_trait::async_trait;
-    use chrono::DateTime;
+    use chrono::{DateTime, Utc};
     use domain::community::id::CommunityId;
     use futures::StreamExt;
-    use ports::fakes::FakePlanDirectory;
     use std::collections::HashSet;
 
     struct Avatars(Option<&'static str>);
@@ -135,10 +117,9 @@ mod tests {
         }
     }
 
-    async fn serve(key: &'static str, paid: bool, objects: &[&'static str]) -> (String, &'static str) {
+    async fn serve(key: &'static str, objects: &[&'static str]) -> (String, &'static str) {
         let usecase = GetUserAvatar::new(
             Arc::new(Avatars(Some(key))),
-            Arc::new(FakePlanDirectory::everyone(if paid { domain::plan::Tier::Pro } else { domain::plan::Tier::Free })),
             Arc::new(Objects(objects.iter().copied().collect())),
         );
         let (mut stream, content_type) = usecase.execute(UserId::new(uuid::Uuid::nil())).await.unwrap();
@@ -147,26 +128,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn paid_accounts_get_the_animation() {
-        let served = serve("a/1.gif", true, &["a/1.gif", "a/1.still.png"]).await;
+    async fn animated_avatars_are_served_as_gifs() {
+        let served = serve("a/1.gif", &["a/1.gif", "a/1.still.png"]).await;
         assert_eq!(served, ("a/1.gif".to_string(), "image/gif"));
     }
 
     #[tokio::test]
-    async fn free_accounts_get_the_still_frame() {
-        let served = serve("a/1.gif", false, &["a/1.gif", "a/1.still.png"]).await;
-        assert_eq!(served, ("a/1.still.png".to_string(), "image/png"));
-    }
-
-    #[tokio::test]
-    async fn older_animations_without_a_still_keep_playing() {
-        let served = serve("a/1.gif", false, &["a/1.gif"]).await;
-        assert_eq!(served, ("a/1.gif".to_string(), "image/gif"));
-    }
-
-    #[tokio::test]
-    async fn static_avatars_ignore_the_plan() {
-        let served = serve("a/1.png", false, &["a/1.png"]).await;
+    async fn static_avatars_are_served_as_png() {
+        let served = serve("a/1.png", &["a/1.png"]).await;
         assert_eq!(served, ("a/1.png".to_string(), "image/png"));
     }
 }

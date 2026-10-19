@@ -4,10 +4,7 @@ import Icon from "../../../shared/ui/Icon";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import { colorForId } from "../../../shared/lib/avatar";
 import { useAvatarUrl } from "../../../shared/lib/avatarCache";
-import ProBadge from "../../subscription/components/ProBadge";
-import EmojiStatusIcon from "../../subscription/components/EmojiStatusIcon";
-import { useBadge } from "../../subscription/hooks/useBadge";
-import { useActiveEmojiStatus } from "../../subscription/lib/emojiStatus";
+import UserEmojiStatus from "../../social/components/UserEmojiStatus";
 import ProfileFacts from "../../social/components/ProfileFacts";
 import { useUserProfileDetails } from "../../social/hooks/useUserProfileDetails";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
@@ -29,10 +26,8 @@ interface DetailsPanelProps {
 
 const DmProfile: React.FC<{ friendId: string; name: string; color?: string }> = ({ friendId, name, color }) => {
   const { t } = useTranslation("profile");
-  const { profile, failed, connections, blockedMe, bio } = useUserProfileDetails(friendId);
-  const badge = useBadge(friendId);
-  const emojiStatus = useActiveEmojiStatus(badge?.emojiStatus);
-  const bannerUrl = useAvatarUrl("banner", badge && !blockedMe ? friendId : null);
+  const { profile, failed, blockedMe, bio } = useUserProfileDetails(friendId);
+  const bannerUrl = useAvatarUrl("banner", blockedMe ? null : friendId);
   const shownName = profile?.name ?? name;
   return (
     <div className="details-profile">
@@ -55,19 +50,14 @@ const DmProfile: React.FC<{ friendId: string; name: string; color?: string }> = 
       </button>
       <div className="details-name-row">
         <span className="details-name">{shownName}</span>
-        {badge && !blockedMe &&
-          (emojiStatus ? (
-            <EmojiStatusIcon status={emojiStatus} size="md" />
-          ) : (
-            <ProBadge tier={badge.tier} badgeStyle={badge.badgeStyle} memberNumber={badge.memberNumber} size="sm" />
-          ))}
+        {!blockedMe && <UserEmojiStatus userId={friendId} size="md" />}
       </div>
       <div className="details-handle">@{shownName}</div>
       {failed ? (
         <div className="details-muted">{t("unavailable")}</div>
       ) : (
         <div className="details-facts">
-          <ProfileFacts profile={profile} connections={connections} bio={bio} blockedMe={blockedMe} />
+          <ProfileFacts profile={profile} bio={bio} blockedMe={blockedMe} />
         </div>
       )}
       <button type="button" className="details-link" onClick={() => useProfileModalStore.getState().open(friendId)}>

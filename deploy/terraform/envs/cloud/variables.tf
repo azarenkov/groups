@@ -130,23 +130,6 @@ variable "monitoring" {
   default = false
 }
 
-variable "github_client_id" {
-  type    = string
-  default = ""
-}
-
-variable "github_client_secret" {
-  type      = string
-  default   = ""
-  sensitive = true
-}
-
-variable "steam_api_key" {
-  type      = string
-  default   = ""
-  sensitive = true
-}
-
 variable "mailer" {
   type = object({
     host     = optional(string, "smtp.example.com")

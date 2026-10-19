@@ -17,9 +17,6 @@ import StickerPicker from "../../stickers/components/StickerPicker";
 import type { PackSticker } from "../../stickers/api/stickers";
 import { useVoiceDraftStore } from "../store/voiceDraftStore";
 import type { MediaRecording } from "../lib/recording";
-import TrialOffer from "../../subscription/components/TrialOffer";
-import { MAX_ATTACHMENT_BYTES_BY_TIER } from "../../subscription/lib/plans";
-import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 
 interface ComposerProps {
   composerRef: React.RefObject<HTMLTextAreaElement>;
@@ -79,7 +76,6 @@ const Composer: React.FC<ComposerProps> = ({
   useAutoGrow(composerRef, text);
   const [voiceActive, setVoiceActive] = React.useState(false);
   const hasVoiceDraft = useVoiceDraftStore((s) => !!s.failed[conversationKey ?? ""]);
-  const tier = useEntitlementsStore((s) => s.tier);
   const showVoice =
     !!onSendVoice &&
     (voiceActive || hasVoiceDraft || (!text.trim() && pendingFiles.length === 0));
@@ -146,18 +142,6 @@ const Composer: React.FC<ComposerProps> = ({
                 </button>
               </div>
             ))}
-            {tier === "free" &&
-              pendingFiles.some(
-                (p) => p.oversize && p.file.size <= MAX_ATTACHMENT_BYTES_BY_TIER.pro,
-              ) && (
-              <TrialOffer
-                compact
-                reason={i18n.t("trial.attachmentsReason", {
-                  ns: "subscription",
-                  mb: MAX_ATTACHMENT_BYTES_BY_TIER.pro / (1024 * 1024),
-                })}
-              />
-            )}
           </div>
         )}
         <div className={"composer-wrap" + (voiceActive ? " voice-recording" : "")}>

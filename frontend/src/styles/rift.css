@@ -1,8 +1,8 @@
 @import "./rift/base.css";
+@import "./rift/rail.css";
 @import "./rift/modals.css";
 @import "./rift/communities.css";
 @import "./rift/chat.css";
 @import "./rift/voice.css";
 @import "./rift/social.css";
 @import "./rift/settings.css";
-@import "./rift/subscription.css";

@@ -3,6 +3,7 @@ import i18n from "../../../../i18n";
 import { cropOf, renderCropPreview } from "../../../../shared/lib/imageCrop";
 import { useImageCrop } from "../../../../shared/hooks/useImageCrop";
 import { useForm } from "react-hook-form";
+import type { UserRole } from "../../../../shared/types/userRole";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../../store/authStore";
 import { currentLocale } from "../../../../i18n";
@@ -25,6 +26,7 @@ interface SignUpData {
   email: string;
   password: string;
   confirmPassword: string;
+  role: UserRole;
 }
 
 interface SignInUpProps {
@@ -89,7 +91,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
     defaultValues: { email, password: "" },
   });
   const signUpForm = useForm<SignUpData>({
-    defaultValues: { name: "", email, password: "", confirmPassword: "" },
+    defaultValues: { name: "", email, password: "", confirmPassword: "", role: "student" },
   });
 
   const [showPw, setShowPw] = useState(false);
@@ -172,7 +174,7 @@ export const SignInUp: React.FC<SignInUpProps> = ({
       setLoading(true);
       setError(null);
       const register = async () =>
-        authAPI.register(name, data.email, data.password, locale, await captcha.take());
+        authAPI.register(name, data.email, data.password, data.role, locale, await captcha.take());
       let response: TokenPair;
       try {
         response = await register();
@@ -310,6 +312,21 @@ export const SignInUp: React.FC<SignInUpProps> = ({
                 {errors.name.message}
               </span>
             )}
+          </div>
+        )}
+
+        {isSignup && (
+          <div className="field">
+            <label>{t("role")}</label>
+            <div className="auth-role" role="radiogroup" aria-label={t("role")}>
+              {(["student", "teacher"] as const).map((role) => (
+                <label key={role} className={"auth-role-opt" + (signUpForm.watch("role") === role ? " active" : "")}>
+                  <input type="radio" value={role} {...signUpForm.register("role")} />
+                  <span className="auth-role-title">{t(role === "student" ? "roleStudent" : "roleTeacher")}</span>
+                  <span className="auth-role-sub">{t(role === "student" ? "roleStudentHint" : "roleTeacherHint")}</span>
+                </label>
+              ))}
+            </div>
           </div>
         )}
 

@@ -427,6 +427,7 @@ impl HttpMapping for CreateCommunityError {
         match self {
             CreateCommunityError::Repository(e) => e.to_http_status(),
             CreateCommunityError::AccountInactive => StatusCode::FORBIDDEN,
+            CreateCommunityError::TeachersOnly => StatusCode::FORBIDDEN,
             CreateCommunityError::NameNotAllowed | CreateCommunityError::DescriptionNotAllowed => {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
@@ -439,6 +440,7 @@ impl HttpMapping for CreateCommunityError {
         match self {
             CreateCommunityError::Repository(e) => e.to_user_message(),
             CreateCommunityError::AccountInactive => "Account is inactive".to_string(),
+            CreateCommunityError::TeachersOnly => "Only teachers can create groups".to_string(),
             CreateCommunityError::NameNotAllowed => "Community name is not allowed".to_string(),
             CreateCommunityError::DescriptionNotAllowed => {
                 "Community description is not allowed".to_string()
@@ -454,6 +456,7 @@ impl HttpMapping for CreateCommunityError {
         match self {
             CreateCommunityError::Repository(e) => e.to_error_code(),
             CreateCommunityError::AccountInactive => "ACCOUNT_INACTIVE",
+            CreateCommunityError::TeachersOnly => "GROUPS_TEACHERS_ONLY",
             CreateCommunityError::NameNotAllowed => "COMMUNITY_NAME_NOT_ALLOWED",
             CreateCommunityError::DescriptionNotAllowed => "COMMUNITY_DESCRIPTION_NOT_ALLOWED",
             CreateCommunityError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",

@@ -185,16 +185,6 @@ variable "mailer" {
   sensitive = true
 }
 
-variable "oauth" {
-  type = object({
-    github_client_id     = optional(string, "")
-    github_client_secret = optional(string, "")
-    steam_api_key        = optional(string, "")
-  })
-  default   = {}
-  sensitive = true
-}
-
 variable "values" {
   description = "Extra chart values merged on top of what this module derives; maps are merged key by key down to four levels (for example gateway.ingress.annotations adds to the generated annotations), lists and scalars replace the generated value"
   type        = any

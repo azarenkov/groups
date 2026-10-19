@@ -1,13 +1,12 @@
 pub mod recount_installs;
 use std::sync::Arc;
 
-use chrono::Utc;
 use futures::{StreamExt, TryStreamExt};
 use domain::user::id::UserId;
 use media_domain::{
     attachment::repository::AttachmentRepository,
     sticker::{
-        AddStickerOutcome, InstallOutcome, NewSticker, StickerPack, StickerRef, StickerRepository, max_owned_packs,
+        AddStickerOutcome, InstallOutcome, MAX_OWNED_PACKS, NewSticker, StickerPack, StickerRef, StickerRepository,
         slug_from_name, slug_with_suffix, valid_pack_name, valid_pack_slug, valid_sticker_emoji,
     },
 };
@@ -17,7 +16,6 @@ use uuid::Uuid;
 use crate::ports::{
     file_storage::{ByteStream, FileStorage, FileStorageError},
     image_moderation::{ImageModeration, ImageModerationError},
-    plan_directory::PlanDirectory,
 };
 use crate::usecases::user::update_avatar::cleanup_object;
 
@@ -36,7 +34,7 @@ pub enum StickerError {
     InvalidEmoji,
     #[error("Pack name or link is taken")]
     Taken,
-    #[error("Pack limit reached for this plan")]
+    #[error("Pack limit reached")]
     PackLimit,
     #[error("The pack is full")]
     PackFull,
@@ -104,7 +102,6 @@ where
     IM: ImageModeration,
 {
     stickers: Arc<S>,
-    plans: Arc<dyn PlanDirectory>,
     attachment_repository: Arc<A>,
     storage: Arc<FS>,
     moderation: Arc<IM>,
@@ -117,10 +114,9 @@ where
     FS: FileStorage,
     IM: ImageModeration,
 {
-    pub fn new(stickers: Arc<S>, plans: Arc<dyn PlanDirectory>, attachment_repository: Arc<A>, storage: Arc<FS>, moderation: Arc<IM>) -> Self {
+    pub fn new(stickers: Arc<S>, attachment_repository: Arc<A>, storage: Arc<FS>, moderation: Arc<IM>) -> Self {
         Self {
             stickers,
-            plans,
             attachment_repository,
             storage,
             moderation,
@@ -136,7 +132,6 @@ where
         if requested.as_deref().is_some_and(|slug| !valid_pack_slug(slug)) {
             return Err(StickerError::InvalidSlug);
         }
-        let tier = self.plans.tier_of(&owner_id, Utc::now()).await?;
         let id = Uuid::new_v4();
         let base = requested.clone().unwrap_or_else(|| slug_from_name(name));
         let attempts = if requested.is_some() { 1 } else { SLUG_ATTEMPTS };
@@ -150,7 +145,7 @@ where
             attempt += 1;
             match self
                 .stickers
-                .create_pack(id, &owner_id, name, &slug, max_owned_packs(tier))
+                .create_pack(id, &owner_id, name, &slug, MAX_OWNED_PACKS)
                 .await
             {
                 Ok(created) => break created.ok_or(StickerError::PackLimit)?,
@@ -374,6 +369,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
     use media_domain::sticker::Sticker;
 
     fn pack_with(ids: &[Uuid]) -> StickerPack {

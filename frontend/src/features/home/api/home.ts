@@ -36,6 +36,7 @@ export interface PublicProfile {
   blocked: boolean;
   blockedBy: boolean;
   mutualCommunities: { id: string; name: string; accentColor: string | null }[];
+  emojiStatus?: unknown;
   voiceRoom: { channelId: string; channelName: string; communityId: string; communityName: string } | null;
 }
 

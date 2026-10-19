@@ -28,7 +28,7 @@ impl HttpMapping for UploadAttachmentError {
     }
     fn to_user_message(&self) -> String {
         match self {
-            UploadAttachmentError::TooLarge => "File is too large for your plan.".to_string(),
+            UploadAttachmentError::TooLarge => "File is too large.".to_string(),
             UploadAttachmentError::Empty => "File is empty.".to_string(),
             UploadAttachmentError::TypeNotAllowed => {
                 "This file type is not allowed.".to_string()
@@ -38,7 +38,7 @@ impl HttpMapping for UploadAttachmentError {
             }
             UploadAttachmentError::InvalidVoice => "This voice message can't be sent.".to_string(),
             UploadAttachmentError::VoiceTooLong => {
-                "This voice message is too long for your plan.".to_string()
+                "This voice message is too long.".to_string()
             }
             UploadAttachmentError::InvalidVideoNote => "This video message can't be sent.".to_string(),
             UploadAttachmentError::VideoNoteTooLong => "Video messages can be up to one minute long.".to_string(),
@@ -91,7 +91,6 @@ impl HttpMapping for media::usecases::user::banner::BannerError {
     fn to_http_status(&self) -> StatusCode {
         use media::usecases::user::banner::BannerError as E;
         match self {
-            E::ProRequired => StatusCode::FORBIDDEN,
             E::NotFound => StatusCode::NOT_FOUND,
             E::Repository(e) => e.to_http_status(),
             E::Storage(e) => e.to_http_status(),
@@ -101,7 +100,6 @@ impl HttpMapping for media::usecases::user::banner::BannerError {
     fn to_user_message(&self) -> String {
         use media::usecases::user::banner::BannerError as E;
         match self {
-            E::ProRequired => "This needs a Rift Pro subscription.".to_string(),
             E::NotFound => "Banner not found".to_string(),
             E::Repository(e) => e.to_user_message(),
             E::Storage(e) => e.to_user_message(),
@@ -111,7 +109,6 @@ impl HttpMapping for media::usecases::user::banner::BannerError {
     fn to_error_code(&self) -> &'static str {
         use media::usecases::user::banner::BannerError as E;
         match self {
-            E::ProRequired => "PRO_REQUIRED",
             E::NotFound => "BANNER_NOT_FOUND",
             E::Repository(e) => e.to_error_code(),
             E::Storage(e) => e.to_error_code(),
@@ -143,7 +140,7 @@ impl HttpMapping for media::usecases::sticker::StickerError {
             E::InvalidSlug => "Pack links use 3 to 32 lowercase Latin letters, digits or underscores.".to_string(),
             E::InvalidEmoji => "Pick an emoji for the sticker.".to_string(),
             E::Taken => "This pack name or link is already taken.".to_string(),
-            E::PackLimit => "You have reached the pack limit of your plan.".to_string(),
+            E::PackLimit => "You have reached the sticker pack limit.".to_string(),
             E::PackFull => "A pack holds up to 120 stickers.".to_string(),
             E::PackNotFound => "Sticker pack not found".to_string(),
             E::StickerNotFound => "Sticker not found".to_string(),

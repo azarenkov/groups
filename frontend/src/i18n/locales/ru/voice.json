@@ -57,5 +57,8 @@
   "undeafenMember": "Включить звук участнику",
   "deafenedByModerator": "Модератор отключил вам звук",
   "exitFullscreen": "Выйти из полноэкранного режима",
-  "previewLive": "Идёт разговор"
+  "previewLive": "Идёт разговор",
+  "streamQuality": "Качество стрима",
+  "streamQualityAuto": "Авто",
+  "streamQualityAutoHint": "Под сеть и процессор, до {{label}}"
 }

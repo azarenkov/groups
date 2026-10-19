@@ -1,5 +1,3 @@
-use crate::user::tier::Tier;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum NoiseMode {
     Off,
@@ -157,22 +155,6 @@ impl StreamQuality {
             _ => None,
         }
     }
-
-    pub fn required_tier(self) -> Tier {
-        match self {
-            Self::Auto | Self::P720 => Tier::Free,
-            Self::P1080 | Self::P1440 => Tier::Pro,
-            Self::P2160 => Tier::Premium,
-        }
-    }
-
-    pub fn best_for(tier: Tier) -> Self {
-        match tier {
-            Tier::Free => Self::P720,
-            Tier::Pro => Self::P1440,
-            Tier::Premium => Self::P2160,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -295,15 +277,6 @@ impl VoiceSettings {
 
     pub fn screen_content(&self) -> Option<ScreenContent> {
         self.screen_content
-    }
-
-    pub fn allowed_for(&self, tier: Tier) -> bool {
-        self.stream_quality <= StreamQuality::best_for(tier)
-    }
-
-    pub fn limited_to(mut self, tier: Tier) -> Self {
-        self.stream_quality = self.stream_quality.min(StreamQuality::best_for(tier));
-        self
     }
 
     pub fn auto_sensitivity(&self) -> bool {

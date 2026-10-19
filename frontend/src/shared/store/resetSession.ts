@@ -1,7 +1,4 @@
-export function resetSessionStores(outgoingAccessToken?: string | null): void {
-  void import("../../features/social/lib/gameActivity").then((m) =>
-    m.clearActivityForLogout(outgoingAccessToken ?? null),
-  );
+export function resetSessionStores(): void {
   void import("../lib/avatarCache").then((m) => m.clearAvatarCache());
   void import("../../features/chat/lib/mentionTargets").then((m) => m.clearMentionTargets());
   void import("../../features/chat/lib/messageCache").then((m) => m.clearMessageCache());
@@ -10,7 +7,6 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
   void import("../../features/search/lib/searchHistory").then((m) => m.resetSearchHistorySession());
   void import("../../features/chat/hooks/usePinnedMessages").then((m) => m.clearPinTombstones());
 
-  void import("../../features/social/store/activityStore").then((m) => m.useActivityStore.getState().clearAll());
   void import("../../features/social/store/blockStore").then((m) => m.useBlockStore.getState().clearAll());
   void import("../../features/dm/store/dmPreviewStore").then((m) => m.useDmPreviewStore.getState().clear());
   void import("../../features/dm/store/hiddenDmStore").then((m) => m.useHiddenDmStore.getState().clearAll());
@@ -35,10 +31,9 @@ export function resetSessionStores(outgoingAccessToken?: string | null): void {
     m.useStreamViewersStore.getState().clearAll(),
   );
   void import("../../features/chat/store/unreadStore").then((m) => m.useUnreadStore.getState().clearAll());
-  void import("../../features/subscription/store/entitlementsStore").then((m) => m.useEntitlementsStore.getState().clear());
   void import("../../features/stickers/store/stickerStore").then((m) => m.useStickerStore.getState().clear());
   void import("../../features/stickers/lib/stickerImages").then((m) => m.clearStickerImages());
-  void import("../../features/subscription/store/badgeStore").then((m) => m.useBadgeStore.getState().clear());
+  void import("../../features/social/store/emojiStatusStore").then((m) => m.useEmojiStatusStore.getState().clear());
   void import("../../features/social/store/userNamesStore").then((m) => m.useUserNamesStore.getState().clear());
   void import("../../features/social/store/userProfileStore").then((m) => m.useUserProfileStore.getState().clear());
   void import("../../features/voice/store/voicePresenceStore").then((m) =>

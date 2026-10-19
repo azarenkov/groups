@@ -1,7 +1,6 @@
 import type { WsHandlers } from "../../../shared/ws/types";
 import type { Channel } from "../../../shared/types/channel";
 import type { Community } from "../../../shared/types/community";
-import { loadActivitiesFor, useActivityStore } from "../../social/store/activityStore";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useCallStore } from "../../voice/store/callStore";
 import { useChannelStore } from "../store/channelStore";
@@ -52,7 +51,6 @@ export const communityHandlers: WsHandlers = {
       const id = asString(d.id);
       if (!id) return;
       purgeCommunityLocally(id);
-      void loadActivitiesFor(Object.keys(useActivityStore.getState().byUser));
       return;
   },
   "community.memberLeft": (d) => {
@@ -62,11 +60,8 @@ export const communityHandlers: WsHandlers = {
       const me = useAuthStore.getState().user;
       if (me && me.id === userId) {
         purgeCommunityLocally(communityId);
-        void loadActivitiesFor(Object.keys(useActivityStore.getState().byUser));
         return;
       }
-      useActivityStore.getState().apply(userId, null);
-      void loadActivitiesFor([userId]);
       const channels = useChannelStore.getState().channelsByCommunity[communityId] ?? [];
       const receipts = useReadReceiptStore.getState();
       for (const c of channels) {

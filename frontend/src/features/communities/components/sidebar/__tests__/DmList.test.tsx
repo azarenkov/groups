@@ -33,7 +33,6 @@ const renderList = () =>
       isFiltering={false}
       selectedDmId={null}
       unreadByDm={{ u1: 3, u2: 2 }}
-      onAddFriend={jest.fn()}
       onPick={jest.fn()}
     />,
   );
@@ -146,7 +145,6 @@ describe("DmList hidden chats", () => {
         directs={[dm("u1", "Alice"), dm("u2", "Bob")]}
         selectedDmId={null}
         unreadByDm={{ u1: 3, u2: 2, gone: 4 }}
-        onAddFriend={jest.fn()}
         onPick={jest.fn()}
       />,
     );
@@ -171,7 +169,6 @@ describe("DmList hidden chats", () => {
         unreadByDm={{}}
         hasMoreDirects
         onLoadMoreDirects={loadMore}
-        onAddFriend={jest.fn()}
         onPick={jest.fn()}
       />,
     );

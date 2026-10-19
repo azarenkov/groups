@@ -8,7 +8,6 @@ use ports::repository::RepositoryError;
 use crate::{
     ports::{
         access_revoker::{AccessRevoker, AccessRevokerError},
-        activity_store::{ActivityStore, ActivityStoreError},
         hasher::{HashError, Hasher},
     },
     usecases::user::account_deletion::{
@@ -29,56 +28,48 @@ pub enum DeleteAccountError {
     Reauth(#[from] ReauthError),
     #[error("User not found")]
     UserNotFound,
-    #[error("Activity store error: {0}")]
-    ActivityStore(#[from] ActivityStoreError),
 }
 
 impl From<AccountDeletionError> for DeleteAccountError {
     fn from(error: AccountDeletionError) -> Self {
         match error {
             AccountDeletionError::Repository(e) => Self::Repository(e),
-            AccountDeletionError::ActivityStore(e) => Self::ActivityStore(e),
             AccountDeletionError::AlreadyDeleted => Self::UserNotFound,
         }
     }
 }
 
-pub struct DeleteAccount<U, W, H, R, S>
+pub struct DeleteAccount<U, W, H, R>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     R: AccessRevoker,
-    S: ActivityStore,
 {
     user_repository: Arc<U>,
     unit_of_work: Arc<W>,
     access_revoker: Arc<R>,
     reauthenticator: Arc<Reauthenticator<H>>,
-    activity_store: Arc<S>,
 }
 
-impl<U, W, H, R, S> DeleteAccount<U, W, H, R, S>
+impl<U, W, H, R> DeleteAccount<U, W, H, R>
 where
     U: UserRepository,
     W: IdentityUnitOfWork,
     H: Hasher,
     R: AccessRevoker,
-    S: ActivityStore,
 {
     pub fn new(
         user_repository: Arc<U>,
         unit_of_work: Arc<W>,
         access_revoker: Arc<R>,
         reauthenticator: Arc<Reauthenticator<H>>,
-        activity_store: Arc<S>,
     ) -> Self {
         Self {
             user_repository,
             unit_of_work,
             access_revoker,
             reauthenticator,
-            activity_store,
         }
     }
 
@@ -107,9 +98,7 @@ where
         let now = Utc::now();
         let cleanup = apply_account_deletion(&mut *tx, &mut user, now, request_id).await?;
         tx.commit().await?;
-        if let Err(e) = clear_deleted_user_caches(&*self.unit_of_work, &*self.activity_store, &*self.access_revoker, &cleanup).await {
-            tracing::warn!(error = %e, user_id = %user_id.uuid(), "Failed to clear caches after deleting the account");
-        }
+        clear_deleted_user_caches(&*self.unit_of_work, &*self.access_revoker, &cleanup).await;
         Ok(())
     }
 }

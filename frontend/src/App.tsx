@@ -29,7 +29,6 @@ import { authAPI } from "./features/auth/api/auth";
 import { ApiError } from "./shared/lib/apiError";
 import { ws } from "./shared/ws/websocket";
 import { installWsBootstrap } from "./shared/ws/websocketBootstrap";
-import { initGameActivity } from "./features/social/lib/gameActivity";
 import { initHotkeys } from "./features/settings/lib/hotkeys";
 import {
   authRedirectTarget,
@@ -118,7 +117,6 @@ const DeepLinkListener: React.FC = () => {
 const App: React.FC = () => {
   const { isAuthenticated, tokens, isHydrating } = useAuthStore();
   const mode = useAppearanceStore((s) => s.mode);
-  const accent = useAppearanceStore((s) => s.accent);
   const chatFontSize = useAppearanceStore((s) => s.chatFontSize);
   const reduceMotion = useAppearanceStore((s) => s.reduceMotion);
 
@@ -126,17 +124,17 @@ const App: React.FC = () => {
     !!tokens?.accessToken && !isAccessTokenVerified(tokens.accessToken);
 
   useEffect(() => {
-    applyAppearance({ mode, accent, chatFontSize, reduceMotion });
-  }, [mode, accent, chatFontSize, reduceMotion]);
+    applyAppearance({ mode, chatFontSize, reduceMotion });
+  }, [mode, chatFontSize, reduceMotion]);
 
   useEffect(() => {
     if (mode !== "system") return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () =>
-      applyAppearance({ mode, accent, chatFontSize, reduceMotion });
+      applyAppearance({ mode, chatFontSize, reduceMotion });
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
-  }, [mode, accent, chatFontSize, reduceMotion]);
+  }, [mode, chatFontSize, reduceMotion]);
 
   useEffect(() => {
     initPushToTalk();
@@ -145,7 +143,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     installWsBootstrap();
-    initGameActivity();
     initHotkeys();
   }, []);
 

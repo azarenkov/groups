@@ -27,7 +27,7 @@ async fn create_community(
     let ctx = request_context(&req);
     let community = app_state
         .create_community_usecase
-        .execute(body.into_request(ctx), UserId::new(auth_token.id))
+        .execute(body.into_request(ctx, auth_token.role), UserId::new(auth_token.id))
         .await?;
 
     let response = CreateCommunityResponse::from(community);

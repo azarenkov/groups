@@ -1,7 +1,7 @@
 use actix_web::web;
 
 use crate::attachments::attachment_routes;
-use crate::badges::badge_routes;
+use crate::emoji_status::emoji_status_routes;
 use crate::blocks::block_routes;
 use crate::channel::{
     create_channel, delete_channel, delete_channel_message, edit_channel_message,
@@ -83,7 +83,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                     web::scope("/v1/users")
                         .configure(crate::pins::user_pin_routes)
                         .configure(crate::dm_conversations::dm_conversation_routes)
-                        .configure(badge_routes)
+                        .configure(emoji_status_routes)
                         .service(crate::forward::forward_message)
                         .service(search_dm_messages)
                         .configure(crate::shared::dm_shared_routes)

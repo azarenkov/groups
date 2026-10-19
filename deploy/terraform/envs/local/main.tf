@@ -170,12 +170,6 @@ module "rift" {
 
   mailer = var.mailer
 
-  oauth = {
-    github_client_id     = var.github_client_id
-    github_client_secret = var.github_client_secret
-    steam_api_key        = var.steam_api_key
-  }
-
   values = {
     config = {
       NATS_STREAM_HOT_MAX_BYTES  = "134217728"

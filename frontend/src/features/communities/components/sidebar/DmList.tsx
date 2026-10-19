@@ -3,8 +3,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
 import { UserAvatar } from "../../../../shared/ui/Avatar";
 import type { DirectConversation } from "../../../dm/types";
-import { useActivityStore } from "../../../social/store/activityStore";
-import UserBadge from "../../../subscription/components/UserBadge";
+import UserEmojiStatus from "../../../social/components/UserEmojiStatus";
 import { formatListTime, msUntilNextDay } from "../../../dm/lib/directOrder";
 import { useProfileModalStore } from "../../../social/store/profileModalStore";
 import { isBlockedEitherWay } from "../../../social/store/blockStore";
@@ -29,7 +28,6 @@ interface DmListProps {
   unreadByDm: Record<string, number>;
   hasMoreDirects?: boolean;
   onLoadMoreDirects?: () => void;
-  onAddFriend: () => void;
   onPick: (dm: DirectConversation) => void;
   onCall?: (dm: DirectConversation) => void;
   compact?: boolean;
@@ -41,13 +39,11 @@ const DmList: React.FC<DmListProps> = ({
   unreadByDm,
   hasMoreDirects,
   onLoadMoreDirects,
-  onAddFriend,
   onPick,
   onCall,
   compact,
 }) => {
   const { t, i18n } = useTranslation(["sidebar", "common"]);
-  const activities = useActivityStore((s) => s.byUser);
   const dmLevels = useNotificationPrefsStore((s) => s.dmLevels);
   const pinnedDms = useConversationPinsStore((s) => s.dms);
   const pinsLoaded = useConversationPinsStore((s) => s.loaded);
@@ -210,7 +206,6 @@ const DmList: React.FC<DmListProps> = ({
   }
   const renderRow = (d: DirectConversation) => {
     const unread = unreadByDm[d.id] ?? 0;
-    const activity = d.online ? activities[d.id] : undefined;
     const muted = dmLevelOf(dmLevels, d.id, globalMentions) === "none";
     const quiet = muted || hiddenSet.has(d.id);
     const sub =
@@ -252,16 +247,11 @@ const DmList: React.FC<DmListProps> = ({
         <div className="sb-dm-main">
           <div className="sb-dm-name">
             <span className="sb-dm-name-text">{d.name}</span>
-            <UserBadge userId={d.id} size="sm" />
+            <UserEmojiStatus userId={d.id} size="sm" />
             {muted && (
               <span className="sb-dm-muted" title={t("dmMuted")} aria-label={t("dmMuted")}>
                 <Icon name="bell" size={12} />
                 <span className="nb-dot" />
-              </span>
-            )}
-            {activity && (
-              <span className="sb-dm-game" title={activity.name}>
-                {activity.name}
               </span>
             )}
             {pinnedDms.includes(d.id) && (
@@ -319,12 +309,6 @@ const DmList: React.FC<DmListProps> = ({
   }
   return (
     <div className="sb-view">
-      <button type="button" className="sb-add-row" onClick={onAddFriend}>
-        <span className="sb-add-row-ico">
-          <Icon name="user-plus" size={20} />
-        </span>
-        <span>{t("addFriend")}</span>
-      </button>
       {hasHidden && (
         <button type="button" className="sb-add-row secondary sb-hidden-folder" onClick={() => setShowHidden(true)}>
           <span className="sb-add-row-ico">

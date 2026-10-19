@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use identity_domain::refresh_token::id::RefreshTokenId;
 use domain::user::id::UserId;
+use domain::user::role::UserRole;
 
 #[derive(Debug)]
 pub struct IssuedTokens {
@@ -35,6 +36,7 @@ pub trait TokenIssuer: Send + Sync {
         &self,
         user_id: &UserId,
         verified: bool,
+        role: UserRole,
     ) -> Result<IssuedTokens, TokenIssuerError>;
     fn decode_refresh(&self, token: &str) -> Result<DecodedRefreshToken, TokenIssuerError>;
 }

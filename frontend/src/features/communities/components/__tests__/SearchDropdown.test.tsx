@@ -13,7 +13,7 @@ import { queryClient } from "../../../../shared/query/queryClient";
 import { searchHistoryAPI } from "../../../search/api/searchHistory";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { useBlockStore } from "../../../social/store/blockStore";
-import { useBadgeStore } from "../../../subscription/store/badgeStore";
+import { useEmojiStatusStore } from "../../../social/store/emojiStatusStore";
 import {
   clearStoredHistory,
   resetSearchHistorySession,
@@ -532,7 +532,7 @@ it("drops a person from the people results as soon as either side blocks", async
   await act(async () => {});
 });
 
-it("keeps a highlighted nickname in one piece next to the badge", async () => {
+it("keeps a highlighted nickname in one piece next to the status", async () => {
   (peopleAPI.search as jest.Mock).mockResolvedValue([
     { id: "p10", name: "Alexey", relation: "none", acceptsFriendRequests: true },
   ]);
@@ -555,12 +555,12 @@ it("never shows a cached invite community once the link stopped working", async 
   expect(screen.queryByText("Stale Club")).toBeNull();
 });
 
-it("shows the plan badge next to chats and recent people", async () => {
+it("shows the sticker status next to chats and recent people", async () => {
   signIn();
-  useBadgeStore.setState({
+  useEmojiStatusStore.setState({
     byUser: {
-      u1: { tier: "premium", badgeStyle: "tint", memberNumber: null },
-      u2: { tier: "pro", badgeStyle: "tint", memberNumber: null },
+      u1: { stickerId: "st-1", until: null },
+      u2: { stickerId: "st-2", until: null },
     },
   });
   (searchHistoryAPI.list as jest.Mock).mockResolvedValue([
@@ -569,8 +569,8 @@ it("shows the plan badge next to chats and recent people", async () => {
   const { input } = setup();
   fireEvent.focus(input);
   const recentRow = (await screen.findByText("Pro Pal")).closest(".search-dd-item") as HTMLElement;
-  expect(recentRow.querySelector(".pro-badge")).not.toBeNull();
+  expect(recentRow.querySelector(".emoji-status")).not.toBeNull();
   fireEvent.change(input, { target: { value: "al" } });
   const chatRow = screen.getByLabelText(i18n.t("sidebar:searchChats")).querySelector(".search-dd-item") as HTMLElement;
-  expect(chatRow.querySelector(".pro-badge")).not.toBeNull();
+  expect(chatRow.querySelector(".emoji-status")).not.toBeNull();
 });

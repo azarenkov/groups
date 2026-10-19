@@ -1,5 +1,4 @@
 import React from "react";
-import { useActivityStore } from "../../social/store/activityStore";
 import { useCallStore } from "../../voice/store/callStore";
 
 import i18n from "../../../i18n";
@@ -9,7 +8,7 @@ import Icon from "../../../shared/ui/Icon";
 import { openReport } from "../../moderation/store/reportModalStore";
 import type { ChannelMeta, DmMeta } from "../types";
 import { useDetailsPanelStore } from "../store/detailsPanelStore";
-import UserBadge from "../../subscription/components/UserBadge";
+import UserEmojiStatus from "../../social/components/UserEmojiStatus";
 import { useHiddenDmStore } from "../../dm/store/hiddenDmStore";
 import { useClearDmDialog } from "../../dm/components/ClearDmDialog";
 
@@ -40,7 +39,6 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     if (!dm?.friendId) return;
     useCallStore.getState().callFriend(dm.friendId, video);
   };
-  const dmActivity = useActivityStore((s) => (dm ? s.byUser[dm.friendId] : undefined));
   const [moreOpen, setMoreOpen] = React.useState(false);
   const dmHidden = useHiddenDmStore((s) => (dm ? s.hidden.includes(dm.friendId) : false));
   const detailsOpen = useDetailsPanelStore((s) => s.open);
@@ -103,16 +101,12 @@ export const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             }}
           />
           <span className="ch-name">{dm.name}</span>
-          <UserBadge userId={dm.friendId} size="sm" />
+          <UserEmojiStatus userId={dm.friendId} size="sm" />
           <Icon name="chev" size={10} className="dm-peer-chev" />
         </button>
         <span className="sep" />
         <span className="topic">
-          {dm.online && dmActivity
-            ? i18n.t("playing", { ns: "chat", game: dmActivity.name })
-            : dm.online
-              ? i18n.t("activeNow", { ns: "chat" })
-              : i18n.t("offline", { ns: "chat" })}
+          {dm.online ? i18n.t("activeNow", { ns: "chat" }) : i18n.t("offline", { ns: "chat" })}
         </span>
         <div className="right">
           <div className="header-call-group">

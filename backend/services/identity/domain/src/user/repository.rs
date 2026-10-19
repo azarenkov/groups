@@ -3,8 +3,6 @@ use crate::user::settings::{
     appearance::AppearanceSettings, hotkeys::HotkeyBindings,
     notification::NotificationSettings, voice::VoiceSettings,
 };
-use chrono::{DateTime, Utc};
-
 use crate::{user::User, user::email::Email, user::id::UserId, user::name::UserName};
 use domain::password_hash::PasswordHash;
 use ports::repository::RepositoryError;
@@ -29,32 +27,6 @@ pub trait UserRepository {
     ) -> Result<PasswordHash, RepositoryError>;
     async fn get_username_by_id(&self, user_id: &UserId) -> Result<UserName, RepositoryError>;
     async fn get_user_id_by_email(&self, email: &Email) -> Result<UserId, RepositoryError>;
-    async fn list_oauth_connections(
-        &self,
-        user_id: &UserId,
-    ) -> Result<Vec<(String, String, Option<String>)>, RepositoryError>;
-    async fn link_connection(
-        &self,
-        provider: &str,
-        subject: &str,
-        user_id: &UserId,
-        display_name: &str,
-    ) -> Result<bool, RepositoryError>;
-    async fn unlink_connection(
-        &self,
-        user_id: &UserId,
-        provider: &str,
-    ) -> Result<bool, RepositoryError>;
-    async fn create_connection_state(
-        &self,
-        state: uuid::Uuid,
-        user_id: &UserId,
-        provider: &str,
-    ) -> Result<(), RepositoryError>;
-    async fn consume_connection_state(
-        &self,
-        state: uuid::Uuid,
-    ) -> Result<Option<(UserId, String, DateTime<Utc>)>, RepositoryError>;
     async fn get_appearance(
         &self,
         user_id: &UserId,
@@ -68,7 +40,6 @@ pub trait UserRepository {
         user_id: &UserId,
     ) -> Result<Option<NotificationSettings>, RepositoryError>;
     async fn appear_offline_among(&self, user_ids: &[UserId]) -> Result<Vec<UserId>, RepositoryError>;
-    async fn activity_hidden_among(&self, user_ids: &[UserId]) -> Result<Vec<UserId>, RepositoryError>;
     async fn get_hotkey_settings(
         &self,
         user_id: &UserId,

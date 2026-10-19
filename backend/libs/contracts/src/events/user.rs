@@ -30,43 +30,15 @@ pub struct UserProfileChangedV1 {
     pub bio: String,
     pub show_activity: bool,
     #[serde(default = "default_true")]
-    pub show_game_activity: bool,
-    #[serde(default = "default_true")]
     pub active: bool,
     #[serde(default)]
     pub timezone: String,
-    #[serde(default)]
-    pub badge_style: String,
     #[serde(default)]
     pub emoji_status_sticker_id: Option<Uuid>,
     #[serde(default)]
     pub emoji_status_until: Option<DateTime<Utc>>,
     #[serde(default)]
     pub emoji_status_included: bool,
-    pub occurred_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UserEntitlementsChangedV1 {
-    pub user_id: Uuid,
-    pub tier: String,
-    pub valid_until: Option<DateTime<Utc>>,
-    #[serde(default)]
-    pub member_number: Option<i64>,
-    #[serde(default)]
-    pub trial: bool,
-    pub occurred_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UserTrialEndingV1 {
-    pub user_id: Uuid,
-    pub email: String,
-    #[serde(default)]
-    pub locale: Option<String>,
-    pub ends_at: DateTime<Utc>,
     pub occurred_at: DateTime<Utc>,
 }
 
@@ -78,18 +50,6 @@ fn default_true() -> bool {
 pub struct UserPresencePreferenceChangedV1 {
     pub user_id: Uuid,
     pub appear_offline: bool,
-    pub occurred_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserActivityChangedV1 {
-    pub user_id: Uuid,
-    #[serde(default)]
-    pub game_id: Option<String>,
-    #[serde(default)]
-    pub name: Option<String>,
-    #[serde(default)]
-    pub started_at: Option<DateTime<Utc>>,
     pub occurred_at: DateTime<Utc>,
 }
 
@@ -116,17 +76,4 @@ pub struct NotificationPreferenceUpdatedV1 {
     pub version: Option<i64>,
     #[serde(default)]
     pub recipients: Vec<Uuid>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StreamLimitedV1 {
-    pub user_id: Uuid,
-    pub room_id: Uuid,
-    #[serde(default)]
-    pub track_sid: String,
-    pub width: u32,
-    pub height: u32,
-    pub frame_rate: u32,
-    pub max_bitrate: u64,
-    pub occurred_at: DateTime<Utc>,
 }

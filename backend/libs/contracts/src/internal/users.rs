@@ -16,18 +16,6 @@ pub struct ResolvedUserV1 {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ActivityAudienceRequestV1 {
-    pub ids: Vec<Uuid>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ActivityAudienceResponseV1 {
-    pub ids: Vec<Uuid>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DmPeersRequestV1 {
     pub ids: Vec<Uuid>,
 }
@@ -36,15 +24,4 @@ pub struct DmPeersRequestV1 {
 #[serde(rename_all = "camelCase")]
 pub struct DmPeersResponseV1 {
     pub ids: Vec<Uuid>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TrialStateV1 {
-    pub on_trial: bool,
-    pub valid_until: Option<chrono::DateTime<chrono::Utc>>,
-    #[serde(default)]
-    pub email: Option<String>,
-    #[serde(default)]
-    pub locale: Option<String>,
 }

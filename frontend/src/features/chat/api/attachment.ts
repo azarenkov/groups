@@ -4,12 +4,11 @@ import type { Attachment } from "../../../shared/types/channel";
 
 import {
   ATTACHMENTS_PER_MESSAGE,
-  MAX_ATTACHMENT_BYTES_BY_TIER,
-  VOICE_MESSAGE_MAX_MS_BY_TIER,
-  VIDEO_NOTE_SIZE_BY_TIER,
-} from "../../subscription/lib/plans";
+  MAX_ATTACHMENT_BYTES,
+  VIDEO_NOTE_SIZE,
+  VOICE_MESSAGE_MAX_MS,
+} from "../../../shared/config/limits";
 import { voiceBaseType, voiceFileName } from "../lib/voice";
-import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
 
 const SLOWEST_UPLOAD_BYTES_PER_MS = 128;
 const SLOWEST_DOWNLOAD_BYTES_PER_MS = 128;
@@ -17,16 +16,13 @@ const SLOWEST_DOWNLOAD_BYTES_PER_MS = 128;
 export const transferTimeoutMs = (sizeBytes: number, bytesPerMs: number) =>
   UPLOAD_TIMEOUT_MS + Math.ceil(Math.max(0, sizeBytes) / bytesPerMs);
 
-export const maxAttachmentBytes = () =>
-  MAX_ATTACHMENT_BYTES_BY_TIER[useEntitlementsStore.getState().tier];
+export const maxAttachmentBytes = () => MAX_ATTACHMENT_BYTES;
 
-export const maxVoiceMessageMs = () =>
-  VOICE_MESSAGE_MAX_MS_BY_TIER[useEntitlementsStore.getState().tier];
+export const maxVoiceMessageMs = () => VOICE_MESSAGE_MAX_MS;
 
-export const videoNoteSize = () => VIDEO_NOTE_SIZE_BY_TIER[useEntitlementsStore.getState().tier];
+export const videoNoteSize = () => VIDEO_NOTE_SIZE;
 
-export const maxAttachmentsPerMessage = () =>
-  ATTACHMENTS_PER_MESSAGE[useEntitlementsStore.getState().tier];
+export const maxAttachmentsPerMessage = () => ATTACHMENTS_PER_MESSAGE;
 
 class AttachmentAPI {
   private client = http;

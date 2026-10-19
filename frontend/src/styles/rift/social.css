@@ -132,6 +132,13 @@
 .profile-overlay { z-index: 1100; background: rgba(0,0,0,0.7); }
 .profile-window { position: relative; width: 560px; max-width: calc(100vw - 48px); background: var(--surface-dialog); border-radius: 8px; box-shadow: 0 16px 24px rgba(0, 0, 0, 0.3), 0 6px 8px rgba(0, 0, 0, 0.2); overflow: visible; animation: rift-modal-in 220ms cubic-bezier(0.32,0.72,0,1); }
 .profile-band { position: absolute; top: 0; left: 0; right: 0; height: min(400px, 100%); border-radius: 8px 8px 0 0; overflow: hidden; }
+.profile-banner-image {
+  height: auto;
+  aspect-ratio: 3 / 1;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
 .profile-band.profile-banner-image { height: 190px; aspect-ratio: auto; }
 .profile-band.profile-banner-image::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, color-mix(in srgb, var(--surface-dialog) 70%, transparent) 100%); pointer-events: none; }
 .profile-close { position: absolute; z-index: 2; top: 12px; right: 12px; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.4); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background var(--dur-fast); }
@@ -143,6 +150,15 @@
 .profile-presence { position: absolute; right: 6px; bottom: 6px; width: 22px; height: 22px; border-radius: 50%; border: 4px solid var(--surface-dialog); background: var(--fg-4); }
 .profile-presence.online { background: var(--voice-live); }
 .profile-voice-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--success-tint); color: var(--voice-live); font-size: 12px; font-weight: 500; margin-bottom: 6px; }
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.emoji-status { display: inline-flex; align-items: center; flex-shrink: 0; margin-left: 4px; line-height: 0; }
+.emoji-status .sticker-img { display: inline-flex; }
+.emoji-status .sticker-img img { width: 100%; height: 100%; object-fit: contain; }
 .profile-name { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; color: var(--fg-1); }
 .profile-handle { font-size: 14px; color: var(--fg-3); margin-top: 4px; }
 .profile-actions { position: relative; display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; margin-top: 20px; }
@@ -190,5 +206,3 @@
 .user-suggest-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-suggest-profile { border: 1px solid var(--hairline-strong); background: var(--surface-panel); color: var(--fg-2); height: 24px; padding: 0 9px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: 11px; font-weight: 500; cursor: pointer; flex-shrink: 0; transition: background var(--dur-fast), color var(--dur-fast); }
 .user-suggest-profile:hover { background: var(--surface-hover); color: var(--fg-1); }
-.profile-chip.profile-conn { gap: 7px; }
-.profile-chip.profile-conn svg { flex-shrink: 0; }

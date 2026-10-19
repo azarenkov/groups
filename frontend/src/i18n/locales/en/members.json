@@ -1,6 +1,5 @@
 {
   "title": "Channel members",
-  "playing": "Playing {{game}}",
   "online": "Online — {{count}}",
   "offline": "Offline — {{count}}",
   "noMembers": "No members yet.",

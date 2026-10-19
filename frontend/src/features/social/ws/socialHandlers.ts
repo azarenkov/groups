@@ -1,14 +1,6 @@
 import type { WsHandlers } from "../../../shared/ws/types";
-import i18n from "../../../i18n";
-import { showDesktopNotification } from "../../../shared/lib/desktopNotification";
-import { desktopNotifAllowed } from "../../settings/store/notificationSettingsStore";
-import { formatPlanDate } from "../../subscription/components/PlanUntil";
-import { bustAvatar } from "../../../shared/lib/avatarCache";
-import { parseBadgeStyle, parseMemberNumber, parseTier, parseValidUntil } from "../../subscription/lib/plans";
-import { parseEmojiStatus } from "../../subscription/lib/emojiStatus";
-import { useBadgeStore } from "../../subscription/store/badgeStore";
-import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
-import { loadActivitiesFor, loadFriendActivities, useActivityStore } from "../store/activityStore";
+import { parseEmojiStatus } from "../lib/emojiStatus";
+import { useEmojiStatusStore } from "../store/emojiStatusStore";
 import { useAuthStore } from "../../auth/store/authStore";
 import { isBlockedEitherWay, resyncPresence, useBlockStore } from "../store/blockStore";
 import { useCallStore } from "../../voice/store/callStore";
@@ -23,21 +15,9 @@ import { useVoicePresenceStore } from "../../voice/store/voicePresenceStore";
 import { renameMentionTarget } from "../../chat/lib/mentionTargets";
 import { asString } from "../../../shared/ws/context";
 
-const TIER_PROJECTION_SETTLE_MS = [5000, 15000, 45000, 120000];
-
-const bustAvatarAfterTierChange = (userId: string) => {
-  bustAvatar("user", userId);
-  for (const delay of TIER_PROJECTION_SETTLE_MS) {
-    setTimeout(() => bustAvatar("user", userId), delay);
-  }
-};
-
 export const socialHandlers: WsHandlers = {
   "friendship.requestSent": () => {
-      void useFriendshipStore
-        .getState()
-        .fetchFriends()
-        .then(() => loadFriendActivities());
+      void useFriendshipStore.getState().fetchFriends();
       return;
   },
   "friendship.requestAccepted": (d) => {
@@ -46,10 +26,7 @@ export const socialHandlers: WsHandlers = {
       const senderId = asString(d.senderId);
       const peer = accepterId === selfId ? senderId : accepterId;
       if (peer && peer !== selfId) resyncPresence([peer]);
-      void useFriendshipStore
-        .getState()
-        .fetchFriends()
-        .then(() => loadFriendActivities());
+      void useFriendshipStore.getState().fetchFriends();
       return;
   },
   "user.blocked": (d, env) => {
@@ -82,18 +59,13 @@ export const socialHandlers: WsHandlers = {
           (!!calls.participants[peer] || calls.ringing.includes(peer) || calls.peerId === peer);
         if (blockerId === selfId && sharesCall) void calls.leave().catch(() => {});
       }
-      useActivityStore.getState().apply(peer, null);
       if (env.type === "user.unblocked") {
-        void loadActivitiesFor([peer]);
         void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
           refetchUnread().catch(() => {}),
         );
       }
       scheduleHomeRefresh();
-      void useFriendshipStore
-        .getState()
-        .fetchFriends()
-        .then(() => loadFriendActivities());
+      void useFriendshipStore.getState().fetchFriends();
       refetchDmPreviews();
       return;
   },
@@ -127,111 +99,36 @@ export const socialHandlers: WsHandlers = {
           (!!calls.participants[peer] || calls.ringing.includes(peer) || calls.peerId === peer);
         if (blockerId === selfId && sharesCall) void calls.leave().catch(() => {});
       }
-      useActivityStore.getState().apply(peer, null);
       if (env.type === "user.unblocked") {
-        void loadActivitiesFor([peer]);
         void import("../../chat/store/unreadStore").then(({ refetchUnread }) =>
           refetchUnread().catch(() => {}),
         );
       }
       scheduleHomeRefresh();
-      void useFriendshipStore
-        .getState()
-        .fetchFriends()
-        .then(() => loadFriendActivities());
+      void useFriendshipStore.getState().fetchFriends();
       refetchDmPreviews();
       return;
   },
-  "friendship.removed": (d) => {
-      const removedSelf = useAuthStore.getState().user?.id;
-      const removedA = asString(d.userId);
-      const removedB = asString(d.otherId);
-      const peer = removedA === removedSelf ? removedB : removedA;
-      if (peer) {
-        useActivityStore.getState().apply(peer, null);
-        void loadActivitiesFor([peer]);
-      }
-      void useFriendshipStore
-        .getState()
-        .fetchFriends()
-        .then(() => loadFriendActivities());
+  "friendship.removed": () => {
+      void useFriendshipStore.getState().fetchFriends();
       refetchDmPreviews();
       return;
-  },
-  "user.entitlementsChanged": (d) => {
-      const userId = asString(d.userId);
-      if (!userId) return;
-      const tier = parseTier(d.tier);
-      const memberNumber = parseMemberNumber(d.memberNumber);
-      if (useAuthStore.getState().user?.id === userId) {
-        useEntitlementsStore.getState().applyTier(tier, memberNumber, {
-          validUntil: parseValidUntil(d.validUntil),
-          trial: d.trial === true,
-        });
-        if (tier === "free") {
-          bustAvatar("banner", userId);
-        }
-        bustAvatarAfterTierChange(userId);
-        return;
-      }
-      useBadgeStore.getState().applyTier(userId, tier, memberNumber);
-      useBadgeStore.getState().revalidateLater(userId);
-      bustAvatar("banner", userId);
-      bustAvatarAfterTierChange(userId);
-  },
-  "user.trialEnding": (d) => {
-      const userId = asString(d.userId);
-      const endsAt = parseValidUntil(d.endsAt);
-      if (!userId || !endsAt || useAuthStore.getState().user?.id !== userId) return;
-      if (Date.parse(endsAt) <= Date.now()) return;
-      void useEntitlementsStore
-        .getState()
-        .fetch()
-        .then((fresh) => {
-          const { trial, validUntil } = useEntitlementsStore.getState();
-          if (!fresh || !trial || validUntil !== endsAt || !desktopNotifAllowed()) return;
-          const date = formatPlanDate(endsAt, i18n.language);
-          showDesktopNotification(
-            i18n.t("trial.endingSoonDesktopTitle", { ns: "subscription" }),
-            i18n.t("trial.endingSoonDesktopBody", { ns: "subscription", date }),
-          );
-        });
   },
   "user.profileChanged": (d) => {
       const userId = asString(d.userId);
       if (!userId) return;
       const version = profileVersion(asString(d.occurredAt));
       if ("emojiStatus" in d) {
-        const emojiStatus = parseEmojiStatus(d.emojiStatus);
-        if (useAuthStore.getState().user?.id === userId) {
-          useEntitlementsStore.getState().applyEmojiStatus(emojiStatus, version);
-        } else {
-          useBadgeStore.getState().applyEmojiStatus(userId, emojiStatus, version);
-        }
+        useEmojiStatusStore.getState().apply(userId, parseEmojiStatus(d.emojiStatus), version);
       }
       const cached = useUserProfileStore.getState().bios[userId];
       if (cached && cached.at > version) return;
-      if (typeof d.badgeStyle === "string") {
-        const badgeStyle = parseBadgeStyle(d.badgeStyle);
-        if (useAuthStore.getState().user?.id === userId) {
-          useEntitlementsStore.getState().applyBadgeStyle(badgeStyle);
-        } else {
-          useBadgeStore.getState().applyStyle(userId, badgeStyle);
-          useBadgeStore.getState().revalidateLater(userId);
-        }
-      }
       const bio = asString(d.bio) ?? "";
       const showActivity = d.showActivity === true;
-      const showGameActivity = d.showGameActivity !== false;
       useUserProfileStore.getState().apply(userId, bio, version);
       const auth = useAuthStore.getState();
-      if (!showGameActivity && auth.user?.id !== userId) {
-        useActivityStore
-          .getState()
-          .applyEvent(userId, null, asString(d.occurredAt) ?? null);
-      }
       if (auth.user?.id === userId) {
-        auth.setUser({ ...auth.user, bio, showActivity, showGameActivity });
+        auth.setUser({ ...auth.user, bio, showActivity });
       } else if (!showActivity) {
         useHomeStore.getState().hideFriendActivity(userId, version);
         scheduleHomeRefresh();
@@ -260,43 +157,18 @@ export const socialHandlers: WsHandlers = {
       if (me && me.id === userId) {
         void useAuthStore.getState().fetchMe();
       } else {
-        void useFriendshipStore
-        .getState()
-        .fetchFriends()
-        .then(() => loadFriendActivities());
+        void useFriendshipStore.getState().fetchFriends();
       }
       return;
   },
   "user.online": (d) => {
       const userId = asString(d.userId);
-      if (userId && !isBlockedEitherWay(userId)) {
-        usePresenceStore.getState().setOnline(userId);
-        void loadActivitiesFor([userId]);
-      }
+      if (userId && !isBlockedEitherWay(userId)) usePresenceStore.getState().setOnline(userId);
       return;
   },
   "user.offline": (d) => {
       const userId = asString(d.userId);
-      if (userId) {
-        usePresenceStore.getState().setOffline(userId);
-        useActivityStore.getState().apply(userId, null);
-      }
-      return;
-  },
-  "user.activityChanged": (d) => {
-      const userId = asString(d.userId);
-      if (!userId) return;
-      const gameId = asString(d.gameId);
-      const name = asString(d.name);
-      const startedAt = asString(d.startedAt);
-      const occurredAt = asString(d.occurredAt) ?? null;
-      useActivityStore
-        .getState()
-        .applyEvent(
-          userId,
-          gameId && name && startedAt ? { gameId, name, startedAt } : null,
-          occurredAt,
-        );
+      if (userId) usePresenceStore.getState().setOffline(userId);
       return;
   },
 };

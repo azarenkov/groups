@@ -1,12 +1,10 @@
 import React from "react";
 import i18n from "../../../../i18n";
-import { useEntitlementsStore } from "../../../subscription/store/entitlementsStore";
-import UserBadge from "../../../subscription/components/UserBadge";
+import UserEmojiStatus from "../../../social/components/UserEmojiStatus";
 import { useImageCrop } from "../../../../shared/hooks/useImageCrop";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
 import VideoAvatarModal from "../../../../shared/ui/VideoAvatarModal";
-import { whilePlanSyncs } from "../../../subscription/lib/planSync";
 import { useAuthStore } from "../../../auth/store/authStore";
 import { userAPI } from "../../../social/api/user";
 import { ApiError } from "../../../../shared/lib/apiError";
@@ -29,7 +27,6 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
   const [bioError, setBioError] = React.useState<string | null>(null);
   const [bioEditing, setBioEditing] = React.useState(false);
   const [activityBusy, setActivityBusy] = React.useState(false);
-  const [gameActivityBusy, setGameActivityBusy] = React.useState(false);
   const bioBaseline = React.useRef(user?.bio ?? "");
   React.useEffect(() => {
     const remote = user?.bio ?? "";
@@ -41,7 +38,7 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
   }, [user?.bio]);
   const bioDirty = bio.trim() !== (user?.bio ?? "");
   const profileQueue = React.useRef<Promise<void>>(Promise.resolve());
-  const runProfileUpdate = (patch: { bio?: string; showActivity?: boolean; showGameActivity?: boolean }) => {
+  const runProfileUpdate = (patch: { bio?: string; showActivity?: boolean }) => {
     const initiator = useAuthStore.getState().user?.id;
     const next = profileQueue.current.then(async () => {
       if (!initiator || useAuthStore.getState().user?.id !== initiator) return;
@@ -52,7 +49,7 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
       const cached = useUserProfileStore.getState().bios[current.id];
       if (cached && cached.at > version) return;
       useUserProfileStore.getState().apply(current.id, saved.bio, version);
-      useAuthStore.getState().setUser({ ...current, bio: saved.bio, showActivity: saved.showActivity, showGameActivity: saved.showGameActivity });
+      useAuthStore.getState().setUser({ ...current, bio: saved.bio, showActivity: saved.showActivity });
     });
     profileQueue.current = next.catch(() => {});
     return next;
@@ -88,18 +85,6 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
       console.warn("[account] activity toggle failed:", err);
     } finally {
       setActivityBusy(false);
-    }
-  };
-  const toggleGameActivity = async () => {
-    if (!user || gameActivityBusy) return;
-    const next = !(user.showGameActivity ?? true);
-    setGameActivityBusy(true);
-    try {
-      await runProfileUpdate({ showGameActivity: next });
-    } catch (err) {
-      console.warn("[account] game activity toggle failed:", err);
-    } finally {
-      setGameActivityBusy(false);
     }
   };
   const passwordHint = user?.passwordChangedAt
@@ -205,7 +190,6 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
 
   const pickFile = () => fileRef.current?.click();
   const { requestCrop, cropModal } = useImageCrop();
-  const paid = useEntitlementsStore((state) => state.tier !== "free");
   const [videoFile, setVideoFile] = React.useState<File | null>(null);
 
   const handleFile = async (file: File) => {
@@ -213,14 +197,12 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
     setBusy(true);
     setError(null);
     try {
-      await whilePlanSyncs(() => userAPI.uploadAvatar(file));
+      await userAPI.uploadAvatar(file);
       bustAvatar("user", user.id);
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
       if (apiErr?.code === "IMAGE_CONTENT_REJECTED") {
         setError(t("account.avatarRejected"));
-      } else if (apiErr?.code === "PRO_REQUIRED") {
-        setError(i18n.t("needs.pro", { ns: "subscription" }));
       } else {
         setError(apiErr?.message || t("account.avatarError"));
       }
@@ -253,17 +235,13 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
         <input
           ref={fileRef}
           type="file"
-          accept={
-            paid
-              ? "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
-              : "image/png,image/jpeg,image/webp"
-          }
+          accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
             e.target.value = "";
             if (!f) return;
-            if (paid && (f.type.startsWith("video/") || /\.(mp4|m4v|mov|webm)$/i.test(f.name))) {
+            if (f.type.startsWith("video/") || /\.(mp4|m4v|mov|webm)$/i.test(f.name)) {
               setVideoFile(f);
               return;
             }
@@ -309,7 +287,7 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
         <div className="pc-info">
           <div className="pc-name">
             <span className="pc-name-text">{user?.name ?? t("account.username")}</span>
-            <UserBadge userId={user?.id} size="sm" />
+            <UserEmojiStatus userId={user?.id} size="sm" />
           </div>
           <div className="pc-handle">{user?.email ?? ""}</div>
         </div>
@@ -456,9 +434,6 @@ export function AccountSection({ onAccountGone }: { onAccountGone: () => void })
         )}
         <SettingsRow label={t("account.showActivity")} hint={t("account.showActivityHint")}>
           <Switch on={user?.showActivity ?? true} onClick={() => void toggleActivity()} />
-        </SettingsRow>
-        <SettingsRow label={t("account.showGameActivity")} hint={t("account.showGameActivityHint")}>
-          <Switch on={user?.showGameActivity ?? true} onClick={() => void toggleGameActivity()} />
         </SettingsRow>
       </div>
 

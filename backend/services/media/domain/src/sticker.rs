@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use domain::{plan::Tier, user::id::UserId};
+use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use uuid::Uuid;
 
@@ -198,13 +198,7 @@ pub fn valid_sticker_emoji(emoji: &str) -> bool {
         && trimmed.chars().all(|c| is_pictograph(c) || is_emoji_joiner(c))
 }
 
-pub fn max_owned_packs(tier: Tier) -> i64 {
-    match tier {
-        Tier::Premium => 50,
-        Tier::Pro => 10,
-        Tier::Free => 2,
-    }
-}
+pub const MAX_OWNED_PACKS: i64 = 50;
 
 pub fn escape_like(query: &str) -> String {
     let mut out = String::with_capacity(query.len());
@@ -267,13 +261,6 @@ mod tests {
         for name in ["Котики", "test", "✨✨✨", "a b c d e f g h i j k l m n o p q r s t u v w x y z"] {
             assert!(valid_pack_slug(&slug_from_name(name)), "{name}");
         }
-    }
-
-    #[test]
-    fn plan_decides_how_many_packs_one_can_own() {
-        assert_eq!(max_owned_packs(Tier::Free), 2);
-        assert_eq!(max_owned_packs(Tier::Pro), 10);
-        assert_eq!(max_owned_packs(Tier::Premium), 50);
     }
 
     #[test]

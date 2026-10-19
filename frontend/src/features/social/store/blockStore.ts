@@ -129,7 +129,6 @@ const reconcileAfterHydration = (blockedIds: string[], blockedByIds: string[]) =
 };
 
 const recoverStatus = (userId: string) => {
-  void import("./activityStore").then((m) => m.loadActivitiesFor([userId]));
   void import("../../dm/store/dmPreviewStore").then((m) => m.refetchDmPreviews(true));
   void import("../../chat/store/unreadStore").then((m) => m.refetchUnread().catch(() => {}));
   resyncPresence([userId]);
@@ -145,7 +144,6 @@ const forgetStatus = (userId: string) => {
     }
   });
   void import("../../dm/store/dmPreviewStore").then((m) => m.refetchDmPreviews());
-  void import("./activityStore").then((m) => m.useActivityStore.getState().apply(userId, null));
   void import("../../chat/store/unreadStore").then((m) => {
     m.useUnreadStore.getState().resetDm(userId);
     void m.refetchUnread().catch(() => {});
@@ -192,7 +190,6 @@ export const useBlockStore = create<BlockState>()((set, get) => ({
         }
         if (firstLoad) reconcileAfterHydration(Object.keys(blocked), Object.keys(get().blockedBy));
         if (removed.length > 0) {
-          void import("./activityStore").then((m) => m.loadActivitiesFor(removed));
           void import("../../dm/store/dmPreviewStore").then((m) => m.refetchDmPreviews(true));
           void import("../../chat/store/unreadStore").then((m) => m.refetchUnread().catch(() => {}));
           resyncPresence(removed);

@@ -24,13 +24,6 @@ contextBridge.exposeInMainWorld('electron', {
   pickScreenShareSource: (requestId, sourceId) =>
     ipcRenderer.send('screen-share:picked', { requestId, sourceId }),
 
-  getGameActivity: () => ipcRenderer.invoke('activity:get'),
-  onGameActivity: (callback) => {
-    const handler = (_event, activity) => callback(activity ?? null);
-    ipcRenderer.on('activity:changed', handler);
-    return () => ipcRenderer.removeListener('activity:changed', handler);
-  },
-
   onDeepLink: (callback) => {
     const handler = (_event, url) => {
       if (typeof url !== 'string') return;

@@ -1,3 +1,4 @@
+use domain::user::role::UserRole;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
@@ -7,7 +8,7 @@ use identity_domain::{
     events::IdentityEvent,
     refresh_token::{RefreshToken, id::RefreshTokenId},
     unit_of_work::{IdentityTransaction, IdentityUnitOfWork},
-    user::{User, access_revocation::AccessRevocation, repository::UserRepository, tier::{Entitlements, TrialHistory}},
+    user::{User, access_revocation::AccessRevocation, repository::UserRepository},
     user::settings::{appearance::AppearanceSettings, hotkeys::HotkeyBindings, notification::NotificationSettings, voice::VoiceSettings},
     verification::{channel::VerificationChannel, code::VerificationCode, code_hash::CodeHash, id::VerificationCodeId, purpose::VerificationPurpose, throttle::IssuedCodes},
 };
@@ -59,11 +60,10 @@ fn copy_user(user: &User) -> User {
         user.disabled_at(),
         user.deleted_at(),
         user.bio().to_string(),
-        user.badge_style(),
         user.show_activity(),
-        user.show_game_activity(),
         user.timezone().to_string(),
         user.emoji_status(),
+        user.role(),
     )
 }
 
@@ -94,6 +94,7 @@ impl Fake {
             None,
             None,
             Locale::default(),
+            UserRole::Teacher,
         );
         user.verify_email(Utc::now());
         user.pull_events();
@@ -152,7 +153,6 @@ impl IdentityTransaction for Fake {
         state.log.push("record");
         Ok(())
     }
-    async fn next_activity_version(&mut self) -> Result<i64, RepositoryError> { unimplemented!() }
     async fn load_pending_access_revocations(&mut self, limit: i64) -> Result<Vec<AccessRevocation>, RepositoryError> {
         Ok(self.0.lock().unwrap().pending_revocations.iter().take(limit as usize).cloned().collect())
     }
@@ -232,7 +232,6 @@ impl IdentityTransaction for Fake {
     }
 
     async fn load_stale_unverified_users_for_update(&mut self, _: DateTime<Utc>, _: i64) -> Result<Vec<User>, RepositoryError> { unimplemented!() }
-    async fn delete_oauth_identities(&mut self, _: &UserId) -> Result<(), RepositoryError> { unimplemented!() }
     async fn load_refresh_token_for_update(&mut self, _: &RefreshTokenId) -> Result<Option<RefreshToken>, RepositoryError> { unimplemented!() }
     async fn insert_user(&mut self, _: &User) -> Result<(), RepositoryError> { unimplemented!() }
     async fn insert_refresh_token(&mut self, _: &RefreshToken) -> Result<(), RepositoryError> {
@@ -241,13 +240,6 @@ impl IdentityTransaction for Fake {
     }
     async fn save_refresh_token(&mut self, _: &RefreshToken) -> Result<(), RepositoryError> { unimplemented!() }
     async fn lock_user(&mut self, _: &UserId) -> Result<bool, RepositoryError> { unimplemented!() }
-    async fn load_entitlements(&mut self, _: &UserId) -> Result<Entitlements, RepositoryError> { unimplemented!() }
-    async fn save_entitlements(&mut self, _: &UserId, _: &str, _: Option<DateTime<Utc>>, _: &str) -> Result<Option<i64>, RepositoryError> { unimplemented!() }
-    async fn trial_history(&mut self, _: &Email, _: Option<&str>, _: DateTime<Utc>) -> Result<TrialHistory, RepositoryError> { unimplemented!() }
-    async fn start_trial(&mut self, _: &UserId, _: &Email, _: Option<&str>, _: DateTime<Utc>, _: DateTime<Utc>) -> Result<(), RepositoryError> { unimplemented!() }
-    async fn load_trials_ending_for_update(&mut self, _: DateTime<Utc>, _: i64) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
-    async fn mark_trial_reminded(&mut self, _: &UserId, _: DateTime<Utc>) -> Result<(), RepositoryError> { unimplemented!() }
-    async fn expired_entitlement_users(&mut self, _: DateTime<Utc>, _: i64) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
     async fn load_appearance_for_update(&mut self, _: &UserId) -> Result<Option<AppearanceSettings>, RepositoryError> { unimplemented!() }
     async fn save_appearance(&mut self, _: &UserId, _: &AppearanceSettings) -> Result<(), RepositoryError> { unimplemented!() }
     async fn load_voice_settings_for_update(&mut self, _: &UserId) -> Result<Option<VoiceSettings>, RepositoryError> { unimplemented!() }
@@ -263,7 +255,6 @@ impl IdentityTransaction for Fake {
 #[async_trait]
 impl UserRepository for Fake {
     async fn appear_offline_among(&self, _: &[UserId]) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
-    async fn activity_hidden_among(&self, _: &[UserId]) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, RepositoryError> {
         Ok(self.0.lock().unwrap().user.as_ref().filter(|u| u.email().as_str() == email.as_str()).map(copy_user))
     }
@@ -279,11 +270,6 @@ impl UserRepository for Fake {
     async fn get_password_hash_by_email(&self, _: &Email) -> Result<PasswordHash, RepositoryError> { unimplemented!() }
     async fn get_username_by_id(&self, _: &UserId) -> Result<UserName, RepositoryError> { unimplemented!() }
     async fn get_user_id_by_email(&self, _: &Email) -> Result<UserId, RepositoryError> { unimplemented!() }
-    async fn list_oauth_connections(&self, _: &UserId) -> Result<Vec<(String, String, Option<String>)>, RepositoryError> { unimplemented!() }
-    async fn link_connection(&self, _: &str, _: &str, _: &UserId, _: &str) -> Result<bool, RepositoryError> { unimplemented!() }
-    async fn unlink_connection(&self, _: &UserId, _: &str) -> Result<bool, RepositoryError> { unimplemented!() }
-    async fn create_connection_state(&self, _: uuid::Uuid, _: &UserId, _: &str) -> Result<(), RepositoryError> { unimplemented!() }
-    async fn consume_connection_state(&self, _: uuid::Uuid) -> Result<Option<(UserId, String, DateTime<Utc>)>, RepositoryError> { unimplemented!() }
     async fn get_appearance(&self, _: &UserId) -> Result<Option<AppearanceSettings>, RepositoryError> { unimplemented!() }
     async fn get_voice_settings(&self, _: &UserId) -> Result<Option<VoiceSettings>, RepositoryError> { unimplemented!() }
     async fn get_notification_settings(&self, _: &UserId) -> Result<Option<NotificationSettings>, RepositoryError> { unimplemented!() }
@@ -440,7 +426,7 @@ struct FixedTokens;
 
 #[async_trait]
 impl crate::ports::token_issuer::TokenIssuer for FixedTokens {
-    async fn issue(&self, _: &UserId, _: bool) -> Result<crate::ports::token_issuer::IssuedTokens, crate::ports::token_issuer::TokenIssuerError> {
+    async fn issue(&self, _: &UserId, _: bool, _: UserRole) -> Result<crate::ports::token_issuer::IssuedTokens, crate::ports::token_issuer::TokenIssuerError> {
         Ok(crate::ports::token_issuer::IssuedTokens {
             access_token: "a".into(),
             refresh_token: "r".into(),

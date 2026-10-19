@@ -11,7 +11,6 @@ jest.mock("../../api/user", () => {
     userAPI: {
       ...actual.userAPI,
       presenceSnapshot: jest.fn(),
-      getActivities: jest.fn(),
     },
   };
 });
@@ -20,7 +19,6 @@ const snapshot = userAPI.presenceSnapshot as jest.Mock;
 
 beforeEach(() => {
   snapshot.mockReset();
-  (userAPI.getActivities as jest.Mock).mockResolvedValue({ asOf: 0, activities: [] });
   useAuthStore.setState({ user: { id: "me", name: "Me" } } as never);
   usePresenceStore.getState().clearAll();
   useFriendshipStore.setState({ fetchFriends: jest.fn(() => Promise.resolve()) } as never);

@@ -4,7 +4,7 @@ use chrono::{Duration, Utc};
 use identity_domain::unit_of_work::IdentityUnitOfWork;
 
 use crate::{
-    ports::{access_revoker::AccessRevoker, activity_store::ActivityStore},
+    ports::access_revoker::AccessRevoker,
     usecases::user::account_deletion::{
         AccountDeletionError, DeletionCleanup, apply_account_deletion, clear_deleted_user_caches,
     },
@@ -12,36 +12,31 @@ use crate::{
 
 const MAX_BATCHES_PER_RUN: usize = 20;
 
-pub struct PurgeUnverifiedAccounts<W, R, S>
+pub struct PurgeUnverifiedAccounts<W, R>
 where
     W: IdentityUnitOfWork,
     R: AccessRevoker,
-    S: ActivityStore,
 {
     unit_of_work: Arc<W>,
     access_revoker: Arc<R>,
-    activity_store: Arc<S>,
     ttl: Duration,
     batch_size: i64,
 }
 
-impl<W, R, S> PurgeUnverifiedAccounts<W, R, S>
+impl<W, R> PurgeUnverifiedAccounts<W, R>
 where
     W: IdentityUnitOfWork,
     R: AccessRevoker,
-    S: ActivityStore,
 {
     pub fn new(
         unit_of_work: Arc<W>,
         access_revoker: Arc<R>,
-        activity_store: Arc<S>,
         ttl: Duration,
         batch_size: i64,
     ) -> Self {
         Self {
             unit_of_work,
             access_revoker,
-            activity_store,
             ttl,
             batch_size,
         }
@@ -76,22 +71,8 @@ where
     }
 
     async fn clear_caches(&self, purged: &[DeletionCleanup]) {
-        for (index, cleanup) in purged.iter().enumerate() {
-            if let Err(e) = clear_deleted_user_caches(
-                &*self.unit_of_work,
-                &*self.activity_store,
-                &*self.access_revoker,
-                cleanup,
-            )
-            .await
-            {
-                tracing::warn!(
-                    error = %e,
-                    skipped = purged.len() - index,
-                    "Could not clear caches of purged accounts; skipping the rest of the batch"
-                );
-                return;
-            }
+        for cleanup in purged {
+            clear_deleted_user_caches(&*self.unit_of_work, &*self.access_revoker, cleanup).await;
         }
     }
 }

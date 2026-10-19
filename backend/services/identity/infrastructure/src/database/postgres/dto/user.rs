@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
-use domain::{password_hash::PasswordHash, user::id::UserId, user::name::UserName};
-use identity_domain::{user::User, user::email::Email, user::emoji_status::EmojiStatus, user::locale::Locale, user::tier::BadgeStyle};
+use domain::{password_hash::PasswordHash, user::id::UserId, user::name::UserName, user::role::UserRole};
+use identity_domain::{user::User, user::email::Email, user::emoji_status::EmojiStatus, user::locale::Locale};
 use sqlx::{FromRow, types::Uuid};
 
 #[derive(Debug, FromRow)]
@@ -19,12 +19,11 @@ pub struct UserDto {
     pub disabled_at: Option<DateTime<Utc>>,
     pub deleted_at: Option<DateTime<Utc>>,
     pub bio: String,
-    pub badge_style: String,
     pub show_activity: bool,
-    pub show_game_activity: bool,
     pub timezone: String,
     pub emoji_status_sticker_id: Option<Uuid>,
     pub emoji_status_until: Option<DateTime<Utc>>,
+    pub role: String,
 }
 
 impl From<UserDto> for User {
@@ -45,12 +44,11 @@ impl From<UserDto> for User {
             dto.disabled_at,
             dto.deleted_at,
             dto.bio,
-            BadgeStyle::parse(&dto.badge_style).unwrap_or_default(),
             dto.show_activity,
-            dto.show_game_activity,
             dto.timezone,
             dto.emoji_status_sticker_id
                 .map(|sticker_id| EmojiStatus::new(sticker_id, dto.emoji_status_until)),
+            dto.role.parse::<UserRole>().unwrap_or_default(),
         )
     }
 }

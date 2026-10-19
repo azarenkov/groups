@@ -8,8 +8,6 @@ const renderBar = (overrides: Partial<React.ComponentProps<typeof AppTopBar>> = 
   const props: React.ComponentProps<typeof AppTopBar> = {
     navState: { back: true, forward: false },
     goHistory: jest.fn(),
-    homeActive: false,
-    onGoHome: jest.fn(),
     query: "",
     onQueryChange: jest.fn(),
     currentUserId: "me",
@@ -27,13 +25,11 @@ beforeAll(async () => {
   await i18n.changeLanguage("en");
 });
 
-it("navigates back, forward and home from the top", () => {
+it("navigates back and forward from the top", () => {
   const p = renderBar();
   fireEvent.click(screen.getByRole("button", { name: i18n.t("common:back") }));
   expect(p.goHistory).toHaveBeenCalledWith(-1);
   expect(screen.getByRole("button", { name: i18n.t("common:forward") })).toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:home") }));
-  expect(p.onGoHome).toHaveBeenCalled();
 });
 
 it("searches from the centre and clears with Escape", () => {

@@ -34,8 +34,6 @@ export interface RoomEventHandlers {
   onReconnectingSettled: () => void;
   onLocalAudioPublished: (publication: LocalTrackPublication) => void;
   onMediaDevicesError: (error: Error) => void;
-  onLocalAttributes?: (attributes: Readonly<Record<string, string>>) => void;
-  onLocalScreenMuted?: (trackSid: string) => void;
 }
 
 export function isScreenSource(source: Track.Source): boolean {
@@ -103,10 +101,6 @@ export function attachRoomListeners(
   });
 
   room.on(RoomEvent.TrackMuted, (publication, participant) => {
-    if (participant.isLocal && publication.source === Track.Source.ScreenShare) {
-      handlers.onLocalScreenMuted?.(publication.trackSid);
-      return;
-    }
     if (participant.isLocal || publication.source !== Track.Source.Microphone) return;
     handlers.onParticipantPatch(participant.identity, { isMuted: true });
   });
@@ -229,10 +223,7 @@ export function attachRoomListeners(
   );
 
   room.on(RoomEvent.ParticipantAttributesChanged, (_changed, participant) => {
-    if (participant.isLocal) {
-      handlers.onLocalAttributes?.(participant.attributes ?? {});
-      return;
-    }
+    if (participant.isLocal) return;
     handlers.onParticipantPatch(participant.identity, {
       isDeafened: participant.attributes?.deafened === "1",
     });

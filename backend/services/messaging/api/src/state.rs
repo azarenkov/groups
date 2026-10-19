@@ -84,7 +84,7 @@ use messaging_infrastructure::{
         friendship_unit_of_work::PostgresFriendshipUnitOfWork,
         message_unit_of_work::PostgresMessageUnitOfWork,
         community_unit_of_work::PostgresCommunityUnitOfWork,
-        badge::PostgresBadgeRepository, privacy::PostgresPrivacyRepository,
+        emoji_status::PostgresEmojiStatusRepository, privacy::PostgresPrivacyRepository,
         report::PostgresReportRepository,
         user_profile::PostgresUserProfileRepository,
     },
@@ -251,7 +251,7 @@ pub struct AppState {
     pub dm_repository: std::sync::Arc<PostgresDmMessageRepository>,
     pub friendship_repository: std::sync::Arc<PostgresFriendshipRepository>,
     pub privacy_repository: std::sync::Arc<PostgresPrivacyRepository>,
-    pub badge_repository: std::sync::Arc<PostgresBadgeRepository>,
+    pub emoji_status_repository: std::sync::Arc<PostgresEmojiStatusRepository>,
     pub send_dm_message_usecase: SendDmMessage<
         PostgresDmMessageRepository,
         PostgresDmUnitOfWork,

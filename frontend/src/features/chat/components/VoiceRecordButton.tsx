@@ -8,7 +8,7 @@ import { formatVoiceDuration } from "../lib/voice";
 import { VoiceRecorder, voiceRecordingSupported } from "../lib/voiceRecorder";
 import { VideoNoteRecorder, videoNoteRecordingSupported } from "../lib/videoNoteRecorder";
 import type { MediaRecording, RecordKind } from "../lib/recording";
-import { VIDEO_NOTE_MAX_MS } from "../../subscription/lib/plans";
+import { VIDEO_NOTE_MAX_MS } from "../../../shared/config/limits";
 import { useVoiceSettingsStore } from "../../voice/store/voiceSettingsStore";
 import { useVoiceDraftStore } from "../store/voiceDraftStore";
 

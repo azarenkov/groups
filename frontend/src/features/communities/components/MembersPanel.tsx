@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import UserBadge from "../../subscription/components/UserBadge";
+import UserEmojiStatus from "../../social/components/UserEmojiStatus";
 import { profileVersion, useUserProfileStore } from "../../social/store/userProfileStore";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import { useTranslation } from "react-i18next";
@@ -7,7 +7,6 @@ import { channelAPI } from "../api/channel";
 import type { ChannelParticipant } from "../../../shared/types/channel";
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import { usePresenceStore } from "../../social/store/presenceStore";
-import { loadActivitiesFor, trackActivityIds, useActivityStore } from "../../social/store/activityStore";
 import { useUserNamesStore } from "../../social/store/userNamesStore";
 import { topRoleFor, useRolesStore } from "../store/rolesStore";
 import { useCommunityStore } from "../store/communityStore";
@@ -26,14 +25,8 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ communityId, channelId }) =
     for (const m of members) {
       apply(m.id, m.bio ?? "", profileVersion(m.profileUpdatedAt));
     }
-    const ids = members.map((m) => m.id);
-    const key = `members:${communityId}:${channelId}`;
-    trackActivityIds(key, ids);
-    void loadActivitiesFor(ids);
-    return () => trackActivityIds(key, null);
-  }, [members, communityId, channelId]);
+  }, [members]);
   const onlineUsers = usePresenceStore((s) => s.online);
-  const activities = useActivityStore((s) => s.byUser);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const syncTick = useUserNamesStore((s) => s.syncTick);
   const selfUserId = usePresenceStore((s) => s.selfUserId);
@@ -106,12 +99,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ communityId, channelId }) =
     const isOnline = m.online;
     const displayName = m.name;
     const topRole = topRoleFor(rolesData, m.id);
-    const game = isOnline ? activities[m.id] : undefined;
-    const statusLabel = game
-      ? t("playing", { game: game.name })
-      : isOnline
-        ? t("common:online")
-        : t("common:offline");
+    const statusLabel = isOnline ? t("common:online") : t("common:offline");
     return (
       <div
         key={m.id}
@@ -136,7 +124,7 @@ const MembersPanel: React.FC<MembersPanelProps> = ({ communityId, channelId }) =
         <div className="info">
           <div className="name">
             <span className="name-text">{displayName}</span>
-            <UserBadge userId={m.id} size="sm" />
+            <UserEmojiStatus userId={m.id} size="sm" />
             {isSelf && <span className="member-you">{t("you")}</span>}
           </div>
           <div className="role">

@@ -2,8 +2,6 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 
 import { attachmentAPI } from "../../api/attachment";
 import { useAttachments } from "../useAttachments";
-import { useEntitlementsStore } from "../../../subscription/store/entitlementsStore";
-import { ApiError } from "../../../../shared/lib/apiError";
 
 let mockLimit = 1024;
 
@@ -25,7 +23,6 @@ const file = (name: string, size = 10) => {
 describe("useAttachments", () => {
   beforeEach(() => {
     mockLimit = 1024;
-    act(() => useEntitlementsStore.setState({ tier: "free", planVersion: 0 }));
     upload.mockReset();
     remove.mockReset();
     upload.mockResolvedValue({ id: "att-1" });
@@ -44,77 +41,6 @@ describe("useAttachments", () => {
     act(() => result.current.addFiles([file("big.png", 4096)]));
     expect(result.current.pendingFiles[0].error).toBe(true);
     expect(upload).not.toHaveBeenCalled();
-  });
-
-  it("uploads a file that was over the limit once the plan allows it", async () => {
-    const { result } = renderHook(() => useAttachments());
-    act(() => result.current.addFiles([file("big.png", 4096), file("huge.png", 1 << 20)]));
-    expect(result.current.pendingFiles.map((p) => p.oversize)).toEqual([true, true]);
-    mockLimit = 8192;
-    act(() => useEntitlementsStore.getState().applyTier("pro"));
-    await waitFor(() => expect(result.current.pendingFiles[0].attachment).toEqual({ id: "att-1" }));
-    expect(upload).toHaveBeenCalledTimes(1);
-    expect(result.current.pendingFiles[1]).toMatchObject({ error: true, oversize: true });
-  });
-
-  it("keeps retrying while media still applies the old plan", async () => {
-    jest.useFakeTimers();
-    try {
-      const { result } = renderHook(() => useAttachments());
-      act(() => result.current.addFiles([file("big.png", 4096)]));
-      upload.mockRejectedValueOnce(new ApiError("too large", 413, "ATTACHMENT_TOO_LARGE")).mockResolvedValueOnce({ id: "att-2" });
-      mockLimit = 8192;
-      act(() => useEntitlementsStore.getState().applyTier("pro"));
-      await act(async () => {
-        await Promise.resolve();
-      });
-      expect(result.current.pendingFiles[0]).toMatchObject({ error: false, oversize: true });
-      await act(async () => {
-        jest.advanceTimersByTime(2000);
-        await Promise.resolve();
-      });
-      await waitFor(() => expect(result.current.pendingFiles[0].attachment).toEqual({ id: "att-2" }));
-      expect(upload).toHaveBeenCalledTimes(2);
-      expect(result.current.pendingFiles[0].oversize).toBe(false);
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  it("tries again when the plan is confirmed after the retries ran out", async () => {
-    jest.useFakeTimers();
-    try {
-      const { result } = renderHook(() => useAttachments());
-      act(() => result.current.addFiles([file("big.png", 4096)]));
-      upload.mockRejectedValue(new ApiError("too large", 413, "ATTACHMENT_TOO_LARGE"));
-      mockLimit = 8192;
-      act(() => useEntitlementsStore.getState().applyTier("pro"));
-      for (let round = 0; round < 5; round += 1) {
-        await act(async () => {
-          for (let i = 0; i < 10; i += 1) await Promise.resolve();
-          jest.advanceTimersByTime(10000);
-          for (let i = 0; i < 10; i += 1) await Promise.resolve();
-        });
-      }
-      await waitFor(() => expect(result.current.pendingFiles[0].error).toBe(true));
-      expect(result.current.pendingFiles[0].oversize).toBe(true);
-      upload.mockReset();
-      upload.mockResolvedValue({ id: "att-3" });
-      act(() => useEntitlementsStore.getState().applyTier("pro"));
-      await waitFor(() => expect(result.current.pendingFiles[0].attachment).toEqual({ id: "att-3" }));
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  it("does not retry an upgraded upload that failed for another reason", async () => {
-    const { result } = renderHook(() => useAttachments());
-    act(() => result.current.addFiles([file("big.png", 4096)]));
-    upload.mockRejectedValue(new ApiError("bad type", 415, "UNSUPPORTED_MEDIA_TYPE"));
-    mockLimit = 8192;
-    act(() => useEntitlementsStore.getState().applyTier("pro"));
-    await waitFor(() => expect(result.current.pendingFiles[0].error).toBe(true));
-    expect(upload).toHaveBeenCalledTimes(1);
   });
 
   it("deletes the uploaded attachment when the file is removed", async () => {

@@ -1,3 +1,4 @@
+use domain::user::role::UserRole;
 use chrono::{Duration, Utc};
 
 use super::{User, UserError, email::Email, id::UserId, locale::Locale, name::UserName};
@@ -12,6 +13,7 @@ fn fresh_user() -> User {
         None,
         None,
         Locale::default(),
+        UserRole::Teacher,
     );
     user.pull_events();
     user
@@ -164,95 +166,6 @@ fn a_deleted_account_cannot_ask_for_another_code() {
     ));
 }
 
-#[test]
-fn an_expired_plan_counts_as_free() {
-    use crate::user::tier::{Entitlements, Tier};
-    let now = Utc::now();
-    let lapsed = Entitlements { tier: Tier::Pro, valid_until: Some(now - Duration::hours(1)), member_number: Some(1), ..Default::default() };
-    let running = Entitlements { tier: Tier::Pro, valid_until: Some(now + Duration::hours(1)), member_number: Some(2), ..Default::default() };
-    let open_ended = Entitlements { tier: Tier::Premium, valid_until: None, member_number: Some(3), ..Default::default() };
-    assert_eq!(lapsed.active_at(now), Tier::Free);
-    assert_eq!(running.active_at(now), Tier::Pro);
-    assert_eq!(open_ended.active_at(now), Tier::Premium);
-}
-
-#[test]
-fn a_trial_is_offered_once_and_only_to_free_accounts() {
-    use crate::user::tier::{Entitlements, Tier, TRIAL_DAYS};
-    let now = Utc::now();
-    assert!(Entitlements::default().trial_available_at(now));
-
-    let on_trial = Entitlements {
-        tier: Tier::Pro,
-        valid_until: Some(Entitlements::trial_ends_at(now)),
-        trial: true,
-        trial_used_at: Some(now),
-        ..Default::default()
-    };
-    assert!(on_trial.on_trial_at(now));
-    assert!(!on_trial.trial_available_at(now));
-    let after = now + Duration::days(TRIAL_DAYS) + Duration::seconds(1);
-    assert!(!on_trial.on_trial_at(after));
-    assert!(!on_trial.trial_available_at(after));
-
-    let paid = Entitlements { tier: Tier::Pro, valid_until: None, ..Default::default() };
-    assert!(!paid.trial_available_at(now));
-    assert!(!paid.on_trial_at(now));
-}
-
-#[test]
-fn trial_email_keys_fold_aliases_of_one_mailbox() {
-    use crate::user::tier::trial_email_key;
-    assert_eq!(trial_email_key(" Some.One+rift@GMail.com "), "someone@gmail.com");
-    assert_eq!(trial_email_key("some.one@googlemail.com"), "someone@gmail.com");
-    assert_eq!(trial_email_key("first.last+x@example.com"), "first.last@example.com");
-    assert_eq!(trial_email_key("broken"), "broken");
-}
-
-#[test]
-fn a_badge_style_is_dropped_when_the_plan_no_longer_includes_it() {
-    use crate::user::tier::{BadgeStyle, Tier};
-    let mut user = fresh_user();
-    user.set_badge_style(BadgeStyle::Gold, Utc::now()).unwrap();
-    user.pull_events();
-    assert!(!user.fit_to_tier(Tier::Premium, Utc::now()));
-    assert!(user.fit_to_tier(Tier::Pro, Utc::now()));
-    assert_eq!(user.badge_style(), BadgeStyle::Default);
-    assert!(user.pull_events().iter().any(|e| matches!(e, UserEvent::ProfileChanged(_))));
-
-    user.set_badge_style(BadgeStyle::Ink, Utc::now()).unwrap();
-    assert!(!user.fit_to_tier(Tier::Pro, Utc::now()));
-    assert!(user.fit_to_tier(Tier::Free, Utc::now()));
-}
-
-#[test]
-fn a_disabled_account_still_loses_a_badge_its_plan_dropped() {
-    use crate::user::tier::{BadgeStyle, Tier};
-    let mut user = fresh_user();
-    user.set_badge_style(BadgeStyle::Gold, Utc::now()).unwrap();
-    user.disable(Utc::now()).unwrap();
-    user.pull_events();
-    assert!(user.fit_to_tier(Tier::Pro, Utc::now()));
-    assert_eq!(user.badge_style(), BadgeStyle::Default);
-    assert!(!user.pull_events().iter().any(|e| matches!(e, UserEvent::ProfileChanged(_))));
-}
-
-#[test]
-fn picking_a_badge_style_tells_the_other_services() {
-    use crate::user::tier::BadgeStyle;
-    let mut user = fresh_user();
-    user.set_badge_style(BadgeStyle::Ink, Utc::now()).unwrap();
-    assert_eq!(user.badge_style(), BadgeStyle::Ink);
-    let events = user.pull_events();
-    assert!(events.iter().any(|e| matches!(e, UserEvent::ProfileChanged(p) if p.badge_style == "ink")));
-
-    user.set_badge_style(BadgeStyle::Ink, Utc::now()).unwrap();
-    assert!(user.pull_events().is_empty());
-    assert!(BadgeStyle::Ink.needs_paid_tier());
-    assert!(!BadgeStyle::Default.needs_paid_tier());
-    assert_eq!(BadgeStyle::parse("sparkly"), None);
-}
-
 fn reset_code(user: &User) -> VerificationCode {
     user.issue_verification(
         VerificationChannel::Email,
@@ -333,8 +246,8 @@ fn a_reset_code_older_than_the_last_password_change_is_rejected() {
 }
 
 #[test]
-fn an_emoji_status_is_dropped_with_the_paid_plan_and_ends_on_time() {
-    use crate::user::{emoji_status::EmojiStatus, tier::Tier};
+fn an_emoji_status_is_announced_and_ends_on_time() {
+    use crate::user::emoji_status::EmojiStatus;
     let now = Utc::now();
     let mut user = fresh_user();
     let status = EmojiStatus::new(uuid::Uuid::new_v4(), Some(now + Duration::hours(1)));
@@ -343,8 +256,9 @@ fn an_emoji_status_is_dropped_with_the_paid_plan_and_ends_on_time() {
     assert_eq!(user.active_emoji_status(now), Some(status));
     assert_eq!(user.active_emoji_status(now + Duration::hours(2)), None);
 
-    assert!(!user.fit_to_tier(Tier::Pro, now));
-    assert!(user.fit_to_tier(Tier::Free, now));
+    user.set_emoji_status(Some(status), now).unwrap();
+    assert!(user.pull_events().is_empty());
+    user.set_emoji_status(None, now).unwrap();
     assert_eq!(user.emoji_status(), None);
     assert!(user.pull_events().iter().any(|e| matches!(e, UserEvent::ProfileChanged(p) if p.emoji_status.is_none())));
 }

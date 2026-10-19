@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { UserRole } from "../../../shared/types/userRole";
 import { clearPersistentSessionData } from "../../../shared/lib/persistentSessionData";
 import { clearRefreshToken, setRefreshToken } from "../../../shared/lib/secureStorage";
 import { resetSessionStores } from "../../../shared/store/resetSession";
@@ -11,9 +12,9 @@ interface User {
   passwordChangedAt?: string | null;
   bio?: string;
   showActivity?: boolean;
-  showGameActivity?: boolean;
   timezone?: string;
   appearOffline?: boolean;
+  role?: UserRole;
 }
 
 export interface TokenPair {
@@ -64,9 +65,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   logout: () => {
-    const outgoingToken = get().tokens?.accessToken ?? null;
     set({ user: null, tokens: null, isAuthenticated: false, error: null });
-    resetSessionStores(outgoingToken);
+    resetSessionStores();
     clearPersistentSessionData();
     void clearRefreshToken();
   },
@@ -87,6 +87,10 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     const cached = useUserProfileStore.getState().bios[me.id];
     const stale = !!cached && cached.at > version;
     if (!stale) useUserProfileStore.getState().apply(me.id, me.bio, version);
+    if (me.emojiStatus !== undefined) {
+      const { useEmojiStatusStore } = await import("../../social/store/emojiStatusStore");
+      useEmojiStatusStore.getState().apply(me.id, me.emojiStatus, version);
+    }
     const current = get().user;
     set({
       user: {
@@ -97,9 +101,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         passwordChangedAt: me.passwordChangedAt,
         bio: stale && current?.id === me.id ? current.bio : me.bio,
         showActivity: stale && current?.id === me.id ? current.showActivity : me.showActivity,
-        showGameActivity: stale && current?.id === me.id ? current.showGameActivity : me.showGameActivity,
         timezone: me.timezone,
         appearOffline: me.appearOffline,
+        role: me.role,
       },
     });
     const localZone = (() => {
@@ -114,7 +118,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         .updateProfile({ timezone: localZone })
         .then((saved) => {
           const u = get().user;
-          if (u && u.id === me.id) set({ user: { ...u, timezone: localZone, bio: saved.bio, showActivity: saved.showActivity, showGameActivity: saved.showGameActivity } });
+          if (u && u.id === me.id) set({ user: { ...u, timezone: localZone, bio: saved.bio, showActivity: saved.showActivity } });
         })
         .catch((err) => console.warn("[auth] timezone sync failed:", err));
     }

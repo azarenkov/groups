@@ -6,7 +6,7 @@ import { usePushToTalkHeld } from "../hooks/usePushToTalkHeld";
 import { getLiveKitService, NoiseSuppressionMode } from "../lib/livekit";
 import { parseNoiseMode, useVoiceSettingsStore, type NoiseMode } from "../store/voiceSettingsStore";
 import { UserAvatar } from "../../../shared/ui/Avatar";
-import StreamQualityPicker from "../../subscription/components/StreamQualityPicker";
+import StreamQualityPicker from "./StreamQualityPicker";
 
 export interface VoicePillInvite {
   candidates: { id: string; name: string }[];

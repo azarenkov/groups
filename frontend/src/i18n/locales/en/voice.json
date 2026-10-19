@@ -55,5 +55,8 @@
   "undeafenMember": "Undeafen member",
   "deafenedByModerator": "Deafened by a moderator",
   "exitFullscreen": "Exit fullscreen",
-  "previewLive": "Call in progress"
+  "previewLive": "Call in progress",
+  "streamQuality": "Stream quality",
+  "streamQualityAuto": "Auto",
+  "streamQualityAutoHint": "Follows the network and processor, up to {{label}}"
 }

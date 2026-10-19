@@ -6,7 +6,7 @@ Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: po
 
 ## Web
 
-`web` deploys the React app from `ghcr.io/rift-space/rift/web` (built by `docker/web/Dockerfile`). The image serves the bundle with nginx and writes `config.js` at start from `web.apiUrl` and `web.wsUrl`, so one image works for every environment. With `web.enabled` the Ingress sends `gateway.ingress.apiPaths` (`/api`, `/ws`, `/presence`, `/healthz`) to the gateway and everything else to the web service; `PUBLIC_APP_URL` and `PUBLIC_API_URL` are then the same origin.
+`web` deploys the React app from `ghcr.io/rift-space/rift/web` (built by `docker/web/Dockerfile`). The image serves the bundle with nginx and writes `config.js` at start from `web.apiUrl` and `web.wsUrl`, so one image works for every environment. With `web.enabled` the Ingress sends `gateway.ingress.apiPaths` (`/api`, `/ws`, `/presence`, `/healthz`) to the gateway and everything else to the web service; `PUBLIC_APP_URL` is then the origin of both.
 
 ## Scaling and policies
 
@@ -24,7 +24,7 @@ Upgrading a release that still uses the single shared `POSTGRES_DB` does not mov
 
 ## Public URLs
 
-`config.PUBLIC_API_URL` is the origin of the gateway as clients reach it, and `config.PUBLIC_APP_URL` is the origin of the web app. Invite links are built as `<PUBLIC_APP_URL>/join/<token>` and `messaging-service` refuses to start without an `http(s)://` value, so replace the example domain with the host that serves the web app.
+`config.PUBLIC_APP_URL` is the origin of the web app. Invite links are built as `<PUBLIC_APP_URL>/join/<token>` and `messaging-service` refuses to start without an `http(s)://` value, so replace the example domain with the host that serves the web app.
 
 ## Probes and shutdown
 
@@ -45,7 +45,7 @@ Images come from `image.registry/<service>:image.tag` (defaults to `ghcr.io/rift
 
 ## Secrets
 
-`secrets.*` are rendered into `<release>-secrets` unless `secrets.existingSecret` names a Secret you manage yourself; keys must match the environment variable names (`JWT_SECRET`, `ALTCHA_HMAC_KEY`, `TRIAL_HASH_KEY`, `INTERNAL_API_TOKEN`, `LIVEKIT_API_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MAILER_USERNAME`, `MAILER_PASSWORD`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `STEAM_API_KEY`).
+`secrets.*` are rendered into `<release>-secrets` unless `secrets.existingSecret` names a Secret you manage yourself; keys must match the environment variable names (`JWT_SECRET`, `ALTCHA_HMAC_KEY`, `INTERNAL_API_TOKEN`, `LIVEKIT_API_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MAILER_USERNAME`, `MAILER_PASSWORD`).
 
 Keys present in both the ConfigMap and the Secret resolve to the Secret, because `envFrom` lists it last; `NATS_URL` and `REDIS_URL` belong in the Secret whenever they carry credentials, which is what `deploy/terraform` does.
 

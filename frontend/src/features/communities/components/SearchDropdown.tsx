@@ -17,7 +17,7 @@ import type { GlobalSearchHit } from "../../search/api/globalSearch";
 import type { HistoryItem, HistoryTarget } from "../../search/api/searchHistory";
 import { placeLink } from "../../search/components/GlobalSearchResults";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
-import UserBadge from "../../subscription/components/UserBadge";
+import UserEmojiStatus from "../../social/components/UserEmojiStatus";
 import { useChannelStore } from "../store/channelStore";
 import { useCommunityStore } from "../store/communityStore";
 import { revalidateSearchHistory } from "../../search/lib/searchHistory";
@@ -190,7 +190,7 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
                 <span className="search-dd-text">
                   <span className="search-dd-name search-dd-name-badged">
                     <span className="search-dd-name-text">{highlightTerms(d.name, query)}</span>
-                    <UserBadge userId={d.id} size="sm" />
+                    <UserEmojiStatus userId={d.id} size="sm" />
                   </span>
                   <span className="search-dd-sub">{t("searchDirect")}</span>
                 </span>

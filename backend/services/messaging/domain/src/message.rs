@@ -13,6 +13,8 @@ use chrono::{DateTime, Utc};
 use crate::{channel::id::ChannelId, message::forward::ForwardInfo, message::reply::ReplyPreview, message::content::MessageContent, message::events::MessageDomainEvent, message::events::lifecycle::MessageDeleted, message::events::lifecycle::MessageEdited, message::events::lifecycle::MessageSent, message::id::MessageId, message::system::MessageKind, message::system::SystemMessage, message::system::SystemMessageKind};
 use domain::{sticker::StickerSnapshot, user::id::UserId};
 
+pub const MAX_ATTACHMENTS_PER_MESSAGE: usize = 20;
+
 #[derive(Debug, thiserror::Error)]
 pub enum MessageError {
     #[error("Message content cannot be empty")]

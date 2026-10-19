@@ -4,7 +4,7 @@ import Icon from "../../../../shared/ui/Icon";
 import { CommunityLogo } from "../../../../shared/ui/Avatar";
 import { colorForId } from "../../../../shared/lib/avatar";
 import type { Community } from "../../../../shared/types/community";
-import type { Channel } from "../../../../shared/types/channel";
+import type { Channel, ChannelKind } from "../../../../shared/types/channel";
 import type { SidebarVoiceMember } from "./types";
 import type { SidebarPermissions } from "./permissions";
 import {
@@ -21,8 +21,6 @@ interface CommunityListProps {
   channelsByCommunity: Record<string, Channel[]>;
   voiceMembersByChannel?: Record<string, SidebarVoiceMember[]>;
   unreadFor: (communityId: string) => number;
-  onCreateCommunity: () => void;
-  onJoinCommunity: () => void;
   onPick: (community: Community) => void;
   perms: SidebarPermissions;
   currentUserId?: string;
@@ -31,6 +29,9 @@ interface CommunityListProps {
   onLeaveCommunity?: (community: Community) => void;
   compact?: boolean;
   activeCommunityId?: string | null;
+  expandedCommunityIds?: Set<string>;
+  renderChannel?: (community: Community, channel: Channel) => React.ReactNode;
+  onAddChannel?: (community: Community, kind: ChannelKind) => void;
 }
 
 const CommunityList: React.FC<CommunityListProps> = ({
@@ -38,8 +39,6 @@ const CommunityList: React.FC<CommunityListProps> = ({
   channelsByCommunity,
   voiceMembersByChannel,
   unreadFor,
-  onCreateCommunity,
-  onJoinCommunity,
   onPick,
   perms,
   currentUserId,
@@ -48,6 +47,9 @@ const CommunityList: React.FC<CommunityListProps> = ({
   onLeaveCommunity,
   compact,
   activeCommunityId,
+  expandedCommunityIds,
+  renderChannel,
+  onAddChannel,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   React.useEffect(() => {
@@ -157,27 +159,42 @@ const CommunityList: React.FC<CommunityListProps> = ({
       </div>
     );
   }
+  const channelSections = (community: Community) => {
+    if (!renderChannel) return null;
+    const all = channelsByCommunity[community.id] || [];
+    const textChannels = [...all.filter((c) => c.kind === "text")].sort(
+      (a, b) => Number(!!b.isDefault) - Number(!!a.isDefault),
+    );
+    const voiceChannels = all.filter((c) => c.kind === "voice");
+    const canManage = perms.canManageChannelsIn(community);
+    const section = (label: string, kind: ChannelKind, list: Channel[]) => (
+      <>
+        <div className="sb-vhead">
+          <span className="sb-vhead-label">{label}</span>
+          {canManage && onAddChannel && (
+            <button
+              type="button"
+              className="sb-vhead-add"
+              title={t("addChannel")}
+              aria-label={t("addChannel")}
+              onClick={() => onAddChannel(community, kind)}
+            >
+              <Icon name="plus" size={14} />
+            </button>
+          )}
+        </div>
+        {list.map((c) => renderChannel(community, c))}
+      </>
+    );
+    return (
+      <div className="sb-srv-channels">
+        {section(t("textChannels"), "text", textChannels)}
+        {section(t("voiceChannels"), "voice", voiceChannels)}
+      </div>
+    );
+  };
   return (
     <div className="sb-view">
-      <button type="button" className="sb-add-row" onClick={onCreateCommunity}>
-        <span className="sb-add-row-ico">
-          <Icon name="plus" size={20} />
-        </span>
-        <span>{t("createCommunity")}</span>
-      </button>
-      <button
-        type="button"
-        className="sb-add-row secondary"
-        onClick={onJoinCommunity}
-      >
-        <span className="sb-add-row-ico">
-          <Icon name="logout" size={20} />
-        </span>
-        <span>{t("joinCommunity")}</span>
-      </button>
-      <div className="sb-vhead">
-        <span className="sb-vhead-label">{t("communities")}</span>
-      </div>
       {communities.length === 0 && (
         <div className="sb-empty">
           {t("noCommunities")}
@@ -187,17 +204,19 @@ const CommunityList: React.FC<CommunityListProps> = ({
         const accent = community.accentColor ?? colorForId(community.id);
         const allCommunityChannels = channelsByCommunity[community.id] || [];
         const communityUnread = unreadFor(community.id);
+        const expanded = !!expandedCommunityIds?.has(community.id);
         const hasVoiceActivity = allCommunityChannels.some(
           (c) =>
             c.kind === "voice" &&
             (voiceMembersByChannel?.[c.id]?.length ?? 0) > 0,
         );
         return (
-          <div key={community.id}>
+          <div key={community.id} className="sb-group-block">
             <div
               role="button"
               tabIndex={0}
-              className="sb-srv"
+              aria-expanded={expanded}
+              className={"sb-srv" + (expanded ? " open" : "")}
               data-community-id={community.id}
               {...communityLongPress}
               onClick={() => onPick(community)}
@@ -234,8 +253,21 @@ const CommunityList: React.FC<CommunityListProps> = ({
               {communityUnread > 0 && (
                 <span className="sb-community-unread">{communityUnread}</span>
               )}
-              <Icon name="chev" size={13} className="sb-srv-chev collapsed" />
+              <button
+                type="button"
+                className="sb-srv-more"
+                title={t("common:more")}
+                aria-label={t("common:more")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openContextMenuAt(e.currentTarget, communityMenu(community));
+                }}
+              >
+                <Icon name="more" size={16} />
+              </button>
+              {renderChannel && <Icon name="chev" size={13} className={"sb-srv-chev" + (expanded ? "" : " collapsed")} />}
             </div>
+            {expanded && channelSections(community)}
           </div>
         );
       })}
