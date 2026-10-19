@@ -170,6 +170,8 @@ httpServices:
       UNVERIFIED_ACCOUNT_TTL_HOURS: "24"
       UNVERIFIED_CLEANUP_INTERVAL_SECS: "900"
       UNVERIFIED_CLEANUP_BATCH_SIZE: "200"
+      ACCESS_REVOCATION_RETRY_INTERVAL_SECS: "30"
+      ACCESS_REVOCATION_RETRY_BATCH_SIZE: "100"
     resources:
       requests: { cpu: 100m, memory: 128Mi }
       limits: { memory: 512Mi }

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use domain::user::id::UserId;
-use identity_domain::{events::IdentityEvent, refresh_token::RefreshToken, unit_of_work::IdentityUnitOfWork, user::UserError, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::UserError, user::access_revocation::AccessRevocation, verification::purpose::VerificationPurpose};
 use ports::repository::RepositoryError;
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
         hasher::{HashError, Hasher},
         token_issuer::{IssuedTokens, TokenIssuer, TokenIssuerError},
     },
-    usecases::auth::reactivation::wait_past_cutoff,
+    usecases::auth::reactivation::{SessionClient, SessionRotationError, issue_session_after_cutoff, revoke_access_after_commit},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -32,6 +32,8 @@ pub enum ConfirmEmailChangeError {
     BadCode,
     #[error("User not found")]
     UserNotFound,
+    #[error("{0}")]
+    Session(#[from] SessionRotationError),
     #[error("Token issuer error: {0}")]
     TokenIssuer(#[from] TokenIssuerError),
     #[error("Access revocation error: {0}")]
@@ -127,19 +129,20 @@ where
                 let cutoff = Utc::now();
                 tx.consume_pending_verifications(&user_id, VerificationPurpose::PasswordReset, cutoff).await?;
                 tx.revoke_refresh_tokens_for_user(&user_id, None, cutoff).await?;
-                wait_past_cutoff(cutoff).await;
-                let tokens = self.token_issuer.issue(&user_id, user.is_verified()).await?;
-                let refresh_token = RefreshToken::issue(
-                    tokens.refresh_token_id,
-                    user_id,
-                    tokens.refresh_token_expires_at,
-                    request.ip,
-                    request.user_agent,
-                );
-                tx.insert_refresh_token(&refresh_token).await?;
+                let revocation = AccessRevocation::new(user_id, cutoff);
+                tx.record_access_revocation(&revocation).await?;
                 tx.save_events(&events, request.request_id.as_deref()).await?;
-                self.access_revoker.revoke_access_issued_before(&user_id, cutoff).await?;
                 tx.commit().await?;
+                revoke_access_after_commit(&*self.unit_of_work, &*self.access_revoker, &revocation).await;
+                let tokens = issue_session_after_cutoff::<_, _, ConfirmEmailChangeError>(
+                    &*self.unit_of_work,
+                    &*self.token_issuer,
+                    user_id,
+                    user.updated_at(),
+                    cutoff,
+                    SessionClient { ip: request.ip, user_agent: request.user_agent },
+                )
+                .await?;
                 Ok(ConfirmedEmailChange {
                     email: user.email().as_str().to_string(),
                     tokens,

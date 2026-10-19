@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
 use chrono::{DateTime, Utc};
-use identity_domain::{events::IdentityEvent, user::tier::Entitlements, user::tier::TrialHistory, user::tier::trial_email_key, verification::throttle::IssuedCodes, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, user::presence::PresencePreference, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
+use identity_domain::{events::IdentityEvent, user::access_revocation::AccessRevocation, user::tier::Entitlements, user::tier::TrialHistory, user::tier::trial_email_key, verification::throttle::IssuedCodes, user::email::Email, refresh_token::RefreshToken, refresh_token::id::RefreshTokenId, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User, user::presence::PresencePreference, verification::code::VerificationCode, verification::code_hash::CodeHash, verification::id::VerificationCodeId, verification::purpose::VerificationPurpose};
 use sqlx::{Pool, Postgres, Transaction};
 use std::collections::BTreeMap;
 use identity_domain::user::settings::{
@@ -68,6 +68,59 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(row.map(|(appear_offline, updated_at)| PresencePreference::restore(*user_id, appear_offline, updated_at)))
+    }
+
+    async fn record_access_revocation(&mut self, revocation: &AccessRevocation) -> Result<(), RepositoryError> {
+        sqlx::query(
+            r#"
+                INSERT INTO access_revocations (user_id, cutoff, recorded_at)
+                VALUES ($1, $2, now())
+                ON CONFLICT (user_id) DO UPDATE
+                    SET cutoff = GREATEST(access_revocations.cutoff, EXCLUDED.cutoff), recorded_at = now()
+            "#,
+        )
+        .bind(revocation.user_id().uuid())
+        .bind(revocation.cutoff())
+        .execute(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
+    }
+
+    async fn load_pending_access_revocations(&mut self, limit: i64) -> Result<Vec<AccessRevocation>, RepositoryError> {
+        let rows: Vec<(uuid::Uuid, DateTime<Utc>)> = sqlx::query_as(
+            r#"
+                SELECT user_id, cutoff FROM access_revocations
+                ORDER BY recorded_at
+                LIMIT $1
+            "#,
+        )
+        .bind(limit)
+        .fetch_all(&mut *self.tx)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows
+            .into_iter()
+            .map(|(user_id, cutoff)| AccessRevocation::new(UserId::new(user_id), cutoff))
+            .collect())
+    }
+
+    async fn next_activity_version(&mut self) -> Result<i64, RepositoryError> {
+        let version: i64 = sqlx::query_scalar(r#"SELECT nextval('activity_versions')"#)
+            .fetch_one(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(version)
+    }
+
+    async fn clear_access_revocation(&mut self, revocation: &AccessRevocation) -> Result<(), RepositoryError> {
+        sqlx::query(r#"DELETE FROM access_revocations WHERE user_id = $1 AND cutoff <= $2"#)
+            .bind(revocation.user_id().uuid())
+            .bind(revocation.cutoff())
+            .execute(&mut *self.tx)
+            .await
+            .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(())
     }
 
     async fn save_presence_preference(&mut self, preference: &PresencePreference) -> Result<(), RepositoryError> {
@@ -212,45 +265,6 @@ impl IdentityTransaction for PostgresIdentityTransaction {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(dtos.into_iter().map(User::from).collect())
-    }
-
-    async fn load_pending_verification_for_update(&mut self, user_id: &UserId) -> Result<Option<VerificationCode>, RepositoryError> {
-        let row = sqlx::query!(
-            r#"
-                SELECT
-                    id,
-                    user_id,
-                    channel AS "channel: VerificationChannelDto",
-                    code_hash,
-                    purpose AS "purpose: VerificationPurposeDto",
-                    expires_at,
-                    consumed_at,
-                    attempts,
-                    created_at
-                FROM verification_codes
-                WHERE user_id = $1 AND consumed_at IS NULL
-                ORDER BY created_at DESC
-                LIMIT 1
-                FOR UPDATE
-            "#,
-            user_id.uuid(),
-        )
-        .fetch_optional(&mut *self.tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.map(|row| {
-            VerificationCode::restore(
-                VerificationCodeId::new(row.id),
-                UserId::new(row.user_id),
-                row.channel.into(),
-                CodeHash::new(row.code_hash),
-                row.purpose.into(),
-                row.expires_at,
-                row.consumed_at,
-                row.attempts as u8,
-                row.created_at,
-            )
-        }))
     }
 
     async fn load_pending_verification_for_purpose_for_update(&mut self, user_id: &UserId, purpose: VerificationPurpose) -> Result<Option<VerificationCode>, RepositoryError> {

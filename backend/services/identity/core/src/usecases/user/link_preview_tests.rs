@@ -15,6 +15,7 @@ struct Users(Mutex<Vec<User>>);
 #[async_trait]
 impl UserRepository for Users {
     async fn appear_offline_among(&self, _: &[UserId]) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
+    async fn activity_hidden_among(&self, _: &[UserId]) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
     async fn find_by_id(&self, user_id: &UserId) -> Result<Option<User>, RepositoryError> {
         Ok(self.0.lock().unwrap().iter().find(|u| u.id() == user_id).map(|u| {
             User::restore(

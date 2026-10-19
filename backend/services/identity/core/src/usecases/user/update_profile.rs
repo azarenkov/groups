@@ -75,8 +75,9 @@ impl<W: IdentityUnitOfWork, S: ActivityStore, TM: TextModeration> UpdateProfile<
             _ => UpdateProfileError::UserNotFound,
         })?;
         let mut events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
+        let mut activity_version = None;
         if hid_game_activity {
-            self.activity_store.clear(&user_id).await?;
+            activity_version = Some(tx.next_activity_version().await?);
             events.push(IdentityEvent::from(UserEvent::ActivityChanged(UserActivityChanged {
                 id: EventId::generate(),
                 user_id,
@@ -91,6 +92,11 @@ impl<W: IdentityUnitOfWork, S: ActivityStore, TM: TextModeration> UpdateProfile<
             tx.save_events(&events, patch.request_id.as_deref()).await?;
         }
         tx.commit().await?;
+        if let Some(version) = activity_version
+            && let Err(e) = self.activity_store.clear_if_not_newer(&user_id, version).await
+        {
+            tracing::warn!(error = %e, user_id = %user_id.uuid(), "Failed to clear the activity cache after hiding game activity");
+        }
         Ok((user.bio().to_string(), user.show_activity(), user.show_game_activity(), user.updated_at()))
     }
 }

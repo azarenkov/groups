@@ -615,6 +615,7 @@ impl HttpMapping for ChangePasswordError {
             ChangePasswordError::Reauth(e) => e.to_http_status(),
             ChangePasswordError::SamePassword => StatusCode::BAD_REQUEST,
             ChangePasswordError::UserNotFound => StatusCode::NOT_FOUND,
+            ChangePasswordError::Session(_) => StatusCode::CONFLICT,
         }
     }
     fn to_user_message(&self) -> String {
@@ -626,6 +627,7 @@ impl HttpMapping for ChangePasswordError {
             ChangePasswordError::Reauth(e) => e.to_user_message(),
             ChangePasswordError::SamePassword => "New password must differ from the current one".to_string(),
             ChangePasswordError::UserNotFound => "User not found".to_string(),
+            ChangePasswordError::Session(e) => e.to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -637,6 +639,7 @@ impl HttpMapping for ChangePasswordError {
             ChangePasswordError::Reauth(e) => e.to_error_code(),
             ChangePasswordError::SamePassword => "SAME_PASSWORD",
             ChangePasswordError::UserNotFound => "USER_NOT_FOUND",
+            ChangePasswordError::Session(_) => "SESSION_SUPERSEDED",
         }
     }
 }
@@ -690,6 +693,7 @@ impl HttpMapping for ConfirmEmailChangeError {
             ConfirmEmailChangeError::UserNotFound => StatusCode::NOT_FOUND,
             ConfirmEmailChangeError::TokenIssuer(e) => e.to_http_status(),
             ConfirmEmailChangeError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
+            ConfirmEmailChangeError::Session(_) => StatusCode::CONFLICT,
         }
     }
     fn to_user_message(&self) -> String {
@@ -704,6 +708,7 @@ impl HttpMapping for ConfirmEmailChangeError {
             ConfirmEmailChangeError::UserNotFound => "User not found".to_string(),
             ConfirmEmailChangeError::TokenIssuer(e) => e.to_user_message(),
             ConfirmEmailChangeError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
+            ConfirmEmailChangeError::Session(e) => e.to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -718,6 +723,7 @@ impl HttpMapping for ConfirmEmailChangeError {
             ConfirmEmailChangeError::UserNotFound => "USER_NOT_FOUND",
             ConfirmEmailChangeError::TokenIssuer(e) => e.to_error_code(),
             ConfirmEmailChangeError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
+            ConfirmEmailChangeError::Session(_) => "SESSION_SUPERSEDED",
         }
     }
 }
@@ -1067,7 +1073,6 @@ impl HttpMapping for ActivityError {
             ActivityError::Invalid => StatusCode::BAD_REQUEST,
             ActivityError::Hidden => StatusCode::FORBIDDEN,
             ActivityError::Leased => StatusCode::CONFLICT,
-            ActivityError::Superseded => StatusCode::CONFLICT,
             ActivityError::UserNotFound => StatusCode::NOT_FOUND,
         }
     }
@@ -1080,7 +1085,6 @@ impl HttpMapping for ActivityError {
             ActivityError::Invalid => "Invalid activity".to_string(),
             ActivityError::Hidden => "Activity is hidden by privacy settings".to_string(),
             ActivityError::Leased => "Activity is published by another session".to_string(),
-            ActivityError::Superseded => "Activity changed concurrently".to_string(),
             ActivityError::UserNotFound => "User not found".to_string(),
         }
     }
@@ -1093,7 +1097,6 @@ impl HttpMapping for ActivityError {
             ActivityError::Invalid => "INVALID_ACTIVITY",
             ActivityError::Hidden => "ACTIVITY_HIDDEN",
             ActivityError::Leased => "ACTIVITY_LEASED",
-            ActivityError::Superseded => "ACTIVITY_SUPERSEDED",
             ActivityError::UserNotFound => "USER_NOT_FOUND",
         }
     }

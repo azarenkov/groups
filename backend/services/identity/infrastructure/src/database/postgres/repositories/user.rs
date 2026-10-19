@@ -396,6 +396,30 @@ impl UserRepository for PostgresUserRepository {
         Ok(row.map(|r| NotificationSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6, r.7)))
     }
 
+    async fn activity_hidden_among(&self, user_ids: &[UserId]) -> Result<Vec<UserId>, RepositoryError> {
+        if user_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let ids: Vec<uuid::Uuid> = user_ids.iter().map(|id| id.uuid()).collect();
+        let rows: Vec<(uuid::Uuid,)> = sqlx::query_as(
+            r#"
+            SELECT u.id
+            FROM users u
+            LEFT JOIN user_presence_preferences p ON p.user_id = u.id
+            WHERE u.id = ANY($1)
+              AND (COALESCE(p.appear_offline, FALSE)
+                   OR NOT u.show_game_activity
+                   OR u.disabled_at IS NOT NULL
+                   OR u.deleted_at IS NOT NULL)
+            "#,
+        )
+        .bind(&ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error_to_domain_error)?;
+        Ok(rows.into_iter().map(|(id,)| UserId::new(id)).collect())
+    }
+
     async fn appear_offline_among(&self, user_ids: &[UserId]) -> Result<Vec<UserId>, RepositoryError> {
         if user_ids.is_empty() {
             return Ok(Vec::new());

@@ -4,7 +4,7 @@ use chrono::Utc;
 use domain::user::id::UserId;
 use domain::event::EventId;
 use identity_domain::{
-    events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::events::UserEvent,
+    events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::access_revocation::AccessRevocation, user::events::UserEvent,
     user::events::lifecycle::UserActivityChanged, user::repository::UserRepository,
 };
 use ports::repository::RepositoryError;
@@ -15,6 +15,7 @@ use crate::{
         activity_store::{ActivityStore, ActivityStoreError},
         hasher::{HashError, Hasher},
     },
+    usecases::auth::reactivation::revoke_access_after_commit,
     usecases::user::reauth::{Reauth, ReauthError, Reauthenticator},
 };
 
@@ -98,7 +99,6 @@ where
         let now = Utc::now();
         user.disable(now).map_err(|_| DisableAccountError::UserNotFound)?;
         let mut events: Vec<IdentityEvent> = user.pull_events().into_iter().map(IdentityEvent::from).collect();
-        self.activity_store.clear(&user_id).await?;
         events.push(IdentityEvent::from(UserEvent::ActivityChanged(UserActivityChanged {
             id: EventId::generate(),
             user_id,
@@ -109,9 +109,15 @@ where
         })));
         tx.save_user(&user).await?;
         tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
+        let activity_version = tx.next_activity_version().await?;
+        let revocation = AccessRevocation::new(user_id, now);
+        tx.record_access_revocation(&revocation).await?;
         tx.save_events(&events, request_id).await?;
-        self.access_revoker.revoke_access_issued_before(&user_id, now).await?;
         tx.commit().await?;
+        if let Err(e) = self.activity_store.clear_if_not_newer(&user_id, activity_version).await {
+            tracing::warn!(error = %e, user_id = %user_id.uuid(), "Failed to clear the activity cache after disabling the account");
+        }
+        revoke_access_after_commit(&*self.unit_of_work, &*self.access_revoker, &revocation).await;
         Ok(())
     }
 }

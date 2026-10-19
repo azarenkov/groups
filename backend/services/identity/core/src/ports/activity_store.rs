@@ -13,6 +13,7 @@ pub struct StoredActivity {
     pub source: String,
     pub refreshed_at: DateTime<Utc>,
     pub changed_at: DateTime<Utc>,
+    pub version: i64,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -24,20 +25,13 @@ pub enum ActivityStoreError {
 #[async_trait]
 pub trait ActivityStore: Send + Sync {
     async fn get(&self, user_id: &UserId) -> Result<Option<StoredActivity>, ActivityStoreError>;
-    async fn set(
+    async fn set_if_newer(
         &self,
         user_id: &UserId,
-        activity: &StoredActivity,
-        ttl: Duration,
-    ) -> Result<Option<StoredActivity>, ActivityStoreError>;
-    async fn set_if_current(
-        &self,
-        user_id: &UserId,
-        expected: &StoredActivity,
         activity: &StoredActivity,
         ttl: Duration,
     ) -> Result<bool, ActivityStoreError>;
-    async fn clear(&self, user_id: &UserId) -> Result<Option<StoredActivity>, ActivityStoreError>;
+    async fn clear_if_not_newer(&self, user_id: &UserId, version: i64) -> Result<bool, ActivityStoreError>;
     async fn get_many(
         &self,
         user_ids: &[UserId],

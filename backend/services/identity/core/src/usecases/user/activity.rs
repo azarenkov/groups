@@ -31,8 +31,6 @@ pub enum ActivityError {
     Hidden,
     #[error("Activity is published by another session")]
     Leased,
-    #[error("Activity changed concurrently")]
-    Superseded,
     #[error("User not found")]
     UserNotFound,
 }
@@ -101,11 +99,12 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             .load_user_for_update(&user_id)
             .await?
             .ok_or(ActivityError::UserNotFound)?;
+        let version = tx.next_activity_version().await?;
         if user.is_disabled() || user.is_deleted() || !user.show_game_activity() {
-            self.store.clear(&user_id).await?;
             tx.save_events(&[activity_event(user_id, None, Utc::now())], None)
                 .await?;
             tx.commit().await?;
+            self.store.clear_if_not_newer(&user_id, version).await?;
             return Err(ActivityError::Hidden);
         }
         let previous = self.store.get(&user_id).await?;
@@ -123,10 +122,11 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
                 let adopted = StoredActivity {
                     source: input.source.clone(),
                     refreshed_at: Utc::now(),
+                    version,
                     ..prev.clone()
                 };
-                self.store.set(&user_id, &adopted, ACTIVITY_TTL).await?;
                 tx.commit().await?;
+                self.store.set_if_newer(&user_id, &adopted, ACTIVITY_TTL).await?;
                 return Ok(adopted);
             }
         }
@@ -135,46 +135,26 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> SetActivity<S, W> {
             .map(|p| p.game_id != input.game_id || !p.published)
             .unwrap_or(true);
         let now = Utc::now();
-        let mut activity = StoredActivity {
+        let activity = StoredActivity {
             game_id: input.game_id,
             name: name.to_string(),
             started_at: input.started_at,
-            published: !needs_publish,
+            published: true,
             source: input.source,
             refreshed_at: now,
+            version,
             changed_at: if needs_publish {
                 now
             } else {
                 previous.as_ref().map(|p| p.changed_at).unwrap_or(now)
             },
         };
-        self.store.set(&user_id, &activity, ACTIVITY_TTL).await?;
         if needs_publish {
             tx.save_events(&[activity_event(user_id, Some(&activity), now)], None)
                 .await?;
         }
         tx.commit().await?;
-        if needs_publish {
-            let provisional = activity.clone();
-            activity.published = true;
-            let finalized = self
-                .store
-                .set_if_current(&user_id, &provisional, &activity, ACTIVITY_TTL)
-                .await?;
-            if !finalized {
-                return match self.store.get(&user_id).await? {
-                    Some(current) if current.source == activity.source && current.published => {
-                        Ok(current)
-                    }
-                    Some(current)
-                        if !current.source.is_empty() && current.source != activity.source =>
-                    {
-                        Err(ActivityError::Leased)
-                    }
-                    _ => Err(ActivityError::Superseded),
-                };
-            }
-        }
+        self.store.set_if_newer(&user_id, &activity, ACTIVITY_TTL).await?;
         Ok(activity)
     }
 }
@@ -201,7 +181,9 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
         if tx.load_user_for_update(&user_id).await?.is_none() {
             return Err(ActivityError::UserNotFound);
         }
-        if let Some(prev) = self.store.get(&user_id).await?
+        let version = tx.next_activity_version().await?;
+        let previous = self.store.get(&user_id).await?;
+        if let Some(prev) = previous.as_ref()
             && !source.is_empty()
             && !prev.source.is_empty()
             && prev.source != source
@@ -213,11 +195,11 @@ impl<S: ActivityStore, W: IdentityUnitOfWork> ClearActivity<S, W> {
                 return Err(ActivityError::Leased);
             }
         }
-        self.store.clear(&user_id).await?;
         let occurred_at = Utc::now();
         tx.save_events(&[activity_event(user_id, None, occurred_at)], None)
             .await?;
         tx.commit().await?;
+        self.store.clear_if_not_newer(&user_id, version).await?;
         Ok(occurred_at)
     }
 }
@@ -250,7 +232,7 @@ impl<S: ActivityStore, A: ActivityAudience, U: UserRepository> GetActivities<S, 
             });
         }
         let others: Vec<UserId> = visible.iter().copied().filter(|id| id != &viewer).collect();
-        let hidden = self.users.appear_offline_among(&others).await?;
+        let hidden = self.users.activity_hidden_among(&others).await?;
         let activities = self
             .store
             .get_many(&visible)

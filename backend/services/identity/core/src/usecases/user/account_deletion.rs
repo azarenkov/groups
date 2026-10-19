@@ -1,23 +1,24 @@
 use chrono::{DateTime, Utc};
 use domain::event::EventId;
-use domain::user::id::UserId;
 use identity_domain::{
-    events::IdentityEvent, unit_of_work::IdentityTransaction, user::User,
+    events::IdentityEvent, unit_of_work::IdentityTransaction, unit_of_work::IdentityUnitOfWork, user::User,
+    user::access_revocation::AccessRevocation,
     user::events::UserEvent, user::events::lifecycle::UserActivityChanged,
 };
 use ports::repository::RepositoryError;
 
-use crate::ports::{
-    access_revoker::{AccessRevoker, AccessRevokerError},
-    activity_store::{ActivityStore, ActivityStoreError},
+use crate::{
+    ports::{
+        access_revoker::AccessRevoker,
+        activity_store::{ActivityStore, ActivityStoreError},
+    },
+    usecases::auth::reactivation::revoke_access_after_commit,
 };
 
 #[derive(Debug, thiserror::Error)]
 pub enum AccountDeletionError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
-    #[error("Access revocation error: {0}")]
-    AccessRevoker(#[from] AccessRevokerError),
     #[error("Activity store error: {0}")]
     ActivityStore(#[from] ActivityStoreError),
     #[error("Account is already deleted")]
@@ -29,7 +30,7 @@ pub async fn apply_account_deletion(
     user: &mut User,
     now: DateTime<Utc>,
     request_id: Option<&str>,
-) -> Result<(), AccountDeletionError> {
+) -> Result<DeletionCleanup, AccountDeletionError> {
     let user_id = user.id_ownned();
     user.delete(now)
         .map_err(|_| AccountDeletionError::AlreadyDeleted)?;
@@ -48,21 +49,33 @@ pub async fn apply_account_deletion(
     tx.save_user(user).await?;
     tx.delete_oauth_identities(&user_id).await?;
     tx.revoke_refresh_tokens_for_user(&user_id, None, now).await?;
+    let revocation = AccessRevocation::new(user_id, now);
+    tx.record_access_revocation(&revocation).await?;
+    let activity_version = tx.next_activity_version().await?;
     tx.save_events(&events, request_id).await?;
-    Ok(())
+    Ok(DeletionCleanup { revocation, activity_version })
 }
 
-pub async fn clear_deleted_user_caches<S, R>(
+pub struct DeletionCleanup {
+    revocation: AccessRevocation,
+    activity_version: i64,
+}
+
+pub async fn clear_deleted_user_caches<W, S, R>(
+    unit_of_work: &W,
     activity_store: &S,
     access_revoker: &R,
-    user_id: &UserId,
-    now: DateTime<Utc>,
+    cleanup: &DeletionCleanup,
 ) -> Result<(), AccountDeletionError>
 where
+    W: IdentityUnitOfWork + ?Sized,
     S: ActivityStore + ?Sized,
     R: AccessRevoker + ?Sized,
 {
-    activity_store.clear(user_id).await?;
-    access_revoker.revoke_access_issued_before(user_id, now).await?;
+    let activity = activity_store
+        .clear_if_not_newer(cleanup.revocation.user_id(), cleanup.activity_version)
+        .await;
+    revoke_access_after_commit(unit_of_work, access_revoker, &cleanup.revocation).await;
+    activity?;
     Ok(())
 }

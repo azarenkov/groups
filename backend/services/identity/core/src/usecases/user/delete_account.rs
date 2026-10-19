@@ -37,7 +37,6 @@ impl From<AccountDeletionError> for DeleteAccountError {
     fn from(error: AccountDeletionError) -> Self {
         match error {
             AccountDeletionError::Repository(e) => Self::Repository(e),
-            AccountDeletionError::AccessRevoker(e) => Self::AccessRevoker(e),
             AccountDeletionError::ActivityStore(e) => Self::ActivityStore(e),
             AccountDeletionError::AlreadyDeleted => Self::UserNotFound,
         }
@@ -106,15 +105,11 @@ where
             self.reauthenticator.verify(&user, reauth).await?;
         }
         let now = Utc::now();
-        clear_deleted_user_caches(
-            &*self.activity_store,
-            &*self.access_revoker,
-            &user_id,
-            now,
-        )
-        .await?;
-        apply_account_deletion(&mut *tx, &mut user, now, request_id).await?;
+        let cleanup = apply_account_deletion(&mut *tx, &mut user, now, request_id).await?;
         tx.commit().await?;
+        if let Err(e) = clear_deleted_user_caches(&*self.unit_of_work, &*self.activity_store, &*self.access_revoker, &cleanup).await {
+            tracing::warn!(error = %e, user_id = %user_id.uuid(), "Failed to clear caches after deleting the account");
+        }
         Ok(())
     }
 }
