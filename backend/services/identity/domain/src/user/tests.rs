@@ -1,3 +1,4 @@
+use domain::user::role::UserRole;
 use chrono::{Duration, Utc};
 
 use super::{User, UserError, email::Email, id::UserId, locale::Locale, name::UserName};
@@ -12,6 +13,7 @@ fn fresh_user() -> User {
         None,
         None,
         Locale::default(),
+        UserRole::Teacher,
     );
     user.pull_events();
     user

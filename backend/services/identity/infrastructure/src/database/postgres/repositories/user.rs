@@ -31,8 +31,8 @@ impl UserRepository for PostgresUserRepository {
     async fn save_user(&self, user: &User) -> Result<(), RepositoryError> {
         sqlx::query!(
             r#"
-                INSERT INTO users (id, name, email, password_hash, created_at, updated_at, locale)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                INSERT INTO users (id, name, email, password_hash, created_at, updated_at, locale, role)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             "#,
             user.id().uuid(),
             user.name().as_str(),
@@ -41,6 +41,7 @@ impl UserRepository for PostgresUserRepository {
             user.created_at(),
             user.updated_at(),
             user.locale().as_str(),
+            user.role().as_str(),
         )
         .execute(&self.pool)
         .await
@@ -62,7 +63,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until, role
             FROM users
             WHERE id = $1
             "#,
@@ -88,7 +89,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until, role
             FROM users
             WHERE email = $1
             "#,
@@ -114,7 +115,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until, role
             FROM users
             WHERE lower(email) = lower($1)
             LIMIT 2
@@ -177,7 +178,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until, role
             FROM users
             WHERE LOWER(name COLLATE "C") = LOWER($1 COLLATE "C")
             "#,

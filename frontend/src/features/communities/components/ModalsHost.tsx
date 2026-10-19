@@ -34,6 +34,7 @@ interface ModalsHostProps {
       logoFile?: File,
     ) => Promise<void | { logoError?: string }>;
     onJoinByLink: (token: string) => Promise<void>;
+    canCreate: boolean;
   };
   channelModal: { communityId: string; kind: ChannelKind } | null;
   onCloseChannelModal: () => void;
@@ -91,6 +92,7 @@ const ModalsHost: React.FC<ModalsHostProps> = ({
         initialView={communityModal.view}
         initialToken={communityModal.token}
         onJoinByLink={communityModal.onJoinByLink}
+        canCreate={communityModal.canCreate}
       />
 
       <CreateChannelModal

@@ -19,6 +19,8 @@ pub enum CreateCommunityError {
     Repository(#[from] RepositoryError),
     #[error("Account is inactive")]
     AccountInactive,
+    #[error("Only teachers can create groups")]
+    TeachersOnly,
     #[error("Community name is not allowed")]
     NameNotAllowed,
     #[error("Community description is not allowed")]
@@ -55,6 +57,9 @@ where
         request: CreateCommunityRequest,
         owner_id: UserId,
     ) -> Result<Community, CreateCommunityError> {
+        if !request.creator_role.can_create_groups() {
+            return Err(CreateCommunityError::TeachersOnly);
+        }
         match ensure_community_text_allowed(
             self.text_moderation.as_ref(),
             &request.name,

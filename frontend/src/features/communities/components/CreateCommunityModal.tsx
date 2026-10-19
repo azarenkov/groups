@@ -37,6 +37,7 @@ interface CreateCommunityModalProps {
   ) => Promise<void | { logoError?: string }>;
   onJoinByLink?: (token: string) => Promise<void>;
   initialToken?: string | null;
+  canCreate?: boolean;
 }
 
 const MAX_COMMUNITY_NAME_LENGTH = 100;
@@ -49,9 +50,13 @@ const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
   onCreate,
   onJoinByLink,
   initialToken = null,
+  canCreate = true,
 }) => {
   const { t } = useTranslation(["modals", "common"]);
   const [view, setView] = useState<CommunityModalView>(initialView);
+  useEffect(() => {
+    if (!canCreate && view === "create") setView("join");
+  }, [canCreate, view]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [accentIdx, setAccentIdx] = useState(0);
@@ -284,6 +289,7 @@ const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
           <div className="srvm-choose-body">
             <h3 className="srvm-title">{t("communityModal.addTitle")}</h3>
             <p className="srvm-sub">{t("communityModal.addSub")}</p>
+            {canCreate && (
             <button
               type="button"
               className="srvm-option"
@@ -302,6 +308,7 @@ const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
               </span>
               <Icon name="chev-left" size={18} className="srvm-option-chev" />
             </button>
+            )}
             <button
               type="button"
               className="srvm-option"

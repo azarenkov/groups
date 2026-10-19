@@ -1,4 +1,5 @@
-pub use domain::user::{email, id, locale, name};
+pub use domain::user::{email, id, locale, name, role};
+use domain::user::role::UserRole;
 
 pub mod tier;
 pub mod emoji_status;
@@ -58,6 +59,7 @@ pub struct User {
     email_verified_at: Option<DateTime<Utc>>,
     phone_verified_at: Option<DateTime<Utc>>,
     locale: Locale,
+    role: UserRole,
     pending_email: Option<Email>,
     password_changed_at: Option<DateTime<Utc>>,
     disabled_at: Option<DateTime<Utc>>,
@@ -94,8 +96,10 @@ impl User {
         show_game_activity: bool,
         timezone: String,
         emoji_status: Option<EmojiStatus>,
+        role: UserRole,
     ) -> Self {
         Self {
+            role,
             badge_style,
             id,
             name,
@@ -126,6 +130,7 @@ impl User {
         ip: Option<String>,
         user_agent: Option<String>,
         locale: Locale,
+        role: UserRole,
     ) -> Self {
         let now = Utc::now();
         let id = UserId::generate();
@@ -149,6 +154,7 @@ impl User {
             phone_verified_at: None,
             badge_style: BadgeStyle::default(),
             locale,
+            role,
             pending_email: None,
             password_changed_at: None,
             disabled_at: None,
@@ -654,5 +660,9 @@ impl User {
 
     pub fn locale(&self) -> Locale {
         self.locale
+    }
+
+    pub fn role(&self) -> UserRole {
+        self.role
     }
 }

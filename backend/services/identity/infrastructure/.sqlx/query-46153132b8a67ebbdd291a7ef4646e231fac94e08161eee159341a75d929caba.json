@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until\n            FROM users\n            WHERE lower(email) = lower($1)\n            LIMIT 2\n            ",
+  "query": "\n            SELECT id, name, email, password_hash, created_at, updated_at,\n                   email_verified_at, phone_verified_at, locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until, role\n            FROM users\n            WHERE id = $1\n            FOR UPDATE\n            ",
   "describe": {
     "columns": [
       {
@@ -102,11 +102,16 @@
         "ordinal": 19,
         "name": "emoji_status_until",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 20,
+        "name": "role",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -129,8 +134,9 @@
       false,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "c9dac15449e07dda564d925165a7ada9aceeaf5f45faaceffce7787c3782e31c"
+  "hash": "46153132b8a67ebbdd291a7ef4646e231fac94e08161eee159341a75d929caba"
 }

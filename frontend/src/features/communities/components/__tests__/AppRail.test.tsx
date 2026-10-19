@@ -6,12 +6,10 @@ import AppRail from "../AppRail";
 
 const renderRail = (overrides: Partial<React.ComponentProps<typeof AppRail>> = {}) => {
   const props: React.ComponentProps<typeof AppRail> = {
-    tab: "dms",
-    homeActive: false,
-    dmUnread: 0,
+    homeActive: true,
     groupUnread: 0,
     onGoHome: jest.fn(),
-    onSetTab: jest.fn(),
+    onOpenGroups: jest.fn(),
     onOpenSettings: jest.fn(),
     ...overrides,
   };
@@ -23,27 +21,25 @@ beforeAll(async () => {
   await i18n.changeLanguage("en");
 });
 
-it("switches between home, chat, groups and settings", () => {
+it("switches between home, groups and settings", () => {
   const props = renderRail();
   fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:home") }));
   expect(props.onGoHome).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:tabCommunities") }));
-  expect(props.onSetTab).toHaveBeenCalledWith("communities");
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:tabDirects") }));
-  expect(props.onSetTab).toHaveBeenCalledWith("dms");
+  expect(props.onOpenGroups).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: i18n.t("sidebar:settings") }));
   expect(props.onOpenSettings).toHaveBeenCalled();
 });
 
-it("marks the current section and shows unread counts", () => {
-  renderRail({ tab: "communities", groupUnread: 120, dmUnread: 3 });
+it("marks groups current outside home and shows the unread count", () => {
+  renderRail({ homeActive: false, groupUnread: 120 });
   expect(screen.getByRole("button", { name: /Groups/ })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("button", { name: i18n.t("sidebar:home") })).not.toHaveAttribute("aria-current");
   expect(screen.getByText("99+")).toBeInTheDocument();
-  expect(screen.getByText("3")).toBeInTheDocument();
 });
 
-it("highlights home instead of a section while at home", () => {
+it("highlights home while at home", () => {
   renderRail({ homeActive: true });
   expect(screen.getByRole("button", { name: i18n.t("sidebar:home") })).toHaveAttribute("aria-current", "page");
-  expect(screen.getByRole("button", { name: i18n.t("sidebar:tabDirects") })).not.toHaveAttribute("aria-current");
+  expect(screen.getByRole("button", { name: i18n.t("sidebar:tabCommunities") })).not.toHaveAttribute("aria-current");
 });

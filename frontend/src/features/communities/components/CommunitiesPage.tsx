@@ -5,7 +5,6 @@ import { homeAPI } from "../../home/api/home";
 import { useAuthStore } from "../../auth/store/authStore";
 import { communitySession, useCommunityStore } from "../store/communityStore";
 import { channelsFullyLoaded, useChannelStore } from "../store/channelStore";
-import { pinnedFirst, useConversationPinsStore } from "../store/conversationPinsStore";
 import { useHiddenDmStore } from "../../dm/store/hiddenDmStore";
 import { hydrateSidebar, readSidebarSnapshot, clearSidebarSnapshot, startSidebarSnapshots } from "../lib/sidebarSnapshot";
 import { communityAPI } from "../api/community";
@@ -22,7 +21,6 @@ import {
 } from "../../voice/store/streamViewersStore";
 import { useUnreadStore } from "../../chat/store/unreadStore";
 import { useCallStore } from "../../voice/store/callStore";
-import { useHomeStore } from "../../home/store/homeStore";
 import HomeView from "../../home/components/HomeView";
 import { colorForId, initialFor } from "../../../shared/lib/avatar";
 import { bustAvatar } from "../../../shared/lib/avatarCache";
@@ -47,6 +45,12 @@ import CommunitySettingsView from "./CommunitySettingsView";
 import ModalsHost from "./ModalsHost";
 import AppTopBar from "./AppTopBar";
 import AppRail from "./AppRail";
+import Icon from "../../../shared/ui/Icon";
+import DmList from "./sidebar/DmList";
+import CommunityList from "./sidebar/CommunityList";
+import { useSidebarPermissions } from "./sidebar/permissions";
+import { pinnedFirst, useConversationPinsStore } from "../store/conversationPinsStore";
+import { canCreateGroups as roleCanCreateGroups } from "../../../shared/types/userRole";
 import SearchDropdown from "./SearchDropdown";
 import { useSidebarNavigation } from "./sidebar/useSidebarNavigation";
 import { useVoiceSession } from "../../voice/hooks/useVoiceSession";
@@ -575,9 +579,12 @@ const CommunitiesPage: React.FC = () => {
     clearChannelsError();
   };
 
-  const homeOverview = useHomeStore((s) => s.overview);
-  const homeFailed = useHomeStore((s) => s.failed);
-  const homeActive = !selectedCommunity && !selectedDm;
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const homeActive = !selectedCommunity && !selectedDm && !workspaceOpen;
+  const canCreateGroups = roleCanCreateGroups(user?.role);
+  const homePerms = useSidebarPermissions(user?.id, null);
+  const dmPins = useConversationPinsStore((s) => s.dms);
+  const communityPins = useConversationPinsStore((s) => s.communities);
   const chatLocation: AppLocation | null = selectedDm
     ? { kind: "dm", peerId: selectedDm.id }
     : selectedCommunityId
@@ -625,6 +632,7 @@ const CommunitiesPage: React.FC = () => {
     setPendingMessageLink(null);
   }, [selection.selectionSeq]);
   const goHome = () => {
+    setWorkspaceOpen(false);
     setUnavailable(null);
     if (pathLocation?.kind !== "home") navigate(appPath({ kind: "home" }));
     else selection.handleGoHome();
@@ -639,26 +647,38 @@ const CommunitiesPage: React.FC = () => {
     selectedDmId: selectedDm?.id ?? null,
     channelsByCommunity,
   });
-  const { fetchHome } = useHomeRefresh({
+  useHomeRefresh({
     hasSession,
     homeActive,
     watched: [voicePresenceByChannel, onlineUsers, friends],
   });
 
-  const handleJoinFromHome = async (communityId: string, channelId: string) => {
-      const community = communities.find((s) => s.id === communityId);
-      if (!community) return;
-      let channel = channelsByCommunity[communityId]?.find((c) => c.id === channelId);
-      if (!channel) {
-        await fetchChannels(communityId);
-        channel = useChannelStore
-          .getState()
-          .channelsByCommunity[communityId]?.find((c) => c.id === channelId);
-      }
-      if (!channel) return;
-      selection.expandCommunity(communityId);
-      handleSelectChannel(community, channel);
+  const openGroupFromHome = (community: Community) => {
+    if (!expandedCommunityIds.has(community.id)) selection.handleToggleCommunity(community.id);
+    sidebarNav.setOpenCommunityId(community.id);
+    selection.handleSelectCommunity(community.id);
   };
+  const groupUnreadFor = (communityId: string) => {
+    const local = (channelsByCommunity[communityId] || [])
+      .filter((c) => c.kind === "text")
+      .reduce((sum, c) => sum + (unreadByChannel[c.id] ?? 0), 0);
+    let fallback = 0;
+    for (const [channelId, count] of Object.entries(unreadByChannel)) {
+      if (channelToCommunity[channelId] === communityId) fallback += count;
+    }
+    return Math.max(local, fallback);
+  };
+  const openCommunitySettings = (community: Community) => {
+    setCommunitySettings(community);
+    if (channelsFullyLoaded(community.id)) setSettingsChannels(null);
+    else loadSettingsChannels(community.id);
+  };
+  const confirmLeaveCommunity = (community: Community) =>
+    setDeleteConfirm({
+      type: community.ownerId === user?.id ? "community" : "leave-community",
+      id: community.id,
+      name: community.name,
+    });
 
   const dmConversationFor = (friendId: string, name?: string, knownFriend = false): DirectConversation | null => {
     const dm = acceptedFriends.find((d) => d.id === friendId);
@@ -849,16 +869,19 @@ const CommunitiesPage: React.FC = () => {
       />
       <div className="body-area">
         <AppRail
-          tab={sidebarNav.tab}
           homeActive={homeActive}
-          dmUnread={Object.values(unreadByDm).reduce((sum, count) => sum + count, 0)}
           groupUnread={Object.values(unreadByChannel).reduce((sum, count) => sum + count, 0)}
           onGoHome={goHome}
-          onSetTab={sidebarNav.setTab}
+          onOpenGroups={() => {
+            setWorkspaceOpen(true);
+            sidebarNav.setTab("communities");
+          }}
           onOpenSettings={() => openSettings("account")}
         />
+        {!homeActive && (
         <Sidebar
           nav={sidebarNav}
+          canCreateGroups={canCreateGroups}
           communities={communities}
           channelsByCommunity={channelsByCommunity}
           expandedCommunityIds={expandedCommunityIds}
@@ -874,18 +897,8 @@ const CommunitiesPage: React.FC = () => {
           onSelectChannel={handleSelectChannel}
           onSelectDm={handleSelectDm}
           onInviteCommunity={(community) => setInviteModalCommunity(community)}
-          onOpenCommunitySettings={(community) => {
-            setCommunitySettings(community);
-            if (channelsFullyLoaded(community.id)) setSettingsChannels(null);
-            else loadSettingsChannels(community.id);
-          }}
-          onLeaveCommunity={(community) =>
-            setDeleteConfirm({
-              type: community.ownerId === user?.id ? "community" : "leave-community",
-              id: community.id,
-              name: community.name,
-            })
-          }
+          onOpenCommunitySettings={openCommunitySettings}
+          onLeaveCommunity={confirmLeaveCommunity}
           onCallDm={(dm) => handleCallFromHome(dm.id)}
           onAddChannel={(community, kind) => setChannelModal({ communityId: community.id, kind })}
           onDeleteChannel={(community, channel) =>
@@ -907,6 +920,7 @@ const CommunitiesPage: React.FC = () => {
           unreadByDm={unreadByDm}
           channelToCommunity={channelToCommunity}
         />
+        )}
 
         <main className="main">
           <div className="main-inner">
@@ -924,19 +938,47 @@ const CommunitiesPage: React.FC = () => {
                   setPendingMessageLink({ ...unavailable.location });
                 }}
               />
-            ) : !selectedCommunity && !selectedDm ? (
+            ) : homeActive ? (
               <HomeView
-                overview={homeOverview}
-                overviewFailed={homeFailed}
-                onRetry={() => void fetchHome()}
-                friends={friends}
-                onlineUsers={onlineUsers}
-                joinedChannelId={joinedChannel?.channel.id ?? null}
-                onJoinRoom={(communityId, channelId) => void handleJoinFromHome(communityId, channelId)}
-                onOpenDm={handleOpenDmFromHome}
-                onCall={handleCallFromHome}
+                canCreateGroups={canCreateGroups}
                 onAddFriend={focusPeopleSearch}
+                onCreateGroup={() => {
+                  setCommunityModalView("create");
+                  setIsCommunityModalOpen(true);
+                }}
+                onJoinGroup={focusInviteSearch}
+                chats={
+                  <DmList
+                    directs={pinnedFirst(acceptedFriends, dmPins)}
+                    selectedDmId={null}
+                    unreadByDm={unreadByDm}
+                    hasMoreDirects={hasMoreDirects}
+                    onLoadMoreDirects={loadMoreDirects}
+                    onPick={handleSelectDm}
+                    onCall={(dm) => handleCallFromHome(dm.id)}
+                  />
+                }
+                groups={
+                  <CommunityList
+                    communities={pinnedFirst(communities, communityPins)}
+                    channelsByCommunity={channelsByCommunity}
+                    voiceMembersByChannel={voiceMembersByChannel}
+                    unreadFor={groupUnreadFor}
+                    onJoinCommunity={focusInviteSearch}
+                    onPick={openGroupFromHome}
+                    perms={homePerms}
+                    currentUserId={user?.id}
+                    onInviteCommunity={(community) => setInviteModalCommunity(community)}
+                    onOpenCommunitySettings={openCommunitySettings}
+                    onLeaveCommunity={confirmLeaveCommunity}
+                  />
+                }
               />
+            ) : !selectedCommunity && !selectedDm ? (
+              <div className="empty-state workspace-empty">
+                <Icon name="users" size={28} />
+                <span>{tSidebar("welcomeSubtitle")}</span>
+              </div>
             ) : selectedDm ? (
               <ChatView
                 dm={{
@@ -1159,6 +1201,7 @@ const CommunitiesPage: React.FC = () => {
       <ModalsHost
         communityModal={{
           isOpen: isCommunityModalOpen,
+          canCreate: canCreateGroups,
           view: communityModalView,
           token: joinToken,
           onClose: () => {

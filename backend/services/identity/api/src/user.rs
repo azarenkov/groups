@@ -50,6 +50,7 @@ pub struct MeResponse {
     pub timezone: String,
     pub profile_updated_at: chrono::DateTime<chrono::Utc>,
     pub appear_offline: bool,
+    pub role: String,
 }
 
 #[get("/me")]
@@ -72,6 +73,7 @@ async fn get_me(
         timezone: profile.timezone,
         profile_updated_at: profile.profile_updated_at,
         appear_offline: profile.appear_offline,
+        role: profile.role.as_str().to_string(),
     };
     Ok(HttpResponse::Ok().json(ApiResponse::success(response)))
 }

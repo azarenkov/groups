@@ -66,7 +66,18 @@ it("signs up once both passwords match", async () => {
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: i18n.t("auth:createAccount") }));
   });
-  expect(register).toHaveBeenCalledWith("alice", "alice@rift.app", "secret-1", expect.anything(), "captcha");
+  expect(register).toHaveBeenCalledWith("alice", "alice@rift.app", "secret-1", "student", expect.anything(), "captcha");
+});
+
+it("registers a teacher when the teacher role is picked", async () => {
+  register.mockRejectedValue(new Error("stop"));
+  renderSignUp();
+  fill("secret-1", "secret-1");
+  fireEvent.click(screen.getByRole("radio", { name: new RegExp(i18n.t("auth:roleTeacher")) }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: i18n.t("auth:createAccount") }));
+  });
+  expect(register).toHaveBeenCalledWith("alice", "alice@rift.app", "secret-1", "teacher", expect.anything(), "captcha");
 });
 
 it("needs at least eight characters for a new password", async () => {

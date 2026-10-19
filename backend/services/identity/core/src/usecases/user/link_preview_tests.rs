@@ -1,3 +1,4 @@
+use domain::user::role::UserRole;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
@@ -38,6 +39,7 @@ impl UserRepository for Users {
                 u.show_game_activity(),
                 u.timezone().to_string(),
                 u.emoji_status(),
+                u.role(),
             )
         }))
     }
@@ -68,6 +70,7 @@ fn user(name: &str, verified: bool) -> User {
         None,
         None,
         Locale::default(),
+        UserRole::Teacher,
     );
     if verified {
         user.verify_email(Utc::now());

@@ -1,6 +1,7 @@
 import { http } from "../../../shared/api/http";
 import { useAuthStore } from "../store/authStore";
 import type { AltchaChallenge } from "../lib/captcha";
+import type { UserRole } from "../../../shared/types/userRole";
 
 export interface TokenPair {
   accessToken: string;
@@ -19,6 +20,7 @@ class AuthAPI {
     name: string,
     email: string,
     password: string,
+    role: UserRole,
     locale?: string,
     altcha?: string | null,
   ): Promise<TokenPair> {
@@ -26,6 +28,7 @@ class AuthAPI {
       name,
       email,
       password,
+      role,
       ...(locale ? { locale } : {}),
       ...(altcha ? { altcha } : {}),
     });

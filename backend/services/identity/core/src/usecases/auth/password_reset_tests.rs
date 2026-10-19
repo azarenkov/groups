@@ -1,3 +1,4 @@
+use domain::user::role::UserRole;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
@@ -64,6 +65,7 @@ fn copy_user(user: &User) -> User {
         user.show_game_activity(),
         user.timezone().to_string(),
         user.emoji_status(),
+        user.role(),
     )
 }
 
@@ -94,6 +96,7 @@ impl Fake {
             None,
             None,
             Locale::default(),
+            UserRole::Teacher,
         );
         user.verify_email(Utc::now());
         user.pull_events();
@@ -440,7 +443,7 @@ struct FixedTokens;
 
 #[async_trait]
 impl crate::ports::token_issuer::TokenIssuer for FixedTokens {
-    async fn issue(&self, _: &UserId, _: bool) -> Result<crate::ports::token_issuer::IssuedTokens, crate::ports::token_issuer::TokenIssuerError> {
+    async fn issue(&self, _: &UserId, _: bool, _: UserRole) -> Result<crate::ports::token_issuer::IssuedTokens, crate::ports::token_issuer::TokenIssuerError> {
         Ok(crate::ports::token_issuer::IssuedTokens {
             access_token: "a".into(),
             refresh_token: "r".into(),

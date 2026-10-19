@@ -66,6 +66,7 @@ interface SidebarProps {
   onLeaveCommunity?: (community: Community) => void;
   onCallDm?: (dm: DirectConversation) => void;
   nav: SidebarNav;
+  canCreateGroups?: boolean;
 }
 
 export interface SidebarNav {
@@ -104,6 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLeaveCommunity,
   onCallDm,
   nav,
+  canCreateGroups = true,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   const { tab, openCommunityId, setTab, setOpenCommunityId } = nav;
@@ -408,9 +410,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             </>
           ) : (
             <>
-              <button type="button" className="sb-mini sb-mini-more" title={t("createCommunity")} aria-label={t("createCommunity")} onClick={onCreateCommunity}>
-                <Icon name="plus" size={16} />
-              </button>
+              {canCreateGroups && (
+                <button type="button" className="sb-mini sb-mini-more" title={t("createCommunity")} aria-label={t("createCommunity")} onClick={onCreateCommunity}>
+                  <Icon name="plus" size={16} />
+                </button>
+              )}
               <button type="button" className="sb-mini sb-mini-more" title={t("joinCommunity")} aria-label={t("joinCommunity")} onClick={onJoinCommunity}>
                 <Icon name="link" size={16} />
               </button>
@@ -473,6 +477,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         onCreateCommunity={onCreateCommunity}
         onJoinCommunity={onJoinCommunity}
         onCollapse={collapse}
+        canCreateGroups={canCreateGroups}
       />
 
       <div className="sb-scroll">

@@ -110,9 +110,10 @@ where
             request.client.ip.clone(),
             request.client.user_agent.clone(),
             request.locale,
+            request.role,
         );
 
-        let tokens = self.token_issuer.issue(user.id(), false).await?;
+        let tokens = self.token_issuer.issue(user.id(), false, user.role()).await?;
 
         let refresh_token = RefreshToken::issue(
             tokens.refresh_token_id,

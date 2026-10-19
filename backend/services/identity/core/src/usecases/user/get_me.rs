@@ -27,6 +27,7 @@ pub struct MeProfile {
     pub timezone: String,
     pub profile_updated_at: chrono::DateTime<chrono::Utc>,
     pub appear_offline: bool,
+    pub role: domain::user::role::UserRole,
 }
 
 pub struct GetMe<U>
@@ -65,6 +66,7 @@ where
             timezone: user.timezone().to_string(),
             profile_updated_at: user.updated_at(),
             appear_offline,
+            role: user.role(),
         })
     }
 }

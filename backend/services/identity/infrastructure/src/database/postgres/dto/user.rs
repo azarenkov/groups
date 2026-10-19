@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use domain::{password_hash::PasswordHash, user::id::UserId, user::name::UserName};
+use domain::{password_hash::PasswordHash, user::id::UserId, user::name::UserName, user::role::UserRole};
 use identity_domain::{user::User, user::email::Email, user::emoji_status::EmojiStatus, user::locale::Locale, user::tier::BadgeStyle};
 use sqlx::{FromRow, types::Uuid};
 
@@ -25,6 +25,7 @@ pub struct UserDto {
     pub timezone: String,
     pub emoji_status_sticker_id: Option<Uuid>,
     pub emoji_status_until: Option<DateTime<Utc>>,
+    pub role: String,
 }
 
 impl From<UserDto> for User {
@@ -51,6 +52,7 @@ impl From<UserDto> for User {
             dto.timezone,
             dto.emoji_status_sticker_id
                 .map(|sticker_id| EmojiStatus::new(sticker_id, dto.emoji_status_until)),
+            dto.role.parse::<UserRole>().unwrap_or_default(),
         )
     }
 }

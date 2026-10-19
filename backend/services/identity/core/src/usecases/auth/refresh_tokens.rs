@@ -80,7 +80,7 @@ where
         refresh_token.rotate(&decoded.user_id, now)?;
         let tokens = self
             .token_issuer
-            .issue(&decoded.user_id, user.is_verified())
+            .issue(&decoded.user_id, user.is_verified(), user.role())
             .await?;
         let new_refresh_token = RefreshToken::issue(
             tokens.refresh_token_id,

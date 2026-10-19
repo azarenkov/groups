@@ -241,7 +241,8 @@
     "WEBHOOK_INVALID_IDENTIFIER": "Something went wrong on our side. Please try again.",
     "WEBHOOK_INVALID_SIGNATURE": "Something went wrong on our side. Please try again.",
     "WEBHOOK_MISSING_AUTH": "Something went wrong on our side. Please try again.",
-    "WEBHOOK_MISSING_FIELD": "Something went wrong on our side. Please try again."
+    "WEBHOOK_MISSING_FIELD": "Something went wrong on our side. Please try again.",
+    "GROUPS_TEACHERS_ONLY": "Only teachers can create groups."
   },
   "fields": {
     "email": "Enter a valid email address.",

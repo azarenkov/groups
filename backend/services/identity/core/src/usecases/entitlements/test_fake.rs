@@ -1,3 +1,4 @@
+use domain::user::role::UserRole;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
@@ -52,6 +53,7 @@ fn copy(user: &User) -> User {
         user.show_game_activity(),
         user.timezone().to_string(),
         user.emoji_status(),
+        user.role(),
     )
 }
 
@@ -64,6 +66,7 @@ impl Fake {
             None,
             None,
             Locale::default(),
+            UserRole::Teacher,
         );
         user.verify_email(Utc::now());
         user.pull_events();

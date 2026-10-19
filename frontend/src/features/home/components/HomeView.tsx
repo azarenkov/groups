@@ -1,291 +1,46 @@
-import React, { useEffect, useMemo } from "react";
+import React from "react";
 import { useTranslation } from "react-i18next";
 
-import type { ActiveFriend, HomeOverview, RecentRoom } from "../api/home";
-import type { Friendship } from "../../../shared/types/friendship";
-import { colorForId } from "../../../shared/lib/avatar";
-import { useActivityStore } from "../../social/store/activityStore";
-import { useFriendshipStore } from "../../social/store/friendshipStore";
-import { UserAvatar } from "../../../shared/ui/Avatar";
-import UserBadge from "../../subscription/components/UserBadge";
 import Icon from "../../../shared/ui/Icon";
-import {
-  openContextMenu,
-  openContextMenuAt,
-} from "../../../shared/ui/contextMenu/contextMenuStore";
-import type { MenuEntry } from "../../../shared/ui/contextMenu/contextMenuStore";
-import { useLongPress } from "../../../shared/ui/contextMenu/useLongPress";
-import { useProfileModalStore } from "../../social/store/profileModalStore";
-import i18n from "../../../i18n";
 import "../../../styles/home.css";
-import LoadingDots from "../../../shared/ui/LoadingDots";
 
 export interface HomeViewProps {
-  overview: HomeOverview | null;
-  overviewFailed: boolean;
-  onRetry: () => void;
-  friends: Friendship[];
-  onlineUsers: Record<string, true>;
-  joinedChannelId: string | null;
-  onJoinRoom: (communityId: string, channelId: string) => void;
-  onOpenDm: (friendId: string) => void;
-  onCall: (friendId: string) => void;
+  chats: React.ReactNode;
+  groups: React.ReactNode;
+  canCreateGroups: boolean;
   onAddFriend: () => void;
+  onCreateGroup: () => void;
+  onJoinGroup: () => void;
 }
 
-const useNow = (intervalMs: number) => {
-  const [now, setNow] = React.useState(() => Date.now());
-  useEffect(() => {
-    const handle = window.setInterval(() => setNow(Date.now()), intervalMs);
-    return () => window.clearInterval(handle);
-  }, [intervalMs]);
-  return now;
-};
-
-const HomeView: React.FC<HomeViewProps> = ({
-  overview,
-  overviewFailed,
-  onRetry,
-  friends,
-  onlineUsers,
-  joinedChannelId,
-  onJoinRoom,
-  onOpenDm,
-  onCall,
-  onAddFriend,
-}) => {
-  const { t } = useTranslation("home");
-  const friendMenu = (friendId: string): MenuEntry[] => [
-    { kind: "item", id: "message", label: t("message"), icon: "message", onSelect: () => onOpenDm(friendId) },
-    { kind: "item", id: "call", label: t("call"), icon: "phone", onSelect: () => onCall(friendId) },
-    { kind: "separator", id: "s1" },
-    {
-      kind: "item",
-      id: "profile",
-      label: i18n.t("viewProfile", { ns: "profile" }),
-      icon: "user",
-      onSelect: () => useProfileModalStore.getState().open(friendId),
-    },
-  ];
-  const friendLongPress = useLongPress((point, el) => {
-    const friendId = el.dataset.friendId;
-    return !!friendId && openContextMenu(point, friendMenu(friendId));
-  });
-  const now = useNow(30_000);
-  const activities = useActivityStore((s) => s.byUser);
-  const friendStatuses = useFriendshipStore((s) => s.statusById);
-  const friendsCursor = useFriendshipStore((s) => s.nextCursor);
-  useEffect(() => {
-    if (friendsCursor) void useFriendshipStore.getState().loadAll();
-  }, [friendsCursor]);
-  const activeFriends = useMemo<ActiveFriend[]>(() => overview?.activeFriends ?? [], [overview]);
-  const recentRooms = useMemo<RecentRoom[]>(() => overview?.recentRooms ?? [], [overview]);
-
-  const duration = (joinedAt: string) => {
-    const minutes = Math.max(0, Math.floor((now - new Date(joinedAt).getTime()) / 60_000));
-    if (minutes < 60) return t("durationMinutes", { count: minutes });
-    return t("durationHours", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
-  };
-
-  const activeIds = useMemo(
-    () => new Set(activeFriends.map((f) => f.userId)),
-    [activeFriends],
-  );
-  const accepted = useMemo(
-    () => friends.filter((f) => (friendStatuses[f.friendId] ?? f.status) === "accepted"),
-    [friends, friendStatuses],
-  );
-  const onlineFriends = useMemo(
-    () => accepted.filter((f) => !!onlineUsers[f.friendId] || activeIds.has(f.friendId)),
-    [accepted, onlineUsers, activeIds],
-  );
-  const onlineCount = onlineFriends.length;
-  const activeRooms = useMemo(() => {
-    const rooms = new Map<string, { channelId: string; channelName: string; communityId: string; communityName: string; members: ActiveFriend[] }>();
-    for (const f of activeFriends) {
-      const room = rooms.get(f.channelId);
-      if (room) room.members.push(f);
-      else rooms.set(f.channelId, { channelId: f.channelId, channelName: f.channelName, communityId: f.communityId, communityName: f.communityName, members: [f] });
-    }
-    return Array.from(rooms.values());
-  }, [activeFriends]);
-
+const HomeView: React.FC<HomeViewProps> = ({ chats, groups, canCreateGroups, onAddFriend, onCreateGroup, onJoinGroup }) => {
+  const { t } = useTranslation(["sidebar"]);
   return (
-    <div className="home" aria-label={t("title")}>
-      <div className="home-scroll">
-        {!overview ? (
-          <div className="home-state">
-            {overviewFailed ? (
-              <>
-                <div className="home-empty-text">{t("loadFailed")}</div>
-                <button type="button" className="home-btn-secondary sm" onClick={onRetry}>
-                  <Icon name="refresh" size={13} />
-                  {t("retry")}
-                </button>
-              </>
-            ) : (
-              <LoadingDots />
+    <div className="home">
+      <div className="home-board">
+        <section className="home-col" aria-label={t("tabDirects")}>
+          <header className="home-col-head">
+            <h2 className="home-col-title">{t("tabDirects")}</h2>
+            <button type="button" className="sb-rail-btn" title={t("addFriend")} aria-label={t("addFriend")} onClick={onAddFriend}>
+              <Icon name="user-plus" size={18} />
+            </button>
+          </header>
+          <div className="home-col-body sb-scroll">{chats}</div>
+        </section>
+        <section className="home-col" aria-label={t("tabCommunities")}>
+          <header className="home-col-head">
+            <h2 className="home-col-title">{t("tabCommunities")}</h2>
+            <button type="button" className="sb-rail-btn" title={t("joinCommunity")} aria-label={t("joinCommunity")} onClick={onJoinGroup}>
+              <Icon name="link" size={18} />
+            </button>
+            {canCreateGroups && (
+              <button type="button" className="sb-rail-btn" title={t("createCommunity")} aria-label={t("createCommunity")} onClick={onCreateGroup}>
+                <Icon name="plus" size={18} />
+              </button>
             )}
-          </div>
-        ) : (
-        <div className="home-grid">
-          <div className="home-col-main">
-            <section>
-              <h6 className="home-label">{t("online", { count: onlineCount })}</h6>
-              {onlineFriends.length === 0 && activeFriends.length === 0 ? (
-                <div className="home-empty home-card">
-                  <span className="home-empty-ico"><Icon name="users" size={20} /></span>
-                  <div className="home-empty-title">{t("emptyOnlineTitle")}</div>
-                  <div className="home-empty-text">{t("emptyOnline")}</div>
-                  <button type="button" className="home-btn-secondary sm" onClick={onAddFriend}>
-                    <Icon name="user-plus" size={13} />
-                    {t("addFriend")}
-                  </button>
-                </div>
-              ) : (
-                <div className="home-online-list">
-                  {onlineFriends.map((f) => (
-                    <div
-                      key={f.friendId}
-                      className="home-online-row clickable"
-                      role="button"
-                      tabIndex={0}
-                      data-friend-id={f.friendId}
-                      {...friendLongPress}
-                      onClick={() => onOpenDm(f.friendId)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          onOpenDm(f.friendId);
-                        } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
-                          e.preventDefault();
-                          openContextMenuAt(e.currentTarget, friendMenu(f.friendId));
-                        }
-                      }}
-                      onContextMenu={(e) => openContextMenu(e, friendMenu(f.friendId))}
-                    >
-                      <span className="home-avatar-wrap">
-                        <UserAvatar
-                          userId={f.friendId}
-                          name={f.friendName}
-                          className="home-avatar"
-                          style={{ background: colorForId(f.friendId), width: 30, height: 30 }}
-                        />
-                        <span className="home-avatar-dot live" />
-                      </span>
-                      <span className="who">
-                        <span className="name">
-                          <span className="name-text">{f.friendName}</span>
-                          <UserBadge userId={f.friendId} size="sm" />
-                        </span>
-                        <span className="status">
-                          {activities[f.friendId]
-                            ? t("playingFor", { game: activities[f.friendId].name, duration: duration(activities[f.friendId].startedAt) })
-                            : activeIds.has(f.friendId)
-                              ? t("statusInVoice")
-                              : t("statusOnline")}
-                        </span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-          <div className="home-col-side">
-            <div className="home-card home-side-card">
-              <h6 className="home-label">{t("activeNow", { count: activeFriends.length })}</h6>
-              {activeFriends.length === 0 ? (
-                <div className="home-empty compact">
-                  <span className="home-empty-ico"><Icon name="headphones" size={16} /></span>
-                  <div className="home-empty-text">{t("emptyActive")}</div>
-                </div>
-              ) : (
-                <div className="home-active-grid">
-                  {activeRooms.map((room) => {
-                    const connected = joinedChannelId === room.channelId;
-                    return (
-                      <div key={room.channelId} className="home-card home-active-card">
-                        <div className="members">
-                          {room.members.map((f) => (
-                            <div key={f.userId} className="head">
-                              <span className="home-avatar-wrap">
-                                <UserAvatar
-                                  userId={f.userId}
-                                  name={f.userName}
-                                  className="home-avatar"
-                                  style={{ background: colorForId(f.userId), width: 32, height: 32 }}
-                                />
-                                <span className="home-avatar-dot live" />
-                              </span>
-                              <span className="who">
-                                <span className="name">{f.userName}</span>
-                                <span className="state">
-                                  {f.isMuted && <Icon name="mic-off" size={11} />}
-                                  {t("inVoice", { duration: duration(f.joinedAt) })}
-                                </span>
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="foot">
-                          <span className="room">
-                            <Icon name="volume" size={13} />
-                            <span>
-                              {room.channelName} · {room.communityName}
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            className={connected ? "home-btn-joined" : "home-btn-secondary"}
-                            onClick={() => !connected && onJoinRoom(room.communityId, room.channelId)}
-                          >
-                            {connected ? t("connected") : t("join")}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            <div className="home-card home-side-card">
-              <h6 className="home-label">{t("jumpBackIn")}</h6>
-              {recentRooms.length === 0 ? (
-                <div className="home-empty compact">
-                  <span className="home-empty-ico"><Icon name="volume" size={16} /></span>
-                  <div className="home-empty-text">{t("emptyRooms")}</div>
-                </div>
-              ) : (
-                <div className="home-room-list">
-                {recentRooms.map((room) => (
-                  <button
-                    key={room.channelId}
-                    type="button"
-                    className="home-room-row"
-                    onClick={() => onJoinRoom(room.communityId, room.channelId)}
-                  >
-                    <span className="ico">
-                      <Icon name="volume" size={14} />
-                    </span>
-                    <span className="who">
-                      <span className="name">{room.channelName}</span>
-                      <span className="community">{room.communityName}</span>
-                    </span>
-                    {room.liveCount > 0 && (
-                      <span className="home-live-pill">
-                        <i />
-                        {room.liveCount}
-                      </span>
-                    )}
-                  </button>
-                ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        )}
+          </header>
+          <div className="home-col-body sb-scroll">{groups}</div>
+        </section>
       </div>
     </div>
   );

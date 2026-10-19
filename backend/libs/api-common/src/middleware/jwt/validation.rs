@@ -1,3 +1,4 @@
+use domain::user::role::UserRole;
 use jsonwebtoken::{DecodingKey, Validation, decode};
 use uuid::Uuid;
 
@@ -7,6 +8,7 @@ pub struct ValidatedAccess {
     pub user_id: Uuid,
     pub verified: bool,
     pub issued_at: i64,
+    pub role: UserRole,
 }
 
 pub fn validate_access_token(token: &str, secret: &str) -> anyhow::Result<ValidatedAccess> {
@@ -24,5 +26,6 @@ pub fn validate_access_token(token: &str, secret: &str) -> anyhow::Result<Valida
         user_id: decoded.claims.sub,
         verified: decoded.claims.verified,
         issued_at: decoded.claims.iat,
+        role: decoded.claims.role,
     })
 }

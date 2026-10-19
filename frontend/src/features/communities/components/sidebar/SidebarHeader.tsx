@@ -8,6 +8,7 @@ interface SidebarHeaderProps {
   onCreateCommunity: () => void;
   onJoinCommunity: () => void;
   onCollapse: () => void;
+  canCreateGroups?: boolean;
 }
 
 const SidebarHeader: React.FC<SidebarHeaderProps> = ({
@@ -16,6 +17,7 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
   onCreateCommunity,
   onJoinCommunity,
   onCollapse,
+  canCreateGroups = true,
 }) => {
   const { t } = useTranslation(["sidebar", "common"]);
   return (
@@ -44,15 +46,17 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({
               >
                 <Icon name="link" size={18} />
               </button>
-              <button
-                type="button"
-                className="sb-rail-btn"
-                title={t("createCommunity")}
-                aria-label={t("createCommunity")}
-                onClick={onCreateCommunity}
-              >
-                <Icon name="plus" size={18} />
-              </button>
+              {canCreateGroups && (
+                <button
+                  type="button"
+                  className="sb-rail-btn"
+                  title={t("createCommunity")}
+                  aria-label={t("createCommunity")}
+                  onClick={onCreateCommunity}
+                >
+                  <Icon name="plus" size={18} />
+                </button>
+              )}
             </>
           )}
           <button

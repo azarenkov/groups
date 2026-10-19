@@ -2,9 +2,10 @@ use identity::dto::{
     RequestContext,
     requests::{auth::register_user::RegisterUserRequest, client_context::ClientContext},
 };
+use domain::user::role::UserRole;
 use identity_domain::user::locale::Locale;
 use serde::Deserialize;
-use validator::Validate;
+use validator::{Validate, ValidationError};
 
 use crate::dto::requests::auth::username::validate_username;
 
@@ -20,8 +21,18 @@ pub struct RegisterUserRequestBody {
     #[serde(default)]
     pub locale: Option<String>,
     #[serde(default)]
+    #[validate(custom(function = "validate_role"))]
+    pub role: Option<String>,
+    #[serde(default)]
     #[validate(length(max = 2048))]
     pub altcha: Option<String>,
+}
+
+fn validate_role(value: &str) -> Result<(), ValidationError> {
+    value
+        .parse::<UserRole>()
+        .map(|_| ())
+        .map_err(|_| ValidationError::new("role"))
 }
 
 impl RegisterUserRequestBody {
@@ -36,6 +47,7 @@ impl RegisterUserRequestBody {
             email: self.email,
             password: self.password,
             locale,
+            role: self.role.as_deref().and_then(|role| role.parse().ok()).unwrap_or_default(),
             client,
             ctx,
         }

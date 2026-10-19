@@ -1,3 +1,4 @@
+import type { UserRole } from "../../../shared/types/userRole";
 import type { AxiosRequestConfig } from "axios";
 import { appendCrop } from "../../../shared/lib/imageCrop";
 import { http } from "../../../shared/api/http";
@@ -74,6 +75,7 @@ export interface MeProfile {
   timezone: string;
   appearOffline?: boolean;
   profileUpdatedAt: string;
+  role: UserRole;
 }
 
 class UserAPI {

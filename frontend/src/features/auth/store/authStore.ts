@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { UserRole } from "../../../shared/types/userRole";
 import { clearPersistentSessionData } from "../../../shared/lib/persistentSessionData";
 import { clearRefreshToken, setRefreshToken } from "../../../shared/lib/secureStorage";
 import { resetSessionStores } from "../../../shared/store/resetSession";
@@ -14,6 +15,7 @@ interface User {
   showGameActivity?: boolean;
   timezone?: string;
   appearOffline?: boolean;
+  role?: UserRole;
 }
 
 export interface TokenPair {
@@ -100,6 +102,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         showGameActivity: stale && current?.id === me.id ? current.showGameActivity : me.showGameActivity,
         timezone: me.timezone,
         appearOffline: me.appearOffline,
+        role: me.role,
       },
     });
     const localZone = (() => {

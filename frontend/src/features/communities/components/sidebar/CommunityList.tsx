@@ -267,7 +267,7 @@ const CommunityList: React.FC<CommunityListProps> = ({
               >
                 <Icon name="more" size={16} />
               </button>
-              <Icon name="chev" size={13} className={"sb-srv-chev" + (expanded ? "" : " collapsed")} />
+              {renderChannel && <Icon name="chev" size={13} className={"sb-srv-chev" + (expanded ? "" : " collapsed")} />}
             </div>
             {expanded && channelSections(community)}
           </div>

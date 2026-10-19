@@ -3,29 +3,16 @@ import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 
 interface AppRailProps {
-  tab: "dms" | "communities";
   homeActive: boolean;
-  dmUnread: number;
   groupUnread: number;
   onGoHome: () => void;
-  onSetTab: (tab: "dms" | "communities") => void;
+  onOpenGroups: () => void;
   onOpenSettings: () => void;
 }
 
-const AppRail: React.FC<AppRailProps> = ({
-  tab,
-  homeActive,
-  dmUnread,
-  groupUnread,
-  onGoHome,
-  onSetTab,
-  onOpenSettings,
-}) => {
+const AppRail: React.FC<AppRailProps> = ({ homeActive, groupUnread, onGoHome, onOpenGroups, onOpenSettings }) => {
   const { t } = useTranslation(["sidebar"]);
-  const chatActive = !homeActive && tab === "dms";
-  const groupsActive = !homeActive && tab === "communities";
-  const badge = (count: number) =>
-    count > 0 ? <span className="app-rail-badge">{count > 99 ? "99+" : count}</span> : null;
+  const groupsActive = !homeActive;
   return (
     <nav className="app-rail" aria-label={t("appNavigation")}>
       <div className="app-rail-top">
@@ -42,25 +29,13 @@ const AppRail: React.FC<AppRailProps> = ({
         </button>
         <button
           type="button"
-          className={"app-rail-btn" + (chatActive ? " active" : "")}
-          aria-current={chatActive ? "page" : undefined}
-          onClick={() => onSetTab("dms")}
-        >
-          <span className="app-rail-ico">
-            <Icon name="message" size={22} />
-            {badge(dmUnread)}
-          </span>
-          <span className="app-rail-label">{t("tabDirects")}</span>
-        </button>
-        <button
-          type="button"
           className={"app-rail-btn" + (groupsActive ? " active" : "")}
           aria-current={groupsActive ? "page" : undefined}
-          onClick={() => onSetTab("communities")}
+          onClick={onOpenGroups}
         >
           <span className="app-rail-ico">
             <Icon name="users" size={22} />
-            {badge(groupUnread)}
+            {groupUnread > 0 && <span className="app-rail-badge">{groupUnread > 99 ? "99+" : groupUnread}</span>}
           </span>
           <span className="app-rail-label">{t("tabCommunities")}</span>
         </button>
