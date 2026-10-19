@@ -38,10 +38,6 @@ declare global {
         requestId: number,
         sourceId: string | null,
       ) => void;
-      getGameActivity?: () => Promise<GameActivityInfo | null>;
-      onGameActivity?: (
-        callback: (activity: GameActivityInfo | null) => void,
-      ) => () => void;
     };
   }
 }
@@ -52,12 +48,6 @@ export interface PushToTalkKeyState {
   ctrlKey: boolean;
   metaKey: boolean;
   shiftKey: boolean;
-}
-
-export interface GameActivityInfo {
-  gameId: string;
-  name: string;
-  startedAt: string;
 }
 
 export interface ScreenShareSource {

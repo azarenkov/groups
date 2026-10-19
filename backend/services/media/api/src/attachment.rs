@@ -60,7 +60,7 @@ fn parse_waveform(raw: &str) -> Result<Vec<u8>, HttpError> {
 }
 
 use crate::state::AppState;
-use media::usecases::attachment::upload_attachment::RichMedia;
+use media::usecases::attachment::upload_attachment::{RichMedia, UploadLimits};
 use api_common::dto::responses::ApiResponse;
 use api_common::dto::responses::attachment::AttachmentResponse;
 use crate::http_errors::HttpError;
@@ -73,7 +73,7 @@ async fn upload_attachment(
     mut payload: Multipart,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    let limits = app_state.upload_attachment_usecase.limits_for(&user_id).await?;
+    let limits = UploadLimits::MAX;
     let declared_bytes = req
         .headers()
         .get(actix_web::http::header::CONTENT_LENGTH)

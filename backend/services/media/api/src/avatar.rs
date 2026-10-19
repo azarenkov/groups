@@ -337,10 +337,6 @@ async fn upload_my_avatar(
     let user_id = UserId::new(auth_token.id);
     let (_permit, upload) = read_upload(&app_state, &mut payload).await?;
     let normalized = if is_gif(&upload.bytes) {
-        app_state
-            .update_user_banner_usecase
-            .ensure_allowed(&user_id)
-            .await?;
         process(move || normalize_animated_avatar(upload)).await?
     } else {
         process(move || normalize_square(upload, &AVATAR_CODES).map(NormalizedImage::png)).await?

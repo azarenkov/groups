@@ -1,4 +1,3 @@
-use chrono::{DateTime, Datelike, Utc};
 use domain::user::locale::Locale;
 use ports::mailer::CodePurpose;
 
@@ -121,53 +120,6 @@ pub fn password_reset(link: &str, locale: Locale, app_url: Option<&str>) -> Rend
         },
     };
     render(letter, app_url)
-}
-
-pub fn trial_ending(ends_at: DateTime<Utc>, locale: Locale, app_url: Option<&str>) -> RenderedEmail {
-    let date = trial_end_date(ends_at, locale);
-    let letter = match locale {
-        Locale::Ru => Letter {
-            locale,
-            subject: "Пробный Rift Pro заканчивается завтра".into(),
-            preheader: format!("Пробный период закончится {date}."),
-            title: "Пробный Rift Pro заканчивается".into(),
-            lead: vec![format!("Пробный период Rift Pro закончится {date}.")],
-            action: app_url.map(|url| Action::Button {
-                label: "Открыть Rift",
-                url,
-                fallback: "Или откройте ссылку:",
-            }),
-            notes: vec!["После этого аккаунт вернётся на Free. Баннер и анимированный аватар скроются, но не удалятся, а сообщения и вложения останутся на месте.".into()],
-            reason: "Вы получили это письмо, потому что у вашего аккаунта Rift подключён пробный Pro.",
-        },
-        Locale::En => Letter {
-            locale,
-            subject: "Your Rift Pro trial ends tomorrow".into(),
-            preheader: format!("Your trial ends on {date}."),
-            title: "Your Rift Pro trial is ending".into(),
-            lead: vec![format!("Your Rift Pro trial ends on {date}.")],
-            action: app_url.map(|url| Action::Button {
-                label: "Open Rift",
-                url,
-                fallback: "Or open this link:",
-            }),
-            notes: vec!["After that the account goes back to Free. Your banner and animated avatar are hidden but kept, and messages and attachments stay as they are.".into()],
-            reason: "You're getting this email because your Rift account has a Pro trial.",
-        },
-    };
-    render(letter, app_url)
-}
-
-pub(crate) fn trial_end_date(ends_at: DateTime<Utc>, locale: Locale) -> String {
-    const RU_MONTHS: [&str; 12] = [
-        "января", "февраля", "марта", "апреля", "мая", "июня",
-        "июля", "августа", "сентября", "октября", "ноября", "декабря",
-    ];
-    let month = ends_at.month0() as usize;
-    match locale {
-        Locale::Ru => format!("{} {} в {} UTC", ends_at.day(), RU_MONTHS[month], ends_at.format("%H:%M")),
-        Locale::En => format!("{} at {} UTC", ends_at.format("%B %-d"), ends_at.format("%H:%M")),
-    }
 }
 
 pub fn escape(value: &str) -> String {

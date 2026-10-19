@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO messaging_user_profiles AS p (\n                user_id, name, updated_at,\n                emoji_status_sticker_id, emoji_status_until, emoji_status_updated_at\n            )\n            VALUES ($1, '', to_timestamp(0), $2, $3, $4::timestamptz)\n            ON CONFLICT (user_id) DO UPDATE\n                SET emoji_status_sticker_id = CASE\n                        WHEN p.emoji_status_updated_at IS NULL OR p.emoji_status_updated_at <= $4::timestamptz\n                            THEN EXCLUDED.emoji_status_sticker_id\n                        ELSE p.emoji_status_sticker_id END,\n                    emoji_status_until = CASE\n                        WHEN p.emoji_status_updated_at IS NULL OR p.emoji_status_updated_at <= $4::timestamptz\n                            THEN EXCLUDED.emoji_status_until\n                        ELSE p.emoji_status_until END,\n                    emoji_status_updated_at = GREATEST(p.emoji_status_updated_at, $4::timestamptz)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8291f74945bdee49300e2fdaeaf702b873cdeaf3a6e8d1b029fb42b1ae189901"
+}

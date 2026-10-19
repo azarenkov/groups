@@ -1,4 +1,4 @@
-pub mod badge;
+pub mod emoji_status;
 pub mod channel;
 pub mod dm_conversation;
 pub mod dm_message;

@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, Responder, get, web};
 use api_common::{dto::responses::ApiResponse, middleware::auth::RateLimitedAuthToken};
 use chrono::{DateTime, Utc};
 use domain::user::id::UserId;
-use messaging_domain::{friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, privacy::ContactPolicy, privacy::PrivacyRepository};
+use messaging_domain::{emoji_status::EmojiStatusRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, privacy::ContactPolicy, privacy::PrivacyRepository};
 use uuid::Uuid;
 
 use crate::{http_errors::HttpError, state::AppState};
@@ -118,6 +118,14 @@ struct PublicProfileResponse {
     blocked_by: bool,
     mutual_communities: Vec<MutualCommunityItem>,
     voice_room: Option<VoiceRoomItem>,
+    emoji_status: Option<EmojiStatusItem>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EmojiStatusItem {
+    sticker_id: Uuid,
+    until: Option<DateTime<Utc>>,
 }
 
 #[get("/{user_id}/profile")]
@@ -156,6 +164,18 @@ async fn get_user_profile(
     let accepts_calls = permits(settings.call_policy) && !relation.any();
     let accepts_messages = permits(settings.dm_policy) && !relation.any();
     let accepts_friend_requests = settings.accept_friend_requests && !relation.any();
+    let emoji_status = if hidden {
+        None
+    } else {
+        app_state
+            .emoji_status_repository
+            .emoji_statuses(&[UserId::new(target_id)], Utc::now())
+            .await
+            .map_err(HttpError::from)?
+            .into_iter()
+            .find_map(|s| s.emoji_status)
+            .map(|status| EmojiStatusItem { sticker_id: status.sticker_id, until: status.until })
+    };
     Ok(HttpResponse::Ok().json(ApiResponse::success(PublicProfileResponse {
         id: view.profile.user_id.uuid(),
         name: view.profile.name,
@@ -187,5 +207,6 @@ async fn get_user_profile(
             community_id: v.community_id.uuid(),
             community_name: v.community_name,
         }),
+        emoji_status,
     })))
 }

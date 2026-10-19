@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use domain::user::id::UserId;
 use ports::repository::RepositoryError;
-use identity_domain::{user::locale::Locale, user::repository::UserRepository};
+use chrono::Utc;
+use identity_domain::{user::emoji_status::EmojiStatus, user::locale::Locale, user::repository::UserRepository};
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
@@ -23,8 +24,8 @@ pub struct MeProfile {
     pub password_changed_at: Option<chrono::DateTime<chrono::Utc>>,
     pub bio: String,
     pub show_activity: bool,
-    pub show_game_activity: bool,
     pub timezone: String,
+    pub emoji_status: Option<EmojiStatus>,
     pub profile_updated_at: chrono::DateTime<chrono::Utc>,
     pub appear_offline: bool,
     pub role: domain::user::role::UserRole,
@@ -62,8 +63,8 @@ where
             password_changed_at: user.password_changed_at(),
             bio: user.bio().to_string(),
             show_activity: user.show_activity(),
-            show_game_activity: user.show_game_activity(),
             timezone: user.timezone().to_string(),
+            emoji_status: user.active_emoji_status(Utc::now()),
             profile_updated_at: user.updated_at(),
             appear_offline,
             role: user.role(),

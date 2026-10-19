@@ -4,7 +4,6 @@ api_common::http_error_boilerplate!();
 
 use identity::ports::token_issuer::TokenIssuerError;
 use identity::usecases::auth::captcha::CaptchaError;
-use identity::usecases::entitlements::start_trial::StartTrialError;
 use identity::usecases::auth::confirm_registration::ConfirmRegistrationError;
 use identity::usecases::auth::issue_verification_code::IssueVerificationCodeError;
 use identity::usecases::auth::login::LoginError;
@@ -50,40 +49,6 @@ impl HttpMapping for TokenIssuerError {
             TokenIssuerError::Encoding(_) => "TOKEN_ENCODING_FAILED",
             TokenIssuerError::Decoding(_) => "TOKEN_DECODING_FAILED",
             TokenIssuerError::InvalidTokenType => "TOKEN_INVALID_TYPE",
-        }
-    }
-}
-
-impl HttpMapping for StartTrialError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            StartTrialError::UserNotFound => StatusCode::NOT_FOUND,
-            StartTrialError::EmailNotVerified => StatusCode::FORBIDDEN,
-            StartTrialError::AlreadyUsed | StartTrialError::AlreadyPaid => StatusCode::CONFLICT,
-            StartTrialError::TooManyFromNetwork => StatusCode::TOO_MANY_REQUESTS,
-            StartTrialError::Repository(e) => e.to_http_status(),
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        match self {
-            StartTrialError::UserNotFound => "User not found".to_string(),
-            StartTrialError::EmailNotVerified => "Confirm your email to start the trial".to_string(),
-            StartTrialError::AlreadyUsed => "The free trial has already been used".to_string(),
-            StartTrialError::AlreadyPaid => "You already have a paid plan".to_string(),
-            StartTrialError::TooManyFromNetwork => "Too many trials from this network".to_string(),
-            StartTrialError::Repository(e) => e.to_user_message(),
-        }
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            StartTrialError::UserNotFound => "USER_NOT_FOUND",
-            StartTrialError::EmailNotVerified => "EMAIL_NOT_VERIFIED",
-            StartTrialError::AlreadyUsed => "TRIAL_ALREADY_USED",
-            StartTrialError::AlreadyPaid => "ALREADY_PAID",
-            StartTrialError::TooManyFromNetwork => "TRIAL_LIMIT_REACHED",
-            StartTrialError::Repository(e) => e.to_error_code(),
         }
     }
 }
@@ -214,54 +179,20 @@ impl HttpMapping for LogoutError {
     }
 }
 
-impl HttpMapping for identity::usecases::entitlements::set_badge_style::SetBadgeStyleError {
+impl HttpMapping for identity::usecases::user::emoji_status::SetEmojiStatusError {
     fn to_http_status(&self) -> StatusCode {
-        use identity::usecases::entitlements::set_badge_style::SetBadgeStyleError as E;
-        match self {
-            E::UnknownStyle => StatusCode::BAD_REQUEST,
-            E::ProRequired | E::PremiumRequired => StatusCode::FORBIDDEN,
-            E::UserNotFound => StatusCode::NOT_FOUND,
-            E::Repository(e) => e.to_http_status(),
-        }
-    }
-    fn to_user_message(&self) -> String {
-        use identity::usecases::entitlements::set_badge_style::SetBadgeStyleError as E;
-        match self {
-            E::UnknownStyle => "Unknown badge style.".to_string(),
-            E::ProRequired => "This needs a Rift Pro subscription.".to_string(),
-            E::PremiumRequired => "This needs a Rift Premium subscription.".to_string(),
-            E::UserNotFound => "User not found".to_string(),
-            E::Repository(e) => e.to_user_message(),
-        }
-    }
-    fn to_error_code(&self) -> &'static str {
-        use identity::usecases::entitlements::set_badge_style::SetBadgeStyleError as E;
-        match self {
-            E::UnknownStyle => "BADGE_STYLE_UNKNOWN",
-            E::ProRequired => "PRO_REQUIRED",
-            E::PremiumRequired => "PREMIUM_REQUIRED",
-            E::UserNotFound => "USER_NOT_FOUND",
-            E::Repository(e) => e.to_error_code(),
-        }
-    }
-}
-
-impl HttpMapping for identity::usecases::entitlements::set_emoji_status::SetEmojiStatusError {
-    fn to_http_status(&self) -> StatusCode {
-        use identity::usecases::entitlements::set_emoji_status::SetEmojiStatusError as E;
+        use identity::usecases::user::emoji_status::SetEmojiStatusError as E;
         match self {
             E::UnknownDuration => StatusCode::BAD_REQUEST,
-            E::ProRequired => StatusCode::FORBIDDEN,
             E::StickerNotFound | E::UserNotFound => StatusCode::NOT_FOUND,
             E::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             E::Repository(e) => e.to_http_status(),
         }
     }
     fn to_user_message(&self) -> String {
-        use identity::usecases::entitlements::set_emoji_status::SetEmojiStatusError as E;
+        use identity::usecases::user::emoji_status::SetEmojiStatusError as E;
         match self {
             E::UnknownDuration => "Unknown status duration.".to_string(),
-            E::ProRequired => "This needs a Rift Pro subscription.".to_string(),
             E::StickerNotFound => "This sticker is no longer available.".to_string(),
             E::UserNotFound => "User not found".to_string(),
             E::Unavailable(_) => "Stickers are unavailable right now. Try again later.".to_string(),
@@ -269,40 +200,12 @@ impl HttpMapping for identity::usecases::entitlements::set_emoji_status::SetEmoj
         }
     }
     fn to_error_code(&self) -> &'static str {
-        use identity::usecases::entitlements::set_emoji_status::SetEmojiStatusError as E;
+        use identity::usecases::user::emoji_status::SetEmojiStatusError as E;
         match self {
             E::UnknownDuration => "EMOJI_STATUS_DURATION_UNKNOWN",
-            E::ProRequired => "PRO_REQUIRED",
             E::StickerNotFound => "STICKER_NOT_FOUND",
             E::UserNotFound => "USER_NOT_FOUND",
             E::Unavailable(_) => "STICKERS_UNAVAILABLE",
-            E::Repository(e) => e.to_error_code(),
-        }
-    }
-}
-
-impl HttpMapping for identity::usecases::entitlements::grant_entitlements::GrantEntitlementsError {
-    fn to_http_status(&self) -> StatusCode {
-        use identity::usecases::entitlements::grant_entitlements::GrantEntitlementsError as E;
-        match self {
-            E::UnknownTier => StatusCode::BAD_REQUEST,
-            E::UserNotFound => StatusCode::NOT_FOUND,
-            E::Repository(e) => e.to_http_status(),
-        }
-    }
-    fn to_user_message(&self) -> String {
-        use identity::usecases::entitlements::grant_entitlements::GrantEntitlementsError as E;
-        match self {
-            E::UnknownTier => "Unknown tier.".to_string(),
-            E::UserNotFound => "User not found".to_string(),
-            E::Repository(e) => e.to_user_message(),
-        }
-    }
-    fn to_error_code(&self) -> &'static str {
-        use identity::usecases::entitlements::grant_entitlements::GrantEntitlementsError as E;
-        match self {
-            E::UnknownTier => "TIER_UNKNOWN",
-            E::UserNotFound => "USER_NOT_FOUND",
             E::Repository(e) => e.to_error_code(),
         }
     }
@@ -736,7 +639,6 @@ impl HttpMapping for DisableAccountError {
             DisableAccountError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
             DisableAccountError::Reauth(e) => e.to_http_status(),
             DisableAccountError::UserNotFound => StatusCode::NOT_FOUND,
-            DisableAccountError::ActivityStore(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -746,7 +648,6 @@ impl HttpMapping for DisableAccountError {
             DisableAccountError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
             DisableAccountError::Reauth(e) => e.to_user_message(),
             DisableAccountError::UserNotFound => "User not found".to_string(),
-            DisableAccountError::ActivityStore(_) => "Activity is temporarily unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -756,7 +657,6 @@ impl HttpMapping for DisableAccountError {
             DisableAccountError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
             DisableAccountError::Reauth(e) => e.to_error_code(),
             DisableAccountError::UserNotFound => "USER_NOT_FOUND",
-            DisableAccountError::ActivityStore(_) => "ACTIVITY_UNAVAILABLE",
         }
     }
 }
@@ -769,7 +669,6 @@ impl HttpMapping for DeleteAccountError {
             DeleteAccountError::AccessRevoker(_) => StatusCode::SERVICE_UNAVAILABLE,
             DeleteAccountError::Reauth(e) => e.to_http_status(),
             DeleteAccountError::UserNotFound => StatusCode::NOT_FOUND,
-            DeleteAccountError::ActivityStore(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
     fn to_user_message(&self) -> String {
@@ -779,7 +678,6 @@ impl HttpMapping for DeleteAccountError {
             DeleteAccountError::AccessRevoker(_) => "Session revocation is temporarily unavailable".to_string(),
             DeleteAccountError::Reauth(e) => e.to_user_message(),
             DeleteAccountError::UserNotFound => "User not found".to_string(),
-            DeleteAccountError::ActivityStore(_) => "Activity is temporarily unavailable".to_string(),
         }
     }
     fn to_error_code(&self) -> &'static str {
@@ -789,7 +687,6 @@ impl HttpMapping for DeleteAccountError {
             DeleteAccountError::AccessRevoker(_) => "REVOCATION_UNAVAILABLE",
             DeleteAccountError::Reauth(e) => e.to_error_code(),
             DeleteAccountError::UserNotFound => "USER_NOT_FOUND",
-            DeleteAccountError::ActivityStore(_) => "ACTIVITY_UNAVAILABLE",
         }
     }
 }
@@ -823,7 +720,6 @@ impl HttpMapping for UpdateProfileError {
             UpdateProfileError::Repository(e) => e.to_http_status(),
             UpdateProfileError::BioTooLong => StatusCode::BAD_REQUEST,
             UpdateProfileError::UserNotFound => StatusCode::NOT_FOUND,
-            UpdateProfileError::ActivityStore(_) => StatusCode::SERVICE_UNAVAILABLE,
             UpdateProfileError::BioNotAllowed => StatusCode::UNPROCESSABLE_ENTITY,
             UpdateProfileError::ModerationUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -833,7 +729,6 @@ impl HttpMapping for UpdateProfileError {
             UpdateProfileError::Repository(e) => e.to_user_message(),
             UpdateProfileError::BioTooLong => "Bio must be at most 190 characters".to_string(),
             UpdateProfileError::UserNotFound => "User not found".to_string(),
-            UpdateProfileError::ActivityStore(_) => "Activity is temporarily unavailable".to_string(),
             UpdateProfileError::BioNotAllowed => "Bio is not allowed".to_string(),
             UpdateProfileError::ModerationUnavailable(_) => {
                 "Content moderation is temporarily unavailable".to_string()
@@ -845,113 +740,8 @@ impl HttpMapping for UpdateProfileError {
             UpdateProfileError::Repository(e) => e.to_error_code(),
             UpdateProfileError::BioTooLong => "BIO_TOO_LONG",
             UpdateProfileError::UserNotFound => "USER_NOT_FOUND",
-            UpdateProfileError::ActivityStore(_) => "ACTIVITY_UNAVAILABLE",
             UpdateProfileError::BioNotAllowed => "BIO_NOT_ALLOWED",
             UpdateProfileError::ModerationUnavailable(_) => "MODERATION_UNAVAILABLE",
-        }
-    }
-}
-
-use identity::ports::connections::ConnectionProviderError;
-use identity::usecases::connections::{
-    list_connections::ListConnectionsError, list_user_connections::ListUserConnectionsError,
-    remove_connection::RemoveConnectionError, start_connection::StartConnectionError,
-};
-
-impl HttpMapping for StartConnectionError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            StartConnectionError::Repository(e) => e.to_http_status(),
-            StartConnectionError::UnknownProvider => StatusCode::BAD_REQUEST,
-            StartConnectionError::Provider(_) => StatusCode::SERVICE_UNAVAILABLE,
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        match self {
-            StartConnectionError::Repository(e) => e.to_user_message(),
-            StartConnectionError::UnknownProvider => "Unknown connection provider".to_string(),
-            StartConnectionError::Provider(ConnectionProviderError::NotConfigured) => {
-                "This provider is not configured".to_string()
-            }
-            StartConnectionError::Provider(_) => "Provider is unavailable".to_string(),
-        }
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            StartConnectionError::Repository(e) => e.to_error_code(),
-            StartConnectionError::UnknownProvider => "UNKNOWN_PROVIDER",
-            StartConnectionError::Provider(ConnectionProviderError::NotConfigured) => {
-                "PROVIDER_NOT_CONFIGURED"
-            }
-            StartConnectionError::Provider(_) => "PROVIDER_UNAVAILABLE",
-        }
-    }
-}
-
-impl HttpMapping for ListConnectionsError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            ListConnectionsError::Repository(e) => e.to_http_status(),
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        match self {
-            ListConnectionsError::Repository(e) => e.to_user_message(),
-        }
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            ListConnectionsError::Repository(e) => e.to_error_code(),
-        }
-    }
-}
-
-impl HttpMapping for ListUserConnectionsError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            ListUserConnectionsError::Connections(e) => e.to_http_status(),
-            ListUserConnectionsError::BlockLookup(_) => StatusCode::SERVICE_UNAVAILABLE,
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        match self {
-            ListUserConnectionsError::Connections(e) => e.to_user_message(),
-            ListUserConnectionsError::BlockLookup(_) => "Block lookup unavailable".to_string(),
-        }
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            ListUserConnectionsError::Connections(e) => e.to_error_code(),
-            ListUserConnectionsError::BlockLookup(_) => "BLOCK_LOOKUP_UNAVAILABLE",
-        }
-    }
-}
-
-impl HttpMapping for RemoveConnectionError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            RemoveConnectionError::Repository(e) => e.to_http_status(),
-            RemoveConnectionError::UnknownProvider => StatusCode::BAD_REQUEST,
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        match self {
-            RemoveConnectionError::Repository(e) => e.to_user_message(),
-            RemoveConnectionError::UnknownProvider => "Unknown connection provider".to_string(),
-        }
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            RemoveConnectionError::Repository(e) => e.to_error_code(),
-            RemoveConnectionError::UnknownProvider => "UNKNOWN_PROVIDER",
         }
     }
 }
@@ -988,7 +778,6 @@ impl HttpMapping for VoiceSettingsError {
         match self {
             VoiceSettingsError::Repository(e) => e.to_http_status(),
             VoiceSettingsError::Invalid(_) => StatusCode::BAD_REQUEST,
-            VoiceSettingsError::ProRequired => StatusCode::FORBIDDEN,
         }
     }
 
@@ -996,7 +785,6 @@ impl HttpMapping for VoiceSettingsError {
         match self {
             VoiceSettingsError::Repository(e) => e.to_user_message(),
             VoiceSettingsError::Invalid(e) => e.to_string(),
-            VoiceSettingsError::ProRequired => "This needs a Rift Pro subscription.".to_string(),
         }
     }
 
@@ -1004,7 +792,6 @@ impl HttpMapping for VoiceSettingsError {
         match self {
             VoiceSettingsError::Repository(e) => e.to_error_code(),
             VoiceSettingsError::Invalid(_) => "INVALID_VOICE_SETTINGS",
-            VoiceSettingsError::ProRequired => "PRO_REQUIRED",
         }
     }
 }
@@ -1058,46 +845,6 @@ impl HttpMapping for HotkeySettingsError {
             HotkeySettingsError::Repository(e) => e.to_error_code(),
             HotkeySettingsError::Invalid(HotkeyError::Conflict(_)) => "HOTKEY_CONFLICT",
             HotkeySettingsError::Invalid(_) => "INVALID_HOTKEY_SETTINGS",
-        }
-    }
-}
-
-use identity::usecases::user::activity::ActivityError;
-
-impl HttpMapping for ActivityError {
-    fn to_http_status(&self) -> StatusCode {
-        match self {
-            ActivityError::Repository(e) => e.to_http_status(),
-            ActivityError::Store(_) => StatusCode::SERVICE_UNAVAILABLE,
-            ActivityError::Audience(_) => StatusCode::SERVICE_UNAVAILABLE,
-            ActivityError::Invalid => StatusCode::BAD_REQUEST,
-            ActivityError::Hidden => StatusCode::FORBIDDEN,
-            ActivityError::Leased => StatusCode::CONFLICT,
-            ActivityError::UserNotFound => StatusCode::NOT_FOUND,
-        }
-    }
-
-    fn to_user_message(&self) -> String {
-        match self {
-            ActivityError::Repository(e) => e.to_user_message(),
-            ActivityError::Store(_) => "Activity is temporarily unavailable".to_string(),
-            ActivityError::Audience(_) => "Activity is temporarily unavailable".to_string(),
-            ActivityError::Invalid => "Invalid activity".to_string(),
-            ActivityError::Hidden => "Activity is hidden by privacy settings".to_string(),
-            ActivityError::Leased => "Activity is published by another session".to_string(),
-            ActivityError::UserNotFound => "User not found".to_string(),
-        }
-    }
-
-    fn to_error_code(&self) -> &'static str {
-        match self {
-            ActivityError::Repository(e) => e.to_error_code(),
-            ActivityError::Store(_) => "ACTIVITY_UNAVAILABLE",
-            ActivityError::Audience(_) => "ACTIVITY_UNAVAILABLE",
-            ActivityError::Invalid => "INVALID_ACTIVITY",
-            ActivityError::Hidden => "ACTIVITY_HIDDEN",
-            ActivityError::Leased => "ACTIVITY_LEASED",
-            ActivityError::UserNotFound => "USER_NOT_FOUND",
         }
     }
 }

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { userAPI } from "../../social/api/user";
 import { useAuthStore } from "../../auth/store/authStore";
 import { usePresenceStore } from "../../social/store/presenceStore";
-import { setActivityHiddenByPresence } from "../../social/lib/gameActivity";
 
 const RETRY_MS = 5000;
 const CACHE_KEY = "rift:appearOffline";
@@ -70,10 +69,6 @@ export function useAppearOffline(params: {
         }
       });
   }, [pending, hasSession, attempt, currentUserId]);
-
-  useEffect(() => {
-    setActivityHiddenByPresence(appearOffline || pending !== null);
-  }, [appearOffline, pending]);
 
   useEffect(() => {
     if (!currentUserId) return;

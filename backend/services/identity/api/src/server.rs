@@ -1,24 +1,12 @@
-use identity::usecases::entitlements::{
-    get_entitlements::GetEntitlements, grant_entitlements::GrantEntitlements,
-    set_badge_style::SetBadgeStyle, set_emoji_status::SetEmojiStatus,
-};
-use identity::usecases::user::activity::{ClearActivity, GetActivities, SetActivity};
+use identity::usecases::user::emoji_status::SetEmojiStatus;
 use identity::usecases::user::presence::{ImportLegacyPresencePreferences, SetPresencePreference};
-use identity_infrastructure::database::postgres::repositories::entitlements::PostgresEntitlementsRepository;
 use api_common::shutdown::{self, ShutdownConfig};
-use identity_infrastructure::activity::redis_activity_store::RedisActivityStore;
-use identity_infrastructure::media_client::activity_audience::MessagingAudienceClient;
-use identity_infrastructure::media_client::block_lookup::MessagingBlockClient;
+use identity_infrastructure::presence::redis_legacy_presence_store::RedisLegacyPresenceStore;
 use identity_infrastructure::media_client::sticker_lookup::MediaStickerClient;
 use std::{error::Error, sync::Arc};
 
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use identity::usecases::{
-    connections::{
-        complete_connection::CompleteConnection, list_connections::ListConnections,
-        list_user_connections::ListUserConnections,
-        remove_connection::RemoveConnection, start_connection::StartConnection,
-    },
     auth::{
         confirm_registration::ConfirmRegistration,
         issue_verification_code::IssueVerificationCode, login::LoginUser, logout::Logout,
@@ -43,16 +31,15 @@ use domain::user::name::ReservedNames;
 use infrastructure_common::{
     config::{
         access_revocation_retry::AccessRevocationRetryConfig, nsfw::NsfwConfig, postgres::PostgresConfig,
-        trial::TrialConfig, unverified_cleanup::UnverifiedCleanupConfig, username::UsernameConfig,
+        unverified_cleanup::UnverifiedCleanupConfig, username::UsernameConfig,
     },
     hasher::bcrypt_hasher::BcryptHasher,
 };
 use identity::usecases::auth::captcha::CaptchaGate;
 use identity::usecases::auth::reapply_access_revocations::ReapplyAccessRevocations;
-use identity::usecases::entitlements::{expire_entitlements::ExpireEntitlements, remind_trial_ending::RemindTrialEnding, start_trial::StartTrial};
 use identity_infrastructure::auth::{altcha::{AltchaConfig, AltchaVerifier}, redis_captcha_store::RedisCaptchaStore};
 use identity_infrastructure::{
-    auth::{github_connector::GithubOAuthConnector, jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker, steam_connector::SteamOpenIdConnector},
+    auth::{jwt_token_issuer::JwtTokenIssuer, redis_access_revoker::RedisAccessRevoker},
     database::postgres::{
         MIGRATOR, SCHEMA,
         connection::{create_postgres_pool, ping_pool},
@@ -85,40 +72,18 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let nsfw_config = NsfwConfig::from_env()?;
     let username_config = UsernameConfig::from_env()?;
     let unverified_cleanup_config = UnverifiedCleanupConfig::from_env()?;
-    let trial_config = TrialConfig::from_env()?;
     let access_revocation_retry_config = AccessRevocationRetryConfig::from_env()?;
 
     let postgres_pool = create_postgres_pool(postgres_config, SCHEMA, Some(&MIGRATOR)).await?;
 
     let user_repository = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
-    let trial_hash_key = std::env::var("TRIAL_HASH_KEY")
-        .ok()
-        .filter(|key| !key.trim().is_empty())
-        .unwrap_or_else(|| {
-            tracing::warn!("TRIAL_HASH_KEY is not set; trial grant hashes fall back to JWT_SECRET and reset when it rotates");
-            server_config.jwt_secret.clone()
-        });
-    let unit_of_work = Arc::new(PostgresIdentityUnitOfWork::new(
-        postgres_pool.clone(),
-        trial_hash_key.as_bytes(),
-    ));
-    let entitlements_repository =
-        Arc::new(PostgresEntitlementsRepository::new(postgres_pool.clone()));
+    let unit_of_work = Arc::new(PostgresIdentityUnitOfWork::new(postgres_pool.clone()));
 
     let hasher = Arc::new(BcryptHasher::default());
     let token_issuer = Arc::new(JwtTokenIssuer::new(server_config.jwt_secret.clone()));
     let nsfw_detector = Arc::new(NsfwDetector::new(&nsfw_config));
     let reserved_names = Arc::new(ReservedNames::new(username_config.extra_reserved()));
 
-    let github_connector = Arc::new(GithubOAuthConnector::new(
-        std::env::var("GITHUB_CLIENT_ID").unwrap_or_default(),
-        std::env::var("GITHUB_CLIENT_SECRET").unwrap_or_default(),
-    ));
-    let steam_connector = Arc::new(SteamOpenIdConnector::new(
-        std::env::var("STEAM_API_KEY").unwrap_or_default(),
-    ));
-    let public_api_url =
-        std::env::var("PUBLIC_API_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
     let public_app_url = std::env::var("PUBLIC_APP_URL").unwrap_or_default();
 
     let access_revocations = api_common::middleware::revocation::AccessRevocations::from_env().await;
@@ -141,18 +106,14 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             }
         }
     });
-    let activity_store = Arc::new(RedisActivityStore::from_env());
-    let legacy_presence_import = ImportLegacyPresencePreferences::new(activity_store.clone(), unit_of_work.clone());
-    let messaging_internal_url = api_common::internal_client::InternalService::Messaging.base_url();
-    let activity_audience = Arc::new(MessagingAudienceClient::new(&messaging_internal_url));
-    let block_lookup = Arc::new(MessagingBlockClient::new(&messaging_internal_url));
+    let legacy_presence_store = Arc::new(RedisLegacyPresenceStore::from_env());
+    let legacy_presence_import = ImportLegacyPresencePreferences::new(legacy_presence_store, unit_of_work.clone());
     let media_internal_url = api_common::internal_client::InternalService::Media.base_url();
     let sticker_lookup = Arc::new(MediaStickerClient::new(&media_internal_url));
     if unverified_cleanup_config.enabled() {
         let purge_unverified = Arc::new(PurgeUnverifiedAccounts::new(
             unit_of_work.clone(),
             access_revoker.clone(),
-            activity_store.clone(),
             unverified_cleanup_config.ttl(),
             unverified_cleanup_config.batch_size(),
         ));
@@ -171,33 +132,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             }
         });
     }
-
-    let expire_entitlements = Arc::new(ExpireEntitlements::new(
-        unit_of_work.clone(),
-        trial_config.expiry_batch_size(),
-    ));
-    let remind_trial_ending = Arc::new(RemindTrialEnding::new(
-        unit_of_work.clone(),
-        user_repository.clone(),
-        trial_config.expiry_batch_size(),
-    ));
-    let expiry_interval = trial_config.expiry_interval();
-    actix_web::rt::spawn(async move {
-        let mut ticker = actix_web::rt::time::interval(expiry_interval);
-        loop {
-            ticker.tick().await;
-            match expire_entitlements.drain().await {
-                Ok(0) => {}
-                Ok(expired) => tracing::info!(expired, "Moved lapsed plans back to Free"),
-                Err(e) => tracing::warn!(error = %e, "Plan expiry sweep failed"),
-            }
-            match remind_trial_ending.drain().await {
-                Ok(0) => {}
-                Ok(reminded) => tracing::info!(reminded, "Sent trial ending reminders"),
-                Err(e) => tracing::warn!(error = %e, "Trial reminder sweep failed"),
-            }
-        }
-    });
 
     let reauthenticator = Arc::new(Reauthenticator::new(hasher.clone()));
 
@@ -243,11 +177,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         get_link_preview_usecase: GetLinkPreview::new(user_repository.clone()),
         get_me_usecase: GetMe::new(user_repository.clone()),
         update_user_locale_usecase: UpdateUserLocale::new(unit_of_work.clone()),
-        update_profile_usecase: UpdateProfile::new(
-            unit_of_work.clone(),
-            activity_store.clone(),
-            nsfw_detector.clone(),
-        ),
+        update_profile_usecase: UpdateProfile::new(unit_of_work.clone(), nsfw_detector.clone()),
         rename_user_usecase: RenameUser::new(
             user_repository.clone(),
             unit_of_work.clone(),
@@ -279,56 +209,24 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             unit_of_work.clone(),
             access_revoker.clone(),
             reauthenticator.clone(),
-            activity_store.clone(),
         ),
         delete_account_usecase: DeleteAccount::new(
             user_repository.clone(),
             unit_of_work.clone(),
             access_revoker.clone(),
             reauthenticator.clone(),
-            activity_store.clone(),
         ),
-        get_entitlements_usecase: GetEntitlements::new(entitlements_repository.clone()),
-        grant_entitlements_usecase: GrantEntitlements::new(unit_of_work.clone()),
-        start_trial_usecase: StartTrial::new(
-            unit_of_work.clone(),
-            trial_config.ip_limit(),
-            trial_config.ip_window(),
-        ),
-        set_badge_style_usecase: SetBadgeStyle::new(unit_of_work.clone()),
         set_emoji_status_usecase: SetEmojiStatus::new(unit_of_work.clone(), sticker_lookup),
         get_appearance_usecase: GetAppearance::new(user_repository.clone()),
         update_appearance_usecase: UpdateAppearance::new(unit_of_work.clone()),
-        set_activity_usecase: SetActivity::new(activity_store.clone(), unit_of_work.clone()),
-        clear_activity_usecase: ClearActivity::new(activity_store.clone(), unit_of_work.clone()),
-        get_activities_usecase: GetActivities::new(activity_store.clone(), activity_audience.clone(), user_repository.clone()),
         set_presence_preference_usecase: SetPresencePreference::new(unit_of_work.clone()),
-        get_voice_settings_usecase: GetVoiceSettings::new(user_repository.clone(), entitlements_repository.clone()),
+        get_voice_settings_usecase: GetVoiceSettings::new(user_repository.clone()),
         update_voice_settings_usecase: UpdateVoiceSettings::new(unit_of_work.clone()),
         get_notification_settings_usecase: GetNotificationSettings::new(user_repository.clone()),
         update_notification_settings_usecase: UpdateNotificationSettings::new(unit_of_work.clone()),
         get_hotkey_settings_usecase: GetHotkeySettings::new(user_repository.clone()),
         update_hotkey_settings_usecase: UpdateHotkeySettings::new(unit_of_work.clone()),
-        start_connection_usecase: StartConnection::new(
-            user_repository.clone(),
-            github_connector.clone(),
-            steam_connector.clone(),
-            public_api_url.clone(),
-        ),
-        complete_connection_usecase: CompleteConnection::new(
-            user_repository.clone(),
-            github_connector.clone(),
-            steam_connector.clone(),
-            public_api_url.clone(),
-        ),
-        list_connections_usecase: ListConnections::new(user_repository.clone()),
-        list_user_connections_usecase: ListUserConnections::new(
-            user_repository.clone(),
-            block_lookup.clone(),
-        ),
-        remove_connection_usecase: RemoveConnection::new(user_repository.clone()),
         public_app_url: public_app_url.clone(),
-        user_repository: user_repository.clone(),
         trust_forwarded_headers: server_config.trust_forwarded_headers,
     });
 

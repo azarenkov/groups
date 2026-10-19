@@ -7,7 +7,6 @@ export type ThemeMode = "light" | "dark" | "system";
 
 export interface AppearanceSettings {
   mode: ThemeMode;
-  accent: string;
   chatFontSize: number;
   reduceMotion: boolean;
 }
@@ -18,13 +17,10 @@ interface AppearanceState extends AppearanceSettings {
   syncFromServer: (userId: string) => Promise<void>;
 }
 
-export const DEFAULT_ACCENT = "#5b5fc7";
-
-const SETTING_KEYS = ["mode", "accent", "chatFontSize", "reduceMotion"] as const;
+const SETTING_KEYS = ["mode", "chatFontSize", "reduceMotion"] as const;
 
 const DEFAULT_SETTINGS: AppearanceSettings = {
   mode: "light",
-  accent: DEFAULT_ACCENT,
   chatFontSize: 14,
   reduceMotion: false,
 };
@@ -49,23 +45,6 @@ export const applyAppearance = (s: AppearanceSettings) => {
   const root = document.documentElement;
   root.classList.toggle("dark", dark);
   root.classList.toggle("reduce-motion", s.reduceMotion);
-  root.style.setProperty("--accent", s.accent);
-  root.style.setProperty(
-    "--accent-hover",
-    `color-mix(in srgb, ${s.accent} 88%, #000)`,
-  );
-  root.style.setProperty(
-    "--accent-tint",
-    `color-mix(in srgb, ${s.accent} 14%, transparent)`,
-  );
-  root.style.setProperty(
-    "--accent-tint-2",
-    `color-mix(in srgb, ${s.accent} 24%, transparent)`,
-  );
-  root.style.setProperty(
-    "--shadow-focus",
-    `0 0 0 4px color-mix(in srgb, ${s.accent} 22%, transparent)`,
-  );
   root.style.setProperty("--chat-font-size", `${s.chatFontSize}px`);
 };
 
@@ -84,7 +63,6 @@ let editSeq = 0;
 let syncSeq = 0;
 const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
   mode: 0,
-  accent: 0,
   chatFontSize: 0,
   reduceMotion: 0,
 };
@@ -92,12 +70,10 @@ const editStamp: Record<(typeof SETTING_KEYS)[number], number> = {
 const toCommunityPatch = (patch: Partial<AppearanceSettings>) => {
   const body: {
     theme?: string;
-    accent?: string;
     chatFontSize?: number;
     reduceMotion?: boolean;
   } = {};
   if (patch.mode !== undefined) body.theme = patch.mode;
-  if (patch.accent !== undefined) body.accent = patch.accent;
   if (patch.chatFontSize !== undefined) body.chatFontSize = patch.chatFontSize;
   if (patch.reduceMotion !== undefined) body.reduceMotion = patch.reduceMotion;
   return body;
@@ -190,7 +166,6 @@ export const useAppearanceStore = create<AppearanceState>()(
   persist(
     (set, get) => ({
       mode: legacyMode(),
-      accent: DEFAULT_ACCENT,
       chatFontSize: 14,
       reduceMotion: false,
       ownerId: null,
@@ -201,8 +176,8 @@ export const useAppearanceStore = create<AppearanceState>()(
           if (patch[key] !== undefined) editStamp[key] = editSeq;
         }
         set(patch);
-        const { mode, accent, chatFontSize, reduceMotion, ownerId } = get();
-        applyAppearance({ mode, accent, chatFontSize, reduceMotion });
+        const { mode, chatFontSize, reduceMotion, ownerId } = get();
+        applyAppearance({ mode, chatFontSize, reduceMotion });
         scheduleSave(patch, ownerId);
       },
 
@@ -258,7 +233,6 @@ export const useAppearanceStore = create<AppearanceState>()(
                 ? { ...DEFAULT_SETTINGS }
                 : {
                     mode: get().mode,
-                    accent: get().accent,
                     chatFontSize: get().chatFontSize,
                     reduceMotion: get().reduceMotion,
                   },
@@ -274,7 +248,6 @@ export const useAppearanceStore = create<AppearanceState>()(
               saved.theme === "light" || saved.theme === "dark" || saved.theme === "system"
                 ? saved.theme
                 : DEFAULT_SETTINGS.mode,
-            accent: saved.accent || DEFAULT_ACCENT,
             chatFontSize: saved.chatFontSize,
             reduceMotion: saved.reduceMotion,
           });

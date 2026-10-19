@@ -27,44 +27,6 @@ impl PostgresCommunityRepository {
     pub fn new(pool: Pool<Postgres>) -> Self {
         Self { pool }
     }
-
-    pub async fn activity_audience(
-        &self,
-        user_id: uuid::Uuid,
-        candidates: &[uuid::Uuid],
-    ) -> Result<Vec<uuid::Uuid>, RepositoryError> {
-        if candidates.is_empty() {
-            return Ok(Vec::new());
-        }
-        let rows: Vec<(uuid::Uuid,)> = sqlx::query_as(
-            r#"
-            SELECT DISTINCT related.other
-            FROM (
-                SELECT f.friend_id AS other
-                FROM friendships f
-                WHERE f.user_id = $1 AND f.status = 'accepted'
-                UNION
-                SELECT m2.user_id AS other
-                FROM community_members m1
-                INNER JOIN community_members m2 ON m2.community_id = m1.community_id
-                WHERE m1.user_id = $1
-            ) related
-            WHERE related.other = ANY($2)
-              AND related.other <> $1
-              AND NOT EXISTS (
-                  SELECT 1 FROM user_blocks b
-                  WHERE (b.blocker_id = $1 AND b.blocked_id = related.other)
-                     OR (b.blocker_id = related.other AND b.blocked_id = $1)
-              )
-            "#,
-        )
-        .bind(user_id)
-        .bind(candidates)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(rows.into_iter().map(|r| r.0).collect())
-    }
 }
 
 #[async_trait]

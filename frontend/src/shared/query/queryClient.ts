@@ -43,7 +43,6 @@ export const queryKeys = {
   inbox: (userId: string) => ["inbox", userId] as const,
   inboxUnread: (userId: string) => ["inboxUnread", userId] as const,
   publicProfile: (userId: string) => ["publicProfile", userId] as const,
-  userConnections: (userId: string) => ["userConnections", userId] as const,
 };
 
 export async function refetchFresh(queryKey: readonly unknown[]): Promise<void> {

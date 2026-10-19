@@ -7,8 +7,6 @@ import type { SectionId } from "./types";
 
 import { AccountSection } from "./sections/AccountSection";
 import { PrivacySection } from "./sections/PrivacySection";
-import { ConnectionsSection } from "./sections/ConnectionsSection";
-import { SubscriptionSection } from "./sections/SubscriptionSection";
 import { AppearanceSection } from "./sections/AppearanceSection";
 import { VoiceSection } from "./sections/VoiceSection";
 import { NotificationsSection } from "./sections/NotificationsSection";
@@ -36,8 +34,6 @@ const SETTINGS_GROUPS: { groupKey: "userSettings" | "appSettings"; items: { id: 
     items: [
       { id: "account", icon: "user" },
       { id: "privacy", icon: "shield" },
-      { id: "connections", icon: "link" },
-      { id: "subscription", icon: "credit-card" },
     ],
   },
   {
@@ -101,8 +97,6 @@ function SettingsView({ open, onClose, onSignOut, section, onSection }: Settings
   switch (activeId) {
     case 'account':       body = <AccountSection onAccountGone={() => { onClose(); useAuthStore.getState().logout(); }}/>; break;
     case 'privacy':       body = <PrivacySection/>; break;
-    case 'connections':   body = <ConnectionsSection/>; break;
-    case 'subscription':  body = <SubscriptionSection/>; break;
     case 'appearance':    body = <AppearanceSection/>; break;
     case 'voice':         body = <VoiceSection/>; break;
     case 'notifications': body = <NotificationsSection/>; break;

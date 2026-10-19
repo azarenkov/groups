@@ -14,15 +14,6 @@ jest.mock("../../../home/api/home", () => ({
   homeAPI: { profile: () => new Promise(() => undefined) },
 }));
 
-jest.mock("../../api/user", () => ({
-  userAPI: { userConnections: () => Promise.resolve([]) },
-}));
-
-jest.mock("../../store/activityStore", () => {
-  const actual = jest.requireActual("../../store/activityStore");
-  return { ...actual, loadActivitiesFor: () => Promise.resolve() };
-});
-
 const SELF = "0b6f3a1e-6a51-4c7e-9a0e-5f1b2c3d4e5f";
 const OTHER = "1c7a4b2f-7b62-4d8f-8b1f-6a2c3d4e5f60";
 

@@ -6,7 +6,7 @@ use identity::usecases::user::{
     reauth::Reauth, request_email_change::RequestEmailChangeRequest,
 };
 use validator::Validate;
-use identity_domain::user::{id::UserId, locale::Locale};
+use identity_domain::user::{emoji_status::EmojiStatus, id::UserId, locale::Locale};
 use serde::{Deserialize, Serialize};
 use api_common::client::extract_client_context;
 use api_common::middleware::auth::{RateLimitedAuthToken, RateLimitedUnverifiedAuthToken};
@@ -46,11 +46,24 @@ pub struct MeResponse {
     pub password_changed_at: Option<chrono::DateTime<chrono::Utc>>,
     pub bio: String,
     pub show_activity: bool,
-    pub show_game_activity: bool,
     pub timezone: String,
+    pub emoji_status: Option<EmojiStatusResponse>,
     pub profile_updated_at: chrono::DateTime<chrono::Utc>,
     pub appear_offline: bool,
     pub role: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmojiStatusResponse {
+    pub sticker_id: Uuid,
+    pub until: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+impl From<EmojiStatus> for EmojiStatusResponse {
+    fn from(status: EmojiStatus) -> Self {
+        Self { sticker_id: status.sticker_id(), until: status.until() }
+    }
 }
 
 #[get("/me")]
@@ -69,8 +82,8 @@ async fn get_me(
         password_changed_at: profile.password_changed_at,
         bio: profile.bio,
         show_activity: profile.show_activity,
-        show_game_activity: profile.show_game_activity,
         timezone: profile.timezone,
+        emoji_status: profile.emoji_status.map(EmojiStatusResponse::from),
         profile_updated_at: profile.profile_updated_at,
         appear_offline: profile.appear_offline,
         role: profile.role.as_str().to_string(),
@@ -336,7 +349,6 @@ pub struct UpdateProfileBody {
     #[validate(length(max = 190))]
     pub bio: Option<String>,
     pub show_activity: Option<bool>,
-    pub show_game_activity: Option<bool>,
     #[validate(length(max = 64), custom(function = "validate_timezone"))]
     pub timezone: Option<String>,
 }
@@ -354,7 +366,6 @@ fn validate_timezone(value: &str) -> Result<(), validator::ValidationError> {
 pub struct UpdateProfileResponse {
     pub bio: String,
     pub show_activity: bool,
-    pub show_game_activity: bool,
     pub profile_updated_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -369,20 +380,19 @@ async fn update_me_profile(
     body.validate()?;
     let user_id = UserId::new(auth_token.id);
     let ctx = request_context(&req);
-    let (bio, show_activity, show_game_activity, profile_updated_at) = app_state
+    let (bio, show_activity, profile_updated_at) = app_state
         .update_profile_usecase
         .execute(
             user_id,
             ProfilePatch {
                 bio: body.bio,
                 show_activity: body.show_activity,
-                show_game_activity: body.show_game_activity,
                 timezone: body.timezone,
                 request_id: ctx.request_id,
             },
         )
         .await?;
-    Ok(HttpResponse::Ok().json(ApiResponse::success(UpdateProfileResponse { bio, show_activity, show_game_activity, profile_updated_at })))
+    Ok(HttpResponse::Ok().json(ApiResponse::success(UpdateProfileResponse { bio, show_activity, profile_updated_at })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -410,4 +420,58 @@ async fn update_me_presence(
         .execute(UserId::new(auth_token.id), body.appear_offline, ctx.request_id.as_deref())
         .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::success(PresencePreferenceResponse { appear_offline })))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmojiStatusBody {
+    pub sticker_id: Uuid,
+    pub duration: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmojiStatusChange {
+    pub emoji_status: Option<EmojiStatusResponse>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[put("/me/emoji-status")]
+async fn set_me_emoji_status(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    body: web::Json<EmojiStatusBody>,
+) -> Result<impl Responder, HttpError> {
+    let ctx = request_context(&req);
+    let (status, changed_at) = app_state
+        .set_emoji_status_usecase
+        .set(
+            UserId::new(auth_token.id),
+            body.sticker_id,
+            body.duration.as_deref(),
+            ctx.request_id.as_deref(),
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(EmojiStatusChange {
+        emoji_status: Some(EmojiStatusResponse::from(status)),
+        updated_at: changed_at,
+    })))
+}
+
+#[delete("/me/emoji-status")]
+async fn clear_me_emoji_status(
+    req: HttpRequest,
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+) -> Result<impl Responder, HttpError> {
+    let ctx = request_context(&req);
+    let changed_at = app_state
+        .set_emoji_status_usecase
+        .clear(UserId::new(auth_token.id), ctx.request_id.as_deref())
+        .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::success(EmojiStatusChange {
+        emoji_status: None,
+        updated_at: changed_at,
+    })))
 }

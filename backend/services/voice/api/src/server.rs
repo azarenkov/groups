@@ -58,11 +58,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         postgres_pool.clone(),
     )));
     let user_repository = Arc::new(PostgresUserProfileRepository::new(postgres_pool.clone()));
-    let plan_directory = Arc::new(
-        voice_infrastructure::database::postgres::repositories::plan_directory::PostgresPlanDirectory::new(
-            postgres_pool.clone(),
-        ),
-    );
     let messaging_internal_url = api_common::internal_client::InternalService::Messaging.base_url();
     let friendship_lookup = Arc::new(MessagingFriendshipClient::new(&messaging_internal_url));
 
@@ -75,23 +70,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     crate::evictions::spawn(call_repository.clone(), livekit_service.clone());
     crate::call_sweep::spawn(call_repository.clone(), livekit_service.clone());
     let media_state_repository = Arc::new(PostgresMediaStateRepository::new(postgres_pool.clone()));
-    crate::stream_sweep::spawn(Arc::new(voice::usecases::stream::sweep_screen_shares::SweepScreenShares::new(
-        plan_directory.clone(),
-        livekit_service.clone(),
-        webhook_outbox.clone(),
-    )));
-    infrastructure_common::messaging::nats::plan_projection::PlanProjection {
-        jetstream: nats_jetstream.clone(),
-        subject_prefix: nats_config.subject_prefix.clone(),
-        stream: user_stream.clone(),
-        consumer_name: "voice-projection-tiers",
-        plans: plan_directory.clone(),
-        listener: Arc::new(voice::usecases::stream::refresh_stream_ceilings::RefreshStreamCeilings::new(
-            plan_directory.clone(),
-            livekit_service.clone(),
-        )),
-    }
-    .spawn();
+    infrastructure_common::messaging::nats::consumer::remove_consumers(&nats_jetstream, &user_stream, &["voice-projection-tiers"]).await;
     crate::projection::spawn(
         nats_jetstream,
         nats_config.subject_prefix.clone(),
@@ -154,7 +133,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             user_repository.clone(),
             livekit_service.clone(),
             friendship_lookup.clone(),
-            plan_directory.clone(),
         ),
         get_media_state_usecase: voice::usecases::media::get_media_state::GetMediaState::new(
             media_state_repository.clone(),

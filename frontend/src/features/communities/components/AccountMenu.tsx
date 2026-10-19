@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import Icon from "../../../shared/ui/Icon";
 import ConfirmModal from "../../../shared/ui/ConfirmModal";
 import { UserAvatar } from "../../../shared/ui/Avatar";
-import PlanUntil from "../../subscription/components/PlanUntil";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 
 interface AccountMenuProps {
@@ -103,7 +102,6 @@ const AccountMenu: React.FC<AccountMenuProps> = ({
                 ))}
               </>
             )}
-            <PlanUntil className="account-dropdown-plan" />
             {onSignOut && (
               <>
                 <div className="account-dropdown-sep" />

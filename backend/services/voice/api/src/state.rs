@@ -1,4 +1,3 @@
-use voice_infrastructure::database::postgres::repositories::plan_directory::PostgresPlanDirectory;
 use voice::usecases::{
     call::{
         accept_call::AcceptCall, add_participants::AddCallParticipants,
@@ -61,7 +60,6 @@ pub struct AppState {
         PostgresUserProfileRepository,
         LiveKitService,
         MessagingFriendshipClient,
-        PostgresPlanDirectory,
     >,
     pub get_media_state_usecase: GetMediaState<PostgresMediaStateRepository>,
     pub save_media_state_usecase: SaveMediaState<PostgresMediaStateRepository>,

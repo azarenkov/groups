@@ -2,7 +2,7 @@ use domain::user::role::UserRole;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use domain::{password_hash::PasswordHash, user::email::Email, user::locale::Locale, user::name::UserName};
 use identity_domain::user::{
     User,
@@ -16,7 +16,6 @@ struct Users(Mutex<Vec<User>>);
 #[async_trait]
 impl UserRepository for Users {
     async fn appear_offline_among(&self, _: &[UserId]) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
-    async fn activity_hidden_among(&self, _: &[UserId]) -> Result<Vec<UserId>, RepositoryError> { unimplemented!() }
     async fn find_by_id(&self, user_id: &UserId) -> Result<Option<User>, RepositoryError> {
         Ok(self.0.lock().unwrap().iter().find(|u| u.id() == user_id).map(|u| {
             User::restore(
@@ -34,9 +33,7 @@ impl UserRepository for Users {
                 u.disabled_at(),
                 u.deleted_at(),
                 u.bio().to_string(),
-                u.badge_style(),
                 u.show_activity(),
-                u.show_game_activity(),
                 u.timezone().to_string(),
                 u.emoji_status(),
                 u.role(),
@@ -51,11 +48,6 @@ impl UserRepository for Users {
     async fn get_password_hash_by_email(&self, _: &Email) -> Result<PasswordHash, RepositoryError> { unimplemented!() }
     async fn get_username_by_id(&self, _: &UserId) -> Result<UserName, RepositoryError> { unimplemented!() }
     async fn get_user_id_by_email(&self, _: &Email) -> Result<UserId, RepositoryError> { unimplemented!() }
-    async fn list_oauth_connections(&self, _: &UserId) -> Result<Vec<(String, String, Option<String>)>, RepositoryError> { unimplemented!() }
-    async fn link_connection(&self, _: &str, _: &str, _: &UserId, _: &str) -> Result<bool, RepositoryError> { unimplemented!() }
-    async fn unlink_connection(&self, _: &UserId, _: &str) -> Result<bool, RepositoryError> { unimplemented!() }
-    async fn create_connection_state(&self, _: uuid::Uuid, _: &UserId, _: &str) -> Result<(), RepositoryError> { unimplemented!() }
-    async fn consume_connection_state(&self, _: uuid::Uuid) -> Result<Option<(UserId, String, DateTime<Utc>)>, RepositoryError> { unimplemented!() }
     async fn get_appearance(&self, _: &UserId) -> Result<Option<AppearanceSettings>, RepositoryError> { unimplemented!() }
     async fn get_voice_settings(&self, _: &UserId) -> Result<Option<VoiceSettings>, RepositoryError> { unimplemented!() }
     async fn get_notification_settings(&self, _: &UserId) -> Result<Option<NotificationSettings>, RepositoryError> { unimplemented!() }

@@ -63,7 +63,7 @@
   --dur-slow: 320ms;
 
   --w-sidebar:  320px;
-  --w-rail:     68px;
+  --w-rail:     76px;
   --h-titlebar: 44px;
   --h-header:   48px;
 }
@@ -132,9 +132,7 @@ textarea,
 .profile-handle,
 .profile-about,
 .profile-value,
-.profile-conn,
 .profile-mutual .profile-chip,
-.conn-meta,
 .auth-card .sub b,
 .account-dialog-sub,
 .srvm-preview-name,
@@ -146,7 +144,6 @@ textarea,
 .m-error,
 .srvm-error,
 .report-error,
-.profile-style-error,
 .image-crop-error,
 .composer-error,
 .call-error-toast,
@@ -372,6 +369,8 @@ body.electron .titlebar { padding-left: 84px; }
 .popover .pop-item .ttl { font-weight: 500; }
 .popover .pop-item .sub { font-size: 11px; color: var(--fg-3); margin-top: 1px; }
 .popover .pop-divider { height: 1px; background: var(--hairline); margin: 4px 8px; }
+.popover .pop-item.locked { color: var(--fg-3); cursor: not-allowed; }
+.popover .pop-item.locked:hover { background: transparent; }
 .popover .pop-item.danger { color: var(--danger); }
 .popover .pop-item.danger:hover { background: var(--danger-tint, rgba(229, 72, 77, 0.12)); }
 .ch-more-menu { min-width: 190px; }
@@ -1170,57 +1169,6 @@ textarea.s-input {
 .theme-card.system-pv .preview .pp-side { background: linear-gradient(135deg, #ebeae5 50%, #161619 50%); }
 .theme-card.system-pv .preview .pp-main { background: linear-gradient(135deg, #f6f5f1 50%, #0d0d0f 50%); }
 
-.accent-row {
-  display: flex; gap: 10px; flex-wrap: wrap;
-}
-.accent-swatch {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  border: 0;
-  cursor: pointer;
-  position: relative;
-  transition: transform var(--dur-fast);
-}
-.accent-swatch:hover { transform: scale(1.1); }
-.accent-swatch.on::after {
-  content: "";
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  border: 2px solid var(--fg-1);
-}
-
-.conn-row {
-  display: flex; align-items: center; gap: 14px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--hairline);
-}
-.conn-row:last-child { border-bottom: 0; }
-.conn-row .conn-ico {
-  width: 36px; height: 36px;
-  border-radius: 8px;
-  background: var(--surface-sunken);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--fg-2);
-  flex-shrink: 0;
-}
-.conn-row .conn-info { flex: 1; min-width: 0; }
-.conn-row .conn-name { font-size: 14px; font-weight: 500; color: var(--fg-1); }
-.conn-row .conn-meta { font-size: 12px; color: var(--fg-3); margin-top: 2px; }
-.conn-row .conn-action {
-  border: 1px solid var(--hairline-strong);
-  background: var(--surface-panel);
-  color: var(--fg-1);
-  padding: 6px 14px;
-  border-radius: 6px;
-  font: inherit; font-size: 12px; font-weight: 500;
-  cursor: pointer;
-  transition: all var(--dur-fast);
-}
-.conn-row .conn-action:hover { background: var(--surface-hover); }
-.conn-row .conn-action.connect { background: var(--accent); color: #fff; border-color: transparent; }
-.conn-row .conn-action.connect:hover { background: var(--accent-hover); }
-
 .kbd-row {
   display: flex; align-items: center; gap: 16px;
   padding: 10px 0;
@@ -1275,29 +1223,6 @@ textarea.s-input {
 .kbd-toolbar .hint { font-size: 12px; color: var(--fg-3); }
 .kbd-toolbar .s-btn:disabled { opacity: 0.5; cursor: default; }
 
-.plan-card {
-  display: flex; align-items: center; gap: 16px;
-  padding: 18px;
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  background: var(--surface-panel);
-  margin-bottom: 14px;
-}
-.plan-card.current {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 4%, var(--surface-panel));
-}
-.plan-card .plan-info { flex: 1; }
-.plan-card .plan-name { font-size: 15px; font-weight: 600; color: var(--fg-1); }
-.plan-card .plan-price { font-size: 13px; color: var(--fg-3); margin-top: 2px; }
-.plan-card .plan-badge {
-  font-size: 10px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--accent);
-  border: 1px solid var(--accent);
-  padding: 3px 8px;
-  border-radius: 4px;
-}
 .has-video .voice-room-grid {
   display: flex;
   align-items: center;
@@ -1827,8 +1752,6 @@ button.ssv-row-delete:focus-visible {
 .dm-peer-btn:active { background: var(--surface-active); }
 .dm-peer-btn .dm-peer-chev { color: var(--fg-4); transform: rotate(-90deg); transition: color var(--dur-fast); }
 .dm-peer-btn:hover .dm-peer-chev { color: var(--fg-2); }
-
-a.profile-chip.profile-conn { text-decoration: none; color: inherit; }
 
 :root.reduce-motion { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; }
 :root.reduce-motion *, :root.reduce-motion *::before, :root.reduce-motion *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; }

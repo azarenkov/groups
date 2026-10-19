@@ -108,14 +108,6 @@
   font-size: 11px; font-weight: 400; color: var(--fg-3);
   font-variant-numeric: tabular-nums;
 }
-.sb-dm-game {
-  flex: 0 1 auto; min-width: 0; max-width: 110px;
-  padding: 1px 6px; border-radius: 6px;
-  font-size: 10px; font-weight: 600; line-height: 16px;
-  color: var(--voice-live);
-  background: color-mix(in srgb, var(--voice-live) 14%, transparent);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
 .sb-dm-sub {
   font-size: 13px; color: var(--fg-3);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -563,7 +555,6 @@
   flex: 0 1 auto;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.sb-voice-member-pro { flex: 0 0 auto; }
 .sb-voice-member-badge {
   display: inline-flex; align-items: center; justify-content: center;
   width: 18px; height: 18px;
@@ -1482,7 +1473,6 @@ body.sb-resizing { cursor: col-resize; user-select: none; }
 .account-dropdown-item:hover, .account-dropdown-item:focus-visible { background: var(--surface-hover); outline: none; }
 .account-dropdown-text { flex: 1; }
 .account-dropdown-sep { height: 1px; margin: 4px 8px; background: var(--hairline); }
-.account-dropdown-plan { padding: 6px 12px 8px; }
 body.electron .topbar { padding-left: 84px; -webkit-app-region: drag; }
 body.electron.electron-fullscreen .topbar { padding-left: 16px; }
 body.electron .topbar button,
@@ -1778,8 +1768,6 @@ body.electron .topbar .inbox-dropdown { -webkit-app-region: no-drag; }
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.account-dropdown-plan { font-size: 12px; white-space: nowrap; }
-
 .sb-dm-ava-wrap.in-call .sb-dm-ava {
   box-shadow: 0 0 0 2px var(--surface-canvas), 0 0 0 4px var(--voice-live);
 }

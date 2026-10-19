@@ -9,8 +9,6 @@
   "sections": {
     "account": "My Account",
     "privacy": "Privacy & Safety",
-    "connections": "Connections",
-    "subscription": "Subscription",
     "appearance": "Appearance",
     "voice": "Voice & Video",
     "notifications": "Notifications",
@@ -90,8 +88,6 @@
     "moderationUnavailable": "Text moderation is temporarily unavailable. Try again later.",
     "showActivity": "Show activity",
     "showActivityHint": "Show your voice activity to friends in the Home feed. Members of a group still see who is in its voice channels.",
-    "showGameActivity": "Show game activity",
-    "showGameActivityHint": "Show friends and members of shared groups which game you are playing. Running games are detected by the desktop app only.",
     "aboutEmpty": "Tell others a bit about yourself.",
     "resendTooSoon": "A code was sent recently. Wait a bit and try again.",
     "profileLink": "Profile link",
@@ -126,38 +122,13 @@
     "showLocalTime": "Show my local time",
     "showLocalTimeHint": "Others will see what time it is for you in your profile."
   },
-  "connections": {
-    "title": "Connections",
-    "lead": "Link other accounts to enrich your messages and presence.",
-    "available": "Available",
-    "connect": "Connect",
-    "disconnect": "Disconnect",
-    "noConnections": "No connections yet.",
-    "githubDesc": "Show your GitHub profile.",
-    "steamDesc": "Steam profile and game activity.",
-    "connectedAs": "Connected as {{name}}",
-    "notConfigured": "This provider is not configured on the group.",
-    "failed": "Something went wrong. Try again.",
-    "loadFailed": "Couldn't load connections."
-  },
-  "subscription": {
-    "title": "Subscription",
-    "lead": "Your plan, billing, and usage.",
-    "currentPlan": "Current Plan",
-    "current": "Current",
-    "free": "Rift Free",
-    "premium": "Rift Premium",
-    "noPaymentMethod": "No payment method on file.",
-    "upgrade": "Upgrade"
-  },
   "appearance": {
     "title": "Appearance",
-    "lead": "Theme, color, and how dense the UI feels.",
+    "lead": "Theme and how dense the UI feels.",
     "theme": "Theme",
     "light": "Light",
     "dark": "Dark",
     "system": "System",
-    "accent": "Accent",
     "interface": "Interface",
     "reduceMotion": "Reduce motion",
     "reduceMotionHint": "Minimize transitions and animations.",
@@ -276,5 +247,29 @@
     "title": "Language",
     "lead": "Pick the language Rift uses for menus and system messages.",
     "displayLanguage": "Display Language"
+  },
+  "profileStyle": {
+    "title": "Profile style",
+    "banner": {
+      "title": "Profile banner",
+      "upload": "Upload a picture",
+      "uploading": "Uploading…",
+      "remove": "Remove",
+      "hint": "PNG, JPEG or WebP up to 8 MB, at least 600×200. The picture is cropped to 3:1.",
+      "tooLarge": "The file is larger than 8 MB.",
+      "tooSmall": "The picture is smaller than 600×200 pixels.",
+      "badType": "Only PNG, JPEG and WebP work here.",
+      "rejected": "This picture cannot be used.",
+      "failed": "Could not save the banner. Try again."
+    },
+    "emojiStatus": {
+      "title": "Sticker status",
+      "none": "Pick a sticker to show it next to your name.",
+      "remove": "Remove status",
+      "noStickers": "Install or create a sticker pack to pick a status.",
+      "gone": "This sticker is no longer available.",
+      "failed": "Couldn't update your status. Try again.",
+      "packs": "Sticker packs"
+    }
   }
 }

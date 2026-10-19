@@ -241,26 +241,21 @@ pub struct UserProfileChanged {
     pub user_id: UserId,
     pub bio: String,
     pub show_activity: bool,
-    pub show_game_activity: bool,
     pub active: bool,
     pub timezone: String,
-    pub badge_style: String,
     pub emoji_status: Option<EmojiStatus>,
     pub occurred_at: DateTime<Utc>,
 }
 
 impl UserProfileChanged {
-    #[allow(clippy::too_many_arguments)]
-    pub fn record(user_id: UserId, bio: String, show_activity: bool, show_game_activity: bool, active: bool, timezone: String, badge_style: String, emoji_status: Option<EmojiStatus>, now: DateTime<Utc>) -> Self {
+    pub fn record(user_id: UserId, bio: String, show_activity: bool, active: bool, timezone: String, emoji_status: Option<EmojiStatus>, now: DateTime<Utc>) -> Self {
         Self {
             id: EventId::generate(),
             user_id,
             bio,
             show_activity,
-            show_game_activity,
             active,
             timezone,
-            badge_style,
             emoji_status,
             occurred_at: now,
         }
@@ -278,74 +273,5 @@ pub struct UserPresencePreferenceChanged {
 impl UserPresencePreferenceChanged {
     pub fn record(user_id: UserId, appear_offline: bool, now: DateTime<Utc>) -> Self {
         Self { id: EventId::generate(), user_id, appear_offline, occurred_at: now }
-    }
-}
-
-#[derive(Debug)]
-pub struct UserActivityChanged {
-    pub id: EventId,
-    pub user_id: UserId,
-    pub game_id: Option<String>,
-    pub name: Option<String>,
-    pub started_at: Option<DateTime<Utc>>,
-    pub occurred_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone)]
-pub struct UserEntitlementsChanged {
-    pub id: EventId,
-    pub user_id: UserId,
-    pub tier: String,
-    pub valid_until: Option<DateTime<Utc>>,
-    pub member_number: Option<i64>,
-    pub trial: bool,
-    pub occurred_at: DateTime<Utc>,
-}
-
-impl UserEntitlementsChanged {
-    pub fn record(
-        user_id: UserId,
-        tier: String,
-        valid_until: Option<DateTime<Utc>>,
-        member_number: Option<i64>,
-        now: DateTime<Utc>,
-    ) -> Self {
-        Self {
-            id: EventId::generate(),
-            user_id,
-            tier,
-            valid_until,
-            member_number,
-            trial: false,
-            occurred_at: now,
-        }
-    }
-
-    pub fn trial(mut self) -> Self {
-        self.trial = true;
-        self
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct UserTrialEnding {
-    pub id: EventId,
-    pub user_id: UserId,
-    pub email: Email,
-    pub locale: String,
-    pub ends_at: DateTime<Utc>,
-    pub occurred_at: DateTime<Utc>,
-}
-
-impl UserTrialEnding {
-    pub fn record(user_id: UserId, email: Email, locale: String, ends_at: DateTime<Utc>, now: DateTime<Utc>) -> Self {
-        Self {
-            id: EventId::generate(),
-            user_id,
-            email,
-            locale,
-            ends_at,
-            occurred_at: now,
-        }
     }
 }

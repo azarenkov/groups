@@ -277,63 +277,34 @@ fn appearance_settings_validate_theme_accent_and_font_size() {
 }
 
 #[test]
-fn a_plan_decides_which_stream_quality_is_open() {
-    use crate::user::settings::voice::{StreamQuality, VoiceSettingsPatch};
-    use crate::user::tier::Tier;
-
-    let wants_4k = VoiceSettings::default()
-        .apply(&VoiceSettingsPatch {
-            stream_quality: Some("2160p60".to_string()),
-            noise_mode: Some("high".to_string()),
-            ..Default::default()
-        })
-        .unwrap();
-
-    assert!(!wants_4k.allowed_for(Tier::Free));
-    assert!(!wants_4k.allowed_for(Tier::Pro));
-    assert!(wants_4k.allowed_for(Tier::Premium));
-
-    let as_free = wants_4k.clone().limited_to(Tier::Free);
-    assert_eq!(as_free.stream_quality(), StreamQuality::P720);
-    assert_eq!(as_free.noise_mode(), NoiseMode::High);
-
-    let as_pro = wants_4k.clone().limited_to(Tier::Pro);
-    assert_eq!(as_pro.stream_quality(), StreamQuality::P1440);
-    assert_eq!(as_pro.noise_mode(), NoiseMode::High);
-
-    assert_eq!(wants_4k.limited_to(Tier::Premium).stream_quality(), StreamQuality::P2160);
-    assert_eq!(StreamQuality::parse("8k"), None);
-}
-
-#[test]
-fn high_noise_suppression_is_open_to_every_plan() {
-    use crate::user::settings::voice::VoiceSettingsPatch;
-    use crate::user::tier::Tier;
-
-    let high = VoiceSettings::default()
-        .apply(&VoiceSettingsPatch {
-            noise_mode: Some("high".to_string()),
-            ..Default::default()
-        })
-        .unwrap();
-    assert!(high.allowed_for(Tier::Free));
-    assert_eq!(high.limited_to(Tier::Free).noise_mode(), NoiseMode::High);
-}
-
-#[test]
-fn auto_stream_quality_is_open_to_every_plan() {
-    use crate::user::settings::voice::{StreamQuality, VoiceSettingsPatch};
-    use crate::user::tier::Tier;
+fn every_stream_quality_is_open_and_unknown_ones_are_rejected() {
+    use crate::user::settings::voice::{StreamQuality, VoiceSettingsError, VoiceSettingsPatch};
 
     assert_eq!(VoiceSettings::default().stream_quality(), StreamQuality::Auto);
-    let auto = VoiceSettings::default()
-        .apply(&VoiceSettingsPatch {
-            stream_quality: Some("auto".to_string()),
-            ..Default::default()
-        })
-        .unwrap();
-    assert!(auto.allowed_for(Tier::Free));
-    assert_eq!(auto.limited_to(Tier::Free).stream_quality(), StreamQuality::Auto);
+    for (value, quality) in [
+        ("auto", StreamQuality::Auto),
+        ("720p60", StreamQuality::P720),
+        ("1080p60", StreamQuality::P1080),
+        ("1440p60", StreamQuality::P1440),
+        ("2160p60", StreamQuality::P2160),
+    ] {
+        let settings = VoiceSettings::default()
+            .apply(&VoiceSettingsPatch {
+                stream_quality: Some(value.to_string()),
+                noise_mode: Some("high".to_string()),
+                ..Default::default()
+            })
+            .unwrap();
+        assert_eq!(settings.stream_quality(), quality);
+        assert_eq!(settings.noise_mode(), NoiseMode::High);
+    }
+    assert_eq!(StreamQuality::parse("8k"), None);
+    assert_eq!(
+        VoiceSettings::default()
+            .apply(&VoiceSettingsPatch { stream_quality: Some("8k".to_string()), ..Default::default() })
+            .unwrap_err(),
+        VoiceSettingsError::InvalidStreamQuality
+    );
 }
 
 #[test]

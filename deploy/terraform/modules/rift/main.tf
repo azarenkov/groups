@@ -17,11 +17,6 @@ resource "random_password" "altcha" {
   special = false
 }
 
-resource "random_password" "trial_hash" {
-  length  = 64
-  special = false
-}
-
 resource "random_password" "internal_api" {
   length  = 64
   special = false
@@ -59,16 +54,12 @@ locals {
     REDIS_URL            = var.redis_url
     JWT_SECRET           = random_password.jwt.result
     ALTCHA_HMAC_KEY      = random_password.altcha.result
-    TRIAL_HASH_KEY       = random_password.trial_hash.result
     INTERNAL_API_TOKEN   = random_password.internal_api.result
     LIVEKIT_API_SECRET   = var.livekit.api_secret
     MINIO_ROOT_USER      = var.minio.user
     MINIO_ROOT_PASSWORD  = var.minio.password
     MAILER_USERNAME      = var.mailer.username
     MAILER_PASSWORD      = var.mailer.password
-    GITHUB_CLIENT_ID     = var.oauth.github_client_id
-    GITHUB_CLIENT_SECRET = var.oauth.github_client_secret
-    STEAM_API_KEY        = var.oauth.steam_api_key
   }
 
   database_passwords = { for svc in local.database_services : "${svc}-password" => random_password.database[svc].result }
@@ -96,7 +87,6 @@ locals {
       LIVEKIT_API_KEY                = var.livekit.api_key
       MINIO_ENDPOINT                 = var.minio.endpoint
       MINIO_BUCKET                   = var.minio.bucket
-      PUBLIC_API_URL                 = local.app_url
       PUBLIC_APP_URL                 = local.app_url
       CORS_ALLOWED_ORIGINS           = "${local.app_url},file://,null"
       MAILER_HOST                    = var.mailer.host

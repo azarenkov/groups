@@ -439,6 +439,24 @@
   bottom: calc(100% + 10px);
   z-index: 6;
 }
+.stream-quality-btn {
+  width: auto; min-width: 72px; padding: 0 12px;
+  border-radius: 10px;
+}
+.stream-quality-label { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+.call-invite .stream-quality-pop {
+  top: auto;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  right: auto;
+  min-width: 200px;
+  z-index: 60;
+  animation: stream-quality-pop-in var(--dur-base) var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)) forwards;
+}
+@keyframes stream-quality-pop-in {
+  from { transform: translate(-50%, 4px) scale(0.97); opacity: 0; }
+  to   { transform: translate(-50%, 0) scale(1);      opacity: 1; }
+}
 
 .voice-stage-slot {
   flex: 1 1 auto;

@@ -19,7 +19,9 @@
 .app-rail-btn {
   position: relative;
   width: 100%;
+  min-width: 0;
   height: 56px;
+  padding: 0 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -55,10 +57,15 @@
 }
 .app-rail-btn.active .app-rail-ico svg { stroke-width: 2; }
 .app-rail-label {
+  max-width: 100%;
   font-size: 10px;
   font-weight: 500;
   line-height: 1;
   letter-spacing: 0;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .app-rail-badge {
   position: absolute;

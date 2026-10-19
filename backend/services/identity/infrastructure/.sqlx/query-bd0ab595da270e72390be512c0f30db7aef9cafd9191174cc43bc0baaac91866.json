@@ -1,0 +1,130 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                id,\n                name,\n                email,\n                password_hash,\n                created_at,\n                updated_at,\n                email_verified_at,\n                phone_verified_at,\n                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, timezone, emoji_status_sticker_id, emoji_status_until, role\n            FROM users\n            WHERE lower(email) = lower($1)\n            LIMIT 2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "password_hash",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "email_verified_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "phone_verified_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "locale",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "pending_email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 10,
+        "name": "password_changed_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "disabled_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "deleted_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 13,
+        "name": "bio",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 14,
+        "name": "show_activity",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "timezone",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 16,
+        "name": "emoji_status_sticker_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 17,
+        "name": "emoji_status_until",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 18,
+        "name": "role",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "bd0ab595da270e72390be512c0f30db7aef9cafd9191174cc43bc0baaac91866"
+}

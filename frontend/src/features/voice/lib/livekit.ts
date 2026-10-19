@@ -43,11 +43,6 @@ import type {
 } from "./videoCodec";
 import type { SpeakingState } from "./livekit/remoteAudio";
 import { attachRoomListeners, isScreenSource } from "./livekit/roomEvents";
-import {
-  STREAM_CEILING_ATTRIBUTE,
-  parseStreamCeiling,
-  useStreamCeilingStore,
-} from "../../subscription/store/streamCeilingStore";
 
 import { followWatched } from "./livekit/screenShares";
 import type { HeldScreen } from "./livekit/screenShares";
@@ -59,10 +54,6 @@ import type {
   ScreenShareState,
 } from "./livekit/types";
 import { rememberAudibleVolume } from "./audibleVolume";
-
-const applyStreamCeilingAttribute = (attributes: Readonly<Record<string, string>>) => {
-  useStreamCeilingStore.getState().setCeiling(parseStreamCeiling(attributes[STREAM_CEILING_ATTRIBUTE]));
-};
 
 export type {
   NoiseSuppressionMode,
@@ -160,8 +151,6 @@ export class LiveKitService {
   private encoderTimer: ReturnType<typeof setInterval> | null = null;
   private encoderSamples: EncoderSample[] = [];
   private republishingScreen = false;
-  private pendingScreenStopSid: string | null = null;
-  private screenLimitedListeners = new Set<() => void>();
   private screenSubscriptions: Map<string, boolean> = new Map();
   private screenViewers = 0;
   private screenShareListeners: Set<(state: ScreenShareState) => void> =
@@ -362,7 +351,6 @@ export class LiveKitService {
         void this.switchDevice("audiooutput", this.preferredSpeakerId);
       }
 
-      applyStreamCeilingAttribute(this.room.localParticipant.attributes ?? {});
       this.room.remoteParticipants.forEach((participant) => {
         this.addParticipant(participant);
       });
@@ -1538,47 +1526,8 @@ export class LiveKitService {
     return this.isConnecting;
   }
 
-  onScreenShareLimited(listener: () => void): () => void {
-    this.screenLimitedListeners.add(listener);
-    return () => {
-      this.screenLimitedListeners.delete(listener);
-    };
-  }
-
   getCurrentRoomName(): string | null {
     return this.room?.name ?? null;
-  }
-
-  async stopScreenShareTrack(trackSid: string): Promise<boolean> {
-    if (this.getScreenShareTrackSid() !== trackSid) return false;
-    if (this.room?.state !== "connected") {
-      this.pendingScreenStopSid = trackSid;
-      return true;
-    }
-    try {
-      await this.setScreenShareEnabled(false);
-    } catch (e) {
-      console.warn("[LiveKitService] failed to stop a limited screen share; ending the capture:", e);
-      this.pendingScreenStopSid = trackSid;
-      this.room?.localParticipant
-        .getTrackPublication(Track.Source.ScreenShare)
-        ?.track?.mediaStreamTrack.stop();
-      this.refreshScreenShares();
-    }
-    return true;
-  }
-
-  private async flushPendingScreenStop(): Promise<void> {
-    const sid = this.pendingScreenStopSid;
-    if (!sid || this.room?.state !== "connected") return;
-    this.pendingScreenStopSid = null;
-    await this.stopScreenShareTrack(sid);
-  }
-
-  getScreenShareTrackSid(): string | null {
-    return (
-      this.room?.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.trackSid ?? null
-    );
   }
 
   getRoomName(): string | null {
@@ -1601,13 +1550,6 @@ export class LiveKitService {
         this.handleAudioTrack(track, participant),
       onVideoTrack: (track, identity) => this.handleVideoTrack(track, identity),
       onScreenSharesChanged: () => this.refreshScreenShares(),
-      onLocalAttributes: (attributes) => applyStreamCeilingAttribute(attributes),
-      onLocalScreenMuted: (trackSid) => {
-        void this.stopScreenShareTrack(trackSid).then((stopped) => {
-          if (!stopped) return;
-          for (const listener of this.screenLimitedListeners) listener();
-        });
-      },
       onParticipantPatch: (identity, patch) =>
         this.updateParticipant(identity, patch),
       onDisconnected: (reason) => this.handleRoomDisconnected(reason),
@@ -1619,7 +1561,6 @@ export class LiveKitService {
       onReconnectingSettled: () => {
         this.setReconnecting(false);
         this.clearReconnectAbortTimer();
-        void this.flushPendingScreenStop();
       },
       onLocalAudioPublished: (publication) => {
         if (this.desiredMicMuted && publication.track) {

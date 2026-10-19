@@ -66,10 +66,8 @@ import { useSidebarPrefetch } from "../hooks/useSidebarPrefetch";
 import { useVoiceMembers } from "../hooks/useVoiceMembers";
 import { useVoicePresenceSync } from "../hooks/useVoicePresenceSync";
 import { useSpeakingTracking } from "../../voice/hooks/useSpeakingTracking";
-import { useEntitlementsStore } from "../../subscription/store/entitlementsStore";
-import { useStreamQualitySync } from "../../subscription/hooks/useStreamQualitySync";
+import { useStreamQualitySync } from "../../voice/hooks/useStreamQualitySync";
 import ErrorToast from "../../../shared/ui/ErrorToast";
-import TrialEndingNotice from "../../subscription/components/TrialEndingNotice";
 import PanelResizer from "../../../shared/ui/PanelResizer";
 import ContextMenuHost from "../../../shared/ui/contextMenu/ContextMenuHost";
 import { purgeCommunityLocally } from "../../../shared/ws/context";
@@ -305,7 +303,6 @@ const CommunitiesPage: React.FC = () => {
       useConversationPinsStore.getState().ensureLoaded();
       useHiddenDmStore.getState().ensureLoaded();
       void useBlockStore.getState().fetch();
-      void useEntitlementsStore.getState().fetch();
     }
   }, [hasSession, fetchCommunities, fetchFriends]);
 
@@ -964,7 +961,6 @@ const CommunitiesPage: React.FC = () => {
                     channelsByCommunity={channelsByCommunity}
                     voiceMembersByChannel={voiceMembersByChannel}
                     unreadFor={groupUnreadFor}
-                    onJoinCommunity={focusInviteSearch}
                     onPick={openGroupFromHome}
                     perms={homePerms}
                     currentUserId={user?.id}
@@ -1244,12 +1240,6 @@ const CommunitiesPage: React.FC = () => {
         }}
       />
       <ErrorToast message={error} onDismiss={clearError} />
-      <TrialEndingNotice
-        onOpenSubscription={() => {
-          setCommunitySettings(null);
-          openSettings("subscription");
-        }}
-      />
       <ContextMenuHost />
     </div>
   );

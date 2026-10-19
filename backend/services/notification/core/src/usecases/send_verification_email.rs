@@ -42,7 +42,6 @@ impl<M: Mailer> SendVerificationEmail<M> {
 mod tests {
     use super::*;
     use async_trait::async_trait;
-    use chrono::{DateTime, Utc};
     use std::sync::Mutex;
 
     #[derive(Default)]
@@ -57,9 +56,6 @@ mod tests {
         async fn send_verification_code(&self, _: &Email, code: &str, purpose: CodePurpose, _: Locale) -> Result<(), MailerError> {
             self.0.lock().unwrap().push(format!("code:{code}:{purpose:?}"));
             Ok(())
-        }
-        async fn send_trial_ending(&self, _: &Email, _: DateTime<Utc>, _: Locale) -> Result<(), MailerError> {
-            unimplemented!()
         }
     }
 

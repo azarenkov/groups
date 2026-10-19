@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { UserAvatar } from "../../../shared/ui/Avatar";
 import { colorForId } from "../../../shared/lib/avatar";
-import UserBadge from "../../subscription/components/UserBadge";
+import UserEmojiStatus from "../../social/components/UserEmojiStatus";
 import { useFriendshipStore } from "../../social/store/friendshipStore";
 import { useProfileModalStore } from "../../social/store/profileModalStore";
 import { usePresenceStore } from "../../social/store/presenceStore";
@@ -104,7 +104,7 @@ const PeopleResults: React.FC<PeopleResultsProps> = ({ query, hiddenIds, onMessa
               <span className="search-dd-text">
                 <span className="search-dd-name search-dd-name-badged">
                   <span className="search-dd-name-text">{highlightTerms(person.name, query)}</span>
-                  <UserBadge userId={person.id} size="sm" />
+                  <UserEmojiStatus userId={person.id} size="sm" />
                 </span>
                 <span className="search-dd-sub">{sub}</span>
               </span>

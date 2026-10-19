@@ -92,7 +92,7 @@ use messaging_infrastructure::{
             friendship_unit_of_work::PostgresFriendshipUnitOfWork,
             message_unit_of_work::PostgresMessageUnitOfWork,
             community_unit_of_work::PostgresCommunityUnitOfWork,
-        badge::PostgresBadgeRepository, privacy::PostgresPrivacyRepository,
+        emoji_status::PostgresEmojiStatusRepository, privacy::PostgresPrivacyRepository,
         report::PostgresReportRepository,
         user_profile::PostgresUserProfileRepository,
         },
@@ -153,14 +153,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let media_internal_url = api_common::internal_client::InternalService::Media.base_url();
     let attachment_claims = Arc::new(MediaClaimsClient::new(&media_internal_url));
     let privacy_repository = Arc::new(PostgresPrivacyRepository::new(postgres_pool.clone()));
-    let badge_repository = Arc::new(PostgresBadgeRepository::new(postgres_pool.clone()));
+    let emoji_status_repository = Arc::new(PostgresEmojiStatusRepository::new(postgres_pool.clone()));
     let invitation_repository = Arc::new(messaging_infrastructure::database::postgres::repositories::invitation::PostgresInvitationRepository::new(postgres_pool.clone()));
     let inbox_repository = Arc::new(messaging_infrastructure::database::postgres::repositories::inbox::PostgresInboxRepository::new(postgres_pool.clone()));
-    let plan_directory = Arc::new(
-        messaging_infrastructure::database::postgres::repositories::plan_directory::PostgresPlanDirectory::new(
-            postgres_pool.clone(),
-        ),
-    );
     let report_repository = Arc::new(PostgresReportRepository::new(postgres_pool.clone()));
     let voice_internal_url = api_common::internal_client::InternalService::Voice.base_url();
     let call_participation = Arc::new(VoiceCallsClient::new(&voice_internal_url));
@@ -203,7 +198,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
 
     {
-        let badges = badge_repository.clone();
+        let statuses = emoji_status_repository.clone();
         api_common::user_projection::spawn_with(
             nats_jetstream.clone(),
             nats_config.subject_prefix.clone(),
@@ -211,20 +206,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             "messaging-user-profiles",
             user_repository.clone(),
             move |subject, payload| {
-                let badges = badges.clone();
-                async move { messaging_infrastructure::consumers::pro_badges::apply(&*badges, &subject, &payload).await }
+                let statuses = statuses.clone();
+                async move { messaging_infrastructure::consumers::emoji_status::apply(&*statuses, &subject, &payload).await }
             },
         );
     }
-    infrastructure_common::messaging::nats::plan_projection::PlanProjection {
-        jetstream: nats_jetstream.clone(),
-        subject_prefix: nats_config.subject_prefix.clone(),
-        stream: user_stream.clone(),
-        consumer_name: "messaging-projection-tiers",
-        plans: plan_directory.clone(),
-        listener: Arc::new(ports::plan_directory::NoPlanListener),
-    }
-    .spawn();
     let inbox_triggers = Arc::new(messaging::usecases::inbox::apply_trigger::ApplyInboxTrigger::new(
         inbox_repository.clone(),
         messaging_domain::inbox::InboxRetention::default(),
@@ -264,15 +250,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     infrastructure_common::messaging::nats::consumer::remove_consumers(
         &nats_jetstream,
         &user_stream,
-        &["messaging-pro-badges", "messaging-pro-badges-v2"],
+        &["messaging-pro-badges", "messaging-pro-badges-v2", "messaging-pro-badges-v3", "messaging-projection-tiers"],
     )
     .await;
-    messaging_infrastructure::consumers::pro_badges::drain_legacy(
-        nats_jetstream.clone(),
-        nats_config.subject_prefix.clone(),
-        user_stream,
-        badge_repository.clone(),
-    );
 
     let public_app_url = std::env::var("PUBLIC_APP_URL")
         .ok()
@@ -343,7 +323,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             community_repository.clone(),
             message_unit_of_work.clone(),
             attachment_claims.clone(),
-            plan_directory.clone(),
         ),
         edit_channel_message_usecase: EditChannelMessage::new(
             message_repository.clone(),
@@ -351,7 +330,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             community_repository.clone(),
             message_unit_of_work.clone(),
             attachment_claims.clone(),
-            plan_directory.clone(),
         ),
         delete_channel_message_usecase: DeleteChannelMessage::new(
             message_repository.clone(),
@@ -486,7 +464,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         dm_repository: dm_repository.clone(),
         friendship_repository: friendship_repository.clone(),
         privacy_repository: privacy_repository.clone(),
-        badge_repository: badge_repository.clone(),
+        emoji_status_repository: emoji_status_repository.clone(),
         send_dm_message_usecase: SendDmMessage::new(
             dm_repository.clone(),
             dm_unit_of_work.clone(),
@@ -494,7 +472,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             attachment_claims.clone(),
             privacy_repository.clone(),
             user_repository.clone(),
-            plan_directory.clone(),
         ),
         edit_dm_message_usecase: EditDmMessage::new(
             dm_repository.clone(),
@@ -503,7 +480,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             friendship_repository.clone(),
             privacy_repository.clone(),
             user_repository.clone(),
-            plan_directory.clone(),
         ),
         delete_dm_message_usecase: DeleteDmMessage::new(
             dm_repository.clone(),

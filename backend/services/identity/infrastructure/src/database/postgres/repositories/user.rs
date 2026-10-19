@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use std::collections::BTreeMap;
 use identity_domain::user::settings::{
     appearance::AppearanceSettings, hotkeys::HotkeyBindings,
@@ -63,7 +62,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until, role
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, timezone, emoji_status_sticker_id, emoji_status_until, role
             FROM users
             WHERE id = $1
             "#,
@@ -89,7 +88,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until, role
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, timezone, emoji_status_sticker_id, emoji_status_until, role
             FROM users
             WHERE email = $1
             "#,
@@ -115,7 +114,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until, role
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, timezone, emoji_status_sticker_id, emoji_status_until, role
             FROM users
             WHERE lower(email) = lower($1)
             LIMIT 2
@@ -178,7 +177,7 @@ impl UserRepository for PostgresUserRepository {
                 updated_at,
                 email_verified_at,
                 phone_verified_at,
-                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, badge_style, show_activity, show_game_activity, timezone, emoji_status_sticker_id, emoji_status_until, role
+                locale, pending_email, password_changed_at, disabled_at, deleted_at, bio, show_activity, timezone, emoji_status_sticker_id, emoji_status_until, role
             FROM users
             WHERE LOWER(name COLLATE "C") = LOWER($1 COLLATE "C")
             "#,
@@ -252,109 +251,6 @@ impl UserRepository for PostgresUserRepository {
     }
 
 
-    async fn list_oauth_connections(
-        &self,
-        user_id: &UserId,
-    ) -> Result<Vec<(String, String, Option<String>)>, RepositoryError> {
-        let rows: Vec<(String, String, Option<String>)> = sqlx::query_as(
-            "SELECT provider, subject, display_name FROM oauth_identities WHERE user_id = $1 ORDER BY provider",
-        )
-        .bind(user_id.uuid())
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(rows)
-    }
-
-    async fn link_connection(
-        &self,
-        provider: &str,
-        subject: &str,
-        user_id: &UserId,
-        display_name: &str,
-    ) -> Result<bool, RepositoryError> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query("DELETE FROM oauth_identities WHERE provider = $1 AND user_id = $2")
-            .bind(provider)
-            .bind(user_id.uuid())
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-        let inserted = sqlx::query(
-            r#"
-                INSERT INTO oauth_identities (provider, subject, user_id, email, display_name)
-                VALUES ($1, $2, $3, '', $4)
-                ON CONFLICT (provider, subject) DO NOTHING
-            "#,
-        )
-        .bind(provider)
-        .bind(subject)
-        .bind(user_id.uuid())
-        .bind(display_name)
-        .execute(&mut *tx)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        if inserted.rows_affected() == 0 {
-            tx.rollback().await.map_err(map_sqlx_error_to_domain_error)?;
-            return Ok(false);
-        }
-        tx.commit().await.map_err(map_sqlx_error_to_domain_error)?;
-        Ok(true)
-    }
-
-    async fn unlink_connection(
-        &self,
-        user_id: &UserId,
-        provider: &str,
-    ) -> Result<bool, RepositoryError> {
-        let deleted =
-            sqlx::query("DELETE FROM oauth_identities WHERE provider = $1 AND user_id = $2")
-                .bind(provider)
-                .bind(user_id.uuid())
-                .execute(&self.pool)
-                .await
-                .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(deleted.rows_affected() > 0)
-    }
-
-    async fn create_connection_state(
-        &self,
-        state: uuid::Uuid,
-        user_id: &UserId,
-        provider: &str,
-    ) -> Result<(), RepositoryError> {
-        sqlx::query("DELETE FROM connection_states WHERE created_at < now() - interval '10 minutes'")
-            .execute(&self.pool)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-        sqlx::query("INSERT INTO connection_states (state, user_id, provider) VALUES ($1, $2, $3)")
-            .bind(state)
-            .bind(user_id.uuid())
-            .bind(provider)
-            .execute(&self.pool)
-            .await
-            .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(())
-    }
-
-    async fn consume_connection_state(
-        &self,
-        state: uuid::Uuid,
-    ) -> Result<Option<(UserId, String, DateTime<Utc>)>, RepositoryError> {
-        let row: Option<(uuid::Uuid, String, DateTime<Utc>)> = sqlx::query_as(
-            "DELETE FROM connection_states WHERE state = $1 RETURNING user_id, provider, created_at",
-        )
-        .bind(state)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(row.map(|(id, provider, created_at)| (UserId::new(id), provider, created_at)))
-    }
-
     async fn get_appearance(
         &self,
         user_id: &UserId,
@@ -395,30 +291,6 @@ impl UserRepository for PostgresUserRepository {
         .await
         .map_err(map_sqlx_error_to_domain_error)?;
         Ok(row.map(|r| NotificationSettings::restore(r.0, r.1, &r.2, r.3, r.4, r.5, r.6, r.7)))
-    }
-
-    async fn activity_hidden_among(&self, user_ids: &[UserId]) -> Result<Vec<UserId>, RepositoryError> {
-        if user_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-        let ids: Vec<uuid::Uuid> = user_ids.iter().map(|id| id.uuid()).collect();
-        let rows: Vec<(uuid::Uuid,)> = sqlx::query_as(
-            r#"
-            SELECT u.id
-            FROM users u
-            LEFT JOIN user_presence_preferences p ON p.user_id = u.id
-            WHERE u.id = ANY($1)
-              AND (COALESCE(p.appear_offline, FALSE)
-                   OR NOT u.show_game_activity
-                   OR u.disabled_at IS NOT NULL
-                   OR u.deleted_at IS NOT NULL)
-            "#,
-        )
-        .bind(&ids)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(map_sqlx_error_to_domain_error)?;
-        Ok(rows.into_iter().map(|(id,)| UserId::new(id)).collect())
     }
 
     async fn appear_offline_among(&self, user_ids: &[UserId]) -> Result<Vec<UserId>, RepositoryError> {

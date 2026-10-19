@@ -1,6 +1,5 @@
 {
   "title": "Участники канала",
-  "playing": "Играет в {{game}}",
   "online": "В сети — {{count}}",
   "offline": "Не в сети — {{count}}",
   "noMembers": "Участников пока нет.",

@@ -4,7 +4,7 @@ use contracts::internal::{
     calls::CallPermitResponseV1,
     friendships::{BlockRelationResponseV1, BlockRelationsRequestV1, BlockRelationsResponseV1, FriendsResponseV1},
     communities::{CanManageResponseV1, OwnerResponseV1},
-    users::{ActivityAudienceRequestV1, ActivityAudienceResponseV1, DmPeersRequestV1, DmPeersResponseV1},
+    users::{DmPeersRequestV1, DmPeersResponseV1},
 };
 use messaging_domain::{dm_message::repository::DmMessageRepository, friendship::repository::FriendshipRepository, friendship::status::FriendshipStatus, message::repository::MessageRepository, privacy::ContactPolicy, privacy::PrivacyRepository, community::id::CommunityId, community::repository::CommunityRepository};
 use domain::user::id::UserId;
@@ -174,24 +174,9 @@ async fn linked_attachments(
     Ok(HttpResponse::Ok().json(LinkedResponseV1 { linked_ids }))
 }
 
-#[post("/users/{user_id}/activity-audience")]
-async fn activity_audience(
-    app_state: web::Data<AppState>,
-    path: web::Path<Uuid>,
-    body: web::Json<ActivityAudienceRequestV1>,
-) -> Result<impl Responder, HttpError> {
-    let ids = app_state
-        .community_repository
-        .activity_audience(path.into_inner(), &body.ids)
-        .await
-        .map_err(HttpError::from)?;
-    Ok(HttpResponse::Ok().json(ActivityAudienceResponseV1 { ids }))
-}
-
 pub fn internal_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/internal")
-            .service(activity_audience)
             .service(community_can_manage)
             .service(community_owner)
             .service(friendship_pair)

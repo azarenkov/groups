@@ -2,7 +2,6 @@ use crate::config::mailer::MailerConfig;
 use domain::{user::email::Email, user::locale::Locale};
 use ports::{mailer::CodePurpose, mailer::Mailer, mailer::MailerError};
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use lettre::message::header::ContentType;
 use lettre::message::{Attachment, Mailbox, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
@@ -127,16 +126,6 @@ impl Mailer for SmtpMailer {
             templates::verification_code(verification_code, purpose, locale, self.inner.app_url.as_deref()),
         )
         .await
-    }
-
-    async fn send_trial_ending(
-        &self,
-        email: &Email,
-        ends_at: DateTime<Utc>,
-        locale: Locale,
-    ) -> Result<(), MailerError> {
-        self.deliver(email, templates::trial_ending(ends_at, locale, self.inner.app_url.as_deref()))
-            .await
     }
 }
 

@@ -6,7 +6,7 @@ import { CommunityLogo, UserAvatar } from "../../../shared/ui/Avatar";
 import { colorForId } from "../../../shared/lib/avatar";
 import type { HistoryItem } from "../api/searchHistory";
 import { useBlockStore } from "../../social/store/blockStore";
-import UserBadge from "../../subscription/components/UserBadge";
+import UserEmojiStatus from "../../social/components/UserEmojiStatus";
 
 interface RecentSearchesProps {
   items: HistoryItem[];
@@ -121,7 +121,7 @@ const RecentSearches: React.FC<RecentSearchesProps> = ({ items, onPick, onRemove
               {item.type === "person" || item.type === "dm" ? (
                 <span className="search-dd-name search-dd-name-badged">
                   <span className="search-dd-name-text">{label(item)}</span>
-                  <UserBadge userId={item.userId} size="sm" />
+                  <UserEmojiStatus userId={item.userId} size="sm" />
                 </span>
               ) : (
                 <span className="search-dd-name">{label(item)}</span>

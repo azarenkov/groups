@@ -4,6 +4,8 @@ import { appendCrop } from "../../../shared/lib/imageCrop";
 import { http } from "../../../shared/api/http";
 
 import { ApiError } from "../../../shared/lib/apiError";
+import { parseEmojiStatus } from "../lib/emojiStatus";
+import type { EmojiStatus } from "../lib/emojiStatus";
 
 export interface Reauth {
   password: string;
@@ -11,26 +13,12 @@ export interface Reauth {
 
 export interface AppearanceSettings {
   theme: string;
-  accent: string;
   chatFontSize: number;
   reduceMotion: boolean;
 }
 
 export interface HotkeySettings {
   bindings: Record<string, string>;
-}
-
-export interface UserActivity {
-  userId: string;
-  gameId: string;
-  name: string;
-  startedAt: string;
-  changedAt: string;
-}
-
-export interface ActivitySnapshot {
-  asOf: string;
-  activities: UserActivity[];
 }
 
 export interface VoiceSettings {
@@ -56,11 +44,15 @@ export interface NotificationSettings {
   voiceCuesEnabled?: boolean;
 }
 
-export interface Connection {
-  provider: string;
-  displayName: string;
-  url?: string | null;
+export interface EmojiStatusChange {
+  emojiStatus: EmojiStatus | null;
+  updatedAt: string | null;
 }
+
+const parseEmojiStatusChange = (data: { emojiStatus?: unknown; updatedAt?: unknown } | undefined): EmojiStatusChange => ({
+  emojiStatus: parseEmojiStatus(data?.emojiStatus),
+  updatedAt: typeof data?.updatedAt === "string" ? data.updatedAt : null,
+});
 
 export interface MeProfile {
   id: string;
@@ -71,10 +63,10 @@ export interface MeProfile {
   passwordChangedAt: string | null;
   bio: string;
   showActivity: boolean;
-  showGameActivity: boolean;
   timezone: string;
   appearOffline?: boolean;
   profileUpdatedAt: string;
+  emojiStatus?: EmojiStatus | null;
   role: UserRole;
 }
 
@@ -86,26 +78,14 @@ class UserAPI {
     return response.data.data;
   }
 
-  async listConnections(): Promise<Connection[]> {
-    const response = await this.client.get("/v1/users/me/connections");
-    return response.data.data.connections;
+  async setEmojiStatus(stickerId: string): Promise<EmojiStatusChange> {
+    const response = await this.client.put("/v1/users/me/emoji-status", { stickerId });
+    return parseEmojiStatusChange(response.data.data);
   }
 
-  async startConnection(provider: string): Promise<string> {
-    const response = await this.client.post(
-      `/v1/users/me/connections/${provider}/start`,
-      {},
-    );
-    return response.data.data.url;
-  }
-
-  async removeConnection(provider: string): Promise<void> {
-    await this.client.delete(`/v1/users/me/connections/${provider}`);
-  }
-
-  async userConnections(userId: string): Promise<Connection[]> {
-    const response = await this.client.get(`/v1/users/${userId}/connections`);
-    return response.data.data.connections;
+  async clearEmojiStatus(): Promise<EmojiStatusChange> {
+    const response = await this.client.delete("/v1/users/me/emoji-status");
+    return parseEmojiStatusChange(response.data.data);
   }
 
   async getAppearance(): Promise<AppearanceSettings | null> {
@@ -124,37 +104,6 @@ class UserAPI {
     const response = await this.client.patch("/v1/users/me/appearance", patch, {
       _retry: true,
     } as AxiosRequestConfig);
-    return response.data.data;
-  }
-
-  async setActivity(input: {
-    gameId: string;
-    name: string;
-    startedAt: string;
-    sessionId: string;
-  }): Promise<UserActivity> {
-    const response = await this.client.put("/v1/users/me/activity", input);
-    return response.data.data;
-  }
-
-  async clearActivity(
-    sessionId: string,
-    accessToken?: string,
-  ): Promise<{ occurredAt: string }> {
-    const response = await this.client.delete("/v1/users/me/activity", {
-      params: { session_id: sessionId },
-      ...(accessToken
-        ? { headers: { Authorization: `Bearer ${accessToken}` } }
-        : {}),
-    });
-    return response.data.data;
-  }
-
-  async getActivities(ids: string[]): Promise<ActivitySnapshot> {
-    if (ids.length === 0) return { asOf: new Date().toISOString(), activities: [] };
-    const response = await this.client.get("/v1/users/activity", {
-      params: { ids: ids.join(",") },
-    });
     return response.data.data;
   }
 
@@ -286,7 +235,7 @@ class UserAPI {
     await this.client.delete("/v1/users/me", { data: reauth });
   }
 
-  async updateProfile(patch: { bio?: string; showActivity?: boolean; showGameActivity?: boolean; timezone?: string }): Promise<{ bio: string; showActivity: boolean; showGameActivity: boolean; profileUpdatedAt: string }> {
+  async updateProfile(patch: { bio?: string; showActivity?: boolean; timezone?: string }): Promise<{ bio: string; showActivity: boolean; profileUpdatedAt: string }> {
     const response = await this.client.patch("/v1/users/me/profile", patch);
     return response.data.data;
   }

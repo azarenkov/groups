@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use messaging_domain::badge::attachments_per_message;
+use messaging_domain::message::MAX_ATTACHMENTS_PER_MESSAGE;
 
 use chrono::Utc;
 use messaging_domain::{events::MessagingEvent, channel::id::ChannelId, channel::repository::ChannelRepository, message::MessageError, message::content::MessageContent, message::id::MessageId, message::repository::MessageRepository, message::unit_of_work::MessageUnitOfWork, community::id::CommunityId, community::repository::CommunityRepository};
@@ -40,7 +40,6 @@ where
     community_repository: Arc<S>,
     unit_of_work: Arc<W>,
     attachment_claims: Arc<A>,
-    plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
 }
 
 impl<M, C, S, W, A> EditChannelMessage<M, C, S, W, A>
@@ -57,15 +56,13 @@ where
         community_repository: Arc<S>,
         unit_of_work: Arc<W>,
         attachment_claims: Arc<A>,
-        plans: Arc<dyn crate::ports::plan_directory::PlanDirectory>,
-    ) -> Self {
+        ) -> Self {
         Self {
             message_repository,
             channel_repository,
             community_repository,
             unit_of_work,
             attachment_claims,
-            plans,
         }
     }
 
@@ -132,8 +129,7 @@ where
             return Err(EditChannelMessageError::InvalidAttachments);
         }
         let remaining = current_ids.len() - remove_ids.len() + add_ids.len();
-        let tier = self.plans.tier_of(&editor_id, Utc::now()).await?;
-        if !add_ids.is_empty() && remaining > attachments_per_message(tier) {
+        if !add_ids.is_empty() && remaining > MAX_ATTACHMENTS_PER_MESSAGE {
             return Err(EditChannelMessageError::InvalidAttachments);
         }
 

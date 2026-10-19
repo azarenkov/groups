@@ -5,7 +5,7 @@ use domain::user::id::UserId;
 use identity_domain::{events::IdentityEvent, unit_of_work::IdentityUnitOfWork, user::presence::PresencePreference};
 use ports::repository::RepositoryError;
 
-use crate::ports::activity_store::{ActivityStore, ActivityStoreError};
+use crate::ports::legacy_presence_store::{LegacyPresenceStore, LegacyPresenceStoreError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum PresencePreferenceError {
@@ -20,7 +20,7 @@ pub enum ImportLegacyPreferencesError {
     #[error("Repository error: {0}")]
     Repository(#[from] RepositoryError),
     #[error("Legacy store error: {0}")]
-    LegacyStore(#[from] ActivityStoreError),
+    LegacyStore(#[from] LegacyPresenceStoreError),
 }
 
 pub struct SetPresencePreference<W: IdentityUnitOfWork> {
@@ -56,12 +56,12 @@ impl<W: IdentityUnitOfWork> SetPresencePreference<W> {
     }
 }
 
-pub struct ImportLegacyPresencePreferences<S: ActivityStore, W: IdentityUnitOfWork> {
+pub struct ImportLegacyPresencePreferences<S: LegacyPresenceStore, W: IdentityUnitOfWork> {
     store: Arc<S>,
     unit_of_work: Arc<W>,
 }
 
-impl<S: ActivityStore, W: IdentityUnitOfWork> ImportLegacyPresencePreferences<S, W> {
+impl<S: LegacyPresenceStore, W: IdentityUnitOfWork> ImportLegacyPresencePreferences<S, W> {
     pub fn new(store: Arc<S>, unit_of_work: Arc<W>) -> Self {
         Self { store, unit_of_work }
     }

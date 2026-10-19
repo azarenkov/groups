@@ -63,12 +63,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     );
     let attachment_repository =
         Arc::new(PostgresAttachmentRepository::new(postgres_pool.clone()));
-    let plan_directory = Arc::new(
-        media_infrastructure::database::postgres::repositories::plan_directory::PostgresPlanDirectory::new(
-            postgres_pool.clone(),
-        ),
-    );
-
     let minio_storage = Arc::new(
         MinioStorage::new(&minio_config)
             .map_err(|e| Box::<dyn Error>::from(format!("minio init failed: {e}")))?,
@@ -147,15 +141,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         attachment_repository.clone(),
     );
     let user_stream = stream_name("MEDIA_USER_STREAM", streams::USER_EVENTS);
-    infrastructure_common::messaging::nats::plan_projection::PlanProjection {
-        jetstream: nats_jetstream.clone(),
-        subject_prefix: nats_config.subject_prefix.clone(),
-        stream: user_stream.clone(),
-        consumer_name: "media-projection-tiers",
-        plans: plan_directory.clone(),
-        listener: Arc::new(ports::plan_directory::NoPlanListener),
-    }
-    .spawn();
+    infrastructure_common::messaging::nats::consumer::remove_consumers(&nats_jetstream, &user_stream, &["media-projection-tiers"]).await;
     crate::user_projection::spawn(
         nats_jetstream,
         nats_config.subject_prefix.clone(),
@@ -177,7 +163,6 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         upload_attachment_usecase: UploadAttachment::new(
             attachment_repository.clone(),
             minio_storage.clone(),
-            plan_directory.clone(),
         ),
         upload_semaphore,
         image_read_limiter,
@@ -199,26 +184,22 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         ),
         get_user_avatar_usecase: GetUserAvatar::new(
             media_repository.clone(),
-            plan_directory.clone(),
             minio_storage.clone(),
         ),
         update_user_banner_usecase: media::usecases::user::banner::UpdateUserBanner::new(
             banner_repository.clone(),
-            plan_directory.clone(),
             attachment_repository.clone(),
             minio_storage.clone(),
             nsfw_detector.clone(),
         ),
         sticker_packs: media::usecases::sticker::StickerPacks::new(
             sticker_repository.clone(),
-            plan_directory.clone(),
             attachment_repository.clone(),
             minio_storage.clone(),
             nsfw_detector.clone(),
         ),
         get_user_banner_usecase: media::usecases::user::banner::GetUserBanner::new(
             banner_repository.clone(),
-            plan_directory.clone(),
             minio_storage.clone(),
         ),
         update_community_logo_usecase: UpdateCommunityLogo::new(

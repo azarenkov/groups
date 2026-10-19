@@ -1,8 +1,6 @@
 export const SETTINGS_SECTIONS = [
   "account",
   "privacy",
-  "connections",
-  "subscription",
   "appearance",
   "voice",
   "notifications",

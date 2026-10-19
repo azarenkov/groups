@@ -10,11 +10,6 @@ import { useUserProfileStore } from "../../store/userProfileStore";
 
 jest.mock("../../../../shared/lib/avatarCache", () => ({ useAvatarUrl: () => null }));
 jest.mock("../../../home/api/home", () => ({ homeAPI: { profile: jest.fn() } }));
-jest.mock("../../api/user", () => ({ userAPI: { userConnections: () => Promise.resolve([]) } }));
-jest.mock("../../store/activityStore", () => {
-  const actual = jest.requireActual("../../store/activityStore");
-  return { ...actual, loadActivitiesFor: () => Promise.resolve() };
-});
 
 const profile = homeAPI.profile as jest.Mock;
 

@@ -2,7 +2,7 @@ mod dto;
 mod http_errors;
 mod bootstrap;
 mod attachments;
-mod badges;
+mod emoji_status;
 mod blocks;
 mod channel;
 mod dm;

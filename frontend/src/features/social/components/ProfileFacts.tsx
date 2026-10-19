@@ -1,10 +1,8 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import Icon from "../../../shared/ui/Icon";
 import { CommunityLogo } from "../../../shared/ui/Avatar";
 import { currentLocale } from "../../../i18n";
 import type { PublicProfile } from "../../home/api/home";
-import type { Connection } from "../api/user";
 
 const useMinuteTick = () => {
   const [, force] = React.useReducer((n: number) => n + 1, 0);
@@ -44,12 +42,11 @@ const formatMemberSince = (iso: string | null, locale: string): string | null =>
 
 interface ProfileFactsProps {
   profile: PublicProfile | null;
-  connections: Connection[];
   bio: string;
   blockedMe: boolean;
 }
 
-const ProfileFacts: React.FC<ProfileFactsProps> = ({ profile, connections, bio, blockedMe }) => {
+const ProfileFacts: React.FC<ProfileFactsProps> = ({ profile, bio, blockedMe }) => {
   const { t } = useTranslation("profile");
   useMinuteTick();
   const locale = currentLocale();
@@ -76,36 +73,6 @@ const ProfileFacts: React.FC<ProfileFactsProps> = ({ profile, connections, bio, 
           </div>
         )}
       </div>
-      {connections.length > 0 && (
-        <div className="profile-mutual">
-          <div className="profile-label">{t("connections")}</div>
-          <div className="profile-chips">
-            {connections.map((c) => {
-              const inner = (
-                <>
-                  <Icon name={c.provider === "steam" ? "steam" : "github"} size={14} />
-                  <span>{c.displayName || c.provider}</span>
-                </>
-              );
-              return c.url ? (
-                <a
-                  key={c.provider}
-                  className="profile-chip profile-conn"
-                  href={c.url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {inner}
-                </a>
-              ) : (
-                <span key={c.provider} className="profile-chip profile-conn">
-                  {inner}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      )}
       {profile && !blockedMe && profile.mutualCommunities.length > 0 && (
         <div className="profile-mutual">
           <div className="profile-label">{t("mutualCommunities", { count: profile.mutualCommunities.length })}</div>

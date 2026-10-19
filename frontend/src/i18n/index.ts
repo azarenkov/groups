@@ -26,8 +26,6 @@ import enHome from "./locales/en/home.json";
 import ruHome from "./locales/ru/home.json";
 import enProfile from "./locales/en/profile.json";
 import ruProfile from "./locales/ru/profile.json";
-import enSubscription from "./locales/en/subscription.json";
-import ruSubscription from "./locales/ru/subscription.json";
 import enReport from "./locales/en/report.json";
 import ruReport from "./locales/ru/report.json";
 import enStickers from "./locales/en/stickers.json";
@@ -51,7 +49,6 @@ export const NAMESPACES = [
   "communitySettings",
   "home",
   "profile",
-  "subscription",
   "report",
   "stickers",
   "errors",
@@ -71,7 +68,6 @@ const resources = {
     communitySettings: enCommunitySettings,
     home: enHome,
     profile: enProfile,
-    subscription: enSubscription,
     report: enReport,
     stickers: enStickers,
     errors: enErrors,
@@ -89,7 +85,6 @@ const resources = {
     communitySettings: ruCommunitySettings,
     home: ruHome,
     profile: ruProfile,
-    subscription: ruSubscription,
     report: ruReport,
     stickers: ruStickers,
     errors: ruErrors,

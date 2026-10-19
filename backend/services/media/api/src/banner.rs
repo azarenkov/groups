@@ -50,10 +50,6 @@ async fn upload_my_banner(
     mut payload: Multipart,
 ) -> Result<impl Responder, HttpError> {
     let user_id = UserId::new(auth_token.id);
-    app_state
-        .update_user_banner_usecase
-        .ensure_allowed(&user_id)
-        .await?;
     let _permit = acquire_upload_permit(&app_state).await?;
     let upload = read_image_upload(&mut payload, MAX_BANNER_BYTES, &BANNER_CODES).await?;
     let normalized = web::block(move || normalize_banner(upload))

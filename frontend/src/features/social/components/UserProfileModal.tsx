@@ -6,14 +6,10 @@ import { UserAvatar } from "../../../shared/ui/Avatar";
 import { useAuthStore } from "../../auth/store/authStore";
 import { useFriendshipStore } from "../store/friendshipStore";
 import { useBlockStore } from "../store/blockStore";
-import ProBadge from "../../subscription/components/ProBadge";
-import EmojiStatusIcon from "../../subscription/components/EmojiStatusIcon";
-import { useActiveEmojiStatus } from "../../subscription/lib/emojiStatus";
-import { useBadge } from "../../subscription/hooks/useBadge";
+import UserEmojiStatus from "./UserEmojiStatus";
 import { useAvatarUrl } from "../../../shared/lib/avatarCache";
 import { openReport } from "../../moderation/store/reportModalStore";
 import { usePresenceStore } from "../store/presenceStore";
-import { loadActivitiesFor, useActivityStore } from "../store/activityStore";
 import { useProfileModalStore } from "../store/profileModalStore";
 import { useUserProfileDetails } from "../hooks/useUserProfileDetails";
 import ProfileFacts from "./ProfileFacts";
@@ -40,18 +36,12 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
   useDialogFocus(dialogRef, !!userId, userId);
   const selfId = useAuthStore((s) => s.user?.id);
   const selfName = useAuthStore((s) => s.user?.name);
-  const { profile, failed, connections, blockedByMe, blockedMe, friendshipStatus, bio } = useUserProfileDetails(userId);
+  const { profile, failed, blockedByMe, blockedMe, friendshipStatus, bio } = useUserProfileDetails(userId);
   const onlineUsers = usePresenceStore((s) => s.online);
   const selfOnline = usePresenceStore((s) => s.selfOnline);
-  const gameActivity = useActivityStore((s) => (userId ? s.byUser[userId] : undefined));
-  React.useEffect(() => {
-    if (userId) void loadActivitiesFor([userId]);
-  }, [userId]);
   const nameOverrides = useUserNamesStore((s) => s.overrides);
   const [menuOpen, setMenuOpen] = React.useState(false);
-  const badge = useBadge(userId);
-  const emojiStatus = useActiveEmojiStatus(badge?.emojiStatus);
-  const bannerUrl = useAvatarUrl("banner", badge && !blockedMe ? userId : null);
+  const bannerUrl = useAvatarUrl("banner", blockedMe ? null : userId);
   const avatarUrl = useAvatarUrl("user", userId);
   const [avatarOpen, setAvatarOpen] = React.useState(false);
   const avatarOpenRef = React.useRef(avatarOpen);
@@ -208,23 +198,11 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
             <>
               <div className="profile-name-row">
                 <div className="profile-name">{name ? displayUserName(name) : inactive ? t("deletedUser") : "…"}</div>
-                {badge && !inactive && !blockedMe && (
-                  emojiStatus ? (
-                    <EmojiStatusIcon status={emojiStatus} size="lg" />
-                  ) : (
-                    <ProBadge tier={badge.tier} badgeStyle={badge.badgeStyle} memberNumber={badge.memberNumber} size="md" />
-                  )
-                )}
+                {!inactive && !blockedMe && <UserEmojiStatus userId={userId} size="lg" />}
               </div>
               <div className="profile-handle">
                 {name && !inactive ? `@${name} · ` : ""}
-                {inactive
-                  ? t("inactive")
-                  : online && gameActivity
-                    ? t("playing", { game: gameActivity.name })
-                    : online
-                      ? t("online")
-                      : t("offline")}
+                {inactive ? t("inactive") : online ? t("online") : t("offline")}
               </div>
             </>
           )}
@@ -338,7 +316,7 @@ const UserProfileModal: React.FC<Props> = ({ onOpenDm, onCall, onRemoveFriend, o
 
           {!failed && (
             <>
-              <ProfileFacts profile={profile} connections={connections} bio={bio} blockedMe={blockedMe} />
+              <ProfileFacts profile={profile} bio={bio} blockedMe={blockedMe} />
             </>
           )}
         </div>

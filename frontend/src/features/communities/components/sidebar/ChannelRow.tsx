@@ -2,7 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import Icon from "../../../../shared/ui/Icon";
 import { UserAvatar } from "../../../../shared/ui/Avatar";
-import UserBadge from "../../../subscription/components/UserBadge";
+import UserEmojiStatus from "../../../social/components/UserEmojiStatus";
 import type { Community } from "../../../../shared/types/community";
 import type { Channel } from "../../../../shared/types/channel";
 import type { SidebarVoiceMember } from "./types";
@@ -258,11 +258,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                   />
                   <span className="sb-voice-member-title">
                     <span className="sb-voice-member-name">{m.name}</span>
-                    <UserBadge
-                      userId={m.id}
-                      size="sm"
-                      className="sb-voice-member-pro"
-                    />
+                    <UserEmojiStatus userId={m.id} size="sm" />
                   </span>
                   {m.isCameraOn && (
                     <span className="sb-voice-member-badge" title="Camera on">
