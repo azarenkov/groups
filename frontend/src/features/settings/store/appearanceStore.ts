@@ -18,12 +18,12 @@ interface AppearanceState extends AppearanceSettings {
   syncFromServer: (userId: string) => Promise<void>;
 }
 
-export const DEFAULT_ACCENT = "#0071e3";
+export const DEFAULT_ACCENT = "#5b5fc7";
 
 const SETTING_KEYS = ["mode", "accent", "chatFontSize", "reduceMotion"] as const;
 
 const DEFAULT_SETTINGS: AppearanceSettings = {
-  mode: "dark",
+  mode: "light",
   accent: DEFAULT_ACCENT,
   chatFontSize: 14,
   reduceMotion: false,

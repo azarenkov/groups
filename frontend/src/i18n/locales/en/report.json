@@ -1,6 +1,6 @@
 {
   "titleUser": "Report user",
-  "titleCommunity": "Report community",
+  "titleCommunity": "Report group",
   "titleStickerPack": "Report sticker pack",
   "lead": "Tell us what is wrong with \"{{name}}\". Only the Rift team sees this report.",
   "detailsOptional": "Details (optional)",
@@ -26,7 +26,7 @@
     "impersonation": "Impersonating someone",
     "illegal": "Illegal content",
     "violence": "Extremism or calls for violence",
-    "raid": "Organising raids on other communities",
+    "raid": "Organising raids on other groups",
     "other": "Something else"
   },
   "errorContext": "That message is gone, so it cannot be attached. Send the report without it."

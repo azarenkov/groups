@@ -27,9 +27,9 @@ export function SettingsRow({ label, hint, hintClassName, children }: SettingsRo
 }
 
 export const ACCENT_OPTIONS = [
-  { name: 'Blue',     value: '#0071e3' },
+  { name: 'Purple',   value: '#5b5fc7' },
+  { name: 'Blue',     value: '#0078d4' },
   { name: 'Sage',     value: '#5b7e5e' },
-  { name: 'Indigo',   value: '#5b6cd9' },
   { name: 'Coral',    value: '#d97557' },
   { name: 'Amber',    value: '#c89a3d' },
   { name: 'Plum',     value: '#8a5b9e' },

@@ -67,8 +67,8 @@
     "dmNothingHint": "Direct messages are muted"
   },
   "system": {
-    "memberJoined": "<0>{{name}}</0> joined the community",
-    "memberLeft": "<0>{{name}}</0> left the community"
+    "memberJoined": "<0>{{name}}</0> joined the group",
+    "memberLeft": "<0>{{name}}</0> left the group"
   },
   "attachFile": "Attach a file",
   "attachmentsUploading": "Files are still uploading…",
@@ -200,7 +200,7 @@
     "members": "Members"
   },
   "unavailableTitle": "This chat is unavailable",
-  "unavailableHint": "The link points to a conversation, channel or community you can't access, or it no longer exists.",
+  "unavailableHint": "The link points to a conversation, channel or group you can't access, or it no longer exists.",
   "unavailableHome": "Go home",
   "messageNotFound": "Message not found — it may have been deleted",
   "messageOpenFailed": "Couldn't open the message — try again",

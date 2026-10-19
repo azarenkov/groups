@@ -1,0 +1,79 @@
+.app-rail {
+  width: var(--w-rail);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 8px;
+  background: var(--surface-canvas);
+}
+.app-rail-top,
+.app-rail-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+}
+.app-rail-btn {
+  position: relative;
+  width: 100%;
+  height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: color var(--dur-fast), background var(--dur-fast);
+}
+.app-rail-btn::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+  transition: background var(--dur-fast);
+}
+.app-rail-btn:hover { color: var(--fg-1); }
+.app-rail-btn.active { color: var(--accent); }
+.app-rail-btn.active::before { background: var(--accent); }
+.app-rail-ico {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+.app-rail-btn.active .app-rail-ico svg { stroke-width: 2; }
+.app-rail-label {
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.app-rail-badge {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--surface-canvas);
+}
+body.electron .app-rail { padding-top: 0; }

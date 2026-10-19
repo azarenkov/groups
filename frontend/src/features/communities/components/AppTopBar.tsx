@@ -9,8 +9,6 @@ import { useSearchFocusStore, type SearchFocusMode } from "../../search/store/se
 interface AppTopBarProps {
   navState: { back: boolean; forward: boolean };
   goHistory: (delta: -1 | 1) => void;
-  homeActive: boolean;
-  onGoHome: () => void;
   query: string;
   onQueryChange: (value: string) => void;
   currentUserId?: string;
@@ -26,8 +24,6 @@ interface AppTopBarProps {
 const AppTopBar: React.FC<AppTopBarProps> = ({
   navState,
   goHistory,
-  homeActive,
-  onGoHome,
   query,
   onQueryChange,
   currentUserId,
@@ -120,16 +116,6 @@ const AppTopBar: React.FC<AppTopBarProps> = ({
       </div>
 
       <div className="topbar-center">
-        <button
-          type="button"
-          className={"topbar-home" + (homeActive ? " active" : "")}
-          title={t("home")}
-          aria-label={t("home")}
-          aria-current={homeActive ? "page" : undefined}
-          onClick={onGoHome}
-        >
-          <Icon name="home" size={20} />
-        </button>
         <div
           className="topbar-search-wrap"
           ref={wrapRef}

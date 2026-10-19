@@ -46,6 +46,7 @@ import { useHotkey } from "../../settings/lib/hotkeys";
 import CommunitySettingsView from "./CommunitySettingsView";
 import ModalsHost from "./ModalsHost";
 import AppTopBar from "./AppTopBar";
+import AppRail from "./AppRail";
 import SearchDropdown from "./SearchDropdown";
 import { useSidebarNavigation } from "./sidebar/useSidebarNavigation";
 import { useVoiceSession } from "../../voice/hooks/useVoiceSession";
@@ -809,8 +810,6 @@ const CommunitiesPage: React.FC = () => {
         inbox={<InboxMenu onOpenCommunity={selection.handleGoToCommunity} />}
         navState={browserHistory.navState}
         goHistory={browserHistory.goHistory}
-        homeActive={homeActive}
-        onGoHome={goHome}
         query={sidebarQuery}
         onQueryChange={setSidebarQuery}
         currentUserId={user?.id}
@@ -849,6 +848,15 @@ const CommunitiesPage: React.FC = () => {
         )}
       />
       <div className="body-area">
+        <AppRail
+          tab={sidebarNav.tab}
+          homeActive={homeActive}
+          dmUnread={Object.values(unreadByDm).reduce((sum, count) => sum + count, 0)}
+          groupUnread={Object.values(unreadByChannel).reduce((sum, count) => sum + count, 0)}
+          onGoHome={goHome}
+          onSetTab={sidebarNav.setTab}
+          onOpenSettings={() => openSettings("account")}
+        />
         <Sidebar
           nav={sidebarNav}
           communities={communities}

@@ -89,9 +89,9 @@
     "bioNotAllowed": "This bio isn't allowed.",
     "moderationUnavailable": "Text moderation is temporarily unavailable. Try again later.",
     "showActivity": "Show activity",
-    "showActivityHint": "Show your voice activity to friends in the Home feed. Members of a community still see who is in its voice channels.",
+    "showActivityHint": "Show your voice activity to friends in the Home feed. Members of a group still see who is in its voice channels.",
     "showGameActivity": "Show game activity",
-    "showGameActivityHint": "Show friends and members of shared communities which game you are playing. Running games are detected by the desktop app only.",
+    "showGameActivityHint": "Show friends and members of shared groups which game you are playing. Running games are detected by the desktop app only.",
     "aboutEmpty": "Tell others a bit about yourself.",
     "resendTooSoon": "A code was sent recently. Wait a bit and try again.",
     "profileLink": "Profile link",
@@ -136,7 +136,7 @@
     "githubDesc": "Show your GitHub profile.",
     "steamDesc": "Steam profile and game activity.",
     "connectedAs": "Connected as {{name}}",
-    "notConfigured": "This provider is not configured on the community.",
+    "notConfigured": "This provider is not configured on the group.",
     "failed": "Something went wrong. Try again.",
     "loadFailed": "Couldn't load connections."
   },
@@ -252,8 +252,8 @@
       "zoomReset": "Reset zoom"
     },
     "hints": {
-      "prevChannel": "Text channels on a community, direct messages on Home.",
-      "nextChannel": "Text channels on a community, direct messages on Home.",
+      "prevChannel": "Text channels on a group, direct messages on Home.",
+      "nextChannel": "Text channels on a group, direct messages on Home.",
       "editLastMessage": "When the composer is empty.",
       "toggleDeafen": "Also mutes your microphone.",
       "leaveVoice": "Also hangs up a direct call.",

@@ -21,7 +21,7 @@
   "memberSince": "В Rift с",
   "localTime": "Местное время",
   "connections": "Подключения",
-  "mutualCommunities": "Общие сообщества — {{count}}",
+  "mutualCommunities": "Общие группы — {{count}}",
   "viewProfile": "Открыть профиль",
   "copyLogin": "Скопировать логин",
   "block": "Заблокировать",
