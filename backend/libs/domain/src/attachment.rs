@@ -123,3 +123,45 @@ impl From<&AttachmentLink> for AttachmentSnapshot {
         }
     }
 }
+
+pub const THUMBNAIL_VARIANTS: [(&str, &str); 2] = [("jpg", "image/jpeg"), ("png", "image/png")];
+
+const ATTACHMENT_KEY_PREFIX: &str = "attachments/";
+
+pub fn thumbnail_key(storage_key: &str, extension: &str) -> String {
+    format!("{storage_key}.thumb.{extension}")
+}
+
+pub fn preview_key(storage_key: &str) -> String {
+    format!("{storage_key}.preview.pdf")
+}
+
+pub fn derived_object_keys(storage_key: &str) -> Vec<String> {
+    if !storage_key.starts_with(ATTACHMENT_KEY_PREFIX) {
+        return Vec::new();
+    }
+    THUMBNAIL_VARIANTS
+        .iter()
+        .map(|(extension, _)| thumbnail_key(storage_key, extension))
+        .chain(std::iter::once(preview_key(storage_key)))
+        .collect()
+}
+
+#[cfg(test)]
+mod derived_key_tests {
+    use super::*;
+
+    #[test]
+    fn attachments_list_their_thumbnails_and_preview() {
+        assert_eq!(
+            derived_object_keys("attachments/abc"),
+            vec![
+                "attachments/abc.thumb.jpg".to_string(),
+                "attachments/abc.thumb.png".to_string(),
+                "attachments/abc.preview.pdf".to_string(),
+            ]
+        );
+        assert!(derived_object_keys("avatars/abc.png").is_empty());
+    }
+}
+

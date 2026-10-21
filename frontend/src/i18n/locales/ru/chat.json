@@ -207,5 +207,17 @@
   "messageOpenFailed": "Не удалось открыть сообщение — попробуйте ещё раз",
   "unavailableFailedTitle": "Не удалось открыть чат",
   "unavailableFailedHint": "Похоже, пропала связь или сервер не ответил.",
-  "unavailableRetry": "Повторить"
+  "unavailableRetry": "Повторить",
+  "documentLoading": "Открываем документ…",
+  "documentPreparing": "Готовим предпросмотр…",
+  "documentUnavailable": "Предпросмотр недоступен. Файл можно скачать.",
+  "documentRowsTruncated": "Показаны первые {{rows}} строк",
+  "documentTextTruncated": "Файл длинный, показано только начало",
+  "documentPage": "{{page}} / {{total}}",
+  "documentPreviousPage": "Предыдущая страница",
+  "documentNextPage": "Следующая страница",
+  "documentZoomOut": "Уменьшить",
+  "documentZoomIn": "Увеличить",
+  "documentFitWidth": "По ширине",
+  "documentClose": "Закрыть"
 }

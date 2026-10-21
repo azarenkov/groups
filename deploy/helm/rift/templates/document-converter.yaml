@@ -1,0 +1,109 @@
+{{- if .Values.documentConverter.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: document-converter
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+    app.kubernetes.io/component: document-converter
+spec:
+  replicas: {{ .Values.documentConverter.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "rift.selectorLabels" (dict "root" . "component" "document-converter") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "rift.selectorLabels" (dict "root" . "component" "document-converter") | nindent 8 }}
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.shutdown.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      {{- include "rift.podScheduling" . | nindent 6 }}
+      containers:
+        - name: document-converter
+          image: {{ .Values.documentConverter.image }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - gotenberg
+            - --api-timeout={{ .Values.documentConverter.timeout }}
+            - --api-body-limit={{ .Values.documentConverter.bodyLimit }}
+            - --chromium-disable-routes
+            - --webhook-disable
+            - --prometheus-disable-collect
+            - --api-disable-health-check-logging
+            - --libreoffice-restart-after=10
+            - --libreoffice-max-queue-size={{ .Values.documentConverter.maxQueueSize }}
+          env:
+            - name: HOME
+              value: /home/gotenberg
+          ports:
+            - name: http
+              containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            failureThreshold: {{ .Values.documentConverter.startupFailureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            {{- include "rift.containerSecurityContext" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.documentConverter.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: home
+              mountPath: /home/gotenberg
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ .Values.documentConverter.scratchSize }}
+        - name: home
+          emptyDir:
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: document-converter
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+    app.kubernetes.io/component: document-converter
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "rift.selectorLabels" (dict "root" . "component" "document-converter") | nindent 4 }}
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+{{- end }}

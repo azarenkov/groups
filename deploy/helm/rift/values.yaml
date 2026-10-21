@@ -27,6 +27,8 @@ config:
   MINIO_ENDPOINT: http://minio:9000
   MINIO_BUCKET: rift-attachments
   NSFW_DETECTOR_URL: http://nsfw-detector:8000
+  DOCUMENT_CONVERTER_URL: http://document-converter:3000
+  DOCUMENT_CONVERTER_TIMEOUT_SECS: "100"
   NSFW_THRESHOLD: "0.8"
   TEXT_TOXICITY_THRESHOLD: "0.8"
   PUBLIC_APP_URL: https://app.rift.example.com
@@ -265,6 +267,19 @@ workers:
     resources:
       requests: { cpu: 50m, memory: 64Mi }
       limits: { memory: 256Mi }
+
+documentConverter:
+  enabled: true
+  image: gotenberg/gotenberg:8.20.1
+  replicas: 1
+  timeout: 90s
+  bodyLimit: 60MB
+  maxQueueSize: 20
+  scratchSize: 2Gi
+  startupFailureThreshold: 60
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { memory: 2Gi }
 
 nsfwDetector:
   enabled: true

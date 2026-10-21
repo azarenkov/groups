@@ -4,7 +4,9 @@ use messaging::usecases::dm_conversation::DmConversations;
 use messaging_infrastructure::database::postgres::repositories::dm_conversation::PostgresDmConversationRepository;
 use messaging::usecases::search::global_search::GlobalSearch;
 use messaging::usecases::shared::list_shared_content::ListSharedContent;
+use messaging::usecases::attachment::get_attachment_preview::GetAttachmentPreview;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnail;
+use messaging_infrastructure::documents::GotenbergRenderer;
 use messaging_infrastructure::thumbnails::ImageThumbnailer;
 use messaging::usecases::{
     privacy::{get_privacy::GetPrivacy, update_privacy::UpdatePrivacy},
@@ -191,6 +193,13 @@ pub struct AppState {
         ListSharedContent<PostgresSharedContentRepository, PostgresChannelRepository, PostgresCommunityRepository>,
     pub list_message_attachments_usecase:
         ListMessageAttachments<PostgresMessageRepository, PostgresDmMessageRepository>,
+    pub get_attachment_preview_usecase:
+        GetAttachmentPreview<
+            PostgresMessageRepository,
+            MinioStorage,
+            GotenbergRenderer,
+            messaging_infrastructure::outbox::storage::PostgresStorageReleases,
+        >,
     pub get_attachment_thumbnail_usecase:
         GetAttachmentThumbnail<
             PostgresMessageRepository,

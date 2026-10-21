@@ -1,6 +1,6 @@
 # Rift Helm chart
 
-Deploys the Rift backend to Kubernetes: four HTTP APIs (`identity-service`, `media-service`, `messaging-service`, `voice-service`), `realtime` (websocket + event dispatcher), the `outbox-worker`, `notification-service` and `livekit-pooler` workers, the `nsfw-detector` moderation service and an nginx gateway that carries the same routing as `docker/nginx/nginx.conf`.
+Deploys the Rift backend to Kubernetes: four HTTP APIs (`identity-service`, `media-service`, `messaging-service`, `voice-service`), `realtime` (websocket + event dispatcher), the `outbox-worker`, `notification-service` and `livekit-pooler` workers, the `nsfw-detector` moderation service, the `document-converter` (Gotenberg/LibreOffice, renders office attachments to PDF previews) and an nginx gateway that carries the same routing as `docker/nginx/nginx.conf`.
 
 Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: point `config.*` at them. `deploy/terraform` installs them together with this chart; see `deploy/README.md`.
 
@@ -12,7 +12,7 @@ Postgres, Redis, NATS JetStream, LiveKit and MinIO are external dependencies: po
 
 - `autoscaling` adds a `HorizontalPodAutoscaler` for the HTTP APIs, `realtime`, the gateway and `web`; each workload can override the defaults with its own `autoscaling` block, and `replicas` is ignored while autoscaling is on.
 - `podDisruptionBudget` keeps `minAvailable` pods of every workload that runs more than one replica, workers and `nsfw-detector` included; single-replica workloads get none, so node drains are never blocked.
-- `networkPolicy` denies all ingress to Rift pods and then allows only what the topology needs: the ingress controller (`networkPolicy.ingressController`) to the gateway and `web`, the gateway to the APIs and `realtime`, the services to each other (pods labelled `rift.dev/calls-services`) and to `nsfw-detector`. The chart refuses to render with `networkPolicy.enabled` until `networkPolicy.ingressController` names the controller (`namespaceSelector`, `podSelector` or `ipBlocks` for a load balancer that reaches the pods directly), because an allow rule without `from` admits every source; `allowAnySource: true` opts into that on purpose. `networkPolicy.extraFrom.<service>` adds peers to one service, e.g. the LiveKit namespace that posts webhooks to `voice-service`. It needs a CNI that enforces `NetworkPolicy` and lets kubelet probes through (Calico, Cilium); kind's default CNI enforces nothing.
+- `networkPolicy` denies all ingress to Rift pods and then allows only what the topology needs: the ingress controller (`networkPolicy.ingressController`) to the gateway and `web`, the gateway to the APIs and `realtime`, the services to each other (pods labelled `rift.dev/calls-services`) and to `nsfw-detector`; `document-converter` accepts traffic only from `messaging-service` and has all egress denied, so a converted document cannot reach the network. The chart refuses to render with `networkPolicy.enabled` until `networkPolicy.ingressController` names the controller (`namespaceSelector`, `podSelector` or `ipBlocks` for a load balancer that reaches the pods directly), because an allow rule without `from` admits every source; `allowAnySource: true` opts into that on purpose. `networkPolicy.extraFrom.<service>` adds peers to one service, e.g. the LiveKit namespace that posts webhooks to `voice-service`. It needs a CNI that enforces `NetworkPolicy` and lets kubelet probes through (Calico, Cilium); kind's default CNI enforces nothing.
 
 ## Databases
 
@@ -36,6 +36,7 @@ Upgrading a release that still uses the single shared `POSTGRES_DB` does not mov
 | notification-service | `:8082` | `:8082` | heartbeat-backed liveness |
 | livekit-pooler | `:8086` | `:8086` | heartbeat-backed liveness |
 | nsfw-detector | `:8000/readyz` | `:8000/livez` | readiness waits for model loading (`nsfwDetector.startupFailureThreshold`) |
+| document-converter | `:3000/health` | `:3000/health` | startup waits for LibreOffice (`documentConverter.startupFailureThreshold`) |
 
 Every pod gets `preStop: sleep shutdown.preStopSeconds`, then SIGTERM. The services flip `/readyz` to 503, wait `SHUTDOWN_DRAIN_MS`, stop accepting and give in-flight work `SHUTDOWN_TIMEOUT_SECS`; `shutdown.terminationGracePeriodSeconds` must exceed the sum.
 

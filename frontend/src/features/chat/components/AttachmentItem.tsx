@@ -1,7 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
 
-import { attachmentAPI } from "../api/attachment";
 import { ApiError } from "../../../shared/lib/apiError";
 import type { Attachment } from "../../../shared/types/channel";
 import { formatFileSize } from "../lib/messageFormat";
@@ -18,6 +17,9 @@ import {
 } from "../lib/imageUrlCache";
 import Icon from "../../../shared/ui/Icon";
 import { OriginalImageViewer, VideoViewer } from "./MediaViewers";
+import { DocumentViewer } from "./DocumentViewer";
+import { isPreviewable } from "../lib/documentPreview";
+import { saveAttachment } from "../lib/saveAttachment";
 import { PosterExtractionError } from "../lib/videoPoster";
 import LoadingDots from "../../../shared/ui/LoadingDots";
 
@@ -54,6 +56,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
     canPlayVideo(attachment.contentType);
   const hasPoster = isVideo && attachment.sizeBytes <= POSTER_SOURCE_MAX_BYTES;
   const hasPreview = isImage || hasPoster;
+  const isDocument = !isImage && !isVideo && isPreviewable(attachment.contentType, attachment.fileName, attachment.sizeBytes);
   const cacheKey = hasPoster
     ? posterKey(attachment.id)
     : thumbnail
@@ -150,19 +153,7 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
   }, [attachment.id, attachment.sizeBytes, cacheKey, thumbnail, hasPoster, hasPreview, url, visible, retryTick]);
 
   const handleDownload = () => {
-    void attachmentAPI
-      .download(attachment.id, attachment.sizeBytes)
-      .then((blob) => {
-        const objectUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = objectUrl;
-        a.download = attachment.fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
-      })
-      .catch(() => {});
+    void saveAttachment(attachment);
   };
 
   if (isImage && !failed) {
@@ -269,6 +260,27 @@ export const AttachmentItem: React.FC<{ attachment: Attachment; thumbnail?: bool
           </span>
         </button>
         {viewerOpen && <VideoViewer attachment={attachment} onClose={() => setViewerOpen(false)} />}
+      </>
+    );
+  }
+
+  if (isDocument) {
+    return (
+      <>
+        <button
+          type="button"
+          className={"msg-attach-file msg-attach-document" + (thumbnail ? " tile" : "")}
+          onClick={() => setViewerOpen(true)}
+        >
+          <span className="msg-attach-file-icon">
+            <Icon name="eye" size={16} />
+          </span>
+          <span className="msg-attach-file-info">
+            <span className="msg-attach-file-name">{attachment.fileName}</span>
+            <span className="msg-attach-file-size">{formatFileSize(attachment.sizeBytes)}</span>
+          </span>
+        </button>
+        {viewerOpen && <DocumentViewer attachment={attachment} onClose={() => setViewerOpen(false)} />}
       </>
     );
   }

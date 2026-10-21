@@ -1654,6 +1654,106 @@ button.ssv-row-delete:focus-visible {
   border-radius: 8px;
   box-shadow: var(--shadow-lg);
 }
+.doc-viewer-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 3500;
+  animation: fade-in var(--dur-fast) forwards;
+}
+.doc-viewer {
+  width: min(1100px, 96vw);
+  height: 94vh;
+  display: flex; flex-direction: column;
+  background: var(--surface-panel);
+  color: var(--fg-1);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.doc-viewer-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--surface-raised);
+}
+.doc-viewer-name {
+  flex: 1; min-width: 0;
+  font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.doc-viewer-controls { display: flex; align-items: center; gap: 4px; }
+.doc-viewer-controls button,
+.doc-viewer-action,
+.doc-viewer-close {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-width: 30px; height: 30px; padding: 0 8px;
+  border: 0; border-radius: 6px;
+  background: var(--control-fill);
+  color: var(--fg-1);
+  cursor: pointer;
+}
+.doc-viewer-controls button:disabled { opacity: 0.4; cursor: default; }
+.doc-viewer-controls button:not(:disabled):hover,
+.doc-viewer-action:hover,
+.doc-viewer-close:hover { background: var(--control-fill-strong); }
+.doc-viewer-page-count,
+.doc-viewer-zoom { min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; color: var(--fg-2); }
+.doc-viewer-scroll {
+  flex: 1; overflow: auto;
+  background: var(--surface-sunken);
+  padding: 16px;
+  outline: none;
+}
+.doc-viewer-page {
+  position: relative;
+  margin: 0 auto 16px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+.doc-viewer-page canvas { display: block; }
+.doc-viewer-text-layer {
+  position: absolute; inset: 0;
+  overflow: hidden;
+  line-height: 1;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+}
+.doc-viewer-text-layer span,
+.doc-viewer-text-layer br {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+.doc-viewer-text-layer ::selection { background: rgba(91, 95, 199, 0.35); }
+.doc-viewer-text pre {
+  margin: 0;
+  padding: 16px;
+  background: var(--surface-panel);
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.doc-viewer-sheet table { border-collapse: collapse; background: var(--surface-panel); font-size: 13px; }
+.doc-viewer-sheet th,
+.doc-viewer-sheet td { border: 1px solid var(--hairline); padding: 4px 8px; text-align: left; white-space: nowrap; }
+.doc-viewer-sheet th { position: sticky; top: -16px; background: var(--surface-raised); }
+.doc-viewer-status {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  color: var(--fg-2);
+}
+.doc-viewer-note { margin: 12px 0 0; color: var(--fg-3); font-size: 12px; }
+@media (max-width: 640px) {
+  .doc-viewer { width: 100vw; height: 100dvh; border-radius: 0; }
+  .doc-viewer-bar { flex-wrap: wrap; }
+  .doc-viewer-zoom, .doc-viewer-action span { display: none; }
+}
 .edit-badge {
   position: absolute;
   bottom: -2px; right: -2px;

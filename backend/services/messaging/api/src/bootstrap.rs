@@ -5,7 +5,9 @@ use messaging::usecases::dm_conversation::DmConversations;
 use messaging_infrastructure::database::postgres::repositories::dm_conversation::PostgresDmConversationRepository;
 use messaging::usecases::search::global_search::GlobalSearch;
 use messaging::usecases::shared::list_shared_content::ListSharedContent;
+use messaging::usecases::attachment::get_attachment_preview::GetAttachmentPreview;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnail;
+use messaging_infrastructure::documents::GotenbergRenderer;
 use messaging_infrastructure::thumbnails::ImageThumbnailer;
 use std::{error::Error, sync::Arc};
 use api_common::shutdown::{self, ShutdownConfig};
@@ -378,6 +380,12 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         list_message_attachments_usecase: ListMessageAttachments::new(
             message_repository.clone(),
             dm_repository.clone(),
+        ),
+        get_attachment_preview_usecase: GetAttachmentPreview::new(
+            message_repository.clone(),
+            minio_storage.clone(),
+            Arc::new(GotenbergRenderer::from_env()),
+            Arc::new(messaging_infrastructure::outbox::storage::PostgresStorageReleases::new(postgres_pool.clone())),
         ),
         get_attachment_thumbnail_usecase: GetAttachmentThumbnail::new(
             message_repository.clone(),

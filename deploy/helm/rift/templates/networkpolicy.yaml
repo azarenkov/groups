@@ -121,6 +121,28 @@ spec:
       ports:
         - port: 8083
 {{- end }}
+{{- if .Values.documentConverter.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: document-converter
+  labels:
+    {{- include "rift.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "rift.selectorLabels" (dict "root" . "component" "document-converter") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "rift.selectorLabels" (dict "root" . "component" "messaging-service") | nindent 14 }}
+      ports:
+        - port: 3000
+  egress: []
+{{- end }}
 {{- if .Values.nsfwDetector.enabled }}
 ---
 apiVersion: networking.k8s.io/v1

@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use domain::attachment::derived_object_keys;
+
 use media_domain::attachment::repository::AttachmentRepository;
 
 use crate::usecases::user::update_avatar::still_avatar_key;
@@ -9,12 +11,6 @@ use crate::ports::{
     file_storage::{FileStorage, FileStorageError},
 };
 
-pub fn attachment_thumbnail_keys(key: &str) -> Vec<String> {
-    if !key.starts_with("attachments/") {
-        return Vec::new();
-    }
-    ["jpg", "png"].iter().map(|ext| format!("{key}.thumb.{ext}")).collect()
-}
 
 pub struct CleanupOrphanAttachments<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
 {
@@ -27,13 +23,13 @@ pub struct CleanupOrphanAttachments<R: AttachmentRepository, S: FileStorage, L: 
 impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
     CleanupOrphanAttachments<R, S, L>
 {
-    async fn delete_thumbnails(&self, key: &str) -> bool {
+    async fn delete_derived_objects(&self, key: &str) -> bool {
         let mut all = true;
-        for thumb_key in attachment_thumbnail_keys(key) {
-            match self.storage.delete(&thumb_key).await {
+        for derived_key in derived_object_keys(key) {
+            match self.storage.delete(&derived_key).await {
                 Ok(()) | Err(FileStorageError::NotFound) => {}
                 Err(e) => {
-                    tracing::warn!(error = %e, key = %thumb_key, "Failed to delete attachment thumbnail");
+                    tracing::warn!(error = %e, key = %derived_key, "Failed to delete a derived attachment object");
                     all = false;
                 }
             }
@@ -155,10 +151,10 @@ impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
                             continue;
                         }
                     };
-                    if !self.delete_thumbnails(&key).await
+                    if !self.delete_derived_objects(&key).await
                         && let Err(e) = self.repository.enqueue_cleanup(std::slice::from_ref(&key)).await
                     {
-                        tracing::warn!(error = %e, %key, "Failed to queue thumbnails of an orphan attachment; keeping it for the next sweep");
+                        tracing::warn!(error = %e, %key, "Failed to queue derived objects of an orphan attachment; keeping it for the next sweep");
                         continue;
                     }
                     match self.storage.delete(&key).await {
@@ -190,11 +186,11 @@ impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
                             }
                         }
                     }
-                    for thumb_key in attachment_thumbnail_keys(&key) {
-                        match self.storage.delete(&thumb_key).await {
+                    for derived_key in derived_object_keys(&key) {
+                        match self.storage.delete(&derived_key).await {
                             Ok(()) | Err(FileStorageError::NotFound) => {}
                             Err(e) => {
-                                tracing::warn!(error = %e, key = %thumb_key, "Failed to delete queued attachment thumbnail; will retry");
+                                tracing::warn!(error = %e, key = %derived_key, "Failed to delete a queued derived attachment object; will retry");
                                 continue 'keys;
                             }
                         }
@@ -226,19 +222,5 @@ impl<R: AttachmentRepository, S: FileStorage, L: AttachmentLinksLookup>
                 tracing::warn!(error = %e, "Cleanup queue query failed");
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod thumbnail_key_tests {
-    use super::attachment_thumbnail_keys;
-
-    #[test]
-    fn attachment_keys_also_clean_their_thumbnails() {
-        assert_eq!(
-            attachment_thumbnail_keys("attachments/abc"),
-            vec!["attachments/abc.thumb.jpg".to_string(), "attachments/abc.thumb.png".to_string()]
-        );
-        assert!(attachment_thumbnail_keys("avatars/abc.png").is_empty());
     }
 }

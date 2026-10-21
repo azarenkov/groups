@@ -7,7 +7,7 @@ import { takeRecentVideo } from "../lib/imageUrlCache";
 import type { Attachment } from "../../../shared/types/channel";
 import LoadingDots from "../../../shared/ui/LoadingDots";
 
-const useEscape = (onClose: () => void) => {
+export const useEscape = (onClose: () => void) => {
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
