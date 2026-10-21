@@ -128,6 +128,42 @@ services:
       retries: 5
       start_period: 10s
 
+  document-converter:
+    image: gotenberg/gotenberg:8.20.1
+    container_name: rift-document-converter
+    restart: unless-stopped
+    command:
+      - gotenberg
+      - --api-timeout=90s
+      - --api-body-limit=60MB
+      - --chromium-disable-routes
+      - --webhook-disable
+      - --prometheus-disable-collect
+      - --api-disable-health-check-logging
+      - --libreoffice-restart-after=10
+      - --libreoffice-max-queue-size=20
+    user: "1001:1001"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /home/gotenberg
+    environment:
+      HOME: /home/gotenberg
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    expose:
+      - "3000"
+    networks:
+      - converter-network
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   nsfw-detector:
     build:
       context: .
@@ -272,6 +308,7 @@ services:
       - "8080"
     networks:
       - rift-network
+      - converter-network
     env_file:
       - path: env/postgres.env
         required: false
@@ -300,6 +337,8 @@ services:
       MEDIA_INTERNAL_URL: ${MEDIA_INTERNAL_URL:-http://media-service:8080}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
       VOICE_INTERNAL_URL: ${VOICE_INTERNAL_URL:-http://voice-service:8080}
+      DOCUMENT_CONVERTER_URL: ${DOCUMENT_CONVERTER_URL-http://document-converter:3000}
+      DOCUMENT_CONVERTER_TIMEOUT_SECS: ${DOCUMENT_CONVERTER_TIMEOUT_SECS:-100}
     depends_on:
       postgres:
         condition: service_healthy
@@ -311,6 +350,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      document-converter:
+        condition: service_started
     healthcheck:
       test: ["CMD", "messaging-service", "--probe", "http://127.0.0.1:8080/readyz"]
       interval: 10s
@@ -572,6 +613,10 @@ networks:
   rift-network:
     driver: bridge
     name: rift-network
+  converter-network:
+    driver: bridge
+    name: rift-converter-network
+    internal: true
 
 volumes:
   minio-data:

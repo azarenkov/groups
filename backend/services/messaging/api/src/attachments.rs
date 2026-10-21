@@ -2,6 +2,7 @@ use actix_web::{HttpResponse, Responder, get, web};
 use domain::user::id::UserId;
 use futures::StreamExt;
 use api_common::middleware::auth::RateLimitedAuthToken;
+use messaging::usecases::attachment::get_attachment_preview::PREVIEW_CONTENT_TYPE;
 use uuid::Uuid;
 
 use crate::state::AppState;
@@ -76,10 +77,31 @@ async fn attachment_thumbnail(
         .streaming(body))
 }
 
+#[get("/{attachment_id}/preview")]
+async fn attachment_preview(
+    auth_token: RateLimitedAuthToken,
+    app_state: web::Data<AppState>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, HttpError> {
+    let stream = app_state
+        .get_attachment_preview_usecase
+        .execute(path.into_inner(), UserId::new(auth_token.id))
+        .await?;
+    let body = stream.map(|chunk| chunk.map(web::Bytes::from));
+    Ok(HttpResponse::Ok()
+        .content_type(PREVIEW_CONTENT_TYPE)
+        .insert_header(("Content-Disposition", "inline"))
+        .insert_header(("X-Content-Type-Options", "nosniff"))
+        .insert_header(("Content-Security-Policy", "sandbox; default-src 'none'"))
+        .insert_header(("Cache-Control", "private, no-store"))
+        .streaming(body))
+}
+
 pub fn attachment_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/v1/attachments")
             .service(attachment_thumbnail)
+            .service(attachment_preview)
             .service(download_attachment),
     );
 }

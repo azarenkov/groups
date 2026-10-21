@@ -1,9 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import { AttachmentItem, IMAGE_PREVIEW_MAX_BYTES } from "../AttachmentItem";
 
 jest.mock("../../api/attachment", () => ({
   attachmentAPI: { download: jest.fn(() => new Promise(() => {})) },
+}));
+jest.mock("../DocumentViewer", () => ({
+  DocumentViewer: ({ attachment }: { attachment: { fileName: string } }) => (
+    <div data-testid="document-viewer">{attachment.fileName}</div>
+  ),
 }));
 
 const base = {
@@ -25,6 +30,22 @@ describe("AttachmentItem", () => {
   it("previews images that are small enough", () => {
     render(<AttachmentItem attachment={{ ...base, sizeBytes: 1024 } as never} />);
     expect(document.querySelector(".msg-attach-image")).not.toBeNull();
+  });
+
+  it("opens documents in the viewer instead of downloading them", () => {
+    render(
+      <AttachmentItem
+        attachment={{ ...base, fileName: "lecture.pdf", contentType: "application/pdf", sizeBytes: 2048 } as never}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /lecture\.pdf/ }));
+    expect(screen.getByTestId("document-viewer")).toHaveTextContent("lecture.pdf");
+  });
+
+  it("keeps unknown files as a plain download", () => {
+    render(<AttachmentItem attachment={{ ...base, fileName: "archive.zip", contentType: "application/zip", sizeBytes: 10 } as never} />);
+    expect(document.querySelector(".msg-attach-document")).toBeNull();
+    expect(screen.getByText("archive.zip")).toBeInTheDocument();
   });
 
   it("offers oversized images as a plain download", () => {

@@ -1,3 +1,5 @@
+import { assetUrl } from "./assets";
+
 export const PIPELINE_SAMPLE_RATE = 48000;
 
 const MODEL_PATH = "models/deepfilter/DeepFilterNet3_onnx.tar.gz";
@@ -22,19 +24,6 @@ interface ReadyMessage {
   frameLength: number;
   latency: number;
   sampleRate: number;
-}
-
-function assetBase(): string {
-  const electron = (window as unknown as { electron?: { appBase?: string } })
-    .electron;
-  if (electron?.appBase) return electron.appBase;
-  const pub = process.env.PUBLIC_URL || ".";
-  const baseStr = pub.endsWith("/") ? pub : pub + "/";
-  return new URL(baseStr, window.location.origin + "/").toString();
-}
-
-function assetUrl(rel: string): string {
-  return new URL(rel, assetBase()).toString();
 }
 
 async function addWorklet(context: AudioContext): Promise<void> {

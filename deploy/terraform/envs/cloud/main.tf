@@ -149,6 +149,13 @@ module "rift" {
       }
     }
     web = { replicas = 1 }
+    documentConverter = {
+      replicas = 2
+      resources = {
+        requests = { cpu = "500m", memory = "1Gi" }
+        limits   = { memory = "3Gi" }
+      }
+    }
     nsfwDetector = {
       resources = {
         requests = { cpu = "250m", memory = "1Gi" }

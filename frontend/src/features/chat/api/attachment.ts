@@ -12,6 +12,7 @@ import { voiceBaseType, voiceFileName } from "../lib/voice";
 
 const SLOWEST_UPLOAD_BYTES_PER_MS = 128;
 const SLOWEST_DOWNLOAD_BYTES_PER_MS = 128;
+const PREVIEW_RENDER_ALLOWANCE_MS = 120_000;
 
 export const transferTimeoutMs = (sizeBytes: number, bytesPerMs: number) =>
   UPLOAD_TIMEOUT_MS + Math.ceil(Math.max(0, sizeBytes) / bytesPerMs);
@@ -82,6 +83,15 @@ class AttachmentAPI {
     const response = await this.client.get(`/v1/attachments/${attachmentId}/thumbnail`, {
       responseType: "blob",
       timeout: transferTimeoutMs(sourceBytes, SLOWEST_DOWNLOAD_BYTES_PER_MS),
+      signal,
+    });
+    return response.data;
+  }
+
+  async preview(attachmentId: string, sizeBytes = 0, signal?: AbortSignal): Promise<Blob> {
+    const response = await this.client.get(`/v1/attachments/${attachmentId}/preview`, {
+      responseType: "blob",
+      timeout: transferTimeoutMs(sizeBytes, SLOWEST_DOWNLOAD_BYTES_PER_MS) + PREVIEW_RENDER_ALLOWANCE_MS,
       signal,
     });
     return response.data;

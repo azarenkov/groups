@@ -1,3 +1,4 @@
+pub mod attachment_preview;
 pub mod emoji_status;
 pub mod channel;
 pub mod dm_conversation;

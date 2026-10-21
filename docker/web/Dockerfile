@@ -8,6 +8,8 @@ RUN npm ci --ignore-scripts
 COPY frontend/tsconfig.json frontend/.eslintignore ./
 COPY frontend/public ./public
 COPY frontend/src ./src
+COPY frontend/scripts ./scripts
+RUN node scripts/copy-pdf-worker.js
 
 ENV CI=true \
     GENERATE_SOURCEMAP=false \

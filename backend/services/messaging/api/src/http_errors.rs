@@ -12,6 +12,7 @@ use messaging::usecases::pin::{conversation_pins::ConversationPinError, message_
 use messaging::usecases::dm_conversation::DmConversationError;
 use messaging::usecases::search::global_search::GlobalSearchError;
 use messaging::usecases::shared::list_shared_content::ListSharedContentError;
+use messaging::usecases::attachment::get_attachment_preview::GetAttachmentPreviewError;
 use messaging::usecases::attachment::get_attachment_thumbnail::GetAttachmentThumbnailError;
 use messaging::usecases::channel::abort_voice_connection::AbortVoiceConnectionError;
 use messaging::usecases::channel::create_channel::CreateChannelError;
@@ -1030,6 +1031,40 @@ impl HttpMapping for ListChannelMessagesError {
             ListChannelMessagesError::InvalidCursor => "INVALID_CURSOR",
             ListChannelMessagesError::ConflictingCursors => "CONFLICTING_CURSORS",
             ListChannelMessagesError::MessageNotFound => "MESSAGE_NOT_FOUND",
+        }
+    }
+}
+
+impl HttpMapping for GetAttachmentPreviewError {
+    fn to_http_status(&self) -> StatusCode {
+        match self {
+            GetAttachmentPreviewError::NotFound => StatusCode::NOT_FOUND,
+            GetAttachmentPreviewError::Unsupported => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            GetAttachmentPreviewError::TooLarge => StatusCode::PAYLOAD_TOO_LARGE,
+            GetAttachmentPreviewError::Unrenderable => StatusCode::UNPROCESSABLE_ENTITY,
+            GetAttachmentPreviewError::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+            GetAttachmentPreviewError::Storage(e) => e.to_http_status(),
+            GetAttachmentPreviewError::Repository(e) => e.to_http_status(),
+        }
+    }
+
+    fn to_user_message(&self) -> String {
+        match self {
+            GetAttachmentPreviewError::Repository(e) => e.to_user_message(),
+            GetAttachmentPreviewError::Storage(e) => e.to_user_message(),
+            other => other.to_string(),
+        }
+    }
+
+    fn to_error_code(&self) -> &'static str {
+        match self {
+            GetAttachmentPreviewError::NotFound => "ATTACHMENT_NOT_FOUND",
+            GetAttachmentPreviewError::Unsupported => "ATTACHMENT_PREVIEW_UNSUPPORTED",
+            GetAttachmentPreviewError::TooLarge => "ATTACHMENT_PREVIEW_TOO_LARGE",
+            GetAttachmentPreviewError::Unrenderable => "ATTACHMENT_PREVIEW_FAILED",
+            GetAttachmentPreviewError::Unavailable => "ATTACHMENT_PREVIEW_UNAVAILABLE",
+            GetAttachmentPreviewError::Storage(e) => e.to_error_code(),
+            GetAttachmentPreviewError::Repository(e) => e.to_error_code(),
         }
     }
 }

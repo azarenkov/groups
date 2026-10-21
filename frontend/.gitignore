@@ -41,3 +41,6 @@ lerna-debug.log*
 
 # OS
 Thumbs.db
+
+# Copied from node_modules before start/build
+/public/vendor

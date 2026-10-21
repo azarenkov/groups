@@ -11,6 +11,7 @@
 {{- if $worker.enabled }}{{ $_ := set $targets $name (dict "component" $name "workload" $worker "fixed" true) }}{{ end }}
 {{- end }}
 {{- if .Values.nsfwDetector.enabled }}{{ $_ := set $targets "nsfw-detector" (dict "component" "nsfw-detector" "workload" .Values.nsfwDetector "fixed" true) }}{{ end }}
+{{- if .Values.documentConverter.enabled }}{{ $_ := set $targets "document-converter" (dict "component" "document-converter" "workload" .Values.documentConverter "fixed" true) }}{{ end }}
 {{- range $name, $target := $targets }}
 {{- $workload := $target.workload }}
 {{- $hpa := include "rift.autoscaling" (dict "root" $root "workload" $workload) | fromYaml }}

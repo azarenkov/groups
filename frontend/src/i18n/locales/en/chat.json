@@ -205,5 +205,17 @@
   "messageOpenFailed": "Couldn't open the message — try again",
   "unavailableFailedTitle": "Couldn't open this chat",
   "unavailableFailedHint": "The connection may have dropped or the server didn't respond.",
-  "unavailableRetry": "Try again"
+  "unavailableRetry": "Try again",
+  "documentLoading": "Opening the document…",
+  "documentPreparing": "Preparing preview…",
+  "documentUnavailable": "Preview unavailable. You can still download the file.",
+  "documentRowsTruncated": "Showing the first {{rows}} rows",
+  "documentTextTruncated": "The file is long; only its beginning is shown",
+  "documentPage": "{{page}} / {{total}}",
+  "documentPreviousPage": "Previous page",
+  "documentNextPage": "Next page",
+  "documentZoomOut": "Zoom out",
+  "documentZoomIn": "Zoom in",
+  "documentFitWidth": "Fit width",
+  "documentClose": "Close"
 }
