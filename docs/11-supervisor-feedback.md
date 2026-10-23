@@ -20,7 +20,7 @@ This log records the supervisor's feedback on key deliverables and the decision 
 
 | # | Session | Deliverable | Comment (summary) | Decision | Addressed in |
 |---|---|---|---|---|---|
-| 1 | Planned | Planned | Planned | Planned | |
+| 1 | Planned | Planned | Planned | Planned | Planned |
 
 ## Deliverables awaiting review
 
