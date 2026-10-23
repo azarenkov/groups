@@ -3,7 +3,6 @@
 | Field | Value |
 |---|---|
 | Date | YYYY-MM-DD |
-| Interviewer | GitHub login |
 | Participant | Role and number only, e.g. "Student 2, 3rd year" or "Teacher 1" — no names |
 | Format | In person / online, duration |
 | Consent to notes | Yes / No |

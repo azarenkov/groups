@@ -35,10 +35,10 @@ Each feature (issues #2–#21) is split into a back-end and a front-end sub-issu
 | Documentation checkpoint | 24 Oct 2026 | Documents 1–11 of this folder, README, diagrams, prototype, task board | This pull request |
 | Document viewer | 21 Oct 2026 | In-app viewer for PDF and office files (#21) | Done |
 | P0 features complete | 28 Dec 2026 | Reactions, threads, assignments, meetings and calendar, announcements, push notifications | Planned |
-| Pre-defense 2 | _date from the department_ | P0 features, first load-test and usability results | Planned |
+| Pre-defense 2 | — | P0 features, first load-test and usability results | Planned |
 | P1 features complete | 17 Feb 2027 | Polls, files tab, meeting controls, presence, rich text, saved messages, class code | Planned |
 | P2 features complete | 22 Apr 2027 | Recordings and captions, breakout rooms, attendance, whiteboard, class notes, translation | Planned |
-| Final pre-defense | _date from the department_ | Complete evaluation report, tag `final-pre-defense` | Planned |
+| Final pre-defense | — | Complete evaluation report, tag `final-pre-defense` | Planned |
 
 The dates come from the task board, where the tasks of each member are scheduled one after another from their estimates, with weekends and public holidays excluded.
 
