@@ -2,7 +2,7 @@
 
 This log records the supervisor's feedback on key deliverables and the decision taken for each comment. Comments made on pull requests are linked rather than copied.
 
-> **Status:** no feedback session has been recorded yet. _To be filled in by the team after each meeting with the supervisor._
+> **Status:** Planned. No feedback session has been recorded yet.
 
 ## How feedback is recorded
 
@@ -14,13 +14,13 @@ This log records the supervisor's feedback on key deliverables and the decision 
 
 | # | Date | Format | Deliverables reviewed | Notes |
 |---|---|---|---|---|
-| 1 | | | | |
+| 1 | Planned | Planned | Planned | Planned |
 
 ## Comments and decisions
 
 | # | Session | Deliverable | Comment (summary) | Decision | Addressed in |
 |---|---|---|---|---|---|
-| 1 | | | | | |
+| 1 | Planned | Planned | Planned | Planned | |
 
 ## Deliverables awaiting review
 

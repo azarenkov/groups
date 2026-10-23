@@ -57,12 +57,12 @@ Each requirement in [`06-requirements.md`](06-requirements.md) refers to the hyp
 
 ## Findings
 
-_To be filled in after each interview. Keep one row per finding, with the participants who stated it._
+Planned. One row per finding, with the participants who stated it.
 
 | ID | Finding | Participants | Related hypothesis | Verified? |
 |---|---|---|---|---|
-| F1 | | | | |
+| F1 | Planned | Planned | Planned | Planned |
 
 ## Impact on requirements
 
-_To be filled in after the interviews: which requirements were added, changed or reprioritised, and why._
+Planned. Requirements added, changed or reprioritised after the interviews, and why.
