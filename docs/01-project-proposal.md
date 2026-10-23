@@ -8,11 +8,11 @@
 
 | Member | GitHub | Role in the project |
 |---|---|---|
-| _Full name — to be filled in by the team_ | [@azarenkov](https://github.com/azarenkov) | Team lead, backend and infrastructure: Rust services, database schemas, messaging, real-time media, deployment |
-| _Full name — to be filled in by the team_ | [@alishahmanov](https://github.com/alishahmanov) | Frontend: chat, channels, threads, reactions, presence, rich text |
-| _Full name — to be filled in by the team_ | [@Iskander1612](https://github.com/Iskander1612) | Frontend: assignments, calendar and meetings, files, notifications, document viewer |
+| Azarenkov Alexey | [@azarenkov](https://github.com/azarenkov) | Team lead, backend and infrastructure: Rust services, database schemas, messaging, real-time media, deployment |
+| Alihan Manat | [@alishahmanov](https://github.com/alishahmanov) | Frontend: chat, channels, threads, reactions, presence, rich text |
+| Iskander Akipov | [@Iskander1612](https://github.com/Iskander1612) | Frontend: assignments, calendar and meetings, files, notifications, document viewer |
 
-**Supervisor:** _name and position — to be filled in by the team._
+**Supervisor:** Zhaksylyk Kozhakhmet ([@zhaks14](https://github.com/zhaks14))
 
 Responsibilities are traced to tasks in [`10-project-management.md`](10-project-management.md).
 

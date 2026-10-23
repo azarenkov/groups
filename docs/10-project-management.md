@@ -5,8 +5,7 @@
 | What | Where |
 |---|---|
 | Repository | https://github.com/azarenkov/groups |
-| Task board with priorities, estimates, assignees and dates | GitHub Projects — [Groups tracker](https://github.com/users/azarenkov/projects/8) |
-| YouTrack project | _Link to be added by the team. The tasks below are mirrored in the GitHub task board until the YouTrack project is set up._ |
+| Task board (GitHub Projects) with priorities, estimates, assignees and start/target dates | [Groups tracker](https://github.com/users/azarenkov/projects/8) |
 | Pre-defense tags | [`pre-defense-1`](https://github.com/azarenkov/groups/releases/tag/pre-defense-1); `pre-defense-2` and `final-pre-defense` follow |
 
 ## Workflow
@@ -14,7 +13,7 @@
 - **`main`** is the reviewed baseline. Every change comes through a pull request from a task branch.
 - **Branch names** start with the task ID, for example `63-predefense-docs` for issue #63, as in the checklist's `DIP-23-database-schema` example.
 - **Commit messages** use a type and scope (`feat(attachments): …`, `fix(auth): …`). The pull request description links the task with `Closes #N`, explains the change and describes how it was checked.
-- **Review.** Another team member reviews every pull request before it is merged.
+- **Review.** Another team member reviews every pull request before it is merged. The supervisor, Zhaksylyk Kozhakhmet, has access to the repository and the task board.
 - **CI** must pass before merging: linting with warnings as errors, unit and integration tests, the SQL check and the frontend build ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)).
 - **Task completion.** A task is moved to Done only when its acceptance criteria are checked.
 
@@ -22,9 +21,9 @@
 
 | Member | Area | Tasks (issues) |
 |---|---|---|
-| [@azarenkov](https://github.com/azarenkov) | Team lead; back-end services, data, messaging, real-time media, deployment, documentation | Back-end parts of every feature: #22, #24, #26, #28, #30, #32, #34, #36, #38, #40, #42, #44, #46, #48, #50, #52, #54, #56, #58, #60; documentation #63 |
-| [@alishahmanov](https://github.com/alishahmanov) | Front-end: messaging experience | #23 reactions, #25 threads, #31 announcements, #37 polls, #41 meeting controls, #43 presence, #45 rich text, #47 saved messages, #51 recordings, #53 breakout rooms, #59 class notes, #61 translation |
-| [@Iskander1612](https://github.com/Iskander1612) | Front-end: study workflow | #27 assignments, #29 meetings and calendar, #33 push notifications, #35 document viewer, #39 files tab, #49 class code, #55 attendance, #57 whiteboard |
+| Azarenkov Alexey ([@azarenkov](https://github.com/azarenkov)) | Team lead; back-end services, data, messaging, real-time media, deployment, documentation | Back-end parts of every feature: #22, #24, #26, #28, #30, #32, #34, #36, #38, #40, #42, #44, #46, #48, #50, #52, #54, #56, #58, #60; documentation #63 |
+| Alihan Manat ([@alishahmanov](https://github.com/alishahmanov)) | Front-end: messaging experience | #23 reactions, #25 threads, #31 announcements, #37 polls, #41 meeting controls, #43 presence, #45 rich text, #47 saved messages, #51 recordings, #53 breakout rooms, #59 class notes, #61 translation |
+| Iskander Akipov ([@Iskander1612](https://github.com/Iskander1612)) | Front-end: study workflow | #27 assignments, #29 meetings and calendar, #33 push notifications, #35 document viewer, #39 files tab, #49 class code, #55 attendance, #57 whiteboard |
 
 Each feature (issues #2–#21) is split into a back-end and a front-end sub-issue, so every feature has a named owner per layer. Priorities (P0–P2), sizes, estimates in days and start and target dates are set on the task board.
 
@@ -72,12 +71,12 @@ The dates come from the task board, where the tasks of each member are scheduled
 
 Status on 23 October 2026, from the Git history and the task board:
 
-- **@azarenkov:**
+- **Azarenkov Alexey (@azarenkov):**
   - All commits on `main` so far, including the history of the platform this project started from;
   - pull requests [#1](https://github.com/azarenkov/groups/pull/1) (Teams-like design and roles) and [#62](https://github.com/azarenkov/groups/pull/62) (document viewer);
   - this documentation.
-- **@alishahmanov:** task #23 (reactions, front-end) is in progress on the task board. No commits on `main` yet.
-- **@Iskander1612:** tasks assigned (#27, #29, #33, #35, …). No commits on `main` yet.
+- **Alihan Manat (@alishahmanov):** task #23 (reactions, front-end) is in progress on the task board. No commits on `main` yet.
+- **Iskander Akipov (@Iskander1612):** tasks assigned (#27, #29, #33, #35, …). No commits on `main` yet.
 
 Planned actions before the next checkpoint:
 

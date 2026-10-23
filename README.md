@@ -2,8 +2,7 @@
 
 **A self-hosted collaboration platform for study groups.** Group channels and direct messages, voice and video calls with screen sharing, an in-app viewer for PDF and Office documents, and a study workflow (announcements, assignments, scheduled meetings) in one system that a university runs on its own servers.
 
-- **Task board:** [Groups tracker](https://github.com/users/azarenkov/projects/8) — priorities, estimates, assignees, start and target dates
-- **YouTrack:** _link to be added by the team_
+- **Task board (GitHub Projects):** [Groups tracker](https://github.com/users/azarenkov/projects/8) — priorities, estimates, assignees, start and target dates
 - **Documentation:** [`docs/`](docs) — proposal, research, requirements, architecture, prototype, verification plan
 
 ## Problem, users and expected outcomes
@@ -27,11 +26,11 @@ Study groups split their work across a messenger, a video service, a learning ma
 
 | Member | Responsibilities |
 |---|---|
-| [@azarenkov](https://github.com/azarenkov) — _full name_ | Team lead; back-end services, data, messaging, real-time media, deployment, documentation |
-| [@alishahmanov](https://github.com/alishahmanov) — _full name_ | Front-end: chat, threads, reactions, announcements, presence, rich text, meeting controls |
-| [@Iskander1612](https://github.com/Iskander1612) — _full name_ | Front-end: assignments, calendar and meetings, push notifications, files, document viewer |
+| Azarenkov Alexey ([@azarenkov](https://github.com/azarenkov)) | Team lead; back-end services, data, messaging, real-time media, deployment, documentation |
+| Alihan Manat ([@alishahmanov](https://github.com/alishahmanov)) | Front-end: chat, threads, reactions, announcements, presence, rich text, meeting controls |
+| Iskander Akipov ([@Iskander1612](https://github.com/Iskander1612)) | Front-end: assignments, calendar and meetings, push notifications, files, document viewer |
 
-**Supervisor:** _name and position_
+**Supervisor:** Zhaksylyk Kozhakhmet ([@zhaks14](https://github.com/zhaks14))
 
 Responsibilities per task are in [`docs/10-project-management.md`](docs/10-project-management.md#responsibilities).
 
