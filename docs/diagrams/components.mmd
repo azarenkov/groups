@@ -1,0 +1,54 @@
+flowchart TB
+  subgraph clients["Clients"]
+    direction LR
+    web["Web app<br/>React, TypeScript"]
+    desktop["Desktop app<br/>Electron"]
+  end
+
+  gateway["Gateway — nginx<br/>TLS, routing, rate limits"]
+
+  subgraph services["Back-end services — Rust"]
+    direction LR
+    identity["identity<br/>accounts, roles,<br/>sessions, settings"]
+    messaging["messaging<br/>groups, channels, messages,<br/>DMs, inbox, document previews"]
+    media["media<br/>uploads, attachments,<br/>avatars, stickers"]
+    voice["voice<br/>direct calls,<br/>LiveKit webhooks"]
+    realtime["realtime<br/>WebSocket fan-out"]
+    notification["notification<br/>email delivery"]
+  end
+
+  subgraph workers["Workers — Rust"]
+    direction LR
+    outbox["outbox-worker<br/>publishes outbox records"]
+    pooler["livekit-pooler<br/>reconciles voice presence"]
+  end
+
+  subgraph data["Data and messaging"]
+    direction LR
+    pg[("PostgreSQL<br/>database per service")]
+    nats[["NATS JetStream"]]
+    redis[("Redis")]
+    minio[("MinIO — S3")]
+  end
+
+  subgraph media_infra["Media and isolated processing"]
+    direction LR
+    livekit["LiveKit SFU<br/>WebRTC"]
+    converter["document-converter<br/>Gotenberg, no egress"]
+    nsfw["nsfw-detector<br/>moderation"]
+  end
+
+  clients -- "HTTPS, WebSocket" --> gateway
+  clients -- "WebRTC" --> livekit
+  gateway --> services
+  services -- "SQL" --> pg
+  outbox -- "outbox tables" --> pg
+  outbox -- "events" --> nats
+  nats -- "events" --> services
+  services -- "sessions, rate limits" --> redis
+  media -- "objects" --> minio
+  messaging -- "office → PDF" --> converter
+  messaging & voice -- "rooms, permissions" --> livekit
+  livekit -- "webhooks" --> voice
+  pooler --> livekit
+  services -- "image and text checks" --> nsfw

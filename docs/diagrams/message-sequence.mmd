@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  actor S as Student (web app)
+  participant G as Gateway
+  participant M as messaging
+  participant DB as messaging DB
+  participant O as outbox-worker
+  participant N as NATS JetStream
+  participant R as realtime
+  actor T as Other members
+
+  S->>G: POST /api/v1/channels/{id}/messages
+  G->>M: forward with JWT
+  M->>M: check membership, permissions, content
+  M->>DB: one transaction: insert message + outbox record
+  M-->>S: 201 Created
+  O->>DB: claim next outbox record in partition order
+  O->>N: publish message.sent (Nats-Msg-Id = record id)
+  N->>R: deliver to realtime consumer
+  R->>R: resolve recipients, attach sequence number
+  R-->>T: WebSocket event message.sent
+  R-->>S: WebSocket event message.sent (own copy)

@@ -1,0 +1,19 @@
+flowchart LR
+  student(["👤 Student<br/>chats, joins calls,<br/>submits assignments"])
+  teacher(["👤 Teacher<br/>runs groups, lessons,<br/>assignments and grading"])
+  admin(["👤 IT administrator<br/>deploys and operates"])
+
+  subgraph boundary["Groups — self-hosted at the university"]
+    groups["<b>Groups platform</b><br/>web app · desktop app · back-end services"]
+  end
+
+  smtp["Email server (SMTP)<br/>verification codes, password reset,<br/>notifications"]
+  push["Browser push services<br/>Web Push (planned, FR-51)"]
+  stun["STUN / TURN<br/>NAT traversal for calls"]
+
+  student -- "HTTPS, WebSocket, WebRTC" --> groups
+  teacher -- "HTTPS, WebSocket, WebRTC" --> groups
+  admin -- "Docker Compose / Helm, monitoring" --> groups
+  groups -- "SMTP" --> smtp
+  groups -. "Web Push" .-> push
+  groups -- "ICE" --> stun
