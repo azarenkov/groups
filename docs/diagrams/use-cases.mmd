@@ -1,0 +1,26 @@
+flowchart LR
+  student(["👤 Student"])
+  teacher(["👤 Teacher"])
+  admin(["👤 IT administrator"])
+
+  subgraph system["Groups"]
+    direction TB
+    uc1(["Register and sign in<br/>FR-01, FR-02"])
+    uc2(["Chat in group channels<br/>and direct messages<br/>FR-11, FR-12, FR-14, FR-15"])
+    uc3(["View documents in the app<br/>FR-30"])
+    uc4(["Join a call and share the screen<br/>FR-40"])
+    uc5(["Submit an assignment<br/>FR-21"])
+    uc6(["See the calendar and join a meeting<br/>FR-22"])
+    uc7(["Receive notifications<br/>FR-50, FR-51"])
+    uc8(["Create a group, channels and invitations<br/>FR-03, FR-10"])
+    uc9(["Post an announcement<br/>FR-20"])
+    uc10(["Create and grade assignments<br/>FR-21"])
+    uc11(["Schedule a meeting<br/>FR-22"])
+    uc12(["Moderate a call: mute, remove<br/>FR-41"])
+    uc13(["Deploy, configure and monitor<br/>NFR-OPS-1"])
+  end
+
+  student --- uc1 & uc2 & uc3 & uc4 & uc5 & uc6 & uc7
+  teacher --- uc1 & uc2 & uc3 & uc4 & uc7
+  teacher --- uc8 & uc9 & uc10 & uc11 & uc12
+  admin --- uc13
